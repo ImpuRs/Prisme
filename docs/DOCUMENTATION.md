@@ -172,6 +172,37 @@ Ajout d'une ligne automatique : `"X% de votre stock (Y€) est en C-Rare — can
 
 ---
 
+## 3bis. Nouveautés V24.2 — Estimation CA Perdu Global
+
+### Contexte métier
+
+Délai de réappro : 48h (J+1 détection ERP + J+1 livraison). Chaque jour de rupture sur un article fréquent représente des ventes perdues réelles. Le CA perdu est estimé à partir de la consommation historique et du nombre de jours de rupture constaté.
+
+### Formule CA perdu par article
+
+```
+Pour chaque article en rupture (W ≥ 3, stock ≤ 0, pas isParent) :
+
+X            = V ÷ globalJoursOuvres          (conso journalière réelle)
+joursRupture = min(ageJours, 90)              (plafond 90j — au-delà = déréférencement)
+caPerdu      = X × joursRupture × prixUnitaire
+```
+
+Le plafond de 90 jours évite de surestimer les ruptures structurelles (articles dormants ou déréférencés de fait).
+
+### Impacts visuels
+
+| Endroit | Ce qui est ajouté |
+|---------|-------------------|
+| **Onglet Santé — 6ème carte** | "💸 CA Perdu" gradient rose, montant total, nb d'articles |
+| **Résumé exécutif** | Ligne 1 reformulée : "~X€ CA perdu estimé (Y€/an potentiel)" |
+| **Cockpit Ruptures — colonne** | Colonne "CA perdu est." remplace "CA pot." + durée de rupture affichée |
+| **Cockpit Ruptures — pied de tableau** | Ligne tfoot : "💸 Total CA perdu estimé : X€" |
+| **Comparaison historique** | 7ème carte "💸 CA Perdu" (vert si diminue vs dernière analyse) |
+| **CSV exporté** | Colonne `CAPerdu` (0 pour les articles hors rupture) |
+
+---
+
 ## 4. Nouveautés V23
 
 ### 4.1 Résumé exécutif automatique
@@ -245,6 +276,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | Surstock actif | Σ (stock - NOUVEAU MAX) × prix, pour articles actifs dépassant le MAX |
 | CAPALIN (SASO) | Σ (stock - ANCIEN MAX) × prix, pour articles dépassant l'ancien MAX ERP |
 | Taux de service | % d'articles avec fréq ≥ 3 qui ont du stock > 0 |
+| **💸 CA Perdu** | Σ(V÷joursOuvrés × min(ageJours,90) × PU) pour articles en rupture (V24.2) |
 
 ---
 
@@ -317,7 +349,8 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | **Réf. père (V23)** | **Cartons toujours stock=0 = faux positifs ruptures** | **3 dates vides → isParent → exclu** |
 | **Badges C24 (V23)** | **Badges conditionnement inutiles** | **Supprimés du cockpit** |
 | **ABC/FMR (V24)** | **Pas de segmentation analytique** | **computeABCFMR() : Pareto rotation + fréquence** |
+| **CA Perdu (V24.2)** | **CA potentiel annuel seulement, pas d'estimation réelle** | **joursRupture = min(ageJours,90), caPerdu = X×j×PU** |
 
 ---
 
-*Document généré — Optistock PRO V24*
+*Document généré — Optistock PRO V24.2*

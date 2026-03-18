@@ -43,8 +43,9 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable — V24
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
   - `renderVentesTab()` : onglet ventes
-  - `renderExecSummary()` : résumé exécutif (V23 + 4ème ligne C-Rare V24)
+  - `renderExecSummary()` : résumé exécutif (V23 + ligne C-Rare V24 + CA Perdu V24.2)
   - `calcPriorityScore()` / `isParentRef()` : fonctions V23
+  - `renderComparison()` : comparaison historique (V23 + caPerdu V24.2)
 
 ## Commandes utiles
 ```bash
