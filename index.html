@@ -172,7 +172,7 @@
     <div id="tabDash" class="tab-content hidden">
       <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1">Total</h4><p id="dashTotalValue" class="text-xl font-extrabold">0€</p><p id="dashTotalCount" class="text-blue-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1">☠️ Dormant</h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1">☠️ Stock mort</h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p><p class="text-red-300 text-[9px] mt-0.5">articles &gt; 1 an sans sortie</p></div>
         <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1">📊 Surstock</h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1">👁️ CAPALIN</h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1">✅ Taux Service</h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
@@ -189,8 +189,9 @@
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('dormants')" style="border-left-color:#fb923c">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">💤</span><span id="scDormantsCount" class="badge bg-orange-100 text-orange-700">0</span></div>
-            <div class="font-semibold text-xs text-gray-700">Dormants</div>
+            <div class="font-semibold text-xs text-gray-700">Dormants à traiter</div>
             <div id="scDormantsVal" class="text-[10px] text-orange-600 font-bold mt-1">—</div>
+            <div class="text-[9px] text-gray-400 mt-0.5">&gt; 50€ unitaire</div>
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('fins')" style="border-left-color:#facc15">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scFinsCount" class="badge bg-yellow-100 text-yellow-700">0</span></div>
@@ -580,6 +581,8 @@
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
 
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
+      // Guard: warn if all stock values are 0 (likely bad export)
+      if(finalData.length>0&&finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'ABC/FMR…');await yieldToMain();computeABCFMR(finalData);
       updateProgress(95,100,'Affichage…');await yieldToMain();
       populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
