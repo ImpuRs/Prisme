@@ -11,10 +11,12 @@
     /* VOLET 4: sticky period warning banner */
     #periodBanner{display:none;position:sticky;top:0;z-index:9000;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;box-shadow:0 2px 8px rgba(0,0,0,.2);}
     #periodBanner.active{display:block}
-    /* VOLET 2bis: contributeurs agence */
-    .contrib-row{cursor:pointer;transition:background .15s}.contrib-row:hover{background:#f0f9ff}.contrib-row.open{background:#e0f2fe}
-    .contrib-detail{display:none}.contrib-detail.open{display:table-row-group}
-    .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:#f0fdf4}.contrib-client-row.open{background:#dcfce7}
+    /* VOLET 2bis: contributeurs agence — 4 niveaux */
+    .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:#f5f3ff}.contrib-dir-row.open{background:#ede9fe}
+    .contrib-dir-detail{display:none}.contrib-dir-detail.open{display:table-row-group}
+    .contrib-sect-row{cursor:pointer;transition:background .15s}.contrib-sect-row:hover{background:#f0fdf4}.contrib-sect-row.open{background:#dcfce7}
+    .contrib-sect-detail{display:none}.contrib-sect-detail.open{display:table-row-group}
+    .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:#f0f9ff}.contrib-client-row.open{background:#e0f2fe}
     .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
     .pct-bar-terr{height:6px;border-radius:3px;transition:width .4s ease}
     body{font-family:'Inter',sans-serif}
@@ -369,14 +371,13 @@
         <!-- VOLET 2bis: Contributeurs agence drilldown -->
         <div id="terrContribBlock" class="mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
           <div class="flex items-center justify-between p-4 border-b">
-            <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Cliquez un secteur pour détailler</span></h3>
-            <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV</button>
+            <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Direction → Secteur → Client → Articles</span></h3>
+            <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV secteurs</button>
           </div>
           <div id="terrContribSummary" class="px-4 py-2 text-xs text-gray-500 border-b bg-gray-50"></div>
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white">
               <tr>
-                <th class="py-2 px-3 text-left">Secteur</th>
                 <th class="py-2 px-3 text-left">Direction</th>
                 <th class="py-2 px-3 text-center">BL territoire</th>
                 <th class="py-2 px-3 text-center">BL agence</th>
@@ -542,8 +543,9 @@
   let terrDirectionData={};  // aggregated by direction
   // VOLET 4: Period tracking
   let consommePeriodMin=null,consommePeriodMax=null,consommeMoisCouverts=0;
-  // VOLET 2bis: Contributeurs agence — secteur-level aggregates (populated after worker done)
+  // VOLET 2bis: Contributeurs agence — secteur & direction aggregates (populated after worker done)
   let terrContribBySecteur=new Map();
+  let terrContribByDirection=new Map();
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
   function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
@@ -1219,131 +1221,206 @@
     el.innerHTML=`<p>🔗 PILOT a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
   }
 
-  // VOLET 2bis: Build secteur-level contributeurs aggregate map
+  // VOLET 2bis: Build secteur + direction contributeurs aggregate maps
   function buildTerrContrib(){
-    terrContribBySecteur=new Map();
+    terrContribBySecteur=new Map();terrContribByDirection=new Map();
     for(const l of territoireLines){
       if(!l.secteur)continue;
-      if(!terrContribBySecteur.has(l.secteur))terrContribBySecteur.set(l.secteur,{secteur:l.secteur,direction:getSecteurDirection(l.secteur),blTerr:new Set(),blAgence:new Set(),ca:0,clients:new Map()});
+      const dir=getSecteurDirection(l.secteur)||l.direction||'—';
+      // Per-secteur
+      if(!terrContribBySecteur.has(l.secteur))terrContribBySecteur.set(l.secteur,{secteur:l.secteur,direction:dir,blTerr:new Set(),blAgence:new Set(),ca:0,clients:new Map()});
       const s=terrContribBySecteur.get(l.secteur);
-      s.blTerr.add(l.bl);
-      if(blConsommeSet.has(l.bl))s.blAgence.add(l.bl);
-      s.ca+=l.ca;
+      s.blTerr.add(l.bl);if(blConsommeSet.has(l.bl))s.blAgence.add(l.bl);s.ca+=l.ca;
       if(l.clientCode){
         if(!s.clients.has(l.clientCode))s.clients.set(l.clientCode,{code:l.clientCode,nom:l.clientNom,ca:0,refs:new Set(),blTerr:new Set(),blAgence:new Set()});
-        const c=s.clients.get(l.clientCode);c.ca+=l.ca;c.refs.add(l.code);c.blTerr.add(l.bl);
-        if(blConsommeSet.has(l.bl))c.blAgence.add(l.bl);
+        const c=s.clients.get(l.clientCode);c.ca+=l.ca;c.refs.add(l.code);c.blTerr.add(l.bl);if(blConsommeSet.has(l.bl))c.blAgence.add(l.bl);
       }
+      // Per-direction
+      if(!terrContribByDirection.has(dir))terrContribByDirection.set(dir,{direction:dir,blTerr:new Set(),blAgence:new Set(),ca:0});
+      const d=terrContribByDirection.get(dir);
+      d.blTerr.add(l.bl);if(blConsommeSet.has(l.bl))d.blAgence.add(l.bl);d.ca+=l.ca;
     }
   }
 
-  // VOLET 2bis: Render Vue 1 — par secteur (sorted by % agence asc = opportunités en haut)
+  // VOLET 2bis: Vue 1 — par Direction (5-6 lignes max, triées par CA desc)
   function renderTerrContrib(){
     const el=document.getElementById('terrContribTable');if(!el)return;
-    if(!terrContribBySecteur.size){el.innerHTML='<tr><td colspan="6" class="text-center py-4 text-gray-400 text-xs">Aucun secteur trouvé dans le fichier territoire</td></tr>';return;}
-    const rows=[...terrContribBySecteur.values()].map(s=>{
-      const blT=s.blTerr.size,blA=s.blAgence.size;
-      const pct=blT>0?Math.round(blA/blT*100):0;
-      return{...s,blT,blA,pct};
-    }).sort((a,b)=>a.pct-b.pct); // plus grosses opportunités en haut
+    if(!terrContribByDirection.size){el.innerHTML='<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">Aucune donnée contributeurs trouvée dans le fichier territoire</td></tr>';return;}
+    const rows=[...terrContribByDirection.values()].map(d=>{
+      const blT=d.blTerr.size,blA=d.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...d,blT,blA,pct};
+    }).sort((a,b)=>b.ca-a.ca);
     let tbody='';
     for(const r of rows){
       const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
-      const rowId='contrib-'+r.secteur.replace(/\W/g,'_');
-      tbody+=`<tr class="contrib-row border-b text-xs" onclick="toggleContribSecteur('${rowId}','${r.secteur}')">
-        <td class="py-2 px-3 font-bold">${r.secteur} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
-        <td class="py-2 px-3 text-gray-600">${r.direction||'—'}</td>
+      const rowId='contrib-dir-'+r.direction.replace(/\W/g,'_');
+      tbody+=`<tr class="contrib-dir-row border-b text-xs" onclick="toggleContribDirection('${rowId}','${encodeURIComponent(r.direction)}')">
+        <td class="py-2 px-3 font-bold">${r.direction} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
         <td class="py-2 px-3 text-center font-semibold">${r.blT.toLocaleString('fr')}</td>
         <td class="py-2 px-3 text-center font-semibold text-blue-700">${r.blA.toLocaleString('fr')}</td>
         <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="pct-bar-terr ${barColor}" style="width:${r.pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${r.pct}%</span></div></td>
         <td class="py-2 px-3 text-right font-bold">${formatEuro(r.ca)}</td>
-      </tr><tr id="${rowId}" class="contrib-detail"><td colspan="6" class="p-0 bg-emerald-50 border-b border-emerald-200"><div id="${rowId}-inner" class="p-4 text-xs text-gray-400">Chargement…</div></td></tr>`;
+      </tr><tr id="${rowId}" class="contrib-dir-detail"><td colspan="5" class="p-0 bg-violet-50 border-b border-violet-100"><div id="${rowId}-inner" class="p-4 text-xs text-gray-400">Chargement…</div></td></tr>`;
     }
-    el.innerHTML=tbody||'<tr><td colspan="6" class="text-center py-4 text-gray-400 text-xs">Aucun secteur</td></tr>';
-    // Summary
+    el.innerHTML=tbody||'<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">Aucune direction</td></tr>';
     const sumEl=document.getElementById('terrContribSummary');
-    if(sumEl){const nbSect=rows.length,oppo=rows.filter(r=>r.pct<10).length;sumEl.textContent=`${nbSect} secteurs — ${oppo} avec <10% BL agence (opportunités prioritaires). Trié du moins capté au plus capté.`;}
+    if(sumEl){
+      const nbDir=rows.length,nbSect=terrContribBySecteur.size;
+      const oppo=[...terrContribBySecteur.values()].filter(s=>s.blTerr.size>0&&Math.round(s.blAgence.size/s.blTerr.size*100)<10).length;
+      sumEl.textContent=`${nbDir} Direction${nbDir>1?'s':''}, ${nbSect} secteurs — ${oppo} secteur${oppo>1?'s':''} avec <10% BL agence (opportunités). Cliquez une Direction pour voir ses secteurs.`;
+    }
   }
 
-  function toggleContribSecteur(rowId,secteur){
+  // Toggle Vue 1 → Vue 2 (secteurs d'une direction)
+  function toggleContribDirection(rowId,encDir){
     const row=document.getElementById(rowId);if(!row)return;
     const isOpen=row.classList.contains('open');
-    // Close all open secteur details
-    document.querySelectorAll('.contrib-detail.open').forEach(r=>r.classList.remove('open'));
-    document.querySelectorAll('.contrib-row.open').forEach(r=>r.classList.remove('open'));
+    document.querySelectorAll('.contrib-dir-detail.open').forEach(r=>r.classList.remove('open'));
+    document.querySelectorAll('.contrib-dir-row.open').forEach(r=>r.classList.remove('open'));
     if(isOpen)return;
-    row.classList.add('open');
-    row.previousElementSibling.classList.add('open');
-    // Lazy render Vue 2 — clients for this secteur
-    renderContribClients(rowId,secteur);
+    row.classList.add('open');row.previousElementSibling.classList.add('open');
+    renderContribSecteurs(rowId,decodeURIComponent(encDir));
   }
 
-  // VOLET 2bis: Vue 2 — clients d'un secteur
+  // Vue 2 — Secteurs d'une Direction (lazy, triés % agence ASC = opportunités en haut)
+  function renderContribSecteurs(rowId,direction){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const LIMIT=50;
+    const secteurs=[...terrContribBySecteur.values()]
+      .filter(s=>s.direction===direction)
+      .map(s=>{const blT=s.blTerr.size,blA=s.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...s,blT,blA,pct};})
+      .sort((a,b)=>a.pct-b.pct);
+    if(!secteurs.length){inner.innerHTML='<p class="text-gray-400 text-[11px]">Aucun secteur pour cette direction.</p>';return;}
+    const oppo=secteurs.filter(s=>s.pct<10).length;
+    let html=`<div class="text-[11px] font-bold text-gray-700 mb-2">${secteurs.length} secteur${secteurs.length>1?'s':''} · ${oppo} oppo (&lt;10% agence) — trié par % BL agence croissant</div>`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA territoire</th></tr></thead><tbody id="${rowId}-sectbody">`;
+    html+=_buildSecteurRows(secteurs.slice(0,LIMIT));
+    html+=`</tbody></table>`;
+    if(secteurs.length>LIMIT)html+=`<button class="mt-2 text-xs text-violet-700 font-bold hover:underline" onclick="_loadMoreSecteurs(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}')">▼ Voir plus (${secteurs.length-LIMIT} restants…)</button>`;
+    inner.innerHTML=html;
+  }
+  function _buildSecteurRows(secteurs){
+    let html='';
+    for(const r of secteurs){
+      const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
+      const rowId='contrib-sect-'+r.secteur.replace(/\W/g,'_');
+      html+=`<tr class="contrib-sect-row border-t border-violet-100" onclick="toggleContribSecteur('${rowId}','${encodeURIComponent(r.secteur)}')">
+        <td class="py-1.5 px-3 font-bold">${r.secteur} <span class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-1.5 px-3 text-center">${r.blT.toLocaleString('fr')}</td>
+        <td class="py-1.5 px-3 text-center text-blue-700 font-semibold">${r.blA.toLocaleString('fr')}</td>
+        <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="pct-bar-terr ${barColor}" style="width:${r.pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${r.pct}%</span></div></td>
+        <td class="py-1.5 px-3 text-right font-bold">${formatEuro(r.ca)}</td>
+      </tr><tr id="${rowId}" class="contrib-sect-detail"><td colspan="5" class="p-0 bg-emerald-50"><div id="${rowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
+    }
+    return html;
+  }
+  function _loadMoreSecteurs(btn,parentRowId,offset,encDir){
+    const direction=decodeURIComponent(encDir);
+    const LIMIT=50,newOff=offset+LIMIT;
+    const secteurs=[...terrContribBySecteur.values()].filter(s=>s.direction===direction).map(s=>{const blT=s.blTerr.size,blA=s.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...s,blT,blA,pct};}).sort((a,b)=>a.pct-b.pct);
+    const tbody=document.getElementById(parentRowId+'-sectbody');
+    if(tbody)tbody.insertAdjacentHTML('beforeend',_buildSecteurRows(secteurs.slice(offset,newOff)));
+    const rem=secteurs.length-newOff;
+    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreSecteurs(btn,parentRowId,newOff,encDir);}else btn.remove();
+  }
+
+  // Toggle Vue 2 → Vue 3 (clients d'un secteur)
+  function toggleContribSecteur(rowId,encSect){
+    const row=document.getElementById(rowId);if(!row)return;
+    const isOpen=row.classList.contains('open');
+    document.querySelectorAll('.contrib-sect-detail.open').forEach(r=>r.classList.remove('open'));
+    document.querySelectorAll('.contrib-sect-row.open').forEach(r=>r.classList.remove('open'));
+    if(isOpen)return;
+    row.classList.add('open');row.previousElementSibling.classList.add('open');
+    renderContribClients(rowId,decodeURIComponent(encSect));
+  }
+
+  // Vue 3 — Clients d'un secteur (lazy, triés CA desc, limite 50)
   function renderContribClients(rowId,secteur){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const s=terrContribBySecteur.get(secteur);if(!s){inner.textContent='Données introuvables';return;}
     const clients=[...s.clients.values()].sort((a,b)=>b.ca-a.ca);
-    const mixte=clients.filter(c=>c.blAgence.size>0).length;
-    const jamais=clients.filter(c=>c.blAgence.size===0).length;
-    let html=`<p class="font-bold text-gray-700 mb-2">✅ ${mixte} client${mixte>1?'s':''} viennent en agence · ❌ ${jamais} ne viennent jamais</p>`;
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-emerald-100 text-emerald-800"><tr><th class="py-1.5 px-3 text-left">Code client</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Vient en agence</th><th class="py-1.5 px-3 text-center">Nb BL agence</th></tr></thead><tbody>`;
+    const LIMIT=50;
+    const mixte=clients.filter(c=>c.blAgence.size>0).length,jamais=clients.filter(c=>c.blAgence.size===0).length;
+    let html=`<div class="font-bold text-gray-700 mb-2 text-[11px]">✅ ${mixte} client${mixte>1?'s':''} viennent en agence · ❌ ${jamais} ne viennent jamais</div>`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-emerald-100 text-emerald-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Agence</th><th class="py-1.5 px-3 text-center">BL agence</th></tr></thead><tbody id="${rowId}-clibody">`;
+    html+=_buildClientRows(clients.slice(0,LIMIT));
+    html+=`</tbody></table>`;
+    if(clients.length>LIMIT)html+=`<button class="mt-2 text-xs text-emerald-700 font-bold hover:underline" onclick="_loadMoreClients(this,'${rowId}',${LIMIT},'${encodeURIComponent(secteur)}')">▼ Voir plus (${clients.length-LIMIT} restants…)</button>`;
+    inner.innerHTML=html;
+  }
+  function _buildClientRows(clients){
+    let html='';
     for(const c of clients){
       const vient=c.blAgence.size>0;
       const rowBg=!vient?'bg-red-50':'';
-      const cliRowId='contrib-cli-'+rowId+'-'+c.code;
-      html+=`<tr class="contrib-client-row border-t border-emerald-200 ${rowBg}" onclick="toggleContribClient('${cliRowId}','${rowId}','${c.code}')"><td class="py-1.5 px-3 font-mono">${c.code} <span class="text-gray-400 text-[9px]">▼</span></td><td class="py-1.5 px-3">${c.nom}</td><td class="py-1.5 px-3 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-3 text-center font-bold">${vient?'✅ Oui':'❌ Jamais'}</td><td class="py-1.5 px-3 text-center">${c.blAgence.size}</td></tr><tr id="${cliRowId}" class="contrib-client-detail"><td colspan="5" class="p-0 bg-white border-t border-gray-100"><div id="${cliRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
+      const cliRowId='contrib-cli-'+c.code;
+      html+=`<tr class="contrib-client-row border-t border-emerald-200 ${rowBg}" onclick="toggleContribClient('${cliRowId}','${c.code}')">
+        <td class="py-1.5 px-3 font-mono">${c.code} <span class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-1.5 px-3 max-w-[160px] truncate">${c.nom}</td>
+        <td class="py-1.5 px-3 text-right font-bold">${formatEuro(c.ca)}</td>
+        <td class="py-1.5 px-3 text-center font-bold">${vient?'✅ Oui':'❌ Jamais'}</td>
+        <td class="py-1.5 px-3 text-center">${c.blAgence.size}</td>
+      </tr><tr id="${cliRowId}" class="contrib-client-detail"><td colspan="5" class="p-0 bg-white border-t border-gray-100"><div id="${cliRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
     }
-    html+='</tbody></table>';
-    inner.innerHTML=html;
+    return html;
+  }
+  function _loadMoreClients(btn,parentRowId,offset,encSect){
+    const secteur=decodeURIComponent(encSect);
+    const LIMIT=50,newOff=offset+LIMIT;
+    const s=terrContribBySecteur.get(secteur);if(!s)return;
+    const clients=[...s.clients.values()].sort((a,b)=>b.ca-a.ca);
+    const tbody=document.getElementById(parentRowId+'-clibody');
+    if(tbody)tbody.insertAdjacentHTML('beforeend',_buildClientRows(clients.slice(offset,newOff)));
+    const rem=clients.length-newOff;
+    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreClients(btn,parentRowId,newOff,encSect);}else btn.remove();
   }
 
-  function toggleContribClient(rowId,secteurRowId,clientCode){
+  // Toggle Vue 3 → Vue 4 (articles d'un client)
+  function toggleContribClient(rowId,clientCode){
     const row=document.getElementById(rowId);if(!row)return;
     const isOpen=row.classList.contains('open');
     document.querySelectorAll('.contrib-client-detail.open').forEach(r=>r.classList.remove('open'));
     document.querySelectorAll('.contrib-client-row.open').forEach(r=>r.classList.remove('open'));
     if(isOpen)return;
     row.classList.add('open');row.previousElementSibling.classList.add('open');
-    // Lazy render Vue 3 — articles for this client
-    const secteur=secteurRowId.replace('contrib-','');
-    renderContribArticles(rowId,secteur.replace(/_/g,' '),clientCode);
+    renderContribArticles(rowId,clientCode);
   }
 
-  // VOLET 2bis: Vue 3 — articles d'un client dans un secteur
-  function renderContribArticles(rowId,secteurRaw,clientCode){
+  // Vue 4 — Articles d'un client (lazy, triés CA desc, limite 50)
+  function renderContribArticles(rowId,clientCode){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
-    // Collect standard articles for this client across all lines
     const artMap={};
     for(const l of territoireLines){
-      if(l.isSpecial)continue;
-      if(l.clientCode!==clientCode)continue;
+      if(l.isSpecial||l.clientCode!==clientCode)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
     }
     const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
-    const nbTotal=arts.length,nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
-    let html=`<p class="font-semibold text-gray-700 mb-2">Ce client achète <strong>${nbTotal}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong></p>`;
-    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400">Aucun article standard trouvé.</p>';return;}
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody>`;
-    for(const a of arts){
-      const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
+    const LIMIT=50;
+    const nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
+    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px]">Ce client achète <strong>${arts.length}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong></div>`;
+    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-xs">Aucun article standard trouvé.</p>';return;}
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody>`;
+    for(const a of arts.slice(0,LIMIT)){
+      const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
       const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
       const rowBg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
-      html+=`<tr class="border-t border-gray-100 ${rowBg}"><td class="py-1 px-3 font-mono">${a.code}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
+      html+=`<tr class="border-t border-gray-100 ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
     }
-    html+='</tbody></table>';
+    html+=`</tbody></table>`;
+    if(arts.length>LIMIT)html+=`<p class="text-[10px] text-gray-400 mt-1 italic">… et ${arts.length-LIMIT} article${arts.length-LIMIT>1?'s':''} supplémentaires.</p>`;
     inner.innerHTML=html;
   }
 
-  // VOLET 2bis: Export CSV Vue 1 — secteurs
+  // VOLET 2bis: Export CSV — tous les secteurs avec leurs métriques
   function exportContribCSV(){
     if(!terrContribBySecteur.size){showToast('⚠️ Aucune donnée contributeurs','warning');return;}
     const SEP=';';
-    const h=['Secteur','Direction','BL territoire','BL agence','% agence','CA territoire'];
+    const h=['Direction','Secteur','BL territoire','BL agence','% agence','CA territoire'];
     const lines=['\uFEFF'+h.join(SEP)];
-    const rows=[...terrContribBySecteur.values()].map(s=>({secteur:s.secteur,dir:getSecteurDirection(s.secteur),blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.pct-b.pct);
-    for(const r of rows)lines.push([r.secteur,r.dir,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
+    const rows=[...terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
+    for(const r of rows)lines.push([r.dir,r.secteur,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
   }
