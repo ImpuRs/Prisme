@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Optistock PRO V23</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Inter',sans-serif}
+    th{cursor:pointer;user-select:none}th:hover{background:#374151}
+    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+    .tab-content{animation:fadeIn .25s ease-in-out}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .file-loaded{border-color:#10b981!important;background:#ecfdf5!important}
+    .file-loaded::after{content:'✅ Chargé';display:block;margin-top:8px;font-size:.75rem;font-weight:700;color:#059669}
+    #loadingOverlay{display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;flex-direction:column}
+    #loadingOverlay.active{display:flex}
+    .spinner{width:56px;height:56px;border:5px solid rgba(255,255,255,.2);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:9999px;font-size:.65rem;font-weight:800}
+    .table-scroll{max-height:600px;overflow-y:auto}.list-scroll{max-height:280px;overflow-y:auto}
+    .age-row-clickable{cursor:pointer;transition:all .15s}.age-row-clickable:hover{transform:translateX(4px)}
+    .age-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
+    .age-fresh{background:#22c55e}.age-warm{background:#eab308}.age-hot{background:#f97316}.age-critical{background:#ef4444}
+    .bench-card{transition:all .2s}.bench-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.1)}
+    .store-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:9999px;font-size:.6rem;font-weight:700}
+    .store-mine{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd}.store-other{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+    .perf-bar{height:6px;border-radius:3px;transition:width .5s ease}
+    .progress-container{width:320px;background:rgba(255,255,255,.15);border-radius:9999px;overflow:hidden;height:12px;margin-top:12px}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#06b6d4);border-radius:9999px;transition:width .15s ease;min-width:2%}
+    .bench-list-scroll{max-height:500px;overflow-y:auto}
+    .cockpit-link{cursor:pointer;display:inline-flex;align-items:center;gap:2px;font-size:.6rem;padding:2px 6px;border-radius:6px;transition:all .15s}
+    .cockpit-link:hover{transform:scale(1.05)}
+    [data-tooltip]{position:relative}[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:4px 10px;border-radius:6px;font-size:.6rem;white-space:nowrap;z-index:50}
+    .toast-enter{animation:slideIn .3s ease-out forwards}.toast-leave{animation:slideOut .3s ease-in forwards}
+    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+    /* V23: Executive summary pulse */
+    .exec-summary{background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);border:1px solid #334155;position:relative;overflow:hidden}
+    .exec-summary::before{content:'';position:absolute;top:0;left:-100%;width:200%;height:2px;background:linear-gradient(90deg,transparent,#3b82f6,#06b6d4,transparent);animation:shimmer 3s infinite}
+    @keyframes shimmer{to{left:100%}}
+    /* V23: Priority score bar */
+    .prio-bar{height:4px;border-radius:2px;transition:width .4s ease}
+    .prio-critical{background:linear-gradient(90deg,#ef4444,#dc2626)}.prio-high{background:linear-gradient(90deg,#f97316,#ea580c)}.prio-medium{background:linear-gradient(90deg,#eab308,#ca8a04)}.prio-low{background:#94a3b8}
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen relative">
+
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
+  <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p></div>
+
+  <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
+    <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
+      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V23</span></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div></div>
+    </div>
+  </nav>
+
+  <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
+
+    <!-- GLOSSAIRE -->
+    <div class="mb-6 text-right"><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 py-2 px-4 rounded-lg font-semibold">📖 Glossaire</button></div>
+    <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
+      <h3 class="font-extrabold text-blue-900 mb-4 text-lg">🧠 Glossaire</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs text-gray-600 mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir).<br><strong>Enlevé</strong> = colis commandé, ne touche pas le stock.<br>Le MIN/MAX est basé <strong>uniquement sur le prélevé</strong>.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs text-gray-600 mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (= délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs text-gray-600 mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500"><h4 class="font-bold text-sm">📊 Surstock vs 👁️ CAPALIN</h4><p class="text-xs text-gray-600 mt-1"><strong>Surstock</strong> = stock &gt; NOUVEAU MAX (IA). Optimisation.<br><strong>CAPALIN</strong> = stock &gt; ANCIEN MAX (ERP). Déborde physiquement.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs text-gray-600 mt-1">Dormant = 0 sortie &gt;1an → MIN/MAX=0.<br>Nouveauté = &lt;35j → conserve Ancien.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs text-gray-600 mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique. <span class="text-green-600">21–60j</span> optimal. <span class="text-blue-600">&gt;60j</span> surstock.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🔄 Benchmark</h4><p class="text-xs text-gray-600 mt-1"><strong>🚫 Manquées</strong> = vendues ailleurs pas chez vous. 🟢 en stock / 🔴 stock 0.<br><strong>📉 Sous-perf</strong> = &lt;50% moyenne. <strong>🏆 Sur-perf</strong> = &gt;150%.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-pink-500"><h4 class="font-bold text-sm">🧲 Attractivité</h4><p class="text-xs text-gray-600 mt-1">% de commandes contenant cette famille. Mesure le pouvoir d'attraction du rayon.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⚡ Score Priorité <span class="text-[9px] text-emerald-600">V23</span></h4><p class="text-xs text-gray-600 mt-1">Score composite = Fréquence × Prix unitaire × coefficient d'ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div id="dropConsomme" class="p-5 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-lg text-blue-900 mb-1">1. Ventes (Consommé)</h2><p class="text-xs text-blue-600 mb-2">Fichier consommé (ventes magasin)</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
+      <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
+    </div>
+
+    <!-- SÉLECTEUR MAGASIN -->
+    <div id="storeSelector" class="hidden mb-6 p-4 bg-cyan-50 border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-4"><div class="flex-1 min-w-[200px]"><label class="block text-sm font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-3 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 bg-white"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
+    <div id="storeWarnings" class="hidden mb-4 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
+
+    <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
+
+    <!-- ★ FILTRES GLOBAUX -->
+    <div id="globalFilters" class="hidden mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">🎯 Filtres <span id="filterActiveCount" class="text-xs font-normal text-gray-400"></span></h3>
+        <button onclick="resetFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
+      </div>
+      <div class="flex flex-wrap gap-3 items-center">
+        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[200px] p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="🔍 Code, libellé, famille…">
+        <select id="filterFamille" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Familles</option></select>
+        <select id="filterSousFamille" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes S/Fam</option></select>
+        <select id="filterEmplacement" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Empl.</option></select>
+        <select id="filterStatut" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Statuts</option></select>
+        <select id="filterAge" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+      </div>
+      <input type="hidden" id="filterCockpit" value="">
+      <div class="flex flex-wrap gap-2 mt-2">
+        <div id="activeAgeFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-lg leading-none">&times;</span></div>
+        <div id="activeCockpitFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-lg leading-none">&times;</span></div>
+      </div>
+    </div>
+
+    <!-- ONGLETS -->
+    <div id="tabsContainer" class="hidden mb-6 border-b-2 border-gray-200">
+      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
+        <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
+        <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Santé</button></li>
+        <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
+        <li><button data-tab="ventes" onclick="switchTab('ventes')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-pink-600 font-bold">🧲 Ventes</button></li>
+        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold uppercase hidden" id="btnTabBench">🔄 BENCH <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
+      </ul>
+    </div>
+
+    <!-- TAB 1 : ARTICLES -->
+    <div id="tabTable" class="tab-content hidden">
+      <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
+        <p id="resultCount" class="text-sm text-gray-500 font-semibold"></p>
+        <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
+      </div>
+      <div class="table-scroll bg-white rounded-xl shadow-lg border">
+        <table class="min-w-full table-auto text-left">
+          <thead class="bg-gray-800 text-white sticky top-0 z-10">
+            <tr>
+              <th class="px-2 py-3 text-xs uppercase sticky left-0 bg-gray-800 z-20" onclick="sortBy('code')">Code ↕</th>
+              <th class="px-2 py-3 text-xs uppercase sticky left-[80px] bg-gray-800 z-20" onclick="sortBy('libelle')">Libellé ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('V')" data-tooltip="Prélevé comptoir 12 mois">Prél ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-cyan-300" onclick="sortBy('enleveTotal')" data-tooltip="Enlevé (colis) 12 mois">Enl ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-blue-300" onclick="sortBy('W')">Fréq ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-orange-300" onclick="sortBy('stockActuel')">Stock ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-teal-300" onclick="sortBy('couvertureJours')" data-tooltip="Jours de stock restant">Couv ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-amber-300" onclick="sortBy('ageJours')">Âge ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center text-gray-400">Anc.</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMin')">MIN ↕</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMax')">MAX ↕</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="text-sm divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-between mt-4 text-sm text-gray-600"><span id="pageInfo"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 bg-gray-200 rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 bg-gray-200 rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
+    </div>
+
+    <!-- TAB 2 : DASHBOARD -->
+    <div id="tabDash" class="tab-content hidden">
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1">Total</h4><p id="dashTotalValue" class="text-xl font-extrabold">0€</p><p id="dashTotalCount" class="text-blue-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1">☠️ Dormant</h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1">📊 Surstock</h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1">👁️ CAPALIN</h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1">✅ Taux Service</h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
+      </div>
+      <div class="mb-4 flex justify-end gap-2">
+        <label class="text-[10px] bg-blue-100 hover:bg-blue-200 py-1.5 px-3 rounded font-semibold text-blue-700 cursor-pointer">📤 Importer un historique<input type="file" accept=".json" onchange="importKPIhistory(this)" class="hidden"></label>
+      </div>
+      <div id="compareBlock" class="hidden mb-8 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-5 border border-blue-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-extrabold text-blue-900 flex items-center gap-2">📈 Évolution vs dernière analyse <span id="compareDate" class="text-xs font-normal text-gray-500"></span></h3>
+          <div class="flex gap-2">
+            <button onclick="exportKPIhistory()" class="text-[10px] bg-blue-100 hover:bg-blue-200 py-1 px-2 rounded font-semibold text-blue-700">📥 Exporter</button>
+            <button onclick="clearSavedKPI()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded font-semibold text-gray-600">🗑️ Reset</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="compareCards"></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
+      </div>
+    </div>
+
+    <!-- TAB 3 : COCKPIT -->
+    <div id="tabAction" class="tab-content hidden">
+
+      <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
+      <div id="execSummary" class="exec-summary rounded-xl p-5 mb-8 text-white">
+        <div class="flex items-center gap-2 mb-3"><span class="text-lg">⚡</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-blue-300">Résumé exécutif</h3></div>
+        <div id="execSummaryText" class="text-sm leading-relaxed space-y-1"></div>
+      </div>
+
+      <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900">🚨 Ruptures</h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — triées par CA potentiel perdu ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA pot.</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody></table></div></div>
+          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900">👻 Fantômes</h3><div class="flex items-center gap-2"><span id="badgeFantomes" class="badge bg-red-400 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('fantomes')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionFantomes" class="divide-y divide-red-100"></tbody></table></div></div>
+          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900">⚠️ Anomalies</h3><div class="flex items-center gap-2"><span id="badgeAnomalies" class="badge bg-red-300 text-red-900"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('anomalies')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionAnomalies" class="divide-y divide-red-100"></tbody></table></div></div>
+        </div>
+      </div>
+      <div class="mb-10"><h2 class="text-xl font-extrabold text-purple-700 mb-4 uppercase flex items-center gap-2">🟠 Assainir <span id="badgeAssainTotal" class="badge bg-purple-600 text-white"></span></h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-purple-50 p-5 rounded-xl border-t-4 border-purple-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-purple-900">📦 SASO</h3><div class="flex items-center gap-2"><span id="badgeSaso" class="badge bg-purple-500 text-white"></span><span class="cockpit-link bg-purple-200 text-purple-800" onclick="showCockpitInTable('saso')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-purple-100 text-purple-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Excès</th><th class="py-2 px-2 text-right">€</th></tr></thead><tbody id="actionSaso" class="divide-y divide-purple-100"></tbody></table></div></div>
+          <div class="bg-orange-50 p-5 rounded-xl border-t-4 border-orange-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-orange-900">💤 Dormants</h3><div class="flex items-center gap-2"><span id="badgeDormant" class="badge bg-orange-500 text-white"></span><span class="cockpit-link bg-orange-200 text-orange-800" onclick="showCockpitInTable('dormants')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-orange-100 text-orange-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionDormant" class="divide-y divide-orange-100"></tbody></table></div></div>
+          <div class="bg-yellow-50 p-5 rounded-xl border-t-4 border-yellow-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-yellow-900">📉 Fins</h3><div class="flex items-center gap-2"><span id="badgeFin" class="badge bg-yellow-500 text-white"></span><span class="cockpit-link bg-yellow-200 text-yellow-800" onclick="showCockpitInTable('fins')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-yellow-100 text-yellow-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionFin" class="divide-y divide-yellow-100"></tbody></table></div></div>
+        </div>
+      </div>
+      <div><h2 class="text-xl font-extrabold text-emerald-700 mb-4 uppercase">🟢 Opportunités</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-emerald-50 p-5 rounded-xl border-t-4 border-emerald-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-emerald-900">🏆 Top 20</h3><span class="badge bg-emerald-600 text-white">20</span></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-100 text-emerald-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-right">Stock</th></tr></thead><tbody id="actionBestSellers" class="divide-y divide-emerald-100"></tbody></table></div></div>
+          <div class="bg-emerald-50 p-5 rounded-xl border-t-4 border-emerald-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-emerald-900">✨ Nouveautés</h3><span id="badgeNouveaute" class="badge bg-emerald-500 text-white"></span></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-100 text-emerald-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionNouveaute" class="divide-y divide-emerald-100"></tbody></table></div></div>
+          <div class="bg-cyan-50 p-5 rounded-xl border-t-4 border-cyan-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-cyan-900">📦→🏪 Colis à Stocker</h3><span id="badgeColisRayon" class="badge bg-cyan-500 text-white"></span></div><p class="text-[11px] text-cyan-700 mb-3">≥5 enlevés, 0 prélevé.</p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-100 text-cyan-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th></tr></thead><tbody id="actionColisRayon" class="divide-y divide-cyan-100"></tbody></table></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4 : VENTES -->
+    <div id="tabVentes" class="tab-content hidden">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-gradient-to-br from-pink-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-pink-100 text-[10px] font-bold uppercase mb-1">🛍️ Réf/Client</h4><p id="ventesRefParClient" class="text-2xl font-extrabold">—</p><p class="text-pink-200 text-[10px] mt-1">Réf. par BL</p></div>
+        <div class="bg-gradient-to-br from-fuchsia-500 to-fuchsia-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-fuchsia-100 text-[10px] font-bold uppercase mb-1">🧲 Fam/Client</h4><p id="ventesFamParClient" class="text-2xl font-extrabold">—</p><p class="text-fuchsia-200 text-[10px] mt-1">Familles par BL</p></div>
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">📋 Commandes</h4><p id="ventesTotalBL" class="text-2xl font-extrabold">—</p><p class="text-indigo-200 text-[10px] mt-1">BL analysés</p></div>
+        <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📦 Réf. Actives</h4><p id="ventesRefActives" class="text-2xl font-extrabold">—</p><p class="text-violet-200 text-[10px] mt-1">≥1 vente</p></div>
+      </div>
+      <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold text-pink-800 mb-4 border-b pb-2">🧲 Attractivité par Famille</h3><p class="text-[10px] text-gray-500 mb-3">% de commandes contenant cette famille</p><div class="table-scroll"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attract.</th></tr></thead><tbody id="ventesAttractTable" class="divide-y"></tbody></table></div></div>
+    </div>
+
+    <!-- TAB 5 : BENCHMARK -->
+    <div id="tabBench" class="tab-content hidden">
+      <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4"><div><h2 class="text-2xl font-extrabold">🔄 Benchmark</h2></div><div class="flex items-center gap-3"><div class="text-center"><p class="text-3xl font-extrabold" id="benchMyStore">—</p><p class="text-cyan-200 text-xs">Moi</p></div><div class="text-cyan-300 text-2xl">vs</div><div class="text-center"><p class="text-3xl font-extrabold" id="benchOtherCount">—</p><p class="text-cyan-200 text-xs">Comparés</p></div></div></div>
+        <div class="bg-white/10 rounded-lg p-4 flex flex-wrap items-end gap-4"><div class="flex-1 min-w-[180px]"><label class="block text-xs font-bold text-cyan-200 mb-1">🌐 Comparer</label><select id="benchCompareMode" onchange="onBenchParamChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="all">Tout le bassin</option><option value="pick">Choisir…</option></select></div><div id="benchPickDiv" class="hidden flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-200 mb-1">📌</label><div id="benchPickCheckboxes" class="max-h-24 overflow-y-auto bg-white rounded-lg p-2 grid grid-cols-3 gap-1 text-xs text-gray-700"></div></div><span id="benchRecalcTime" class="text-xs text-green-300 font-mono"></span></div>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div class="bench-card bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center"><h4 class="text-red-800 text-[10px] font-bold uppercase mb-1">🚫 Manquées</h4><p id="benchMissedCount" class="text-3xl font-extrabold text-red-700">0</p></div>
+        <div class="bench-card bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-center"><h4 class="text-amber-800 text-[10px] font-bold uppercase mb-1">📉 Sous-Perf</h4><p id="benchUnderCount" class="text-3xl font-extrabold text-amber-700">0</p></div>
+        <div class="bench-card bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4 text-center"><h4 class="text-emerald-800 text-[10px] font-bold uppercase mb-1">🏆 Sur-Perf</h4><p id="benchOverCount" class="text-3xl font-extrabold text-emerald-700">0</p></div>
+        <div class="bench-card bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4 text-center"><h4 class="text-indigo-800 text-[10px] font-bold uppercase mb-1">📊 Assort.</h4><p id="benchAssortiment" class="text-3xl font-extrabold text-indigo-700">—</p></div>
+        <div class="bench-card bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4 text-center"><h4 class="text-cyan-800 text-[10px] font-bold uppercase mb-1">🏅 Rang</h4><p id="benchRang" class="text-3xl font-extrabold text-cyan-700">—</p></div>
+      </div>
+      <div class="mb-6"><input type="text" id="benchSearch" oninput="renderBenchmark()" class="w-full p-3 text-sm border-2 border-cyan-300 rounded-lg font-semibold" placeholder="🔍 Rechercher…"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-red-200"><div class="flex items-center justify-between mb-2"><h3 class="font-extrabold text-red-800 flex items-center gap-2">🚫 Manquées <span id="badgeMissed" class="badge bg-red-500 text-white"></span></h3><button onclick="exportBenchList('missed')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold">📥</button></div><p class="text-[10px] text-gray-500 mb-1">🟢=en stock (visibilité?) · 🔴=stock 0 (référencer?)</p><p class="text-[11px] text-red-700 font-bold mb-2"><span id="benchMissedShowing"></span></p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Code/Lib</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Mag</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">💡</th></tr></thead><tbody id="benchMissedTable" class="divide-y divide-red-50"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-amber-200"><div class="flex items-center justify-between mb-2"><h3 class="font-extrabold text-amber-800 flex items-center gap-2">📉 Sous-Perf <span id="badgeUnder" class="badge bg-amber-500 text-white"></span></h3><button onclick="exportBenchList('under')" class="text-[10px] bg-amber-100 text-amber-700 py-1 px-2 rounded font-bold">📥</button></div><p class="text-[11px] text-amber-700 font-bold mb-2"><span id="benchUnderShowing"></span></p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-amber-50 text-amber-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Code/Lib</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Moy</th><th class="py-2 px-2 text-right">Ratio</th></tr></thead><tbody id="benchUnderTable" class="divide-y divide-amber-50"></tbody></table></div></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-emerald-200"><div class="flex items-center justify-between mb-2"><h3 class="font-extrabold text-emerald-800 flex items-center gap-2">🏆 Sur-Perf <span id="badgeOver" class="badge bg-emerald-500 text-white"></span></h3><button onclick="exportBenchList('over')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold">📥</button></div><p class="text-[11px] font-bold mb-2"><span id="benchOverShowing"></span></p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Code/Lib</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Moy</th><th class="py-2 px-2 text-right">Ratio</th></tr></thead><tbody id="benchOverTable" class="divide-y divide-emerald-50"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-violet-200"><h3 class="font-extrabold text-violet-800 mb-3">📊 Forces & Faiblesses</h3><p class="text-[10px] text-gray-500 mb-3">Par famille vs moyenne bassin</p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Moy</th><th class="py-2 px-2 text-right">Écart</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-cyan-200"><h3 class="font-extrabold text-cyan-800 mb-3 flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h3><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
+      </div>
+    </div>
+
+  </div>
+  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V23</footer>
+
+  <script>
+  'use strict';
+
+  function showToast(message,type='info'){const container=document.getElementById('toastContainer');if(!container)return;const toast=document.createElement('div');const colors={success:'bg-emerald-100 border-emerald-500 text-emerald-800',error:'bg-red-100 border-red-500 text-red-800',warning:'bg-amber-100 border-amber-500 text-amber-800',info:'bg-blue-100 border-blue-500 text-blue-800'};toast.className=`p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type]||colors.info}`;toast.innerHTML=message;container.appendChild(toast);setTimeout(()=>{toast.classList.replace('toast-enter','toast-leave');setTimeout(()=>toast.remove(),300);},3500);}
+
+  const PAGE_SIZE=200,CHUNK_SIZE=5000,DORMANT_DAYS=365,NOUVEAUTE_DAYS=35,SECURITY_DAYS=3,HIGH_PRICE=150;
+  const AGE_BRACKETS={fresh:{min:0,max:90,label:'🟢 <90j',color:'text-green-700',bg:'bg-green-50',dotClass:'age-fresh',badgeBg:'bg-green-100 text-green-800'},warm:{min:90,max:180,label:'🟡 90–180j',color:'text-yellow-600',bg:'bg-yellow-50',dotClass:'age-warm',badgeBg:'bg-yellow-100 text-yellow-800'},hot:{min:180,max:365,label:'🟠 180j–1an',color:'text-orange-600',bg:'bg-orange-50',dotClass:'age-hot',badgeBg:'bg-orange-100 text-orange-800'},critical:{min:365,max:Infinity,label:'🔴 >1an',color:'text-red-700',bg:'bg-red-50',dotClass:'age-critical',badgeBg:'bg-red-100 text-red-800'}};
+  function getAgeBracket(d){return d<90?'fresh':d<180?'warm':d<=365?'hot':'critical';}
+  function getAgeLabel(d){if(d>=999)return'—';if(d<90)return d+'j';if(d<365)return Math.round(d/30)+'m';return(d/365).toFixed(1)+'a';}
+
+  let finalData=[],filteredData=[],sortCol='V',sortAsc=false,currentPage=0,debounceTimer=null;
+  let ventesParMagasin={},stockParMagasin={},storesIntersection=new Set();
+  let selectedMyStore='',libelleLookup={},articleFamille={};
+  let benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};
+  let cockpitLists={};
+  let ventesAnalysis={refParBL:0,famParBL:0,totalBL:0,refActives:0,attractivite:{}};
+  let blData={};
+  // V23: track parent refs excluded
+  let parentRefsExcluded=0;
+
+  function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
+  function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
+  function formatEuro(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);}
+  function pct(p,t){return t>0?((p/t)*100).toFixed(1)+'%':'0%';}
+  function parseExcelDate(v){if(!v)return null;if(v instanceof Date)return isNaN(v.getTime())?null:v;if(typeof v==='number')return new Date(Math.round((v-25569)*864e5));if(typeof v==='string'){const c=v.split(' ')[0],p=c.split(/[-/]/);if(p.length===3){let[a,b,d]=p.map(x=>parseInt(x,10));if(d<100)d+=2000;if(a>12)return new Date(d,b-1,a);if(b>12)return new Date(d,a-1,b);return new Date(d,b-1,a);}const x=new Date(v);return isNaN(x.getTime())?null:x;}return null;}
+  function daysBetween(a,b){const d=b.getTime()-a.getTime();return d>0?Math.ceil(d/864e5):0;}
+  function getVal(r,...k){const ks=Object.keys(r);for(const p of k){const f=ks.find(x=>x.toLowerCase().includes(p.toLowerCase()));if(f!==undefined)return r[f];}return'';}
+  function getQuantityColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();let f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&(l.includes('qté')||l.includes('qte')||l.includes('qt')||l.includes('quantité'));});if(!f)f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&!l.includes('ca ')&&!l.includes('vmb');});return f?parseFloat(r[f]||0):0;}
+  function extractStoreCode(row){return(getVal(row,'Code PDV','PDV','Code Agence','Agence','code pdv','code agence')||'').toString().trim().toUpperCase();}
+  function readExcel(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{try{const w=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:''}));}catch(e){rej(e);}};r.onerror=()=>rej(new Error('Lecture impossible'));r.readAsArrayBuffer(f);});}
+  function yieldToMain(){return new Promise(r=>setTimeout(r,0));}
+  function updateProgress(c,t,txt,step){const p=t>0?Math.round(c/t*100):0;document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressPct').textContent=p+'%';if(txt)document.getElementById('loadingText').textContent=txt;if(step)document.getElementById('loadingStep').textContent=step;}
+  function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/250));}
+  function formatCouv(j){if(j>=999)return'—';return j+'j';}
+  function couvColor(j){if(j>=999)return'text-gray-400';if(j<=7)return'text-red-600 font-extrabold';if(j<=21)return'text-orange-600 font-bold';if(j<=60)return'text-green-600';return'text-blue-500';}
+
+  // ★ V23: Priority score — Fréq × PU × coeff ancienneté
+  function calcPriorityScore(freq,pu,ageJours){
+    const caPerdu=freq*pu; // CA potentiel perdu annuel
+    // Coeff ancienneté: plus c'est ancien, plus c'est grave
+    let ageCoeff=1;
+    if(ageJours<30)ageCoeff=0.8;
+    else if(ageJours<90)ageCoeff=1;
+    else if(ageJours<180)ageCoeff=1.2;
+    else ageCoeff=1.5;
+    return Math.round(caPerdu*ageCoeff);
+  }
+  function prioClass(score){if(score>=5000)return'prio-critical';if(score>=1000)return'prio-high';if(score>=300)return'prio-medium';return'prio-low';}
+  function prioLabel(score){if(score>=5000)return'🔴';if(score>=1000)return'🟠';if(score>=300)return'🟡';return'⚪';}
+
+  // ★ V23: Detect parent reference (all 3 dates empty)
+  function isParentRef(row){
+    const d1=getVal(row,'dernière sortie','sortie');
+    const d2=getVal(row,'première entrée','premiere entree','première réception');
+    const d3=getVal(row,'dernière entrée','entrée');
+    function isEmpty(v){if(!v)return true;const s=v.toString().trim();return s===''||s==='-'||s==='0'||s==='NaN';}
+    return isEmpty(d1)&&isEmpty(d2)&&isEmpty(d3);
+  }
+
+  function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
+  function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
+  function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
+  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-pink-600','text-pink-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='ventes')btn.classList.add('border-pink-600','text-pink-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
+  function populateSelect(id,vals){const s=document.getElementById(id);const f=s.options[0].textContent;s.innerHTML=`<option value="">${f}</option>`;[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});}
+
+  function getFilteredData(){
+    const fam=document.getElementById('filterFamille').value,sFam=document.getElementById('filterSousFamille').value,emp=document.getElementById('filterEmplacement').value,stat=document.getElementById('filterStatut').value,af=document.getElementById('filterAge').value;
+    const cockpitType=document.getElementById('filterCockpit').value;
+    const terms=document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    const filtered=finalData.filter(r=>{
+      if(fam&&r.famille!==fam)return false;if(sFam&&r.sousFamille!==sFam)return false;
+      if(emp&&r.emplacement!==emp)return false;if(stat&&r.statut!==stat)return false;
+      if(af){const b=AGE_BRACKETS[af];if(b&&(r.ageJours<b.min||r.ageJours>=b.max))return false;}
+      if(cockpitType&&cockpitLists[cockpitType]&&!cockpitLists[cockpitType].has(r.code))return false;
+      if(terms.length>0){const h=(r.code+' '+r.libelle+' '+r.famille).toLowerCase();return terms.every(t=>h.includes(t));}
+      return true;
+    });
+    let activeCount=0;if(fam)activeCount++;if(sFam)activeCount++;if(emp)activeCount++;if(stat)activeCount++;if(af)activeCount++;if(terms.length)activeCount++;if(cockpitType)activeCount++;
+    const el=document.getElementById('filterActiveCount');if(el)el.textContent=activeCount>0?`(${activeCount} actif${activeCount>1?'s':''})`:'';
+    return filtered;
+  }
+
+  function renderAll(){
+    filteredData=getFilteredData();
+    filteredData.sort((a,b)=>{let vA=a[sortCol],vB=b[sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;});
+    updateActiveAgeIndicator();
+    renderTable(true);
+    renderDashboardAndCockpit();
+    renderVentesTab();
+  }
+
+  function onFilterChange(){currentPage=0;clearCockpitFilter(true);renderAll();}
+  function debouncedRender(){clearTimeout(debounceTimer);debounceTimer=setTimeout(()=>{currentPage=0;renderAll();},250);}
+  function resetFilters(){document.getElementById('searchInput').value='';['filterFamille','filterSousFamille','filterEmplacement','filterStatut','filterAge'].forEach(id=>document.getElementById(id).value='');clearCockpitFilter(true);updateActiveAgeIndicator();currentPage=0;renderAll();}
+  function filterByAge(b){document.getElementById('filterAge').value=b;updateActiveAgeIndicator();currentPage=0;switchTab('table');renderAll();}
+  function clearAgeFilter(){document.getElementById('filterAge').value='';updateActiveAgeIndicator();currentPage=0;renderAll();}
+  function updateActiveAgeIndicator(){const v=document.getElementById('filterAge').value;const el=document.getElementById('activeAgeFilter');if(v&&AGE_BRACKETS[v]){const b=AGE_BRACKETS[v];el.className=`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`;document.getElementById('activeAgeLabel').textContent='⏳ '+b.label;el.classList.remove('hidden');}else el.classList.add('hidden');}
+  function showCockpitInTable(type){document.getElementById('filterCockpit').value=type;document.getElementById('activeCockpitLabel').textContent={ruptures:'🚨 Ruptures',fantomes:'👻 Fantômes',anomalies:'⚠️ Anomalies',saso:'📦 SASO',dormants:'💤 Dormants',fins:'📉 Fins'}[type]||type;document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}
+  function clearCockpitFilter(silent){document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');if(!silent){currentPage=0;renderAll();}}
+  function onBenchParamChange(){if(document.getElementById('benchCompareMode').value==='pick'){buildBenchCheckboxes();document.getElementById('benchPickDiv').classList.remove('hidden');}else document.getElementById('benchPickDiv').classList.add('hidden');recalcBenchmarkInstant();}
+  function buildBenchCheckboxes(){const div=document.getElementById('benchPickCheckboxes');div.innerHTML='';[...storesIntersection].sort().filter(s=>s!==selectedMyStore).forEach(s=>{div.innerHTML+=`<label class="flex items-center gap-1 p-1 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="${s}" checked onchange="recalcBenchmarkInstant()" class="rounded"><span class="font-semibold">${s}</span></label>`;});}
+  function getBenchCompareStores(){if(document.getElementById('benchCompareMode').value==='all')return[...storesIntersection].filter(s=>s!==selectedMyStore);const c=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>c.push(cb.value));return c;}
+  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+
+  // ★★★ MOTEUR PRINCIPAL ★★★
+  async function processData(){
+    const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
+    if(!f1||!f2){showToast('⚠️ Chargez vos 2 fichiers !','warning');return;}
+    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    showLoading('Lecture…','');await yieldToMain();
+    try{
+      const dataC=await readExcel(f1);updateProgress(25,100,'Stock…');await yieldToMain();
+      const dataS=await readExcel(f2);updateProgress(40,100);
+      const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
+      const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();
+      if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
+      if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
+
+      const stC=new Set(),stS=new Set();
+      for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
+      for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}
+      storesIntersection=new Set();for(const s of stC){if(stS.has(s))storesIntersection.add(s);}
+      selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
+      const hasMulti=storesIntersection.size>1;
+      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[...storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!selectedMyStore&&storesIntersection.has('AG22'))selectedMyStore='AG22';if(!selectedMyStore)selectedMyStore=[...storesIntersection][0];sel.value=selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${storesIntersection.size} mag.`;}
+      else document.getElementById('storeSelector').classList.add('hidden');
+      const useMulti=hasMulti&&selectedMyStore;
+
+      const stockKeys=Object.keys(dataS[0]||{});
+      const colFamille=stockKeys.find(k=>k.toLowerCase()==='famille')||stockKeys.find(k=>k.toLowerCase().startsWith('famille'));
+      const colSousFamille=stockKeys.find(k=>{const l=k.toLowerCase();return l.includes('sous')&&l.includes('famille');})||stockKeys.find(k=>k.toLowerCase().startsWith('sous-famille'));
+
+      updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
+      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};
+      let minDateVente=Infinity,maxDateVente=0;
+
+      for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();if(canal!==''&&canal!=='MAGASIN')continue;const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const sk=store||'INCONNU';
+      const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
+      const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
+      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
+      if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
+      if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
+
+      const synth={};
+      for(const[code,art] of Object.entries(articleRaw)){const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);let maxP=0,cntP=0,sumP=0;if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
+      synth[code]={maxP,sumP:isReg?0:Math.max(pNet,0),sumE:art.te,cbl:art.cbl,cblP:isReg?0:cntP};}
+
+      updateProgress(68,100,'Analyse ventes…');
+      const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
+      const totalBLs=Object.keys(blData).length;let sumRefParBL=0,sumFamParBL=0;const famBLcount={};
+      for(const bl of Object.values(blData)){sumRefParBL+=bl.codes.size;sumFamParBL+=bl.familles.size;for(const fam of bl.familles)famBLcount[fam]=(famBLcount[fam]||0)+1;}
+      ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount};
+
+      updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
+      finalData=[];libelleLookup={};stockParMagasin={};cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set()};
+      parentRefsExcluded=0;
+      const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
+
+      for(let i=0;i<dataS.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataS.length);for(let j=i;j<end;j++){const row=dataS[j];const rawCode=getVal(row,'Article','Code');if(!rawCode)continue;const storeCode=extractStoreCode(row),code=cleanCode(rawCode);
+      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0)};}
+      if(!libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)libelleLookup[code]=lib;}
+      if(useMulti&&storeCode!==selectedMyStore)continue;
+      const libelle=libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
+      const famille=colFamille?(row[colFamille]||'').toString().trim()||'Non Classé':'Non Classé';
+      const sousFamille=colSousFamille?(row[colSousFamille]||'').toString().trim():'';
+      const rawEmp=(getVal(row,'Emplacement')||'').toString().trim();const emplacement=(rawEmp===''||rawEmp==='-')?'':rawEmp;
+      if(famille&&famille!=='Non Classé')familles.add(famille);if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
+      const valeurPRMP=cleanPrice(getVal(row,'Valeur','Prix'));const keysRow=Object.keys(row);const keyStock=keysRow.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});
+      const stockActuel=cleanPrice(keyStock?row[keyStock]:0);const qtePourPrix=Math.abs(stockActuel)||1;const prixUnitaire=Math.abs(valeurPRMP)/qtePourPrix;
+      const dateSortie=parseExcelDate(getVal(row,'dernière sortie','sortie'));const date1ereEntree=parseExcelDate(getVal(row,'première entrée','premiere entree','première réception'));const dateEntree=parseExcelDate(getVal(row,'dernière entrée','entrée'));const dateRef=parseExcelDate(getVal(row,'référencement','réf'));
+      const dateInactivite=dateSortie||dateEntree||dateRef;const ageJours=dateInactivite?daysBetween(dateInactivite,NOW):999;const age1ereEntree=date1ereEntree?daysBetween(date1ereEntree,NOW):999;const isNouveaute=(age1ereEntree<NOUVEAUTE_DAYS)&&(!dateSortie||ageJours<90);
+      const ancienMin=parseFloat(getVal(row,'min')||0);const ancienMax=parseFloat(getVal(row,'max')||0);
+
+      // ★ V23: Detect parent reference
+      const isParent=isParentRef(row);
+
+      const stats=synth[code]||{maxP:0,sumP:0,sumE:0,cbl:0,cblP:0};
+      const T=stats.maxP,V=stats.sumP,W=stats.cbl,Wp=stats.cblP;const U=Wp>0?(V/Wp):0;
+      const X=V/joursOuvres;
+      const enleveTotal=stats.sumE;
+      let nouveauMin=0,nouveauMax=0;const cs=statut.charAt(0);
+      if(isNouveaute){nouveauMin=ancienMin;nouveauMax=ancienMax;}
+      else if(['2','3','4'].includes(cs)){nouveauMin=0;nouveauMax=0;}
+      else if(W<=1){nouveauMin=0;nouveauMax=0;}
+      else if(W===2&&V>0){nouveauMin=1;nouveauMax=2;}
+      else if(V===0){nouveauMin=0;nouveauMax=0;}
+      else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);nouveauMin=Math.max(Math.min(Math.round(dl+(X*SECURITY_DAYS)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
+      const couvertureJours=calcCouverture(stockActuel,V);
+      finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
+      }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
+
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
+      updateProgress(95,100,'Affichage…');await yieldToMain();
+      populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
+      const elapsed=((performance.now()-t0)/1000).toFixed(1);
+      document.getElementById('navStats').textContent=finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
+      document.getElementById('navPerf').textContent='⚡'+elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
+      if(selectedMyStore){document.getElementById('navStore').textContent='🏪 '+selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('tabsContainer').classList.remove('hidden');
+      document.getElementById('globalFilters').classList.remove('hidden');
+      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
+      currentPage=0;renderAll();renderVentesTab();if(useMulti)renderBenchmark();
+      updateProgress(100,100,'✅',elapsed+'s');await new Promise(r=>setTimeout(r,400));
+      switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
+    }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
+    finally{btn.disabled=false;hideLoading();}
+  }
+
+  function renderVentesTab(){
+    const isFiltered=filteredData.length>0&&filteredData.length<finalData.length;
+    const va=ventesAnalysis;
+    document.getElementById('ventesRefParClient').textContent=isFiltered?'—':va.refParBL;
+    document.getElementById('ventesFamParClient').textContent=isFiltered?'—':va.famParBL;
+    document.getElementById('ventesTotalBL').textContent=isFiltered?'—':va.totalBL.toLocaleString('fr');
+    document.getElementById('ventesRefActives').textContent=isFiltered?'—':va.refActives.toLocaleString('fr');
+    const totalBL=va.totalBL||1;const p1=[];
+    if(!isFiltered){Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p1.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${fam}">${fam}</td><td class="py-2 px-3 text-center text-gray-600 text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});}
+    document.getElementById('ventesAttractTable').innerHTML=p1.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">Retirez les filtres pour voir l\'attractivité globale</td></tr>';
+  }
+
+  function computeBenchmark(){
+    const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};if(!cs.length)return;
+    const myV=ventesParMagasin[selectedMyStore]||{};const n=cs.length;const bv={};
+    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
+    const sp={};sp[selectedMyStore]={ref:0,freq:0};for(const[k,v] of Object.entries(myV)){if(v.sumPrelevee>0)sp[selectedMyStore].ref++;sp[selectedMyStore].freq+=v.countBL;}
+    for(const store of cs){sp[store]={ref:0,freq:0};const sv=ventesParMagasin[store]||{};for(const[k,v] of Object.entries(sv)){if(v.sumPrelevee>0)sp[store].ref++;sp[store].freq+=v.countBL;}}benchLists.storePerf=sp;
+    const myFamFreq={},bassinFamTotal={};
+    for(const[code,data] of Object.entries(myV)){const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
+    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){const fam=articleFamille[code]||'';if(fam)bassinFamTotal[fam]=(bassinFamTotal[fam]||0)+data.countBL;}}
+    const bassinFamFreq={};for(const[fam,total] of Object.entries(bassinFamTotal))bassinFamFreq[fam]=total/n;
+    const allFams=new Set([...Object.keys(myFamFreq),...Object.keys(bassinFamFreq)]);const familyPerf=[];
+    for(const fam of allFams){const my=myFamFreq[fam]||0;const avg=bassinFamFreq[fam]||0;if(avg<3&&my<3)continue;const ecart=avg>0?((my-avg)/avg*100):(my>0?100:0);familyPerf.push({fam,my,avg:Math.round(avg),ecart});}
+    familyPerf.sort((a,b)=>a.ecart-b.ecart);benchLists.familyPerf=familyPerf;
+    for(const[a,b] of Object.entries(bv)){if(b.tb<3)continue;const md=myV[a],mq=md?md.sumPrelevee:0;const avg=b.tp/n;const lib=libelleLookup[a]||a;const ms=(stockParMagasin[selectedMyStore]||{})[a];const mst=ms?ms.stockActuel:0;
+    if(mq===0&&b.sc>=Math.min(2,n)){let diagnostic=mst>0?'🟢 En stock — visibilité?':'🔴 Stock 0 — référencer?';benchLists.missed.push({code:a,lib,bassinFreq:b.tb,sc:b.sc,nbCompare:n,myStock:mst,sv:b.tb,diagnostic});}
+    else if(mq>0&&avg>0){const r=mq/avg;if(r<0.5&&b.sc>=2)benchLists.under.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:avg-mq});else if(r>1.5&&mq>=5)benchLists.over.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:r});}}
+    benchLists.missed.sort((a,b)=>b.sv-a.sv);benchLists.under.sort((a,b)=>b.sv-a.sv);benchLists.over.sort((a,b)=>b.sv-a.sv);
+  }
+
+  function renderBenchmark(){
+    const{missed,under,over,storePerf,familyPerf}=benchLists;const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));const q=(document.getElementById('benchSearch').value||'').toLowerCase().trim();
+    document.getElementById('benchMyStore').textContent=selectedMyStore;document.getElementById('benchOtherCount').textContent=cs.length;
+    const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
+    document.getElementById('benchMissedCount').textContent=missed.length;document.getElementById('benchUnderCount').textContent=under.length;document.getElementById('benchOverCount').textContent=over.length;document.getElementById('benchTabBadge').textContent=missed.length;
+    const myRef=storePerf[selectedMyStore]?.ref||0;const avgRef=cs.length>0?Math.round(cs.reduce((s,store)=>s+(storePerf[store]?.ref||0),0)/cs.length):0;
+    document.getElementById('benchAssortiment').textContent=(avgRef>0?Math.round((myRef/avgRef)*100):0)+'%';
+    const sorted=Object.entries(storePerf).sort((a,b)=>b[1].freq-a[1].freq);const myRank=sorted.findIndex(([s])=>s===selectedMyStore)+1;
+    document.getElementById('benchRang').textContent=`#${myRank}/${sorted.length}`;
+    const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
+    document.getElementById('benchMissedShowing').textContent=q?`${fM.length}/${missed.length}`:`${missed.length} articles`;document.getElementById('benchUnderShowing').textContent=q?`${fU.length}/${under.length}`:`${under.length} articles`;document.getElementById('benchOverShowing').textContent=q?`${fO.length}/${over.length}`:`${over.length} articles`;
+    let p=[];for(const m of fM){const dc=m.myStock>0?'text-green-600':'text-red-500';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:bg-red-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-red-600">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center text-gray-500">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'text-green-600':'text-red-600'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
+    document.getElementById('benchMissedTable').innerHTML=p.join('')||'<tr><td colspan="5" class="text-center py-4 text-gray-400">🎉</td></tr>';
+    p=[];for(const u of fU){const rt=(u.ratio*100).toFixed(0)+'%',bw=Math.min(u.ratio*100,100);p.push(`<tr class="border-b hover:bg-amber-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${u.code}</span><span class="text-[11px] font-semibold leading-tight" title="${u.lib}">${u.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-amber-700">${u.myQte}</td><td class="py-1.5 px-2 text-center text-gray-600">${u.avg}</td><td class="py-1.5 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-12 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-amber-500 rounded-full" style="width:${bw}%"></div></div><span class="text-amber-700 font-bold text-[10px]">${rt}</span></div></td></tr>`);}
+    document.getElementById('benchUnderTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">🎉</td></tr>';
+    p=[];for(const o of fO)p.push(`<tr class="border-b hover:bg-emerald-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${o.lib}">${o.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-emerald-700">${o.myQte}</td><td class="py-1.5 px-2 text-center text-gray-600">${o.avg}</td><td class="py-1.5 px-2 text-right text-emerald-700 font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);
+    document.getElementById('benchOverTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">—</td></tr>';
+    p=[];if(familyPerf&&familyPerf.length){for(const fp of familyPerf){const isS=fp.ecart>20,isW=fp.ecart<-20;const color=isS?'text-emerald-700':isW?'text-red-600':'text-gray-600';const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'bg-emerald-50':isW?'bg-red-50':'';const ecartStr=(fp.ecart>0?'+':'')+Math.round(fp.ecart)+'%';const barW=Math.min(Math.abs(fp.ecart),100);const barColor=fp.ecart>0?'bg-emerald-400':'bg-red-400';
+    p.push(`<tr class="border-b ${bg}"><td class="py-1.5 px-2 text-[11px] font-semibold truncate max-w-[150px]">${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-center font-bold text-xs">${fp.my}</td><td class="py-1.5 px-2 text-center text-gray-500 text-xs">${fp.avg}</td><td class="py-1.5 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-12 bg-gray-200 rounded-full h-1.5"><div class="perf-bar ${barColor} rounded-full" style="width:${barW}%"></div></div><span class="${color} font-bold text-[10px] min-w-[40px] text-right">${ecartStr}</span></div></td></tr>`);}}
+    document.getElementById('benchFamilyTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">—</td></tr>';
+    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);p.push(`<tr class="border-b ${isMe?'bg-cyan-50 font-bold':'hover:bg-gray-50'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-20 bg-gray-200 rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold">#${idx+1}</span></div></td></tr>`);});
+    document.getElementById('benchStoreTable').innerHTML=p.join('');
+  }
+
+  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+
+  // ★ DASHBOARD + COCKPIT
+  let kpiHistory=[];
+  function clearSavedKPI(){kpiHistory=[];document.getElementById('compareBlock').classList.add('hidden');showToast('🗑️ Historique effacé.','success');}
+  function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='Optistock_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
+  function importKPIhistory(input){if(!input.files.length)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(data.history&&data.history.length){kpiHistory=data.history;showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`,'success');renderAll();}else{showToast('❌ Fichier invalide.','error');}}catch(err){showToast('❌ Erreur : '+err.message,'error');}};reader.readAsText(input.files[0]);input.value='';}
+  function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Service',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ CAPALIN',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
+
+  function renderDashboardAndCockpit(){
+    let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
+    const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[];const finCodes=new Set();
+    cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set()};
+    parentRefsExcluded=0;
+    const dataSource=(filteredData.length>0&&filteredData.length<finalData.length)?filteredData:finalData;
+
+    for(const r of dataSource){const lv=(r.stockActuel>0)?r.stockActuel*r.prixUnitaire:0;
+    if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
+
+    // ★ V23: Ruptures — exclude parent refs (no dates) + sort by CA potentiel
+    if(r.W>=3&&r.stockActuel<=0){
+      if(!r.isParent){ // V23: skip parent references
+        const caPotentiel=Math.round(r.W*r.prixUnitaire);
+        const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
+        lstR.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:caPotentiel,caPot:caPotentiel,prioScore,condit:null});
+        cockpitLists.ruptures.add(r.code);
+      } else {
+        parentRefsExcluded++;
+      }
+    }
+
+    if(r.stockActuel>0&&r.emplacement===''){lstFa.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fantomes.add(r.code);}
+    if(r.stockActuel>0&&r.ancienMin===0&&r.ancienMax===0&&!r.isNouveaute&&r.V>0){lstA.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.anomalies.add(r.code);}
+    if(r.W>0)lstB.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:r.W,condit:null});
+    if(r.isNouveaute&&r.stockActuel>0)lstN.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});
+    if(r.enleveTotal>=5&&r.V===0)lstColis.push({code:r.code,lib:r.libelle,i1:r.enleveTotal,i2:r.stockActuel,sv:r.enleveTotal,condit:null});
+    if(r.stockActuel>0&&r.prixUnitaire>0){totalValue+=lv;totalArt++;byStatus[r.statut]=(byStatus[r.statut]||0)+lv;byFamily[r.famille]=(byFamily[r.famille]||0)+lv;const isDormant=!r.isNouveaute&&r.ageJours>DORMANT_DAYS;const sl=r.statut.toLowerCase();const isFS=sl.includes('fin de série')||sl.includes('fin de serie');const iFSt=sl.includes('fin de stock');const isFin=isFS||iFSt;
+    if(!r.isNouveaute&&r.ageJours>DORMANT_DAYS){dormantStock+=lv;if(lv>50){lstD.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.dormants.add(r.code);}}
+    if(!isDormant&&!isFin&&!r.isNouveaute&&r.stockActuel>r.nouveauMax&&r.nouveauMax>0)activeSurstock+=(r.stockActuel-r.nouveauMax)*r.prixUnitaire;
+    if(r.ancienMax>0&&r.stockActuel>r.ancienMax){const exc=r.stockActuel-r.ancienMax,vs=exc*r.prixUnitaire;capalinOverflow+=vs;capalinCount++;lstS.push({code:r.code,lib:r.libelle,i1:exc,i2:formatEuro(vs),sv:vs,condit:null});cockpitLists.saso.add(r.code);}
+    const br=(r.isNouveaute&&r.ageJours>DORMANT_DAYS)?'fresh':getAgeBracket(r.ageJours);ageBuckets[br].val+=lv;ageBuckets[br].count++;
+    if(isFin&&!finCodes.has(r.code)){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fins.add(r.code);}}}
+
+    document.getElementById('dashTotalValue').textContent=formatEuro(totalValue);document.getElementById('dashTotalCount').textContent=totalArt.toLocaleString('fr')+' réf.';
+    document.getElementById('dashDeadStock').textContent=formatEuro(dormantStock);document.getElementById('dashDeadPct').textContent=pct(dormantStock,totalValue);
+    document.getElementById('dashSurstock').textContent=formatEuro(activeSurstock);document.getElementById('dashSurstockPct').textContent=pct(activeSurstock,totalValue);
+    document.getElementById('dashCapalin').textContent=formatEuro(capalinOverflow);document.getElementById('dashCapalinCount').textContent=capalinCount+' art.';
+    const sr=serviceTotal>0?((serviceOk/serviceTotal)*100).toFixed(1):0;document.getElementById('dashServiceRate').textContent=sr+'%';document.getElementById('dashServiceDetail').textContent=`${serviceOk}/${serviceTotal} fréquentes en stock`;
+    renderComparison({date:new Date().toLocaleDateString('fr-FR'),totalValue,dormant:dormantStock,surstock:activeSurstock,ruptures:lstR.length,serviceRate:parseFloat(sr),capalin:capalinOverflow});
+    let p;p=[];Object.keys(byStatus).sort((a,b)=>byStatus[b]-byStatus[a]).forEach(s=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2">${s}</td><td class="py-2 text-right text-blue-600 font-bold">${formatEuro(byStatus[s])}</td></tr>`);});document.getElementById('dashStatusTable').innerHTML=p.join('');
+    p=[];Object.keys(byFamily).sort((a,b)=>byFamily[b]-byFamily[a]).slice(0,10).forEach(f=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2 truncate max-w-[200px]">${f}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
+    p=[];for(const[k,br] of Object.entries(AGE_BRACKETS)){const d=ageBuckets[k];p.push(`<tr class="age-row-clickable ${k==='critical'?br.bg:'hover:bg-gray-50'}" onclick="filterByAge('${k}')"><td class="py-2.5 px-3 ${br.color} font-bold text-sm">${br.label}</td><td class="py-2.5 px-3 text-right font-bold">${formatEuro(d.val)}</td><td class="py-2.5 px-3 text-right text-gray-500 text-xs">${d.count}</td></tr>`);}document.getElementById('dashAgeTable').innerHTML=p.join('');
+
+    const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
+    sB('badgeRuptures',lstR.length);sB('badgeFantomes',lstFa.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstFa.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeDormant',lstD.length);sB('badgeFin',lstFi.length);sB('badgeAssainTotal',lstS.length+lstD.length+lstFi.length);sB('badgeNouveaute',lstN.length);sB('badgeColisRayon',lstColis.length);
+
+    // V23: Show excluded parent refs count
+    const exclEl=document.getElementById('rupturesExcluded');
+    if(exclEl)exclEl.textContent=parentRefsExcluded>0?`🚫 ${parentRefsExcluded} réf. père exclues (sans mouvement)`:'';
+
+    // ★ V23: Ruptures sorted by CA potentiel (sv=caPot) + priority score column
+    lstR.sort((a,b)=>b.sv-a.sv);
+    const totalCAPotPerdu=lstR.reduce((s,r)=>s+r.caPot,0);
+    p=[];lstR.slice(0,50).forEach(i=>{
+      const maxScore=lstR.length>0?lstR[0].prioScore:1;
+      const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
+      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-red-700">${formatEuro(i.caPot)}</td></tr>`);
+    });
+    document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
+
+    // Other lists — no condit badges (V23: removed C24/B100 badges)
+    function pL(l,id,lim=50){const p=[];l.sort((a,b)=>b.sv-a.sv).slice(0,lim).forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});document.getElementById(id).innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';}
+    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstColis,'actionColisRayon');
+
+    // ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★
+    renderExecSummary(lstR,totalCAPotPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS);
+  }
+
+  // ★ V23: Executive Summary
+  function renderExecSummary(lstR,totalCAPotPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS){
+    const lines=[];
+    // Line 1: Ruptures + CA perdu
+    if(lstR.length>0){
+      const top3=lstR.slice(0,3).map(r=>r.lib.substring(0,25)).join(', ');
+      lines.push(`<p>🚨 <strong>${lstR.length} rupture${lstR.length>1?'s':''}</strong> représentant <strong class="text-red-400">${formatEuro(totalCAPotPerdu)}</strong> de CA potentiel perdu/an. Top : ${top3}.</p>`);
+    } else {
+      lines.push(`<p>✅ <strong>Aucune rupture</strong> sur les articles fréquents — bravo !</p>`);
+    }
+    // Line 2: Stock à assainir
+    const assainTotal=dormantStock+capalinOverflow;
+    if(assainTotal>500){
+      const parts=[];
+      if(dormantStock>500)parts.push(`${formatEuro(dormantStock)} de dormants`);
+      if(capalinOverflow>500)parts.push(`${formatEuro(capalinOverflow)} de CAPALIN à renvoyer`);
+      lines.push(`<p>🧹 <strong>${formatEuro(assainTotal)}</strong> à assainir : ${parts.join(' + ')}.</p>`);
+    } else {
+      lines.push(`<p>✅ Stock propre — peu de dormants ni de débordements.</p>`);
+    }
+    // Line 3: Service rate
+    const srNum=parseFloat(sr);
+    if(srNum>=95)lines.push(`<p>💪 Taux de service <strong class="text-emerald-400">${sr}%</strong> — excellent.</p>`);
+    else if(srNum>=85)lines.push(`<p>👍 Taux de service <strong class="text-yellow-400">${sr}%</strong> — correct, marge de progression sur les ruptures.</p>`);
+    else lines.push(`<p>⚠️ Taux de service <strong class="text-red-400">${sr}%</strong> — priorité : résoudre les ruptures pour remonter.</p>`);
+
+    document.getElementById('execSummaryText').innerHTML=lines.join('');
+  }
+
+  // ★ TABLEAU
+  function sortBy(c){if(sortCol===c)sortAsc=!sortAsc;else{sortCol=c;sortAsc=false;}currentPage=0;renderTable();}
+  function changePage(d){const m=Math.ceil(filteredData.length/PAGE_SIZE)-1;currentPage=Math.max(0,Math.min(currentPage+d,m));renderTable(true);}
+  function renderTable(pageOnly){
+    if(!pageOnly){
+      filteredData=getFilteredData();
+      filteredData.sort((a,b)=>{let vA=a[sortCol],vB=b[sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;});
+      updateActiveAgeIndicator();
+    }
+    const tp=Math.max(1,Math.ceil(filteredData.length/PAGE_SIZE));if(currentPage>=tp)currentPage=tp-1;const start=currentPage*PAGE_SIZE,pd=filteredData.slice(start,start+PAGE_SIZE);
+    document.getElementById('resultCount').textContent=filteredData.length.toLocaleString('fr')+' article'+(filteredData.length>1?'s':'');document.getElementById('pageInfo').textContent=`${currentPage+1}/${tp}`;document.getElementById('btnPrev').disabled=currentPage<=0;document.getElementById('btnNext').disabled=currentPage>=tp-1;
+    const p=[];
+    for(const r of pd){
+      const bg=r.isNouveaute?'bg-emerald-50':(r.nouveauMin>0?'bg-white':'bg-gray-50 text-gray-400');
+      const sc=r.stockActuel<0?'text-red-600 font-extrabold':'text-orange-600 font-bold';
+      const br=getAgeBracket(r.ageJours);
+    p.push(`<tr class="border-b hover:bg-blue-50 ${bg}">
+      <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${r.isNouveaute?' ✨':''}</td>
+      <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
+      <td class="px-2 py-2 text-center font-bold text-xs">${r.V}</td>
+      <td class="px-2 py-2 text-center text-cyan-600 text-xs">${r.enleveTotal||0}</td>
+      <td class="px-2 py-2 text-center text-blue-500 font-bold text-xs">${r.W}</td>
+      <td class="px-2 py-2 text-center ${sc} bg-orange-50 text-xs">${r.stockActuel}</td>
+      <td class="px-2 py-2 text-center text-xs ${couvColor(r.couvertureJours)}">${formatCouv(r.couvertureJours)}</td>
+      <td class="px-2 py-2 text-center text-xs whitespace-nowrap"><span class="age-dot ${AGE_BRACKETS[br].dotClass}"></span>${getAgeLabel(r.ageJours)}</td>
+      <td class="px-2 py-2 text-center text-xs text-gray-400">${r.ancienMin}/${r.ancienMax}</td>
+      <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMin}</td>
+      <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMax}</td>
+    </tr>`);}
+    document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="11" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
+  }
+
+  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Optistock_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+  </script>
+</body>
+</html>
