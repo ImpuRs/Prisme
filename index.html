@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Optistock PRO V23</title>
+  <title>Optistock PRO V24</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -44,6 +44,11 @@
     /* V23: Priority score bar */
     .prio-bar{height:4px;border-radius:2px;transition:width .4s ease}
     .prio-critical{background:linear-gradient(90deg,#ef4444,#dc2626)}.prio-high{background:linear-gradient(90deg,#f97316,#ea580c)}.prio-medium{background:linear-gradient(90deg,#eab308,#ca8a04)}.prio-low{background:#94a3b8}
+    /* V24: ABC/FMR Matrix */
+    .abc-cell{cursor:pointer;transition:all .2s;border-radius:12px;padding:14px 10px;text-align:center;position:relative;min-width:100px}
+    .abc-cell:hover{transform:scale(1.06);z-index:10;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+    .abc-cell .cell-reco{display:none;position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:6px 12px;border-radius:8px;font-size:.6rem;white-space:normal;z-index:50;max-width:200px;text-align:center;line-height:1.4;pointer-events:none}
+    .abc-cell:hover .cell-reco{display:block}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
@@ -53,7 +58,7 @@
 
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
-      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V23</span></div>
+      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V24</span></div>
       <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div></div>
     </div>
   </nav>
@@ -102,6 +107,8 @@
         <select id="filterEmplacement" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Empl.</option></select>
         <select id="filterStatut" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Statuts</option></select>
         <select id="filterAge" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+        <select id="filterABC" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — Top 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+        <select id="filterFMR" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F — Fréquent (≥12)</option><option value="M">M — Moyen (4-11)</option><option value="R">R — Rare (≤3)</option></select>
       </div>
       <input type="hidden" id="filterCockpit" value="">
       <div class="flex flex-wrap gap-2 mt-2">
@@ -117,6 +124,7 @@
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Santé</button></li>
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="ventes" onclick="switchTab('ventes')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-pink-600 font-bold">🧲 Ventes</button></li>
+        <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📊 ABC</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold uppercase hidden" id="btnTabBench">🔄 BENCH <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
       </ul>
     </div>
@@ -142,6 +150,8 @@
               <th class="px-2 py-3 text-xs uppercase text-center text-gray-400">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMin')">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMax')">MAX ↕</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 bg-gray-900" onclick="sortBy('abcClass')">ABC ↕</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 bg-gray-900" onclick="sortBy('fmrClass')">FMR ↕</th>
             </tr>
           </thead>
           <tbody id="tableBody" class="text-sm divide-y divide-gray-100"></tbody>
@@ -222,7 +232,19 @@
       <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold text-pink-800 mb-4 border-b pb-2">🧲 Attractivité par Famille</h3><p class="text-[10px] text-gray-500 mb-3">% de commandes contenant cette famille</p><div class="table-scroll"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attract.</th></tr></thead><tbody id="ventesAttractTable" class="divide-y"></tbody></table></div></div>
     </div>
 
-    <!-- TAB 5 : BENCHMARK -->
+    <!-- TAB 5 : ABC/FMR MATRIX -->
+    <div id="tabAbc" class="tab-content hidden">
+      <div class="mb-4 flex items-start justify-between">
+        <div>
+          <h2 class="text-xl font-extrabold text-indigo-700">📊 Matrice ABC / FMR</h2>
+          <p class="text-xs text-gray-500 mt-1">ABC = valeur de rotation (Prélevé × Prix unitaire) · FMR = fréquence (W = nb commandes/an) · Articles actifs uniquement (W≥1)</p>
+        </div>
+      </div>
+      <div id="abcMatrixContainer" class="overflow-x-auto mb-6"></div>
+      <div id="abcMatrixLegend" class="mt-4"></div>
+    </div>
+
+    <!-- TAB 6 : BENCHMARK -->
     <div id="tabBench" class="tab-content hidden">
       <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4"><div><h2 class="text-2xl font-extrabold">🔄 Benchmark</h2></div><div class="flex items-center gap-3"><div class="text-center"><p class="text-3xl font-extrabold" id="benchMyStore">—</p><p class="text-cyan-200 text-xs">Moi</p></div><div class="text-cyan-300 text-2xl">vs</div><div class="text-center"><p class="text-3xl font-extrabold" id="benchOtherCount">—</p><p class="text-cyan-200 text-xs">Comparés</p></div></div></div>
@@ -248,7 +270,7 @@
     </div>
 
   </div>
-  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V23</footer>
+  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V24</footer>
 
   <script>
   'use strict';
@@ -270,6 +292,8 @@
   // V23: track parent refs excluded
   let parentRefsExcluded=0;
   let globalJoursOuvres=250;
+  // V24: ABC/FMR
+  let abcMatrixData={};
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
   function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
@@ -310,25 +334,67 @@
     return isEmpty(d1)&&isEmpty(d2)&&isEmpty(d3);
   }
 
+  // ★ V24: Compute ABC / FMR classifications + build matrix data
+  function computeABCFMR(data){
+    // ABC: based on rotation value = V × prixUnitaire, for active articles (W≥1)
+    const active=data.filter(r=>r.W>=1);
+    active.sort((a,b)=>(b.V*b.prixUnitaire)-(a.V*a.prixUnitaire));
+    const totalRot=active.reduce((s,r)=>s+r.V*r.prixUnitaire,0);
+    let cumul=0;const abcMap={};
+    for(const r of active){
+      cumul+=r.V*r.prixUnitaire;
+      const p=totalRot>0?cumul/totalRot:1;
+      abcMap[r.code]=p<=0.8?'A':p<=0.95?'B':'C';
+    }
+    // Assign ABC + FMR to each article
+    for(const r of data){
+      if(r.W>=1){
+        r.abcClass=abcMap[r.code]||'C';
+        r.fmrClass=r.W>=12?'F':r.W>=4?'M':'R';
+      } else {
+        r.abcClass='';r.fmrClass='';
+      }
+    }
+    // Build matrix aggregate data
+    const totalStockVal=data.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
+    const mx={};
+    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
+      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
+      const sv=items.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
+      mx[key]={count:items.length,stockVal:sv,pctTotal:totalStockVal>0?sv/totalStockVal*100:0};
+    }
+    abcMatrixData=mx;
+  }
+
+  // ★ V24: Click on ABC matrix cell → filter Articles tab
+  function filterByAbcFmr(abc,fmr){
+    document.getElementById('filterABC').value=abc;
+    document.getElementById('filterFMR').value=fmr;
+    currentPage=0;switchTab('table');renderAll();
+  }
+
   function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
   function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
   function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
-  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-pink-600','text-pink-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='ventes')btn.classList.add('border-pink-600','text-pink-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
+  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-pink-600','text-pink-600','border-indigo-600','text-indigo-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='ventes')btn.classList.add('border-pink-600','text-pink-600','active');else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
   function populateSelect(id,vals){const s=document.getElementById(id);const f=s.options[0].textContent;s.innerHTML=`<option value="">${f}</option>`;[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});}
 
   function getFilteredData(){
     const fam=document.getElementById('filterFamille').value,sFam=document.getElementById('filterSousFamille').value,emp=document.getElementById('filterEmplacement').value,stat=document.getElementById('filterStatut').value,af=document.getElementById('filterAge').value;
     const cockpitType=document.getElementById('filterCockpit').value;
+    const abc=document.getElementById('filterABC').value,fmr=document.getElementById('filterFMR').value;
     const terms=document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
     const filtered=finalData.filter(r=>{
       if(fam&&r.famille!==fam)return false;if(sFam&&r.sousFamille!==sFam)return false;
       if(emp&&r.emplacement!==emp)return false;if(stat&&r.statut!==stat)return false;
       if(af){const b=AGE_BRACKETS[af];if(b&&(r.ageJours<b.min||r.ageJours>=b.max))return false;}
       if(cockpitType&&cockpitLists[cockpitType]&&!cockpitLists[cockpitType].has(r.code))return false;
+      if(abc&&r.abcClass!==abc)return false;
+      if(fmr&&r.fmrClass!==fmr)return false;
       if(terms.length>0){const h=(r.code+' '+r.libelle+' '+r.famille).toLowerCase();return terms.every(t=>h.includes(t));}
       return true;
     });
-    let activeCount=0;if(fam)activeCount++;if(sFam)activeCount++;if(emp)activeCount++;if(stat)activeCount++;if(af)activeCount++;if(terms.length)activeCount++;if(cockpitType)activeCount++;
+    let activeCount=0;if(fam)activeCount++;if(sFam)activeCount++;if(emp)activeCount++;if(stat)activeCount++;if(af)activeCount++;if(terms.length)activeCount++;if(cockpitType)activeCount++;if(abc)activeCount++;if(fmr)activeCount++;
     const el=document.getElementById('filterActiveCount');if(el)el.textContent=activeCount>0?`(${activeCount} actif${activeCount>1?'s':''})`:'';
     return filtered;
   }
@@ -340,11 +406,12 @@
     renderTable(true);
     renderDashboardAndCockpit();
     renderVentesTab();
+    renderABCTab();
   }
 
   function onFilterChange(){currentPage=0;clearCockpitFilter(true);renderAll();}
   function debouncedRender(){clearTimeout(debounceTimer);debounceTimer=setTimeout(()=>{currentPage=0;renderAll();},250);}
-  function resetFilters(){document.getElementById('searchInput').value='';['filterFamille','filterSousFamille','filterEmplacement','filterStatut','filterAge'].forEach(id=>document.getElementById(id).value='');clearCockpitFilter(true);updateActiveAgeIndicator();currentPage=0;renderAll();}
+  function resetFilters(){document.getElementById('searchInput').value='';['filterFamille','filterSousFamille','filterEmplacement','filterStatut','filterAge','filterABC','filterFMR'].forEach(id=>document.getElementById(id).value='');clearCockpitFilter(true);updateActiveAgeIndicator();currentPage=0;renderAll();}
   function filterByAge(b){document.getElementById('filterAge').value=b;updateActiveAgeIndicator();currentPage=0;switchTab('table');renderAll();}
   function clearAgeFilter(){document.getElementById('filterAge').value='';updateActiveAgeIndicator();currentPage=0;renderAll();}
   function updateActiveAgeIndicator(){const v=document.getElementById('filterAge').value;const el=document.getElementById('activeAgeFilter');if(v&&AGE_BRACKETS[v]){const b=AGE_BRACKETS[v];el.className=`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`;document.getElementById('activeAgeLabel').textContent='⏳ '+b.label;el.classList.remove('hidden');}else el.classList.add('hidden');}
@@ -444,6 +511,7 @@
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
 
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
+      updateProgress(93,100,'ABC/FMR…');await yieldToMain();computeABCFMR(finalData);
       updateProgress(95,100,'Affichage…');await yieldToMain();
       populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
@@ -618,7 +686,14 @@
     if(srNum>=95)lines.push(`<p>💪 Taux de service <strong class="text-emerald-400">${sr}%</strong> — excellent.</p>`);
     else if(srNum>=85)lines.push(`<p>👍 Taux de service <strong class="text-yellow-400">${sr}%</strong> — correct, marge de progression sur les ruptures.</p>`);
     else lines.push(`<p>⚠️ Taux de service <strong class="text-red-400">${sr}%</strong> — priorité : résoudre les ruptures pour remonter.</p>`);
-
+    // Line 4: C-Rare (V24)
+    if(finalData.length>0&&finalData[0].abcClass!==undefined){
+      const crItems=finalData.filter(r=>r.abcClass==='C'&&r.fmrClass==='R'&&r.stockActuel>0);
+      const crVal=crItems.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0);
+      const totalFull=finalData.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
+      const crPct=totalFull>0?(crVal/totalFull*100).toFixed(1):'0';
+      if(crVal>100)lines.push(`<p>🗑️ <strong>${crPct}% de votre stock (${formatEuro(crVal)})</strong> est en C-Rare — candidat au déréférencement ou passage colis.</p>`);
+    }
     document.getElementById('execSummaryText').innerHTML=lines.join('');
   }
 
@@ -650,11 +725,60 @@
       <td class="px-2 py-2 text-center text-xs text-gray-400">${r.ancienMin}/${r.ancienMax}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMax}</td>
+      <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'text-green-700 bg-green-50':r.abcClass==='B'?'text-blue-700 bg-blue-50':r.abcClass==='C'?'text-orange-700 bg-orange-50':'text-gray-400'}">${r.abcClass||'—'}</td>
+      <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'text-green-700 bg-green-50':r.fmrClass==='M'?'text-blue-700 bg-blue-50':r.fmrClass==='R'?'text-red-600 bg-red-50':'text-gray-400'}">${r.fmrClass||'—'}</td>
     </tr>`);}
-    document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="11" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
+    document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="13" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
   }
 
-  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Optistock_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+  // ★ V24: Render ABC/FMR matrix tab
+  function renderABCTab(){
+    if(!finalData.length||!Object.keys(abcMatrixData).length)return;
+    const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
+    const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
+    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Petit mais régulier — passage en colis ?',CM:'Candidat réduction stock',CR:'Candidat déréférencement ou colis pur'};
+    // Matrix table
+    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
+    html+='<th class="p-3 text-xs font-bold text-gray-400 text-center w-16"></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center text-green-700">F<br><span class="text-[10px] font-normal text-gray-400">Fréquent ≥12</span></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center text-blue-700">M<br><span class="text-[10px] font-normal text-gray-400">Moyen 4-11</span></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center text-red-700">R<br><span class="text-[10px] font-normal text-gray-400">Rare ≤3</span></th>';
+    html+='</tr></thead><tbody>';
+    const rowLabels={A:'<div class="font-extrabold text-xl text-indigo-900">A</div><div class="text-[9px] text-gray-500 font-semibold">Top 80%</div>',B:'<div class="font-extrabold text-xl text-indigo-600">B</div><div class="text-[9px] text-gray-500 font-semibold">15%</div>',C:'<div class="font-extrabold text-xl text-indigo-400">C</div><div class="text-[9px] text-gray-500 font-semibold">5%</div>'};
+    for(const abc of['A','B','C']){
+      html+=`<tr><td class="p-3 text-center">${rowLabels[abc]}</td>`;
+      for(const fmr of['F','M','R']){
+        const key=abc+fmr,d=abcMatrixData[key]||{count:0,stockVal:0,pctTotal:0};
+        const bg=CELL_BG[key];
+        html+=`<td class="p-2"><div class="abc-cell" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
+          <div class="font-extrabold text-2xl">${d.count}</div>
+          <div class="text-[10px] opacity-80">articles</div>
+          <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
+          <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
+          <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
+          <div class="cell-reco">${key} — ${RECOS[key]}</div>
+        </div></td>`;
+      }
+      html+='</tr>';
+    }
+    html+='</tbody></table>';
+    html+='<p class="text-center text-[10px] text-gray-400 mt-3">Cliquer sur une case → filtre l\'onglet Articles · Survoler → recommandation</p>';
+    const mc=document.getElementById('abcMatrixContainer');if(mc)mc.innerHTML=html;
+    // Legend grid
+    let leg='<div class="p-4 bg-gray-50 rounded-xl border"><h4 class="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">💡 Recommandations par segment <span class="text-[10px] font-normal text-gray-400">— cliquer sur un segment pour filtrer</span></h4>';
+    leg+='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">';
+    for(const key of['AF','AM','AR','BF','BM','BR','CF','CM','CR']){
+      const d=abcMatrixData[key]||{count:0,stockVal:0};const bg=CELL_BG[key];
+      leg+=`<div class="flex items-start gap-2 p-3 rounded-lg bg-white border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="filterByAbcFmr('${key[0]}','${key[1]}')">
+        <div class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-extrabold text-[11px] text-white" style="background:${bg}">${key}</div>
+        <div class="min-w-0"><div class="text-xs font-bold text-gray-800">${LABELS[key]}</div><div class="text-[10px] text-gray-500 mt-0.5">${RECOS[key]}</div><div class="text-[10px] text-indigo-600 font-bold mt-1">${d.count} art. · ${formatEuro(d.stockVal)}</div></div>
+      </div>`;
+    }
+    leg+='</div></div>';
+    const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
+  }
+
+  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Optistock_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
   </script>
 </body>
 </html>

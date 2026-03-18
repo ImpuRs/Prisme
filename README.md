@@ -18,7 +18,7 @@ Optistock analyse les **ventes** (consommé 12 mois) et l'**état du stock** (ph
 ## 🏗️ Architecture
 
 ```
-Optistock PRO V23
+Optistock PRO V24
 ├── index.html          ← Application complète (HTML + CSS + JS)
 ├── README.md           ← Ce fichier
 ├── CLAUDE.md           ← Contexte pour Claude Code
@@ -39,7 +39,7 @@ Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "A
 3. Ajouter un `doGet()` qui sert la page
 4. Déployer en Web App
 
-## 📊 Les 5 onglets
+## 📊 Les 6 onglets
 
 | Onglet | Rôle |
 |--------|------|
@@ -47,6 +47,7 @@ Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "A
 | 📊 **Santé** | KPI globaux + comparaison historique |
 | 🎯 **COCKPIT** | Actions prioritaires classées par urgence avec résumé exécutif |
 | 🧲 **Ventes** | Attractivité par famille, cross-sell |
+| 📊 **ABC** | Matrice ABC/FMR 3×3 — segmentation analytique (V24) |
 | 🔄 **BENCH** | Comparaison multi-magasins |
 
 ## 🧮 Algorithme MIN/MAX
@@ -59,6 +60,15 @@ MAX = MIN + 21 jours (forte rotation) ou 10 jours (faible rotation)
 Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
+
+### V24 (Mars 2026)
+- 📊 **Matrice ABC/FMR** — nouvel onglet avec grille 3×3 cliquable (AF=Pépites → CR=Déréférencement)
+- 🎯 **Calcul ABC** : classement Pareto valeur rotation (V×PU) → A=top 80%, B=15%, C=5%
+- 🔢 **Calcul FMR** : fréquence W → F≥12 (Fréquent), M=4-11 (Moyen), R≤3 (Rare)
+- 🔗 **Filtres ABC et FMR** dans la barre de filtres globaux
+- 📋 **Colonnes ABC + FMR** dans l'onglet Articles et dans le CSV exporté
+- ⚡ **Résumé exécutif** : 4ème ligne "X% du stock en C-Rare → candidat déréférencement"
+- 🖱️ Clic sur une cellule de la matrice → filtre automatique l'onglet Articles
 
 ### V23 (Juillet 2025)
 - ⚡ **Résumé exécutif** automatique en haut du cockpit (3 phrases d'impact)
