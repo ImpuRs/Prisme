@@ -32,15 +32,18 @@ Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B
 Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock).
 
 ## Structure du code (dans index.html)
-- **Lignes 1-120** : HTML structure + CSS
-- **Section `<script>`** : 
-  - Constantes et variables globales
+- **Lignes 1-130** : HTML structure + CSS (V24 : styles `.abc-cell`)
+- **Section `<script>`** :
+  - Constantes et variables globales (dont `abcMatrixData` — V24)
   - Fonctions utilitaires (cleanCode, cleanPrice, parseExcelDate, etc.)
   - `processData()` : moteur principal, lit les 2 Excel, calcule tout
+  - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3) — V24
+  - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles — V24
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
+  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable — V24
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
   - `renderVentesTab()` : onglet ventes
-  - `renderExecSummary()` : résumé exécutif (V23)
+  - `renderExecSummary()` : résumé exécutif (V23 + 4ème ligne C-Rare V24)
   - `calcPriorityScore()` / `isParentRef()` : fonctions V23
 
 ## Commandes utiles

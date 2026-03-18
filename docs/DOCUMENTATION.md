@@ -1,4 +1,4 @@
-# OPTISTOCK PRO — Documentation Technique V23
+# OPTISTOCK PRO — Documentation Technique V24
 
 ## 1. Vue d'ensemble
 
@@ -19,6 +19,7 @@ Optistock est un outil d'analyse et d'optimisation des stocks pour magasins de d
 | 📊 Santé | KPI globaux + comparaison vs analyse précédente |
 | 🎯 COCKPIT | Actions prioritaires classées par urgence + résumé exécutif (V23) |
 | 🧲 Ventes | Attractivité par famille |
+| 📊 ABC | Matrice ABC/FMR 3×3 cliquable — segmentation analytique (V24) |
 | 🔄 BENCH | Comparaison multi-magasins (si fichiers multi-agences) |
 
 ---
@@ -108,20 +109,83 @@ Garde-fou prix élevé :
 
 ---
 
-## 3. Nouveautés V23
+## 3. Nouveautés V24 — Matrice ABC/FMR
 
-### 3.1 Résumé exécutif automatique
+### 3.1 Calcul ABC (valeur de rotation)
+
+Calculé sur les **articles actifs** (W ≥ 1) uniquement. Valeur de rotation = `V × prixUnitaire`.
+
+| Classe | Critère | Logique |
+|--------|---------|---------|
+| **A** | Top 80% du CA cumulé | Pareto — peu d'articles, beaucoup de valeur |
+| **B** | 15% suivants | Standard |
+| **C** | 5% restants | Long tail — nombreux articles, faible valeur individuelle |
+
+### 3.2 Calcul FMR (fréquence de sortie)
+
+Basé sur W (nombre de commandes avec prélevé ou enlevé > 0 sur 12 mois).
+
+| Classe | Critère | Signification |
+|--------|---------|---------------|
+| **F** | W ≥ 12 | Fréquent — sort quasiment chaque mois |
+| **M** | W entre 4 et 11 | Moyen — sort régulièrement |
+| **R** | W ≤ 3 | Rare — sort peu souvent |
+
+### 3.3 Onglet "📊 ABC"
+
+Matrice visuelle 3×3 (ABC en lignes, FMR en colonnes) affichant pour chaque cellule :
+- Nombre d'articles du segment
+- Valeur stock immobilisé (articles avec stock > 0)
+- % du stock total
+
+**Couleurs** : gradient de vert foncé (AF — pépite) à rouge foncé (CR — candidat déréférencement).
+
+**Interactivité** :
+- Clic sur une cellule → filtre l'onglet Articles sur ce segment
+- Survol → affiche la recommandation du segment
+
+**Recommandations par cellule** :
+
+| Cellule | Recommandation |
+|---------|---------------|
+| AF | Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus |
+| AM | Surveiller — réassort manuel si rupture |
+| AR | Gros paniers ponctuels — stock sécurité OK |
+| BF | Confort — bien géré |
+| BM | Standard |
+| BR | Questionner le MIN |
+| CF | Petit mais régulier — passage en colis ? |
+| CM | Candidat réduction stock |
+| CR | Candidat déréférencement ou colis pur |
+
+### 3.4 Colonnes ABC + FMR dans Articles + CSV
+
+Deux colonnes `ABC` et `FMR` ajoutées dans l'onglet Articles (après la colonne MAX), et exportées dans le CSV. Les articles inactifs (W = 0) ont ces colonnes vides.
+
+### 3.5 Filtres ABC et FMR
+
+Deux nouveaux sélecteurs dans la barre de filtres globaux permettent de filtrer l'onglet Articles par classe ABC (A/B/C) et par classe FMR (F/M/R).
+
+### 3.6 Résumé exécutif — 4ème ligne
+
+Ajout d'une ligne automatique : `"X% de votre stock (Y€) est en C-Rare — candidat au déréférencement ou passage colis."` (affichée seulement si la valeur C-Rare > 100€).
+
+---
+
+## 4. Nouveautés V23
+
+### 4.1 Résumé exécutif automatique
 
 Bloc en haut du cockpit, 3 lignes générées automatiquement :
 1. **Ruptures** : nombre + CA potentiel perdu annuel + top 3 articles
 2. **Assainissement** : total dormants + CAPALIN à renvoyer
 3. **Taux de service** : diagnostic (excellent / correct / priorité)
 
-### 3.2 Tri par CA potentiel perdu
+### 4.2 Tri par CA potentiel perdu
 
 Les ruptures sont désormais triées par `Fréquence × Prix unitaire` (CA annuel potentiel perdu) au lieu de la fréquence seule.
 
-### 3.3 Score de priorité composite
+### 4.3 Score de priorité composite
 
 ```
 Score = Fréquence × Prix unitaire × Coefficient d'ancienneté
@@ -139,7 +203,7 @@ Seuils visuels :
   ⚪ < 300€    → Faible
 ```
 
-### 3.4 Filtre références père
+### 4.4 Filtre références père
 
 **Problème** : les références "carton" (père) ont toujours un stock à 0 dans l'ERP car le stock physique est porté par la référence fils (unité). Cela créait des faux positifs dans les ruptures.
 
@@ -152,15 +216,15 @@ Seuils visuels :
 
 Le nombre de réf. père exclues est affiché sous le titre des ruptures. Le flag est aussi exporté dans le CSV (colonne `RefPere`).
 
-### 3.5 Suppression des badges conditionnement
+### 4.5 Suppression des badges conditionnement
 
 Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cockpit car ils n'apportaient pas de valeur ajoutée pour l'action terrain.
 
 ---
 
-## 4. Indicateurs calculés
+## 5. Indicateurs calculés
 
-### 4.1 Par article
+### 5.1 Par article
 
 | Indicateur | Formule | Signification |
 |-----------|---------|---------------|
@@ -169,8 +233,10 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | Fréq | Nombre de commandes (W) | Nombre de clients/BL |
 | Couverture | Stock ÷ (V ÷ globalJoursOuvres) | Jours de stock restant (base = jours ouvrés dynamiques du fichier) |
 | Âge | Jours depuis dernière sortie | Fraîcheur de l'article |
+| **ABC** | Classement Pareto valeur rotation (V×PU) | A=top 80%, B=15%, C=5% — actifs uniquement (V24) |
+| **FMR** | Classement fréquence W | F≥12, M=4-11, R≤3 — actifs uniquement (V24) |
 
-### 4.2 KPI Dashboard (Santé)
+### 5.2 KPI Dashboard (Santé)
 
 | KPI | Formule |
 |-----|---------|
@@ -182,7 +248,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
-## 5. Cockpit — Actions prioritaires
+## 6. Cockpit — Actions prioritaires
 
 ### 🔴 Urgences
 
@@ -210,7 +276,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
-## 6. Paramètres du calcul
+## 7. Paramètres du calcul
 
 | Constante | Valeur | Signification |
 |-----------|--------|---------------|
@@ -223,7 +289,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
-## 7. Fréquence d'utilisation recommandée
+## 8. Fréquence d'utilisation recommandée
 
 | Action | Fréquence |
 |--------|-----------|
@@ -235,7 +301,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
-## 8. Historique des fixes
+## 9. Historique des fixes
 
 | Fix | Problème | Solution |
 |-----|----------|----------|
@@ -250,7 +316,8 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | Ancienneté = 365 | Article à 365j pile incohérent | d<=365 → hot (cohérent avec >365 du dormant) |
 | **Réf. père (V23)** | **Cartons toujours stock=0 = faux positifs ruptures** | **3 dates vides → isParent → exclu** |
 | **Badges C24 (V23)** | **Badges conditionnement inutiles** | **Supprimés du cockpit** |
+| **ABC/FMR (V24)** | **Pas de segmentation analytique** | **computeABCFMR() : Pareto rotation + fréquence** |
 
 ---
 
-*Document généré — Optistock PRO V23*
+*Document généré — Optistock PRO V24*
