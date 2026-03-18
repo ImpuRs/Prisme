@@ -79,6 +79,8 @@
     .cap-bar{height:8px;border-radius:4px;transition:width .4s ease}
     /* Territoire famille drill-down */
     .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:#dbeafe}.terr-fam-row.open{background:#bfdbfe}
+    /* Territoire status badge — compteurs cliquables ✅/⚠️/❌ */
+    .terr-status-badge{cursor:pointer;font-weight:700;border-radius:6px;padding:1px 5px;transition:opacity .15s;display:inline-block}.terr-status-badge:hover{opacity:.7;text-decoration:underline}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
@@ -424,6 +426,7 @@
         </div>
         <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
         <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-xs">📥 CSV</button>
+        <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-2 px-3 rounded-lg font-semibold">↺ Reset</button>
       </div>
 
       <!-- Vue par Direction -->
@@ -1168,27 +1171,16 @@
       const pctCouv=nbTotal>0?Math.round(nbGreen/nbTotal*100):0;
       const barColor=pctCouv>=70?'bg-emerald-500':pctCouv>=40?'bg-amber-500':'bg-red-500';
       const rowId='terr-dir-'+d.dir.replace(/\W/g,'_');
-      tbody+=`<tr class="terr-row border-b font-semibold text-xs" onclick="toggleTerrDir('${rowId}')">
+      const dirEnc=encodeURIComponent(d.dir);
+      tbody+=`<tr class="terr-row border-b font-semibold text-xs" onclick="toggleTerrDir('${rowId}','${dirEnc}')">
         <td class="py-2 px-3 font-bold">${d.dir} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
         <td class="py-2 px-3 text-right">${formatEuro(d.caTotal)}</td>
         <td class="py-2 px-3 text-center">${nbTotal}</td>
-        <td class="py-2 px-3 text-center text-emerald-700 font-bold">✅ ${nbGreen}</td>
-        <td class="py-2 px-3 text-center text-amber-700 font-bold">⚠️ ${nbYellow}</td>
-        <td class="py-2 px-3 text-center text-red-700 font-bold">❌ ${nbRed}</td>
+        <td class="py-2 px-3 text-center"><span class="terr-status-badge text-emerald-700" title="Voir les ${nbGreen} articles en rayon" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','green')">✅ ${nbGreen}</span></td>
+        <td class="py-2 px-3 text-center"><span class="terr-status-badge text-amber-700" title="Voir les ${nbYellow} articles en rupture" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','yellow')">⚠️ ${nbYellow}</span></td>
+        <td class="py-2 px-3 text-center"><span class="terr-status-badge text-red-700" title="Voir les ${nbRed} articles absents" onclick="event.stopPropagation();toggleTerrDirStatus('${rowId}','${dirEnc}','red')">❌ ${nbRed}</span></td>
         <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctCouv}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCouv}%</span></div></td>
-      </tr>`;
-      const dirEnc=encodeURIComponent(d.dir);
-      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-center">Nb art.</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
-      Object.entries(d.familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{
-        const famLabel=fam?fam:'❓ Non référencé en agence';
-        const famRowId='terr-fam-'+d.dir.replace(/\W/g,'_')+'-'+fam.replace(/\W/g,'_')+'_f';
-        tbody+=`<tr class="terr-fam-row border-t border-blue-200" onclick="toggleTerrFam('${famRowId}','${dirEnc}','${encodeURIComponent(fam)}')">`+
-          `<td class="py-1.5 px-4">${famLabel} <span class="text-gray-400 text-[9px]">▼</span></td>`+
-          `<td class="py-1.5 px-3 text-center">${fd.nb.size}</td>`+
-          `<td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`+
-          `<tr id="${famRowId}" style="display:none"><td colspan="3" class="p-0 bg-sky-50"><div id="${famRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
-      });
-      tbody+=`</tbody></table></td></tr>`;
+      </tr><tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs"></div></td></tr>`;
     }
     const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucune donnée</td></tr>';
 
@@ -1220,7 +1212,109 @@
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
   }
 
-  function toggleTerrDir(rowId){const el=document.getElementById(rowId);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+  // Toggle direction row — shows famille breakdown (lazy)
+  function toggleTerrDir(rowId,encDir){
+    const row=document.getElementById(rowId);if(!row)return;
+    const inner=document.getElementById(rowId+'-inner');
+    const isOpen=row.style.display!=='none';
+    if(isOpen&&inner&&inner.dataset.mode==='familles'){row.style.display='none';row.previousElementSibling.classList.remove('expanded');return;}
+    row.style.display='table-row';row.previousElementSibling.classList.add('expanded');
+    renderTerrDirFamilles(rowId,decodeURIComponent(encDir));
+  }
+
+  // Render famille breakdown for a direction (lazy, called by toggleTerrDir)
+  function renderTerrDirFamilles(rowId,direction){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
+    const q=(document.getElementById('terrSearch')||{}).value||'';
+    const selectedSecteurs=getSelectedSecteurs();
+    const familles={};
+    for(const l of territoireLines){
+      if(l.isSpecial)continue;
+      if(l.direction!==direction)continue;
+      if(filterRayon&&l.rayonStatus!==filterRayon)continue;
+      if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))continue;
+      if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))continue;}
+      const famKey=l.famille||'';
+      if(!familles[famKey])familles[famKey]={caTotal:0,nb:new Set()};
+      familles[famKey].caTotal+=l.ca;familles[famKey].nb.add(l.code);
+    }
+    const dirEnc=encodeURIComponent(direction);
+    let html=`<table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-center">Nb art.</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
+    Object.entries(familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{
+      const famLabel=fam?fam:'❓ Non référencé en agence';
+      const famRowId='terr-fam-'+direction.replace(/\W/g,'_')+'-'+fam.replace(/\W/g,'_')+'_f';
+      html+=`<tr class="terr-fam-row border-t border-blue-200" onclick="toggleTerrFam('${famRowId}','${dirEnc}','${encodeURIComponent(fam)}')">`+
+        `<td class="py-1.5 px-4">${famLabel} <span class="text-gray-400 text-[9px]">▼</span></td>`+
+        `<td class="py-1.5 px-3 text-center">${fd.nb.size}</td>`+
+        `<td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`+
+        `<tr id="${famRowId}" style="display:none"><td colspan="3" class="p-0 bg-sky-50"><div id="${famRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
+    });
+    html+=`</tbody></table>`;
+    inner.innerHTML=html;inner.dataset.mode='familles';
+  }
+
+  // Toggle status-filtered article view for a direction (✅/⚠️/❌ badge click)
+  function toggleTerrDirStatus(rowId,encDir,status){
+    const row=document.getElementById(rowId);if(!row)return;
+    const inner=document.getElementById(rowId+'-inner');
+    const isOpen=row.style.display!=='none';
+    if(isOpen&&inner&&inner.dataset.mode===status){row.style.display='none';row.previousElementSibling.classList.remove('expanded');return;}
+    row.style.display='table-row';row.previousElementSibling.classList.add('expanded');
+    renderTerrDirStatusArticles(rowId,decodeURIComponent(encDir),status);
+  }
+
+  // Render filtered article list for a direction + rayonStatus
+  function renderTerrDirStatusArticles(rowId,direction,status){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    const isStd=code=>/^\d{6}$/.test(code);
+    const artMap={};
+    for(const l of territoireLines){
+      if(l.isSpecial)continue;
+      if(l.direction!==direction||l.rayonStatus!==status)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
+      artMap[l.code].ca+=l.ca;
+    }
+    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const statusLabel=status==='green'?'✅ En rayon':status==='yellow'?'⚠️ Rupture':'❌ Absent';
+    const hdrCls=status==='green'?'bg-emerald-100 text-emerald-800':status==='yellow'?'bg-amber-100 text-amber-800':'bg-red-100 text-red-800';
+    const LIMIT=50;
+    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px] px-3 pt-3">${statusLabel} — ${arts.length} article${arts.length>1?'s':''} dans <em>${direction}</em></div>`;
+    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-[11px] px-3 pb-3">Aucun article.</p>';inner.dataset.mode=status;return;}
+    html+=`<table class="min-w-full text-[11px]"><thead class="${hdrCls}"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody id="${rowId}-statusbody">`;
+    html+=_buildTerrDirStatusRows(arts.slice(0,LIMIT),stockMap,isStd);
+    html+=`</tbody></table>`;
+    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs font-bold hover:underline text-gray-600" onclick="_loadMoreTerrDirStatus(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}','${status}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
+    inner.innerHTML=html;inner.dataset.mode=status;
+  }
+  function _buildTerrDirStatusRows(arts,stockMap,isStd){
+    let html='';
+    for(const a of arts){
+      const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
+      const speTag=!isStd(a.code)?'<span class="ml-1 text-[9px] bg-gray-200 text-gray-500 font-bold px-1 rounded">SPÉ</span>':'';
+      html+=`<tr class="border-t border-gray-100"><td class="py-1 px-3 font-mono text-[10px]">${a.code}${speTag}</td><td class="py-1 px-3 max-w-[180px] truncate">${a.libelle}</td><td class="py-1 px-3 text-gray-500 text-[10px]">${a.famille||'❓'}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
+    }
+    return html;
+  }
+  function _loadMoreTerrDirStatus(btn,rowId,offset,encDir,status){
+    const direction=decodeURIComponent(encDir);
+    const LIMIT=50,newOff=offset+LIMIT;
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    const isStd=code=>/^\d{6}$/.test(code);
+    const artMap={};
+    for(const l of territoireLines){
+      if(l.isSpecial)continue;
+      if(l.direction!==direction||l.rayonStatus!==status)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
+      artMap[l.code].ca+=l.ca;
+    }
+    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const tbody=document.getElementById(rowId+'-statusbody');
+    if(tbody)tbody.insertAdjacentHTML('beforeend',_buildTerrDirStatusRows(arts.slice(offset,newOff),stockMap,isStd));
+    const rem=arts.length-newOff;
+    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreTerrDirStatus(btn,rowId,newOff,encDir,status);}else btn.remove();
+  }
 
   // Toggle famille row inside direction detail (lazy load articles)
   function toggleTerrFam(rowId,encDir,encFam){
@@ -1232,11 +1326,11 @@
     if(inner&&inner.textContent.trim()==='Chargement…')renderTerrFamArticles(rowId,decodeURIComponent(encDir),decodeURIComponent(encFam));
   }
 
-  // Render article list for a direction+famille combination
-  function renderTerrFamArticles(rowId,direction,famille){
+  // Render article list for a direction+famille combination, with optional rayonStatus filter
+  function renderTerrFamArticles(rowId,direction,famille,statusFilter){
+    statusFilter=statusFilter||'';
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
-    const isStd=code=>/^\d{6}$/.test(code);
     const artMap={};
     for(const l of territoireLines){
       if(l.direction!==direction)continue;
@@ -1244,15 +1338,26 @@
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
     }
-    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const allArts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const arts=statusFilter?allArts.filter(a=>a.rayonStatus===statusFilter):allArts;
+    const nbGreen=allArts.filter(a=>a.rayonStatus==='green').length;
+    const nbYellow=allArts.filter(a=>a.rayonStatus==='yellow').length;
+    const nbRed=allArts.filter(a=>a.rayonStatus==='red').length;
     const LIMIT=50;
-    if(!arts.length){inner.innerHTML='<p class="text-gray-400 text-[11px] p-2">Aucun article dans cette famille.</p>';return;}
-    const nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
-    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px] px-2 pt-2">${arts.length} article${arts.length>1?'s':''} · <span class="text-emerald-700">${nbEnRayon} en rayon</span> · <span class="text-red-700">${nbAbsent} absent${nbAbsent>1?'s':''}</span></div>`;
+    const encDir=encodeURIComponent(direction),encFam=encodeURIComponent(famille);
+    const tgGreen=statusFilter==='green'?"''":"'green'";
+    const tgYellow=statusFilter==='yellow'?"''":"'yellow'";
+    const tgRed=statusFilter==='red'?"''":"'red'";
+    const resetBtn=statusFilter?` · <span class="terr-status-badge text-gray-400 text-[10px]" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}','')">↺ Tout</span>`:'';
+    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px] px-2 pt-2">${allArts.length} art. · `+
+      `<span class="terr-status-badge text-emerald-700${statusFilter==='green'?' underline':''}" title="Filtrer En rayon" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgGreen})">✅ ${nbGreen}</span> · `+
+      `<span class="terr-status-badge text-amber-700${statusFilter==='yellow'?' underline':''}" title="Filtrer Rupture" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgYellow})">⚠️ ${nbYellow}</span> · `+
+      `<span class="terr-status-badge text-red-700${statusFilter==='red'?' underline':''}" title="Filtrer Absent" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgRed})">❌ ${nbRed}</span>${resetBtn}</div>`;
+    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-[11px] px-2 pb-2">Aucun article pour ce filtre.</p>';return;}
     html+=`<table class="min-w-full text-[11px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
     html+=_buildTerrFamArtRows(arts.slice(0,LIMIT),stockMap);
     html+=`</tbody></table>`;
-    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs text-sky-700 font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}','${encodeURIComponent(famille)}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
+    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs text-sky-700 font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encDir}','${encFam}','${statusFilter}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
     inner.innerHTML=html;
   }
   function _buildTerrFamArtRows(arts,stockMap){
@@ -1267,7 +1372,8 @@
     }
     return html;
   }
-  function _loadMoreTerrFamArt(btn,rowId,offset,encDir,encFam){
+  function _loadMoreTerrFamArt(btn,rowId,offset,encDir,encFam,statusFilter){
+    statusFilter=statusFilter||'';
     const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
@@ -1278,11 +1384,12 @@
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
     }
-    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    let arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    if(statusFilter)arts=arts.filter(a=>a.rayonStatus===statusFilter);
     const tbody=document.getElementById(rowId+'-artbody');
     if(tbody)tbody.insertAdjacentHTML('beforeend',_buildTerrFamArtRows(arts.slice(offset,newOff),stockMap));
     const rem=arts.length-newOff;
-    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreTerrFamArt(btn,rowId,newOff,encDir,encFam);}else btn.remove();
+    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreTerrFamArt(btn,rowId,newOff,encDir,encFam,statusFilter);}else btn.remove();
   }
 
   // VOLET 3: Résumé exécutif du croisement
@@ -1501,6 +1608,26 @@
     html+=`</tbody></table>`;
     if(arts.length>LIMIT)html+=`<p class="text-[10px] text-gray-400 mt-1 italic">… et ${arts.length-LIMIT} article${arts.length-LIMIT>1?'s':''} supplémentaires.</p>`;
     inner.innerHTML=html;
+  }
+
+  // Reset all territoire local filters + close all accordions
+  function resetTerrFilters(){
+    const s=document.getElementById('terrSearch');if(s)s.value='';
+    const d=document.getElementById('terrFilterDir');if(d)d.value='';
+    const r=document.getElementById('terrFilterRayon');if(r)r.value='';
+    // Reset secteur multi-select
+    document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>cb.checked=true);
+    const allCb=document.getElementById('terrSecteurAll');if(allCb)allCb.checked=true;
+    const label=document.getElementById('terrSecteurLabel');if(label)label.textContent='Tous Secteurs';
+    // Close all direction/famille detail rows
+    document.querySelectorAll('[id^="terr-dir-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
+    document.querySelectorAll('[id^="terr-fam-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
+    document.querySelectorAll('.terr-row.expanded').forEach(el=>el.classList.remove('expanded'));
+    document.querySelectorAll('.terr-fam-row.open').forEach(el=>el.classList.remove('open'));
+    // Close contrib accordions
+    document.querySelectorAll('.contrib-dir-detail.open,.contrib-sect-detail.open,.contrib-client-detail.open').forEach(el=>el.classList.remove('open'));
+    document.querySelectorAll('.contrib-dir-row.open,.contrib-sect-row.open,.contrib-client-row.open').forEach(el=>el.classList.remove('open'));
+    renderTerritoireTab();
   }
 
   // VOLET 2bis: Export CSV — tous les secteurs avec leurs métriques
