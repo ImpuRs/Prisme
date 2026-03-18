@@ -1,8 +1,8 @@
-# OPTISTOCK PRO — Documentation Technique V24.4
+# PILOT PRO — Documentation Technique V1.0
 
 ## 1. Vue d'ensemble
 
-Optistock est un outil d'analyse et d'optimisation des stocks pour magasins de distribution B2B. Il fonctionne en fichier HTML unique dans Google Apps Script, avec 2 fichiers Excel en entrée.
+PILOT PRO (ex-Optistock PRO) est un outil d'analyse et d'optimisation des stocks pour magasins de distribution B2B. Il fonctionne en fichier HTML unique dans Google Apps Script, avec 2 fichiers Excel en entrée + 1 optionnel (Territoire).
 
 ### Fichiers d'entrée
 
@@ -17,10 +17,10 @@ Optistock est un outil d'analyse et d'optimisation des stocks pour magasins de d
 | Onglet | Rôle |
 |--------|------|
 | 📋 Articles | Tableau complet avec tous les indicateurs, filtrable, triable, exportable CSV |
-| 📊 Stock | KPI globaux + raccourcis Accès rapide + 🧲 Attractivité par famille (V24.4) + comparaison historique |
+| 📊 Stock | KPI → Évolution historique → Accès rapide → Attractivité par famille → Ancienneté/Statuts/Familles |
 | 🎯 COCKPIT | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) |
 | 📊 ABC | Matrice ABC/FMR 3×3 cliquable + guides "Par où commencer ?" et "Comment progresser ?" |
-| 🔗 Territoire *(optionnel)* | Répartition canaux agence + analyse capte omnicanal (V24.4) |
+| 🔗 Territoire *(optionnel)* | Canaux agence + Vue Direction + Top 100 + filtre multi-select secteur |
 | 🔄 BENCH | Comparaison multi-magasins (si fichiers multi-agences) |
 
 ### Onglet Territoire V24.4
@@ -45,9 +45,13 @@ L'onglet Territoire s'active uniquement lorsqu'un **3ème fichier** (BL omnicana
 
 **Logique canal** : si le N° BL est présent dans les BL du fichier Consommé → `MAGASIN`, sinon → `EXTÉRIEUR`.
 
-**Statut rayon** : croisé avec `finalData` — 🟢 stock > 0, 🟡 référencé mais rupture, 🔴 absent du rayon.
+**Articles spéciaux** : code article ≠ exactement 6 chiffres (regex `/^\d{6}$/`) → non stockable. Exclus du calcul principal (Direction, Top 100, rayon). Comptés séparément : "📌 X% du CA = spécial non stockable". Le % capté est calculé sur CA hors spécial uniquement.
 
-**Type client** : croisé avec les codes clients du Consommé — 🟢 Mixte (passe aussi en magasin), 🔴 Extérieur pur.
+**Statut rayon** : croisé avec `finalData` — ✅ En rayon (stock > 0), ⚠️ Rupture (référencé mais stock = 0), ❌ Absent (non référencé).
+
+**Type client** : croisé avec les codes clients du Consommé — ✅ Mixte (passe aussi en magasin), ❌ Extérieur pur.
+
+**Filtre multi-select secteur** : dropdown avec checkboxes listant tous les codes secteur du fichier territoire. Affiche le code secteur + la direction entre parenthèses. Le premier caractère du code secteur indique la direction : M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie. Permet de cocher plusieurs secteurs pour comparer.
 
 ### Cockpit V24.3 — logique simplifiée
 
@@ -394,4 +398,4 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
-*Document généré — Optistock PRO V24.2*
+*Document généré — PILOT PRO 1.0 (ex-Optistock PRO)*
