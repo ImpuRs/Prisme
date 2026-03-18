@@ -269,6 +269,7 @@
   let blData={};
   // V23: track parent refs excluded
   let parentRefsExcluded=0;
+  let globalJoursOuvres=250;
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
   function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
@@ -282,7 +283,7 @@
   function readExcel(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{try{const w=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:''}));}catch(e){rej(e);}};r.onerror=()=>rej(new Error('Lecture impossible'));r.readAsArrayBuffer(f);});}
   function yieldToMain(){return new Promise(r=>setTimeout(r,0));}
   function updateProgress(c,t,txt,step){const p=t>0?Math.round(c/t*100):0;document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressPct').textContent=p+'%';if(txt)document.getElementById('loadingText').textContent=txt;if(step)document.getElementById('loadingStep').textContent=step;}
-  function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/250));}
+  function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
   function formatCouv(j){if(j>=999)return'—';return j+'j';}
   function couvColor(j){if(j>=999)return'text-gray-400';if(j<=7)return'text-red-600 font-extrabold';if(j<=21)return'text-orange-600 font-bold';if(j<=60)return'text-green-600';return'text-blue-500';}
 
@@ -399,6 +400,7 @@
 
       updateProgress(68,100,'Analyse ventes…');
       const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
+      globalJoursOuvres=joursOuvres;
       const totalBLs=Object.keys(blData).length;let sumRefParBL=0,sumFamParBL=0;const famBLcount={};
       for(const bl of Object.values(blData)){sumRefParBL+=bl.codes.size;sumFamParBL+=bl.familles.size;for(const fam of bl.familles)famBLcount[fam]=(famBLcount[fam]||0)+1;}
       ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount};
