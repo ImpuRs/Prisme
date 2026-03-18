@@ -368,7 +368,19 @@
       <div id="terrFiltersBlock" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
         <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[180px] p-2 text-sm border rounded-lg" placeholder="🔍 Code, libellé, direction…">
         <select id="terrFilterDir" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Directions</option></select>
-        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">🟢 En rayon</option><option value="yellow">🟡 Rupture</option><option value="red">🔴 Absent</option></select>
+        <!-- Multi-select secteur/commercial -->
+        <div class="relative" id="terrSecteurDropdown">
+          <button type="button" onclick="toggleSecteurDropdown()" class="p-2 border rounded-lg text-sm font-semibold bg-white min-w-[180px] text-left flex items-center justify-between gap-1">
+            <span id="terrSecteurLabel">Tous Secteurs</span><span class="text-gray-400 text-xs">▼</span>
+          </button>
+          <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 bg-white border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[260px]" style="left:0">
+            <label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
+              <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
+            </label>
+            <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
+          </div>
+        </div>
+        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
         <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-xs">📥 CSV</button>
       </div>
 
@@ -837,13 +849,14 @@
       const cClient=findCol('code client')||findCol('code et nom');
       const cNom=findCol('nom client')||findCol('nom');
       const cDir=findCol('direction');
+      const cSecteur=findCol('secteur')||findCol('code secteur')||findCol('commercial');
       const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
       const cArticle=findCol('article');
       const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
       const cCA=findCol('ca');
       if(!cArticle){self.postMessage({type:'error',msg:'Territoire: colonne Article introuvable'});return;}
       if(!cBL){self.postMessage({type:'error',msg:'Territoire: colonne Numéro de BL introuvable'});return;}
-      const lines=[];const dirSet=new Set();const CHUNK=2000;const total=rows.length;
+      const lines=[];const dirSet=new Set();const secteurSet=new Set();const CHUNK=2000;const total=rows.length;
       for(let ci=0;ci<Math.ceil(total/CHUNK);ci++){
         const start=ci*CHUNK,end=Math.min(start+CHUNK,total);
         for(let j=start;j<end;j++){
@@ -856,6 +869,7 @@
           const bl=(cBL?row[cBL]||'':'').toString().trim();
           const ca=cCA?cleanOmniPrice(row[cCA]):0;
           const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
+          const secteur=(cSecteur?row[cSecteur]||'':'').toString().trim();
           const clientCodeRaw=(cClient?row[cClient]||'':'').toString().trim();
           const clientNom=(cNom?row[cNom]||'':'').toString().trim();
           const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
@@ -867,7 +881,8 @@
           const famItem=articleFamilleObj[code]||(stockItem?stockItem.famille:'')||'Non classé';
           const libelle=articleRaw.includes(' - ')?articleRaw.split(' - ').slice(1).join(' - ').trim():(libelleLookupObj[code]||code);
           if(!isSpecial)dirSet.add(direction);
-          lines.push({code,libelle,direction,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,isSpecial});
+          if(secteur)secteurSet.add(secteur);
+          lines.push({code,libelle,direction,secteur,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,isSpecial});
         }
         self.postMessage({type:'progress',cur:end,total});
       }
@@ -883,7 +898,7 @@
         d.familles[ln.famille].caTotal+=ln.ca;
         if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
       }
-      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort()});
+      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort(),secteursSorted:[...secteurSet].sort()});
     };
   }
 
@@ -907,6 +922,8 @@
           territoireLines=d.lines;terrDirectionData=d.terrDirData;
           const sel=document.getElementById('terrFilterDir');
           if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';d.dirsSorted.forEach(dir=>{sel.innerHTML+=`<option value="${dir}">${dir}</option>`;});}
+          // Build secteur multi-select checkboxes
+          buildSecteurCheckboxes(d.secteursSorted||[]);
           territoireReady=true;
           worker.terminate();URL.revokeObjectURL(workerUrl);resolve();
         }else if(d.type==='error'){
@@ -941,6 +958,57 @@
     }
     el.innerHTML=html;
   }
+
+  // V24.5: Secteur multi-select helpers
+  const SECTEUR_DIR_MAP={M:'Maintenance',B:'Second Œuvre',L:'DVP Plomberie',F:'DVI Industrie'};
+  function getSecteurDirection(code){if(!code)return'';return SECTEUR_DIR_MAP[code.charAt(0).toUpperCase()]||'';}
+  function buildSecteurCheckboxes(secteurs){
+    const div=document.getElementById('terrSecteurCheckboxes');if(!div)return;
+    if(!secteurs.length){div.innerHTML='<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>';return;}
+    let html='';
+    for(const s of secteurs){
+      const dirLabel=getSecteurDirection(s);
+      const label=dirLabel?`${s} (${dirLabel})`:s;
+      html+=`<label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs">
+        <input type="checkbox" value="${s}" checked onchange="onSecteurChange()" class="rounded">
+        <span class="font-semibold">${label}</span>
+      </label>`;
+    }
+    div.innerHTML=html;
+  }
+  function toggleSecteurDropdown(){
+    const panel=document.getElementById('terrSecteurPanel');
+    if(panel)panel.classList.toggle('hidden');
+  }
+  function toggleAllSecteurs(checked){
+    document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=checked;});
+    onSecteurChange();
+  }
+  function onSecteurChange(){
+    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
+    const checked=[...all].filter(cb=>cb.checked);
+    const allCb=document.getElementById('terrSecteurAll');
+    if(allCb)allCb.checked=(checked.length===all.length);
+    const label=document.getElementById('terrSecteurLabel');
+    if(label){
+      if(checked.length===all.length||checked.length===0)label.textContent='Tous Secteurs';
+      else if(checked.length===1)label.textContent=checked[0].value;
+      else label.textContent=checked.length+' secteurs';
+    }
+    renderTerritoireTab();
+  }
+  function getSelectedSecteurs(){
+    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
+    if(!all.length)return null; // no secteur data
+    const checked=[...all].filter(cb=>cb.checked).map(cb=>cb.value);
+    if(checked.length===all.length)return null; // all selected = no filter
+    return new Set(checked);
+  }
+  // Close secteur dropdown on outside click
+  document.addEventListener('click',function(e){
+    const dd=document.getElementById('terrSecteurDropdown');
+    if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
+  });
 
   function renderTerritoireTab(){
     renderCanalAgence();
@@ -981,17 +1049,19 @@
     const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
     const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     setSafe('terrKpiClients',Object.keys(clientsMap).length.toLocaleString('fr'));
-    setSafe('terrKpiClientsSub',`🟢 ${mixteCount} mixtes · 🔴 ${extCount} ext. purs`);
+    setSafe('terrKpiClientsSub',`✅ ${mixteCount} mixtes · ❌ ${extCount} ext. purs`);
 
     // Special KPI banner
     const spEl=document.getElementById('terrSpecialKPIText');
     if(spEl)spEl.textContent=`${pctSpecial}% du CA territoire est du spécial non stockable — ${formatEuro(specialCA)} (hors de la vue Direction, Top 100 et croisement rayon)`;
 
     // Local filter — specials always excluded from direction/top100/rayon views
+    const selectedSecteurs=getSelectedSecteurs();
     const linesFiltered=territoireLines.filter(l=>{
       if(l.isSpecial)return false;
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
       if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))return false;}
       return true;
     });
@@ -1041,7 +1111,7 @@
     for(const a of top100){
       const stockItem=stockMap.get(a.code);
       const stockQty=stockItem?stockItem.stockActuel:'—';
-      const rayonIcon=a.rayonStatus==='green'?'🟢':a.rayonStatus==='yellow'?'🟡':'🔴';
+      const rayonIcon=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
       const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
       p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-right text-blue-700">${formatEuro(a.caMag)}</td><td class="py-1.5 px-2 text-right text-rose-700">${formatEuro(a.caExt)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
@@ -1051,7 +1121,7 @@
     const clientsList=Object.values(clientsMap).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
-      const typeIcon=c.type==='mixte'?'🟢 Mixte':'🔴 Ext. pur';
+      const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
       pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
@@ -1061,18 +1131,21 @@
 
   function exportTerritoireCSV(){
     if(!territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
-    const SEP=';';const h=['Code','Libelle','Direction','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
+    const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
     const lines=['\uFEFF'+h.join(SEP)];
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
+    const selectedSecteursCSV=getSelectedSecteurs();
     const filtered=territoireLines.filter(l=>{
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
       if(q){const h2=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h2.includes(q.toLowerCase()))return false;}
       return true;
     });
-    for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
+    const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
+    for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
