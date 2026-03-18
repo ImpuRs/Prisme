@@ -1,4 +1,4 @@
-# OPTISTOCK PRO — Documentation Technique V24
+# OPTISTOCK PRO — Documentation Technique V24.3
 
 ## 1. Vue d'ensemble
 
@@ -16,11 +16,25 @@ Optistock est un outil d'analyse et d'optimisation des stocks pour magasins de d
 | Onglet | Rôle |
 |--------|------|
 | 📋 Articles | Tableau complet avec tous les indicateurs, filtrable, triable, exportable CSV |
-| 📊 Santé | KPI globaux + comparaison vs analyse précédente |
-| 🎯 COCKPIT | Actions prioritaires classées par urgence + résumé exécutif (V23) |
+| 📊 Stock | KPI globaux + raccourcis Accès rapide + comparaison vs analyse précédente (V24.3 : ex-Santé) |
+| 🎯 COCKPIT | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) — V24.3 simplifié |
 | 🧲 Ventes | Attractivité par famille |
-| 📊 ABC | Matrice ABC/FMR 3×3 cliquable — segmentation analytique (V24) |
+| 📊 ABC | Matrice ABC/FMR 3×3 cliquable + guides "Par où commencer ?" et "Comment progresser ?" (V24.3) |
 | 🔄 BENCH | Comparaison multi-magasins (si fichiers multi-agences) |
+
+### Cockpit V24.3 — logique simplifiée
+
+Le cockpit est organisé en **2 sections** :
+
+**🔴 Urgences** — actions bloquantes du jour :
+- 🚨 **Ruptures** : Fréq≥3 et Stock≤0, triées par CA potentiel perdu (score priorité)
+- ⚠️ **Anomalies** : articles vendus (V>0) avec stock>0 mais MIN/MAX=0 dans l'ERP
+
+**📦 Préconisation de stock** — actions de rééquilibrage :
+- 📦 **SASO** : stock > ancien MAX ERP → excédent à renvoyer au dépôt
+- 📦→🏪 **Colis à stocker** : ≥5 enlevés colis/an, 0 prélevé → candidat mise en stock rayon
+
+Les autres listes (Fantômes, Dormants, Fins, Top 20, Nouveautés) sont accessibles depuis les **raccourcis "Accès rapide"** de l'onglet Stock.
 
 ---
 

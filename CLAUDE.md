@@ -32,7 +32,7 @@ Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B
 Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock).
 
 ## Structure du code (dans index.html)
-- **Lignes 1-130** : HTML structure + CSS (V24 : styles `.abc-cell`)
+- **Lignes 1-150** : HTML structure + CSS (V24 : styles `.abc-cell` — V24.3 : `.shortcut-card`, `.info-tip`, `.abc-cell.abc-top`)
 - **Section `<script>`** :
   - Constantes et variables globales (dont `abcMatrixData` — V24)
   - Fonctions utilitaires (cleanCode, cleanPrice, parseExcelDate, etc.)
@@ -40,12 +40,20 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3) — V24
   - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles — V24
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
-  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable — V24
+  - `renderDashboardAndCockpit()` : remplit aussi les raccourcis Accès rapide (V24.3) et `cockpitLists.{top20,nouveautes,colisrayon}`
+  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides "Par où commencer ?" / "Comment progresser ?" (V24.3)
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
   - `renderVentesTab()` : onglet ventes
   - `renderExecSummary()` : résumé exécutif (V23 + ligne C-Rare V24 + CA Perdu V24.2)
   - `calcPriorityScore()` / `isParentRef()` : fonctions V23
   - `renderComparison()` : comparaison historique (V23 + caPerdu V24.2)
+
+## Cockpit V24.3 — structure simplifiée
+- **🔴 Urgences** : Ruptures + Anomalies (2 cartes)
+- **📦 Préconisation de stock** : SASO + Colis à stocker (2 cartes)
+- **Onglet Stock** : 6 KPI cards + barre "🔗 Accès rapide" (5 shortcuts) + ancienneté/statuts/familles
+- Les listes lstFa/lstD/lstFi/lstB/lstN sont toujours calculées dans `renderDashboardAndCockpit()` — leurs éléments DOM (`actionFantomes`, `actionDormant`, etc.) sont hidden pour la compat filtre
+- `cockpitLists.{fantomes,dormants,fins,top20,nouveautes,colisrayon}` toujours peuplés pour que `showCockpitInTable()` fonctionne depuis les raccourcis
 
 ## Commandes utiles
 ```bash

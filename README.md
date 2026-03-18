@@ -44,10 +44,10 @@ Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "A
 | Onglet | Rôle |
 |--------|------|
 | 📋 **Articles** | Tableau complet filtrable, triable, exportable CSV |
-| 📊 **Santé** | KPI globaux + comparaison historique |
-| 🎯 **COCKPIT** | Actions prioritaires classées par urgence avec résumé exécutif |
+| 📊 **Stock** | KPI globaux + raccourcis rapides (sans emplacement, dormants, fins…) + comparaison historique |
+| 🎯 **COCKPIT** | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) |
 | 🧲 **Ventes** | Attractivité par famille, cross-sell |
-| 📊 **ABC** | Matrice ABC/FMR 3×3 — segmentation analytique (V24) |
+| 📊 **ABC** | Matrice ABC/FMR 3×3 + guides "Par où commencer ?" et "Comment progresser ?" |
 | 🔄 **BENCH** | Comparaison multi-magasins |
 
 ## 🧮 Algorithme MIN/MAX
@@ -60,6 +60,15 @@ MAX = MIN + 21 jours (forte rotation) ou 10 jours (faible rotation)
 Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
+
+### V24.3 (Mars 2026) — Réorganisation UX
+- 🏷️ **Renommages** : onglet "Santé" → "📊 Stock" · "Fantômes" → "👻 Articles sans emplacement" · section "Assainir" → "📦 Préconisation de stock"
+- 🎯 **Cockpit simplifié en 2 sections** : 🔴 Urgences (Ruptures + Anomalies) + 📦 Préconisation (SASO + Colis à stocker). Fantômes, Dormants, Fins, Top 20, Nouveautés déplacés en raccourcis dans l'onglet Stock.
+- 🔗 **Barre "Accès rapide"** dans l'onglet Stock : 5 cartes cliquables (👻 Sans emplacement, 💤 Dormants, 📉 Fins, 🏆 Top 20, ✨ Nouveautés) avec compteur + valeur € et filtre direct vers l'onglet Articles.
+- ℹ️ **Infobulles** sur chaque titre du cockpit (Ruptures, Anomalies, SASO, Colis à stocker) — une phrase explicative au survol.
+- 🐛 **Fix tooltip ABC** — ligne A (AF/AM/AR) : tooltip affiché vers le bas pour éviter le clipping par l'overflow du conteneur.
+- 📋 **Guides ABC** : deux nouveaux blocs sous la matrice — "Par où commencer ?" (5 étapes priorisées) et "Comment progresser ?" (C→A / R→F + nettoyage CR).
+- 🔧 `cockpitLists` étendu : types `top20`, `nouveautes`, `colisrayon` pour les filtres des raccourcis.
 
 ### V24.2 (Mars 2026)
 - 💸 **KPI "CA Perdu"** dans l'onglet Santé (6ème carte, gradient rose) : estimation du CA perdu sur les ruptures actives
