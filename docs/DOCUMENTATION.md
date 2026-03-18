@@ -1,4 +1,4 @@
-# OPTISTOCK PRO — Documentation Technique V24.3
+# OPTISTOCK PRO — Documentation Technique V24.4
 
 ## 1. Vue d'ensemble
 
@@ -10,17 +10,44 @@ Optistock est un outil d'analyse et d'optimisation des stocks pour magasins de d
 |---------|---------|---------|
 | Consommé (Ventes) | Toutes les lignes de commandes : prélevé, enlevé, canal, client, famille | 12 mois glissants |
 | État du Stock | Stock actuel, MIN/MAX actuels, dates, statuts, emplacements, valeur PRMP | Photo du jour |
+| Ventes Territoire *(optionnel)* | BL omnicanal tous canaux exporté depuis Qlik — active l'onglet 🔗 Territoire | À la demande |
 
 ### Onglets de l'outil
 
 | Onglet | Rôle |
 |--------|------|
 | 📋 Articles | Tableau complet avec tous les indicateurs, filtrable, triable, exportable CSV |
-| 📊 Stock | KPI globaux + raccourcis Accès rapide + comparaison vs analyse précédente (V24.3 : ex-Santé) |
-| 🎯 COCKPIT | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) — V24.3 simplifié |
-| 🧲 Ventes | Attractivité par famille |
-| 📊 ABC | Matrice ABC/FMR 3×3 cliquable + guides "Par où commencer ?" et "Comment progresser ?" (V24.3) |
+| 📊 Stock | KPI globaux + raccourcis Accès rapide + 🧲 Attractivité par famille (V24.4) + comparaison historique |
+| 🎯 COCKPIT | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) |
+| 📊 ABC | Matrice ABC/FMR 3×3 cliquable + guides "Par où commencer ?" et "Comment progresser ?" |
+| 🔗 Territoire *(optionnel)* | Répartition canaux agence + analyse capte omnicanal (V24.4) |
 | 🔄 BENCH | Comparaison multi-magasins (si fichiers multi-agences) |
+
+### Onglet Territoire V24.4
+
+L'onglet Territoire s'active uniquement lorsqu'un **3ème fichier** (BL omnicanal Qlik) est chargé. Il permet de comprendre ce que votre agence capte du bassin omnicanal.
+
+**Colonnes attendues dans le fichier territoire** (matching insensible à la casse) :
+
+| Colonne | Description |
+|---------|-------------|
+| Date d'expédition | Date du BL |
+| Code client | Code numérique client |
+| Nom client | Nom du client |
+| Secteur | Secteur commercial |
+| Direction | Direction commerciale (regroupement) |
+| Numéro de BL | Identifiant BL — croisé avec le consommé pour déterminer le canal |
+| Article | Format "CODE - LIBELLÉ" — le code est extrait avant le premier " - " |
+| Quantité livrée | Quantité (négatif = avoir → ignoré) |
+| CA | Chiffre d'affaires (€ et espaces retirés, virgule → point) |
+| VMB | Valeur marchandise brute |
+| Taux de marge | En % |
+
+**Logique canal** : si le N° BL est présent dans les BL du fichier Consommé → `MAGASIN`, sinon → `EXTÉRIEUR`.
+
+**Statut rayon** : croisé avec `finalData` — 🟢 stock > 0, 🟡 référencé mais rupture, 🔴 absent du rayon.
+
+**Type client** : croisé avec les codes clients du Consommé — 🟢 Mixte (passe aussi en magasin), 🔴 Extérieur pur.
 
 ### Cockpit V24.3 — logique simplifiée
 
