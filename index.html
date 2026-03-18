@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Optistock PRO V24</title>
+  <title>Optistock PRO V24.4</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -57,6 +57,15 @@
     /* V24.3: Info tooltip */
     .info-tip{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e2e8f0;color:#64748b;font-size:.6rem;cursor:help;font-style:normal;margin-left:5px;position:relative;vertical-align:middle;flex-shrink:0}
     .info-tip:hover::after{content:attr(data-tip);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:6px 10px;border-radius:8px;font-size:.65rem;white-space:normal;z-index:200;width:220px;text-align:left;line-height:1.5;pointer-events:none}
+    /* V24.4: Territoire */
+    .canal-bar{height:24px;border-radius:6px;transition:width .5s ease;display:flex;align-items:center;padding:0 8px;font-size:.65rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;min-width:30px}
+    .terr-row{cursor:pointer;transition:background .15s}
+    .terr-row:hover{background:#f0f9ff}
+    .terr-row.expanded{background:#e0f2fe}
+    .terr-detail{display:none}
+    .terr-detail.open{display:table-row-group}
+    .rayon-green{background:#dcfce7}.rayon-yellow{background:#fef9c3}.rayon-red{background:#fee2e2}
+    .cap-bar{height:8px;border-radius:4px;transition:width .4s ease}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
@@ -66,8 +75,8 @@
 
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
-      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V24</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div></div>
+      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V24.4</span></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Territoire chargé</div></div>
     </div>
   </nav>
 
@@ -94,6 +103,9 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
       <div id="dropConsomme" class="p-5 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-lg text-blue-900 mb-1">1. Ventes (Consommé)</h2><p class="text-xs text-blue-600 mb-2">Fichier consommé (ventes magasin)</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
       <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
+    </div>
+    <div class="grid grid-cols-1 mt-3">
+      <div id="dropTerritoire" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">3. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
@@ -131,8 +143,8 @@
         <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Stock</button></li>
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
-        <li><button data-tab="ventes" onclick="switchTab('ventes')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-pink-600 font-bold">🧲 Ventes</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📊 ABC</button></li>
+        <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold uppercase hidden" id="btnTabBench">🔄 BENCH <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
       </ul>
     </div>
@@ -210,6 +222,12 @@
           </div>
         </div>
       </div>
+      <!-- V24.4: Attractivité par Famille (migré depuis onglet Ventes) -->
+      <div class="mb-8 bg-white p-5 rounded-xl shadow-md border">
+        <h3 class="font-bold text-pink-800 mb-2 border-b pb-2 flex items-center gap-2">🧲 Attractivité par Famille <em class="info-tip" data-tip="% de commandes contenant cette famille — mesure le pouvoir d'attraction du rayon">ℹ</em></h3>
+        <p class="text-[10px] text-gray-500 mb-3">% de commandes contenant cette famille (basé sur le fichier Consommé)</p>
+        <div class="table-scroll max-h-[280px]"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attractivité</th></tr></thead><tbody id="dashAttractTable" class="divide-y"></tbody></table></div>
+      </div>
       <div class="mb-4 flex justify-end gap-2">
         <label class="text-[10px] bg-blue-100 hover:bg-blue-200 py-1.5 px-3 rounded font-semibold text-blue-700 cursor-pointer">📤 Importer un historique<input type="file" accept=".json" onchange="importKPIhistory(this)" class="hidden"></label>
       </div>
@@ -261,17 +279,6 @@
       </div>
     </div>
 
-    <!-- TAB 4 : VENTES -->
-    <div id="tabVentes" class="tab-content hidden">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-gradient-to-br from-pink-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-pink-100 text-[10px] font-bold uppercase mb-1">🛍️ Réf/Client</h4><p id="ventesRefParClient" class="text-2xl font-extrabold">—</p><p class="text-pink-200 text-[10px] mt-1">Réf. par BL</p></div>
-        <div class="bg-gradient-to-br from-fuchsia-500 to-fuchsia-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-fuchsia-100 text-[10px] font-bold uppercase mb-1">🧲 Fam/Client</h4><p id="ventesFamParClient" class="text-2xl font-extrabold">—</p><p class="text-fuchsia-200 text-[10px] mt-1">Familles par BL</p></div>
-        <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">📋 Commandes</h4><p id="ventesTotalBL" class="text-2xl font-extrabold">—</p><p class="text-indigo-200 text-[10px] mt-1">BL analysés</p></div>
-        <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📦 Réf. Actives</h4><p id="ventesRefActives" class="text-2xl font-extrabold">—</p><p class="text-violet-200 text-[10px] mt-1">≥1 vente</p></div>
-      </div>
-      <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold text-pink-800 mb-4 border-b pb-2">🧲 Attractivité par Famille</h3><p class="text-[10px] text-gray-500 mb-3">% de commandes contenant cette famille</p><div class="table-scroll"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attract.</th></tr></thead><tbody id="ventesAttractTable" class="divide-y"></tbody></table></div></div>
-    </div>
-
     <!-- TAB 5 : ABC/FMR MATRIX -->
     <div id="tabAbc" class="tab-content hidden">
       <div class="mb-4 flex items-start justify-between">
@@ -314,6 +321,97 @@
       </div>
     </div>
 
+    <!-- TAB : TERRITOIRE (V24.4) -->
+    <div id="tabTerritoire" class="tab-content hidden">
+      <!-- Canal distribution — always shown when consommé loaded -->
+      <div class="mb-8 bg-white p-5 rounded-xl shadow-md border">
+        <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">📡 Comment arrive votre business <span class="text-[10px] font-normal text-gray-400">— basé sur le fichier Consommé</span></h3>
+        <div id="canalAgenceBlock" class="space-y-2"></div>
+      </div>
+
+      <!-- KPI territoire — only if fichier territoire chargé -->
+      <div id="terrKPIBlock" class="hidden mb-8">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📋 Lignes</h4><p id="terrKpiLignes" class="text-xl font-extrabold">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-1"></p></div>
+          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">💰 CA Total</h4><p id="terrKpiCATotal" class="text-xl font-extrabold">—</p></div>
+          <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1">🏪 CA Magasin</h4><p id="terrKpiCAMag" class="text-xl font-extrabold">—</p><p id="terrKpiCAMagPct" class="text-blue-200 text-[10px] mt-1"></p></div>
+          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1">🌐 CA Extérieur</h4><p id="terrKpiCAExt" class="text-xl font-extrabold">—</p><p id="terrKpiCAExtPct" class="text-rose-200 text-[10px] mt-1"></p></div>
+          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-1">👥 Clients</h4><p id="terrKpiClients" class="text-xl font-extrabold">—</p><p id="terrKpiClientsSub" class="text-amber-200 text-[10px] mt-1"></p></div>
+        </div>
+      </div>
+
+      <!-- Filtres locaux -->
+      <div id="terrFiltersBlock" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
+        <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[180px] p-2 text-sm border rounded-lg" placeholder="🔍 Code, libellé, direction…">
+        <select id="terrFilterDir" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Directions</option></select>
+        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">🟢 En rayon</option><option value="yellow">🟡 Rupture</option><option value="red">🔴 Absent</option></select>
+        <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-xs">📥 CSV</button>
+      </div>
+
+      <!-- Vue par Direction -->
+      <div id="terrDirectionBlock" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📊 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA Extérieur décroissant · cliquez pour détailler</span></h3>
+        <table class="min-w-full text-xs">
+          <thead class="bg-gray-800 text-white">
+            <tr>
+              <th class="py-2 px-3 text-left">Direction</th>
+              <th class="py-2 px-3 text-right">CA Total</th>
+              <th class="py-2 px-3 text-right">CA Magasin</th>
+              <th class="py-2 px-3 text-right">CA Extérieur</th>
+              <th class="py-2 px-3 text-center min-w-[120px]">% capté</th>
+              <th class="py-2 px-3 text-center">Réf rayon</th>
+              <th class="py-2 px-3 text-center">Réf absentes</th>
+            </tr>
+          </thead>
+          <tbody id="terrDirectionTable"></tbody>
+        </table>
+      </div>
+
+      <!-- Top 100 articles -->
+      <div id="terrTop100Block" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 p-4 border-b">🏆 Top 100 articles (CA total décroissant)</h3>
+        <div class="table-scroll">
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-800 text-white sticky top-0">
+              <tr>
+                <th class="py-2 px-2 text-left">Code</th>
+                <th class="py-2 px-2 text-left">Libellé</th>
+                <th class="py-2 px-2 text-left">Direction</th>
+                <th class="py-2 px-2 text-center">BL</th>
+                <th class="py-2 px-2 text-right">CA Total</th>
+                <th class="py-2 px-2 text-right">CA Mag.</th>
+                <th class="py-2 px-2 text-right">CA Ext.</th>
+                <th class="py-2 px-2 text-center">Rayon</th>
+                <th class="py-2 px-2 text-right">Stock</th>
+              </tr>
+            </thead>
+            <tbody id="terrTop100Table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Clients top 50 -->
+      <div id="terrClientsBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 p-4 border-b">👥 Clients (top 50 par CA)</h3>
+        <div class="table-scroll">
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-800 text-white sticky top-0">
+              <tr>
+                <th class="py-2 px-2 text-left">Code</th>
+                <th class="py-2 px-2 text-left">Nom</th>
+                <th class="py-2 px-2 text-right">CA Total</th>
+                <th class="py-2 px-2 text-right">CA Mag.</th>
+                <th class="py-2 px-2 text-right">CA Ext.</th>
+                <th class="py-2 px-2 text-center">Nb Réf</th>
+                <th class="py-2 px-2 text-center">Type</th>
+              </tr>
+            </thead>
+            <tbody id="terrClientsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 6 : BENCHMARK -->
     <div id="tabBench" class="tab-content hidden">
       <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
@@ -340,7 +438,7 @@
     </div>
 
   </div>
-  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V24</footer>
+  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V24.4</footer>
 
   <script>
   'use strict';
@@ -364,6 +462,13 @@
   let globalJoursOuvres=250;
   // V24: ABC/FMR
   let abcMatrixData={};
+  // V24.4: Territoire
+  let canalAgence={};        // {MAGASIN:{bl:0,ca:0}, INTERNET:{...}, ...}
+  let blConsommeSet=new Set(); // BL nums from consommé
+  let clientsMagasin=new Set(); // client codes from consommé
+  let territoireLines=[];    // parsed omnicanal lines
+  let territoireReady=false; // true if 3rd file loaded & processed
+  let terrDirectionData={};  // aggregated by direction
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
   function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
@@ -446,7 +551,7 @@
   function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
   function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
   function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
-  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-pink-600','text-pink-600','border-indigo-600','text-indigo-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='ventes')btn.classList.add('border-pink-600','text-pink-600','active');else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
+  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-indigo-600','text-indigo-600','border-violet-600','text-violet-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='territoire')btn.classList.add('border-violet-600','text-violet-600','active');else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
   function populateSelect(id,vals){const s=document.getElementById(id);const f=s.options[0].textContent;s.innerHTML=`<option value="">${f}</option>`;[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});}
 
   function getFilteredData(){
@@ -475,8 +580,9 @@
     updateActiveAgeIndicator();
     renderTable(true);
     renderDashboardAndCockpit();
-    renderVentesTab();
     renderABCTab();
+    renderCanalAgence();
+    if(territoireReady)renderTerritoireTab();
   }
 
   function onFilterChange(){currentPage=0;clearCockpitFilter(true);renderAll();}
@@ -521,15 +627,25 @@
       const colSousFamille=stockKeys.find(k=>{const l=k.toLowerCase();return l.includes('sous')&&l.includes('famille');})||stockKeys.find(k=>k.toLowerCase().startsWith('sous-famille'));
 
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};
+      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};canalAgence={};clientsMagasin=new Set();
       let minDateVente=Infinity,maxDateVente=0;
 
-      for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();if(canal!==''&&canal!=='MAGASIN')continue;const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const sk=store||'INCONNU';
+      for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
+      // V24.4: capture canal data BEFORE filtering (for canalAgence)
+      if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
+      // V24.4: capture client codes
+      const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const m=codeClientRaw.match(/^(\d+)/);if(m)clientsMagasin.add(m[1]);}
+      if(canal!==''&&canal!=='MAGASIN')continue;
+      const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const sk=store||'INCONNU';
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
+      // V24.4: convert canalAgence bl sets to counts
+      for(const c of Object.keys(canalAgence))canalAgence[c].bl=canalAgence[c].bl.size;
+      // V24.4: build blConsommeSet from blData keys
+      blConsommeSet=new Set(Object.keys(blData));
 
       const synth={};
       for(const[code,art] of Object.entries(articleRaw)){const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);let maxP=0,cntP=0,sumP=0;if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
@@ -593,23 +709,285 @@
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      currentPage=0;renderAll();renderVentesTab();if(useMulti)renderBenchmark();
+      // V24.4: Territoire — parse optional 3rd file
+      const f3=document.getElementById('fileTerritoire').files[0];
+      territoireReady=false;territoireLines=[];terrDirectionData={};
+      if(f3){
+        updateProgress(96,100,'Territoire…');await yieldToMain();
+        try{
+          const terrRaw=await parseTerritoireFile(f3);
+          if(terrRaw&&terrRaw.length){
+            processTerritoireData(terrRaw);
+            document.getElementById('btnTabTerritoire').classList.remove('hidden');
+            document.getElementById('navTerr').classList.remove('hidden');
+          }
+        }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');}
+      } else {
+        document.getElementById('btnTabTerritoire').classList.add('hidden');
+        document.getElementById('navTerr').classList.add('hidden');
+      }
+      currentPage=0;renderAll();if(useMulti)renderBenchmark();
       updateProgress(100,100,'✅',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
   }
 
-  function renderVentesTab(){
-    const isFiltered=filteredData.length>0&&filteredData.length<finalData.length;
-    const va=ventesAnalysis;
-    document.getElementById('ventesRefParClient').textContent=isFiltered?'—':va.refParBL;
-    document.getElementById('ventesFamParClient').textContent=isFiltered?'—':va.famParBL;
-    document.getElementById('ventesTotalBL').textContent=isFiltered?'—':va.totalBL.toLocaleString('fr');
-    document.getElementById('ventesRefActives').textContent=isFiltered?'—':va.refActives.toLocaleString('fr');
-    const totalBL=va.totalBL||1;const p1=[];
-    if(!isFiltered){Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p1.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${fam}">${fam}</td><td class="py-2 px-3 text-center text-gray-600 text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});}
-    document.getElementById('ventesAttractTable').innerHTML=p1.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">Retirez les filtres pour voir l\'attractivité globale</td></tr>';
+  // V24.4: Parse territoire file (CSV auto-sep or XLSX)
+  async function parseTerritoireFile(f){
+    return new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onerror=()=>rej(new Error('Lecture impossible'));
+      const ext=f.name.toLowerCase();
+      if(ext.endsWith('.csv')){
+        // Try UTF-8 first
+        reader.onload=e=>{
+          try{
+            let text=e.target.result;
+            // Detect separator
+            const firstLine=text.split('\n')[0]||'';
+            const sep=firstLine.includes(';')?';':',';
+            const rows=parseCSVText(text,sep);
+            res(rows);
+          }catch(err){rej(err);}
+        };
+        reader.readAsText(f,'UTF-8');
+      } else {
+        reader.onload=e=>{
+          try{
+            const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});
+            res(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
+          }catch(err){rej(err);}
+        };
+        reader.readAsArrayBuffer(f);
+      }
+    });
+  }
+
+  function parseCSVText(text,sep){
+    const lines=text.split(/\r?\n/);if(!lines.length)return[];
+    const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
+    const rows=[];
+    for(let i=1;i<lines.length;i++){
+      const l=lines[i].trim();if(!l)continue;
+      const vals=l.split(sep);const obj={};
+      headers.forEach((h,idx)=>{obj[h]=(vals[idx]||'').trim().replace(/^"|"$/g,'');});
+      rows.push(obj);
+    }
+    return rows;
+  }
+
+  function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
+
+  function processTerritoireData(rows){
+    territoireLines=[];terrDirectionData={};
+    // Find column keys (case-insensitive)
+    const sample=rows[0]||{};
+    const findCol=(s)=>Object.keys(sample).find(k=>k.toLowerCase().includes(s.toLowerCase()));
+    const cDate=findCol('expédition')||findCol('date');
+    const cClient=findCol('code client')||findCol('code et nom');
+    const cNom=findCol('nom client')||findCol('nom');
+    const cSecteur=findCol('secteur');
+    const cDir=findCol('direction');
+    const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
+    const cArticle=findCol('article');
+    const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
+    const cCA=findCol('ca');
+    const cVMB=findCol('vmb');
+    const cMarge=findCol('taux de marge')||findCol('marge');
+    if(!cArticle){showToast('⚠️ Territoire: colonne Article introuvable','warning');return;}
+    if(!cBL){showToast('⚠️ Territoire: colonne Numéro de BL introuvable','warning');return;}
+
+    const dirSet=new Set();
+    // Build finalData lookup by code
+    const stockLookup={};for(const r of finalData)stockLookup[r.code]=r;
+
+    for(let i=0;i<rows.length;i+=CHUNK_SIZE){
+      const end=Math.min(i+CHUNK_SIZE,rows.length);
+      for(let j=i;j<end;j++){
+        const row=rows[j];
+        const qty=cQty?cleanOmniPrice(row[cQty]):0;
+        if(qty<0)continue; // avoirs ignorés
+        const articleRaw2=(cArticle?row[cArticle]||'':'').toString().trim();
+        const code2=articleRaw2.split(' - ')[0].trim();
+        if(!code2)continue;
+        const bl=(cBL?row[cBL]||'':'').toString().trim();
+        const ca=cCA?cleanOmniPrice(row[cCA]):0;
+        const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
+        const clientCode=(cClient?row[cClient]||'':'').toString().trim();
+        const clientNom=(cNom?row[cNom]||'':'').toString().trim();
+        const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
+        // Stock rayon status
+        const stockItem=stockLookup[code2];
+        let rayonStatus='red'; // absent
+        if(stockItem){rayonStatus=stockItem.stockActuel>0?'green':'yellow';}
+        // Client type
+        const ccMatch=clientCode.match(/^(\d+)/);
+        const ccNum=ccMatch?ccMatch[1]:clientCode;
+        const clientType=clientsMagasin.has(ccNum)?'mixte':'exterieur';
+        const famItem=articleFamille[code2]||stockItem?.famille||'Non classé';
+        dirSet.add(direction);
+        territoireLines.push({code:code2,libelle:articleRaw2.includes(' - ')?articleRaw2.split(' - ').slice(1).join(' - ').trim():(libelleLookup[code2]||code2),direction,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,qty});
+      }
+    }
+    // Aggregate by direction
+    for(const ln of territoireLines){
+      if(!terrDirectionData[ln.direction])terrDirectionData[ln.direction]={dir:ln.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
+      const d=terrDirectionData[ln.direction];
+      d.caTotal+=ln.ca;
+      if(ln.canal==='MAGASIN')d.caMag+=ln.ca;else d.caExt+=ln.ca;
+      d.refSet.add(ln.code);
+      if(ln.rayonStatus==='red')d.absentSet.add(ln.code);
+      if(!d.familles[ln.famille])d.familles[ln.famille]={caTotal:0,caMag:0,caExt:0};
+      d.familles[ln.famille].caTotal+=ln.ca;
+      if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
+    }
+    // Populate direction filter
+    const sel=document.getElementById('terrFilterDir');if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';[...dirSet].sort().forEach(d=>{sel.innerHTML+=`<option value="${d}">${d}</option>`;});}
+    territoireReady=true;
+  }
+
+  // V24.4: Render canal distribution block (always shown in Territoire tab)
+  function renderCanalAgence(){
+    const el=document.getElementById('canalAgenceBlock');if(!el)return;
+    const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',DEFAULT:'#94a3b8'};
+    const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Internet',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant'};
+    const entries=Object.entries(canalAgence).sort((a,b)=>b[1].bl-a[1].bl);
+    const totalBL=entries.reduce((s,[,v])=>s+v.bl,0)||1;
+    if(!entries.length){el.innerHTML='<p class="text-gray-400 text-sm">Aucune donnée canal dans le fichier Consommé (colonne "Canal commande" non trouvée ou vide).</p>';return;}
+    let html='';
+    for(const[canal,data] of entries){
+      const pct2=(data.bl/totalBL*100).toFixed(1);
+      const barW=Math.max(parseFloat(pct2),2);
+      const color=CANAL_COLORS[canal]||CANAL_COLORS.DEFAULT;
+      const label=CANAL_LABELS[canal]||canal;
+      html+=`<div class="flex items-center gap-3">
+        <div class="w-28 text-xs font-bold text-gray-700 flex-shrink-0">${label}</div>
+        <div class="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+          <div class="canal-bar" style="width:${barW}%;background:${color}">${pct2}%</div>
+        </div>
+        <div class="text-xs text-gray-500 w-20 text-right">${data.bl.toLocaleString('fr')} BL</div>
+      </div>`;
+    }
+    el.innerHTML=html;
+  }
+
+  function renderTerritoireTab(){
+    renderCanalAgence();
+    if(!territoireReady||!territoireLines.length)return;
+    const q=(document.getElementById('terrSearch')||{}).value||'';
+    const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
+    const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
+
+    // Show/hide blocks
+    ['terrKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
+
+    // KPI cards
+    const allCA=territoireLines.reduce((s,l)=>s+l.ca,0);
+    const magCA=territoireLines.filter(l=>l.canal==='MAGASIN').reduce((s,l)=>s+l.ca,0);
+    const extCA=allCA-magCA;
+    const pctMag=allCA>0?((magCA/allCA)*100).toFixed(1):'0';
+    const pctExt=allCA>0?((extCA/allCA)*100).toFixed(1):'0';
+    const clientsMap={};
+    for(const l of territoireLines){if(!l.clientCode)continue;if(!clientsMap[l.clientCode])clientsMap[l.clientCode]={type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};clientsMap[l.clientCode].ca+=l.ca;clientsMap[l.clientCode].refs.add(l.code);}
+    const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
+    const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
+    const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    setSafe('terrKpiLignes',territoireLines.length.toLocaleString('fr'));
+    setSafe('terrKpiLignesSub',new Set(territoireLines.map(l=>l.bl)).size.toLocaleString('fr')+' BL');
+    setSafe('terrKpiCATotal',formatEuro(allCA));
+    setSafe('terrKpiCAMag',formatEuro(magCA));setSafe('terrKpiCAMagPct',pctMag+'% du total');
+    setSafe('terrKpiCAExt',formatEuro(extCA));setSafe('terrKpiCAExtPct',pctExt+'% du total');
+    setSafe('terrKpiClients',Object.keys(clientsMap).length.toLocaleString('fr'));
+    setSafe('terrKpiClientsSub',`🟢 ${mixteCount} mixtes · 🔴 ${extCount} ext. purs`);
+
+    // Filter lines
+    const linesFiltered=territoireLines.filter(l=>{
+      if(filterDir&&l.direction!==filterDir)return false;
+      if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))return false;}
+      return true;
+    });
+
+    // Direction table
+    const dirs={};
+    for(const l of linesFiltered){
+      if(!dirs[l.direction])dirs[l.direction]={dir:l.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
+      const d=dirs[l.direction];d.caTotal+=l.ca;
+      if(l.canal==='MAGASIN')d.caMag+=l.ca;else d.caExt+=l.ca;
+      d.refSet.add(l.code);if(l.rayonStatus==='red')d.absentSet.add(l.code);
+      if(!d.familles[l.famille])d.familles[l.famille]={caTotal:0,caMag:0,caExt:0};
+      d.familles[l.famille].caTotal+=l.ca;if(l.canal==='MAGASIN')d.familles[l.famille].caMag+=l.ca;else d.familles[l.famille].caExt+=l.ca;
+    }
+    const dirsSorted=Object.values(dirs).sort((a,b)=>b.caExt-a.caExt);
+    let tbody='';
+    for(const d of dirsSorted){
+      const pctCapte=d.caTotal>0?((d.caMag/d.caTotal)*100).toFixed(1):'0';
+      const pctNum=parseFloat(pctCapte);
+      const barColor=pctNum>=50?'bg-emerald-500':pctNum>=20?'bg-amber-500':'bg-red-500';
+      const rowId='terr-dir-'+d.dir.replace(/\W/g,'_');
+      tbody+=`<tr class="terr-row border-b font-semibold text-xs" onclick="toggleTerrDir('${rowId}')">
+        <td class="py-2 px-3 font-bold">${d.dir} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
+        <td class="py-2 px-3 text-right">${formatEuro(d.caTotal)}</td>
+        <td class="py-2 px-3 text-right text-blue-700">${formatEuro(d.caMag)}</td>
+        <td class="py-2 px-3 text-right text-rose-700">${formatEuro(d.caExt)}</td>
+        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${Math.min(pctNum,100)}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCapte}%</span></div></td>
+        <td class="py-2 px-3 text-center text-emerald-700 font-bold">${d.refSet.size-d.absentSet.size}</td>
+        <td class="py-2 px-3 text-center text-red-700 font-bold">${d.absentSet.size}</td>
+      </tr>`;
+      // Famille drilldown rows
+      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA Total</th><th class="py-1.5 px-3 text-right">CA Mag.</th><th class="py-1.5 px-3 text-right">CA Ext.</th></tr></thead><tbody>`;
+      Object.entries(d.familles).sort((a,b)=>b[1].caExt-a[1].caExt).forEach(([fam,fd])=>{tbody+=`<tr class="border-t border-blue-200"><td class="py-1.5 px-4">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td><td class="py-1.5 px-3 text-right text-blue-700">${formatEuro(fd.caMag)}</td><td class="py-1.5 px-3 text-right text-rose-700">${formatEuro(fd.caExt)}</td></tr>`;});
+      tbody+=`</tbody></table></td></tr>`;
+    }
+    const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucune donnée</td></tr>';
+
+    // Top 100 articles
+    const artMap={};
+    for(const l of linesFiltered){
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,direction:l.direction,bl:new Set(),caTotal:0,caMag:0,caExt:0,rayonStatus:l.rayonStatus};
+      artMap[l.code].caTotal+=l.ca;artMap[l.code].bl.add(l.bl);
+      if(l.canal==='MAGASIN')artMap[l.code].caMag+=l.ca;else artMap[l.code].caExt+=l.ca;
+    }
+    const top100=Object.values(artMap).sort((a,b)=>b.caTotal-a.caTotal).slice(0,100);
+    let p100='';
+    for(const a of top100){
+      const stockItem=finalData.find(r=>r.code===a.code);
+      const stockQty=stockItem?stockItem.stockActuel:'—';
+      const rayonIcon=a.rayonStatus==='green'?'🟢':a.rayonStatus==='yellow'?'🟡':'🔴';
+      const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
+      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-right text-blue-700">${formatEuro(a.caMag)}</td><td class="py-1.5 px-2 text-right text-rose-700">${formatEuro(a.caExt)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
+    }
+    const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="9" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
+
+    // Clients top 50
+    const clientsList=Object.values(clientsMap).sort((a,b)=>b.ca-a.ca).slice(0,50);
+    let pCli='';
+    for(const c of clientsList){
+      const typeIcon=c.type==='mixte'?'🟢 Mixte':'🔴 Ext. pur';
+      pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${Object.keys(clientsMap).find(k=>clientsMap[k]===c)||''}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
+    }
+    const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
+  }
+
+  function toggleTerrDir(rowId){const el=document.getElementById(rowId);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+
+  function exportTerritoireCSV(){
+    if(!territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
+    const SEP=';';const h=['Code','Libelle','Direction','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
+    const lines=['\uFEFF'+h.join(SEP)];
+    const q=(document.getElementById('terrSearch')||{}).value||'';
+    const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
+    const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
+    const filtered=territoireLines.filter(l=>{
+      if(filterDir&&l.direction!==filterDir)return false;
+      if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(q){const h2=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h2.includes(q.toLowerCase()))return false;}
+      return true;
+    });
+    for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
 
   function computeBenchmark(){
@@ -712,6 +1090,8 @@
     let p;p=[];Object.keys(byStatus).sort((a,b)=>byStatus[b]-byStatus[a]).forEach(s=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2">${s}</td><td class="py-2 text-right text-blue-600 font-bold">${formatEuro(byStatus[s])}</td></tr>`);});document.getElementById('dashStatusTable').innerHTML=p.join('');
     p=[];Object.keys(byFamily).sort((a,b)=>byFamily[b]-byFamily[a]).slice(0,10).forEach(f=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2 truncate max-w-[200px]">${f}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
     p=[];for(const[k,br] of Object.entries(AGE_BRACKETS)){const d=ageBuckets[k];p.push(`<tr class="age-row-clickable ${k==='critical'?br.bg:'hover:bg-gray-50'}" onclick="filterByAge('${k}')"><td class="py-2.5 px-3 ${br.color} font-bold text-sm">${br.label}</td><td class="py-2.5 px-3 text-right font-bold">${formatEuro(d.val)}</td><td class="py-2.5 px-3 text-right text-gray-500 text-xs">${d.count}</td></tr>`);}document.getElementById('dashAgeTable').innerHTML=p.join('');
+    // V24.4: Attractivité dans l'onglet Stock
+    const atEl=document.getElementById('dashAttractTable');if(atEl){const va=ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${fam}">${fam}</td><td class="py-2 px-3 text-center text-gray-600 text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">Aucune donnée famille</td></tr>';}
 
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
     sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstS.length+lstColis.length);
@@ -784,6 +1164,19 @@
       const totalFull=finalData.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
       const crPct=totalFull>0?(crVal/totalFull*100).toFixed(1):'0';
       if(crVal>100)lines.push(`<p>🗑️ <strong>${crPct}% de votre stock (${formatEuro(crVal)})</strong> est en C-Rare — candidat au déréférencement ou passage colis.</p>`);
+    }
+    // Line 5: Territoire (V24.4) — only if territoire file loaded
+    if(territoireReady&&territoireLines.length>0){
+      const caTotal=territoireLines.reduce((s,l)=>s+l.ca,0);
+      const caMag=territoireLines.filter(l=>l.canal==='MAGASIN').reduce((s,l)=>s+l.ca,0);
+      const pctCapte=caTotal>0?((caMag/caTotal)*100).toFixed(1):'0';
+      const top100codes=[...new Set(territoireLines.map(l=>l.code))].sort((a,b)=>{
+        const ca_a=territoireLines.filter(l=>l.code===a).reduce((s,l)=>s+l.ca,0);
+        const ca_b=territoireLines.filter(l=>l.code===b).reduce((s,l)=>s+l.ca,0);
+        return ca_b-ca_a;}).slice(0,100);
+      const absentCount=top100codes.filter(c=>{const s=finalData.find(r=>r.code===c);return!s||s.stockActuel<=0;}).length;
+      const caPerdu=top100codes.filter(c=>{const s=finalData.find(r=>r.code===c);return!s||s.stockActuel<=0;}).reduce((s,c)=>s+territoireLines.filter(l=>l.code===c&&l.canal==='EXTÉRIEUR').reduce((ss,l)=>ss+l.ca,0),0);
+      lines.push(`<p>🔗 Votre agence capte <strong class="text-violet-400">${pctCapte}%</strong> du CA territoire. <strong>${absentCount}</strong> articles du top 100 ne sont pas en rayon — <strong class="text-rose-400">${formatEuro(caPerdu)}</strong> de potentiel.</p>`);
     }
     document.getElementById('execSummaryText').innerHTML=lines.join('');
   }

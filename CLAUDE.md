@@ -32,28 +32,39 @@ Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B
 Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock).
 
 ## Structure du code (dans index.html)
-- **Lignes 1-150** : HTML structure + CSS (V24 : styles `.abc-cell` — V24.3 : `.shortcut-card`, `.info-tip`, `.abc-cell.abc-top`)
+- **Lignes 1-~180** : HTML structure + CSS (V24 : `.abc-cell` — V24.3 : `.shortcut-card`, `.info-tip` — V24.4 : `.canal-bar`, `.terr-row`, `.rayon-green/yellow/red`, `.cap-bar`)
 - **Section `<script>`** :
-  - Constantes et variables globales (dont `abcMatrixData` — V24)
+  - Constantes et variables globales (dont `abcMatrixData` V24, `canalAgence`, `blConsommeSet`, `clientsMagasin`, `territoireLines`, `terrDirectionData` — V24.4)
   - Fonctions utilitaires (cleanCode, cleanPrice, parseExcelDate, etc.)
-  - `processData()` : moteur principal, lit les 2 Excel, calcule tout
+  - `processData()` : moteur principal, lit les 2 Excel + 3ème optionnel (territoire). Construit `canalAgence`, `blConsommeSet`, `clientsMagasin` en V24.4
+  - `parseTerritoireFile(f)` / `parseCSVText()` / `processTerritoireData()` — V24.4
   - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3) — V24
   - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles — V24
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
-  - `renderDashboardAndCockpit()` : remplit aussi les raccourcis Accès rapide (V24.3) et `cockpitLists.{top20,nouveautes,colisrayon}`
-  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides "Par où commencer ?" / "Comment progresser ?" (V24.3)
+  - `renderDashboardAndCockpit()` : remplit raccourcis Accès rapide (V24.3) + bloc Attractivité (V24.4) + `cockpitLists.{top20,nouveautes,colisrayon}`
+  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides (V24.3)
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
-  - `renderVentesTab()` : onglet ventes
-  - `renderExecSummary()` : résumé exécutif (V23 + ligne C-Rare V24 + CA Perdu V24.2)
+  - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` / `toggleTerrDir()` — V24.4
+  - `renderExecSummary()` : résumé exécutif (V23 + ligne C-Rare V24 + CA Perdu V24.2 + Territoire V24.4)
   - `calcPriorityScore()` / `isParentRef()` : fonctions V23
   - `renderComparison()` : comparaison historique (V23 + caPerdu V24.2)
 
 ## Cockpit V24.3 — structure simplifiée
 - **🔴 Urgences** : Ruptures + Anomalies (2 cartes)
 - **📦 Préconisation de stock** : SASO + Colis à stocker (2 cartes)
-- **Onglet Stock** : 6 KPI cards + barre "🔗 Accès rapide" (5 shortcuts) + ancienneté/statuts/familles
+- **Onglet Stock** : 6 KPI cards + barre "🔗 Accès rapide" (5 shortcuts) + bloc "🧲 Attractivité par Famille" (V24.4) + ancienneté/statuts/familles
 - Les listes lstFa/lstD/lstFi/lstB/lstN sont toujours calculées dans `renderDashboardAndCockpit()` — leurs éléments DOM (`actionFantomes`, `actionDormant`, etc.) sont hidden pour la compat filtre
 - `cockpitLists.{fantomes,dormants,fins,top20,nouveautes,colisrayon}` toujours peuplés pour que `showCockpitInTable()` fonctionne depuis les raccourcis
+
+## Territoire V24.4 — onglet optionnel
+- **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik. Optionnel, l'onglet 🔗 Territoire n'apparaît que si chargé.
+- **`canalAgence`** : construit pendant le parsing consommé (avant le filtre MAGASIN) → `{MAGASIN:{bl:N,...}, INTERNET:{...}, ...}`. Affiché dans le bloc "📡 Comment arrive votre business" (toujours visible dans l'onglet Territoire).
+- **`blConsommeSet`** : Set des N° BL du fichier consommé (clés de `blData`). Sert à déterminer canal MAGASIN vs EXTÉRIEUR dans le fichier territoire.
+- **`clientsMagasin`** : Set des codes numériques clients extraits du consommé (colonne "Code et nom client").
+- **`territoireLines`** : tableau de lignes parsées. Chaque ligne = `{code, libelle, direction, famille, bl, ca, canal, rayonStatus, clientCode, clientNom, clientType, qty}`.
+- **`terrDirectionData`** : agrégats par direction commerciale (caTotal, caMag, caExt, refSet, absentSet, familles).
+- **Statut rayon** : 🟢 en rayon (stockActuel > 0), 🟡 référencé mais rupture, 🔴 absent du rayon.
+- **Résumé exécutif** : 5ème ligne si territoire chargé — % capté + nb absents top 100 + € potentiel.
 
 ## Commandes utiles
 ```bash

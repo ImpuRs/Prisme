@@ -18,7 +18,7 @@ Optistock analyse les **ventes** (consommé 12 mois) et l'**état du stock** (ph
 ## 🏗️ Architecture
 
 ```
-Optistock PRO V24
+Optistock PRO V24.4
 ├── index.html          ← Application complète (HTML + CSS + JS)
 ├── README.md           ← Ce fichier
 ├── CLAUDE.md           ← Contexte pour Claude Code
@@ -39,15 +39,15 @@ Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "A
 3. Ajouter un `doGet()` qui sert la page
 4. Déployer en Web App
 
-## 📊 Les 6 onglets
+## 📊 Les onglets
 
 | Onglet | Rôle |
 |--------|------|
 | 📋 **Articles** | Tableau complet filtrable, triable, exportable CSV |
-| 📊 **Stock** | KPI globaux + raccourcis rapides (sans emplacement, dormants, fins…) + comparaison historique |
+| 📊 **Stock** | KPI globaux + raccourcis rapides + 🧲 Attractivité par famille + comparaison historique |
 | 🎯 **COCKPIT** | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) |
-| 🧲 **Ventes** | Attractivité par famille, cross-sell |
 | 📊 **ABC** | Matrice ABC/FMR 3×3 + guides "Par où commencer ?" et "Comment progresser ?" |
+| 🔗 **Territoire** *(optionnel)* | Répartition canaux agence + croisement BL omnicanal (3ème fichier Qlik) |
 | 🔄 **BENCH** | Comparaison multi-magasins |
 
 ## 🧮 Algorithme MIN/MAX
@@ -60,6 +60,18 @@ MAX = MIN + 21 jours (forte rotation) ou 10 jours (faible rotation)
 Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
+
+### V24.4 (Mars 2026) — Onglet Territoire + Migration Attractivité
+- 🔗 **Onglet Territoire** (optionnel) : chargez un 3ème fichier BL omnicanal (Qlik) pour analyser votre capte territoire
+  - 📡 Répartition canaux agence (MAGASIN / INTERNET / DCS / REPRÉSENTANT) basée sur le consommé
+  - 💰 KPI territoire : CA Total, CA Magasin capté, CA Extérieur, clients mixtes/extérieurs purs
+  - 📊 Vue par Direction commerciale triée par CA Extérieur (drilldown familles en accordéon)
+  - 🏆 Top 100 articles avec statut rayon (🟢/🟡/🔴) et couleurs distinctives
+  - 👥 Top 50 clients avec type mixte/extérieur pur
+  - 🔍 Filtres locaux (texte, direction, statut rayon) + export CSV
+  - ⚡ Résumé exécutif : 5ème ligne "% capté + potentiel non capté"
+- ❌ **Suppression onglet Ventes** (KPI Réf/Client, Familles/Client, Total commandes, Réf actives retirés)
+- 🧲 **Attractivité par Famille** migrée dans l'onglet Stock (entre Accès rapide et tableaux ancienneté)
 
 ### V24.3 (Mars 2026) — Réorganisation UX
 - 🏷️ **Renommages** : onglet "Santé" → "📊 Stock" · "Fantômes" → "👻 Articles sans emplacement" · section "Assainir" → "📦 Préconisation de stock"
