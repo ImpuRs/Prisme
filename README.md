@@ -61,6 +61,14 @@ Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
 
+### V24.2 (Mars 2026)
+- 💸 **KPI "CA Perdu"** dans l'onglet Santé (6ème carte, gradient rose) : estimation du CA perdu sur les ruptures actives
+- 📐 **Formule** : `conso/j × min(joursRupture, 90) × PU` — plafond 90j pour éviter de surestimer les ruptures structurelles
+- 📋 **Cockpit Ruptures** : colonne "CA perdu est." + durée de rupture affichée + ligne de total en pied de tableau
+- ⚡ **Résumé exécutif** : ligne 1 reformulée avec le double KPI (CA perdu estimé + CA potentiel annuel)
+- 📈 **Comparaison historique** : 7ème carte "💸 CA Perdu" (vert si amélioration)
+- 📥 **CSV** : colonne `CAPerdu` ajoutée (0 pour les articles hors rupture)
+
 ### V24 (Mars 2026)
 - 📊 **Matrice ABC/FMR** — nouvel onglet avec grille 3×3 cliquable (AF=Pépites → CR=Déréférencement)
 - 🎯 **Calcul ABC** : classement Pareto valeur rotation (V×PU) → A=top 80%, B=15%, C=5%
