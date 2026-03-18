@@ -106,6 +106,9 @@
     </div>
   </nav>
 
+  <!-- Bandeau opportunités global — visible sur tous les onglets après analyse -->
+  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2.5 border-b border-slate-700 flex flex-wrap items-center gap-x-3 gap-y-1"></div>
+
   <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
 
     <!-- GLOSSAIRE -->
@@ -350,7 +353,7 @@
 
     <!-- TAB : TERRITOIRE (V24.4) -->
     <div id="tabTerritoire" class="tab-content hidden">
-      <!-- V24.4: Territoire loading spinner (shown while processing in background) -->
+      <!-- Loading spinner -->
       <div id="terrLoadingSpinner" class="hidden text-center py-16">
         <div class="inline-block w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mb-4"></div>
         <p class="text-violet-700 font-bold text-sm">Calcul territoire en cours…</p>
@@ -359,40 +362,23 @@
         </div>
         <p id="terrProgressText" class="text-violet-500 text-xs font-mono mt-1">0%</p>
       </div>
-      <!-- Canal distribution — always shown when consommé loaded -->
+
+      <!-- 1. Résumé exécutif du croisement — territory only -->
+      <div id="terrCroisementBlock" class="hidden mb-5">
+        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-5 text-white">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">🔗</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
+          <div id="terrCroisementText" class="text-sm leading-relaxed space-y-1"></div>
+        </div>
+      </div>
+
+      <!-- 2. Canal distribution — always shown when consommé loaded -->
       <div class="mb-8 bg-white p-5 rounded-xl shadow-md border">
         <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">📡 Comment arrive votre business <span class="text-[10px] font-normal text-gray-400">— basé sur le fichier Consommé</span></h3>
         <div id="canalAgenceBlock" class="space-y-2"></div>
       </div>
 
-      <!-- KPI territoire — only if fichier territoire chargé -->
+      <!-- 3. KPI territoire (5 cartes) — territory only -->
       <div id="terrKPIBlock" class="hidden mb-4">
-        <!-- VOLET 3: résumé exécutif du croisement -->
-        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-5 mb-5 text-white">
-          <div class="flex items-center gap-2 mb-2"><span class="text-lg">🔗</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
-          <div id="terrCroisementText" class="text-sm leading-relaxed space-y-1"></div>
-        </div>
-        <!-- VOLET 2bis: Contributeurs agence drilldown -->
-        <div id="terrContribBlock" class="mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
-          <div class="flex items-center justify-between p-4 border-b">
-            <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Direction → Secteur → Client → Articles</span></h3>
-            <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV secteurs</button>
-          </div>
-          <div id="terrContribSummary" class="px-4 py-2 text-xs text-gray-500 border-b bg-gray-50"></div>
-          <table class="min-w-full text-xs">
-            <thead class="bg-gray-800 text-white">
-              <tr>
-                <th class="py-2 px-3 text-left">Direction</th>
-                <th class="py-2 px-3 text-center">BL territoire</th>
-                <th class="py-2 px-3 text-center">BL agence</th>
-                <th class="py-2 px-3 text-center min-w-[140px]">% agence</th>
-                <th class="py-2 px-3 text-right">CA territoire</th>
-              </tr>
-            </thead>
-            <tbody id="terrContribTable"></tbody>
-          </table>
-        </div>
-        <!-- New KPI cards (5, no CA croisé) -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-xl font-extrabold">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-1"></p></div>
           <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">💰 CA Total territoire</h4><p id="terrKpiCATotal" class="text-xl font-extrabold">—</p><p class="text-indigo-200 text-[10px] mt-1">source unique · fichier territoire</p></div>
@@ -402,17 +388,16 @@
         </div>
       </div>
 
-      <!-- V24.4: Special articles KPI banner — shown only when territoire is loaded -->
+      <!-- 4. Special articles banner — territory only -->
       <div id="terrSpecialKPIBlock" class="hidden mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
         <span class="text-xl flex-shrink-0">📌</span>
         <div><p id="terrSpecialKPIText" class="text-sm font-bold text-amber-800"></p><p class="text-[10px] text-amber-600 mt-0.5">Les articles spéciaux (codes non standard) sont exclus de la vue Direction, Top 100 et du croisement rayon.</p></div>
       </div>
 
-      <!-- Filtres locaux -->
+      <!-- 5. Filtres locaux — territory only -->
       <div id="terrFiltersBlock" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
         <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[180px] p-2 text-sm border rounded-lg" placeholder="🔍 Code, libellé, direction…">
         <select id="terrFilterDir" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Directions</option></select>
-        <!-- Multi-select secteur/commercial -->
         <div class="relative" id="terrSecteurDropdown">
           <button type="button" onclick="toggleSecteurDropdown()" class="p-2 border rounded-lg text-sm font-semibold bg-white min-w-[180px] text-left flex items-center justify-between gap-1">
             <span id="terrSecteurLabel">Tous Secteurs</span><span class="text-gray-400 text-xs">▼</span>
@@ -429,9 +414,9 @@
         <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-2 px-3 rounded-lg font-semibold">↺ Reset</button>
       </div>
 
-      <!-- Vue par Direction -->
+      <!-- 6. Vue par Direction → Famille → Articles -->
       <div id="terrDirectionBlock" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📊 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
+        <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
         <table class="min-w-full text-xs">
           <thead class="bg-gray-800 text-white">
             <tr>
@@ -448,7 +433,28 @@
         </table>
       </div>
 
-      <!-- Top 100 articles -->
+      <!-- 7. Contributeurs agence → Direction → Secteur → Client → Articles -->
+      <div id="terrContribBlock" class="hidden mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <div class="flex items-center justify-between p-4 border-b">
+          <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Direction → Secteur → Client → Articles</span></h3>
+          <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV secteurs</button>
+        </div>
+        <div id="terrContribSummary" class="px-4 py-2 text-xs text-gray-500 border-b bg-gray-50"></div>
+        <table class="min-w-full text-xs">
+          <thead class="bg-gray-800 text-white">
+            <tr>
+              <th class="py-2 px-3 text-left">Direction</th>
+              <th class="py-2 px-3 text-center">BL territoire</th>
+              <th class="py-2 px-3 text-center">BL agence</th>
+              <th class="py-2 px-3 text-center min-w-[140px]">% agence</th>
+              <th class="py-2 px-3 text-right">CA territoire</th>
+            </tr>
+          </thead>
+          <tbody id="terrContribTable"></tbody>
+        </table>
+      </div>
+
+      <!-- 8. Top 100 articles -->
       <div id="terrTop100Block" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 p-4 border-b">🏆 Top 100 articles (CA territoire décroissant)</h3>
         <div class="table-scroll">
@@ -469,7 +475,7 @@
         </div>
       </div>
 
-      <!-- Clients top 50 -->
+      <!-- 9. Clients top 50 -->
       <div id="terrClientsBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 p-4 border-b">👥 Clients (top 50 par CA territoire)</h3>
         <div class="table-scroll">
@@ -548,6 +554,7 @@
   let terrDirectionData={};  // aggregated by direction
   // VOLET 4: Period tracking
   let consommePeriodMin=null,consommePeriodMax=null,consommeMoisCouverts=0;
+  let _insights={ruptures:0,dormants:0,absentsTerr:0,extClients:0,hasTerr:false};
   // VOLET 2bis: Contributeurs agence — secteur & direction aggregates (populated after worker done)
   let terrContribBySecteur=new Map();
   let terrContribByDirection=new Map();
@@ -581,6 +588,22 @@
       if(banner)banner.classList.remove('active');
       if(navPeriod){navPeriod.textContent=`📅 ${dMin} — ${dMax}`;navPeriod.classList.remove('hidden');}
     }
+  }
+  function renderInsightsBanner(){
+    const el=document.getElementById('insightsBanner');if(!el)return;
+    const{ruptures,dormants,absentsTerr,extClients,hasTerr}=_insights;
+    if(!ruptures&&!dormants&&!absentsTerr&&!extClients){el.classList.add('hidden');return;}
+    const mkLink=(txt,tab)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
+    const parts=[];
+    parts.push(mkLink(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,`action`));
+    if(hasTerr){
+      parts.push(mkLink(`${absentsTerr} article${absentsTerr!==1?'s':''} territoire absents du rayon`,`territoire`));
+      parts.push(mkLink(`${extClients} client${extClients!==1?'s':''} qui ne viennent jamais`,`territoire`));
+    }else{
+      parts.push(mkLink(`${dormants} dormant${dormants!==1?'s':''} à traiter`,`action`));
+    }
+    el.innerHTML=`<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>`+parts.join(`<span class="text-slate-500 mx-1">·</span>`);
+    el.classList.remove('hidden');
   }
   function updateTerrProgress(cur,total){const pct=total>0?Math.round(cur/total*100):0;const bar=document.getElementById('terrProgressBar');const txt=document.getElementById('terrProgressText');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=pct+'%';const pipe=document.getElementById('pipeTerritoire');if(pipe&&pct<100)pipe.textContent=`🔗 Territoire… ${pct}%`;}
   function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
@@ -1084,8 +1107,8 @@
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
 
-    // Show all blocks
-    ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
+    // Show all territory-only blocks
+    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
     let caTotal=0,specialCA=0;
@@ -1210,6 +1233,12 @@
       pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
+
+    // Update insights banner — territory data (standard articles absents + clients ext purs)
+    const absentsTerr=Object.values(artMapAll).filter(a=>a.rayonStatus==='red').length;
+    const extClients=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
+    _insights.absentsTerr=absentsTerr;_insights.extClients=extClients;_insights.hasTerr=true;
+    renderInsightsBanner();
   }
 
   // Toggle direction row — shows famille breakdown (lazy)
@@ -1459,7 +1488,7 @@
     if(sumEl){
       const nbDir=rows.length,nbSect=terrContribBySecteur.size;
       const oppo=[...terrContribBySecteur.values()].filter(s=>s.blTerr.size>0&&Math.round(s.blAgence.size/s.blTerr.size*100)<10).length;
-      sumEl.textContent=`${nbDir} Direction${nbDir>1?'s':''}, ${nbSect} secteurs — ${oppo} secteur${oppo>1?'s':''} avec <10% BL agence (opportunités). Cliquez une Direction pour voir ses secteurs.`;
+      sumEl.textContent=`${nbDir} Direction${nbDir>1?'s':''}, ${nbSect} secteurs — ${oppo} opportunité${oppo>1?'s':''} (<10% BL agence). Cliquez une Direction pour voir ses secteurs.`;
     }
   }
 
@@ -1484,7 +1513,7 @@
       .sort((a,b)=>a.pct-b.pct);
     if(!secteurs.length){inner.innerHTML='<p class="text-gray-400 text-[11px]">Aucun secteur pour cette direction.</p>';return;}
     const oppo=secteurs.filter(s=>s.pct<10).length;
-    let html=`<div class="text-[11px] font-bold text-gray-700 mb-2">${secteurs.length} secteur${secteurs.length>1?'s':''} · ${oppo} oppo (&lt;10% agence) — trié par % BL agence croissant</div>`;
+    let html=`<div class="text-[11px] font-bold text-gray-700 mb-2">${secteurs.length} secteur${secteurs.length>1?'s':''} · ${oppo} opportunité${oppo>1?'s':''} (&lt;10% agence) — trié par % BL agence croissant</div>`;
     html+=`<table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA territoire</th></tr></thead><tbody id="${rowId}-sectbody">`;
     html+=_buildSecteurRows(secteurs.slice(0,LIMIT));
     html+=`</tbody></table>`;
@@ -1803,6 +1832,8 @@
 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS);
+    _insights.ruptures=lstR.length;_insights.dormants=lstD.length;
+    renderInsightsBanner();
   }
 
   // ★ V23/V24.2: Executive Summary
