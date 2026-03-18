@@ -56,9 +56,12 @@ T  = Plus gros PRÉLEVÉ sur une seule commande
 U  = Moyenne PRÉLEVÉ par commande = V ÷ Wp
 X  = Consommation journalière = V ÷ jours ouvrés effectifs
 
-Jours ouvrés = calculé dynamiquement entre la date de vente 
+Jours ouvrés = calculé dynamiquement entre la date de vente
                la plus ancienne et la plus récente × (5/7)
                Fallback : 250 si pas de dates
+               → Stocké dans globalJoursOuvres (variable globale) et utilisé
+                 par calcCouverture() pour aligner la couverture sur la période
+                 réelle du fichier Consommé
 ```
 
 ### 2.4 Calcul du MIN (seuil de commande)
@@ -164,7 +167,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | Prél | Somme prélevé net 12 mois | Ce qui sort vraiment du rayon |
 | Enl | Somme enlevé 12 mois | Colis commandés (info) |
 | Fréq | Nombre de commandes (W) | Nombre de clients/BL |
-| Couverture | Stock ÷ (V ÷ jours ouvrés) | Jours de stock restant |
+| Couverture | Stock ÷ (V ÷ globalJoursOuvres) | Jours de stock restant (base = jours ouvrés dynamiques du fichier) |
 | Âge | Jours depuis dernière sortie | Fraîcheur de l'article |
 
 ### 4.2 KPI Dashboard (Santé)
