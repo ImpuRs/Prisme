@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Optistock PRO V24.4</title>
+  <title>PILOT PRO 1.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -83,7 +83,7 @@
 
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
-      <div class="text-white font-extrabold text-2xl tracking-tight">📦 OPTISTOCK <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V24.4</span></div>
+      <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
       <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Territoire chargé</div></div>
     </div>
   </nav>
@@ -368,7 +368,19 @@
       <div id="terrFiltersBlock" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
         <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[180px] p-2 text-sm border rounded-lg" placeholder="🔍 Code, libellé, direction…">
         <select id="terrFilterDir" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Directions</option></select>
-        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">🟢 En rayon</option><option value="yellow">🟡 Rupture</option><option value="red">🔴 Absent</option></select>
+        <!-- Multi-select secteur/commercial -->
+        <div class="relative" id="terrSecteurDropdown">
+          <button type="button" onclick="toggleSecteurDropdown()" class="p-2 border rounded-lg text-sm font-semibold bg-white min-w-[180px] text-left flex items-center justify-between gap-1">
+            <span id="terrSecteurLabel">Tous Secteurs</span><span class="text-gray-400 text-xs">▼</span>
+          </button>
+          <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 bg-white border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[260px]" style="left:0">
+            <label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
+              <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
+            </label>
+            <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
+          </div>
+        </div>
+        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
         <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-xs">📥 CSV</button>
       </div>
 
@@ -462,7 +474,7 @@
     </div>
 
   </div>
-  <footer class="text-center text-xs text-gray-400 py-4">Optistock PRO V24.4</footer>
+  <footer class="text-center text-xs text-gray-400 py-4">PILOT PRO 1.0</footer>
 
   <script>
   'use strict';
@@ -837,13 +849,14 @@
       const cClient=findCol('code client')||findCol('code et nom');
       const cNom=findCol('nom client')||findCol('nom');
       const cDir=findCol('direction');
+      const cSecteur=findCol('secteur')||findCol('code secteur')||findCol('commercial');
       const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
       const cArticle=findCol('article');
       const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
       const cCA=findCol('ca');
       if(!cArticle){self.postMessage({type:'error',msg:'Territoire: colonne Article introuvable'});return;}
       if(!cBL){self.postMessage({type:'error',msg:'Territoire: colonne Numéro de BL introuvable'});return;}
-      const lines=[];const dirSet=new Set();const CHUNK=2000;const total=rows.length;
+      const lines=[];const dirSet=new Set();const secteurSet=new Set();const CHUNK=2000;const total=rows.length;
       for(let ci=0;ci<Math.ceil(total/CHUNK);ci++){
         const start=ci*CHUNK,end=Math.min(start+CHUNK,total);
         for(let j=start;j<end;j++){
@@ -856,6 +869,7 @@
           const bl=(cBL?row[cBL]||'':'').toString().trim();
           const ca=cCA?cleanOmniPrice(row[cCA]):0;
           const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
+          const secteur=(cSecteur?row[cSecteur]||'':'').toString().trim();
           const clientCodeRaw=(cClient?row[cClient]||'':'').toString().trim();
           const clientNom=(cNom?row[cNom]||'':'').toString().trim();
           const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
@@ -867,7 +881,8 @@
           const famItem=articleFamilleObj[code]||(stockItem?stockItem.famille:'')||'Non classé';
           const libelle=articleRaw.includes(' - ')?articleRaw.split(' - ').slice(1).join(' - ').trim():(libelleLookupObj[code]||code);
           if(!isSpecial)dirSet.add(direction);
-          lines.push({code,libelle,direction,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,isSpecial});
+          if(secteur)secteurSet.add(secteur);
+          lines.push({code,libelle,direction,secteur,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,isSpecial});
         }
         self.postMessage({type:'progress',cur:end,total});
       }
@@ -883,7 +898,7 @@
         d.familles[ln.famille].caTotal+=ln.ca;
         if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
       }
-      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort()});
+      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort(),secteursSorted:[...secteurSet].sort()});
     };
   }
 
@@ -907,6 +922,8 @@
           territoireLines=d.lines;terrDirectionData=d.terrDirData;
           const sel=document.getElementById('terrFilterDir');
           if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';d.dirsSorted.forEach(dir=>{sel.innerHTML+=`<option value="${dir}">${dir}</option>`;});}
+          // Build secteur multi-select checkboxes
+          buildSecteurCheckboxes(d.secteursSorted||[]);
           territoireReady=true;
           worker.terminate();URL.revokeObjectURL(workerUrl);resolve();
         }else if(d.type==='error'){
@@ -941,6 +958,57 @@
     }
     el.innerHTML=html;
   }
+
+  // V24.5: Secteur multi-select helpers
+  const SECTEUR_DIR_MAP={M:'Maintenance',B:'Second Œuvre',L:'DVP Plomberie',F:'DVI Industrie'};
+  function getSecteurDirection(code){if(!code)return'';return SECTEUR_DIR_MAP[code.charAt(0).toUpperCase()]||'';}
+  function buildSecteurCheckboxes(secteurs){
+    const div=document.getElementById('terrSecteurCheckboxes');if(!div)return;
+    if(!secteurs.length){div.innerHTML='<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>';return;}
+    let html='';
+    for(const s of secteurs){
+      const dirLabel=getSecteurDirection(s);
+      const label=dirLabel?`${s} (${dirLabel})`:s;
+      html+=`<label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs">
+        <input type="checkbox" value="${s}" checked onchange="onSecteurChange()" class="rounded">
+        <span class="font-semibold">${label}</span>
+      </label>`;
+    }
+    div.innerHTML=html;
+  }
+  function toggleSecteurDropdown(){
+    const panel=document.getElementById('terrSecteurPanel');
+    if(panel)panel.classList.toggle('hidden');
+  }
+  function toggleAllSecteurs(checked){
+    document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=checked;});
+    onSecteurChange();
+  }
+  function onSecteurChange(){
+    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
+    const checked=[...all].filter(cb=>cb.checked);
+    const allCb=document.getElementById('terrSecteurAll');
+    if(allCb)allCb.checked=(checked.length===all.length);
+    const label=document.getElementById('terrSecteurLabel');
+    if(label){
+      if(checked.length===all.length||checked.length===0)label.textContent='Tous Secteurs';
+      else if(checked.length===1)label.textContent=checked[0].value;
+      else label.textContent=checked.length+' secteurs';
+    }
+    renderTerritoireTab();
+  }
+  function getSelectedSecteurs(){
+    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
+    if(!all.length)return null; // no secteur data
+    const checked=[...all].filter(cb=>cb.checked).map(cb=>cb.value);
+    if(checked.length===all.length)return null; // all selected = no filter
+    return new Set(checked);
+  }
+  // Close secteur dropdown on outside click
+  document.addEventListener('click',function(e){
+    const dd=document.getElementById('terrSecteurDropdown');
+    if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
+  });
 
   function renderTerritoireTab(){
     renderCanalAgence();
@@ -981,17 +1049,19 @@
     const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
     const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     setSafe('terrKpiClients',Object.keys(clientsMap).length.toLocaleString('fr'));
-    setSafe('terrKpiClientsSub',`🟢 ${mixteCount} mixtes · 🔴 ${extCount} ext. purs`);
+    setSafe('terrKpiClientsSub',`✅ ${mixteCount} mixtes · ❌ ${extCount} ext. purs`);
 
     // Special KPI banner
     const spEl=document.getElementById('terrSpecialKPIText');
     if(spEl)spEl.textContent=`${pctSpecial}% du CA territoire est du spécial non stockable — ${formatEuro(specialCA)} (hors de la vue Direction, Top 100 et croisement rayon)`;
 
     // Local filter — specials always excluded from direction/top100/rayon views
+    const selectedSecteurs=getSelectedSecteurs();
     const linesFiltered=territoireLines.filter(l=>{
       if(l.isSpecial)return false;
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
       if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))return false;}
       return true;
     });
@@ -1041,7 +1111,7 @@
     for(const a of top100){
       const stockItem=stockMap.get(a.code);
       const stockQty=stockItem?stockItem.stockActuel:'—';
-      const rayonIcon=a.rayonStatus==='green'?'🟢':a.rayonStatus==='yellow'?'🟡':'🔴';
+      const rayonIcon=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
       const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
       p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-right text-blue-700">${formatEuro(a.caMag)}</td><td class="py-1.5 px-2 text-right text-rose-700">${formatEuro(a.caExt)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
@@ -1051,7 +1121,7 @@
     const clientsList=Object.values(clientsMap).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
-      const typeIcon=c.type==='mixte'?'🟢 Mixte':'🔴 Ext. pur';
+      const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
       pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
@@ -1061,20 +1131,23 @@
 
   function exportTerritoireCSV(){
     if(!territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
-    const SEP=';';const h=['Code','Libelle','Direction','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
+    const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
     const lines=['\uFEFF'+h.join(SEP)];
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
+    const selectedSecteursCSV=getSelectedSecteurs();
     const filtered=territoireLines.filter(l=>{
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
+      if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
       if(q){const h2=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h2.includes(q.toLowerCase()))return false;}
       return true;
     });
-    for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
+    const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
+    for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
 
   function computeBenchmark(){
@@ -1120,12 +1193,12 @@
     document.getElementById('benchStoreTable').innerHTML=p.join('');
   }
 
-  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
   let kpiHistory=[];
   function clearSavedKPI(){kpiHistory=[];document.getElementById('compareBlock').classList.add('hidden');showToast('🗑️ Historique effacé.','success');}
-  function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='Optistock_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
+  function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='PILOT_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
   function importKPIhistory(input){if(!input.files.length)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(data.history&&data.history.length){kpiHistory=data.history;showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`,'success');renderAll();}else{showToast('❌ Fichier invalide.','error');}}catch(err){showToast('❌ Erreur : '+err.message,'error');}};reader.readAsText(input.files[0]);input.value='';}
   function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Service',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ CAPALIN',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
@@ -1356,7 +1429,7 @@
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
-  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`Optistock_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
   </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
-# CLAUDE.md — Contexte Optistock PRO
+# CLAUDE.md — Contexte PILOT PRO
 
 ## Qu'est-ce que ce projet ?
-Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée.
+PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 1 optionnel (Territoire).
 
 ## Architecture
 - **Un seul fichier** : `index.html` contient tout (HTML + CSS + JS)
@@ -18,53 +18,52 @@ Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B
 - DOM manipulé via innerHTML pour les tableaux (performance sur 10k+ lignes)
 - Traitement par chunks (CHUNK_SIZE=5000) avec `yieldToMain()` pour ne pas bloquer l'UI
 - `globalJoursOuvres` (défaut 250) : calculé dynamiquement dans `processData()` et utilisé par `calcCouverture()` pour aligner la couverture sur la période réelle du fichier Consommé
+- Territoire parsé dans un Web Worker (`_terrWorker()`) pour ne jamais bloquer l'UI
 
 ## Règles métier critiques — NE PAS MODIFIER sans discussion
 1. **Prélevé vs Enlevé** : seul le PRÉLEVÉ dimensionne les MIN/MAX. L'enlevé (colis) ne compte que pour la fréquence.
 2. **Écrêtage** : `dl = min(3×U, T)` puis `dl = min(dl, U×5)` — protège contre les commandes industrielles exceptionnelles
 3. **Stock de sécurité** : 3 jours (SECURITY_DAYS) = 48h réappro + 1j marge
 4. **Cas spéciaux** : W≤1 → MIN/MAX=0, W=2 → MIN=1/MAX=2, Nouveauté <35j → garde ancien
-5. **Références père** (V23) : si les 3 dates (dernière sortie, première entrée, dernière entrée) sont toutes vides → exclure des ruptures
+5. **Références père** : si les 3 dates (dernière sortie, première entrée, dernière entrée) sont toutes vides → exclure des ruptures
 6. **Avoirs** : qté négative → ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0
 7. **Dédup BL** : même N° commande + même article → on garde la quantité MAX (pas d'addition)
+8. **Articles spéciaux** : code != 6 chiffres exactement (regex `/^\d{6}$/`) → non stockable, exclu du calcul principal territoire
 
 ## Tests
-Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock).
+Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock + Territoire optionnel).
 
 ## Structure du code (dans index.html)
-- **Lignes 1-~180** : HTML structure + CSS (V24 : `.abc-cell` — V24.3 : `.shortcut-card`, `.info-tip` — V24.4 : `.canal-bar`, `.terr-row`, `.rayon-green/yellow/red`, `.cap-bar`)
+- **Lignes 1-~180** : HTML structure + CSS (`.abc-cell`, `.shortcut-card`, `.info-tip`, `.canal-bar`, `.terr-row`, `.rayon-green/yellow/red`, `.cap-bar`)
 - **Section `<script>`** :
-  - Constantes et variables globales (dont `abcMatrixData` V24, `canalAgence`, `blConsommeSet`, `clientsMagasin`, `territoireLines`, `terrDirectionData` — V24.4)
+  - Constantes et variables globales (dont `abcMatrixData`, `canalAgence`, `blConsommeSet`, `clientsMagasin`, `territoireLines`, `terrDirectionData`)
   - Fonctions utilitaires (cleanCode, cleanPrice, parseExcelDate, etc.)
-  - `processData()` : moteur principal, lit les 2 Excel + 3ème optionnel (territoire). Construit `canalAgence`, `blConsommeSet`, `clientsMagasin` en V24.4
-  - `parseTerritoireFile(f)` / `parseCSVText()` / `processTerritoireData()` — V24.4
-  - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3) — V24
-  - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles — V24
+  - `processData()` : moteur principal, lit les 2 Excel + 3ème optionnel (territoire)
+  - `_terrWorker()` / `launchTerritoireWorker()` : Web Worker pour le parsing territoire en background
+  - `buildSecteurCheckboxes()` / `toggleSecteurDropdown()` / `getSelectedSecteurs()` : filtre multi-select secteur
+  - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3)
+  - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
-  - `renderDashboardAndCockpit()` : remplit raccourcis Accès rapide (V24.3) + bloc Attractivité (V24.4) + `cockpitLists.{top20,nouveautes,colisrayon}`
-  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides (V24.3)
+  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
-  - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` / `toggleTerrDir()` — V24.4
-  - `renderExecSummary()` : résumé exécutif (V23 + ligne C-Rare V24 + CA Perdu V24.2 + Territoire V24.4)
-  - `calcPriorityScore()` / `isParentRef()` : fonctions V23
-  - `renderComparison()` : comparaison historique (V23 + caPerdu V24.2)
+  - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` : onglet Territoire
+  - `renderExecSummary()` : résumé exécutif (ruptures, stock, service, C-Rare, territoire)
+  - `calcPriorityScore()` / `isParentRef()` : fonctions priorité
+  - `renderComparison()` : comparaison historique
 
-## Cockpit V24.3 — structure simplifiée
+## Cockpit — structure
 - **🔴 Urgences** : Ruptures + Anomalies (2 cartes)
 - **📦 Préconisation de stock** : SASO + Colis à stocker (2 cartes)
-- **Onglet Stock** : 6 KPI cards + barre "🔗 Accès rapide" (5 shortcuts) + bloc "🧲 Attractivité par Famille" (V24.4) + ancienneté/statuts/familles
-- Les listes lstFa/lstD/lstFi/lstB/lstN sont toujours calculées dans `renderDashboardAndCockpit()` — leurs éléments DOM (`actionFantomes`, `actionDormant`, etc.) sont hidden pour la compat filtre
-- `cockpitLists.{fantomes,dormants,fins,top20,nouveautes,colisrayon}` toujours peuplés pour que `showCockpitInTable()` fonctionne depuis les raccourcis
+- **Onglet Stock** : 6 KPI cards → Évolution historique → Accès rapide (5 shortcuts) → Attractivité par Famille → Ancienneté/Statuts/Familles
+- `cockpitLists.{fantomes,dormants,fins,top20,nouveautes,colisrayon}` peuplés pour `showCockpitInTable()`
 
-## Territoire V24.4 — onglet optionnel
-- **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik. Optionnel, l'onglet 🔗 Territoire n'apparaît que si chargé.
-- **`canalAgence`** : construit pendant le parsing consommé (avant le filtre MAGASIN) → `{MAGASIN:{bl:N,...}, INTERNET:{...}, ...}`. Affiché dans le bloc "📡 Comment arrive votre business" (toujours visible dans l'onglet Territoire).
-- **`blConsommeSet`** : Set des N° BL du fichier consommé (clés de `blData`). Sert à déterminer canal MAGASIN vs EXTÉRIEUR dans le fichier territoire.
-- **`clientsMagasin`** : Set des codes numériques clients extraits du consommé (colonne "Code et nom client").
-- **`territoireLines`** : tableau de lignes parsées. Chaque ligne = `{code, libelle, direction, famille, bl, ca, canal, rayonStatus, clientCode, clientNom, clientType, qty}`.
-- **`terrDirectionData`** : agrégats par direction commerciale (caTotal, caMag, caExt, refSet, absentSet, familles).
-- **Statut rayon** : 🟢 en rayon (stockActuel > 0), 🟡 référencé mais rupture, 🔴 absent du rayon.
-- **Résumé exécutif** : 5ème ligne si territoire chargé — % capté + nb absents top 100 + € potentiel.
+## Territoire — onglet optionnel
+- **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik
+- **Articles spéciaux** : codes non standard exclus des vues Direction/Top 100/rayon. KPI `📌 X% du CA = spécial non stockable`
+- **Statut rayon** : ✅ En rayon (stock > 0), ⚠️ Rupture (référencé, stock = 0), ❌ Absent (non référencé)
+- **Filtre multi-select secteur** : checkboxes par code secteur avec direction (M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie)
+- **% capté** calculé sur CA hors spécial uniquement
+- **Résumé exécutif** : 5ème ligne si territoire chargé — % capté + nb absents top 100 + € potentiel
 
 ## Commandes utiles
 ```bash
