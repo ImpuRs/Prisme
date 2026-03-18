@@ -8,6 +8,15 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
+    /* VOLET 4: sticky period warning banner */
+    #periodBanner{display:none;position:sticky;top:0;z-index:9000;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+    #periodBanner.active{display:block}
+    /* VOLET 2bis: contributeurs agence */
+    .contrib-row{cursor:pointer;transition:background .15s}.contrib-row:hover{background:#f0f9ff}.contrib-row.open{background:#e0f2fe}
+    .contrib-detail{display:none}.contrib-detail.open{display:table-row-group}
+    .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:#f0fdf4}.contrib-client-row.open{background:#dcfce7}
+    .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
+    .pct-bar-terr{height:6px;border-radius:3px;transition:width .4s ease}
     body{font-family:'Inter',sans-serif}
     th{cursor:pointer;user-select:none}th:hover{background:#374151}
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
@@ -70,6 +79,9 @@
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
 
+  <!-- VOLET 4: Period alert banner -->
+  <div id="periodBanner"></div>
+
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
   <!-- V24.4: Pipeline per-file status -->
@@ -84,7 +96,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Territoire chargé</div></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden text-xs text-cyan-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Territoire chargé</div></div>
     </div>
   </nav>
 
@@ -349,12 +361,39 @@
 
       <!-- KPI territoire — only if fichier territoire chargé -->
       <div id="terrKPIBlock" class="hidden mb-4">
+        <!-- VOLET 3: résumé exécutif du croisement -->
+        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-5 mb-5 text-white">
+          <div class="flex items-center gap-2 mb-2"><span class="text-lg">🔗</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
+          <div id="terrCroisementText" class="text-sm leading-relaxed space-y-1"></div>
+        </div>
+        <!-- VOLET 2bis: Contributeurs agence drilldown -->
+        <div id="terrContribBlock" class="mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
+          <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Cliquez un secteur pour détailler</span></h3>
+            <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV</button>
+          </div>
+          <div id="terrContribSummary" class="px-4 py-2 text-xs text-gray-500 border-b bg-gray-50"></div>
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-800 text-white">
+              <tr>
+                <th class="py-2 px-3 text-left">Secteur</th>
+                <th class="py-2 px-3 text-left">Direction</th>
+                <th class="py-2 px-3 text-center">BL territoire</th>
+                <th class="py-2 px-3 text-center">BL agence</th>
+                <th class="py-2 px-3 text-center min-w-[140px]">% agence</th>
+                <th class="py-2 px-3 text-right">CA territoire</th>
+              </tr>
+            </thead>
+            <tbody id="terrContribTable"></tbody>
+          </table>
+        </div>
+        <!-- New KPI cards (5, no CA croisé) -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📋 Lignes</h4><p id="terrKpiLignes" class="text-xl font-extrabold">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-1"></p></div>
-          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">💰 CA Total</h4><p id="terrKpiCATotal" class="text-xl font-extrabold">—</p></div>
-          <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1">🏪 CA Magasin</h4><p id="terrKpiCAMag" class="text-xl font-extrabold">—</p><p id="terrKpiCAMagPct" class="text-blue-200 text-[10px] mt-1"></p></div>
-          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1">🌐 CA Extérieur</h4><p id="terrKpiCAExt" class="text-xl font-extrabold">—</p><p id="terrKpiCAExtPct" class="text-rose-200 text-[10px] mt-1"></p></div>
-          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-1">👥 Clients</h4><p id="terrKpiClients" class="text-xl font-extrabold">—</p><p id="terrKpiClientsSub" class="text-amber-200 text-[10px] mt-1"></p></div>
+          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-xl font-extrabold">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-1"></p></div>
+          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">💰 CA Total territoire</h4><p id="terrKpiCATotal" class="text-xl font-extrabold">—</p><p class="text-indigo-200 text-[10px] mt-1">source unique · fichier territoire</p></div>
+          <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-xl font-extrabold">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-1">du Top 100 en stock</p></div>
+          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-1">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-xl font-extrabold">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-1">du CA = non stockable</p></div>
+          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1">👥 Clients</h4><p id="terrKpiClients" class="text-xl font-extrabold">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-1"></p></div>
         </div>
       </div>
 
@@ -386,17 +425,17 @@
 
       <!-- Vue par Direction -->
       <div id="terrDirectionBlock" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📊 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA Extérieur décroissant · cliquez pour détailler</span></h3>
+        <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📊 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
         <table class="min-w-full text-xs">
           <thead class="bg-gray-800 text-white">
             <tr>
               <th class="py-2 px-3 text-left">Direction</th>
-              <th class="py-2 px-3 text-right">CA Total</th>
-              <th class="py-2 px-3 text-right">CA Magasin</th>
-              <th class="py-2 px-3 text-right">CA Extérieur</th>
-              <th class="py-2 px-3 text-center min-w-[120px]">% capté</th>
-              <th class="py-2 px-3 text-center">Réf rayon</th>
-              <th class="py-2 px-3 text-center">Réf absentes</th>
+              <th class="py-2 px-3 text-right">CA Territoire</th>
+              <th class="py-2 px-3 text-center">Nb articles</th>
+              <th class="py-2 px-3 text-center">✅ En rayon</th>
+              <th class="py-2 px-3 text-center">⚠️ Rupture</th>
+              <th class="py-2 px-3 text-center">❌ Absent</th>
+              <th class="py-2 px-3 text-center min-w-[120px]">% couverture</th>
             </tr>
           </thead>
           <tbody id="terrDirectionTable"></tbody>
@@ -405,7 +444,7 @@
 
       <!-- Top 100 articles -->
       <div id="terrTop100Block" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 p-4 border-b">🏆 Top 100 articles (CA total décroissant)</h3>
+        <h3 class="font-extrabold text-gray-800 p-4 border-b">🏆 Top 100 articles (CA territoire décroissant)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -414,11 +453,9 @@
                 <th class="py-2 px-2 text-left">Libellé</th>
                 <th class="py-2 px-2 text-left">Direction</th>
                 <th class="py-2 px-2 text-center">BL</th>
-                <th class="py-2 px-2 text-right">CA Total</th>
-                <th class="py-2 px-2 text-right">CA Mag.</th>
-                <th class="py-2 px-2 text-right">CA Ext.</th>
+                <th class="py-2 px-2 text-right">CA Territoire</th>
                 <th class="py-2 px-2 text-center">Rayon</th>
-                <th class="py-2 px-2 text-right">Stock</th>
+                <th class="py-2 px-2 text-right">Stock actuel</th>
               </tr>
             </thead>
             <tbody id="terrTop100Table"></tbody>
@@ -428,16 +465,14 @@
 
       <!-- Clients top 50 -->
       <div id="terrClientsBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 p-4 border-b">👥 Clients (top 50 par CA)</h3>
+        <h3 class="font-extrabold text-gray-800 p-4 border-b">👥 Clients (top 50 par CA territoire)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
               <tr>
                 <th class="py-2 px-2 text-left">Code</th>
                 <th class="py-2 px-2 text-left">Nom</th>
-                <th class="py-2 px-2 text-right">CA Total</th>
-                <th class="py-2 px-2 text-right">CA Mag.</th>
-                <th class="py-2 px-2 text-right">CA Ext.</th>
+                <th class="py-2 px-2 text-right">CA Territoire</th>
                 <th class="py-2 px-2 text-center">Nb Réf</th>
                 <th class="py-2 px-2 text-center">Type</th>
               </tr>
@@ -505,6 +540,10 @@
   let territoireLines=[];    // parsed omnicanal lines
   let territoireReady=false; // true if 3rd file loaded & processed
   let terrDirectionData={};  // aggregated by direction
+  // VOLET 4: Period tracking
+  let consommePeriodMin=null,consommePeriodMax=null,consommeMoisCouverts=0;
+  // VOLET 2bis: Contributeurs agence — secteur-level aggregates (populated after worker done)
+  let terrContribBySecteur=new Map();
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
   function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
@@ -521,7 +560,21 @@
   // V24.4: Per-file pipeline status (loading overlay)
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
   // V24.4: Territoire tab spinner + progress
-  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
+  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
+  // VOLET 4: Period alert
+  function fmtDate(d){if(!d)return'?';return d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});}
+  function updatePeriodAlert(){
+    const banner=document.getElementById('periodBanner');const navPeriod=document.getElementById('navPeriod');
+    if(!consommePeriodMin||!consommePeriodMax){if(banner)banner.classList.remove('active');if(navPeriod)navPeriod.classList.add('hidden');return;}
+    const dMin=fmtDate(consommePeriodMin),dMax=fmtDate(consommePeriodMax);
+    if(consommeMoisCouverts<10){
+      if(banner){banner.textContent=`⚠️ Votre consommé ne couvre que ${consommeMoisCouverts} mois (${dMin} — ${dMax}). Les MIN/MAX sont calibrés pour 12 mois glissants — résultats potentiellement sous-dimensionnés.`;banner.classList.add('active');}
+      if(navPeriod)navPeriod.classList.add('hidden');
+    }else{
+      if(banner)banner.classList.remove('active');
+      if(navPeriod){navPeriod.textContent=`📅 ${dMin} — ${dMax}`;navPeriod.classList.remove('hidden');}
+    }
+  }
   function updateTerrProgress(cur,total){const pct=total>0?Math.round(cur/total*100):0;const bar=document.getElementById('terrProgressBar');const txt=document.getElementById('terrProgressText');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=pct+'%';const pipe=document.getElementById('pipeTerritoire');if(pipe&&pct<100)pipe.textContent=`🔗 Territoire… ${pct}%`;}
   function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
   function formatCouv(j){if(j>=999)return'—';return j+'j';}
@@ -704,6 +757,13 @@
       updateProgress(68,100,'Analyse ventes…');
       const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
       globalJoursOuvres=joursOuvres;
+      // VOLET 4: Period detection
+      if(minDateVente<Infinity&&maxDateVente>0){
+        consommePeriodMin=new Date(minDateVente);consommePeriodMax=new Date(maxDateVente);
+        const calJours=daysBetween(consommePeriodMin,consommePeriodMax);
+        consommeMoisCouverts=Math.round(calJours/30.5);
+        updatePeriodAlert();
+      }
       const totalBLs=Object.keys(blData).length;let sumRefParBL=0,sumFamParBL=0;const famBLcount={};
       for(const bl of Object.values(blData)){sumRefParBL+=bl.codes.size;sumFamParBL+=bl.familles.size;for(const fam of bl.familles)famBLcount[fam]=(famBLcount[fam]||0)+1;}
       ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount};
@@ -1020,32 +1080,42 @@
     // Show all blocks
     ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
-    // V24.4 perf: single pass over all territoireLines for KPI totals + clientsMap
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
-    let caTotal=0,specialCA=0,stdMagCA=0,stdExtCA=0;
-    const blSet=new Set();
+    let caTotal=0,specialCA=0;
+    const blSetAll=new Set();
     const clientsMap={};
+    const dirSet=new Set();
     for(const l of territoireLines){
-      caTotal+=l.ca;
-      blSet.add(l.bl);
-      if(l.isSpecial){specialCA+=l.ca;}
-      else if(l.canal==='MAGASIN'){stdMagCA+=l.ca;}
-      else{stdExtCA+=l.ca;}
+      caTotal+=l.ca;blSetAll.add(l.bl);
+      if(l.isSpecial)specialCA+=l.ca;
+      else dirSet.add(l.direction);
       if(l.clientCode){if(!clientsMap[l.clientCode])clientsMap[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};clientsMap[l.clientCode].ca+=l.ca;clientsMap[l.clientCode].refs.add(l.code);}
     }
-    const stdCA=stdMagCA+stdExtCA;
     const pctSpecial=caTotal>0?((specialCA/caTotal)*100).toFixed(1):'0';
-    // % capté = standard magasin / standard total (hors spécial)
-    const pctCapteGlobal=stdCA>0?((stdMagCA/stdCA)*100).toFixed(1):'0';
-    const pctExtStd=stdCA>0?((stdExtCA/stdCA)*100).toFixed(1):'0';
 
-    // KPI cards (CA values = standard only, hors spécial)
+    // Couverture rayon sur Top 100 (standard articles seulement)
+    const artMapAll={};
+    for(const l of territoireLines){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
+    const top100All=Object.values(artMapAll).sort((a,b)=>b.ca-a.ca).slice(0,100);
+    const top100InStock=top100All.filter(a=>a.rayonStatus==='green').length;
+    const pctCouverture=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
+
+    // VOLET 3: Résumé croisement
+    renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock);
+
+    // VOLET 2bis: Build secteur aggregates + contributeurs (first call)
+    buildTerrContrib();
+    renderTerrContrib();
+
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
     setSafe('terrKpiLignes',territoireLines.length.toLocaleString('fr'));
-    setSafe('terrKpiLignesSub',blSet.size.toLocaleString('fr')+' BL');
+    setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
     setSafe('terrKpiCATotal',formatEuro(caTotal));
-    setSafe('terrKpiCAMag',formatEuro(stdMagCA));setSafe('terrKpiCAMagPct',pctCapteGlobal+'% du std · capté');
-    setSafe('terrKpiCAExt',formatEuro(stdExtCA));setSafe('terrKpiCAExtPct',pctExtStd+'% du std · non capté');
+    setSafe('terrKpiCouverture',pctCouverture+'%');
+    const t100Rupture=top100All.filter(a=>a.rayonStatus==='yellow').length;
+    setSafe('terrKpiCouvertureSub',`${top100InStock} en rayon · ${t100Rupture} rupture · ${top100All.length-top100InStock-t100Rupture} absents`);
+    setSafe('terrKpiSpecialPct',pctSpecial+'%');
+    setSafe('terrKpiSpecialSub',formatEuro(specialCA)+' non stockable');
     const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
     const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     setSafe('terrKpiClients',Object.keys(clientsMap).length.toLocaleString('fr'));
@@ -1066,45 +1136,44 @@
       return true;
     });
 
-    // Direction table (standard articles only)
+    // Direction table — new columns: CA Territoire | Nb articles | ✅ | ⚠️ | ❌ | % couverture
     const dirs={};
     for(const l of linesFiltered){
-      if(!dirs[l.direction])dirs[l.direction]={dir:l.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
-      const d=dirs[l.direction];d.caTotal+=l.ca;
-      if(l.canal==='MAGASIN')d.caMag+=l.ca;else d.caExt+=l.ca;
-      d.refSet.add(l.code);if(l.rayonStatus==='red')d.absentSet.add(l.code);
-      if(!d.familles[l.famille])d.familles[l.famille]={caTotal:0,caMag:0,caExt:0};
-      d.familles[l.famille].caTotal+=l.ca;if(l.canal==='MAGASIN')d.familles[l.famille].caMag+=l.ca;else d.familles[l.famille].caExt+=l.ca;
+      if(!dirs[l.direction])dirs[l.direction]={dir:l.direction,caTotal:0,refSet:new Set(),greenSet:new Set(),yellowSet:new Set(),redSet:new Set(),familles:{}};
+      const d=dirs[l.direction];d.caTotal+=l.ca;d.refSet.add(l.code);
+      if(l.rayonStatus==='green')d.greenSet.add(l.code);
+      else if(l.rayonStatus==='yellow')d.yellowSet.add(l.code);
+      else d.redSet.add(l.code);
+      if(!d.familles[l.famille])d.familles[l.famille]={caTotal:0};
+      d.familles[l.famille].caTotal+=l.ca;
     }
-    const dirsSorted=Object.values(dirs).sort((a,b)=>b.caExt-a.caExt);
+    const dirsSorted=Object.values(dirs).sort((a,b)=>b.caTotal-a.caTotal);
     let tbody='';
     for(const d of dirsSorted){
-      // % capté per direction = magasin / (magasin + extérieur) on standard articles
-      const pctCapteDir=d.caTotal>0?((d.caMag/d.caTotal)*100).toFixed(1):'0';
-      const pctNum=parseFloat(pctCapteDir);
-      const barColor=pctNum>=50?'bg-emerald-500':pctNum>=20?'bg-amber-500':'bg-red-500';
+      const nbTotal=d.refSet.size,nbGreen=d.greenSet.size,nbYellow=d.yellowSet.size,nbRed=d.redSet.size;
+      const pctCouv=nbTotal>0?Math.round(nbGreen/nbTotal*100):0;
+      const barColor=pctCouv>=70?'bg-emerald-500':pctCouv>=40?'bg-amber-500':'bg-red-500';
       const rowId='terr-dir-'+d.dir.replace(/\W/g,'_');
       tbody+=`<tr class="terr-row border-b font-semibold text-xs" onclick="toggleTerrDir('${rowId}')">
         <td class="py-2 px-3 font-bold">${d.dir} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
         <td class="py-2 px-3 text-right">${formatEuro(d.caTotal)}</td>
-        <td class="py-2 px-3 text-right text-blue-700">${formatEuro(d.caMag)}</td>
-        <td class="py-2 px-3 text-right text-rose-700">${formatEuro(d.caExt)}</td>
-        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${Math.min(pctNum,100)}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCapteDir}%</span></div></td>
-        <td class="py-2 px-3 text-center text-emerald-700 font-bold">${d.refSet.size-d.absentSet.size}</td>
-        <td class="py-2 px-3 text-center text-red-700 font-bold">${d.absentSet.size}</td>
+        <td class="py-2 px-3 text-center">${nbTotal}</td>
+        <td class="py-2 px-3 text-center text-emerald-700 font-bold">✅ ${nbGreen}</td>
+        <td class="py-2 px-3 text-center text-amber-700 font-bold">⚠️ ${nbYellow}</td>
+        <td class="py-2 px-3 text-center text-red-700 font-bold">❌ ${nbRed}</td>
+        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctCouv}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCouv}%</span></div></td>
       </tr>`;
-      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA Total</th><th class="py-1.5 px-3 text-right">CA Mag.</th><th class="py-1.5 px-3 text-right">CA Ext.</th></tr></thead><tbody>`;
-      Object.entries(d.familles).sort((a,b)=>b[1].caExt-a[1].caExt).forEach(([fam,fd])=>{tbody+=`<tr class="border-t border-blue-200"><td class="py-1.5 px-4">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td><td class="py-1.5 px-3 text-right text-blue-700">${formatEuro(fd.caMag)}</td><td class="py-1.5 px-3 text-right text-rose-700">${formatEuro(fd.caExt)}</td></tr>`;});
+      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
+      Object.entries(d.familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{tbody+=`<tr class="border-t border-blue-200"><td class="py-1.5 px-4">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`;});
       tbody+=`</tbody></table></td></tr>`;
     }
     const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucune donnée</td></tr>';
 
-    // Top 100 standard articles only
+    // Top 100 standard articles only — columns: Code | Libellé | Direction | BL | CA Territoire | Rayon | Stock actuel
     const artMap={};
     for(const l of linesFiltered){
-      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,direction:l.direction,bl:new Set(),caTotal:0,caMag:0,caExt:0,rayonStatus:l.rayonStatus};
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,direction:l.direction,bl:new Set(),caTotal:0,rayonStatus:l.rayonStatus};
       artMap[l.code].caTotal+=l.ca;artMap[l.code].bl.add(l.bl);
-      if(l.canal==='MAGASIN')artMap[l.code].caMag+=l.ca;else artMap[l.code].caExt+=l.ca;
     }
     const top100=Object.values(artMap).sort((a,b)=>b.caTotal-a.caTotal).slice(0,100);
     let p100='';
@@ -1113,21 +1182,171 @@
       const stockQty=stockItem?stockItem.stockActuel:'—';
       const rayonIcon=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
       const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
-      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-right text-blue-700">${formatEuro(a.caMag)}</td><td class="py-1.5 px-2 text-right text-rose-700">${formatEuro(a.caExt)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
+      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
-    const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="9" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
+    const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
 
-    // Clients top 50 (all lines — clients buy both standard and special)
+    // Clients top 50 — columns: Code | Nom | CA Territoire | Nb Réf | Type
     const clientsList=Object.values(clientsMap).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
-      pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
+      const rowBg=c.type==='exterieur'?'bg-red-50':'';
+      pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
-    const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
+    const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
   }
 
   function toggleTerrDir(rowId){const el=document.getElementById(rowId);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+
+  // VOLET 3: Résumé exécutif du croisement
+  function renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock){
+    const el=document.getElementById('terrCroisementText');if(!el)return;
+    const nbLignes=territoireLines.length;
+    const nbBL=blSetAll.size;
+    const nbDirs=dirSet.size;
+    const nbClients=Object.keys(clientsMap).length;
+    const nbRefStock=finalData.length;
+    const nbMois=consommeMoisCouverts||'?';
+    const nbBLConso=Object.keys(blData).length;
+    const pctTop100=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
+    let terrPeriodStr='';
+    // Detect territory period from lines
+    let tMin=null,tMax=null;
+    for(const l of territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
+    if(tMin&&tMax)terrPeriodStr=`, ${fmtDate(new Date(tMin))}–${fmtDate(new Date(tMax))}`;
+    else if(consommePeriodMin)terrPeriodStr='';
+    el.innerHTML=`<p>🔗 PILOT a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
+  }
+
+  // VOLET 2bis: Build secteur-level contributeurs aggregate map
+  function buildTerrContrib(){
+    terrContribBySecteur=new Map();
+    for(const l of territoireLines){
+      if(!l.secteur)continue;
+      if(!terrContribBySecteur.has(l.secteur))terrContribBySecteur.set(l.secteur,{secteur:l.secteur,direction:getSecteurDirection(l.secteur),blTerr:new Set(),blAgence:new Set(),ca:0,clients:new Map()});
+      const s=terrContribBySecteur.get(l.secteur);
+      s.blTerr.add(l.bl);
+      if(blConsommeSet.has(l.bl))s.blAgence.add(l.bl);
+      s.ca+=l.ca;
+      if(l.clientCode){
+        if(!s.clients.has(l.clientCode))s.clients.set(l.clientCode,{code:l.clientCode,nom:l.clientNom,ca:0,refs:new Set(),blTerr:new Set(),blAgence:new Set()});
+        const c=s.clients.get(l.clientCode);c.ca+=l.ca;c.refs.add(l.code);c.blTerr.add(l.bl);
+        if(blConsommeSet.has(l.bl))c.blAgence.add(l.bl);
+      }
+    }
+  }
+
+  // VOLET 2bis: Render Vue 1 — par secteur (sorted by % agence asc = opportunités en haut)
+  function renderTerrContrib(){
+    const el=document.getElementById('terrContribTable');if(!el)return;
+    if(!terrContribBySecteur.size){el.innerHTML='<tr><td colspan="6" class="text-center py-4 text-gray-400 text-xs">Aucun secteur trouvé dans le fichier territoire</td></tr>';return;}
+    const rows=[...terrContribBySecteur.values()].map(s=>{
+      const blT=s.blTerr.size,blA=s.blAgence.size;
+      const pct=blT>0?Math.round(blA/blT*100):0;
+      return{...s,blT,blA,pct};
+    }).sort((a,b)=>a.pct-b.pct); // plus grosses opportunités en haut
+    let tbody='';
+    for(const r of rows){
+      const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
+      const rowId='contrib-'+r.secteur.replace(/\W/g,'_');
+      tbody+=`<tr class="contrib-row border-b text-xs" onclick="toggleContribSecteur('${rowId}','${r.secteur}')">
+        <td class="py-2 px-3 font-bold">${r.secteur} <span class="text-gray-400 font-normal text-[9px]">▼</span></td>
+        <td class="py-2 px-3 text-gray-600">${r.direction||'—'}</td>
+        <td class="py-2 px-3 text-center font-semibold">${r.blT.toLocaleString('fr')}</td>
+        <td class="py-2 px-3 text-center font-semibold text-blue-700">${r.blA.toLocaleString('fr')}</td>
+        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="pct-bar-terr ${barColor}" style="width:${r.pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${r.pct}%</span></div></td>
+        <td class="py-2 px-3 text-right font-bold">${formatEuro(r.ca)}</td>
+      </tr><tr id="${rowId}" class="contrib-detail"><td colspan="6" class="p-0 bg-emerald-50 border-b border-emerald-200"><div id="${rowId}-inner" class="p-4 text-xs text-gray-400">Chargement…</div></td></tr>`;
+    }
+    el.innerHTML=tbody||'<tr><td colspan="6" class="text-center py-4 text-gray-400 text-xs">Aucun secteur</td></tr>';
+    // Summary
+    const sumEl=document.getElementById('terrContribSummary');
+    if(sumEl){const nbSect=rows.length,oppo=rows.filter(r=>r.pct<10).length;sumEl.textContent=`${nbSect} secteurs — ${oppo} avec <10% BL agence (opportunités prioritaires). Trié du moins capté au plus capté.`;}
+  }
+
+  function toggleContribSecteur(rowId,secteur){
+    const row=document.getElementById(rowId);if(!row)return;
+    const isOpen=row.classList.contains('open');
+    // Close all open secteur details
+    document.querySelectorAll('.contrib-detail.open').forEach(r=>r.classList.remove('open'));
+    document.querySelectorAll('.contrib-row.open').forEach(r=>r.classList.remove('open'));
+    if(isOpen)return;
+    row.classList.add('open');
+    row.previousElementSibling.classList.add('open');
+    // Lazy render Vue 2 — clients for this secteur
+    renderContribClients(rowId,secteur);
+  }
+
+  // VOLET 2bis: Vue 2 — clients d'un secteur
+  function renderContribClients(rowId,secteur){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const s=terrContribBySecteur.get(secteur);if(!s){inner.textContent='Données introuvables';return;}
+    const clients=[...s.clients.values()].sort((a,b)=>b.ca-a.ca);
+    const mixte=clients.filter(c=>c.blAgence.size>0).length;
+    const jamais=clients.filter(c=>c.blAgence.size===0).length;
+    let html=`<p class="font-bold text-gray-700 mb-2">✅ ${mixte} client${mixte>1?'s':''} viennent en agence · ❌ ${jamais} ne viennent jamais</p>`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-emerald-100 text-emerald-800"><tr><th class="py-1.5 px-3 text-left">Code client</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Vient en agence</th><th class="py-1.5 px-3 text-center">Nb BL agence</th></tr></thead><tbody>`;
+    for(const c of clients){
+      const vient=c.blAgence.size>0;
+      const rowBg=!vient?'bg-red-50':'';
+      const cliRowId='contrib-cli-'+rowId+'-'+c.code;
+      html+=`<tr class="contrib-client-row border-t border-emerald-200 ${rowBg}" onclick="toggleContribClient('${cliRowId}','${rowId}','${c.code}')"><td class="py-1.5 px-3 font-mono">${c.code} <span class="text-gray-400 text-[9px]">▼</span></td><td class="py-1.5 px-3">${c.nom}</td><td class="py-1.5 px-3 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-3 text-center font-bold">${vient?'✅ Oui':'❌ Jamais'}</td><td class="py-1.5 px-3 text-center">${c.blAgence.size}</td></tr><tr id="${cliRowId}" class="contrib-client-detail"><td colspan="5" class="p-0 bg-white border-t border-gray-100"><div id="${cliRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
+    }
+    html+='</tbody></table>';
+    inner.innerHTML=html;
+  }
+
+  function toggleContribClient(rowId,secteurRowId,clientCode){
+    const row=document.getElementById(rowId);if(!row)return;
+    const isOpen=row.classList.contains('open');
+    document.querySelectorAll('.contrib-client-detail.open').forEach(r=>r.classList.remove('open'));
+    document.querySelectorAll('.contrib-client-row.open').forEach(r=>r.classList.remove('open'));
+    if(isOpen)return;
+    row.classList.add('open');row.previousElementSibling.classList.add('open');
+    // Lazy render Vue 3 — articles for this client
+    const secteur=secteurRowId.replace('contrib-','');
+    renderContribArticles(rowId,secteur.replace(/_/g,' '),clientCode);
+  }
+
+  // VOLET 2bis: Vue 3 — articles d'un client dans un secteur
+  function renderContribArticles(rowId,secteurRaw,clientCode){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    // Collect standard articles for this client across all lines
+    const artMap={};
+    for(const l of territoireLines){
+      if(l.isSpecial)continue;
+      if(l.clientCode!==clientCode)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
+      artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
+    }
+    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const nbTotal=arts.length,nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
+    let html=`<p class="font-semibold text-gray-700 mb-2">Ce client achète <strong>${nbTotal}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong></p>`;
+    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400">Aucun article standard trouvé.</p>';return;}
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody>`;
+    for(const a of arts){
+      const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
+      const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
+      const rowBg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+      html+=`<tr class="border-t border-gray-100 ${rowBg}"><td class="py-1 px-3 font-mono">${a.code}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
+    }
+    html+='</tbody></table>';
+    inner.innerHTML=html;
+  }
+
+  // VOLET 2bis: Export CSV Vue 1 — secteurs
+  function exportContribCSV(){
+    if(!terrContribBySecteur.size){showToast('⚠️ Aucune donnée contributeurs','warning');return;}
+    const SEP=';';
+    const h=['Secteur','Direction','BL territoire','BL agence','% agence','CA territoire'];
+    const lines=['\uFEFF'+h.join(SEP)];
+    const rows=[...terrContribBySecteur.values()].map(s=>({secteur:s.secteur,dir:getSecteurDirection(s.secteur),blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.pct-b.pct);
+    for(const r of rows)lines.push([r.secteur,r.dir,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
+  }
 
   function exportTerritoireCSV(){
     if(!territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
@@ -1327,23 +1546,14 @@
     }
     // Line 5: Territoire (V24.4) — only if territoire file loaded
     if(territoireReady&&territoireLines.length>0){
-      // V24.4 perf: O(n) single pass — standard articles only (specials excluded from rayon cross-check)
-      let caTotal=0,stdMag=0,specialCA=0;
-      const artMap=new Map(); // code → {caTotal, caExt} — standard only
-      for(const l of territoireLines){
-        caTotal+=l.ca;
-        if(l.isSpecial){specialCA+=l.ca;continue;}
-        if(l.canal==='MAGASIN')stdMag+=l.ca;
-        let a=artMap.get(l.code);if(!a){a={caTotal:0,caExt:0};artMap.set(l.code,a);}
-        a.caTotal+=l.ca;if(l.canal==='EXTÉRIEUR')a.caExt+=l.ca;
-      }
-      const stdCA=caTotal-specialCA;
-      const pctCapte=stdCA>0?((stdMag/stdCA)*100).toFixed(1):'0';
-      const stkMap=new Map(finalData.map(r=>[r.code,r]));
-      const top100=[...artMap.entries()].sort((a,b)=>b[1].caTotal-a[1].caTotal).slice(0,100);
-      let absentCount=0,caPerdu=0;
-      for(const[code,artData] of top100){const s=stkMap.get(code);if(!s||s.stockActuel<=0){absentCount++;caPerdu+=artData.caExt;}}
-      lines.push(`<p>🔗 Votre agence capte <strong class="text-violet-400">${pctCapte}%</strong> du CA territoire. <strong>${absentCount}</strong> articles du top 100 ne sont pas en rayon — <strong class="text-rose-400">${formatEuro(caPerdu)}</strong> de potentiel.</p>`);
+      // Ligne 5 du résumé exécutif: couverture rayon sur Top 100 territoire (source unique, pas de croisement CA)
+      const artMapEx=new Map();
+      for(const l of territoireLines){if(l.isSpecial)continue;let a=artMapEx.get(l.code);if(!a){a={ca:0,rayonStatus:l.rayonStatus};artMapEx.set(l.code,a);}a.ca+=l.ca;}
+      const top100Ex=[...artMapEx.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,100);
+      const top100InStock=top100Ex.filter(([,a])=>a.rayonStatus==='green').length;
+      const absentTop100=top100Ex.filter(([,a])=>a.rayonStatus==='red').length;
+      const pctCouv=top100Ex.length>0?Math.round(top100InStock/top100Ex.length*100):0;
+      lines.push(`<p>🔗 Territoire chargé — <strong class="text-violet-400">${pctCouv}%</strong> du Top 100 articles en rayon. <strong>${absentTop100}</strong> articles absents du rayon (❌).</p>`);
     }
     document.getElementById('execSummaryText').innerHTML=lines.join('');
   }

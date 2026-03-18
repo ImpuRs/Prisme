@@ -34,11 +34,12 @@ PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de d
 Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers Excel du magasin (Consommé + État du Stock + Territoire optionnel).
 
 ## Structure du code (dans index.html)
-- **Lignes 1-~180** : HTML structure + CSS (`.abc-cell`, `.shortcut-card`, `.info-tip`, `.canal-bar`, `.terr-row`, `.rayon-green/yellow/red`, `.cap-bar`)
+- **Lignes 1-~200** : HTML structure + CSS (`.abc-cell`, `.shortcut-card`, `.info-tip`, `.canal-bar`, `.terr-row`, `.rayon-green/yellow/red`, `.cap-bar`, `.contrib-row`, `.pct-bar-terr`)
 - **Section `<script>`** :
-  - Constantes et variables globales (dont `abcMatrixData`, `canalAgence`, `blConsommeSet`, `clientsMagasin`, `territoireLines`, `terrDirectionData`)
+  - Constantes et variables globales (dont `abcMatrixData`, `canalAgence`, `blConsommeSet`, `clientsMagasin`, `territoireLines`, `terrDirectionData`, `terrContribBySecteur`, `consommePeriodMin/Max/MoisCouverts`)
   - Fonctions utilitaires (cleanCode, cleanPrice, parseExcelDate, etc.)
-  - `processData()` : moteur principal, lit les 2 Excel + 3ème optionnel (territoire)
+  - `processData()` : moteur principal, lit les 2 Excel + 3ème optionnel (territoire) + détecte période consommé (VOLET 4)
+  - `updatePeriodAlert()` : affiche bandeau orange sticky si consommé < 10 mois, sinon période dans navbar (VOLET 4)
   - `_terrWorker()` / `launchTerritoireWorker()` : Web Worker pour le parsing territoire en background
   - `buildSecteurCheckboxes()` / `toggleSecteurDropdown()` / `getSelectedSecteurs()` : filtre multi-select secteur
   - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3)
@@ -47,7 +48,9 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
   - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` : onglet Territoire
-  - `renderExecSummary()` : résumé exécutif (ruptures, stock, service, C-Rare, territoire)
+  - `renderTerrCroisementSummary()` : bloc résumé auto-détecté (VOLET 3)
+  - `buildTerrContrib()` / `renderTerrContrib()` / `toggleContribSecteur()` / `renderContribClients()` / `toggleContribClient()` / `renderContribArticles()` / `exportContribCSV()` : drilldown contributeurs agence (VOLET 2bis)
+  - `renderExecSummary()` : résumé exécutif (ruptures, stock, service, C-Rare, territoire couverture rayon)
   - `calcPriorityScore()` / `isParentRef()` : fonctions priorité
   - `renderComparison()` : comparaison historique
 
@@ -60,10 +63,15 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 ## Territoire — onglet optionnel
 - **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik
 - **Articles spéciaux** : codes non standard exclus des vues Direction/Top 100/rayon. KPI `📌 X% du CA = spécial non stockable`
-- **Statut rayon** : ✅ En rayon (stock > 0), ⚠️ Rupture (référencé, stock = 0), ❌ Absent (non référencé)
+- **Statut rayon** : ✅ En rayon (stock > 0), ⚠️ Rupture (référencé, stock = 0), ❌ Absent (non référencé) — toujours avec texte (accessible daltoniens)
 - **Filtre multi-select secteur** : checkboxes par code secteur avec direction (M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie)
-- **% capté** calculé sur CA hors spécial uniquement
-- **Résumé exécutif** : 5ème ligne si territoire chargé — % capté + nb absents top 100 + € potentiel
+- **KPI : 5 cartes** : Lignes | CA Total (source unique) | Couverture rayon Top 100 | % Spécial | Clients — **JAMAIS de ratio entre 2 fichiers différents**
+- **Vue Direction** : CA Territoire | Nb articles | ✅ En rayon | ⚠️ Rupture | ❌ Absent | % couverture (nb en rayon / nb total) — pas de CA croisé
+- **Top 100** : Code | Libellé | Direction | BL | CA Territoire | Rayon (✅/⚠️/❌ + texte) | Stock actuel — pas de CA Magasin/Extérieur
+- **Clients** : Code | Nom | CA Territoire | Nb réf | Type (✅ Mixte / ❌ Ext. pur) — pas de CA croisé
+- **Résumé croisement** (VOLET 3) : bloc sombre auto-généré au-dessus des KPIs avec toutes les métriques auto-détectées
+- **Contributeurs agence** (VOLET 2bis) : drilldown 3 niveaux — Secteurs (trié % agence asc = opportunités) → Clients → Articles. Lazy loading au clic. Export CSV Vue 1.
+- **Résumé exécutif** cockpit, 5ème ligne : % couverture rayon Top 100 (source unique territoire, pas de CA croisé)
 
 ## Commandes utiles
 ```bash
