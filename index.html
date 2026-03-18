@@ -604,7 +604,8 @@
     renderDashboardAndCockpit();
     renderABCTab();
     renderCanalAgence();
-    if(territoireReady)renderTerritoireTab();
+    // V24.4 perf: renderTerritoireTab() NOT called here — territory renders once after worker finishes
+    // and re-renders only when territoire-local filters change (oninput/onchange on terrSearch/terrFilterDir/terrFilterRayon)
   }
 
   function onFilterChange(){currentPage=0;clearCockpitFilter(true);renderAll();}
@@ -757,7 +758,7 @@
       try{
         const terrRaw=await terrParsePromise;
         if(terrRaw&&terrRaw.length){
-          await processTerritoireDataAsync(terrRaw,updateTerrProgress);
+          await launchTerritoireWorker(terrRaw,updateTerrProgress);
           document.getElementById('navTerr').classList.remove('hidden');
           updatePipeline('territoire','done');
           renderTerritoireTab();
@@ -814,72 +815,95 @@
 
   function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
 
-  // V24.4: Async territoire processor — TERR_CHUNK_SIZE=10000, yieldToMain every 3 chunks, Map lookups
-  async function processTerritoireDataAsync(rows,progressCb){
-    territoireLines=[];terrDirectionData={};
-    const sample=rows[0]||{};
-    const findCol=(s)=>Object.keys(sample).find(k=>k.toLowerCase().includes(s.toLowerCase()));
-    const cClient=findCol('code client')||findCol('code et nom');
-    const cNom=findCol('nom client')||findCol('nom');
-    const cDir=findCol('direction');
-    const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
-    const cArticle=findCol('article');
-    const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
-    const cCA=findCol('ca');
-    if(!cArticle){showToast('⚠️ Territoire: colonne Article introuvable','warning');return;}
-    if(!cBL){showToast('⚠️ Territoire: colonne Numéro de BL introuvable','warning');return;}
-
-    const dirSet=new Set();
-    // V24.4: Map for O(1) lookups — built once here, blConsommeSet already built in processData
-    const stockLookup=new Map();for(const r of finalData)stockLookup.set(r.code,r);
-    // clientsMagasin is already a Set (built during consommé parsing)
-
-    const chunkCount=Math.ceil(rows.length/TERR_CHUNK_SIZE);
-    for(let ci=0;ci<chunkCount;ci++){
-      const i=ci*TERR_CHUNK_SIZE;
-      const end=Math.min(i+TERR_CHUNK_SIZE,rows.length);
-      for(let j=i;j<end;j++){
-        const row=rows[j];
-        const qty=cQty?cleanOmniPrice(row[cQty]):0;
-        if(qty<0)continue;
-        const articleRaw2=(cArticle?row[cArticle]||'':'').toString().trim();
-        const code2=articleRaw2.split(' - ')[0].trim();
-        if(!code2)continue;
-        const bl=(cBL?row[cBL]||'':'').toString().trim();
-        const ca=cCA?cleanOmniPrice(row[cCA]):0;
-        const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
-        const clientCode=(cClient?row[cClient]||'':'').toString().trim();
-        const clientNom=(cNom?row[cNom]||'':'').toString().trim();
-        // V24.4: blConsommeSet is a Set built before this call — O(1)
-        const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
-        const stockItem=stockLookup.get(code2);
-        const rayonStatus=stockItem?(stockItem.stockActuel>0?'green':'yellow'):'red';
-        const ccMatch=clientCode.match(/^(\d+)/);
-        const ccNum=ccMatch?ccMatch[1]:clientCode;
-        // clientsMagasin is a Set — O(1)
-        const clientType=clientsMagasin.has(ccNum)?'mixte':'exterieur';
-        const famItem=articleFamille[code2]||(stockItem?stockItem.famille:'')||'Non classé';
-        dirSet.add(direction);
-        territoireLines.push({code:code2,libelle:articleRaw2.includes(' - ')?articleRaw2.split(' - ').slice(1).join(' - ').trim():(libelleLookup[code2]||code2),direction,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,qty});
+  // V24.4 perf: Web Worker code — runs off the main thread, completely frees the UI
+  // Uses function.toString() trick to avoid string-escaping issues with regex literals
+  function _terrWorker(){
+    'use strict';
+    function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
+    self.onmessage=function(ev){
+      const{rows,blConsommeArr,clientsMagasinArr,stockArr,libelleLookupObj,articleFamilleObj}=ev.data;
+      const blConsommeSet=new Set(blConsommeArr);
+      const clientsMagasin=new Set(clientsMagasinArr);
+      const stockMap=new Map(stockArr.map(r=>[r.code,r]));
+      const sample=rows[0]||{};
+      const findCol=s=>Object.keys(sample).find(k=>k.toLowerCase().includes(s.toLowerCase()));
+      const cClient=findCol('code client')||findCol('code et nom');
+      const cNom=findCol('nom client')||findCol('nom');
+      const cDir=findCol('direction');
+      const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
+      const cArticle=findCol('article');
+      const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
+      const cCA=findCol('ca');
+      if(!cArticle){self.postMessage({type:'error',msg:'Territoire: colonne Article introuvable'});return;}
+      if(!cBL){self.postMessage({type:'error',msg:'Territoire: colonne Numéro de BL introuvable'});return;}
+      const lines=[];const dirSet=new Set();const CHUNK=2000;const total=rows.length;
+      for(let ci=0;ci<Math.ceil(total/CHUNK);ci++){
+        const start=ci*CHUNK,end=Math.min(start+CHUNK,total);
+        for(let j=start;j<end;j++){
+          const row=rows[j];
+          const qty=cQty?cleanOmniPrice(row[cQty]):0;if(qty<0)continue;
+          const articleRaw=(cArticle?row[cArticle]||'':'').toString().trim();
+          const code=articleRaw.split(' - ')[0].trim();if(!code)continue;
+          const bl=(cBL?row[cBL]||'':'').toString().trim();
+          const ca=cCA?cleanOmniPrice(row[cCA]):0;
+          const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
+          const clientCodeRaw=(cClient?row[cClient]||'':'').toString().trim();
+          const clientNom=(cNom?row[cNom]||'':'').toString().trim();
+          const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
+          const stockItem=stockMap.get(code);
+          const rayonStatus=stockItem?(stockItem.stockActuel>0?'green':'yellow'):'red';
+          const ccMatch=clientCodeRaw.match(/^(\d+)/);
+          const ccNum=ccMatch?ccMatch[1]:clientCodeRaw;
+          const clientType=clientsMagasin.has(ccNum)?'mixte':'exterieur';
+          const famItem=articleFamilleObj[code]||(stockItem?stockItem.famille:'')||'Non classé';
+          const libelle=articleRaw.includes(' - ')?articleRaw.split(' - ').slice(1).join(' - ').trim():(libelleLookupObj[code]||code);
+          dirSet.add(direction);
+          lines.push({code,libelle,direction,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType});
+        }
+        self.postMessage({type:'progress',cur:end,total});
       }
-      if(progressCb)progressCb(end,rows.length);
-      // V24.4: yieldToMain every 3 chunks (every 30k rows) to avoid blocking UI
-      if(ci%3===2)await yieldToMain();
-    }
-    // Aggregate by direction
-    for(const ln of territoireLines){
-      if(!terrDirectionData[ln.direction])terrDirectionData[ln.direction]={dir:ln.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
-      const d=terrDirectionData[ln.direction];
-      d.caTotal+=ln.ca;
-      if(ln.canal==='MAGASIN')d.caMag+=ln.ca;else d.caExt+=ln.ca;
-      d.refSet.add(ln.code);
-      if(ln.rayonStatus==='red')d.absentSet.add(ln.code);
-      if(!d.familles[ln.famille])d.familles[ln.famille]={caTotal:0,caMag:0,caExt:0};
-      d.familles[ln.famille].caTotal+=ln.ca;
-      if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
-    }
-    const sel=document.getElementById('terrFilterDir');if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';[...dirSet].sort().forEach(d=>{sel.innerHTML+=`<option value="${d}">${d}</option>`;});}
-    territoireReady=true;
+      const terrDirData={};
+      for(const ln of lines){
+        if(!terrDirData[ln.direction])terrDirData[ln.direction]={dir:ln.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
+        const d=terrDirData[ln.direction];
+        d.caTotal+=ln.ca;if(ln.canal==='MAGASIN')d.caMag+=ln.ca;else d.caExt+=ln.ca;
+        d.refSet.add(ln.code);if(ln.rayonStatus==='red')d.absentSet.add(ln.code);
+        if(!d.familles[ln.famille])d.familles[ln.famille]={caTotal:0,caMag:0,caExt:0};
+        d.familles[ln.famille].caTotal+=ln.ca;
+        if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
+      }
+      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort()});
+    };
+  }
+
+  // V24.4 perf: Launch territoire in a Web Worker — main thread never blocks
+  function launchTerritoireWorker(rows,progressCb){
+    return new Promise((resolve,reject)=>{
+      let workerUrl;
+      try{
+        const code=`(${_terrWorker.toString()})()`;
+        const blob=new Blob([code],{type:'text/javascript'});
+        workerUrl=URL.createObjectURL(blob);
+      }catch(e){reject(new Error('Worker indisponible: '+e.message));return;}
+      const worker=new Worker(workerUrl);
+      // Pass only what the worker needs — compact stockArr to reduce serialization cost
+      const stockArr=finalData.map(r=>({code:r.code,stockActuel:r.stockActuel,famille:r.famille}));
+      worker.postMessage({rows,blConsommeArr:[...blConsommeSet],clientsMagasinArr:[...clientsMagasin],stockArr,libelleLookupObj:libelleLookup,articleFamilleObj:articleFamille});
+      worker.onmessage=function(ev){
+        const d=ev.data;
+        if(d.type==='progress'){if(progressCb)progressCb(d.cur,d.total);}
+        else if(d.type==='done'){
+          territoireLines=d.lines;terrDirectionData=d.terrDirData;
+          const sel=document.getElementById('terrFilterDir');
+          if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';d.dirsSorted.forEach(dir=>{sel.innerHTML+=`<option value="${dir}">${dir}</option>`;});}
+          territoireReady=true;
+          worker.terminate();URL.revokeObjectURL(workerUrl);resolve();
+        }else if(d.type==='error'){
+          worker.terminate();URL.revokeObjectURL(workerUrl);reject(new Error(d.msg));
+        }
+      };
+      worker.onerror=function(e){worker.terminate();URL.revokeObjectURL(workerUrl);reject(new Error(e.message||'Worker error'));};
+    });
   }
 
   // V24.4: Render canal distribution block (always shown in Territoire tab)
@@ -917,14 +941,17 @@
     // Show/hide blocks
     ['terrKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
+    // V24.4 perf: Map for O(1) stock lookups in top-100 section — built once per render
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
     // KPI cards
-    const allCA=territoireLines.reduce((s,l)=>s+l.ca,0);
-    const magCA=territoireLines.filter(l=>l.canal==='MAGASIN').reduce((s,l)=>s+l.ca,0);
+    let allCA=0,magCA=0;
+    for(const l of territoireLines){allCA+=l.ca;if(l.canal==='MAGASIN')magCA+=l.ca;}
     const extCA=allCA-magCA;
     const pctMag=allCA>0?((magCA/allCA)*100).toFixed(1):'0';
     const pctExt=allCA>0?((extCA/allCA)*100).toFixed(1):'0';
+    // V24.4 perf: store code in clientsMap value — avoids O(n) reverse lookup in table row
     const clientsMap={};
-    for(const l of territoireLines){if(!l.clientCode)continue;if(!clientsMap[l.clientCode])clientsMap[l.clientCode]={type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};clientsMap[l.clientCode].ca+=l.ca;clientsMap[l.clientCode].refs.add(l.code);}
+    for(const l of territoireLines){if(!l.clientCode)continue;if(!clientsMap[l.clientCode])clientsMap[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};clientsMap[l.clientCode].ca+=l.ca;clientsMap[l.clientCode].refs.add(l.code);}
     const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
     const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
@@ -987,7 +1014,7 @@
     const top100=Object.values(artMap).sort((a,b)=>b.caTotal-a.caTotal).slice(0,100);
     let p100='';
     for(const a of top100){
-      const stockItem=finalData.find(r=>r.code===a.code);
+      const stockItem=stockMap.get(a.code);
       const stockQty=stockItem?stockItem.stockActuel:'—';
       const rayonIcon=a.rayonStatus==='green'?'🟢':a.rayonStatus==='yellow'?'🟡':'🔴';
       const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
@@ -1000,7 +1027,7 @@
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'🟢 Mixte':'🔴 Ext. pur';
-      pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${Object.keys(clientsMap).find(k=>clientsMap[k]===c)||''}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
+      pCli+=`<tr class="border-b text-[11px]"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-right text-blue-700">—</td><td class="py-1.5 px-2 text-right text-rose-700">—</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
   }
@@ -1202,15 +1229,19 @@
     }
     // Line 5: Territoire (V24.4) — only if territoire file loaded
     if(territoireReady&&territoireLines.length>0){
-      const caTotal=territoireLines.reduce((s,l)=>s+l.ca,0);
-      const caMag=territoireLines.filter(l=>l.canal==='MAGASIN').reduce((s,l)=>s+l.ca,0);
+      // V24.4 perf: O(n) single pass — build artMap and compute totals simultaneously
+      let caTotal=0,caMag=0;
+      const artMap=new Map(); // code → {caTotal, caExt}
+      for(const l of territoireLines){
+        caTotal+=l.ca;if(l.canal==='MAGASIN')caMag+=l.ca;
+        let a=artMap.get(l.code);if(!a){a={caTotal:0,caExt:0};artMap.set(l.code,a);}
+        a.caTotal+=l.ca;if(l.canal==='EXTÉRIEUR')a.caExt+=l.ca;
+      }
       const pctCapte=caTotal>0?((caMag/caTotal)*100).toFixed(1):'0';
-      const top100codes=[...new Set(territoireLines.map(l=>l.code))].sort((a,b)=>{
-        const ca_a=territoireLines.filter(l=>l.code===a).reduce((s,l)=>s+l.ca,0);
-        const ca_b=territoireLines.filter(l=>l.code===b).reduce((s,l)=>s+l.ca,0);
-        return ca_b-ca_a;}).slice(0,100);
-      const absentCount=top100codes.filter(c=>{const s=finalData.find(r=>r.code===c);return!s||s.stockActuel<=0;}).length;
-      const caPerdu=top100codes.filter(c=>{const s=finalData.find(r=>r.code===c);return!s||s.stockActuel<=0;}).reduce((s,c)=>s+territoireLines.filter(l=>l.code===c&&l.canal==='EXTÉRIEUR').reduce((ss,l)=>ss+l.ca,0),0);
+      const stkMap=new Map(finalData.map(r=>[r.code,r]));
+      const top100=[...artMap.entries()].sort((a,b)=>b[1].caTotal-a[1].caTotal).slice(0,100);
+      let absentCount=0,caPerdu=0;
+      for(const[code,artData] of top100){const s=stkMap.get(code);if(!s||s.stockActuel<=0){absentCount++;caPerdu+=artData.caExt;}}
       lines.push(`<p>🔗 Votre agence capte <strong class="text-violet-400">${pctCapte}%</strong> du CA territoire. <strong>${absentCount}</strong> articles du top 100 ne sont pas en rayon — <strong class="text-rose-400">${formatEuro(caPerdu)}</strong> de potentiel.</p>`);
     }
     document.getElementById('execSummaryText').innerHTML=lines.join('');
