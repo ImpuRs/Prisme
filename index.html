@@ -77,6 +77,8 @@
     .terr-detail.open{display:table-row-group}
     .rayon-green{background:#dcfce7}.rayon-yellow{background:#fef9c3}.rayon-red{background:#fee2e2}
     .cap-bar{height:8px;border-radius:4px;transition:width .4s ease}
+    /* Territoire famille drill-down */
+    .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:#dbeafe}.terr-fam-row.open{background:#bfdbfe}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
@@ -1146,8 +1148,9 @@
       if(l.rayonStatus==='green')d.greenSet.add(l.code);
       else if(l.rayonStatus==='yellow')d.yellowSet.add(l.code);
       else d.redSet.add(l.code);
-      if(!d.familles[l.famille])d.familles[l.famille]={caTotal:0};
-      d.familles[l.famille].caTotal+=l.ca;
+      const famKey=l.famille||'';
+      if(!d.familles[famKey])d.familles[famKey]={caTotal:0,nb:new Set()};
+      d.familles[famKey].caTotal+=l.ca;d.familles[famKey].nb.add(l.code);
     }
     const dirsSorted=Object.values(dirs).sort((a,b)=>b.caTotal-a.caTotal);
     let tbody='';
@@ -1165,8 +1168,17 @@
         <td class="py-2 px-3 text-center text-red-700 font-bold">❌ ${nbRed}</td>
         <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctCouv}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctCouv}%</span></div></td>
       </tr>`;
-      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
-      Object.entries(d.familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{tbody+=`<tr class="border-t border-blue-200"><td class="py-1.5 px-4">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`;});
+      const dirEnc=encodeURIComponent(d.dir);
+      tbody+=`<tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-center">Nb art.</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
+      Object.entries(d.familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{
+        const famLabel=fam?fam:'❓ Non référencé en agence';
+        const famRowId='terr-fam-'+d.dir.replace(/\W/g,'_')+'-'+fam.replace(/\W/g,'_')+'_f';
+        tbody+=`<tr class="terr-fam-row border-t border-blue-200" onclick="toggleTerrFam('${famRowId}','${dirEnc}','${encodeURIComponent(fam)}')">`+
+          `<td class="py-1.5 px-4">${famLabel} <span class="text-gray-400 text-[9px]">▼</span></td>`+
+          `<td class="py-1.5 px-3 text-center">${fd.nb.size}</td>`+
+          `<td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`+
+          `<tr id="${famRowId}" style="display:none"><td colspan="3" class="p-0 bg-sky-50"><div id="${famRowId}-inner" class="p-3 text-xs text-gray-400">Chargement…</div></td></tr>`;
+      });
       tbody+=`</tbody></table></td></tr>`;
     }
     const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucune donnée</td></tr>';
@@ -1200,6 +1212,69 @@
   }
 
   function toggleTerrDir(rowId){const el=document.getElementById(rowId);if(el)el.style.display=el.style.display==='none'?'table-row':'none';}
+
+  // Toggle famille row inside direction detail (lazy load articles)
+  function toggleTerrFam(rowId,encDir,encFam){
+    const row=document.getElementById(rowId);if(!row)return;
+    const isOpen=row.style.display!=='none';
+    if(isOpen){row.style.display='none';if(row.previousElementSibling)row.previousElementSibling.classList.remove('open');return;}
+    row.style.display='table-row';if(row.previousElementSibling)row.previousElementSibling.classList.add('open');
+    const inner=document.getElementById(rowId+'-inner');
+    if(inner&&inner.textContent.trim()==='Chargement…')renderTerrFamArticles(rowId,decodeURIComponent(encDir),decodeURIComponent(encFam));
+  }
+
+  // Render article list for a direction+famille combination
+  function renderTerrFamArticles(rowId,direction,famille){
+    const inner=document.getElementById(rowId+'-inner');if(!inner)return;
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    const isStd=code=>/^\d{6}$/.test(code);
+    const artMap={};
+    for(const l of territoireLines){
+      if(l.direction!==direction)continue;
+      if((l.famille||'')!==famille)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
+      artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
+    }
+    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const LIMIT=50;
+    if(!arts.length){inner.innerHTML='<p class="text-gray-400 text-[11px] p-2">Aucun article dans cette famille.</p>';return;}
+    const nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
+    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px] px-2 pt-2">${arts.length} article${arts.length>1?'s':''} · <span class="text-emerald-700">${nbEnRayon} en rayon</span> · <span class="text-red-700">${nbAbsent} absent${nbAbsent>1?'s':''}</span></div>`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
+    html+=_buildTerrFamArtRows(arts.slice(0,LIMIT),stockMap);
+    html+=`</tbody></table>`;
+    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs text-sky-700 font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}','${encodeURIComponent(famille)}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
+    inner.innerHTML=html;
+  }
+  function _buildTerrFamArtRows(arts,stockMap){
+    const isStd=code=>/^\d{6}$/.test(code);
+    let html='';
+    for(const a of arts){
+      const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
+      const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
+      const rowBg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+      const speTag=!isStd(a.code)?'<span class="ml-1 text-[9px] bg-gray-200 text-gray-500 font-bold px-1 rounded">SPÉ</span>':'';
+      html+=`<tr class="border-t border-sky-100 ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}${speTag}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
+    }
+    return html;
+  }
+  function _loadMoreTerrFamArt(btn,rowId,offset,encDir,encFam){
+    const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
+    const LIMIT=50,newOff=offset+LIMIT;
+    const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    const artMap={};
+    for(const l of territoireLines){
+      if(l.direction!==direction)continue;
+      if((l.famille||'')!==famille)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
+      artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
+    }
+    const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
+    const tbody=document.getElementById(rowId+'-artbody');
+    if(tbody)tbody.insertAdjacentHTML('beforeend',_buildTerrFamArtRows(arts.slice(offset,newOff),stockMap));
+    const rem=arts.length-newOff;
+    if(rem>0){btn.textContent=`▼ Voir plus (${rem} restants…)`;btn.onclick=()=>_loadMoreTerrFamArt(btn,rowId,newOff,encDir,encFam);}else btn.remove();
+  }
 
   // VOLET 3: Résumé exécutif du croisement
   function renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock){
@@ -1386,27 +1461,31 @@
     renderContribArticles(rowId,clientCode);
   }
 
-  // Vue 4 — Articles d'un client (lazy, triés CA desc, limite 50)
+  // Vue 4 — Articles d'un client (lazy, triés CA desc, limite 50) — inclut spéciaux avec tag SPÉ
   function renderContribArticles(rowId,clientCode){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
+    const isStd=code=>/^\d{6}$/.test(code);
     const artMap={};
     for(const l of territoireLines){
-      if(l.isSpecial||l.clientCode!==clientCode)continue;
-      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
+      if(l.clientCode!==clientCode)continue;
+      if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus,isSpecial:l.isSpecial||!isStd(l.code)};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
     }
     const arts=Object.values(artMap).sort((a,b)=>b.ca-a.ca);
     const LIMIT=50;
-    const nbEnRayon=arts.filter(a=>a.rayonStatus==='green').length,nbAbsent=arts.filter(a=>a.rayonStatus==='red').length;
-    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px]">Ce client achète <strong>${arts.length}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong></div>`;
-    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-xs">Aucun article standard trouvé.</p>';return;}
+    const stdArts=arts.filter(a=>!a.isSpecial);
+    const nbEnRayon=stdArts.filter(a=>a.rayonStatus==='green').length,nbAbsent=stdArts.filter(a=>a.rayonStatus==='red').length;
+    const nbSpe=arts.length-stdArts.length;
+    let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px]">Ce client achète <strong>${arts.length}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong>${nbSpe>0?`, <span class="text-gray-400">${nbSpe} SPÉ</span>`:''}</div>`;
+    if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-xs">Aucun article trouvé.</p>';return;}
     html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody>`;
     for(const a of arts.slice(0,LIMIT)){
       const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
       const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-      const rowBg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
-      html+=`<tr class="border-t border-gray-100 ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
+      const rowBg=a.isSpecial?'bg-gray-50':a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+      const speTag=a.isSpecial?'<span class="ml-1 text-[9px] bg-gray-200 text-gray-500 font-bold px-1 rounded">SPÉ</span>':'';
+      html+=`<tr class="border-t border-gray-100 ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}${speTag}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${a.isSpecial?'<span class="text-gray-400 text-[10px]">— spécial</span>':ri}</td><td class="py-1 px-3 text-right">${a.isSpecial?'—':st}</td></tr>`;
     }
     html+=`</tbody></table>`;
     if(arts.length>LIMIT)html+=`<p class="text-[10px] text-gray-400 mt-1 italic">… et ${arts.length-LIMIT} article${arts.length-LIMIT>1?'s':''} supplémentaires.</p>`;
