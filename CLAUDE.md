@@ -17,6 +17,7 @@ Optistock PRO est un outil d'analyse de stocks pour magasins de distribution B2B
 - Pas de TypeScript, pas de modules — tout est dans un seul `<script>`
 - DOM manipulé via innerHTML pour les tableaux (performance sur 10k+ lignes)
 - Traitement par chunks (CHUNK_SIZE=5000) avec `yieldToMain()` pour ne pas bloquer l'UI
+- `globalJoursOuvres` (défaut 250) : calculé dynamiquement dans `processData()` et utilisé par `calcCouverture()` pour aligner la couverture sur la période réelle du fichier Consommé
 
 ## Règles métier critiques — NE PAS MODIFIER sans discussion
 1. **Prélevé vs Enlevé** : seul le PRÉLEVÉ dimensionne les MIN/MAX. L'enlevé (colis) ne compte que pour la fréquence.
