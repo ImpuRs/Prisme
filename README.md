@@ -1,24 +1,25 @@
-# 📦 Optistock PRO
+# 🛩️ PILOT PRO
 
 **Outil d'analyse et d'optimisation des stocks** pour magasins de distribution B2B.
 
-Fichier HTML unique, zéro dépendance serveur — fonctionne dans Google Apps Script ou en local dans un navigateur.
+Anciennement Optistock PRO (V22→V24). Fichier HTML unique, zéro dépendance serveur — fonctionne dans Google Apps Script ou en local dans un navigateur.
 
 ---
 
 ## 🎯 À quoi ça sert ?
 
-Optistock analyse les **ventes** (consommé 12 mois) et l'**état du stock** (photo du jour) pour :
+PILOT PRO analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik) pour :
 
 - **Recalculer les MIN/MAX** de chaque article selon un algorithme éprouvé (écrêtage des commandes exceptionnelles + stock de sécurité 48h)
 - **Identifier les actions prioritaires** : ruptures, fantômes, dormants, SASO, anomalies, fins de série
+- **Analyser le territoire** : canaux de distribution, capte agence, articles absents du rayon
 - **Benchmarker** les performances entre magasins d'un même bassin
 - **Suivre l'évolution** mois par mois (export/import JSON historique)
 
 ## 🏗️ Architecture
 
 ```
-Optistock PRO V24.4
+PILOT PRO 1.0
 ├── index.html          ← Application complète (HTML + CSS + JS)
 ├── README.md           ← Ce fichier
 ├── CLAUDE.md           ← Contexte pour Claude Code
@@ -31,7 +32,7 @@ Optistock PRO V24.4
 ## 🚀 Utilisation
 
 ### En local
-Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "Analyser".
+Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel (+ territoire optionnel), cliquer "Analyser".
 
 ### Dans Google Apps Script
 1. Créer un projet Apps Script
@@ -44,10 +45,10 @@ Ouvrir `index.html` dans un navigateur. Charger les 2 fichiers Excel, cliquer "A
 | Onglet | Rôle |
 |--------|------|
 | 📋 **Articles** | Tableau complet filtrable, triable, exportable CSV |
-| 📊 **Stock** | KPI globaux + raccourcis rapides + 🧲 Attractivité par famille + comparaison historique |
-| 🎯 **COCKPIT** | Urgences du matin (Ruptures + Anomalies) + Préconisation de stock (SASO + Colis) |
+| 📊 **Stock** | KPI → Évolution historique → Accès rapide → Attractivité → Ancienneté/Statuts/Familles |
+| 🎯 **COCKPIT** | Résumé exécutif + Urgences (Ruptures + Anomalies) + Préconisation (SASO + Colis) |
 | 📊 **ABC** | Matrice ABC/FMR 3×3 + guides "Par où commencer ?" et "Comment progresser ?" |
-| 🔗 **Territoire** *(optionnel)* | Répartition canaux agence + croisement BL omnicanal (3ème fichier Qlik) |
+| 🔗 **Territoire** *(optionnel)* | Canaux agence + Vue Direction + Top 100 articles + filtre multi-select secteur |
 | 🔄 **BENCH** | Comparaison multi-magasins |
 
 ## 🧮 Algorithme MIN/MAX
@@ -61,56 +62,64 @@ Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
 
-### V24.4 (Mars 2026) — Onglet Territoire + Migration Attractivité
-- 🔗 **Onglet Territoire** (optionnel) : chargez un 3ème fichier BL omnicanal (Qlik) pour analyser votre capte territoire
-  - 📡 Répartition canaux agence (MAGASIN / INTERNET / DCS / REPRÉSENTANT) basée sur le consommé
-  - 💰 KPI territoire : CA Total, CA Magasin capté, CA Extérieur, clients mixtes/extérieurs purs
-  - 📊 Vue par Direction commerciale triée par CA Extérieur (drilldown familles en accordéon)
-  - 🏆 Top 100 articles avec statut rayon (🟢/🟡/🔴) et couleurs distinctives
-  - 👥 Top 50 clients avec type mixte/extérieur pur
-  - 🔍 Filtres locaux (texte, direction, statut rayon) + export CSV
-  - ⚡ Résumé exécutif : 5ème ligne "% capté + potentiel non capté"
-- ❌ **Suppression onglet Ventes** (KPI Réf/Client, Familles/Client, Total commandes, Réf actives retirés)
-- 🧲 **Attractivité par Famille** migrée dans l'onglet Stock (entre Accès rapide et tableaux ancienneté)
+### 1.0 (Mars 2026) — PILOT PRO
+Première version sous le nom PILOT PRO. Récapitulatif de toutes les fonctionnalités héritées d'Optistock (V22→V24) :
 
-### V24.3 (Mars 2026) — Réorganisation UX
-- 🏷️ **Renommages** : onglet "Santé" → "📊 Stock" · "Fantômes" → "👻 Articles sans emplacement" · section "Assainir" → "📦 Préconisation de stock"
-- 🎯 **Cockpit simplifié en 2 sections** : 🔴 Urgences (Ruptures + Anomalies) + 📦 Préconisation (SASO + Colis à stocker). Fantômes, Dormants, Fins, Top 20, Nouveautés déplacés en raccourcis dans l'onglet Stock.
-- 🔗 **Barre "Accès rapide"** dans l'onglet Stock : 5 cartes cliquables (👻 Sans emplacement, 💤 Dormants, 📉 Fins, 🏆 Top 20, ✨ Nouveautés) avec compteur + valeur € et filtre direct vers l'onglet Articles.
-- ℹ️ **Infobulles** sur chaque titre du cockpit (Ruptures, Anomalies, SASO, Colis à stocker) — une phrase explicative au survol.
-- 🐛 **Fix tooltip ABC** — ligne A (AF/AM/AR) : tooltip affiché vers le bas pour éviter le clipping par l'overflow du conteneur.
-- 📋 **Guides ABC** : deux nouveaux blocs sous la matrice — "Par où commencer ?" (5 étapes priorisées) et "Comment progresser ?" (C→A / R→F + nettoyage CR).
-- 🔧 `cockpitLists` étendu : types `top20`, `nouveautes`, `colisrayon` pour les filtres des raccourcis.
+**Moteur de calcul**
+- Algorithme MIN/MAX avec écrêtage (`dl = min(3×U, T)` puis `dl = min(dl, U×5)`)
+- Stock de sécurité 3 jours (SECURITY_DAYS)
+- Cas spéciaux : W≤1 → 0/0, W=2 → 1/2, Nouveauté <35j → garde ancien
+- Dédup BL (même commande + même article → quantité MAX)
+- Avoirs et régularisations gérés (prélevé négatif → 0)
+- Références père (3 dates vides) → exclues des ruptures
+- Score de priorité composite (Fréq × PU × coeff ancienneté)
+- Jours ouvrés calculés dynamiquement sur la période réelle du fichier
 
-### V24.2 (Mars 2026)
-- 💸 **KPI "CA Perdu"** dans l'onglet Santé (6ème carte, gradient rose) : estimation du CA perdu sur les ruptures actives
-- 📐 **Formule** : `conso/j × min(joursRupture, 90) × PU` — plafond 90j pour éviter de surestimer les ruptures structurelles
-- 📋 **Cockpit Ruptures** : colonne "CA perdu est." + durée de rupture affichée + ligne de total en pied de tableau
-- ⚡ **Résumé exécutif** : ligne 1 reformulée avec le double KPI (CA perdu estimé + CA potentiel annuel)
-- 📈 **Comparaison historique** : 7ème carte "💸 CA Perdu" (vert si amélioration)
-- 📥 **CSV** : colonne `CAPerdu` ajoutée (0 pour les articles hors rupture)
+**Onglet Articles**
+- Tableau 10k+ lignes avec pagination, tri, colonnes sticky
+- Filtres globaux : famille, sous-famille, emplacement, statut, ancienneté, ABC, FMR
+- Export CSV complet avec toutes les colonnes
 
-### V24 (Mars 2026)
-- 📊 **Matrice ABC/FMR** — nouvel onglet avec grille 3×3 cliquable (AF=Pépites → CR=Déréférencement)
-- 🎯 **Calcul ABC** : classement Pareto valeur rotation (V×PU) → A=top 80%, B=15%, C=5%
-- 🔢 **Calcul FMR** : fréquence W → F≥12 (Fréquent), M=4-11 (Moyen), R≤3 (Rare)
-- 🔗 **Filtres ABC et FMR** dans la barre de filtres globaux
-- 📋 **Colonnes ABC + FMR** dans l'onglet Articles et dans le CSV exporté
-- ⚡ **Résumé exécutif** : 4ème ligne "X% du stock en C-Rare → candidat déréférencement"
-- 🖱️ Clic sur une cellule de la matrice → filtre automatique l'onglet Articles
+**Onglet Stock**
+- 6 KPI cards (Total, Stock mort, Surstock, CAPALIN, Taux de service, CA Perdu)
+- Évolution historique vs dernière analyse (import/export JSON)
+- 5 raccourcis Accès rapide (Sans emplacement, Dormants, Fins, Top 20, Nouveautés)
+- Attractivité par Famille (% commandes contenant la famille)
+- Tableaux ancienneté, statuts, top 10 familles
 
-### V23 (Juillet 2025)
-- ⚡ **Résumé exécutif** automatique en haut du cockpit (3 phrases d'impact)
-- 📊 **Ruptures triées par CA potentiel perdu** (Fréq × PU) au lieu de la fréquence seule
-- 🎯 **Score de priorité composite** (Fréq × PU × coeff ancienneté) avec barres visuelles
-- 🚫 **Filtre références père** : articles sans aucune date de mouvement exclus des ruptures
-- 🧹 Suppression des badges conditionnement (C24/B100) dans le cockpit
+**Onglet Cockpit**
+- Résumé exécutif automatique (ruptures, stock, service, C-Rare, territoire)
+- Urgences : Ruptures avec CA perdu estimé + Score priorité, Anomalies
+- Préconisation : SASO (CAPALIN à renvoyer), Colis à stocker (enlevé ≥5, prélevé 0)
 
-### V22 (Juillet 2025)
-- Toasts animés (remplacement des alert())
-- Détection conditionnements (C24, B10, LOT, PACK)
-- Fix ancienneté 365j, colonnes sticky, validation en-têtes
-- Benchmark forces/faiblesses par famille
+**Onglet ABC**
+- Matrice ABC/FMR 3×3 cliquable (AF=Pépites → CR=Déréférencement)
+- ABC par valeur rotation (V×PU) : A=80%, B=15%, C=5%
+- FMR par fréquence : F≥12, M=4-11, R≤3
+- Guides "Par où commencer ?" et "Comment progresser ?"
+
+**Onglet Territoire** *(optionnel, 3ème fichier BL omnicanal)*
+- Répartition canaux agence (MAGASIN / INTERNET / DCS / REPRÉSENTANT)
+- Vue par Direction commerciale avec drilldown familles
+- Top 100 articles avec statut rayon (✅ En rayon / ⚠️ Rupture / ❌ Absent)
+- Filtre multi-select par secteur/commercial avec checkboxes (M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie)
+- Articles spéciaux (code ≠ 6 chiffres) : exclus du calcul, comptés séparément (📌 X% du CA = spécial non stockable)
+- % capté calculé sur CA hors spécial uniquement
+- Top 50 clients avec type mixte/extérieur pur
+- Web Worker pour parsing en arrière-plan (UI jamais bloquée)
+
+**Onglet Benchmark**
+- Comparaison multi-magasins (tout le bassin ou sélection)
+- Articles manquées, sous-performance, sur-performance
+- Forces & faiblesses par famille
+- Classement des magasins
+
+**UX / Performance**
+- Single-page HTML (compatible iframe Apps Script)
+- Tailwind CSS + Inter font
+- Traitement par chunks avec `yieldToMain()` (UI fluide sur 10k+ articles)
+- Toasts animés, loading overlay avec pipeline par fichier
+- Tooltips contextuels, glossaire intégré
 
 ## 📝 Licence
 
