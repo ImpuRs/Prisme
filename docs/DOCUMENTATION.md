@@ -23,9 +23,11 @@ PILOT PRO (ex-Optistock PRO) est un outil d'analyse et d'optimisation des stocks
 | 🔗 Territoire *(optionnel)* | Canaux agence + Vue Direction + Top 100 + filtre multi-select secteur |
 | 🔄 BENCH | Comparaison multi-magasins (si fichiers multi-agences) |
 
-### Onglet Territoire V24.4
+### Onglet Territoire V1.0
 
 L'onglet Territoire s'active uniquement lorsqu'un **3ème fichier** (BL omnicanal Qlik) est chargé. Il permet de comprendre ce que votre agence capte du bassin omnicanal.
+
+**Principe fondamental** : ne jamais afficher un chiffre qu'on ne peut pas sourcer à un seul fichier. Pas de ratio entre CA de sources différentes.
 
 **Colonnes attendues dans le fichier territoire** (matching insensible à la casse) :
 
@@ -43,15 +45,40 @@ L'onglet Territoire s'active uniquement lorsqu'un **3ème fichier** (BL omnicana
 | VMB | Valeur marchandise brute |
 | Taux de marge | En % |
 
-**Logique canal** : si le N° BL est présent dans les BL du fichier Consommé → `MAGASIN`, sinon → `EXTÉRIEUR`.
+**Logique canal** : si le N° BL est présent dans les BL du fichier Consommé → `MAGASIN`, sinon → `EXTÉRIEUR`. Utilisé uniquement pour les Contributeurs agence (VOLET 2bis), pas pour les KPI ou le CA.
 
-**Articles spéciaux** : code article ≠ exactement 6 chiffres (regex `/^\d{6}$/`) → non stockable. Exclus du calcul principal (Direction, Top 100, rayon). Comptés séparément : "📌 X% du CA = spécial non stockable". Le % capté est calculé sur CA hors spécial uniquement.
+**Articles spéciaux** : code article ≠ exactement 6 chiffres (regex `/^\d{6}$/`) → non stockable. Exclus du calcul principal (Direction, Top 100, rayon). KPI `📌 X% du CA = spécial non stockable`.
 
-**Statut rayon** : croisé avec `finalData` — ✅ En rayon (stock > 0), ⚠️ Rupture (référencé mais stock = 0), ❌ Absent (non référencé).
+**Statut rayon** : croisé avec `finalData` — ✅ En rayon (stock > 0), ⚠️ Rupture (référencé mais stock = 0), ❌ Absent (non référencé). Toujours affiché avec texte (accessible daltoniens).
 
-**Type client** : croisé avec les codes clients du Consommé — ✅ Mixte (passe aussi en magasin), ❌ Extérieur pur.
+**KPI Territoire (5 cartes, source unique)** :
+1. 📋 Lignes analysées + nb BL — source : fichier territoire uniquement
+2. 💰 CA Total territoire — source : fichier territoire uniquement
+3. 📊 Couverture rayon "X% du Top 100 en stock" — source : croisement Top 100 territoire × stock du jour
+4. 📌 Spécial X% du CA — source : fichier territoire (codes non standard)
+5. 👥 Clients X mixtes / Y extérieur pur — source : croisement codes clients territoire × consommé agence
+
+**Vue Direction** : Direction | CA Territoire | Nb articles | ✅ En rayon | ⚠️ Rupture | ❌ Absent | % couverture (nb en rayon / nb total). Triée par CA décroissant. Pas de CA Magasin/Extérieur.
+
+**Top 100** : Code | Libellé | Direction | BL | CA Territoire | Rayon (✅/⚠️/❌ + texte) | Stock actuel. Pas de CA Magasin ni CA Extérieur.
+
+**Clients** : Code | Nom | CA Territoire | Nb réf | Type (✅ Mixte / ❌ Extérieur pur). Pas de CA croisé.
+
+**Résumé du croisement** (VOLET 3) : bloc sombre auto-généré au-dessus des KPIs, résumant : nb lignes, nb BL, nb Directions, nb clients, nb réf stock, nb mois consommé, nb BL consommé, % Top 100 en rayon. Toutes les valeurs sont auto-détectées depuis les fichiers.
+
+**Contributeurs agence — Drilldown 3 niveaux** (VOLET 2bis) :
+- **Vue 1 — Secteurs** : triée par % BL agence ASC (opportunités en haut). Colonnes : Secteur | Direction | BL territoire | BL agence (croisés avec blConsommeSet) | % agence (barre verte>30%, orange 10-30%, rouge<10%) | CA territoire. Export CSV.
+- **Vue 2 — Clients** (clic sur secteur, lazy) : triée par CA décroissant. Colonnes : Code | Nom | CA territoire | Vient en agence (✅/❌) | Nb BL agence. Les ❌ ont fond rouge clair. Compteur "X viennent / Y ne viennent jamais".
+- **Vue 3 — Articles** (clic sur client, lazy) : triée par CA décroissant. Colonnes : Code | Libellé | CA territoire | Qté BL | En rayon (✅/⚠️/❌) | Stock actuel. Exclut les spéciaux.
+
+**Type client** : ✅ Mixte (au moins 1 BL dans blConsommeSet), ❌ Extérieur pur.
 
 **Filtre multi-select secteur** : dropdown avec checkboxes listant tous les codes secteur du fichier territoire. Affiche le code secteur + la direction entre parenthèses. Le premier caractère du code secteur indique la direction : M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie. Permet de cocher plusieurs secteurs pour comparer.
+
+**Alertes périodes** (VOLET 4) :
+- Si consommé < 10 mois : bandeau orange STICKY en haut de toutes les pages : "⚠️ Votre consommé ne couvre que X mois ([dateMin] — [dateMax]). Les MIN/MAX sont calibrés pour 12 mois glissants — résultats potentiellement sous-dimensionnés."
+- Si ≥ 10 mois : période affichée dans la navbar : "📅 [dateMin] — [dateMax]" en cyan.
+- Territoire : période dans le résumé du croisement (VOLET 3), pas de warning.
 
 ### Cockpit V24.3 — logique simplifiée
 
