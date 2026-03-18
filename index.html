@@ -1140,6 +1140,15 @@
       return true;
     });
 
+    // Clients filtered by the same direction/rayon/secteur/search filters (for clients table)
+    const clientsMapFiltered={};
+    for(const l of linesFiltered){
+      if(l.clientCode){
+        if(!clientsMapFiltered[l.clientCode])clientsMapFiltered[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};
+        clientsMapFiltered[l.clientCode].ca+=l.ca;clientsMapFiltered[l.clientCode].refs.add(l.code);
+      }
+    }
+
     // Direction table — new columns: CA Territoire | Nb articles | ✅ | ⚠️ | ❌ | % couverture
     const dirs={};
     for(const l of linesFiltered){
@@ -1200,8 +1209,8 @@
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
 
-    // Clients top 50 — columns: Code | Nom | CA Territoire | Nb Réf | Type
-    const clientsList=Object.values(clientsMap).sort((a,b)=>b.ca-a.ca).slice(0,50);
+    // Clients top 50 — filtered by same filters as direction/top100 views
+    const clientsList=Object.values(clientsMapFiltered).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
@@ -1321,9 +1330,11 @@
   function renderTerrContrib(){
     const el=document.getElementById('terrContribTable');if(!el)return;
     if(!terrContribByDirection.size){el.innerHTML='<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">Aucune donnée contributeurs trouvée dans le fichier territoire</td></tr>';return;}
-    const rows=[...terrContribByDirection.values()].map(d=>{
+    const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
+    let rows=[...terrContribByDirection.values()].map(d=>{
       const blT=d.blTerr.size,blA=d.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...d,blT,blA,pct};
     }).sort((a,b)=>b.ca-a.ca);
+    if(filterDir)rows=rows.filter(r=>r.direction===filterDir);
     let tbody='';
     for(const r of rows){
       const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
