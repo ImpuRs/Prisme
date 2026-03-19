@@ -535,6 +535,8 @@
             <div id="terrOverviewClassifChips" class="flex flex-wrap gap-1"></div>
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
             <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
+            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
+            <select id="terrCommercialFilter" onchange="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><option value="">Tous</option></select>
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
             <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
@@ -634,6 +636,7 @@
   let _selectedClassifs=new Set();    // empty = all classifications selected
   let _selectedStatuts=new Set();     // empty = all statuts selected
   let _selectedActivitesPDV=new Set();// empty = all activités PDV Zone selected
+  let _selectedCommercial='';         // empty = all commercials (no filter)
   let _filterStrategiqueOnly=false;   // toggle: show only strategic métiers
   let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
@@ -689,7 +692,7 @@
         metierSet.add(metier);
       }
       chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
-      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_filterStrategiqueOnly=false;
+      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;
       _buildDeptFilter();
       // Show territoire tab if data already computed — always show tab button when chalandise loaded
       if(finalData&&finalData.length>0){const btn=document.getElementById('btnTabTerritoire');if(btn)btn.classList.remove('hidden');renderTerritoireTab();}
@@ -720,6 +723,7 @@
   function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
   function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
   function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
+  function clientMatchesCommercialFilter(info){if(!_selectedCommercial)return true;return(info.commercial||'')===_selectedCommercial;}
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_selectedClassifs.size){_selectedClassifs=new Set(all);_selectedClassifs.delete(c);}else if(_selectedClassifs.has(c)){_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_selectedActivitesPDV.size){_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);}else if(_selectedActivitesPDV.has(a)){_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
@@ -761,11 +765,12 @@
     }
     _buildDeptFilter();_buildChalandiseOverview();
   }
-  function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;_buildDeptFilter();_buildChalandiseOverview();}
+  function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
   let _overviewOpenL2=null,_overviewOpenL3=null;
-  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info);}
+  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}_buildChalandiseOverview();}
+  function _onCommercialFilter(val){_selectedCommercial=val;_buildChalandiseOverview();}
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
   function _isPDVActif(cc){const art=ventesClientArticle.get(cc);return art&&art.size>0;}
   function _isPerdu(info){const s=_normalizeStatut(info.statut);return s==='Inactif'||s==='Perdu';}
@@ -782,6 +787,9 @@
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
+    // Populate commercial filter select
+    const comSel=document.getElementById('terrCommercialFilter');
+    if(comSel){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comSel.innerHTML='<option value="">Tous</option>'+sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}"${_selectedCommercial===c?' selected':''}>${c}</option>`).join('');}
   }
   function _buildChalandiseOverview(){
     console.log('[PILOT] _buildChalandiseOverview called, chalandiseReady=',chalandiseReady,'chalandiseData.size=',chalandiseData.size);
@@ -825,7 +833,7 @@
     const ctrEl=document.getElementById('terrOverviewCounter');
     const nonProsp=filteredClients-[...Object.values(dirMap)].reduce((s,d)=>s+d.prospects,0);
     const pctCapte=nonProsp>0?Math.round(totalActifsPDV/nonProsp*100):0;
-    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_filterStrategiqueOnly;
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_filterStrategiqueOnly;
     let ctrHtml=filterActive?`<span class="text-rose-600">${filteredClients} clients filtrés</span> / ${totalClients} total`:`${totalClients} clients`;
     ctrHtml+=` · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
     if(!_includePerdu24m&&totalExcluded24m>0)ctrHtml+=` · <span class="text-gray-400">${totalExcluded24m} perdus &gt;24m exclus</span>`;
@@ -1021,7 +1029,7 @@
       </tr>`;
     }
     html+=`</tbody></table></div>`;
-    if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold text-blue-600 hover:underline" onclick="_renderOverviewL4(this.parentElement,'${encodeURIComponent(direction)}','${encodeURIComponent(metier)}','${encodeURIComponent(secteur)}',${limit+50})">▼ Voir plus (${more} restants)</button>`;
+    if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold text-blue-600 hover:underline" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${limit+50})">▼ Voir plus (${more} restants)</button>`;
     el.innerHTML=html;
   }
   // Client article expand panel (used in L4 and cockpit)
@@ -1098,7 +1106,7 @@
     developper.sort(_cockpitSort('ca2025'));
     fideliser.sort(_cockpitSort('caPDVN'));
     const caField=(sortField)=>sortField==='caPDVN';
-    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_filterStrategiqueOnly;
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_selectedCommercial||_filterStrategiqueOnly;
     const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
     const renderBlock=(title,desc,emoji,color,borderColor,clients,sortField,limit)=>{
       limit=limit||30;
@@ -2902,7 +2910,7 @@
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
       const myData=ventesClientArticle.get(cc);
       const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
@@ -2949,7 +2957,7 @@
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
     // article → clients → métier
     const metierBuyers={};
-    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
+    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
     if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
     let top3;
@@ -2960,7 +2968,7 @@
       const clients=[];
       for(const[cc,info] of chalandiseData.entries()){
         if(info.metier!==metier)continue;
-        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
+        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
         const myData=ventesClientArticle.get(cc);
         const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
         const prio=_diagClientPrio(info,famCA);
