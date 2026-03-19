@@ -81,12 +81,30 @@
     .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:#dbeafe}.terr-fam-row.open{background:#bfdbfe}
     /* Territoire status badge — compteurs cliquables ✅/⚠️/❌ */
     .terr-status-badge{cursor:pointer;font-weight:700;border-radius:6px;padding:1px 5px;transition:opacity .15s;display:inline-block}.terr-status-badge:hover{opacity:.7;text-decoration:underline}
+    /* V2 Phase 2: Diagnostic Cascade */
+    #diagnosticOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:16px 8px}
+    #diagnosticOverlay.active{display:flex;align-items:flex-start;justify-content:center}
+    #diagnosticPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:880px;width:100%;margin:auto;position:relative;color:#e2e8f0}
+    .diag-level{background:#1e293b;border:1px solid #2d3f55;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+    .diag-level-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .diag-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:9999px;white-space:nowrap}
+    .diag-ok{background:#14532d;color:#4ade80}.diag-warn{background:#713f12;color:#fbbf24}
+    .diag-error{background:#7f1d1d;color:#f87171}.diag-lock{background:#1e293b;color:#64748b;border:1px solid #334155}
+    .diag-action-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;transition:all .15s;margin-bottom:6px}
+    .diag-action-row:hover{background:#273548;border-color:#475569;transform:translateX(2px)}
+    .diag-btn{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:5px;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:2px;transition:opacity .15s}
+    .diag-btn:hover{opacity:.8}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen relative">
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
+
+  <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
+  <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
+    <div id="diagnosticPanel"></div>
+  </div>
 
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
@@ -275,7 +293,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
         <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
-        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
       </div>
     </div>
 
@@ -290,7 +308,7 @@
 
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles commandés ≥3 fois/an mais stock à 0 — ventes perdues">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
+          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles commandés ≥3 fois/an mais stock à 0 — ventes perdues">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
           <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">⚠️ Anomalies<em class="info-tip" data-tip="Articles vendus avec du stock mais aucun MIN/MAX paramétré dans l'ERP">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeAnomalies" class="badge bg-red-300 text-red-900"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('anomalies')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionAnomalies" class="divide-y divide-red-100"></tbody></table></div></div>
         </div>
       </div>
@@ -517,7 +535,7 @@
       <div id="benchUnderperformBanner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-400 rounded-xl text-xs font-bold text-amber-800"></div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-md border-2 border-emerald-200"><div class="flex items-center justify-between mb-2"><h3 class="font-extrabold text-emerald-800 flex items-center gap-2">🏆 Sur-Perf <span id="badgeOver" class="badge bg-emerald-500 text-white"></span></h3><button onclick="exportBenchList('over')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold">📥</button></div><p class="text-[11px] font-bold mb-2"><span id="benchOverShowing"></span></p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Code/Lib</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Moy</th><th class="py-2 px-2 text-right">Ratio</th></tr></thead><tbody id="benchOverTable" class="divide-y divide-emerald-50"></tbody></table></div></div>
-        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-violet-200"><h3 class="font-extrabold text-violet-800 mb-3">📊 Forces & Faiblesses</h3><p class="text-[10px] text-gray-500 mb-3">Par famille vs médiane bassin</p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Méd.</th><th class="py-2 px-2 text-right">% méd.</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border-2 border-violet-200"><h3 class="font-extrabold text-violet-800 mb-3">📊 Forces & Faiblesses</h3><p class="text-[10px] text-gray-500 mb-3">Par famille vs médiane bassin</p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Méd.</th><th class="py-2 px-2 text-right">% méd.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div></div>
         <div class="bg-white p-5 rounded-xl shadow-md border-2 border-cyan-200"><h3 class="font-extrabold text-cyan-800 mb-3 flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h3><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Serv.</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
       </div>
     </div>
@@ -1809,9 +1827,11 @@
       const medColor=pctMed===null?'text-gray-400':pctMed>=100?'text-emerald-700 font-extrabold':pctMed>=50?'text-amber-700 font-bold':'text-red-600 font-extrabold';
       const medStr=pctMed!==null?pctMed+'%':'—';
       if(isCrit)sousPerf++;
-      const clickAttr=isCrit?'title="Sous-performance critique vs bassin"':''
-      p.push(`<tr class="border-b ${bg}" ${clickAttr}><td class="py-1.5 px-2 text-[11px] font-semibold truncate max-w-[140px]">${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-center font-bold text-xs">${fp.my}</td><td class="py-1.5 px-2 text-center text-gray-500 text-xs">${fp.med}</td><td class="py-1.5 px-2 text-right ${medColor} text-[11px]">${medStr}</td></tr>`);}}
-    document.getElementById('benchFamilyTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">—</td></tr>';
+      const famEnc=encodeURIComponent(fp.fam);
+      const diagBtn=isCrit?`<button class="diag-btn bg-red-100 text-red-700 hover:bg-red-200" onclick="event.stopPropagation();openDiagnostic(decodeURIComponent('${famEnc}'),'bench')">🔍 Diag.</button>`:'<span class="text-gray-300 text-[9px]">—</span>';
+      const rowClick=isCrit?`onclick="openDiagnostic(decodeURIComponent('${famEnc}'),'bench')" style="cursor:pointer" title="Cliquer pour diagnostiquer cette famille"`:''
+      p.push(`<tr class="border-b ${bg}" ${rowClick}><td class="py-1.5 px-2 text-[11px] font-semibold truncate max-w-[140px]">${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-center font-bold text-xs">${fp.my}</td><td class="py-1.5 px-2 text-center text-gray-500 text-xs">${fp.med}</td><td class="py-1.5 px-2 text-right ${medColor} text-[11px]">${medStr}</td><td class="py-1.5 px-2 text-center">${diagBtn}</td></tr>`);}}
+    document.getElementById('benchFamilyTable').innerHTML=p.join('')||'<tr><td colspan="5" class="text-center py-4 text-gray-400">—</td></tr>';
     // V2 Phase 1: underperformance banner
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     // V2 Phase 1: store ranking with Serv. + Clients zone columns
@@ -1885,7 +1905,7 @@
     document.getElementById('dashCAPerdu').textContent=formatEuro(totalCAPerdu);document.getElementById('dashCAPerduCount').textContent=lstR.length+' art. en rupture';
     renderComparison({date:new Date().toLocaleDateString('fr-FR'),totalValue,dormant:dormantStock,surstock:activeSurstock,ruptures:lstR.length,serviceRate:parseFloat(sr),capalin:capalinOverflow,caPerdu:totalCAPerdu});
     let p;p=[];Object.keys(byStatus).sort((a,b)=>byStatus[b]-byStatus[a]).forEach(s=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2">${s}</td><td class="py-2 text-right text-blue-600 font-bold">${formatEuro(byStatus[s])}</td></tr>`);});document.getElementById('dashStatusTable').innerHTML=p.join('');
-    p=[];Object.keys(byFamily).sort((a,b)=>byFamily[b]-byFamily[a]).slice(0,10).forEach(f=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2 truncate max-w-[200px]">${f}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
+    p=[];Object.keys(byFamily).sort((a,b)=>byFamily[b]-byFamily[a]).slice(0,10).forEach(f=>{const fEnc=encodeURIComponent(f);p.push(`<tr class="hover:bg-gray-50"><td class="py-2 truncate max-w-[160px]" title="${f}">${f}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td><td class="py-2 text-center"><button class="diag-btn bg-blue-100 text-blue-700" onclick="openDiagnostic(decodeURIComponent('${fEnc}'),'stock')">🔍</button></td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
     p=[];for(const[k,br] of Object.entries(AGE_BRACKETS)){const d=ageBuckets[k];p.push(`<tr class="age-row-clickable ${k==='critical'?br.bg:'hover:bg-gray-50'}" onclick="filterByAge('${k}')"><td class="py-2.5 px-3 ${br.color} font-bold text-sm">${br.label}</td><td class="py-2.5 px-3 text-right font-bold">${formatEuro(d.val)}</td><td class="py-2.5 px-3 text-right text-gray-500 text-xs">${d.count}</td></tr>`);}document.getElementById('dashAgeTable').innerHTML=p.join('');
     // V24.4: Attractivité dans l'onglet Stock
     const atEl=document.getElementById('dashAttractTable');if(atEl){const va=ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${fam}">${fam}</td><td class="py-2 px-3 text-center text-gray-600 text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">Aucune donnée famille</td></tr>';}
@@ -1915,7 +1935,10 @@
       const maxScore=lstR.length>0?lstR[0].prioScore:1;
       const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
-      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td></tr>`);
+      const iFam=finalData.find(r=>r.code===i.code)?.famille||'';
+      const famEnc=encodeURIComponent(iFam);
+      const diagCell=i.prioScore>=5000&&iFam?`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnostic(decodeURIComponent('${famEnc}'),'cockpit')">🔍</button></td>`:`<td class="py-2 px-2"></td>`;
+      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
     const ruptTotEl=document.getElementById('actionRupturesTotal');
@@ -2056,7 +2079,247 @@
       </div>`;
     }
     leg+='</div></div>';
+    // V2 Phase 2: CF families diagnose section (C value, F frequency = articles réguliers bas CA)
+    const cfFamilies={};
+    for(const r of finalData){if(r.abcClass==='C'&&r.fmrClass==='F'&&r.famille){cfFamilies[r.famille]=(cfFamilies[r.famille]||0)+1;}}
+    if(Object.keys(cfFamilies).length){
+      leg+=`<div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl"><h4 class="font-bold text-orange-800 mb-2 text-sm flex items-center gap-2">🔁 Familles CF — articles réguliers, faible valeur <span class="text-[10px] font-normal text-gray-500">Diagnostiquer pour passer en colis ou recalibrer</span></h4><div class="flex flex-wrap gap-2">`;
+      Object.entries(cfFamilies).sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([f,cnt])=>{const fEnc=encodeURIComponent(f);leg+=`<button class="text-xs bg-white border border-orange-300 hover:bg-orange-100 text-orange-800 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="openDiagnostic(decodeURIComponent('${fEnc}'),'abc')"><span>${f}</span><span class="text-[10px] text-orange-500">${cnt} art.</span><span class="ml-1 text-[10px] font-bold text-blue-600">🔍</span></button>`;});
+      leg+='</div></div>';
+    }
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
+  }
+
+  // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
+  let _diagLevels={};let _diagActions=[];
+
+  function openDiagnostic(famille,source){
+    const overlay=document.getElementById('diagnosticOverlay');
+    if(overlay){overlay.classList.add('active');renderDiagnosticPanel(famille,source);}
+  }
+  function closeDiagnostic(){
+    const overlay=document.getElementById('diagnosticOverlay');
+    if(overlay)overlay.classList.remove('active');
+  }
+  function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
+
+  function renderDiagnosticPanel(famille,source){
+    const panel=document.getElementById('diagnosticPanel');if(!panel)return;
+    const hasBench=storesIntersection.size>1;
+    const hasTerr=territoireReady&&territoireLines.length>0;
+    const hasChal=chalandiseReady;
+    // Find reference store (highest freq store that isn't mine)
+    let refStore='';
+    if(hasBench){const sorted=Object.entries(benchLists.storePerf||{}).sort((a,b)=>b[1].freq-a[1].freq);const top=sorted.find(([s])=>s!==selectedMyStore);if(top)refStore=top[0];}
+    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour à l\'ABC':'Retour au Stock';
+    const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':'dash';
+    const modeLabel=hasBench?`Mon agence <span class="text-cyan-400">${selectedMyStore}</span> vs <span class="text-amber-400">${refStore||'Bassin'}</span>`:`Mon agence <span class="text-cyan-400">${selectedMyStore||'mes données'}</span>`;
+    const filesHtml=[
+      `<span class="text-emerald-400">✅ Consommé</span>`,
+      `<span class="text-emerald-400">✅ Stock</span>`,
+      hasBench?`<span class="text-emerald-400">✅ Bench</span>`:`<span class="text-slate-500">❌ Bench</span>`,
+      hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,
+      hasChal?`<span class="text-emerald-400">✅ Chalandise</span>`:`<span class="text-slate-500">❌ Chalandise</span>`,
+    ].join('<span class="text-slate-600 mx-1">·</span>');
+    const l1=_diagLevel1(famille);
+    const l2=_diagLevel2(famille,hasBench,refStore);
+    const l3=_diagLevel3(famille,hasBench,hasTerr,refStore);
+    const l4=_diagLevel4(famille,hasChal);
+    _diagLevels={l1,l2,l3,l4};
+    const actions=_diagActions=_diagGenActions(famille,l1,l2,l3,l4);
+    panel.innerHTML=`
+      <div class="flex items-start justify-between mb-5">
+        <div>
+          <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
+          <h2 class="text-xl font-extrabold text-white">🔍 Diagnostic : <span class="text-cyan-400">${famille}</span></h2>
+          <p class="text-xs text-slate-400 mt-0.5">${modeLabel}</p>
+          <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+        </div>
+        <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
+      </div>
+      ${_diagRenderL1(l1)}
+      ${_diagRenderL2(l2,hasBench,refStore)}
+      ${_diagRenderL3(l3,hasBench,hasTerr)}
+      ${_diagRenderL4(l4,hasChal)}
+      ${_diagRenderPlan(famille,actions)}`;
+  }
+
+  function _diagBadge(s){
+    const m={ok:{cls:'diag-ok',txt:'✅ Bon'},warn:{cls:'diag-warn',txt:'⚠️ À corriger'},error:{cls:'diag-error',txt:'🔴 Problème'},lock:{cls:'diag-lock',txt:'🔒 Non disponible'}};
+    const d=m[s]||m.lock;return`<span class="diag-badge ${d.cls}">${d.txt}</span>`;
+  }
+
+  // ── Level 1: Stock ──
+  function _diagLevel1(famille){
+    const arts=finalData.filter(r=>r.famille===famille);
+    const enStock=arts.filter(r=>r.stockActuel>0).length;
+    let caPerduTotal=0;
+    const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
+      const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
+      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);
+      caPerduTotal+=ca;
+      return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
+    }).sort((a,b)=>b.ca-a.ca);
+    const status=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
+    return{arts:arts.length,enStock,ruptures,caPerduTotal,status};
+  }
+  function _diagRenderL1(l){
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
+      <p class="text-xs text-slate-400 mb-2">Sur <strong class="text-white">${l.arts}</strong> articles de cette famille :</p>
+      <div class="flex flex-wrap gap-4 mb-3 text-xs">
+        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
+        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
+        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
+      </div>
+      ${l.ruptures.length?`<div class="overflow-x-auto max-h-48 overflow-y-auto"><table class="min-w-full text-[11px]"><thead class="bg-red-900/40 text-red-300 sticky top-0"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq</th><th class="py-1.5 px-2 text-center">Jours rupt.</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-center">${r.jours}j</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    </div>`;
+  }
+
+  // ── Level 2: Calibrage MIN/MAX ──
+  function _diagLevel2(famille,hasBench,refStore){
+    const arts=finalData.filter(r=>r.famille===famille&&r.W>=1);
+    const nonCal=arts.filter(r=>r.ancienMin===0&&r.ancienMax===0&&!r.isNouveaute);
+    const sousD=arts.filter(r=>r.ancienMin>0&&r.nouveauMin>r.ancienMin);
+    let sousPerf=[];
+    if(hasBench&&refStore){
+      const myV=ventesParMagasin[selectedMyStore]||{};
+      const refV=ventesParMagasin[refStore]||{};
+      for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
+    }
+    const detail=sousD.map(r=>({code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,myFreq:r.W,refFreq:hasBench&&refStore?(ventesParMagasin[refStore]?.[r.code]?.countBL||0):null}));
+    const nb=nonCal.length+sousD.length;
+    return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
+  }
+  function _diagRenderL2(l,hasBench,refStore){
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-amber-300">🎚️ Niveau 2 — Calibrage MIN/MAX</span>${_diagBadge(l.status)}</div>
+      ${l.nonCal>0?`<p class="text-xs text-amber-400 font-bold mb-1">⚠️ ${l.nonCal} article${l.nonCal>1?'s':''} sans MIN/MAX paramétré dans l'ERP</p>`:''}
+      ${l.sousD>0?`<p class="text-xs text-rose-400 font-bold mb-1">🔴 ${l.sousD} article${l.sousD>1?'s':''} où l'ancien MIN ERP &lt; MIN recommandé PILOT</p>`:''}
+      ${hasBench&&l.sousPerf.length?`<p class="text-xs text-orange-400 font-bold mb-1">📊 ${l.sousPerf.length} article${l.sousPerf.length>1?'s':''} où <em>${refStore}</em> vend 2× plus que vous</p>`:''}
+      ${l.status==='ok'?`<p class="text-xs text-emerald-400">✅ Calibrage correct — tous les articles actifs ont un MIN paramétré</p>`:''}
+      ${l.detail.length?`<div class="overflow-x-auto max-h-44 overflow-y-auto mt-2"><table class="min-w-full text-[11px]"><thead class="bg-amber-900/40 text-amber-300 sticky top-0"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Anc.MIN</th><th class="py-1.5 px-2 text-center">Nouv.MIN</th><th class="py-1.5 px-2 text-center">Fréq moi</th>${hasBench?'<th class="py-1.5 px-2 text-center">Fréq réf.</th>':''}</tr></thead><tbody>${l.detail.map(r=>`<tr class="border-t border-amber-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${r.lib}</td><td class="py-1 px-2 text-center text-amber-400">${r.ancienMin}</td><td class="py-1 px-2 text-center text-emerald-400 font-bold">${r.nouveauMin}</td><td class="py-1 px-2 text-center">${r.myFreq}</td>${hasBench?`<td class="py-1 px-2 text-center ${r.refFreq>0?'text-rose-400 font-bold':'text-slate-500'}">${r.refFreq!==null?r.refFreq:'—'}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+    </div>`;
+  }
+
+  // ── Level 3: Gamme ──
+  function _diagLevel3(famille,hasBench,hasTerr,refStore){
+    if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Territoire ou des données multi-agences pour activer l\'analyse de gamme'};
+    const myArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
+    if(hasBench&&refStore){
+      const refV=ventesParMagasin[refStore]||{};
+      const refArts=Object.keys(refV).filter(c=>articleFamille[c]===famille);
+      const missing=refArts.filter(c=>!myArts.has(c)).map(c=>{
+        const refF=refV[c]?.countBL||0;const lib=libelleLookup[c]||c;
+        const d=finalData.find(r=>r.code===c);
+        return{code:c,lib,refFreq:refF,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'};
+      }).sort((a,b)=>b.refFreq-a.refFreq);
+      const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
+      return{status:missing.length===0?'ok':strong>2?'error':'warn',mode:'bench',myCount:myArts.size,refCount:refArts.length,refStore,missing:missing.slice(0,25),strongMissing:strong};
+    }
+    if(hasTerr){
+      const tMap={};
+      for(const l of territoireLines){if(l.isSpecial||(l.famille||'')!==famille)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}
+      const tArts=Object.values(tMap).sort((a,b)=>b.ca-a.ca);
+      const missing=tArts.filter(a=>!myArts.has(a.code)).map(a=>({...a,abcClass:finalData.find(r=>r.code===a.code)?.abcClass||'?',fmrClass:finalData.find(r=>r.code===a.code)?.fmrClass||'?'}));
+      return{status:missing.length===0?'ok':missing.length>5?'error':'warn',mode:'territoire',myCount:myArts.size,terrCount:tArts.length,missing:missing.slice(0,25),strongMissing:0};
+    }
+    return{status:'lock',reason:'Pas de données de comparaison disponibles'};
+  }
+  function _diagRenderL3(l,hasBench,hasTerr){
+    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 3 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
+    const srcLabel=l.mode==='bench'?`<em class="text-amber-300">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Territoire : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
+    const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA territoire</th>`;
+    const rows=(l.missing||[]).map(a=>{
+      const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';
+      const fmrColor=a.fmrClass==='F'?'text-emerald-400':a.fmrClass==='M'?'text-blue-400':'text-red-400';
+      if(l.mode==='bench')return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${a.lib}</td><td class="py-1 px-2 text-center font-bold">${a.refFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td><td class="py-1 px-2 text-center font-bold ${fmrColor}">${a.fmrClass}</td></tr>`;
+      return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${a.lib}</td><td class="py-1 px-2 text-right font-bold">${formatEuro(a.ca)}</td></tr>`;
+    }).join('');
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 3 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
+      <p class="text-xs text-slate-400 mb-2">${srcLabel}</p>
+      ${l.missing?.length?`<p class="text-xs text-amber-400 font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto max-h-44 overflow-y-auto"><table class="min-w-full text-[11px]"><thead class="bg-violet-900/40 text-violet-300 sticky top-0"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs text-emerald-400">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
+    </div>`;
+  }
+
+  // ── Level 4: Clients métier ──
+  function _diagLevel4(famille,hasChal){
+    if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
+    const metierCount={};
+    for(const[cc,artMap] of ventesClientArticle.entries()){
+      const info=chalandiseData.get(cc);if(!info)continue;
+      for(const[code,data] of artMap.entries()){if(articleFamille[code]!==famille||data.sumPrelevee<=0)continue;metierCount[info.metier]=(metierCount[info.metier]||0)+data.sumPrelevee;}
+    }
+    const topM=Object.entries(metierCount).sort((a,b)=>b[1]-a[1])[0];
+    if(!topM)return{status:'warn',reason:'Aucun client chalandise identifié pour cette famille',metier:'',clients:[]};
+    const metier=topM[0];
+    const clients=[];
+    for(const[cc,info] of chalandiseData.entries()){
+      if(info.metier!==metier)continue;
+      const myData=ventesClientArticle.get(cc);
+      const famCA=myData?[...myData.entries()].filter(([c])=>articleFamille[c]===famille).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
+      const stat=(info.statut||'').toLowerCase();
+      const isActif=stat.includes('actif')&&famCA>0;
+      const isPerdu=stat.includes('perdu')||stat.includes('inactif');
+      clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca:famCA,commercial:info.commercial||'',ville:info.ville||'',isActif,isPerdu});
+    }
+    const actifs=clients.filter(c=>c.isActif).length;
+    const perdus=clients.filter(c=>c.isPerdu);
+    const potentiel=perdus.reduce((s,c)=>s+c.ca,0);
+    return{status:perdus.length>2?'warn':'ok',metier,clients:clients.sort((a,b)=>(b.isPerdu?1:0)-(a.isPerdu?1:0)||b.ca-a.ca).slice(0,30),actifs,perdus:perdus.length,prospects:clients.filter(c=>!c.isActif&&!c.isPerdu).length,potentiel,total:clients.length};
+  }
+  function _diagRenderL4(l,hasChal){
+    if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 4 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
+    if(!l.metier)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${l.reason||'Aucun métier identifié pour cette famille dans les données chalandise'}</p></div>`;
+    const rows=(l.clients||[]).map(c=>{
+      const lbl=c.isActif?'✅ Actif':c.isPerdu?'❌ Perdu':'🔍 Prospect';
+      const bg=c.isPerdu?'border-rose-900/50 bg-rose-950/30':'border-slate-700/30';
+      return`<tr class="border-t ${bg}"><td class="py-1 px-2 font-mono text-slate-400 text-[10px]">${c.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${c.nom||'—'}</td><td class="py-1 px-2 text-center text-[10px] font-bold">${lbl}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-rose-300':'text-slate-500'}">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-slate-400 text-[10px]">${c.commercial||'—'}</td><td class="py-1 px-2 text-slate-400 text-[10px]">${c.ville||'—'}</td></tr>`;
+    }).join('');
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge(l.status)}</div>
+      <p class="text-xs text-slate-400 mb-2">Métier identifié : <strong class="text-rose-300">${l.metier}</strong> — <strong class="text-white">${l.total}</strong> clients dans votre zone</p>
+      <div class="flex flex-wrap gap-4 mb-3 text-xs">
+        <span class="text-emerald-400 font-bold">✅ ${l.actifs} actifs chez vous</span>
+        <span class="${l.perdus>0?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.perdus} perdus</span>
+        <span class="text-slate-400">🔍 ${l.prospects} prospects</span>
+      </div>
+      ${l.potentiel>0?`<p class="text-xs text-amber-400 font-bold mb-2">→ Potentiel reconquête estimé : ${formatEuro(l.potentiel)}</p>`:''}
+      ${rows?`<div class="overflow-x-auto max-h-44 overflow-y-auto"><table class="min-w-full text-[11px]"><thead class="bg-rose-900/40 text-rose-300 sticky top-0"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Statut</th><th class="py-1.5 px-2 text-right">CA famille</th><th class="py-1.5 px-2 text-center">Commercial</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
+    </div>`;
+  }
+
+  // ── Action Plan ──
+  function _diagGenActions(famille,l1,l2,l3,l4){
+    const acts=[];
+    if(l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${formatEuro(l1.caPerduTotal)}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    const nbMinMax=(l2.nonCal||0)+(l2.sousD||0);
+    if(l2.status!=='ok'&&nbMinMax>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMinMax} article${nbMinMax>1?'s':''}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;currentPage=0;switchTab('table');renderAll();}});
+    if(l3.status!=='lock'&&l3.status!=='ok'&&l3.missing?.length>0)acts.push({priority:3,star:'⭐⭐',label:`Référencer ${l3.missing.length} article${l3.missing.length>1?'s':''} manquants${l3.strongMissing>0?' (dont '+l3.strongMissing+' en forte rotation)':''}`,fn:()=>{closeDiagnostic();switchTab(l3.mode==='territoire'?'territoire':'bench');}});
+    if(l4.status!=='lock'&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+  }
+  function _diagRenderPlan(famille,actions){
+    if(!actions.length)return'';
+    return`<div class="mt-4 p-4 bg-slate-800 border border-slate-600 rounded-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-extrabold text-sm text-white">📋 Plan d'action — <span class="text-cyan-400">${famille}</span></h3>
+        <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded font-bold">📥 Exporter CSV</button>
+      </div>
+      ${actions.map((a,i)=>`<div class="diag-action-row" onclick="executeDiagAction(${i})"><span class="text-xs font-semibold">${i+1}. ${a.star} ${a.label}</span><span class="text-slate-400 text-[10px] ml-3 flex-shrink-0">→ Voir</span></div>`).join('')}
+    </div>`;
+  }
+  function exportDiagnosticCSV(famille){
+    const{l1,l2,l3,l4}=_diagLevels;const SEP=';';
+    const lines=['\uFEFF'+['Niveau','Type','Code','Libellé','Détail','Valeur'].join(SEP)];
+    for(const r of(l1?.ruptures||[]))lines.push(['Niveau 1 - Stock','Rupture',r.code,`"${r.lib}"`,`${r.jours}j rupture · Fréq:${r.W}`,r.ca||0].join(SEP));
+    for(const r of(l2?.detail||[]))lines.push(['Niveau 2 - Calibrage','Sous-dimensionné',r.code,`"${r.lib}"`,`Ancien MIN:${r.ancienMin} Nouveau MIN:${r.nouveauMin}`,''].join(SEP));
+    for(const a of(l3?.missing||[]))lines.push(['Niveau 3 - Gamme','Article manquant',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.ca||a.refFreq||''].join(SEP));
+    for(const c of(l4?.clients||[]).filter(c=>c.isPerdu))lines.push(['Niveau 4 - Clients','Perdu à reconquérir',c.code,`"${c.nom}"`,c.statut,c.ca||0].join(SEP));
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
+    showToast('📥 Plan d\'action exporté','success');
   }
 
   function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
