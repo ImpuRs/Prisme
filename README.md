@@ -8,12 +8,13 @@ Anciennement Optistock PRO (V22→V24). Fichier HTML unique, zéro dépendance s
 
 ## 🎯 À quoi ça sert ?
 
-PILOT PRO analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik) pour :
+PILOT PRO analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik), la **Zone de Chalandise** (clients Qlik) pour :
 
 - **Recalculer les MIN/MAX** de chaque article selon un algorithme éprouvé (écrêtage des commandes exceptionnelles + stock de sécurité 48h)
 - **Identifier les actions prioritaires** : ruptures, fantômes, dormants, SASO, anomalies, fins de série
 - **Analyser le territoire** : canaux de distribution, capte agence, articles absents du rayon
 - **Benchmarker** les performances entre magasins d'un même bassin
+- **Diagnostiquer par famille** en 4 niveaux adaptatifs : Stock → Calibrage → Gamme → Clients métier
 - **Suivre l'évolution** mois par mois (export/import JSON historique)
 
 ## 🏗️ Architecture
@@ -61,6 +62,23 @@ MAX = MIN + 21 jours (forte rotation) ou 10 jours (faible rotation)
 Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 ## 📋 Changelog
+
+### V2 Phase 2 (Mars 2026) — Diagnostic Cascade Adaptatif
+
+**Diagnostic en 4 niveaux** — s'ouvre en overlay sombre, calcul lazy au clic, s'adapte aux fichiers disponibles :
+
+- **Niveau 1 — Stock** (toujours) : ruptures confirmées par famille, CA perdu estimé, tableau détaillé cliquable
+- **Niveau 2 — Calibrage MIN/MAX** (toujours) : détecte articles sans paramétrage ERP + sous-dimensionnements + écart fréquence vs agence référence (bench)
+- **Niveau 3 — Profondeur de gamme** (Bench ou Territoire) : articles présents chez la référence ou dans le territoire mais absents de votre rayon
+- **Niveau 4 — Clients métier** (Chalandise) : mapping automatique famille→métier, clients perdus à reconquérir, potentiel chiffré
+
+**Déclencheurs** :
+- 🔄 Bench : clic sur cellule rouge (< 50% médiane) dans Forces & Faiblesses
+- 🎯 Cockpit : bouton 🔍 sur ruptures avec score priorité ≥ 5 000€
+- 📊 ABC : boutons 🔍 sur familles CF (Rare valeur, Fréquent usage)
+- 📦 Stock : boutons 🔍 dans le Top 10 Familles
+
+**Plan d'action** : 1 à 3 actions générées automatiquement, classées par impact (⭐ immédiat → ⭐⭐⭐ moyen terme), chacune cliquable pour naviguer directement vers le bon onglet avec filtres pré-remplis. Export CSV.
 
 ### 1.0 (Mars 2026) — PILOT PRO
 Première version sous le nom PILOT PRO. Récapitulatif de toutes les fonctionnalités héritées d'Optistock (V22→V24) :

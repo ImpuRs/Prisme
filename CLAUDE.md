@@ -53,6 +53,16 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `renderExecSummary()` : résumé exécutif (ruptures, stock, service, C-Rare, territoire couverture rayon)
   - `calcPriorityScore()` / `isParentRef()` : fonctions priorité
   - `renderComparison()` : comparaison historique
+  - **V2 Phase 2 — Diagnostic Cascade** :
+    - `openDiagnostic(famille, source)` / `closeDiagnostic()` : ouvre/ferme l'overlay
+    - `renderDiagnosticPanel(famille, source)` : construit le panneau complet (header + 4 niveaux + plan)
+    - `_diagLevel1(famille)` → stock, ruptures, CA perdu estimé
+    - `_diagLevel2(famille, hasBench, refStore)` → calibrage MIN/MAX, sous-dimensionnement, sousPerf vs ref
+    - `_diagLevel3(famille, hasBench, hasTerr, refStore)` → profondeur de gamme (bench ou territoire)
+    - `_diagLevel4(famille, hasChal)` → clients métier, perdus, potentiel reconquête
+    - `_diagGenActions()` / `_diagRenderPlan()` : plan d'action 1-3 actions cliquables
+    - `executeDiagAction(idx)` : exécute l'action stockée dans `_diagActions[idx]`
+    - `exportDiagnosticCSV(famille)` : export CSV plan d'action
 
 ## Cockpit — structure
 - **🔴 Urgences** : Ruptures + Anomalies (2 cartes)
@@ -90,6 +100,27 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 - **Résumé croisement** (VOLET 3) : bloc sombre auto-généré au-dessus des KPIs avec toutes les métriques auto-détectées
 - **Contributeurs agence** (VOLET 2bis) : drilldown 3 niveaux — Secteurs (trié % agence asc = opportunités) → Clients → Articles. Lazy loading au clic. Export CSV Vue 1.
 - **Résumé exécutif** cockpit, 5ème ligne : % couverture rayon Top 100 (source unique territoire, pas de CA croisé)
+
+## Diagnostic Cascade Adaptatif — V2 Phase 2
+
+Le diagnostic s'ouvre en **overlay sombre** (`#diagnosticOverlay`) sur n'importe quel onglet. Il est déclenché depuis :
+- **Bench** : clic sur une cellule rouge (< 50% médiane) dans Forces & Faiblesses
+- **Cockpit** : bouton 🔍 sur les ruptures avec score priorité ≥ 5 000€
+- **ABC** : bouton 🔍 sur les familles CF (section sous la matrice)
+- **Stock** : bouton 🔍 dans le Top 10 Familles
+
+**Principe d'adaptation** : chaque fichier chargé débloque un niveau. Les niveaux 1 et 2 sont toujours disponibles.
+
+| Niveau | Disponible | Données utilisées |
+|--------|-----------|-------------------|
+| 1 — Stock | Toujours | `finalData` (ruptures, stock, CA perdu) |
+| 2 — Calibrage MIN/MAX | Toujours | `finalData` (ancienMin vs nouveauMin) + bench si dispo |
+| 3 — Gamme | Bench OU Territoire | `ventesParMagasin[refStore]` ou `territoireLines` |
+| 4 — Clients métier | Chalandise | `ventesClientArticle` × `chalandiseData` |
+
+**Variables globales ajoutées** : `_diagLevels` (résultats des 4 niveaux), `_diagActions` (plan d'action cliquable).
+
+**CSS** : `.diag-level`, `.diag-badge`, `.diag-ok/warn/error/lock`, `.diag-action-row`, `.diag-btn` + overlay `#diagnosticOverlay` / `#diagnosticPanel`.
 
 ## Commandes utiles
 ```bash

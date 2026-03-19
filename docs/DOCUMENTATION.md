@@ -425,4 +425,105 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 
 ---
 
+## 6. Diagnostic Cascade Adaptatif — V2 Phase 2
+
+### 6.1 Principe
+
+PILOT s'adapte aux fichiers disponibles. Chaque fichier chargé débloque un niveau supplémentaire du diagnostic. Le diagnostic fonctionne toujours, même avec seulement Consommé + Stock.
+
+### 6.2 Déclencheurs
+
+| Contexte | Condition de déclenchement |
+|----------|---------------------------|
+| **Bench** (multi-agences) | Clic sur cellule rouge (< 50% médiane) dans Forces & Faiblesses |
+| **Cockpit** | Bouton 🔍 sur ruptures avec score priorité ≥ 5 000€ (CA perdu) |
+| **ABC** | Bouton 🔍 sur familles CF dans la section sous la matrice |
+| **Stock** | Bouton 🔍 dans le tableau Top 10 Familles |
+
+### 6.3 Interface
+
+Panneau overlay sombre (`#diagnosticOverlay`, z-index 10500) avec :
+- Header : famille analysée, agence vs référence, fichiers disponibles (✅/❌)
+- 4 niveaux verticaux avec indicateur statut : ✅ Bon / ⚠️ À corriger / 🔴 Problème / 🔒 Non disponible
+- Plan d'action généré automatiquement (max 3 actions cliquables)
+- Export CSV du plan d'action
+- Bouton ✕ pour fermer + clic sur fond pour fermer
+
+### 6.4 Les 4 Niveaux
+
+#### Niveau 1 — Stock (toujours disponible)
+
+Données : `finalData` filtré sur la famille.
+
+- Articles en stock vs en rupture (W≥3, stock≤0, non-parent)
+- Jours de rupture estimés = `min(ageJours, 90j)`
+- CA perdu estimé = `(V / globalJoursOuvres) × joursRupture × prixUnitaire`
+- Statut : ok si 0 rupture · warn si < 1 000€ · error si ≥ 1 000€
+
+#### Niveau 2 — Calibrage MIN/MAX (toujours disponible)
+
+Données : `finalData` + `ventesParMagasin[refStore]` (si bench).
+
+- Articles sans MIN/MAX paramétré (ancienMin=0, ancienMax=0, non nouveauté, W≥1) → anomalies
+- Articles sous-dimensionnés : ancienMin > 0 mais ancienMin < nouveauMin PILOT
+- Mode multi-agences : articles où la fréquence du magasin de référence > 2× la mienne
+
+#### Niveau 3 — Profondeur de gamme (Bench OU Territoire requis)
+
+**Mode bench** : compare `ventesParMagasin[refStore]` filtré par famille vs mes références.
+- Magasin de référence = magasin avec la plus haute fréquence (`benchLists.storePerf` trié par freq desc)
+- Articles du ref absents chez moi, triés par fréquence ref décroissante
+- `strongMissing` = articles classés A ou B chez la référence
+
+**Mode territoire** : compare `territoireLines` filtré sur la famille vs `finalData`.
+- Articles vendus sur le territoire non référencés en stock agence
+- Triés par CA territoire décroissant
+
+#### Niveau 4 — Clients métier (Chalandise requise)
+
+Données : `ventesClientArticle` × `chalandiseData`.
+
+1. Identifier le métier dominant via croisement ventes famille × métiers chalandise
+2. Lister tous les clients de la zone avec ce métier
+3. Statuts : Actif (CA > 0 + statut actif) / Perdu (statut perdu/inactif) / Prospect (non acheteur)
+4. Potentiel reconquête = somme CA famille des clients perdus
+
+### 6.5 Plan d'action
+
+Règles de génération (max 3 actions) :
+
+| Condition | Action | Étoiles |
+|-----------|--------|---------|
+| Niveau 1 rouge | Réassort X articles en rupture — CA Y€ → filtre Articles/ruptures | ⭐ |
+| Niveau 2 non-ok | Recalibrer MIN/MAX de X articles → filtre Articles famille | ⭐ |
+| Niveau 3 non-ok | Référencer X articles manquants → onglet Bench ou Territoire | ⭐⭐ |
+| Niveau 4 perdus | Démarcher X clients perdus — potentiel Y€ → onglet Territoire | ⭐⭐⭐ |
+
+Chaque action est cliquable et navigue directement vers le bon onglet avec les filtres pré-remplis. Le bouton "📥 Exporter CSV" génère `PILOT_Diag_[Famille]_[date].csv` avec les détails de chaque niveau.
+
+### 6.6 Détail technique
+
+```javascript
+// Déclenchement
+openDiagnostic(famille, source) // source: 'bench'|'cockpit'|'abc'|'stock'
+closeDiagnostic()
+
+// Calcul des niveaux (synchrone, lazy au clic)
+_diagLevel1(famille) → {arts, enStock, ruptures[], caPerduTotal, status}
+_diagLevel2(famille, hasBench, refStore) → {status, nonCal, sousD, sousPerf[], detail[]}
+_diagLevel3(famille, hasBench, hasTerr, refStore) → {status, mode, myCount, missing[], strongMissing}
+_diagLevel4(famille, hasChal) → {status, metier, clients[], actifs, perdus, potentiel}
+
+// Plan d'action
+_diagGenActions(famille, l1, l2, l3, l4) → _diagActions[] avec .fn()
+executeDiagAction(idx) // déclenché par onclick dans le plan
+
+// Export
+exportDiagnosticCSV(famille) // CSV avec colonnes Niveau|Type|Code|Libellé|Détail|Valeur
+```
+
+Variables globales : `_diagLevels = {l1, l2, l3, l4}`, `_diagActions = []`.
+
+---
+
 *Document généré — PILOT PRO 1.0 (ex-Optistock PRO)*
