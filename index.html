@@ -2719,6 +2719,7 @@
   function _diagLevel1(famille){
     const arts=finalData.filter(r=>r.famille===famille);
     const enStock=arts.filter(r=>r.stockActuel>0).length;
+    const nonRef=arts.filter(r=>r.stockActuel<=0&&r.W<3).length;
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
@@ -2727,18 +2728,19 @@
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     const status=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
-    return{arts:arts.length,enStock,ruptures,caPerduTotal,status};
+    return{arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,status};
   }
   function _diagRenderL1(l){
+    const verdictClass=l.ruptures.length===0?'text-emerald-400':l.ruptures.length<=3?'text-amber-400':'text-rose-400';
+    const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
+    const verdictText=l.ruptures.length===0?'Pas de rupture sur cette famille':`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
+    const top5=l.ruptures.slice(0,5);
+    const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-2">Sur <strong class="text-white">${l.arts}</strong> articles de cette famille :</p>
-      <div class="flex flex-wrap gap-4 mb-3 text-xs">
-        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
-        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
-        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
-      </div>
-      ${l.ruptures.length?`<div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-red-300 border-b border-red-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq</th><th class="py-1.5 px-2 text-center">Jours rupt.</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-center">${r.jours}j</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'text-amber-400':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="text-rose-400 text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
+      ${l.nonRef>0?`<p class="text-[11px] text-slate-400 mt-1">💡 <strong class="text-slate-300">${l.nonRef}</strong> article${l.nonRef>1?'s':''} ni en stock ni en rupture = non référencés en agence</p>`:''}
     </div>`;
   }
 
@@ -2753,18 +2755,21 @@
       const refV=ventesParMagasin[refStore]||{};
       for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
     }
-    const detail=sousD.map(r=>({code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,myFreq:r.W,refFreq:hasBench&&refStore?(ventesParMagasin[refStore]?.[r.code]?.countBL||0):null}));
+    const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(ventesParMagasin[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
     const nb=nonCal.length+sousD.length;
     return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
   }
   function _diagRenderL2(l,hasBench,refStore){
+    const nbTotal=l.nonCal+l.sousD;
+    const verdictClass=nbTotal===0?'text-emerald-400':nbTotal<=5?'text-amber-400':'text-rose-400';
+    const verdictIcon=nbTotal===0?'✅':nbTotal<=5?'⚠️':'🚨';
+    const verdictText=nbTotal===0?'Calibrage correct — tous les articles actifs ont un MIN/MAX bien dimensionné':`${nbTotal} article${nbTotal>1?'s':''} mal calibré${nbTotal>1?'s':''}${l.nonCal>0?' (dont '+l.nonCal+' sans MIN/MAX dans l\'ERP)':''}`;
+    const top5=l.detail.slice(0,5);
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-amber-300">🎚️ Niveau 2 — Calibrage MIN/MAX</span>${_diagBadge(l.status)}</div>
-      ${l.nonCal>0?`<p class="text-xs text-amber-400 font-bold mb-1">⚠️ ${l.nonCal} article${l.nonCal>1?'s':''} sans MIN/MAX paramétré dans l'ERP</p>`:''}
-      ${l.sousD>0?`<p class="text-xs text-rose-400 font-bold mb-1">🔴 ${l.sousD} article${l.sousD>1?'s':''} où l'ancien MIN ERP &lt; MIN recommandé PILOT</p>`:''}
-      ${hasBench&&l.sousPerf.length?`<p class="text-xs text-orange-400 font-bold mb-1">📊 ${l.sousPerf.length} article${l.sousPerf.length>1?'s':''} où <em>${refStore}</em> vend 2× plus que vous</p>`:''}
-      ${l.status==='ok'?`<p class="text-xs text-emerald-400">✅ Calibrage correct — tous les articles actifs ont un MIN paramétré</p>`:''}
-      ${l.detail.length?`<div class="overflow-x-auto mt-2" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-amber-300 border-b border-amber-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Anc.MIN</th><th class="py-1.5 px-2 text-center">Nouv.MIN</th><th class="py-1.5 px-2 text-center">Fréq moi</th>${hasBench?'<th class="py-1.5 px-2 text-center">Fréq réf.</th>':''}</tr></thead><tbody>${l.detail.map(r=>`<tr class="border-t border-amber-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${r.lib}</td><td class="py-1 px-2 text-center text-amber-400">${r.ancienMin}</td><td class="py-1 px-2 text-center text-emerald-400 font-bold">${r.nouveauMin}</td><td class="py-1 px-2 text-center">${r.myFreq}</td>${hasBench?`<td class="py-1 px-2 text-center ${r.refFreq>0?'text-rose-400 font-bold':'text-slate-500'}">${r.refFreq!==null?r.refFreq:'—'}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🔧 Plus gros écarts à corriger :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">MIN actuel <span class="text-amber-400">${r.ancienMin}</span> → recommandé <span class="text-emerald-400 font-bold">${r.nouveauMin}</span></span> <span class="text-rose-400 text-[10px]">(+${r.ecart})</span>${hasBench&&r.refFreq>0?' <span class="text-slate-500 text-[10px]">· réf. vend '+r.refFreq+'×</span>':''}</span></div>`).join('')}${l.detail.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.detail.length-5} autre${l.detail.length-5>1?'s':''} à recalibrer</p>`:''}</div>`:''}
+      ${hasBench&&l.sousPerf.length?`<p class="text-[11px] text-orange-400 mt-1">📊 <strong>${l.sousPerf.length}</strong> article${l.sousPerf.length>1?'s':''} où <em class="text-orange-300">${refStore}</em> vend 2× plus que vous → vérifier la visibilité rayon</p>`:''}
     </div>`;
   }
 
@@ -2830,15 +2835,16 @@
   }
   function _diagRenderL1Metier(l){
     if(l.reason&&l.arts===0)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">${l.reason}</p></div>`;
+    const verdictClass=l.ruptures.length===0?'text-emerald-400':l.ruptures.length<=3?'text-amber-400':'text-rose-400';
+    const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
+    const verdictText=l.ruptures.length===0?'Pas de rupture sur les articles achetés par les '+l.metier+'s':`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur les articles achetés par les ${l.metier}s${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
+    const top5=l.ruptures.slice(0,5);
+    const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés par les ${l.metier}s</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-2"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
-      <div class="flex flex-wrap gap-4 mb-3 text-xs">
-        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
-        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
-        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
-      </div>
-      ${l.ruptures.length?`<div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-red-300 border-b border-red-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. clients</th><th class="py-1.5 px-2 text-center">Fréq. ventes</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.freq}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs text-slate-400 mb-1"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">Fréq ${r.W} (${r.freq} clients), rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'text-amber-400':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="text-rose-400 text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
     </div>`;
   }
   function _diagLevel2Metier(topArts){
@@ -2846,7 +2852,7 @@
     const arts=topArts.filter(a=>a.W>=1);
     const nonCal=arts.filter(a=>a.ancienMin===0&&a.ancienMax===0&&!a.isNouveaute);
     const sousD=arts.filter(a=>a.ancienMin>0&&a.nouveauMin>a.ancienMin);
-    const detail=sousD.map(a=>({code:a.code,lib:a.lib,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:a.W,refFreq:null}));
+    const detail=sousD.map(a=>{const ecart=a.nouveauMin-a.ancienMin;return{code:a.code,lib:a.lib,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,ecart,myFreq:a.W,refFreq:null};}).sort((a,b)=>b.ecart-a.ecart);
     const nb=nonCal.length+sousD.length;
     return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf:[],detail};
   }
