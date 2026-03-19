@@ -2269,28 +2269,42 @@
   // ── Level 4: Clients métier ──
   function _diagLevel4(famille,hasChal){
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
-    const metierCount={};
+    // Step 1: article codes for this famille (finalData = source of truth, not articleFamille which comes from consommé)
+    const famArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
+    if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metier:'',clients:[]};
+    // Step 2: for each buyer of these articles who is in chalandise, count métier by nb buyers + CA
+    const metierBuyers={};// metier → Set<clientCode>
+    const metierCA={};    // metier → total sumPrelevee
     for(const[cc,artMap] of ventesClientArticle.entries()){
-      const info=chalandiseData.get(cc);if(!info)continue;
-      for(const[code,data] of artMap.entries()){if(articleFamille[code]!==famille||data.sumPrelevee<=0)continue;metierCount[info.metier]=(metierCount[info.metier]||0)+data.sumPrelevee;}
+      const info=chalandiseData.get(cc);if(!info||!info.metier)continue;
+      let famCA=0;
+      for(const[code,data] of artMap.entries()){if(famArts.has(code)&&data.sumPrelevee>0)famCA+=data.sumPrelevee;}
+      if(famCA<=0)continue;
+      if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();
+      metierBuyers[info.metier].add(cc);
+      metierCA[info.metier]=(metierCA[info.metier]||0)+famCA;
     }
-    const topM=Object.entries(metierCount).sort((a,b)=>b[1]-a[1])[0];
-    if(!topM)return{status:'warn',reason:'Aucun client chalandise identifié pour cette famille',metier:'',clients:[]};
+    // Step 3: find top métier by buyer count, compute percentage
+    const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
+    if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille trouvé parmi les clients de la chalandise — vérifiez que les codes clients correspondent entre le Consommé et la Chalandise',metier:'',clients:[]};
+    const topM=Object.entries(metierCA).sort((a,b)=>b[1]-a[1])[0];
     const metier=topM[0];
+    const metierPct=Math.round((metierBuyers[metier].size/totalBuyers)*100);
+    // Step 4: all clients of this métier in chalandise (actifs, perdus, prospects)
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
       const myData=ventesClientArticle.get(cc);
-      const famCA=myData?[...myData.entries()].filter(([c])=>articleFamille[c]===famille).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
+      const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
       const stat=(info.statut||'').toLowerCase();
-      const isActif=stat.includes('actif')&&famCA>0;
+      const isActif=(stat.includes('actif'))&&famCA>0;
       const isPerdu=stat.includes('perdu')||stat.includes('inactif');
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca:famCA,commercial:info.commercial||'',ville:info.ville||'',isActif,isPerdu});
     }
     const actifs=clients.filter(c=>c.isActif).length;
     const perdus=clients.filter(c=>c.isPerdu);
     const potentiel=perdus.reduce((s,c)=>s+c.ca,0);
-    return{status:perdus.length>2?'warn':'ok',metier,clients:clients.sort((a,b)=>(b.isPerdu?1:0)-(a.isPerdu?1:0)||b.ca-a.ca).slice(0,30),actifs,perdus:perdus.length,prospects:clients.filter(c=>!c.isActif&&!c.isPerdu).length,potentiel,total:clients.length};
+    return{status:perdus.length>2?'warn':'ok',metier,metierPct,totalBuyers,clients:clients.sort((a,b)=>(b.isPerdu?1:0)-(a.isPerdu?1:0)||b.ca-a.ca).slice(0,30),actifs,perdus:perdus.length,prospects:clients.filter(c=>!c.isActif&&!c.isPerdu).length,potentiel,total:clients.length};
   }
   function _diagRenderL4(l,hasChal){
     if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 4 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
@@ -2302,7 +2316,7 @@
     }).join('');
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-2">Métier identifié : <strong class="text-rose-300">${l.metier}</strong> — <strong class="text-white">${l.total}</strong> clients dans votre zone</p>
+      <p class="text-xs text-slate-400 mb-2">Métier identifié : <strong class="text-rose-300">${l.metier}</strong><span class="text-amber-400 font-bold ml-1">(${l.metierPct}% des acheteurs de cette famille)</span> — <strong class="text-white">${l.total}</strong> clients dans votre zone</p>
       <div class="flex flex-wrap gap-4 mb-3 text-xs">
         <span class="text-emerald-400 font-bold">✅ ${l.actifs} actifs chez vous</span>
         <span class="${l.perdus>0?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.perdus} perdus</span>
