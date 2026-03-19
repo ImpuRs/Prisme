@@ -2126,6 +2126,8 @@
 
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
+    // Ensure family name is decoded (callers may pass encoded or plain text)
+    famille=decodeURIComponent(famille);
     const hasBench=storesIntersection.size>1;
     const hasTerr=territoireReady&&territoireLines.length>0;
     const hasChal=chalandiseReady;
@@ -2134,13 +2136,14 @@
     if(hasBench){const sorted=Object.entries(benchLists.storePerf||{}).sort((a,b)=>b[1].freq-a[1].freq);const top=sorted.find(([s])=>s!==selectedMyStore);if(top)refStore=top[0];}
     const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour à l\'ABC':'Retour au Stock';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':'dash';
-    const modeLabel=hasBench?`Mon agence <span class="text-cyan-400">${selectedMyStore}</span> vs <span class="text-amber-400">${refStore||'Bassin'}</span>`:`Mon agence <span class="text-cyan-400">${selectedMyStore||'mes données'}</span>`;
+    const agenceLabel=selectedMyStore||'Votre agence';
+    const modeLabel=hasBench?`<span class="text-cyan-400">${agenceLabel}</span> vs <span class="text-amber-400">${refStore||'Bassin'}</span>`:`<span class="text-cyan-400">${agenceLabel}</span>`;
     const filesHtml=[
-      `<span class="text-emerald-400">✅ Consommé</span>`,
+      `<span class="text-emerald-400">✅ Ventes</span>`,
       `<span class="text-emerald-400">✅ Stock</span>`,
-      hasBench?`<span class="text-emerald-400">✅ Bench</span>`:`<span class="text-slate-500">❌ Bench</span>`,
+      hasBench?`<span class="text-emerald-400">✅ Comparaison</span>`:`<span class="text-slate-500">❌ Comparaison</span>`,
       hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,
-      hasChal?`<span class="text-emerald-400">✅ Chalandise</span>`:`<span class="text-slate-500">❌ Chalandise</span>`,
+      hasChal?`<span class="text-emerald-400">✅ Clients zone</span>`:`<span class="text-slate-500">❌ Clients zone</span>`,
     ].join('<span class="text-slate-600 mx-1">·</span>');
     const l1=_diagLevel1(famille);
     const l2=_diagLevel2(famille,hasBench,refStore);
