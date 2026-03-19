@@ -45,7 +45,7 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `computeABCFMR(data)` : calcul ABC (80/15/5% valeur rotation) + FMR (F≥12, M4-11, R≤3)
   - `filterByAbcFmr(abc,fmr)` : clic cellule matrice → filtre Articles
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
-  - `renderABCTab()` : onglet matrice 3×3 ABC/FMR cliquable + guides
+  - `renderABCTab()` : onglet Radar — matrice 3×3 ABC/FMR cliquable + filtres Famille/Emplacement + guides
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
   - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` : onglet Territoire
   - `renderTerrCroisementSummary()` : bloc résumé auto-détecté (VOLET 3)
@@ -106,7 +106,7 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 Le diagnostic s'ouvre en **overlay sombre** (`#diagnosticOverlay`) sur n'importe quel onglet. Il est déclenché depuis :
 - **Bench** : clic sur une cellule rouge (< 50% médiane) dans Forces & Faiblesses
 - **Cockpit** : bouton 🔍 sur les ruptures avec score priorité ≥ 5 000€
-- **ABC** : bouton 🔍 sur les familles CF (section sous la matrice)
+- **Radar (ex-ABC)** : bouton 🔍 Diag. sur chaque case de la matrice → diagnostic de TOUS les articles de la case, pas une seule famille. Bouton 🔍 sur les familles CF (section sous la matrice)
 - **Stock** : bouton 🔍 dans le Top 10 Familles
 
 **Principe d'adaptation** : chaque fichier chargé débloque un niveau. Les niveaux 1 et 2 sont toujours disponibles.
