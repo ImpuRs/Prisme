@@ -832,7 +832,7 @@
     if(ctrEl)ctrEl.innerHTML=ctrHtml;
     // Sort by % capté ascending (opportunities first)
     let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
-    dirsArr.sort((a,b)=>{const aBase=a.total-a.prospects,bBase=b.total-b.prospects;const aP=aBase>0?a.actifsPDV/aBase:1;const bP=bBase>0?b.actifsPDV/bBase:1;return aP-bP||b.total-a.total;});
+    dirsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
     let html='';
     dirsArr.forEach((d,idx)=>{
       const base=d.total-d.prospects;
@@ -886,7 +886,7 @@
     }
     let metiersArr=Object.values(metierMap).filter(m=>m.total>0);
     // Sort by % capté ascending (opportunities first)
-    metiersArr.sort((a,b)=>{const aBase=a.total-a.prospects,bBase=b.total-b.prospects;const aP=aBase>0?a.actifsPDV/aBase:1;const bP=bBase>0?b.actifsPDV/bBase:1;return aP-bP||b.total-a.total;});
+    metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
     if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun client pour ce filtre.</div>';return;}
     const dirEnc=encodeURIComponent(direction);
     const headCols='<th class="py-1.5 px-3 text-left">Métier</th><th class="py-1.5 px-3 text-center">Total</th><th class="py-1.5 px-3 text-center">Actifs Leg.</th><th class="py-1.5 px-3 text-center">Actifs PDV</th><th class="py-1.5 px-3 text-center">Prospects</th><th class="py-1.5 px-3 text-center">Perdus 12-24m</th><th class="py-1.5 px-3 text-center">Inactifs</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté PDV</th><th class="py-1.5 px-3 text-center">🔍</th>';
@@ -945,7 +945,7 @@
       sd.caPDVZone+=(info.caPDVN||0);
     }
     let sectsArr=Object.values(sectMap);
-    sectsArr.sort((a,b)=>{const aBase=a.total-a.prospects,bBase=b.total-b.prospects;const aP=aBase>0?a.actifsPDV/aBase:1;const bP=bBase>0?b.actifsPDV/bBase:1;return aP-bP||b.total-a.total;});
+    sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
     if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun secteur identifié.</div>';return;}
     const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
     const headCols='<th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-left">Commercial</th><th class="py-1.5 px-3 text-center">Total</th><th class="py-1.5 px-3 text-center">Actifs Leg.</th><th class="py-1.5 px-3 text-center">Actifs PDV</th><th class="py-1.5 px-3 text-center">Prospects</th><th class="py-1.5 px-3 text-center">Perdus 12-24m</th><th class="py-1.5 px-3 text-center">Inactifs</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté PDV</th>';
