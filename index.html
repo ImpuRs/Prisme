@@ -548,19 +548,7 @@
           <!-- Level 1: Direction commerciale -->
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">
-              <thead class="bg-gray-800 text-white">
-                <tr>
-                  <th class="py-2 px-3 text-left">Direction</th>
-                  <th class="py-2 px-3 text-center">Clients zone</th>
-                  <th class="py-2 px-3 text-center">✅ Actifs PDV</th>
-                  <th class="py-2 px-3 text-center">❌ Perdus</th>
-                  <th class="py-2 px-3 text-center">🔍 Prospects</th>
-                  <th class="py-2 px-3 text-center min-w-[120px]">% capté</th>
-                  <th class="py-2 px-3 text-right">CA PDV Zone</th>
-                  <th id="thTerrOverviewCA" class="py-2 px-3 text-right hidden">CA Territoire</th>
-                  <th id="thTerrOverviewCouv" class="py-2 px-3 text-center hidden">% couv. rayon</th>
-                </tr>
-              </thead>
+              <thead id="terrOverviewL1Head" class="bg-gray-800 text-white"></thead>
               <tbody id="terrOverviewL1Table"></tbody>
             </table>
           </div>
@@ -800,6 +788,8 @@
     // Build territory article coverage map if available
     const terrArtMap={};
     if(hasTerr){for(const l of territoireLines){if(!l.isSpecial){if(!terrArtMap[l.code])terrArtMap[l.code]={ca:0,rayonStatus:l.rayonStatus,direction:l.direction};terrArtMap[l.code].ca+=l.ca;}}}
+    // Detect contextual mode: Activité PDV filter is active
+    const isPDVFilterActive=_selectedActivitesPDV.size>0;
     // Aggregate by direction commerciale
     const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0;
     for(const[cc,info] of chalandiseData.entries()){
@@ -807,14 +797,18 @@
       if(!_clientPassesFilters(info))continue;
       filteredClients++;
       const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':info.metier?'Autre':'Autre';
-      // Use commercial direction from secteur mapping, fallback to 'Autre'
       const dirKey=dir||'Autre';
-      if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsPDV:0,perdus:0,prospects:0,caPDVZone:0,caTerrDir:0,terrArts:new Set(),terrInRayon:0};
+      if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsPDV:0,perdus:0,prospects:0,actifLegallais:0,inactifRecent:0,perduAncien:0,caPDVZone:0,caTerrDir:0,terrArts:new Set(),terrInRayon:0};
       const d=dirMap[dirKey];d.total++;
       const pdvActif=_isPDVActif(cc);
       if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
-      if(_isPerdu(info))d.perdus++;
+      const perdu=_isPerdu(info);
+      if(perdu)d.perdus++;
       if(_isProspect(info))d.prospects++;
+      // Contextual classification for PDV filter mode
+      if(_isGlobalActif(info)&&!pdvActif)d.actifLegallais++;
+      if(perdu&&(info.ca2025||0)>0)d.inactifRecent++;
+      else if(perdu&&!(info.ca2025||0))d.perduAncien++;
       d.caPDVZone+=(info.caPDVN||0);
     }
     // Enrich with territory CA + coverage if available
@@ -827,38 +821,69 @@
           if(ld===dir){caT+=l.ca;artSet.add(l.code);if(l.rayonStatus==='green')inRayon++;}
         }
         dirMap[dir].caTerrDir=caT;dirMap[dir].terrArts=artSet;
-        // Count unique articles in rayon for this direction
         const uniqueArts={};
         for(const l of territoireLines){if(l.isSpecial)continue;const ld=getSecteurDirection(l.secteur)||l.direction||'Autre';if(ld===dir){if(!uniqueArts[l.code])uniqueArts[l.code]=l.rayonStatus;}}
         const uAll=Object.keys(uniqueArts).length;const uGreen=Object.values(uniqueArts).filter(s=>s==='green').length;
         dirMap[dir].terrInRayon=uAll>0?Math.round(uGreen/uAll*100):0;
       }
     }
+    // Dynamic thead
+    const headEl=document.getElementById('terrOverviewL1Head');
+    if(headEl){
+      if(isPDVFilterActive){
+        headEl.innerHTML=`<tr><th class="py-2 px-3 text-left">Direction</th><th class="py-2 px-3 text-center">Clients filtrés</th><th class="py-2 px-3 text-center">🟠 Actif Legallais</th><th class="py-2 px-3 text-center">🔴 Inactif récent</th><th class="py-2 px-3 text-center">⚫ Perdu ancien</th><th class="py-2 px-3 text-center min-w-[120px]">% capté</th><th class="py-2 px-3 text-right">CA PDV Zone</th>${hasTerr?'<th class="py-2 px-3 text-right">CA Territoire</th><th class="py-2 px-3 text-center">% couv. rayon</th>':''}</tr>`;
+      }else{
+        headEl.innerHTML=`<tr><th class="py-2 px-3 text-left">Direction</th><th class="py-2 px-3 text-center">Clients zone</th><th class="py-2 px-3 text-center">✅ Actifs PDV</th><th class="py-2 px-3 text-center">❌ Perdus</th><th class="py-2 px-3 text-center">🔍 Prospects</th><th class="py-2 px-3 text-center min-w-[120px]">% capté</th><th class="py-2 px-3 text-right">CA PDV Zone</th>${hasTerr?'<th class="py-2 px-3 text-right">CA Territoire</th><th class="py-2 px-3 text-center">% couv. rayon</th>':''}</tr>`;
+      }
+    }
     // Counter
     const ctrEl=document.getElementById('terrOverviewCounter');
     const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
-    if(ctrEl)ctrEl.innerHTML=`${filteredClients} clients affichés / ${totalClients} total · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
-    // Sort by perdus desc
-    const dirsArr=Object.values(dirMap).filter(d=>d.total>0).sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size;
+    if(ctrEl)ctrEl.innerHTML=filterActive?`<span class="text-rose-600">${filteredClients} clients filtrés</span> / ${totalClients} total · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`:`${totalClients} clients · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
+    // Sort: in PDV filter mode, perdus anciens last; otherwise by perdus desc
+    const colSpan=hasTerr?9:7;
+    let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
+    if(isPDVFilterActive){
+      dirsArr.sort((a,b)=>b.actifLegallais-a.actifLegallais||b.inactifRecent-a.inactifRecent||a.perduAncien-b.perduAncien);
+    }else{
+      dirsArr.sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    }
     let html='';
     dirsArr.forEach((d,idx)=>{
       const pctC=d.total>0?Math.round(d.actifsPDV/d.total*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const dirEnc=encodeURIComponent(d.dir);
-      html+=`<tr class="border-b text-[11px] hover:bg-gray-50 cursor-pointer font-semibold" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
-        <td class="py-2 px-3">${d.dir} <span id="overviewL1Arrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-2 px-3 text-center">${d.total}</td>
-        <td class="py-2 px-3 text-center text-emerald-600 font-bold">${d.actifsPDV}</td>
-        <td class="py-2 px-3 text-center ${d.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${d.perdus||'—'}</td>
-        <td class="py-2 px-3 text-center ${d.prospects>0?'text-blue-600':'text-gray-400'}">${d.prospects||'—'}</td>
-        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctC}%</span></div></td>
-        <td class="py-2 px-3 text-right ${d.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${d.caPDVZone>0?formatEuro(d.caPDVZone):'—'}</td>
-        ${hasTerr?`<td class="py-2 px-3 text-right ${d.caTerrDir>0?'text-violet-600':'text-gray-400'}">${d.caTerrDir>0?formatEuro(d.caTerrDir):'—'}</td><td class="py-2 px-3 text-center font-bold ${d.terrInRayon>=70?'text-emerald-600':d.terrInRayon>=40?'text-amber-600':'text-red-600'}">${d.terrInRayon}%</td>`:''}
-      </tr>
-      <tr id="overviewL2-${idx}" style="display:none"><td colspan="${hasTerr?9:7}" class="p-0 bg-rose-50"><div id="overviewL2Inner-${idx}" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      const isPerduAncienOnly=isPDVFilterActive&&d.actifLegallais===0&&d.inactifRecent===0&&d.perduAncien>0;
+      const rowClass=isPerduAncienOnly?'border-b text-[11px] hover:bg-gray-50 cursor-pointer font-semibold opacity-40':'border-b text-[11px] hover:bg-gray-50 cursor-pointer font-semibold';
+      if(isPDVFilterActive){
+        html+=`<tr class="${rowClass}" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
+          <td class="py-2 px-3">${d.dir} <span id="overviewL1Arrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-2 px-3 text-center">${d.total}</td>
+          <td class="py-2 px-3 text-center ${d.actifLegallais>0?'text-amber-600 font-bold':'text-gray-400'}">${d.actifLegallais||'—'}</td>
+          <td class="py-2 px-3 text-center ${d.inactifRecent>0?'text-red-600 font-bold':'text-gray-400'}">${d.inactifRecent||'—'}</td>
+          <td class="py-2 px-3 text-center ${d.perduAncien>0?'text-gray-500':'text-gray-400'}">${d.perduAncien||'—'}</td>
+          <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctC}%</span></div></td>
+          <td class="py-2 px-3 text-right ${d.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${d.caPDVZone>0?formatEuro(d.caPDVZone):'—'}</td>
+          ${hasTerr?`<td class="py-2 px-3 text-right ${d.caTerrDir>0?'text-violet-600':'text-gray-400'}">${d.caTerrDir>0?formatEuro(d.caTerrDir):'—'}</td><td class="py-2 px-3 text-center font-bold ${d.terrInRayon>=70?'text-emerald-600':d.terrInRayon>=40?'text-amber-600':'text-red-600'}">${d.terrInRayon}%</td>`:''}
+        </tr>
+        <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 bg-rose-50"><div id="overviewL2Inner-${idx}" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      }else{
+        html+=`<tr class="border-b text-[11px] hover:bg-gray-50 cursor-pointer font-semibold" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
+          <td class="py-2 px-3">${d.dir} <span id="overviewL1Arrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-2 px-3 text-center">${d.total}</td>
+          <td class="py-2 px-3 text-center text-emerald-600 font-bold">${d.actifsPDV}</td>
+          <td class="py-2 px-3 text-center ${d.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${d.perdus||'—'}</td>
+          <td class="py-2 px-3 text-center ${d.prospects>0?'text-blue-600':'text-gray-400'}">${d.prospects||'—'}</td>
+          <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctC}%</span></div></td>
+          <td class="py-2 px-3 text-right ${d.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${d.caPDVZone>0?formatEuro(d.caPDVZone):'—'}</td>
+          ${hasTerr?`<td class="py-2 px-3 text-right ${d.caTerrDir>0?'text-violet-600':'text-gray-400'}">${d.caTerrDir>0?formatEuro(d.caTerrDir):'—'}</td><td class="py-2 px-3 text-center font-bold ${d.terrInRayon>=70?'text-emerald-600':d.terrInRayon>=40?'text-amber-600':'text-red-600'}">${d.terrInRayon}%</td>`:''}
+        </tr>
+        <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 bg-rose-50"><div id="overviewL2Inner-${idx}" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      }
     });
     const tEl=document.getElementById('terrOverviewL1Table');
-    if(tEl)tEl.innerHTML=html||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun client dans la zone de chalandise</td></tr>';
+    if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 text-gray-400">Aucun client dans la zone de chalandise</td></tr>`;
     // Cockpit client
     _buildCockpitClient();
   }
@@ -872,39 +897,67 @@
   }
   function _renderOverviewL2(el,direction){
     const hasTerr=territoireReady&&territoireLines.length>0;
+    const isPDVFilterActive=_selectedActivitesPDV.size>0;
     const metierMap={};
     for(const[cc,info] of chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
       const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
       if(dir!==direction)continue;
       const m=info.metier||'Autre';
-      if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsPDV:0,perdus:0,prospects:0,caPDVZone:0};
-      metierMap[m].total++;
-      if(_isPDVActif(cc))metierMap[m].actifsPDV++;
-      if(_isPerdu(info))metierMap[m].perdus++;
-      if(_isProspect(info))metierMap[m].prospects++;
-      metierMap[m].caPDVZone+=(info.caPDVN||0);
+      if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsPDV:0,perdus:0,prospects:0,actifLegallais:0,inactifRecent:0,perduAncien:0,caPDVZone:0};
+      const md=metierMap[m];md.total++;
+      const pdvActif=_isPDVActif(cc);
+      if(pdvActif)md.actifsPDV++;
+      const perdu=_isPerdu(info);
+      if(perdu)md.perdus++;
+      if(_isProspect(info))md.prospects++;
+      if(_isGlobalActif(info)&&!pdvActif)md.actifLegallais++;
+      if(perdu&&(info.ca2025||0)>0)md.inactifRecent++;
+      else if(perdu&&!(info.ca2025||0))md.perduAncien++;
+      md.caPDVZone+=(info.caPDVN||0);
     }
-    const metiersArr=Object.values(metierMap).filter(m=>m.total>0).sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    let metiersArr=Object.values(metierMap).filter(m=>m.total>0);
+    if(isPDVFilterActive){
+      metiersArr.sort((a,b)=>b.actifLegallais-a.actifLegallais||b.inactifRecent-a.inactifRecent||a.perduAncien-b.perduAncien);
+    }else{
+      metiersArr.sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    }
     if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun client pour ce filtre.</div>';return;}
     const dirEnc=encodeURIComponent(direction);
-    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-rose-100 text-rose-800 font-bold"><tr><th class="py-1.5 px-3 text-left">Métier</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">✅ Actifs PDV</th><th class="py-1.5 px-3 text-center">❌ Perdus</th><th class="py-1.5 px-3 text-center">🔍 Prospects</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th><th class="py-1.5 px-3 text-center">🔍</th></tr></thead><tbody>`;
+    const headCols=isPDVFilterActive?'<th class="py-1.5 px-3 text-left">Métier</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">🟠 Actif Legallais</th><th class="py-1.5 px-3 text-center">🔴 Inactif récent</th><th class="py-1.5 px-3 text-center">⚫ Perdu ancien</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th><th class="py-1.5 px-3 text-center">🔍</th>':'<th class="py-1.5 px-3 text-left">Métier</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">✅ Actifs PDV</th><th class="py-1.5 px-3 text-center">❌ Perdus</th><th class="py-1.5 px-3 text-center">🔍 Prospects</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th><th class="py-1.5 px-3 text-center">🔍</th>';
+    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-rose-100 text-rose-800 font-bold"><tr>${headCols}</tr></thead><tbody>`;
     metiersArr.forEach((m,mIdx)=>{
       const pctC=m.total>0?Math.round(m.actifsPDV/m.total*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const mEnc=encodeURIComponent(m.metier);
       const rowId=`overviewL3-${dirEnc}-${mIdx}`;
-      html+=`<tr class="border-t border-rose-200 hover:bg-rose-50 cursor-pointer font-semibold" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
-        <td class="py-1.5 px-3">${m.metier} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 text-center">${m.total}</td>
-        <td class="py-1.5 px-3 text-center text-emerald-600 font-bold">${m.actifsPDV}</td>
-        <td class="py-1.5 px-3 text-center ${m.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${m.perdus||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${m.prospects>0?'text-blue-600':'text-gray-400'}">${m.prospects||'—'}</td>
-        <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
-        <td class="py-1.5 px-3 text-right ${m.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${m.caPDVZone>0?formatEuro(m.caPDVZone):'—'}</td>
-        <td class="py-1.5 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
-      </tr>
-      <tr id="${rowId}" style="display:none"><td colspan="8" class="p-0 bg-violet-50"><div id="${rowId}-inner" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      const isPerduAncienOnly=isPDVFilterActive&&m.actifLegallais===0&&m.inactifRecent===0&&m.perduAncien>0;
+      const rowOpacity=isPerduAncienOnly?' opacity-40':'';
+      if(isPDVFilterActive){
+        html+=`<tr class="border-t border-rose-200 hover:bg-rose-50 cursor-pointer font-semibold${rowOpacity}" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
+          <td class="py-1.5 px-3">${m.metier} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-1.5 px-3 text-center">${m.total}</td>
+          <td class="py-1.5 px-3 text-center ${m.actifLegallais>0?'text-amber-600 font-bold':'text-gray-400'}">${m.actifLegallais||'—'}</td>
+          <td class="py-1.5 px-3 text-center ${m.inactifRecent>0?'text-red-600 font-bold':'text-gray-400'}">${m.inactifRecent||'—'}</td>
+          <td class="py-1.5 px-3 text-center ${m.perduAncien>0?'text-gray-500':'text-gray-400'}">${m.perduAncien||'—'}</td>
+          <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
+          <td class="py-1.5 px-3 text-right ${m.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${m.caPDVZone>0?formatEuro(m.caPDVZone):'—'}</td>
+          <td class="py-1.5 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
+        </tr>
+        <tr id="${rowId}" style="display:none"><td colspan="8" class="p-0 bg-violet-50"><div id="${rowId}-inner" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      }else{
+        html+=`<tr class="border-t border-rose-200 hover:bg-rose-50 cursor-pointer font-semibold" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
+          <td class="py-1.5 px-3">${m.metier} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-1.5 px-3 text-center">${m.total}</td>
+          <td class="py-1.5 px-3 text-center text-emerald-600 font-bold">${m.actifsPDV}</td>
+          <td class="py-1.5 px-3 text-center ${m.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${m.perdus||'—'}</td>
+          <td class="py-1.5 px-3 text-center ${m.prospects>0?'text-blue-600':'text-gray-400'}">${m.prospects||'—'}</td>
+          <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
+          <td class="py-1.5 px-3 text-right ${m.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${m.caPDVZone>0?formatEuro(m.caPDVZone):'—'}</td>
+          <td class="py-1.5 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
+        </tr>
+        <tr id="${rowId}" style="display:none"><td colspan="8" class="p-0 bg-violet-50"><div id="${rowId}-inner" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      }
     });
     html+=`</tbody></table></div>`;
     el.innerHTML=html;
@@ -918,6 +971,7 @@
     if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner)_renderOverviewL3(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc));}
   }
   function _renderOverviewL3(el,direction,metier){
+    const isPDVFilterActive=_selectedActivitesPDV.size>0;
     const sectMap={};
     for(const[cc,info] of chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
@@ -927,31 +981,57 @@
       const sect=info.secteur||'—';
       const comm=info.commercial||'—';
       const key=sect+'||'+comm;
-      if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsPDV:0,perdus:0,caPDVZone:0};
-      sectMap[key].total++;
-      if(_isPDVActif(cc))sectMap[key].actifsPDV++;
-      if(_isPerdu(info))sectMap[key].perdus++;
-      sectMap[key].caPDVZone+=(info.caPDVN||0);
+      if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsPDV:0,perdus:0,actifLegallais:0,inactifRecent:0,perduAncien:0,caPDVZone:0};
+      const sd=sectMap[key];sd.total++;
+      const pdvActif=_isPDVActif(cc);
+      if(pdvActif)sd.actifsPDV++;
+      const perdu=_isPerdu(info);
+      if(perdu)sd.perdus++;
+      if(_isGlobalActif(info)&&!pdvActif)sd.actifLegallais++;
+      if(perdu&&(info.ca2025||0)>0)sd.inactifRecent++;
+      else if(perdu&&!(info.ca2025||0))sd.perduAncien++;
+      sd.caPDVZone+=(info.caPDVN||0);
     }
-    const sectsArr=Object.values(sectMap).sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    let sectsArr=Object.values(sectMap);
+    if(isPDVFilterActive){
+      sectsArr.sort((a,b)=>b.actifLegallais-a.actifLegallais||b.inactifRecent-a.inactifRecent||a.perduAncien-b.perduAncien);
+    }else{
+      sectsArr.sort((a,b)=>b.perdus-a.perdus||b.total-a.total);
+    }
     if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun secteur identifié.</div>';return;}
     const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
-    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800 font-bold"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-left">Commercial</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">✅ Actifs PDV</th><th class="py-1.5 px-3 text-center">❌ Perdus</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th></tr></thead><tbody>`;
+    const headCols=isPDVFilterActive?'<th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-left">Commercial</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">🟠 Actif Legallais</th><th class="py-1.5 px-3 text-center">🔴 Inactif récent</th><th class="py-1.5 px-3 text-center">⚫ Perdu ancien</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th>':'<th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-left">Commercial</th><th class="py-1.5 px-3 text-center">Clients</th><th class="py-1.5 px-3 text-center">✅ Actifs PDV</th><th class="py-1.5 px-3 text-center">❌ Perdus</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th>';
+    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800 font-bold"><tr>${headCols}</tr></thead><tbody>`;
     sectsArr.forEach((s,sIdx)=>{
       const pctC=s.total>0?Math.round(s.actifsPDV/s.total*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const sEnc=encodeURIComponent(s.secteur);
       const rowId=`overviewL4-${dirEnc}-${mEnc}-${sIdx}`;
-      html+=`<tr class="border-t border-violet-200 hover:bg-violet-50 cursor-pointer" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
-        <td class="py-1.5 px-3 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 text-gray-600">${s.commercial}</td>
-        <td class="py-1.5 px-3 text-center">${s.total}</td>
-        <td class="py-1.5 px-3 text-center text-emerald-600 font-bold">${s.actifsPDV}</td>
-        <td class="py-1.5 px-3 text-center ${s.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${s.perdus||'—'}</td>
-        <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
-        <td class="py-1.5 px-3 text-right ${s.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${s.caPDVZone>0?formatEuro(s.caPDVZone):'—'}</td>
-      </tr>
-      <tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
+      const isPerduAncienOnly=isPDVFilterActive&&s.actifLegallais===0&&s.inactifRecent===0&&s.perduAncien>0;
+      const rowOpacity=isPerduAncienOnly?' opacity-40':'';
+      if(isPDVFilterActive){
+        html+=`<tr class="border-t border-violet-200 hover:bg-violet-50 cursor-pointer${rowOpacity}" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
+          <td class="py-1.5 px-3 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-1.5 px-3 text-gray-600">${s.commercial}</td>
+          <td class="py-1.5 px-3 text-center">${s.total}</td>
+          <td class="py-1.5 px-3 text-center ${s.actifLegallais>0?'text-amber-600 font-bold':'text-gray-400'}">${s.actifLegallais||'—'}</td>
+          <td class="py-1.5 px-3 text-center ${s.inactifRecent>0?'text-red-600 font-bold':'text-gray-400'}">${s.inactifRecent||'—'}</td>
+          <td class="py-1.5 px-3 text-center ${s.perduAncien>0?'text-gray-500':'text-gray-400'}">${s.perduAncien||'—'}</td>
+          <td class="py-1.5 px-3 text-right ${s.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${s.caPDVZone>0?formatEuro(s.caPDVZone):'—'}</td>
+        </tr>
+        <tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
+      }else{
+        html+=`<tr class="border-t border-violet-200 hover:bg-violet-50 cursor-pointer" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
+          <td class="py-1.5 px-3 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+          <td class="py-1.5 px-3 text-gray-600">${s.commercial}</td>
+          <td class="py-1.5 px-3 text-center">${s.total}</td>
+          <td class="py-1.5 px-3 text-center text-emerald-600 font-bold">${s.actifsPDV}</td>
+          <td class="py-1.5 px-3 text-center ${s.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${s.perdus||'—'}</td>
+          <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
+          <td class="py-1.5 px-3 text-right ${s.caPDVZone>0?'text-emerald-600':'text-gray-400'}">${s.caPDVZone>0?formatEuro(s.caPDVZone):'—'}</td>
+        </tr>
+        <tr id="${rowId}" style="display:none"><td colspan="7" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
+      }
     });
     html+=`</tbody></table></div>`;
     el.innerHTML=html;
@@ -987,12 +1067,18 @@
       const pdvActif=_isPDVActif(cc);
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activitePDV:info.activitePDV||'',activiteGlobale:info.activiteGlobale||info.activite||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif});
     }
-    clients.sort(_overviewClientSort);
+    const isPDVFilterActive=_selectedActivitesPDV.size>0;
+    if(isPDVFilterActive){
+      clients.sort((a,b)=>{const aPerdu=_isPerdu(a),bPerdu=_isPerdu(b);const aAncien=aPerdu&&!(a.ca2025||0),bAncien=bPerdu&&!(b.ca2025||0);const aGL=_isGlobalActif(a)&&!a._pdvActif,bGL=_isGlobalActif(b)&&!b._pdvActif;const aP=aGL?1:(aPerdu&&!aAncien?2:(aAncien?4:3));const bP=bGL?1:(bPerdu&&!bAncien?2:(bAncien?4:3));if(aP!==bP)return aP-bP;return(b.ca2025||0)-(a.ca2025||0);});
+    }else{
+      clients.sort(_overviewClientSort);
+    }
     if(!clients.length){el.innerHTML='<div class="text-gray-400 text-xs py-2">Aucun client.</div>';return;}
     const show=clients.slice(0,limit),more=clients.length-limit;
     let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800 font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Statut</th><th class="py-1 px-2 text-left">Act. PDV</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-right">CA 2026</th><th class="py-1 px-2 text-right">CA 2025</th><th class="py-1 px-2 text-right">CA PDV Zone</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
     for(const c of show){
-      const globActif=_isGlobalActif(c);const pdvBg=globActif&&!c._pdvActif?'bg-amber-50':_isPerdu(c)?'bg-rose-50':'';
+      const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);const perduAncien=perdu&&!(c.ca2025||0);
+      const pdvBg=isPDVFilterActive&&perduAncien?'bg-gray-100 opacity-40':globActif&&!c._pdvActif?'bg-amber-50':perdu?'bg-rose-50':'';
       html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:bg-blue-50" onclick="_toggleClientArticles(this,'${c.code}')">
         <td class="py-1 px-2 font-mono text-gray-500">${c.code}</td>
         <td class="py-1 px-2 max-w-[130px] truncate">${c.nom}</td>
