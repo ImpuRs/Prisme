@@ -1,7 +1,7 @@
 # CLAUDE.md — Contexte PILOT PRO
 
 ## Qu'est-ce que ce projet ?
-PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 1 optionnel (Territoire).
+PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Territoire, Zone de Chalandise).
 
 ## Architecture
 - **Un seul fichier** : `index.html` contient tout (HTML + CSS + JS)
@@ -59,6 +59,24 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 - **📦 Préconisation de stock** : SASO + Colis à stocker (2 cartes)
 - **Onglet Stock** : 6 KPI cards → Évolution historique → Accès rapide (5 shortcuts) → Attractivité par Famille → Ancienneté/Statuts/Familles
 - `cockpitLists.{fantomes,dormants,fins,top20,nouveautes,colisrayon}` peuplés pour `showCockpitInTable()`
+
+## Zone de Chalandise — 4ème fichier optionnel (V2 Phase 1)
+- **4ème fichier** : `fileChalandise` — export Qlik clients de la zone de chalandise
+- **Parsing** : CSV (CP1252 ou UTF-8) ou Excel, colonnes matchées case-insensitive : Code client, Nom client, Libellé court métier, Statut actuel général, etc.
+- **`chalandiseData`** : `Map<clientCode, {nom,metier,statut,classification,activite,secteur,commercial,cp,ville}>`
+- **`chalandiseReady`** : booléen, true si fichier chargé et parsé avec succès
+- **`chalandiseMetiers`** : liste triée des métiers distincts (pour le filtre du Bench)
+- **`ventesClientArticle`** : `Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>` — peuplé pendant le parsing consommé pour le magasin sélectionné uniquement
+- **`ventesClientsPerStore`** : `{store: Set<clientCode>}` — peuplé pour tous les magasins, pour la colonne "Clients zone" du classement bench
+- **Résumé navbar** : `📋 Chalandise chargée` affiché en rose dans la navbar
+- **Toast de confirmation** : `📋 Chalandise : X clients · Y métiers · Z actifs · W perdus`
+
+## Benchmark V2 — Filtre Métier + Écart Médiane (V2 Phase 1)
+- **Filtre métier** (`selectedBenchMetier`) : si renseigné et chalandise chargée, `computeBenchmark()` filtre `myV` depuis `ventesClientArticle` (clients du métier seulement)
+- **Médiane** : `computeBenchmark()` calcule la médiane par famille (agrégeant par magasin, puis médiane sur les magasins du bassin) au lieu de la moyenne — via `_median(arr)`
+- **Forces & Faiblesses** : colonnes Moi | Méd. | % méd. (coloré : ≥100% vert, 50–99% orange, <50% rouge)
+- **Bandeau sous-performance** : `benchUnderperformBanner` affiche "⚠️ X familles en sous-performance vs bassin (< 50% médiane)"
+- **Classement magasins** : colonnes Réf | Fréq | Serv. (taux de service = réf vendues / total articles bassin) | Clients zone (si chalandise, clients de la zone actifs dans ce magasin) | Perf
 
 ## Territoire — onglet optionnel
 - **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik
