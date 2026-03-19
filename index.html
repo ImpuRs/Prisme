@@ -512,6 +512,25 @@
           </table>
         </div>
       </div>
+
+      <!-- 10. Clients par Métier (Zone de Chalandise) -->
+      <div id="terrClientsMetierBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 p-4 border-b">🏢 Clients par Métier <span class="text-sm font-normal text-gray-500 ml-1">(Zone de Chalandise)</span></h3>
+        <div class="table-scroll">
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-800 text-white sticky top-0">
+              <tr>
+                <th class="py-2 px-3 text-left">Métier</th>
+                <th class="py-2 px-3 text-right">Nb clients zone</th>
+                <th class="py-2 px-3 text-right">CA Territoire</th>
+                <th class="py-2 px-3 text-right">Perdus zone</th>
+                <th class="py-2 px-3 text-center">Diagnostic</th>
+              </tr>
+            </thead>
+            <tbody id="terrClientsMetierTable"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- TAB 6 : BENCHMARK -->
@@ -650,7 +669,7 @@
   // V24.4: Per-file pipeline status (loading overlay)
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
   // V24.4: Territoire tab spinner + progress
-  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
+  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock','terrClientsMetierBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
   // VOLET 4: Period alert
   function fmtDate(d){if(!d)return'?';return d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});}
   function updatePeriodAlert(){
@@ -1322,6 +1341,34 @@
       pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
+
+    // Clients par Métier (only when chalandise loaded)
+    const cmBlk=document.getElementById('terrClientsMetierBlock');
+    if(cmBlk){
+      if(chalandiseReady){
+        cmBlk.classList.remove('hidden');
+        const metierMap={};
+        for(const[cc,info] of chalandiseData.entries()){
+          if(!info.metier)continue;
+          const m=info.metier;
+          if(!metierMap[m])metierMap[m]={metier:m,nbZone:0,caTerr:0,perdusZone:0};
+          metierMap[m].nbZone++;
+          const terrClient=clientsMap[cc];
+          if(terrClient)metierMap[m].caTerr+=terrClient.ca;
+          else{const s=(info.statut||'').toLowerCase();if(s.includes('inactif')||s.includes('perdu'))metierMap[m].perdusZone++;}
+        }
+        const metiersArr=Object.values(metierMap).filter(m=>m.nbZone>0).sort((a,b)=>b.caTerr-a.caTerr);
+        let mHtml='';
+        for(const m of metiersArr){
+          const mEnc=encodeURIComponent(m.metier);
+          mHtml+=`<tr class="border-b text-[11px] hover:bg-gray-50"><td class="py-2 px-3 font-semibold">${m.metier}</td><td class="py-2 px-3 text-right">${m.nbZone}</td><td class="py-2 px-3 text-right font-bold">${formatEuro(m.caTerr)}</td><td class="py-2 px-3 text-right ${m.perdusZone>0?'text-red-600 font-bold':'text-gray-400'}">${m.perdusZone||'—'}</td><td class="py-2 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td></tr>`;
+        }
+        const tEl=document.getElementById('terrClientsMetierTable');
+        if(tEl)tEl.innerHTML=mHtml||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun métier identifié</td></tr>';
+      }else{
+        cmBlk.classList.add('hidden');
+      }
+    }
 
     // Update insights banner — territory data (standard articles absents + clients ext purs)
     const absentsTerr=Object.values(artMapAll).filter(a=>a.rayonStatus==='red').length;
@@ -2130,31 +2177,51 @@
 
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
   let _diagLevels={};let _diagActions=[];
+  let _diagMetierFilter='';let _diagCurrentFamille='';let _diagCurrentSource='';
 
   function openDiagnostic(famille,source){
     const overlay=document.getElementById('diagnosticOverlay');
-    if(overlay){overlay.classList.add('active');renderDiagnosticPanel(famille,source);}
+    if(overlay){overlay.classList.add('active');_diagCurrentFamille=famille;_diagCurrentSource=source;_diagMetierFilter='';renderDiagnosticPanel(famille,source);}
+  }
+  function openDiagnosticMetier(metier){
+    const overlay=document.getElementById('diagnosticOverlay');
+    if(overlay){overlay.classList.add('active');_diagCurrentFamille='@metier:'+metier;_diagCurrentSource='territoire';_diagMetierFilter='';renderDiagnosticPanel('@metier:'+metier,'territoire');}
   }
   function closeDiagnostic(){
     const overlay=document.getElementById('diagnosticOverlay');
     if(overlay)overlay.classList.remove('active');
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
+  function _diagUpdateL4(){
+    const hasChal=chalandiseReady;
+    const rawFam=_diagCurrentFamille;
+    const isMetierMode=rawFam.startsWith('@metier:');
+    let l4;
+    if(isMetierMode){l4=_diagLevel4MetierMode(rawFam.slice(8),hasChal);}
+    else{l4=_diagLevel4(decodeURIComponent(rawFam),hasChal,_diagMetierFilter);}
+    _diagLevels.l4=l4;
+    const l4El=document.getElementById('_diagL4');if(l4El)l4El.innerHTML=_diagRenderL4(l4,hasChal);
+    const planLabel=isMetierMode?rawFam.slice(8):decodeURIComponent(rawFam);
+    const genFn=isMetierMode?_diagGenActionsMetier:_diagGenActions;
+    const acts=_diagActions=genFn(planLabel,_diagLevels.l1,_diagLevels.l2,_diagLevels.l3,l4);
+    const planEl=document.getElementById('_diagPlan');if(planEl)planEl.innerHTML=_diagRenderPlan(planLabel,acts);
+  }
 
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
+    const isMetierMode=famille.startsWith('@metier:');
+    const metier=isMetierMode?decodeURIComponent(famille.slice(8)):'';
     // Ensure family name is decoded (callers may pass encoded or plain text)
-    famille=decodeURIComponent(famille);
+    if(!isMetierMode)famille=decodeURIComponent(famille);
     const hasBench=storesIntersection.size>1;
     const hasTerr=territoireReady&&territoireLines.length>0;
     const hasChal=chalandiseReady;
     // Find reference store (highest freq store that isn't mine)
     let refStore='';
     if(hasBench){const sorted=Object.entries(benchLists.storePerf||{}).sort((a,b)=>b[1].freq-a[1].freq);const top=sorted.find(([s])=>s!==selectedMyStore);if(top)refStore=top[0];}
-    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour à l\'ABC':'Retour au Stock';
-    const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':'dash';
+    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour à l\'ABC':source==='territoire'?'Retour au Territoire':'Retour au Stock';
+    const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
-    const modeLabel=hasBench?`<span class="text-cyan-400">${agenceLabel}</span> vs <span class="text-amber-400">${refStore||'Bassin'}</span>`:`<span class="text-cyan-400">${agenceLabel}</span>`;
     const filesHtml=[
       `<span class="text-emerald-400">✅ Ventes</span>`,
       `<span class="text-emerald-400">✅ Stock</span>`,
@@ -2162,26 +2229,44 @@
       hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,
       hasChal?`<span class="text-emerald-400">✅ Clients zone</span>`:`<span class="text-slate-500">❌ Clients zone</span>`,
     ].join('<span class="text-slate-600 mx-1">·</span>');
-    const l1=_diagLevel1(famille);
-    const l2=_diagLevel2(famille,hasBench,refStore);
-    const l3=_diagLevel3(famille,hasBench,hasTerr,refStore);
-    const l4=_diagLevel4(famille,hasChal);
-    _diagLevels={l1,l2,l3,l4};
-    const actions=_diagActions=_diagGenActions(famille,l1,l2,l3,l4);
+    let l1,l2,l3,l4,actions,titleHtml,metierFilterHtml='';
+    if(isMetierMode){
+      l1=_diagLevel1Metier(metier);
+      l2=_diagLevel2Metier(l1.topArts||[]);
+      l3=_diagLevel3Metier(metier);
+      l4=_diagLevel4MetierMode(metier,hasChal);
+      _diagLevels={l1,l2,l3,l4};
+      actions=_diagActions=_diagGenActionsMetier(metier,l1,l2,l3,l4);
+      titleHtml=`🔍 Diagnostic : <span class="text-rose-300">${metier}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base"><span class="text-cyan-400">${agenceLabel}</span></span>`;
+    }else{
+      const modeLabel=hasBench?`<span class="text-cyan-400">${agenceLabel}</span> vs <span class="text-amber-400">${refStore||'Bassin'}</span>`:`<span class="text-cyan-400">${agenceLabel}</span>`;
+      l1=_diagLevel1(famille);
+      l2=_diagLevel2(famille,hasBench,refStore);
+      l3=_diagLevel3(famille,hasBench,hasTerr,refStore);
+      l4=_diagLevel4(famille,hasChal,_diagMetierFilter);
+      _diagLevels={l1,l2,l3,l4};
+      actions=_diagActions=_diagGenActions(famille,l1,l2,l3,l4);
+      titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base">${modeLabel}</span>`;
+      if(hasChal&&chalandiseMetiers.length){
+        const opts=chalandiseMetiers.map(m=>`<option value="${m.replace(/"/g,'&quot;')}"${m===_diagMetierFilter?' selected':''}>${m}</option>`).join('');
+        metierFilterHtml=`<div class="mt-2 flex items-center gap-2"><label class="text-[11px] text-slate-400 font-semibold shrink-0">🏢 Filtrer L4 :</label><select class="text-[11px] bg-slate-700 border border-slate-600 text-white rounded px-2 py-1" onchange="_diagMetierFilter=this.value;_diagUpdateL4()"><option value="">Tous les métiers</option>${opts}</select></div>`;
+      }
+    }
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
         <div>
           <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
-          <h2 class="text-xl font-extrabold text-white">🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base">${modeLabel}</span></h2>
+          <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
           <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+          ${metierFilterHtml}
         </div>
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
-      ${_diagRenderL1(l1)}
-      ${_diagRenderL2(l2,hasBench,refStore)}
-      ${_diagRenderL3(l3,hasBench,hasTerr)}
-      ${_diagRenderL4(l4,hasChal)}
-      ${_diagRenderPlan(famille,actions)}`;
+      ${isMetierMode?_diagRenderL1Metier(l1):_diagRenderL1(l1)}
+      ${isMetierMode?_diagRenderL2(l2,false,''):_diagRenderL2(l2,hasBench,refStore)}
+      ${isMetierMode?_diagRenderL3Metier(l3):_diagRenderL3(l3,hasBench,hasTerr)}
+      <div id="_diagL4">${_diagRenderL4(l4,hasChal)}</div>
+      <div id="_diagPlan">${_diagRenderPlan(isMetierMode?metier:famille,actions)}</div>`;
   }
 
   function _diagBadge(s){
@@ -2283,6 +2368,111 @@
     </div>`;
   }
 
+  // ── Métier-mode level functions (diagnostic opened from a métier, not a famille) ──
+  function _diagLevel1Metier(metier){
+    const metierClients=new Set();
+    for(const[cc,info] of chalandiseData.entries()){if(info.metier===metier)metierClients.add(cc);}
+    if(!metierClients.size)return{status:'warn',reason:'Aucun client '+metier+' dans la chalandise',arts:0,enStock:0,ruptures:[],caPerduTotal:0,topArts:[]};
+    const artFreq={};
+    for(const cc of metierClients){const arts=clientArticles.get(cc);if(!arts)continue;for(const code of arts)artFreq[code]=(artFreq[code]||0)+1;}
+    const topArts=Object.entries(artFreq).sort((a,b)=>b[1]-a[1]).slice(0,50).map(([code,freq])=>{
+      const r=finalData.find(d=>d.code===code);
+      return{code,freq,lib:r?r.libelle:(libelleLookup[code]||code),stockActuel:r?r.stockActuel:null,famille:r?r.famille:'',W:r?r.W:0,prixUnitaire:r?r.prixUnitaire:0,V:r?r.V:0,isParent:r?r.isParent:false,ancienMin:r?r.ancienMin:0,ancienMax:r?r.ancienMax:0,nouveauMin:r?r.nouveauMin:0,isNouveaute:r?r.isNouveaute:false};
+    });
+    const enStock=topArts.filter(a=>a.stockActuel!==null&&a.stockActuel>0).length;
+    let caPerduTotal=0;
+    const ruptures=topArts.filter(a=>a.W>=3&&a.stockActuel!==null&&a.stockActuel<=0&&!a.isParent).map(a=>{
+      const jours=90;const ca=Math.round((a.V/globalJoursOuvres)*jours*a.prixUnitaire);caPerduTotal+=ca;
+      return{code:a.code,lib:a.lib,W:a.W,jours,ca,freq:a.freq};
+    }).sort((a,b)=>b.ca-a.ca);
+    return{status:ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn',metier,metierClients:metierClients.size,arts:topArts.length,enStock,ruptures,caPerduTotal,topArts};
+  }
+  function _diagRenderL1Metier(l){
+    if(l.reason&&l.arts===0)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">${l.reason}</p></div>`;
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés par les ${l.metier}s</span>${_diagBadge(l.status)}</div>
+      <p class="text-xs text-slate-400 mb-2"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
+      <div class="flex flex-wrap gap-4 mb-3 text-xs">
+        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
+        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
+        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
+      </div>
+      ${l.ruptures.length?`<div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-red-300 border-b border-red-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. clients</th><th class="py-1.5 px-2 text-center">Fréq. ventes</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.freq}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+    </div>`;
+  }
+  function _diagLevel2Metier(topArts){
+    if(!topArts||!topArts.length)return{status:'ok',nonCal:0,sousD:0,sousPerf:[],detail:[]};
+    const arts=topArts.filter(a=>a.W>=1);
+    const nonCal=arts.filter(a=>a.ancienMin===0&&a.ancienMax===0&&!a.isNouveaute);
+    const sousD=arts.filter(a=>a.ancienMin>0&&a.nouveauMin>a.ancienMin);
+    const detail=sousD.map(a=>({code:a.code,lib:a.lib,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:a.W,refFreq:null}));
+    const nb=nonCal.length+sousD.length;
+    return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf:[],detail};
+  }
+  function _diagLevel3Metier(metier){
+    const metierClients=new Set();
+    for(const[cc,info] of chalandiseData.entries()){if(info.metier===metier)metierClients.add(cc);}
+    if(!metierClients.size)return{status:'lock',reason:'Aucun client identifié',familles:[]};
+    const artFreq={};
+    for(const cc of metierClients){const arts=clientArticles.get(cc);if(!arts)continue;for(const code of arts)artFreq[code]=(artFreq[code]||0)+1;}
+    const famMap={};
+    for(const[code,freq] of Object.entries(artFreq)){
+      const r=finalData.find(d=>d.code===code);
+      const fam=r?r.famille:'❓ Inconnue';
+      if(!famMap[fam])famMap[fam]={fam,nbArts:0,enStock:0,rupture:0,absent:0,freq:0};
+      famMap[fam].nbArts++;famMap[fam].freq+=freq;
+      if(r){if(r.stockActuel>0)famMap[fam].enStock++;else if(r.W>=1)famMap[fam].rupture++;else famMap[fam].absent++;}
+      else famMap[fam].absent++;
+    }
+    const familles=Object.values(famMap).sort((a,b)=>b.freq-a.freq);
+    const totalArts=familles.reduce((s,f)=>s+f.nbArts,0);
+    const totalEnStock=familles.reduce((s,f)=>s+f.enStock,0);
+    const pct=totalArts>0?Math.round(totalEnStock/totalArts*100):0;
+    return{status:pct>=70?'ok':pct>=40?'warn':'error',familles,totalArts,totalEnStock,pct,metierClients:metierClients.size};
+  }
+  function _diagRenderL3Metier(l){
+    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 3 — Familles achetées</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
+    const rows=(l.familles||[]).map(f=>{
+      const pctCov=f.nbArts>0?Math.round(f.enStock/f.nbArts*100):0;
+      const barColor=pctCov>=70?'bg-emerald-500':pctCov>=40?'bg-amber-500':'bg-red-500';
+      const textColor=pctCov>=70?'text-emerald-400':pctCov>=40?'text-amber-400':'text-red-400';
+      const famEnc=encodeURIComponent(f.fam);
+      const diagBtn=`<button class="diag-btn ml-1 bg-violet-100 text-violet-700 text-[9px]" onclick="openDiagnostic('${famEnc}','territoire')">🔍</button>`;
+      return`<tr class="border-t border-slate-800"><td class="py-1 px-2 max-w-[160px] truncate text-[11px]">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center text-emerald-400">${f.enStock}</td><td class="py-1 px-2 text-center text-amber-400">${f.rupture}</td><td class="py-1 px-2 text-center text-red-400">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 bg-slate-700 rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-[10px] ${textColor}">${pctCov}%</span></div></td></tr>`;
+    }).join('');
+    return`<div class="diag-level">
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 3 — Familles achetées</span>${_diagBadge(l.status)}</div>
+      <p class="text-xs text-slate-400 mb-2">${l.totalArts} articles achetés · couverture rayon : <strong class="${l.pct>=70?'text-emerald-400':l.pct>=40?'text-amber-400':'text-red-400'}">${l.pct}%</strong></p>
+      <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </div>`;
+  }
+  function _diagLevel4MetierMode(metier,hasChal){
+    if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
+    const clients=[];
+    for(const[cc,info] of chalandiseData.entries()){
+      if(info.metier!==metier)continue;
+      const myData=ventesClientArticle.get(cc);
+      const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
+      const prio=_diagClientPrio(info,famCA);
+      clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
+    }
+    clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;return cp||b.ca2025-a.ca2025;});
+    const p1=clients.filter(c=>c.prio===1).length,p2=clients.filter(c=>c.prio===2).length;
+    const p3=clients.filter(c=>c.prio===3).length,p4=clients.filter(c=>c.prio===4).length,p5=clients.filter(c=>c.prio===5).length;
+    const potentiel=clients.filter(c=>c.prio<=2).reduce((s,c)=>s+c.ca2025,0);
+    const perdus=p2+p3;
+    return{status:perdus>2?'warn':'ok',totalBuyers:clients.length,metiers:[{metier,pct:100,total:clients.length,p1,p2,p3,p4,p5,potentiel,clients}],perdus,potentiel,isMetierMode:true};
+  }
+  function _diagGenActionsMetier(metier,l1,l2,l3,l4){
+    const acts=[];
+    if(l1&&l1.ruptures&&l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${formatEuro(l1.caPerduTotal||0)}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
+    if(nbMM>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMM} article${nbMM>1?'s':''} achetés par les ${metier}s`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    if(l4&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();}});
+    return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+  }
+
   // ── Level 4: Clients métier ──
   // Priority: 1=actif global+inactif PDV, 2=inactif2026 seul, 3=inactif2026/2025, 4=prospect, 5=actif PDV
   function _diagClientPrio(info,famCA){
@@ -2300,7 +2490,8 @@
   function _diagClassifPrio(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return 0;if(u.includes('OCC')&&u.includes('POT+'))return 1;if(u.includes('POT-'))return 2;return 3;}
   function _diagClassifBadge(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;if(u.includes('OCC')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;if(u.includes('POT-'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;if(c&&c!=='—')return`<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;return'<span class="text-slate-600 text-[9px]">—</span>';}
   function _diagL4Toggle(btn){const c=document.getElementById(btn.dataset.target);if(!c)return;const h=c.style.display==='none';c.style.display=h?'':'none';btn.textContent=h?'▲ Réduire':'▼ Voir plus ('+(btn.dataset.more||'')+')';}
-  function _diagLevel4(famille,hasChal){
+  function _diagLevel4(famille,hasChal,metierFilter){
+    metierFilter=metierFilter||'';
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
     const famArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
@@ -2309,7 +2500,9 @@
     for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
     if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
-    const top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);
+    let top3;
+    if(metierFilter){const bs=metierBuyers[metierFilter];top3=bs?[[metierFilter,bs]]:[];}
+    else{top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);}
     const metiers=top3.map(([metier,buyerSet])=>{
       const pct=Math.round(buyerSet.size/totalBuyers*100);
       const clients=[];
@@ -2373,9 +2566,10 @@
         ${moreRows?`<div id="${pageId}_more" style="display:none"><div class="overflow-x-auto"><table class="min-w-full"><tbody>${moreRows}</tbody></table></div></div><button class="mt-1 text-[10px] text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-0.5 rounded transition-colors" data-target="${pageId}_more" data-more="${more.length}" onclick="_diagL4Toggle(this)">▼ Voir plus (${more.length})</button>`:''}
       </div>`;
     }).join('');
+    const subHdr=l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`;
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-3">Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise</p>
+      <p class="text-xs text-slate-400 mb-3">${subHdr}</p>
       ${metiersHtml}
     </div>`;
   }
