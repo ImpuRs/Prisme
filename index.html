@@ -191,7 +191,7 @@
         <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Stock</button></li>
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
-        <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📊 ABC</button></li>
+        <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold uppercase hidden" id="btnTabBench">🔄 BENCH <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
       </ul>
@@ -328,13 +328,17 @@
       </div>
     </div>
 
-    <!-- TAB 5 : ABC/FMR MATRIX -->
+    <!-- TAB 5 : RADAR (ABC/FMR MATRIX) -->
     <div id="tabAbc" class="tab-content hidden">
       <div class="mb-4 flex items-start justify-between">
         <div>
-          <h2 class="text-xl font-extrabold text-indigo-700">📊 Matrice ABC / FMR</h2>
+          <h2 class="text-xl font-extrabold text-indigo-700">📡 Radar ABC / FMR</h2>
           <p class="text-xs text-gray-500 mt-1">ABC = valeur de rotation (Prélevé × Prix unitaire) · FMR = fréquence (W = nb commandes/an) · Articles actifs uniquement (W≥1)</p>
         </div>
+      </div>
+      <div id="radarFiltersBar" class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-[10px] text-gray-400">La matrice se recalcule selon les filtres globaux (Famille, Sous-Famille, Emplacement, Statut).</span>
+        <span id="radarFilterBadge" class="text-[10px] text-indigo-600 font-bold hidden"></span>
       </div>
       <div id="abcMatrixContainer" class="overflow-x-auto mb-6"></div>
       <div id="abcMatrixLegend" class="mt-4"></div>
@@ -1425,7 +1429,7 @@
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(finalData.length>0&&finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
-      updateProgress(93,100,'ABC/FMR…');await yieldToMain();computeABCFMR(finalData);
+      updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(finalData);
       updateProgress(95,100,'Affichage…');await yieldToMain();
       populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
@@ -2568,17 +2572,41 @@
     document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="13" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
   }
 
-  // Helper: returns the most common famille for a given ABC/FMR cell (for diagnostic trigger)
-  function _topFamilleForAbcFmr(abc,fmr){
-    const freq={};
-    for(const r of finalData){if(r.abcClass===abc&&r.fmrClass===fmr&&r.famille){freq[r.famille]=(freq[r.famille]||0)+1;}}
-    const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
-    return top?top[0]:null;
+  // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
+  function _radarFilteredData(){
+    const fam=document.getElementById('filterFamille')?.value||'';
+    const sFam=document.getElementById('filterSousFamille')?.value||'';
+    const emp=document.getElementById('filterEmplacement')?.value||'';
+    const stat=document.getElementById('filterStatut')?.value||'';
+    const abc=document.getElementById('filterABC')?.value||'';
+    const fmr=document.getElementById('filterFMR')?.value||'';
+    let data=finalData.filter(r=>r.W>=1);
+    if(fam)data=data.filter(r=>r.famille===fam);
+    if(sFam)data=data.filter(r=>r.sousFamille===sFam);
+    if(emp)data=data.filter(r=>r.emplacement===emp);
+    if(stat)data=data.filter(r=>r.statut===stat);
+    if(abc)data=data.filter(r=>r.abcClass===abc);
+    if(fmr)data=data.filter(r=>r.fmrClass===fmr);
+    return data;
   }
-
-  // ★ V24: Render ABC/FMR matrix tab
+  function _radarComputeMatrix(data){
+    const totalStock=data.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0)||1;
+    const mx={};
+    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
+      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
+      const stockVal=items.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0);
+      mx[key]={count:items.length,stockVal,pctTotal:(stockVal/totalStock)*100};
+    }
+    return mx;
+  }
   function renderABCTab(){
     if(!finalData.length||!Object.keys(abcMatrixData).length)return;
+    const radarData=_radarFilteredData();
+    const mx=_radarComputeMatrix(radarData);
+    const globalFilters=[document.getElementById('filterFamille')?.value,document.getElementById('filterSousFamille')?.value,document.getElementById('filterEmplacement')?.value,document.getElementById('filterStatut')?.value,document.getElementById('filterABC')?.value,document.getElementById('filterFMR')?.value].filter(Boolean);
+    const isFiltered=globalFilters.length>0;
+    const badge=document.getElementById('radarFilterBadge');
+    if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Petit mais régulier — passage en colis ?',CM:'Candidat réduction stock',CR:'Candidat déréférencement ou colis pur'};
@@ -2593,17 +2621,16 @@
     for(const abc of['A','B','C']){
       html+=`<tr><td class="p-3 text-center">${rowLabels[abc]}</td>`;
       for(const fmr of['F','M','R']){
-        const key=abc+fmr,d=abcMatrixData[key]||{count:0,stockVal:0,pctTotal:0};
+        const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0};
         const bg=CELL_BG[key];
-        const topFamABCFMR=_topFamilleForAbcFmr(abc,fmr);
-        const diagBtnABC=topFamABCFMR?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-white/20 hover:bg-white/40 transition-colors" onclick="event.stopPropagation();openDiagnostic('${encodeURIComponent(topFamABCFMR)}','abc')" title="Diagnostic famille ${topFamABCFMR}">🔍 Diag.</button>`:'';
+        const diagBtn=d.count>0?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-white/20 hover:bg-white/40 transition-colors" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" title="Diagnostic ${key} (${d.count} articles)">🔍 Diag.</button>`:'';
         html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
           <div class="font-extrabold text-2xl">${d.count}</div>
           <div class="text-[10px] opacity-80">articles</div>
           <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
           <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
           <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
-          ${diagBtnABC}
+          ${diagBtn}
           <div class="cell-reco">${key} — ${RECOS[key]}</div>
         </div></td>`;
       }
@@ -2616,16 +2643,16 @@
     let leg='<div class="p-4 bg-gray-50 rounded-xl border"><h4 class="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">💡 Recommandations par segment <span class="text-[10px] font-normal text-gray-400">— cliquer sur un segment pour filtrer</span></h4>';
     leg+='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">';
     for(const key of['AF','AM','AR','BF','BM','BR','CF','CM','CR']){
-      const d=abcMatrixData[key]||{count:0,stockVal:0};const bg=CELL_BG[key];
+      const d=mx[key]||{count:0,stockVal:0};const bg=CELL_BG[key];
       leg+=`<div class="flex items-start gap-2 p-3 rounded-lg bg-white border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="filterByAbcFmr('${key[0]}','${key[1]}')">
         <div class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-extrabold text-[11px] text-white" style="background:${bg}">${key}</div>
         <div class="min-w-0"><div class="text-xs font-bold text-gray-800">${LABELS[key]}</div><div class="text-[10px] text-gray-500 mt-0.5">${RECOS[key]}</div><div class="text-[10px] text-indigo-600 font-bold mt-1">${d.count} art. · ${formatEuro(d.stockVal)}</div></div>
       </div>`;
     }
     leg+='</div></div>';
-    // V2 Phase 2: CF families diagnose section (C value, F frequency = articles réguliers bas CA)
+    // CF families diagnose section (C value, F frequency = articles réguliers bas CA)
     const cfFamilies={};
-    for(const r of finalData){if(r.abcClass==='C'&&r.fmrClass==='F'&&r.famille){cfFamilies[r.famille]=(cfFamilies[r.famille]||0)+1;}}
+    for(const r of radarData){if(r.abcClass==='C'&&r.fmrClass==='F'&&r.famille){cfFamilies[r.famille]=(cfFamilies[r.famille]||0)+1;}}
     if(Object.keys(cfFamilies).length){
       leg+=`<div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl"><h4 class="font-bold text-orange-800 mb-2 text-sm flex items-center gap-2">🔁 Familles CF — articles réguliers, faible valeur <span class="text-[10px] font-normal text-gray-500">Diagnostiquer pour passer en colis ou recalibrer</span></h4><div class="flex flex-wrap gap-2">`;
       Object.entries(cfFamilies).sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([f,cnt])=>{const fEnc=encodeURIComponent(f);leg+=`<button class="text-xs bg-white border border-orange-300 hover:bg-orange-100 text-orange-800 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="openDiagnostic(decodeURIComponent('${fEnc}'),'abc')"><span>${f}</span><span class="text-[10px] text-orange-500">${cnt} art.</span><span class="ml-1 text-[10px] font-bold text-blue-600">🔍</span></button>`;});
@@ -2641,6 +2668,18 @@
   function openDiagnostic(famille,source){
     const overlay=document.getElementById('diagnosticOverlay');
     if(overlay){overlay.classList.add('active');_diagCurrentFamille=famille;_diagCurrentSource=source;_diagMetierFilter='';renderDiagnosticPanel(famille,source);}
+  }
+  function openDiagnosticCell(abc,fmr){
+    const overlay=document.getElementById('diagnosticOverlay');
+    if(!overlay)return;
+    const key=abc+fmr;
+    // Gather articles in this cell, respecting Radar filters
+    const radarData=_radarFilteredData();
+    const cellArts=radarData.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
+    if(!cellArts.length)return;
+    overlay.classList.add('active');
+    _diagCurrentFamille='@cell:'+key;_diagCurrentSource='abc';_diagMetierFilter='';
+    _renderDiagnosticCellPanel(key,cellArts);
   }
   function openDiagnosticMetier(metier){
     const overlay=document.getElementById('diagnosticOverlay');
@@ -2664,7 +2703,7 @@
     // Find reference store (highest freq store that isn't mine)
     let refStore='';
     if(hasBench){const sorted=Object.entries(benchLists.storePerf||{}).sort((a,b)=>b[1].freq-a[1].freq);const top=sorted.find(([s])=>s!==selectedMyStore);if(top)refStore=top[0];}
-    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour à l\'ABC':source==='territoire'?'Retour au Territoire':'Retour au Stock';
+    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':'Retour au Stock';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
     const filesHtml=[
@@ -2708,6 +2747,60 @@
       <div id="_diagL4">${_diagRenderL4(l4,hasChal)}</div>
       ${isMetierMode?_diagRenderL3Metier(l3):_diagRenderL3(l3,hasBench,hasTerr)}
       <div id="_diagPlan">${_diagRenderPlan(isMetierMode?metier:famille,actions)}</div>`;
+  }
+
+  function _renderDiagnosticCellPanel(key,cellArts){
+    const panel=document.getElementById('diagnosticPanel');if(!panel)return;
+    const LABELS={AF:'Vos pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+    const hasBench=storesIntersection.size>1;
+    const hasTerr=territoireReady&&territoireLines.length>0;
+    const hasChal=chalandiseReady;
+    let refStore='';
+    if(hasBench){const sorted=Object.entries(benchLists.storePerf||{}).sort((a,b)=>b[1].freq-a[1].freq);const top=sorted.find(([s])=>s!==selectedMyStore);if(top)refStore=top[0];}
+    const agenceLabel=selectedMyStore||'Votre agence';
+    const filesHtml=[`<span class="text-emerald-400">✅ Ventes</span>`,`<span class="text-emerald-400">✅ Stock</span>`,hasBench?`<span class="text-emerald-400">✅ Comparaison</span>`:`<span class="text-slate-500">❌ Comparaison</span>`,hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,hasChal?`<span class="text-emerald-400">✅ Clients zone</span>`:`<span class="text-slate-500">❌ Clients zone</span>`].join('<span class="text-slate-600 mx-1">·</span>');
+    // Level 1 — Stock (all articles in cell)
+    let caPerduTotal=0;
+    const enStock=cellArts.filter(r=>r.stockActuel>0).length;
+    const ruptures=cellArts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
+      const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
+      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);caPerduTotal+=ca;
+      return{code:r.code,lib:r.libelle,W:r.W,jours,ca,prixUnitaire:r.prixUnitaire};
+    }).sort((a,b)=>b.ca-a.ca);
+    const l1={arts:cellArts.length,enStock,ruptures,caPerduTotal,status:ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn'};
+    // Level 2 — Calibrage
+    const activeArts=cellArts.filter(r=>r.W>=1);
+    const nonCal=activeArts.filter(r=>r.ancienMin===0&&r.ancienMax===0&&!r.isNouveaute);
+    const sousD=activeArts.filter(r=>r.ancienMin>0&&r.nouveauMin>r.ancienMin);
+    const detail=sousD.map(r=>({code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart:r.nouveauMin-r.ancienMin,myFreq:r.W})).sort((a,b)=>b.ecart-a.ecart);
+    const nb=nonCal.length+sousD.length;
+    const l2={status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf:[],detail};
+    _diagLevels={l1,l2,l3:{status:'lock'},l4:{status:'lock'}};
+    // Plan d'action
+    const acts=[];
+    if(l1.ruptures.length>0){
+      const caLabel=l1.caPerduTotal>0?formatEuro(l1.caPerduTotal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(r.prixUnitaire||0)),0))+' potentiel annuel';
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
+    if(l2.status!=='ok'&&nb>0){
+      const top5=l2.detail.slice(0,5);
+      const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nb} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
+    _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+    const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
+    panel.innerHTML=`
+      <div class="flex items-start justify-between mb-5">
+        <div>
+          <button onclick="switchTab('abc');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← Retour au Radar</button>
+          <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+          <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
+        </div>
+        <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
+      </div>
+      ${_diagRenderL1(l1)}
+      ${_diagRenderL2(l2,false,'')}
+      <div id="_diagPlan">${_diagRenderPlan(key,_diagActions)}</div>`;
   }
 
   function _diagBadge(s){
