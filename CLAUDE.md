@@ -63,7 +63,7 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 ## Zone de Chalandise — 4ème fichier optionnel (V2 Phase 1)
 - **4ème fichier** : `fileChalandise` — export Qlik clients de la zone de chalandise
 - **Parsing** : CSV (CP1252 ou UTF-8) ou Excel, colonnes matchées case-insensitive : Code client, Nom client, Libellé court métier, Statut actuel général, etc.
-- **`chalandiseData`** : `Map<clientCode, {nom,metier,statut,classification,activite,secteur,commercial,cp,ville}>`
+- **`chalandiseData`** : `Map<clientCode, {nom,metier,statut,classification,activite,activitePDV,ca2026,ca2025,caPDVZone,secteur,commercial,cp,ville}>`
 - **`chalandiseReady`** : booléen, true si fichier chargé et parsé avec succès
 - **`chalandiseMetiers`** : liste triée des métiers distincts (pour le filtre du Bench)
 - **`ventesClientArticle`** : `Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>` — peuplé pendant le parsing consommé pour le magasin sélectionné uniquement
@@ -77,6 +77,20 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 - **Forces & Faiblesses** : colonnes Moi | Méd. | % méd. (coloré : ≥100% vert, 50–99% orange, <50% rouge)
 - **Bandeau sous-performance** : `benchUnderperformBanner` affiche "⚠️ X familles en sous-performance vs bassin (< 50% médiane)"
 - **Classement magasins** : colonnes Réf | Fréq | Serv. (taux de service = réf vendues / total articles bassin) | Clients zone (si chalandise, clients de la zone actifs dans ce magasin) | Perf
+
+## Territoire + Chalandise (V2 Phase 1 — intégration)
+- **Onglet Territoire accessible sans fichier Territoire** si Chalandise chargée : affiche canal + bloc Métier, message "Chargez Territoire pour l'analyse complète"
+- **Bloc Clients enrichi** : si Chalandise chargée → colonnes Métier | Statut | Vient en agence (✅/❌) | Activité PDV. Perdus/Inactifs avec CA territoire > 0 → fond rouge (reconquête)
+- **Bloc "🔧 Clients par Métier"** (`terrMetierBlock`) : tableau agrégé par métier trié par nb perdus décroissant (opportunités). Drilldown accordéon : Code | Nom | Statut | CA 2026 | CA 2025 | CA PDV Zone | Commercial | Ville
+- **Filtre Métier** (`terrFilterMetier`) dans filtres Territoire, visible si Chalandise chargée
+- **Résumé exécutif cockpit** : si Chalandise, ajoute ligne "X clients perdus/inactifs dont Y avec CA historique > 0"
+- **renderTerrMetierBlock(clientsMapFiltered)** / **toggleTerrMetierRow(rowId)** : fonctions dédiées
+
+## Cockpit — Colis à stocker (V2 fix)
+- Distinction stock=0 (📦 Mettre en rayon, fond neutre) vs stock>0 (👁️ Visibilité ?, fond orange clair)
+- Tri : stock=0 en premier (action prioritaire), stock>0 dessous
+- Colonne Stock ajoutée dans le tableau cockpit Colis
+- Infobulle mise à jour : "Stock=0 → mettre en rayon. Stock>0 → vérifier visibilité et emplacement."
 
 ## Territoire — onglet optionnel
 - **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik
