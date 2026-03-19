@@ -584,6 +584,8 @@
   let chalandiseMetiers=[];         // sorted list of distinct métiers
   let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
+  let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
+  let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
   let selectedBenchMetier='';
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
@@ -829,7 +831,7 @@
 
       updatePipeline('stock','active');updatePipeline('consomme','active');
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};
+      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
@@ -845,7 +847,12 @@
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
-      if(cc2&&code&&sk===selectedMyStore&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
+      if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
+      // V2 Phase 2: articleClients + clientArticles — fonctionne aussi en mono-agence (selectedMyStore peut être vide)
+      if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&qteP>0){
+        if(!articleClients.has(code))articleClients.set(code,new Set());articleClients.get(code).add(cc2);
+        if(!clientArticles.has(cc2))clientArticles.set(cc2,new Set());clientArticles.get(cc2).add(code);
+      }
       if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
       // V24.4: convert canalAgence bl sets to counts
@@ -2271,31 +2278,30 @@
   // ── Level 4: Clients métier ──
   function _diagLevel4(famille,hasChal){
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
-    // Step 1: article codes for this famille (finalData = source of truth, not articleFamille which comes from consommé)
+    // Step 1: article codes for this famille (finalData = source de vérité)
     const famArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metier:'',clients:[]};
-    // Step 2: for each buyer of these articles who is in chalandise, count métier by nb buyers + CA
+    // Step 2: article → clients → métier (via articleClients, fonctionne en mono ET multi)
     const metierBuyers={};// metier → Set<clientCode>
-    const metierCA={};    // metier → total sumPrelevee
-    for(const[cc,artMap] of ventesClientArticle.entries()){
-      const info=chalandiseData.get(cc);if(!info||!info.metier)continue;
-      let famCA=0;
-      for(const[code,data] of artMap.entries()){if(famArts.has(code)&&data.sumPrelevee>0)famCA+=data.sumPrelevee;}
-      if(famCA<=0)continue;
-      if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();
-      metierBuyers[info.metier].add(cc);
-      metierCA[info.metier]=(metierCA[info.metier]||0)+famCA;
+    for(const artCode of famArts){
+      const buyers=articleClients.get(artCode);if(!buyers)continue;
+      for(const cc of buyers){
+        const info=chalandiseData.get(cc);if(!info||!info.metier)continue;
+        if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();
+        metierBuyers[info.metier].add(cc);
+      }
     }
-    // Step 3: find top métier by buyer count, compute percentage
+    // Step 3: top métier par nb acheteurs identifiés dans chalandise
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
-    if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille trouvé parmi les clients de la chalandise — vérifiez que les codes clients correspondent entre le Consommé et la Chalandise',metier:'',clients:[]};
-    const topM=Object.entries(metierCA).sort((a,b)=>b[1]-a[1])[0];
+    if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — les codes clients du Consommé ne correspondent peut-être pas à ceux de la Chalandise',metier:'',clients:[]};
+    const topM=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size)[0];
     const metier=topM[0];
     const metierPct=Math.round((metierBuyers[metier].size/totalBuyers)*100);
-    // Step 4: all clients of this métier in chalandise (actifs, perdus, prospects)
+    // Step 4: tous les clients de ce métier dans la chalandise (actifs/perdus/prospects)
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
+      // CA famille via ventesClientArticle (maintenant peuplé en mono ET multi)
       const myData=ventesClientArticle.get(cc);
       const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
       const stat=(info.statut||'').toLowerCase();
@@ -2306,7 +2312,7 @@
     const actifs=clients.filter(c=>c.isActif).length;
     const perdus=clients.filter(c=>c.isPerdu);
     const potentiel=perdus.reduce((s,c)=>s+c.ca,0);
-    return{status:perdus.length>2?'warn':'ok',metier,metierPct,totalBuyers,clients:clients.sort((a,b)=>(b.isPerdu?1:0)-(a.isPerdu?1:0)||b.ca-a.ca).slice(0,30),actifs,perdus:perdus.length,prospects:clients.filter(c=>!c.isActif&&!c.isPerdu).length,potentiel,total:clients.length};
+    return{status:perdus.length>2?'warn':'ok',metier,metierPct,totalBuyers,clients:clients.sort((a,b)=>(b.isPerdu?1:0)-(a.isPerdu?1:0)||(b.ca-a.ca)).slice(0,30),actifs,perdus:perdus.length,prospects:clients.filter(c=>!c.isActif&&!c.isPerdu).length,potentiel,total:clients.length};
   }
   function _diagRenderL4(l,hasChal){
     if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 4 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
