@@ -2913,11 +2913,22 @@
   }
   function _diagGenActionsMetier(metier,l1,l2,l3,l4){
     const acts=[];
-    if(l1&&l1.ruptures&&l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${formatEuro(l1.caPerduTotal||0)}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    if(l1&&l1.ruptures&&l1.ruptures.length>0){
+      const caVal=l1.caPerduTotal||0;
+      const caLabel=caVal>0?formatEuro(caVal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(r.prixUnitaire||0)),0))+' potentiel annuel';
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    }
     const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
-    if(nbMM>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMM} article${nbMM>1?'s':''} achetés par les ${metier}s`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    if(nbMM>0){
+      const top5=(l2.detail||[]).slice(0,5);
+      const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    }
     if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
-    if(l4&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();}});
+    if(l4&&l4.perdus>0){
+      const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
+      acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
+    }
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
 
@@ -3006,11 +3017,21 @@
   // ── Action Plan ──
   function _diagGenActions(famille,l1,l2,l3,l4){
     const acts=[];
-    if(l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${formatEuro(l1.caPerduTotal)}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    if(l1.ruptures.length>0){
+      const caLabel=l1.caPerduTotal>0?formatEuro(l1.caPerduTotal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(finalData.find(d=>d.code===r.code)?.prixUnitaire||0)),0))+' potentiel annuel';
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
     const nbMinMax=(l2.nonCal||0)+(l2.sousD||0);
-    if(l2.status!=='ok'&&nbMinMax>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMinMax} article${nbMinMax>1?'s':''}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;currentPage=0;switchTab('table');renderAll();}});
+    if(l2.status!=='ok'&&nbMinMax>0){
+      const top5=l2.detail.slice(0,5);
+      const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMinMax} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
     if(l3.status!=='lock'&&l3.status!=='ok'&&l3.missing?.length>0)acts.push({priority:3,star:'⭐⭐',label:`Référencer ${l3.missing.length} article${l3.missing.length>1?'s':''} manquants${l3.strongMissing>0?' (dont '+l3.strongMissing+' en forte rotation)':''}`,fn:()=>{closeDiagnostic();switchTab(l3.mode==='territoire'?'territoire':'bench');}});
-    if(l4.status!=='lock'&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    if(l4.status!=='lock'&&l4.perdus>0){
+      const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
+      acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
+    }
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
   function _diagRenderPlan(famille,actions){
