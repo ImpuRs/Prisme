@@ -539,7 +539,9 @@
             <div id="terrOverviewClassifChips" class="flex flex-wrap gap-1"></div>
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
             <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
-            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Métier :</span>
+          </div>
+          <div class="flex flex-wrap gap-2 items-center mt-2">
+            <span class="text-[10px] font-bold text-gray-600 shrink-0">Métier :</span>
             <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Tous" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[160px]"><datalist id="terrMetierList"></datalist>
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
             <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Tous" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><datalist id="terrCommercialList"></datalist>
@@ -777,7 +779,7 @@
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
   let _overviewOpenL2=null,_overviewOpenL3=null;
   function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info)&&clientMatchesMetierFilter(info);}
-  function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}_buildChalandiseOverview();}
+  function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
   function _navigateToOverviewMetier(metier){
@@ -812,10 +814,10 @@
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
-    // Populate métier filter datalist
+    // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
-    if(metInput&&metList){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}const sorted=[...metiers].sort();metList.innerHTML=sorted.map(m=>`<option value="${m.replace(/"/g,'&quot;')}">`).join('');metInput.value=_selectedMetier||'';}
+    if(metInput&&metList){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier&&(!_filterStrategiqueOnly||_isMetierStrategique(info.metier)))metiers.add(info.metier);}const sorted=[...metiers].sort();metList.innerHTML=sorted.map(m=>`<option value="${m.replace(/"/g,'&quot;')}">`).join('');metInput.value=_selectedMetier||'';}
     // Populate commercial filter datalist
     const comInput=document.getElementById('terrCommercialFilter');
     const comList=document.getElementById('terrCommercialList');
