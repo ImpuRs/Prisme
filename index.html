@@ -2651,20 +2651,6 @@
     if(overlay)overlay.classList.remove('active');
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
-  function _diagUpdateL4(){
-    const hasChal=chalandiseReady;
-    const rawFam=_diagCurrentFamille;
-    const isMetierMode=rawFam.startsWith('@metier:');
-    let l4;
-    if(isMetierMode){l4=_diagLevel4MetierMode(rawFam.slice(8),hasChal);}
-    else{l4=_diagLevel4(decodeURIComponent(rawFam),hasChal,_diagMetierFilter);}
-    _diagLevels.l4=l4;
-    const l4El=document.getElementById('_diagL4');if(l4El)l4El.innerHTML=_diagRenderL4(l4,hasChal);
-    const planLabel=isMetierMode?rawFam.slice(8):decodeURIComponent(rawFam);
-    const genFn=isMetierMode?_diagGenActionsMetier:_diagGenActions;
-    const acts=_diagActions=genFn(planLabel,_diagLevels.l1,_diagLevels.l2,_diagLevels.l3,l4);
-    const planEl=document.getElementById('_diagPlan');if(planEl)planEl.innerHTML=_diagRenderPlan(planLabel,acts);
-  }
 
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
@@ -2706,10 +2692,6 @@
       _diagLevels={l1,l2,l3,l4};
       actions=_diagActions=_diagGenActions(famille,l1,l2,l3,l4);
       titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base">${modeLabel}</span>`;
-      if(hasChal&&chalandiseMetiers.length){
-        const opts=chalandiseMetiers.map(m=>`<option value="${m.replace(/"/g,'&quot;')}"${m===_diagMetierFilter?' selected':''}>${m}</option>`).join('');
-        metierFilterHtml=`<div class="mt-2 flex items-center gap-2"><label class="text-[11px] text-slate-400 font-semibold shrink-0">🏢 Filtrer L3 :</label><select class="text-[11px] bg-slate-700 border border-slate-600 text-white rounded px-2 py-1" onchange="_diagMetierFilter=this.value;_diagUpdateL4()"><option value="">Tous les métiers</option>${opts}</select></div>`;
-      }
     }
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
@@ -2949,7 +2931,6 @@
   }
   function _diagClassifPrio(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return 0;if(u.includes('OCC')&&u.includes('POT+'))return 1;if(u.includes('POT-'))return 2;return 3;}
   function _diagClassifBadge(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;if(u.includes('OCC')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;if(u.includes('POT-'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;if(c&&c!=='—')return`<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;return'<span class="text-slate-600 text-[9px]">—</span>';}
-  function _diagL4Toggle(btn){const c=document.getElementById(btn.dataset.target);if(!c)return;const h=c.style.display==='none';c.style.display=h?'':'none';btn.textContent=h?'▲ Réduire':'▼ Voir plus ('+(btn.dataset.more||'')+')';}
   function _diagLevel4(famille,hasChal,metierFilter){
     metierFilter=metierFilter||'';
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
@@ -2995,44 +2976,23 @@
   function _diagRenderL4(l,hasChal){
     if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
     if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
-    const PRIO_LABELS=['','🟠 Legallais sans PDV','🔴 Perdu récent','🟤 Perdu ancien','🔵 Prospect','✅ Actif PDV'];
-    const PRIO_BG=['','bg-amber-950/40','bg-rose-950/40','bg-stone-900/40','bg-blue-950/40','bg-emerald-950/20'];
     const metiersHtml=l.metiers.map((m,mIdx)=>{
-      let html='';let prioShown=0;
-      const pageId=`diagL4m${mIdx}`;
-      const visible=m.clients.slice(0,20);
-      const more=m.clients.slice(20);
-      const renderRow=c=>{
-        const prioBg=PRIO_BG[c.prio]||'';
-        const prioLbl=c.prio!==prioShown?`<td colspan="7" class="py-1 px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wide ${prioBg} border-t-2 border-slate-600">${PRIO_LABELS[c.prio]||''}</td>`:null;
-        if(c.prio!==prioShown)prioShown=c.prio;
-        const actGlob=c.activiteGlobale||'—';const actPDV=c.activitePDV||'—';
-        return(prioLbl?`<tr>${prioLbl}</tr>`:'')
-          +`<tr class="border-t border-slate-800/60 ${prioBg}"><td class="py-1 px-2 font-mono text-slate-400 text-[10px]">${c.code}</td><td class="py-1 px-2 max-w-[130px] truncate text-[11px]">${c.nom||'—'}</td><td class="py-1 px-2 text-center text-[10px] text-slate-300">${actGlob}</td><td class="py-1 px-2 text-center text-[10px] text-slate-400">${actPDV}</td><td class="py-1 px-2 text-center">${_diagClassifBadge(c.classification)}</td><td class="py-1 px-2 text-right text-[10px] font-bold ${c.ca2025>0?'text-amber-400':'text-slate-600'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-slate-500 text-[10px]">${c.ville||'—'}</td></tr>`;
-      };
-      const visRows=visible.map(renderRow).join('');
-      prioShown=0;// reset for "more" section
-      const moreRows=more.length?more.map(renderRow).join(''):'';
-      const thead=`<thead class="text-slate-400 border-b border-slate-700" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1 px-2 text-left text-[10px]">Code</th><th class="py-1 px-2 text-left text-[10px]">Nom</th><th class="py-1 px-2 text-center text-[10px]">Act. globale</th><th class="py-1 px-2 text-center text-[10px]">Act. PDV zone</th><th class="py-1 px-2 text-center text-[10px]">Classif.</th><th class="py-1 px-2 text-right text-[10px]">CA 2025</th><th class="py-1 px-2 text-left text-[10px]">Ville</th></tr></thead>`;
-      const counters=[m.p1?`<span class="text-amber-400 font-bold">🟠 ${m.p1} Legallais sans PDV</span>`:'',m.p2?`<span class="text-rose-400 font-bold">🔴 ${m.p2} perdus récents</span>`:'',m.p3?`<span class="text-stone-400">🟤 ${m.p3} perdus anciens</span>`:'',m.p4?`<span class="text-blue-400">🔵 ${m.p4} prospects</span>`:'',m.p5?`<span class="text-emerald-400 text-[10px]">✅ ${m.p5} actifs PDV</span>`:''].filter(Boolean).join('<span class="text-slate-600 mx-1">·</span>');
-      return`<div class="${mIdx>0?'mt-4 pt-4 border-t border-slate-700':''}">
-        <div class="flex flex-wrap items-center gap-2 mb-1">
-          <span class="text-xs font-extrabold text-rose-300">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-400 text-[10px]" title="Métier stratégique Legallais">⭐ stratégique</span>':''}</span>
+      const pctActifPDV=m.total>0?Math.round(m.p5/m.total*100):0;
+      const counters=[m.p5?`<span class="text-emerald-400 font-bold">${m.p5} actifs PDV (${pctActifPDV}%)</span>`:'',m.p1?`<span class="text-amber-400">${m.p1} Legallais sans PDV</span>`:'',(m.p2+m.p3)?`<span class="text-rose-400">${m.p2+m.p3} perdus</span>`:''].filter(Boolean).join(' · ');
+      const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return`<div class="${mIdx>0?'mt-3 pt-3 border-t border-slate-700':''} bg-slate-800/50 rounded-lg p-3">
+        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+          <span class="text-xs font-extrabold text-rose-300">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-400 text-[10px]" title="Métier stratégique Legallais">⭐</span>':''}</span>
           <span class="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
-          <span class="text-[10px] text-slate-400">${m.total} clients zone</span>
         </div>
-        <div class="flex flex-wrap gap-2 mb-2 text-[11px]">${counters}</div>
-        ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-2">→ Potentiel récupérable : ${formatEuro(m.potentiel)} (CA 2025 des clients perdus)</p>`:''}
-        <div class="overflow-x-auto" style="max-height:260px;overflow-y:auto"><table class="min-w-full">${thead}<tbody id="${pageId}_vis">${visRows}</tbody></table></div>
-        ${moreRows?`<div id="${pageId}_more" style="display:none"><div class="overflow-x-auto"><table class="min-w-full"><tbody>${moreRows}</tbody></table></div></div><button class="mt-1 text-[10px] text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-0.5 rounded transition-colors" data-target="${pageId}_more" data-more="${more.length}" onclick="_diagL4Toggle(this)">▼ Voir plus (${more.length})</button>`:''}
+        <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
+        ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
+        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="closeDiagnostic();_selectedCommercial='';const cs=document.getElementById('terrCommercialFilter');if(cs)cs.value='';switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'})},200)">🔗 Voir le détail dans l'onglet Territoire →</button>
       </div>`;
     }).join('');
-    const filterParts=[];if(_selectedDepts.size)filterParts.push('🗺️ '+[..._selectedDepts].sort().join(', '));if(_selectedClassifs.size)filterParts.push('🏷️ '+[..._selectedClassifs].join(', '));if(_selectedStatuts.size)filterParts.push('👤 '+[..._selectedStatuts].join(', '));if(_selectedActivitesPDV.size)filterParts.push('📍 '+[..._selectedActivitesPDV].join(', '));if(_filterStrategiqueOnly)filterParts.push('⭐ Stratégique uniquement');
-    const filterNote=filterParts.length?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">${filterParts.join(' · ')}</span>`:'';
-    const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+filterNote;
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-3">${subHdr}</p>
+      <p class="text-xs text-slate-400 mb-3">${l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> identifié${l.totalBuyers>1?'s':''} dans la chalandise`}</p>
       ${metiersHtml}
     </div>`;
   }
