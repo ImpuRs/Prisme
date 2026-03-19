@@ -152,8 +152,8 @@
       <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 mt-3 gap-6">
-      <div id="dropTerritoire" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">3. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
-      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">4. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — enrichit le Benchmark avec filtre métier.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — enrichit le Benchmark avec filtre métier.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+      <div id="dropTerritoire" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
@@ -2370,8 +2370,8 @@
       `<span class="text-emerald-400">✅ Ventes</span>`,
       `<span class="text-emerald-400">✅ Stock</span>`,
       hasBench?`<span class="text-emerald-400">✅ Comparaison</span>`:`<span class="text-slate-500">❌ Comparaison</span>`,
-      hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,
       hasChal?`<span class="text-emerald-400">✅ Clients zone</span>`:`<span class="text-slate-500">❌ Clients zone</span>`,
+      hasTerr?`<span class="text-emerald-400">✅ Territoire</span>`:`<span class="text-slate-500">❌ Territoire</span>`,
     ].join('<span class="text-slate-600 mx-1">·</span>');
     let l1,l2,l3,l4,actions,titleHtml,metierFilterHtml='';
     if(isMetierMode){
@@ -2393,7 +2393,7 @@
       titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base">${modeLabel}</span>`;
       if(hasChal&&chalandiseMetiers.length){
         const opts=chalandiseMetiers.map(m=>`<option value="${m.replace(/"/g,'&quot;')}"${m===_diagMetierFilter?' selected':''}>${m}</option>`).join('');
-        metierFilterHtml=`<div class="mt-2 flex items-center gap-2"><label class="text-[11px] text-slate-400 font-semibold shrink-0">🏢 Filtrer L4 :</label><select class="text-[11px] bg-slate-700 border border-slate-600 text-white rounded px-2 py-1" onchange="_diagMetierFilter=this.value;_diagUpdateL4()"><option value="">Tous les métiers</option>${opts}</select></div>`;
+        metierFilterHtml=`<div class="mt-2 flex items-center gap-2"><label class="text-[11px] text-slate-400 font-semibold shrink-0">🏢 Filtrer L3 :</label><select class="text-[11px] bg-slate-700 border border-slate-600 text-white rounded px-2 py-1" onchange="_diagMetierFilter=this.value;_diagUpdateL4()"><option value="">Tous les métiers</option>${opts}</select></div>`;
       }
     }
     panel.innerHTML=`
@@ -2408,8 +2408,8 @@
       </div>
       ${isMetierMode?_diagRenderL1Metier(l1):_diagRenderL1(l1)}
       ${isMetierMode?_diagRenderL2(l2,false,''):_diagRenderL2(l2,hasBench,refStore)}
-      ${isMetierMode?_diagRenderL3Metier(l3):_diagRenderL3(l3,hasBench,hasTerr)}
       <div id="_diagL4">${_diagRenderL4(l4,hasChal)}</div>
+      ${isMetierMode?_diagRenderL3Metier(l3):_diagRenderL3(l3,hasBench,hasTerr)}
       <div id="_diagPlan">${_diagRenderPlan(isMetierMode?metier:famille,actions)}</div>`;
   }
 
@@ -2471,7 +2471,7 @@
     </div>`;
   }
 
-  // ── Level 3: Gamme ──
+  // ── Level 4 (display): Gamme ──
   function _diagLevel3(famille,hasBench,hasTerr,refStore){
     if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Territoire ou des données multi-agences pour activer l\'analyse de gamme'};
     const myArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
@@ -2496,7 +2496,7 @@
     return{status:'lock',reason:'Pas de données de comparaison disponibles'};
   }
   function _diagRenderL3(l,hasBench,hasTerr){
-    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 3 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
+    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
     const srcLabel=l.mode==='bench'?`<em class="text-amber-300">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Territoire : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
     const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA territoire</th>`;
     const rows=(l.missing||[]).map(a=>{
@@ -2506,7 +2506,7 @@
       return`<tr class="border-t border-violet-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${a.lib}</td><td class="py-1 px-2 text-right font-bold">${formatEuro(a.ca)}</td></tr>`;
     }).join('');
     return`<div class="diag-level">
-      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 3 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
       <p class="text-xs text-slate-400 mb-2">${srcLabel}</p>
       ${l.missing?.length?`<p class="text-xs text-amber-400 font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs text-emerald-400">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
     </div>`;
@@ -2575,7 +2575,7 @@
     return{status:pct>=70?'ok':pct>=40?'warn':'error',familles,totalArts,totalEnStock,pct,metierClients:metierClients.size};
   }
   function _diagRenderL3Metier(l){
-    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 3 — Familles achetées</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
+    if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 4 — Familles achetées</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
     const rows=(l.familles||[]).map(f=>{
       const pctCov=f.nbArts>0?Math.round(f.enStock/f.nbArts*100):0;
       const barColor=pctCov>=70?'bg-emerald-500':pctCov>=40?'bg-amber-500':'bg-red-500';
@@ -2585,7 +2585,7 @@
       return`<tr class="border-t border-slate-800"><td class="py-1 px-2 max-w-[160px] truncate text-[11px]">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center text-emerald-400">${f.enStock}</td><td class="py-1 px-2 text-center text-amber-400">${f.rupture}</td><td class="py-1 px-2 text-center text-red-400">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 bg-slate-700 rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-[10px] ${textColor}">${pctCov}%</span></div></td></tr>`;
     }).join('');
     return`<div class="diag-level">
-      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 3 — Familles achetées</span>${_diagBadge(l.status)}</div>
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Familles achetées</span>${_diagBadge(l.status)}</div>
       <p class="text-xs text-slate-400 mb-2">${l.totalArts} articles achetés · couverture rayon : <strong class="${l.pct>=70?'text-emerald-400':l.pct>=40?'text-amber-400':'text-red-400'}">${l.pct}%</strong></p>
       <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>`;
@@ -2613,12 +2613,12 @@
     if(l1&&l1.ruptures&&l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${formatEuro(l1.caPerduTotal||0)}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
     const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
     if(nbMM>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMM} article${nbMM>1?'s':''} achetés par les ${metier}s`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
-    if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
-    if(l4&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();}});
+    if(l4&&l4.perdus>0)acts.push({priority:3,star:'⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();}});
+    if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:4,star:'⭐⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
 
-  // ── Level 4: Clients métier ──
+  // ── Level 3 (display): Clients métier ──
   // Priority: 1=actif global+inactif PDV, 2=inactif2026 seul, 3=inactif2026/2025, 4=prospect, 5=actif PDV
   function _diagClientPrio(info,famCA){
     const s=(info.statut||'').toLowerCase();
@@ -2678,8 +2678,8 @@
     return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
   }
   function _diagRenderL4(l,hasChal){
-    if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 4 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
-    if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
+    if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
+    if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
     const PRIO_LABELS=['','🟠 Legallais sans PDV','🔴 Perdu récent','🟤 Perdu ancien','🔵 Prospect','✅ Actif PDV'];
     const PRIO_BG=['','bg-amber-950/40','bg-rose-950/40','bg-stone-900/40','bg-blue-950/40','bg-emerald-950/20'];
     const metiersHtml=l.metiers.map((m,mIdx)=>{
@@ -2716,7 +2716,7 @@
     const filterNote=filterParts.length?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">${filterParts.join(' · ')}</span>`:'';
     const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+filterNote;
     return`<div class="diag-level">
-      <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge(l.status)}</div>
+      <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge(l.status)}</div>
       <p class="text-xs text-slate-400 mb-3">${subHdr}</p>
       ${metiersHtml}
     </div>`;
@@ -2728,8 +2728,8 @@
     if(l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${formatEuro(l1.caPerduTotal)}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
     const nbMinMax=(l2.nonCal||0)+(l2.sousD||0);
     if(l2.status!=='ok'&&nbMinMax>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMinMax} article${nbMinMax>1?'s':''}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;currentPage=0;switchTab('table');renderAll();}});
-    if(l3.status!=='lock'&&l3.status!=='ok'&&l3.missing?.length>0)acts.push({priority:3,star:'⭐⭐',label:`Référencer ${l3.missing.length} article${l3.missing.length>1?'s':''} manquants${l3.strongMissing>0?' (dont '+l3.strongMissing+' en forte rotation)':''}`,fn:()=>{closeDiagnostic();switchTab(l3.mode==='territoire'?'territoire':'bench');}});
-    if(l4.status!=='lock'&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    if(l4.status!=='lock'&&l4.perdus>0)acts.push({priority:3,star:'⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    if(l3.status!=='lock'&&l3.status!=='ok'&&l3.missing?.length>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Référencer ${l3.missing.length} article${l3.missing.length>1?'s':''} manquants${l3.strongMissing>0?' (dont '+l3.strongMissing+' en forte rotation)':''}`,fn:()=>{closeDiagnostic();switchTab(l3.mode==='territoire'?'territoire':'bench');}});
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
   function _diagRenderPlan(famille,actions){
@@ -2747,8 +2747,8 @@
     const lines=['\uFEFF'+['Niveau','Type','Code','Libellé','Détail','Valeur'].join(SEP)];
     for(const r of(l1?.ruptures||[]))lines.push(['Niveau 1 - Stock','Rupture',r.code,`"${r.lib}"`,`${r.jours}j rupture · Fréq:${r.W}`,r.ca||0].join(SEP));
     for(const r of(l2?.detail||[]))lines.push(['Niveau 2 - Calibrage','Sous-dimensionné',r.code,`"${r.lib}"`,`Ancien MIN:${r.ancienMin} Nouveau MIN:${r.nouveauMin}`,''].join(SEP));
-    for(const a of(l3?.missing||[]))lines.push(['Niveau 3 - Gamme','Article manquant',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.ca||a.refFreq||''].join(SEP));
-    for(const c of(l4?.clients||[]).filter(c=>c.isPerdu))lines.push(['Niveau 4 - Clients','Perdu à reconquérir',c.code,`"${c.nom}"`,c.statut,c.ca||0].join(SEP));
+    for(const c of(l4?.clients||[]).filter(c=>c.isPerdu))lines.push(['Niveau 3 - Clients','Perdu à reconquérir',c.code,`"${c.nom}"`,c.statut,c.ca||0].join(SEP));
+    for(const a of(l3?.missing||[]))lines.push(['Niveau 4 - Gamme','Article manquant',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.ca||a.refFreq||''].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
     showToast('📥 Plan d\'action exporté','success');
