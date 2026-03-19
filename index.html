@@ -535,6 +535,8 @@
             <div id="terrOverviewClassifChips" class="flex flex-wrap gap-1"></div>
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
             <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
+            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
+            <select id="terrCommercialFilter" onchange="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><option value="">Tous</option></select>
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
             <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
@@ -634,6 +636,7 @@
   let _selectedClassifs=new Set();    // empty = all classifications selected
   let _selectedStatuts=new Set();     // empty = all statuts selected
   let _selectedActivitesPDV=new Set();// empty = all activités PDV Zone selected
+  let _selectedCommercial='';         // empty = all commercials (no filter)
   let _filterStrategiqueOnly=false;   // toggle: show only strategic métiers
   let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
@@ -689,7 +692,7 @@
         metierSet.add(metier);
       }
       chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
-      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_filterStrategiqueOnly=false;
+      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;
       _buildDeptFilter();
       // Show territoire tab if data already computed — always show tab button when chalandise loaded
       if(finalData&&finalData.length>0){const btn=document.getElementById('btnTabTerritoire');if(btn)btn.classList.remove('hidden');renderTerritoireTab();}
@@ -720,6 +723,7 @@
   function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
   function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
   function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
+  function clientMatchesCommercialFilter(info){if(!_selectedCommercial)return true;return(info.commercial||'')===_selectedCommercial;}
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_selectedClassifs.size){_selectedClassifs=new Set(all);_selectedClassifs.delete(c);}else if(_selectedClassifs.has(c)){_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_selectedActivitesPDV.size){_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);}else if(_selectedActivitesPDV.has(a)){_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
@@ -761,11 +765,12 @@
     }
     _buildDeptFilter();_buildChalandiseOverview();
   }
-  function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;_buildDeptFilter();_buildChalandiseOverview();}
+  function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
   let _overviewOpenL2=null,_overviewOpenL3=null;
-  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info);}
+  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}_buildChalandiseOverview();}
+  function _onCommercialFilter(val){_selectedCommercial=val;_buildChalandiseOverview();}
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
   function _isPDVActif(cc){const art=ventesClientArticle.get(cc);return art&&art.size>0;}
   function _isPerdu(info){const s=_normalizeStatut(info.statut);return s==='Inactif'||s==='Perdu';}
@@ -782,6 +787,9 @@
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
+    // Populate commercial filter select
+    const comSel=document.getElementById('terrCommercialFilter');
+    if(comSel){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comSel.innerHTML='<option value="">Tous</option>'+sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}"${_selectedCommercial===c?' selected':''}>${c}</option>`).join('');}
   }
   function _buildChalandiseOverview(){
     console.log('[PILOT] _buildChalandiseOverview called, chalandiseReady=',chalandiseReady,'chalandiseData.size=',chalandiseData.size);
@@ -825,7 +833,7 @@
     const ctrEl=document.getElementById('terrOverviewCounter');
     const nonProsp=filteredClients-[...Object.values(dirMap)].reduce((s,d)=>s+d.prospects,0);
     const pctCapte=nonProsp>0?Math.round(totalActifsPDV/nonProsp*100):0;
-    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_filterStrategiqueOnly;
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_filterStrategiqueOnly;
     let ctrHtml=filterActive?`<span class="text-rose-600">${filteredClients} clients filtrés</span> / ${totalClients} total`:`${totalClients} clients`;
     ctrHtml+=` · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
     if(!_includePerdu24m&&totalExcluded24m>0)ctrHtml+=` · <span class="text-gray-400">${totalExcluded24m} perdus &gt;24m exclus</span>`;
@@ -1021,7 +1029,7 @@
       </tr>`;
     }
     html+=`</tbody></table></div>`;
-    if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold text-blue-600 hover:underline" onclick="_renderOverviewL4(this.parentElement,'${encodeURIComponent(direction)}','${encodeURIComponent(metier)}','${encodeURIComponent(secteur)}',${limit+50})">▼ Voir plus (${more} restants)</button>`;
+    if(more>0)html+=`<button class="mt-1 mb-1 ml-2 text-[10px] font-bold text-blue-600 hover:underline" onclick="_renderOverviewL4(this.parentElement,decodeURIComponent('${encodeURIComponent(direction)}'),decodeURIComponent('${encodeURIComponent(metier)}'),decodeURIComponent('${encodeURIComponent(secteur)}'),${limit+50})">▼ Voir plus (${more} restants)</button>`;
     el.innerHTML=html;
   }
   // Client article expand panel (used in L4 and cockpit)
@@ -1098,7 +1106,7 @@
     developper.sort(_cockpitSort('ca2025'));
     fideliser.sort(_cockpitSort('caPDVN'));
     const caField=(sortField)=>sortField==='caPDVN';
-    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_filterStrategiqueOnly;
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_selectedCommercial||_filterStrategiqueOnly;
     const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
     const renderBlock=(title,desc,emoji,color,borderColor,clients,sortField,limit)=>{
       limit=limit||30;
@@ -2643,20 +2651,6 @@
     if(overlay)overlay.classList.remove('active');
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
-  function _diagUpdateL4(){
-    const hasChal=chalandiseReady;
-    const rawFam=_diagCurrentFamille;
-    const isMetierMode=rawFam.startsWith('@metier:');
-    let l4;
-    if(isMetierMode){l4=_diagLevel4MetierMode(rawFam.slice(8),hasChal);}
-    else{l4=_diagLevel4(decodeURIComponent(rawFam),hasChal,_diagMetierFilter);}
-    _diagLevels.l4=l4;
-    const l4El=document.getElementById('_diagL4');if(l4El)l4El.innerHTML=_diagRenderL4(l4,hasChal);
-    const planLabel=isMetierMode?rawFam.slice(8):decodeURIComponent(rawFam);
-    const genFn=isMetierMode?_diagGenActionsMetier:_diagGenActions;
-    const acts=_diagActions=genFn(planLabel,_diagLevels.l1,_diagLevels.l2,_diagLevels.l3,l4);
-    const planEl=document.getElementById('_diagPlan');if(planEl)planEl.innerHTML=_diagRenderPlan(planLabel,acts);
-  }
 
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
@@ -2698,10 +2692,6 @@
       _diagLevels={l1,l2,l3,l4};
       actions=_diagActions=_diagGenActions(famille,l1,l2,l3,l4);
       titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-slate-300 font-semibold text-base">${modeLabel}</span>`;
-      if(hasChal&&chalandiseMetiers.length){
-        const opts=chalandiseMetiers.map(m=>`<option value="${m.replace(/"/g,'&quot;')}"${m===_diagMetierFilter?' selected':''}>${m}</option>`).join('');
-        metierFilterHtml=`<div class="mt-2 flex items-center gap-2"><label class="text-[11px] text-slate-400 font-semibold shrink-0">🏢 Filtrer L3 :</label><select class="text-[11px] bg-slate-700 border border-slate-600 text-white rounded px-2 py-1" onchange="_diagMetierFilter=this.value;_diagUpdateL4()"><option value="">Tous les métiers</option>${opts}</select></div>`;
-      }
     }
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
@@ -2729,6 +2719,7 @@
   function _diagLevel1(famille){
     const arts=finalData.filter(r=>r.famille===famille);
     const enStock=arts.filter(r=>r.stockActuel>0).length;
+    const nonRef=arts.filter(r=>r.stockActuel<=0&&r.W<3).length;
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
@@ -2737,18 +2728,19 @@
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     const status=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
-    return{arts:arts.length,enStock,ruptures,caPerduTotal,status};
+    return{arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,status};
   }
   function _diagRenderL1(l){
+    const verdictClass=l.ruptures.length===0?'text-emerald-400':l.ruptures.length<=3?'text-amber-400':'text-rose-400';
+    const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
+    const verdictText=l.ruptures.length===0?'Pas de rupture sur cette famille':`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
+    const top5=l.ruptures.slice(0,5);
+    const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-2">Sur <strong class="text-white">${l.arts}</strong> articles de cette famille :</p>
-      <div class="flex flex-wrap gap-4 mb-3 text-xs">
-        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
-        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
-        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
-      </div>
-      ${l.ruptures.length?`<div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-red-300 border-b border-red-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq</th><th class="py-1.5 px-2 text-center">Jours rupt.</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-center">${r.jours}j</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'text-amber-400':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="text-rose-400 text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
+      ${l.nonRef>0?`<p class="text-[11px] text-slate-400 mt-1">💡 <strong class="text-slate-300">${l.nonRef}</strong> article${l.nonRef>1?'s':''} ni en stock ni en rupture = non référencés en agence</p>`:''}
     </div>`;
   }
 
@@ -2763,18 +2755,21 @@
       const refV=ventesParMagasin[refStore]||{};
       for(const a of arts){const myF=(myV[a.code]?.countBL)||0,refF=(refV[a.code]?.countBL)||0;if(refF>2*myF&&refF>=3)sousPerf.push({code:a.code,lib:a.libelle,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:myF,refFreq:refF});}
     }
-    const detail=sousD.map(r=>({code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,myFreq:r.W,refFreq:hasBench&&refStore?(ventesParMagasin[refStore]?.[r.code]?.countBL||0):null}));
+    const detail=sousD.map(r=>{const ecart=r.nouveauMin-r.ancienMin;return{code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart,myFreq:r.W,refFreq:hasBench&&refStore?(ventesParMagasin[refStore]?.[r.code]?.countBL||0):null};}).sort((a,b)=>b.ecart-a.ecart);
     const nb=nonCal.length+sousD.length;
     return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf,detail};
   }
   function _diagRenderL2(l,hasBench,refStore){
+    const nbTotal=l.nonCal+l.sousD;
+    const verdictClass=nbTotal===0?'text-emerald-400':nbTotal<=5?'text-amber-400':'text-rose-400';
+    const verdictIcon=nbTotal===0?'✅':nbTotal<=5?'⚠️':'🚨';
+    const verdictText=nbTotal===0?'Calibrage correct — tous les articles actifs ont un MIN/MAX bien dimensionné':`${nbTotal} article${nbTotal>1?'s':''} mal calibré${nbTotal>1?'s':''}${l.nonCal>0?' (dont '+l.nonCal+' sans MIN/MAX dans l\'ERP)':''}`;
+    const top5=l.detail.slice(0,5);
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-amber-300">🎚️ Niveau 2 — Calibrage MIN/MAX</span>${_diagBadge(l.status)}</div>
-      ${l.nonCal>0?`<p class="text-xs text-amber-400 font-bold mb-1">⚠️ ${l.nonCal} article${l.nonCal>1?'s':''} sans MIN/MAX paramétré dans l'ERP</p>`:''}
-      ${l.sousD>0?`<p class="text-xs text-rose-400 font-bold mb-1">🔴 ${l.sousD} article${l.sousD>1?'s':''} où l'ancien MIN ERP &lt; MIN recommandé PILOT</p>`:''}
-      ${hasBench&&l.sousPerf.length?`<p class="text-xs text-orange-400 font-bold mb-1">📊 ${l.sousPerf.length} article${l.sousPerf.length>1?'s':''} où <em>${refStore}</em> vend 2× plus que vous</p>`:''}
-      ${l.status==='ok'?`<p class="text-xs text-emerald-400">✅ Calibrage correct — tous les articles actifs ont un MIN paramétré</p>`:''}
-      ${l.detail.length?`<div class="overflow-x-auto mt-2" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-amber-300 border-b border-amber-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Anc.MIN</th><th class="py-1.5 px-2 text-center">Nouv.MIN</th><th class="py-1.5 px-2 text-center">Fréq moi</th>${hasBench?'<th class="py-1.5 px-2 text-center">Fréq réf.</th>':''}</tr></thead><tbody>${l.detail.map(r=>`<tr class="border-t border-amber-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[150px] truncate">${r.lib}</td><td class="py-1 px-2 text-center text-amber-400">${r.ancienMin}</td><td class="py-1 px-2 text-center text-emerald-400 font-bold">${r.nouveauMin}</td><td class="py-1 px-2 text-center">${r.myFreq}</td>${hasBench?`<td class="py-1 px-2 text-center ${r.refFreq>0?'text-rose-400 font-bold':'text-slate-500'}">${r.refFreq!==null?r.refFreq:'—'}</td>`:''}</tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🔧 Plus gros écarts à corriger :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">MIN actuel <span class="text-amber-400">${r.ancienMin}</span> → recommandé <span class="text-emerald-400 font-bold">${r.nouveauMin}</span></span> <span class="text-rose-400 text-[10px]">(+${r.ecart})</span>${hasBench&&r.refFreq>0?' <span class="text-slate-500 text-[10px]">· réf. vend '+r.refFreq+'×</span>':''}</span></div>`).join('')}${l.detail.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.detail.length-5} autre${l.detail.length-5>1?'s':''} à recalibrer</p>`:''}</div>`:''}
+      ${hasBench&&l.sousPerf.length?`<p class="text-[11px] text-orange-400 mt-1">📊 <strong>${l.sousPerf.length}</strong> article${l.sousPerf.length>1?'s':''} où <em class="text-orange-300">${refStore}</em> vend 2× plus que vous → vérifier la visibilité rayon</p>`:''}
     </div>`;
   }
 
@@ -2840,15 +2835,16 @@
   }
   function _diagRenderL1Metier(l){
     if(l.reason&&l.arts===0)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">${l.reason}</p></div>`;
+    const verdictClass=l.ruptures.length===0?'text-emerald-400':l.ruptures.length<=3?'text-amber-400':'text-rose-400';
+    const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
+    const verdictText=l.ruptures.length===0?'Pas de rupture sur les articles achetés par les '+l.metier+'s':`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur les articles achetés par les ${l.metier}s${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
+    const top5=l.ruptures.slice(0,5);
+    const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-blue-300">📦 Niveau 1 — Articles achetés par les ${l.metier}s</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-2"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
-      <div class="flex flex-wrap gap-4 mb-3 text-xs">
-        <span class="text-emerald-400 font-bold">✅ ${l.enStock} en stock</span>
-        <span class="${l.ruptures.length?'text-rose-400 font-bold':'text-slate-500'}">❌ ${l.ruptures.length} en rupture</span>
-        ${l.caPerduTotal>0?`<span class="text-rose-400 font-extrabold">→ CA perdu estimé : ${formatEuro(l.caPerduTotal)}</span>`:''}
-      </div>
-      ${l.ruptures.length?`<div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-red-300 border-b border-red-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. clients</th><th class="py-1.5 px-2 text-center">Fréq. ventes</th><th class="py-1.5 px-2 text-right">CA perdu</th></tr></thead><tbody>${l.ruptures.map(r=>`<tr class="border-t border-red-900/30"><td class="py-1 px-2 font-mono text-slate-400">${r.code}</td><td class="py-1 px-2 max-w-[180px] truncate">${r.lib}</td><td class="py-1 px-2 text-center">${r.freq}</td><td class="py-1 px-2 text-center">${r.W}</td><td class="py-1 px-2 text-right font-bold text-rose-400">${formatEuro(r.ca)}</td></tr>`).join('')}</tbody></table></div>`:''}
+      <p class="text-xs text-slate-400 mb-1"><strong class="text-white">${l.metierClients}</strong> client${l.metierClients>1?'s':''} · Top <strong class="text-white">${l.arts}</strong> articles les plus achetés</p>
+      <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500 shrink-0">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="text-slate-300">Fréq ${r.W} (${r.freq} clients), rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'text-amber-400':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="text-rose-400 text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] text-slate-500 mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
     </div>`;
   }
   function _diagLevel2Metier(topArts){
@@ -2856,7 +2852,7 @@
     const arts=topArts.filter(a=>a.W>=1);
     const nonCal=arts.filter(a=>a.ancienMin===0&&a.ancienMax===0&&!a.isNouveaute);
     const sousD=arts.filter(a=>a.ancienMin>0&&a.nouveauMin>a.ancienMin);
-    const detail=sousD.map(a=>({code:a.code,lib:a.lib,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,myFreq:a.W,refFreq:null}));
+    const detail=sousD.map(a=>{const ecart=a.nouveauMin-a.ancienMin;return{code:a.code,lib:a.lib,ancienMin:a.ancienMin,nouveauMin:a.nouveauMin,ecart,myFreq:a.W,refFreq:null};}).sort((a,b)=>b.ecart-a.ecart);
     const nb=nonCal.length+sousD.length;
     return{status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf:[],detail};
   }
@@ -2902,7 +2898,7 @@
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
       const myData=ventesClientArticle.get(cc);
       const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
@@ -2917,11 +2913,22 @@
   }
   function _diagGenActionsMetier(metier,l1,l2,l3,l4){
     const acts=[];
-    if(l1&&l1.ruptures&&l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${formatEuro(l1.caPerduTotal||0)}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    if(l1&&l1.ruptures&&l1.ruptures.length>0){
+      const caVal=l1.caPerduTotal||0;
+      const caLabel=caVal>0?formatEuro(caVal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(r.prixUnitaire||0)),0))+' potentiel annuel';
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    }
     const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
-    if(nbMM>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMM} article${nbMM>1?'s':''} achetés par les ${metier}s`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    if(nbMM>0){
+      const top5=(l2.detail||[]).slice(0,5);
+      const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+    }
     if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
-    if(l4&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();}});
+    if(l4&&l4.perdus>0){
+      const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
+      acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
+    }
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
 
@@ -2941,7 +2948,6 @@
   }
   function _diagClassifPrio(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return 0;if(u.includes('OCC')&&u.includes('POT+'))return 1;if(u.includes('POT-'))return 2;return 3;}
   function _diagClassifBadge(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;if(u.includes('OCC')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;if(u.includes('POT-'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;if(c&&c!=='—')return`<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;return'<span class="text-slate-600 text-[9px]">—</span>';}
-  function _diagL4Toggle(btn){const c=document.getElementById(btn.dataset.target);if(!c)return;const h=c.style.display==='none';c.style.display=h?'':'none';btn.textContent=h?'▲ Réduire':'▼ Voir plus ('+(btn.dataset.more||'')+')';}
   function _diagLevel4(famille,hasChal,metierFilter){
     metierFilter=metierFilter||'';
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
@@ -2949,7 +2955,7 @@
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
     // article → clients → métier
     const metierBuyers={};
-    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
+    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
     if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
     let top3;
@@ -2960,7 +2966,7 @@
       const clients=[];
       for(const[cc,info] of chalandiseData.entries()){
         if(info.metier!==metier)continue;
-        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
+        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;
         const myData=ventesClientArticle.get(cc);
         const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
         const prio=_diagClientPrio(info,famCA);
@@ -2987,44 +2993,23 @@
   function _diagRenderL4(l,hasChal){
     if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
     if(!l.metiers?.length)return`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${l.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
-    const PRIO_LABELS=['','🟠 Legallais sans PDV','🔴 Perdu récent','🟤 Perdu ancien','🔵 Prospect','✅ Actif PDV'];
-    const PRIO_BG=['','bg-amber-950/40','bg-rose-950/40','bg-stone-900/40','bg-blue-950/40','bg-emerald-950/20'];
     const metiersHtml=l.metiers.map((m,mIdx)=>{
-      let html='';let prioShown=0;
-      const pageId=`diagL4m${mIdx}`;
-      const visible=m.clients.slice(0,20);
-      const more=m.clients.slice(20);
-      const renderRow=c=>{
-        const prioBg=PRIO_BG[c.prio]||'';
-        const prioLbl=c.prio!==prioShown?`<td colspan="7" class="py-1 px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wide ${prioBg} border-t-2 border-slate-600">${PRIO_LABELS[c.prio]||''}</td>`:null;
-        if(c.prio!==prioShown)prioShown=c.prio;
-        const actGlob=c.activiteGlobale||'—';const actPDV=c.activitePDV||'—';
-        return(prioLbl?`<tr>${prioLbl}</tr>`:'')
-          +`<tr class="border-t border-slate-800/60 ${prioBg}"><td class="py-1 px-2 font-mono text-slate-400 text-[10px]">${c.code}</td><td class="py-1 px-2 max-w-[130px] truncate text-[11px]">${c.nom||'—'}</td><td class="py-1 px-2 text-center text-[10px] text-slate-300">${actGlob}</td><td class="py-1 px-2 text-center text-[10px] text-slate-400">${actPDV}</td><td class="py-1 px-2 text-center">${_diagClassifBadge(c.classification)}</td><td class="py-1 px-2 text-right text-[10px] font-bold ${c.ca2025>0?'text-amber-400':'text-slate-600'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-slate-500 text-[10px]">${c.ville||'—'}</td></tr>`;
-      };
-      const visRows=visible.map(renderRow).join('');
-      prioShown=0;// reset for "more" section
-      const moreRows=more.length?more.map(renderRow).join(''):'';
-      const thead=`<thead class="text-slate-400 border-b border-slate-700" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1 px-2 text-left text-[10px]">Code</th><th class="py-1 px-2 text-left text-[10px]">Nom</th><th class="py-1 px-2 text-center text-[10px]">Act. globale</th><th class="py-1 px-2 text-center text-[10px]">Act. PDV zone</th><th class="py-1 px-2 text-center text-[10px]">Classif.</th><th class="py-1 px-2 text-right text-[10px]">CA 2025</th><th class="py-1 px-2 text-left text-[10px]">Ville</th></tr></thead>`;
-      const counters=[m.p1?`<span class="text-amber-400 font-bold">🟠 ${m.p1} Legallais sans PDV</span>`:'',m.p2?`<span class="text-rose-400 font-bold">🔴 ${m.p2} perdus récents</span>`:'',m.p3?`<span class="text-stone-400">🟤 ${m.p3} perdus anciens</span>`:'',m.p4?`<span class="text-blue-400">🔵 ${m.p4} prospects</span>`:'',m.p5?`<span class="text-emerald-400 text-[10px]">✅ ${m.p5} actifs PDV</span>`:''].filter(Boolean).join('<span class="text-slate-600 mx-1">·</span>');
-      return`<div class="${mIdx>0?'mt-4 pt-4 border-t border-slate-700':''}">
-        <div class="flex flex-wrap items-center gap-2 mb-1">
-          <span class="text-xs font-extrabold text-rose-300">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-400 text-[10px]" title="Métier stratégique Legallais">⭐ stratégique</span>':''}</span>
+      const pctActifPDV=m.total>0?Math.round(m.p5/m.total*100):0;
+      const counters=[m.p5?`<span class="text-emerald-400 font-bold">${m.p5} actifs PDV (${pctActifPDV}%)</span>`:'',m.p1?`<span class="text-amber-400">${m.p1} Legallais sans PDV</span>`:'',(m.p2+m.p3)?`<span class="text-rose-400">${m.p2+m.p3} perdus</span>`:''].filter(Boolean).join(' · ');
+      const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      return`<div class="${mIdx>0?'mt-3 pt-3 border-t border-slate-700':''} bg-slate-800/50 rounded-lg p-3">
+        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+          <span class="text-xs font-extrabold text-rose-300">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-400 text-[10px]" title="Métier stratégique Legallais">⭐</span>':''}</span>
           <span class="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
-          <span class="text-[10px] text-slate-400">${m.total} clients zone</span>
         </div>
-        <div class="flex flex-wrap gap-2 mb-2 text-[11px]">${counters}</div>
-        ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-2">→ Potentiel récupérable : ${formatEuro(m.potentiel)} (CA 2025 des clients perdus)</p>`:''}
-        <div class="overflow-x-auto" style="max-height:260px;overflow-y:auto"><table class="min-w-full">${thead}<tbody id="${pageId}_vis">${visRows}</tbody></table></div>
-        ${moreRows?`<div id="${pageId}_more" style="display:none"><div class="overflow-x-auto"><table class="min-w-full"><tbody>${moreRows}</tbody></table></div></div><button class="mt-1 text-[10px] text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-0.5 rounded transition-colors" data-target="${pageId}_more" data-more="${more.length}" onclick="_diagL4Toggle(this)">▼ Voir plus (${more.length})</button>`:''}
+        <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
+        ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
+        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="closeDiagnostic();_selectedCommercial='';const cs=document.getElementById('terrCommercialFilter');if(cs)cs.value='';switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'})},200)">🔗 Voir le détail dans l'onglet Territoire →</button>
       </div>`;
     }).join('');
-    const filterParts=[];if(_selectedDepts.size)filterParts.push('🗺️ '+[..._selectedDepts].sort().join(', '));if(_selectedClassifs.size)filterParts.push('🏷️ '+[..._selectedClassifs].join(', '));if(_selectedStatuts.size)filterParts.push('👤 '+[..._selectedStatuts].join(', '));if(_selectedActivitesPDV.size)filterParts.push('📍 '+[..._selectedActivitesPDV].join(', '));if(_filterStrategiqueOnly)filterParts.push('⭐ Stratégique uniquement');
-    const filterNote=filterParts.length?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">${filterParts.join(' · ')}</span>`:'';
-    const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+filterNote;
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge(l.status)}</div>
-      <p class="text-xs text-slate-400 mb-3">${subHdr}</p>
+      <p class="text-xs text-slate-400 mb-3">${l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> identifié${l.totalBuyers>1?'s':''} dans la chalandise`}</p>
       ${metiersHtml}
     </div>`;
   }
@@ -3032,11 +3017,21 @@
   // ── Action Plan ──
   function _diagGenActions(famille,l1,l2,l3,l4){
     const acts=[];
-    if(l1.ruptures.length>0)acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${formatEuro(l1.caPerduTotal)}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    if(l1.ruptures.length>0){
+      const caLabel=l1.caPerduTotal>0?formatEuro(l1.caPerduTotal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(finalData.find(d=>d.code===r.code)?.prixUnitaire||0)),0))+' potentiel annuel';
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
     const nbMinMax=(l2.nonCal||0)+(l2.sousD||0);
-    if(l2.status!=='ok'&&nbMinMax>0)acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX de ${nbMinMax} article${nbMinMax>1?'s':''}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;currentPage=0;switchTab('table');renderAll();}});
+    if(l2.status!=='ok'&&nbMinMax>0){
+      const top5=l2.detail.slice(0,5);
+      const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMinMax} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');currentPage=0;switchTab('table');renderAll();}});
+    }
     if(l3.status!=='lock'&&l3.status!=='ok'&&l3.missing?.length>0)acts.push({priority:3,star:'⭐⭐',label:`Référencer ${l3.missing.length} article${l3.missing.length>1?'s':''} manquants${l3.strongMissing>0?' (dont '+l3.strongMissing+' en forte rotation)':''}`,fn:()=>{closeDiagnostic();switchTab(l3.mode==='territoire'?'territoire':'bench');}});
-    if(l4.status!=='lock'&&l4.perdus>0)acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus — potentiel ${formatEuro(l4.potentiel)}`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
+    if(l4.status!=='lock'&&l4.perdus>0){
+      const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
+      acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
+    }
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
   function _diagRenderPlan(famille,actions){
