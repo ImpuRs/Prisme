@@ -622,9 +622,10 @@
   let chalandiseData=new Map();     // Map<clientCode, {nom,metier,statut,...}>
   let chalandiseReady=false;
   let chalandiseMetiers=[];         // sorted list of distinct métiers
-  let _selectedDepts=new Set();     // empty = all depts selected (no filter)
-  let _selectedClassifs=new Set();  // empty = all classifications selected
-  let _selectedStatuts=new Set();   // empty = all statuts selected
+  let _selectedDepts=new Set();       // empty = all depts selected (no filter)
+  let _selectedClassifs=new Set();    // empty = all classifications selected
+  let _selectedStatuts=new Set();     // empty = all statuts selected
+  let _selectedActivitesPDV=new Set();// empty = all activités PDV Zone selected
   let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
   let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
@@ -678,7 +679,7 @@
         metierSet.add(metier);
       }
       chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
-      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();
+      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();
       _buildDeptFilter();
       // Show territoire tab if data already computed
       if(finalData&&finalData.length>0){const btn=document.getElementById('btnTabTerritoire');if(btn)btn.classList.remove('hidden');const terrTab=document.getElementById('tabTerritoire');if(terrTab&&!terrTab.classList.contains('hidden'))renderTerritoireTab();}
@@ -707,8 +708,11 @@
   function _normalizeStatut(s){const l=(s||'').toLowerCase();if(l.includes('prospect'))return'Prospect';if(l.includes('perdu'))return'Perdu';if(l.includes('inactif'))return'Inactif';if(l.includes('actif'))return'Actif';return'Inactif';}
   function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
   function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
+  function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
   function _toggleMetierClassif(c,checked){const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!checked){if(!_selectedClassifs.size)_selectedClassifs=new Set(all);_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}renderTerritoireTab();}
   function _toggleMetierStatut(s,checked){const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeStatut(i.statut));if(!checked){if(!_selectedStatuts.size)_selectedStatuts=new Set(all);_selectedStatuts.delete(s);if(!_selectedStatuts.size)_selectedStatuts=new Set();}else{_selectedStatuts.add(s);if(_selectedStatuts.size>=all.size)_selectedStatuts=new Set();}renderTerritoireTab();}
+  function _toggleMetierActivitePDV(a,checked){const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!checked){if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}renderTerritoireTab();}
+  function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
   function _buildDeptFilter(){
     const container=document.getElementById('terrDeptCheckboxes');
     const countEl=document.getElementById('terrDeptCount');
@@ -745,26 +749,28 @@
     if(!cmBlk)return;
     if(!chalandiseReady){cmBlk.classList.add('hidden');return;}
     cmBlk.classList.remove('hidden');
-    // Compute available classifs / statuts for filter chips
-    const availClassifs=new Set(),availStatuts=new Set();
-    for(const info of chalandiseData.values()){if(!info.metier)continue;availClassifs.add(_normalizeClassif(info.classification));availStatuts.add(_normalizeStatut(info.statut));}
+    // Compute available classifs / statuts / activitesPDV for filter chips
+    const availClassifs=new Set(),availStatuts=new Set(),availActivitesPDV=new Set();
+    for(const info of chalandiseData.values()){if(!info.metier)continue;availClassifs.add(_normalizeClassif(info.classification));availStatuts.add(_normalizeStatut(info.statut));if(info.activitePDV)availActivitesPDV.add(info.activitePDV);}
     const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
     const STATUT_ORDER=['Actif','Prospect','Inactif','Perdu'];
+    const sortedActPDV=[...availActivitesPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();const aA=!la.includes('inactif'),bA=!lb.includes('inactif');if(aA!==bA)return aA?-1:1;const a5=la.includes('2025'),b5=lb.includes('2025');if(a5!==b5)return a5?1:-1;return a.localeCompare(b);});
     const CLASSIF_ON={'FID Pot+':'bg-emerald-600 text-white border-emerald-600','FID Pot-':'bg-gray-500 text-white border-gray-500','OCC Pot+':'bg-blue-600 text-white border-blue-600','OCC Pot-':'bg-blue-400 text-white border-blue-400','NC':'bg-slate-400 text-white border-slate-400'};
     const STATUT_ON={'Actif':'bg-green-600 text-white border-green-600','Inactif':'bg-orange-500 text-white border-orange-500','Perdu':'bg-red-600 text-white border-red-600','Prospect':'bg-sky-500 text-white border-sky-500'};
-    const allClassif=!_selectedClassifs.size,allStatut=!_selectedStatuts.size;
+    const allClassif=!_selectedClassifs.size,allStatut=!_selectedStatuts.size,allActPDV=!_selectedActivitesPDV.size;
     const filtersEl=document.getElementById('terrClientsMetierFilters');
     if(filtersEl){
       filtersEl.classList.remove('hidden');
       const classifHtml=CLASSIF_ORDER.filter(c=>availClassifs.has(c)).map(c=>{const sel=allClassif||_selectedClassifs.has(c);const on=CLASSIF_ON[c]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}"><input type="checkbox" class="hidden" ${sel?'checked':''} onchange="_toggleMetierClassif('${c.replace(/'/g,"\\'") }',this.checked)">${c}</label>`;}).join('');
       const statutHtml=STATUT_ORDER.filter(s=>availStatuts.has(s)).map(s=>{const sel=allStatut||_selectedStatuts.has(s);const on=STATUT_ON[s]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}"><input type="checkbox" class="hidden" ${sel?'checked':''} onchange="_toggleMetierStatut('${s}',this.checked)">${s}</label>`;}).join('');
-      filtersEl.innerHTML=`<span class="text-[10px] font-bold text-gray-600 shrink-0">Classif :</span><div class="flex flex-wrap gap-1">${classifHtml}</div><span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Statut :</span><div class="flex flex-wrap gap-1">${statutHtml}</div>`;
+      const actPDVHtml=sortedActPDV.map(a=>{const sel=allActPDV||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}"><input type="checkbox" class="hidden" ${sel?'checked':''} onchange="_toggleMetierActivitePDV('${aEsc}',this.checked)">${a}</label>`;}).join('');
+      filtersEl.innerHTML=`<span class="text-[10px] font-bold text-gray-600 shrink-0">Classif :</span><div class="flex flex-wrap gap-1">${classifHtml}</div><span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Statut :</span><div class="flex flex-wrap gap-1">${statutHtml}</div>${actPDVHtml?`<span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Act. PDV :</span><div class="flex flex-wrap gap-1">${actPDVHtml}</div>`:''}`;
     }
     // Build metier aggregates
     const metierMap={};let totalClients=0,filteredClients=0;
     for(const[cc,info] of chalandiseData.entries()){
       if(!info.metier)continue;totalClients++;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
       filteredClients++;
       const m=info.metier;
       if(!metierMap[m])metierMap[m]={metier:m,nbZone:0,ca2026:0,ca2025:0,caPDVN:0,perdus:0};
@@ -773,7 +779,7 @@
     }
     // Update header counter
     const hdrEl=document.getElementById('terrClientsMetierHeader');
-    if(hdrEl){const anyFilter=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size;const note=anyFilter?` <span class="text-sm font-normal text-rose-600 ml-2">${filteredClients} affichés / ${totalClients}</span>`:`<span class="text-sm font-normal text-gray-500 ml-1">(${totalClients} clients)</span>`;hdrEl.innerHTML='🏢 Clients par Métier'+note;}
+    if(hdrEl){const anyFilter=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size;const note=anyFilter?` <span class="text-sm font-normal text-rose-600 ml-2">${filteredClients} affichés / ${totalClients}</span>`:`<span class="text-sm font-normal text-gray-500 ml-1">(${totalClients} clients)</span>`;hdrEl.innerHTML='🏢 Clients par Métier'+note;}
     // Sort: perdus desc then ca2026 desc
     const metiersArr=Object.values(metierMap).filter(m=>m.nbZone>0).sort((a,b)=>b.perdus-a.perdus||b.ca2026-a.ca2026);
     let mHtml='';
@@ -805,7 +811,7 @@
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
       const famCA=clientPDVCA[cc]||0;const prio=_diagClientPrio(info,famCA);
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,caPDVN1:info.caPDVN1||0,ville:info.ville||'',prio});
     }
@@ -2589,7 +2595,7 @@
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
       const myData=ventesClientArticle.get(cc);
       const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
@@ -2636,7 +2642,7 @@
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
     // article → clients → métier
     const metierBuyers={};
-    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
+    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
     if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
     let top3;
@@ -2647,7 +2653,7 @@
       const clients=[];
       for(const[cc,info] of chalandiseData.entries()){
         if(info.metier!==metier)continue;
-        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
+        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info))continue;
         const myData=ventesClientArticle.get(cc);
         const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
         const prio=_diagClientPrio(info,famCA);
@@ -2706,7 +2712,7 @@
         ${moreRows?`<div id="${pageId}_more" style="display:none"><div class="overflow-x-auto"><table class="min-w-full"><tbody>${moreRows}</tbody></table></div></div><button class="mt-1 text-[10px] text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-0.5 rounded transition-colors" data-target="${pageId}_more" data-more="${more.length}" onclick="_diagL4Toggle(this)">▼ Voir plus (${more.length})</button>`:''}
       </div>`;
     }).join('');
-    const filterParts=[];if(_selectedDepts.size)filterParts.push('🗺️ '+[..._selectedDepts].sort().join(', '));if(_selectedClassifs.size)filterParts.push('🏷️ '+[..._selectedClassifs].join(', '));if(_selectedStatuts.size)filterParts.push('👤 '+[..._selectedStatuts].join(', '));
+    const filterParts=[];if(_selectedDepts.size)filterParts.push('🗺️ '+[..._selectedDepts].sort().join(', '));if(_selectedClassifs.size)filterParts.push('🏷️ '+[..._selectedClassifs].join(', '));if(_selectedStatuts.size)filterParts.push('👤 '+[..._selectedStatuts].join(', '));if(_selectedActivitesPDV.size)filterParts.push('📍 '+[..._selectedActivitesPDV].join(', '));
     const filterNote=filterParts.length?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">${filterParts.join(' · ')}</span>`:'';
     const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+filterNote;
     return`<div class="diag-level">
