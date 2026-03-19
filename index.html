@@ -587,7 +587,9 @@
   let selectedBenchMetier='';
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
-  function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
+  // Extracts the pure client code from any format:
+  // '572030 - ECO-BATIMENT' → '572030' ; '572030' → '572030' ; '490208 - NOM' → '490208'
+  function extractClientCode(val){const s=(val||'').toString().trim();const idx=s.indexOf(' - ');return idx>=0?s.slice(0,idx).trim():s;}  function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
   function formatEuro(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);}
   function pct(p,t){return t>0?((p/t)*100).toFixed(1)+'%':'0%';}
   function parseExcelDate(v){if(!v)return null;if(v instanceof Date)return isNaN(v.getTime())?null:v;if(typeof v==='number')return new Date(Math.round((v-25569)*864e5));if(typeof v==='string'){const c=v.split(' ')[0],p=c.split(/[-/]/);if(p.length===3){let[a,b,d]=p.map(x=>parseInt(x,10));if(d<100)d+=2000;if(a>12)return new Date(d,b-1,a);if(b>12)return new Date(d,a-1,b);return new Date(d,b-1,a);}const x=new Date(v);return isNaN(x.getTime())?null:x;}return null;}
@@ -615,7 +617,7 @@
       const getC=(row,key)=>{const ks=Object.keys(row),kl=key.toLowerCase();const f=ks.find(k=>k.toLowerCase().includes(kl));return f!==undefined?(row[f]||'').toString().trim():'';}
       const metierSet=new Set();
       for(const row of rows){
-        const cc=getC(row,'code client')||getC(row,'code pdv');if(!cc)continue;
+        const cc=extractClientCode(getC(row,'code client')||getC(row,'code pdv'));if(!cc)continue;
         const metier=getC(row,'libellé court métier')||getC(row,'metier')||getC(row,'métier')||'Autre';
         const statut=getC(row,'statut actuel général')||getC(row,'statut actuel')||getC(row,'statut');
         chalandiseData.set(cc,{nom:getC(row,'nom client')||getC(row,'nom'),metier,statut,classification:getC(row,'classification'),activite:getC(row,'activité')||getC(row,'activite'),secteur:getC(row,'secteur'),commercial:getC(row,'commercial'),cp:getC(row,'cp')||getC(row,'code postal'),ville:getC(row,'ville')});
@@ -834,14 +836,14 @@
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
       // V24.4: capture client codes
-      const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const m=codeClientRaw.match(/^(\d+)/);if(m)clientsMagasin.add(m[1]);}
+      const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const cc0=extractClientCode(codeClientRaw);if(cc0)clientsMagasin.add(cc0);}
       if(canal!==''&&canal!=='MAGASIN')continue;
       const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const sk=store||'INCONNU';
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
-      const ccrRaw2=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const ccm2=ccrRaw2.match(/^(\d+)/);const cc2=ccm2?ccm2[1]:'';
+      const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
       if(cc2&&code&&sk===selectedMyStore&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
       if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
@@ -1001,6 +1003,7 @@
   function _terrWorker(){
     'use strict';
     function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
+    function extractClientCode(val){const s=(val||'').toString().trim();const idx=s.indexOf(' - ');return idx>=0?s.slice(0,idx).trim():s;}
     self.onmessage=function(ev){
       const{rows,blConsommeArr,clientsMagasinArr,stockArr,libelleLookupObj,articleFamilleObj}=ev.data;
       const blConsommeSet=new Set(blConsommeArr);
@@ -1037,8 +1040,7 @@
           const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
           const stockItem=stockMap.get(code);
           const rayonStatus=stockItem?(stockItem.stockActuel>0?'green':'yellow'):'red';
-          const ccMatch=clientCodeRaw.match(/^(\d+)/);
-          const ccNum=ccMatch?ccMatch[1]:clientCodeRaw;
+          const ccNum=extractClientCode(clientCodeRaw);
           const clientType=clientsMagasin.has(ccNum)?'mixte':'exterieur';
           const famItem=articleFamilleObj[code]||(stockItem?stockItem.famille:'')||'Non classé';
           const libelle=articleRaw.includes(' - ')?articleRaw.split(' - ').slice(1).join(' - ').trim():(libelleLookupObj[code]||code);
