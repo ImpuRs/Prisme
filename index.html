@@ -350,7 +350,7 @@
           <li class="flex items-start gap-2"><span class="font-extrabold text-orange-600 w-5 flex-shrink-0">2.</span><span><strong class="text-orange-700">🟠 AM — Surveillez le stock,</strong> réassort manuel si besoin.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold text-yellow-600 w-5 flex-shrink-0">3.</span><span><strong class="text-yellow-700">🟡 BF — Normalement bien géré,</strong> contrôle rapide.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold text-gray-600 w-5 flex-shrink-0">4.</span><span><strong>⚠️ CR — Candidats au déréférencement.</strong> CA libéré → réinvestir en AF/AM.</span></li>
-          <li class="flex items-start gap-2"><span class="font-extrabold text-blue-600 w-5 flex-shrink-0">5.</span><span><strong class="text-blue-700">💡 CF/CM — Passage en colis ?</strong> Le client attend 24h mais vous libérez du rayon.</span></li>
+          <li class="flex items-start gap-2"><span class="font-extrabold text-blue-600 w-5 flex-shrink-0">5.</span><span><strong class="text-blue-700">💡 CF/CM — Consommables fréquents.</strong> Petit prix mais indispensables au comptoir. Vérifiez que le MIN est suffisant pour ne jamais rompre.</span></li>
         </ol>
       </div>
       <div class="mt-4 p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
@@ -2609,7 +2609,7 @@
     if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
-    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Petit mais régulier — passage en colis ?',CM:'Candidat réduction stock',CR:'Candidat déréférencement ou colis pur'};
+    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
     let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
     html+='<th class="p-3 text-xs font-bold text-gray-400 text-center w-16"></th>';
@@ -2650,14 +2650,6 @@
       </div>`;
     }
     leg+='</div></div>';
-    // CF families diagnose section (C value, F frequency = articles réguliers bas CA)
-    const cfFamilies={};
-    for(const r of radarData){if(r.abcClass==='C'&&r.fmrClass==='F'&&r.famille){cfFamilies[r.famille]=(cfFamilies[r.famille]||0)+1;}}
-    if(Object.keys(cfFamilies).length){
-      leg+=`<div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl"><h4 class="font-bold text-orange-800 mb-2 text-sm flex items-center gap-2">🔁 Familles CF — articles réguliers, faible valeur <span class="text-[10px] font-normal text-gray-500">Diagnostiquer pour passer en colis ou recalibrer</span></h4><div class="flex flex-wrap gap-2">`;
-      Object.entries(cfFamilies).sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([f,cnt])=>{const fEnc=encodeURIComponent(f);leg+=`<button class="text-xs bg-white border border-orange-300 hover:bg-orange-100 text-orange-800 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors" onclick="openDiagnostic(decodeURIComponent('${fEnc}'),'abc')"><span>${f}</span><span class="text-[10px] text-orange-500">${cnt} art.</span><span class="ml-1 text-[10px] font-bold text-blue-600">🔍</span></button>`;});
-      leg+='</div></div>';
-    }
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
@@ -2775,7 +2767,60 @@
     const detail=sousD.map(r=>({code:r.code,lib:r.libelle,ancienMin:r.ancienMin,nouveauMin:r.nouveauMin,ecart:r.nouveauMin-r.ancienMin,myFreq:r.W})).sort((a,b)=>b.ecart-a.ecart);
     const nb=nonCal.length+sousD.length;
     const l2={status:nb===0?'ok':nb>5?'error':'warn',nonCal:nonCal.length,sousD:sousD.length,sousPerf:[],detail};
-    _diagLevels={l1,l2,l3:{status:'lock'},l4:{status:'lock'}};
+    // Level 3 — Gamme (aggregate across all families in cell)
+    const cellFamilies=[...new Set(cellArts.map(r=>r.famille).filter(Boolean))];
+    let l3;
+    if(hasBench&&refStore){
+      const myArtSet=new Set(cellArts.map(r=>r.code));
+      const refV=ventesParMagasin[refStore]||{};
+      const missing=[];
+      for(const fam of cellFamilies){const refArts=Object.keys(refV).filter(c=>articleFamille[c]===fam&&!myArtSet.has(c));for(const c of refArts){const refF=refV[c]?.countBL||0;const lib=libelleLookup[c]||c;const d=finalData.find(r=>r.code===c);missing.push({code:c,lib,refFreq:refF,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});}}
+      missing.sort((a,b)=>b.refFreq-a.refFreq);
+      const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
+      l3={status:missing.length===0?'ok':strong>2?'error':'warn',mode:'bench',myCount:myArtSet.size,refCount:myArtSet.size+missing.length,refStore,missing:missing.slice(0,25),strongMissing:strong};
+    }else if(hasTerr){
+      const myArtSet=new Set(cellArts.map(r=>r.code));
+      const tMap={};
+      for(const fam of cellFamilies){for(const l of territoireLines){if(l.isSpecial||(l.famille||'')!==fam)continue;if(!tMap[l.code])tMap[l.code]={code:l.code,lib:l.libelle,ca:0,rayonStatus:l.rayonStatus};tMap[l.code].ca+=l.ca;}}
+      const tArts=Object.values(tMap).sort((a,b)=>b.ca-a.ca);
+      const missing=tArts.filter(a=>!myArtSet.has(a.code)).map(a=>({...a,abcClass:finalData.find(r=>r.code===a.code)?.abcClass||'?',fmrClass:finalData.find(r=>r.code===a.code)?.fmrClass||'?'}));
+      l3={status:missing.length===0?'ok':missing.length>5?'error':'warn',mode:'territoire',myCount:myArtSet.size,terrCount:tArts.length,missing:missing.slice(0,25),strongMissing:0};
+    }else{
+      l3={status:'lock',reason:'Chargez le fichier Territoire ou des données multi-agences pour activer l\'analyse de gamme'};
+    }
+    // Level 4 — Clients métier (aggregate across all families in cell)
+    let l4;
+    if(hasChal){
+      const famArts=new Set(cellArts.map(r=>r.code));
+      const metierBuyers={};
+      for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
+      const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
+      if(!totalBuyers){l4={status:'warn',reason:'Aucun acheteur identifié dans la chalandise pour cette case',metiers:[]};}
+      else{
+        const top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);
+        const metiers=top3.map(([metier,buyerSet])=>{
+          const pct=Math.round(buyerSet.size/totalBuyers*100);
+          const clients=[];
+          for(const[cc,info] of chalandiseData.entries()){
+            if(info.metier!==metier)continue;
+            const myData=ventesClientArticle.get(cc);
+            const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
+            const prio=_diagClientPrio(info,famCA);
+            clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
+          }
+          clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;return cp||b.ca2025-a.ca2025;});
+          const p1=clients.filter(c=>c.prio===1).length,p2=clients.filter(c=>c.prio===2).length,p3=clients.filter(c=>c.prio===3).length,p4=clients.filter(c=>c.prio===4).length,p5=clients.filter(c=>c.prio===5).length;
+          const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+c.ca2025,0);
+          return{metier,pct,total:clients.length,p1,p2,p3,p4,p5,potentiel,clients};
+        });
+        const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
+        const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
+        l4={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
+      }
+    }else{
+      l4={status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
+    }
+    _diagLevels={l1,l2,l3,l4};
     // Plan d'action
     const acts=[];
     if(l1.ruptures.length>0){
@@ -2799,7 +2844,9 @@
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
       ${_diagRenderL1(l1)}
-      ${_diagRenderL2(l2,false,'')}
+      ${_diagRenderL2(l2,hasBench,refStore)}
+      <div id="_diagL4">${_diagRenderL4(l4,hasChal)}</div>
+      ${_diagRenderL3(l3,hasBench,hasTerr)}
       <div id="_diagPlan">${_diagRenderPlan(key,_diagActions)}</div>`;
   }
 
