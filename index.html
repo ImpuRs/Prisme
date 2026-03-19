@@ -848,10 +848,14 @@
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
       if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
-      // V2 Phase 2: articleClients + clientArticles — fonctionne aussi en mono-agence (selectedMyStore peut être vide)
-      if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&qteP>0){
-        if(!articleClients.has(code))articleClients.set(code,new Set());articleClients.get(code).add(cc2);
-        if(!clientArticles.has(cc2))clientArticles.set(cc2,new Set());clientArticles.get(cc2).add(code);
+      // V2 Phase 2: articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
+      const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
+      const codeClient=extractClientCode(rawClient);
+      if(codeClient&&code){
+        if(!articleClients.has(code))articleClients.set(code,new Set());
+        articleClients.get(code).add(codeClient);
+        if(!clientArticles.has(codeClient))clientArticles.set(codeClient,new Set());
+        clientArticles.get(codeClient).add(code);
       }
       if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
@@ -859,6 +863,7 @@
       for(const c of Object.keys(canalAgence))canalAgence[c].bl=canalAgence[c].bl.size;
       // V24.4: build blConsommeSet ONCE here (before territoire processing)
       blConsommeSet=new Set(Object.keys(blData));
+      console.log('articleClients:',articleClients.size,'articles avec clients | ventesClientArticle:',ventesClientArticle.size,'clients | clientsMagasin:',clientsMagasin.size);
       updatePipeline('consomme','done');
 
       const synth={};
