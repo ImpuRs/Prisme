@@ -336,12 +336,9 @@
           <p class="text-xs text-gray-500 mt-1">ABC = valeur de rotation (Prélevé × Prix unitaire) · FMR = fréquence (W = nb commandes/an) · Articles actifs uniquement (W≥1)</p>
         </div>
       </div>
-      <div id="radarFiltersBar" class="mb-4 flex flex-wrap items-center gap-3">
-        <label class="text-xs font-bold text-gray-600">Filtrer :</label>
-        <select id="radarFilterFamille" onchange="renderABCTab()" class="p-2 border rounded-lg text-sm font-semibold border-indigo-300 bg-indigo-50"><option value="">Toutes familles</option></select>
-        <select id="radarFilterEmplacement" onchange="renderABCTab()" class="p-2 border rounded-lg text-sm font-semibold border-indigo-300 bg-indigo-50"><option value="">Tous emplacements</option></select>
-        <button onclick="document.getElementById('radarFilterFamille').value='';document.getElementById('radarFilterEmplacement').value='';renderABCTab()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold">✕ Réinitialiser</button>
-        <span id="radarFilterBadge" class="text-[10px] text-indigo-500 font-semibold hidden"></span>
+      <div id="radarFiltersBar" class="mb-4 flex flex-wrap items-center gap-2">
+        <span class="text-[10px] text-gray-400">La matrice se recalcule selon les filtres globaux (Famille, Sous-Famille, Emplacement, Statut).</span>
+        <span id="radarFilterBadge" class="text-[10px] text-indigo-600 font-bold hidden"></span>
       </div>
       <div id="abcMatrixContainer" class="overflow-x-auto mb-6"></div>
       <div id="abcMatrixLegend" class="mt-4"></div>
@@ -2577,11 +2574,19 @@
 
   // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
   function _radarFilteredData(){
-    const fam=document.getElementById('radarFilterFamille')?.value||'';
-    const emp=document.getElementById('radarFilterEmplacement')?.value||'';
+    const fam=document.getElementById('filterFamille')?.value||'';
+    const sFam=document.getElementById('filterSousFamille')?.value||'';
+    const emp=document.getElementById('filterEmplacement')?.value||'';
+    const stat=document.getElementById('filterStatut')?.value||'';
+    const abc=document.getElementById('filterABC')?.value||'';
+    const fmr=document.getElementById('filterFMR')?.value||'';
     let data=finalData.filter(r=>r.W>=1);
     if(fam)data=data.filter(r=>r.famille===fam);
+    if(sFam)data=data.filter(r=>r.sousFamille===sFam);
     if(emp)data=data.filter(r=>r.emplacement===emp);
+    if(stat)data=data.filter(r=>r.statut===stat);
+    if(abc)data=data.filter(r=>r.abcClass===abc);
+    if(fmr)data=data.filter(r=>r.fmrClass===fmr);
     return data;
   }
   function _radarComputeMatrix(data){
@@ -2594,24 +2599,14 @@
     }
     return mx;
   }
-  function _populateRadarFilters(){
-    const famSel=document.getElementById('radarFilterFamille');
-    const empSel=document.getElementById('radarFilterEmplacement');
-    if(!famSel||!empSel)return;
-    const curFam=famSel.value,curEmp=empSel.value;
-    const famSet=new Set(),empSet=new Set();
-    for(const r of finalData){if(r.W>=1){if(r.famille)famSet.add(r.famille);if(r.emplacement)empSet.add(r.emplacement);}}
-    famSel.innerHTML='<option value="">Toutes familles</option>'+[...famSet].sort().map(f=>`<option value="${f}"${f===curFam?' selected':''}>${f}</option>`).join('');
-    empSel.innerHTML='<option value="">Tous emplacements</option>'+[...empSet].sort().map(e=>`<option value="${e}"${e===curEmp?' selected':''}>${e}</option>`).join('');
-    const badge=document.getElementById('radarFilterBadge');
-    if(badge){if(curFam||curEmp){badge.classList.remove('hidden');badge.textContent=`Filtre actif : ${[curFam,curEmp].filter(Boolean).join(' + ')}`;} else badge.classList.add('hidden');}
-  }
   function renderABCTab(){
     if(!finalData.length||!Object.keys(abcMatrixData).length)return;
-    _populateRadarFilters();
     const radarData=_radarFilteredData();
     const mx=_radarComputeMatrix(radarData);
-    const isFiltered=!!(document.getElementById('radarFilterFamille')?.value||document.getElementById('radarFilterEmplacement')?.value);
+    const globalFilters=[document.getElementById('filterFamille')?.value,document.getElementById('filterSousFamille')?.value,document.getElementById('filterEmplacement')?.value,document.getElementById('filterStatut')?.value,document.getElementById('filterABC')?.value,document.getElementById('filterFMR')?.value].filter(Boolean);
+    const isFiltered=globalFilters.length>0;
+    const badge=document.getElementById('radarFilterBadge');
+    if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Petit mais régulier — passage en colis ?',CM:'Candidat réduction stock',CR:'Candidat déréférencement ou colis pur'};
