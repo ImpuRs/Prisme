@@ -315,7 +315,7 @@
       <div class="mb-10"><h2 class="text-xl font-extrabold text-purple-700 mb-4 uppercase flex items-center gap-2">📦 Préconisation de stock <span id="badgeAssainTotal" class="badge bg-purple-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-purple-50 p-5 rounded-xl border-t-4 border-purple-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-purple-900 flex items-center">📦 SASO<em class="info-tip" data-tip="Stock dépasse l'ancien MAX ERP — excédent à renvoyer au dépôt">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeSaso" class="badge bg-purple-500 text-white"></span><span class="cockpit-link bg-purple-200 text-purple-800" onclick="showCockpitInTable('saso')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-purple-100 text-purple-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Excès</th><th class="py-2 px-2 text-right">€</th></tr></thead><tbody id="actionSaso" class="divide-y divide-purple-100"></tbody></table></div></div>
-          <div class="bg-cyan-50 p-5 rounded-xl border-t-4 border-cyan-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-cyan-900 flex items-center">📦→🏪 Colis à stocker<em class="info-tip" data-tip="≥5 commandes colis/an, jamais en rayon — mettre en stock pour vente directe ?">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeColisRayon" class="badge bg-cyan-500 text-white"></span><span class="cockpit-link bg-cyan-200 text-cyan-800" onclick="showCockpitInTable('colisrayon')">📋</span></div></div><p class="text-[11px] text-cyan-700 mb-3">≥5 enlevés, 0 prélevé.</p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-100 text-cyan-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th></tr></thead><tbody id="actionColisRayon" class="divide-y divide-cyan-100"></tbody></table></div></div>
+          <div class="bg-cyan-50 p-5 rounded-xl border-t-4 border-cyan-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-cyan-900 flex items-center">📦→🏪 Colis à stocker<em class="info-tip" data-tip="≥5 enlevés/an, 0 prélevé. Stock=0 → mettre en rayon. Stock>0 → vérifier visibilité (colis caché en réserve ?)">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeColisRayon" class="badge bg-cyan-500 text-white"></span><span class="cockpit-link bg-cyan-200 text-cyan-800" onclick="showCockpitInTable('colisrayon')">📋</span></div></div><p class="text-[11px] text-cyan-700 mb-3">≥5 enlevés, 0 prélevé — 📦 stock=0 à mettre en rayon · 👁️ stock>0 à rendre visible.</p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-100 text-cyan-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">Action</th></tr></thead><tbody id="actionColisRayon" class="divide-y divide-cyan-100"></tbody></table></div></div>
         </div>
       </div>
       <!-- Hidden elements kept for JS compatibility (cockpitLists sets still populated for filter) -->
@@ -1937,7 +1937,7 @@
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
       const iFam=finalData.find(r=>r.code===i.code)?.famille||'';
       const famEnc=encodeURIComponent(iFam);
-      const diagCell=i.prioScore>=5000&&iFam?`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnostic(decodeURIComponent('${famEnc}'),'cockpit')">🔍</button></td>`:`<td class="py-2 px-2"></td>`;
+      const diagCell=iFam?`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnostic(decodeURIComponent('${famEnc}'),'cockpit')">🔍</button></td>`:`<td class="py-2 px-2"></td>`;
       p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
@@ -1946,7 +1946,17 @@
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const p=[];l.sort((a,b)=>b.sv-a.sv).slice(0,lim).forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';}
-    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstColis,'actionColisRayon');
+    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');
+    // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
+    (function(){
+      const el=document.getElementById('actionColisRayon');if(!el)return;
+      const sorted=[...lstColis].sort((a,b)=>(a.i2>0?1:0)-(b.i2>0?1:0)||b.sv-a.sv).slice(0,50);
+      const rows=sorted.map(i=>{
+        const actionLbl=i.i2===0?'<span class="text-cyan-700 font-bold">📦 Mettre en rayon</span>':'<span class="text-amber-700 font-bold">👁️ Vérifier visibilité</span>';
+        return `<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
+      });
+      el.innerHTML=rows.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';
+    })();
 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS);
@@ -2035,6 +2045,14 @@
     document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="13" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
   }
 
+  // Helper: returns the most common famille for a given ABC/FMR cell (for diagnostic trigger)
+  function _topFamilleForAbcFmr(abc,fmr){
+    const freq={};
+    for(const r of finalData){if(r.abcClass===abc&&r.fmrClass===fmr&&r.famille){freq[r.famille]=(freq[r.famille]||0)+1;}}
+    const top=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+    return top?top[0]:null;
+  }
+
   // ★ V24: Render ABC/FMR matrix tab
   function renderABCTab(){
     if(!finalData.length||!Object.keys(abcMatrixData).length)return;
@@ -2054,12 +2072,15 @@
       for(const fmr of['F','M','R']){
         const key=abc+fmr,d=abcMatrixData[key]||{count:0,stockVal:0,pctTotal:0};
         const bg=CELL_BG[key];
+        const topFamABCFMR=_topFamilleForAbcFmr(abc,fmr);
+        const diagBtnABC=topFamABCFMR?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-white/20 hover:bg-white/40 transition-colors" onclick="event.stopPropagation();openDiagnostic('${encodeURIComponent(topFamABCFMR)}','abc')" title="Diagnostic famille ${topFamABCFMR}">🔍 Diag.</button>`:'';
         html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
           <div class="font-extrabold text-2xl">${d.count}</div>
           <div class="text-[10px] opacity-80">articles</div>
           <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
           <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
           <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
+          ${diagBtnABC}
           <div class="cell-reco">${key} — ${RECOS[key]}</div>
         </div></td>`;
       }
