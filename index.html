@@ -1159,7 +1159,7 @@
       const prospect=_isProspect(info);
       const actPDV=(info.activitePDV||'').toLowerCase();
       const pdvInactif=actPDV.includes('inactif');
-      const c={code:cc,nom:info.nom||'',metier:info.metier||'',statut:info.statut||'',activitePDV:info.activitePDV||'',activiteGlobale:info.activiteGlobale||info.activite||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier)};
+      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier)};
       // URGENCES: Actif global + Inactif PDV Zone + Pot+
       if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       // DEVELOPPER: Perdus récents + Pot+, OR Prospects Pot+
@@ -1172,22 +1172,24 @@
     urgences.sort(_cockpitSort('ca2025'));
     developper.sort(_cockpitSort('ca2025'));
     fideliser.sort(_cockpitSort('caPDVN'));
+    const _classifShort=(c)=>{const n=_normalizeClassif(c);if(n==='FID Pot+')return'<span class="text-emerald-600 font-bold">FID+</span>';if(n==='OCC Pot+')return'<span class="text-blue-600 font-bold">OCC+</span>';if(n==='FID Pot-')return'<span class="text-gray-500">FID-</span>';if(n==='OCC Pot-')return'<span class="text-gray-400">OCC-</span>';return'<span class="text-gray-300">NC</span>';};
+    const caField=(sortField)=>sortField==='caPDVN';
     const renderBlock=(title,emoji,color,borderColor,clients,sortField,limit)=>{
-      limit=limit||20;
+      limit=limit||30;
       const show=clients.slice(0,limit),more=clients.length-limit;
+      const usePDV=caField(sortField);
       if(!clients.length)return`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-2"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">Aucun client dans cette catégorie</p></div>`;
       let html=`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-2"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div>`;
-      html+=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th><th class="py-1 px-2 text-left">Statut</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-right">CA 2025</th><th class="py-1 px-2 text-right">CA PDV Zone</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+      html+=`<div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA PDV Zone':'CA 2025'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
       for(const c of show){
+        const caVal=usePDV?c.caPDVN:c.ca2025;
+        const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');
         html+=`<tr class="border-t border-gray-200 hover:bg-white/50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')">
-          <td class="py-1 px-2 font-mono text-gray-500">${c.code}</td>
-          <td class="py-1 px-2 max-w-[130px] truncate">${c.nom}</td>
-          <td class="py-1 px-2 text-[9px] max-w-[100px] truncate">${c.metier||'—'}${c._strat?' <span class="text-amber-500" title="Métier stratégique">⭐</span>':''}</td>
-          <td class="py-1 px-2 text-[9px]">${c.statut}</td>
-          <td class="py-1 px-2">${_diagClassifBadge(c.classification)}</td>
-          <td class="py-1 px-2 text-right ${c.ca2025>0?'text-amber-600 font-bold':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
-          <td class="py-1 px-2 text-right ${c.caPDVN>0?'text-emerald-600 font-bold':'text-gray-400'}">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>
-          <td class="py-1 px-2 text-[9px] text-gray-500">${c.ville||'—'}</td>
+          <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span> <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</td>
+          <td class="py-1 px-2 text-[10px] text-gray-500">${c.commercial||'—'}</td>
+          <td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td>
+          <td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td>
+          <td class="py-1 px-2 text-[10px] text-gray-500">${c.ville||'—'}</td>
         </tr>`;
       }
       html+=`</tbody></table></div>`;
@@ -1201,7 +1203,7 @@
           <h3 class="font-extrabold text-gray-800">🎯 Cockpit Client</h3>
           <p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}</p>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+        <div class="grid grid-cols-1 gap-4 p-4">
           ${renderBlock('URGENCES — Actions immédiates','🔴','bg-red-50','border-red-500',urgences,'ca2025')}
           ${renderBlock('A DEVELOPPER — Moyen terme','🟠','bg-orange-50','border-orange-500',developper,'ca2025')}
           ${renderBlock('A FIDELISER — Tes bons clients','🟢','bg-green-50','border-green-500',fideliser,'caPDVN')}
