@@ -552,6 +552,8 @@
         </div>
         <!-- Dynamic counter -->
         <div id="terrOverviewCounter" class="mb-3 text-xs font-bold text-gray-600"></div>
+        <!-- Cockpit Client -->
+        <div id="terrCockpitClient" class="hidden mb-6"></div>
         <!-- Header -->
         <div class="bg-white rounded-xl shadow-md border overflow-hidden">
           <div class="p-4 border-b bg-gradient-to-r from-rose-50 to-violet-50">
@@ -565,8 +567,6 @@
             </table>
           </div>
         </div>
-        <!-- Cockpit Client -->
-        <div id="terrCockpitClient" class="hidden mt-6"></div>
       </div>
     </div>
 
@@ -1138,7 +1138,7 @@
     developper.sort(_cockpitSort('ca2025'));
     fideliser.sort(_cockpitSort('caPDVN'));
     const caField=(sortField)=>sortField==='caPDVN';
-    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_selectedCommercial||_filterStrategiqueOnly;
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
     const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
     const renderBlock=(title,desc,emoji,color,borderColor,clients,sortField,limit)=>{
       limit=limit||30;
