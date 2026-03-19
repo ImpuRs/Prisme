@@ -350,7 +350,7 @@
           <li class="flex items-start gap-2"><span class="font-extrabold text-orange-600 w-5 flex-shrink-0">2.</span><span><strong class="text-orange-700">🟠 AM — Surveillez le stock,</strong> réassort manuel si besoin.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold text-yellow-600 w-5 flex-shrink-0">3.</span><span><strong class="text-yellow-700">🟡 BF — Normalement bien géré,</strong> contrôle rapide.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold text-gray-600 w-5 flex-shrink-0">4.</span><span><strong>⚠️ CR — Candidats au déréférencement.</strong> CA libéré → réinvestir en AF/AM.</span></li>
-          <li class="flex items-start gap-2"><span class="font-extrabold text-blue-600 w-5 flex-shrink-0">5.</span><span><strong class="text-blue-700">💡 CF — Réguliers petit prix.</strong> Cœur du comptoir, à maintenir en rayon.</span></li>
+          <li class="flex items-start gap-2"><span class="font-extrabold text-blue-600 w-5 flex-shrink-0">5.</span><span><strong class="text-blue-700">💡 CF/CM — Consommables fréquents.</strong> Petit prix mais indispensables au comptoir. Vérifiez que le MIN est suffisant pour ne jamais rompre.</span></li>
         </ol>
       </div>
       <div class="mt-4 p-5 bg-emerald-50 border border-emerald-200 rounded-xl">
@@ -2609,7 +2609,7 @@
     if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
-    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Régulier petit prix — cœur du comptoir',CM:'Candidat réduction stock',CR:'Candidat déréférencement ou colis pur'};
+    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
     let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
     html+='<th class="p-3 text-xs font-bold text-gray-400 text-center w-16"></th>';
