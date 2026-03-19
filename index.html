@@ -1075,6 +1075,7 @@
     const urgences=[],developper=[],fideliser=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
+      if(!_includePerdu24m&&_isPerdu24plus(info))continue;
       const pdvActif=_isPDVActif(cc);
       const globActif=_isGlobalActif(info);
       const classif=_normalizeClassif(info.classification);
@@ -1097,12 +1098,14 @@
     developper.sort(_cockpitSort('ca2025'));
     fideliser.sort(_cockpitSort('caPDVN'));
     const caField=(sortField)=>sortField==='caPDVN';
-    const renderBlock=(title,emoji,color,borderColor,clients,sortField,limit)=>{
+    const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_filterStrategiqueOnly;
+    const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
+    const renderBlock=(title,desc,emoji,color,borderColor,clients,sortField,limit)=>{
       limit=limit||30;
       const show=clients.slice(0,limit),more=clients.length-limit;
       const usePDV=caField(sortField);
-      if(!clients.length)return`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-2"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">Aucun client dans cette catégorie</p></div>`;
-      let html=`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-2"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div>`;
+      if(!clients.length)return`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-[10px] text-gray-500 mb-2">${desc}</p><p class="text-xs text-gray-400">${emptyMsg}</p></div>`;
+      let html=`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div><p class="text-[10px] text-gray-500 mb-2">${desc}</p>`;
       html+=`<div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA PDV Zone':'CA 2025'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
       for(const c of show){
         const caVal=usePDV?c.caPDVN:c.ca2025;
@@ -1127,9 +1130,9 @@
           <p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}</p>
         </div>
         <div class="grid grid-cols-1 gap-4 p-4">
-          ${renderBlock('URGENCES — Actions immédiates','🔴','bg-red-50','border-red-500',urgences,'ca2025')}
-          ${renderBlock('A DEVELOPPER — Moyen terme','🟠','bg-orange-50','border-orange-500',developper,'ca2025')}
-          ${renderBlock('A FIDELISER — Tes bons clients','🟢','bg-green-50','border-green-500',fideliser,'caPDVN')}
+          ${renderBlock('URGENCES — Actions immédiates','Clients actifs chez Legallais mais qui ne viennent pas/plus dans votre agence — FID Pot+ et OCC Pot+','🔴','bg-red-50','border-red-500',urgences,'ca2025')}
+          ${renderBlock('A DEVELOPPER — Moyen terme','Clients perdus récemment (actifs en 2025, inactifs en 2026) + prospects à potentiel','🟠','bg-orange-50','border-orange-500',developper,'ca2025')}
+          ${renderBlock('A FIDELISER — Tes bons clients','Vos meilleurs clients actuels en agence — à ne pas perdre','🟢','bg-green-50','border-green-500',fideliser,'caPDVN')}
         </div>
       </div>`;
   }
