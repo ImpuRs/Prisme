@@ -540,7 +540,7 @@
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
             <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
             <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
-            <select id="terrCommercialFilter" onchange="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><option value="">Tous</option></select>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Tous" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><datalist id="terrCommercialList"></datalist>
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
             <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
@@ -774,7 +774,38 @@
   let _overviewOpenL2=null,_overviewOpenL3=null;
   function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}_buildChalandiseOverview();}
-  function _onCommercialFilter(val){_selectedCommercial=val;_buildChalandiseOverview();}
+  function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
+  function _navigateToOverviewMetier(metier){
+    closeDiagnostic();switchTab('territoire');
+    setTimeout(()=>{
+      const overview=document.getElementById('terrChalandiseOverview');
+      if(overview)overview.scrollIntoView({behavior:'smooth'});
+      // Find direction for this métier
+      let targetDir='';
+      for(const info of chalandiseData.values()){if(info.metier===metier){targetDir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';break;}}
+      if(!targetDir)return;
+      const tbl=document.getElementById('terrOverviewL1Table');if(!tbl)return;
+      const dirRows=tbl.querySelectorAll('tr[onclick]');
+      for(const row of dirRows){
+        const oc=row.getAttribute('onclick')||'';
+        const match=oc.match(/_toggleOverviewL2\('([^']+)',(\d+)\)/);if(!match)continue;
+        const dirEnc=match[1],idx=parseInt(match[2]);
+        if(decodeURIComponent(dirEnc)!==targetDir)continue;
+        const l2row=document.getElementById('overviewL2-'+idx);
+        if(l2row&&l2row.style.display==='none')_toggleOverviewL2(dirEnc,idx);
+        setTimeout(()=>{
+          const inner=document.getElementById('overviewL2Inner-'+idx);if(!inner)return;
+          for(const mr of inner.querySelectorAll('tr[onclick]')){
+            if(mr.querySelector('td')?.textContent.includes(metier)){
+              mr.scrollIntoView({behavior:'smooth',block:'center'});
+              mr.style.background='#fef3c7';setTimeout(()=>mr.style.background='',3000);break;
+            }
+          }
+        },200);
+        break;
+      }
+    },300);
+  }
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
   function _isPDVActif(cc){const art=ventesClientArticle.get(cc);return art&&art.size>0;}
   function _isPerdu(info){const s=_normalizeStatut(info.statut);return s==='Inactif'||s==='Perdu';}
@@ -791,9 +822,10 @@
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
-    // Populate commercial filter select
-    const comSel=document.getElementById('terrCommercialFilter');
-    if(comSel){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comSel.innerHTML='<option value="">Tous</option>'+sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}"${_selectedCommercial===c?' selected':''}>${c}</option>`).join('');}
+    // Populate commercial filter datalist
+    const comInput=document.getElementById('terrCommercialFilter');
+    const comList=document.getElementById('terrCommercialList');
+    if(comInput&&comList){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');if(_selectedCommercial)comInput.value=_selectedCommercial;}
   }
   function _buildChalandiseOverview(){
     console.log('[PILOT] _buildChalandiseOverview called, chalandiseReady=',chalandiseReady,'chalandiseData.size=',chalandiseData.size);
@@ -2832,7 +2864,7 @@
       const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
       acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nb} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');currentPage=0;switchTab('table');renderAll();}});
     }
-    _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+    _diagActions=acts.sort((a,b)=>a.priority-b.priority);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
@@ -3069,7 +3101,7 @@
       const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
       acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
     }
-    return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+    return acts.sort((a,b)=>a.priority-b.priority);
   }
 
   // ── Level 4: Clients métier ──
@@ -3144,7 +3176,7 @@
         </div>
         <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
         ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="closeDiagnostic();_selectedCommercial='';const cs=document.getElementById('terrCommercialFilter');if(cs)cs.value='';switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'})},200)">🔗 Voir le détail dans l'onglet Territoire →</button>
+        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir le détail dans l'onglet Territoire →</button>
       </div>`;
     }).join('');
     return`<div class="diag-level">
@@ -3172,7 +3204,7 @@
       const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
       acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} client${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
     }
-    return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+    return acts.sort((a,b)=>a.priority-b.priority);
   }
   function _diagRenderPlan(famille,actions){
     if(!actions.length)return'';
