@@ -530,17 +530,21 @@
       </div>
 
       <!-- 10. Clients par Métier (Zone de Chalandise) -->
-      <div id="terrClientsMetierBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 id="terrClientsMetierHeader" class="font-extrabold text-gray-800 p-4 border-b">🏢 Clients par Métier <span class="text-sm font-normal text-gray-500 ml-1">(Zone de Chalandise)</span></h3>
-        <div class="table-scroll">
+      <div id="terrClientsMetierBlock" class="hidden bg-white rounded-xl shadow-md border">
+        <div class="p-4 border-b">
+          <h3 id="terrClientsMetierHeader" class="font-extrabold text-gray-800">🏢 Clients par Métier <span class="text-sm font-normal text-gray-500 ml-1">(Zone de Chalandise)</span></h3>
+        </div>
+        <div id="terrClientsMetierFilters" class="hidden px-4 py-2 border-b bg-gray-50 flex flex-wrap gap-x-3 gap-y-1 items-center text-xs"></div>
+        <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
               <tr>
                 <th class="py-2 px-3 text-left">Métier</th>
-                <th class="py-2 px-3 text-right">Nb clients zone</th>
-                <th class="py-2 px-3 text-right">CA Territoire</th>
-                <th class="py-2 px-3 text-right">Perdus zone</th>
-                <th class="py-2 px-3 text-center">Diagnostic</th>
+                <th class="py-2 px-3 text-right">Nb clients</th>
+                <th class="py-2 px-3 text-right">CA 2025</th>
+                <th class="py-2 px-3 text-right">CA PDV Zone</th>
+                <th class="py-2 px-3 text-right">Perdus</th>
+                <th class="py-2 px-3 text-center">Diag</th>
               </tr>
             </thead>
             <tbody id="terrClientsMetierTable"></tbody>
@@ -618,6 +622,8 @@
   let chalandiseReady=false;
   let chalandiseMetiers=[];         // sorted list of distinct métiers
   let _selectedDepts=new Set();     // empty = all depts selected (no filter)
+  let _selectedClassifs=new Set();  // empty = all classifications selected
+  let _selectedStatuts=new Set();   // empty = all statuts selected
   let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
   let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
@@ -666,7 +672,7 @@
         metierSet.add(metier);
       }
       chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
-      _selectedDepts=new Set(); // reset dept filter on new chalandise load
+      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();
       _buildDeptFilter();
       // Show territoire tab if data already computed
       if(finalData&&finalData.length>0){const btn=document.getElementById('btnTabTerritoire');if(btn)btn.classList.remove('hidden');const terrTab=document.getElementById('tabTerritoire');if(terrTab&&!terrTab.classList.contains('hidden'))renderTerritoireTab();}
@@ -691,6 +697,12 @@
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
   // ── Département filter helpers ──
   function clientMatchesDeptFilter(info){if(!_selectedDepts.size)return true;const dept=(info.cp||'').toString().slice(0,2);return _selectedDepts.has(dept);}
+  function _normalizeClassif(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
+  function _normalizeStatut(s){const l=(s||'').toLowerCase();if(l.includes('prospect'))return'Prospect';if(l.includes('perdu'))return'Perdu';if(l.includes('inactif'))return'Inactif';if(l.includes('actif'))return'Actif';return'Inactif';}
+  function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
+  function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
+  function _toggleMetierClassif(c,checked){const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!checked){if(!_selectedClassifs.size)_selectedClassifs=new Set(all);_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}renderTerritoireTab();}
+  function _toggleMetierStatut(s,checked){const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeStatut(i.statut));if(!checked){if(!_selectedStatuts.size)_selectedStatuts=new Set(all);_selectedStatuts.delete(s);if(!_selectedStatuts.size)_selectedStatuts=new Set();}else{_selectedStatuts.add(s);if(_selectedStatuts.size>=all.size)_selectedStatuts=new Set();}renderTerritoireTab();}
   function _buildDeptFilter(){
     const container=document.getElementById('terrDeptCheckboxes');
     const countEl=document.getElementById('terrDeptCount');
@@ -727,30 +739,82 @@
     if(!cmBlk)return;
     if(!chalandiseReady){cmBlk.classList.add('hidden');return;}
     cmBlk.classList.remove('hidden');
-    const metierMap={};
-    let totalClients=0,filteredClients=0;
+    // CA PDV Zone = total CA from ventesClientArticle for each client at my store
+    const clientPDVCA={};
+    for(const[cc,artMap] of ventesClientArticle.entries()){clientPDVCA[cc]=[...artMap.values()].reduce((s,d)=>s+d.sumPrelevee,0);}
+    // Compute available classifs / statuts for filter chips
+    const availClassifs=new Set(),availStatuts=new Set();
+    for(const info of chalandiseData.values()){if(!info.metier)continue;availClassifs.add(_normalizeClassif(info.classification));availStatuts.add(_normalizeStatut(info.statut));}
+    const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
+    const STATUT_ORDER=['Actif','Prospect','Inactif','Perdu'];
+    const CLASSIF_ON={'FID Pot+':'bg-emerald-600 text-white border-emerald-600','FID Pot-':'bg-gray-500 text-white border-gray-500','OCC Pot+':'bg-blue-600 text-white border-blue-600','OCC Pot-':'bg-blue-400 text-white border-blue-400','NC':'bg-slate-400 text-white border-slate-400'};
+    const STATUT_ON={'Actif':'bg-green-600 text-white border-green-600','Inactif':'bg-orange-500 text-white border-orange-500','Perdu':'bg-red-600 text-white border-red-600','Prospect':'bg-sky-500 text-white border-sky-500'};
+    const allClassif=!_selectedClassifs.size,allStatut=!_selectedStatuts.size;
+    const filtersEl=document.getElementById('terrClientsMetierFilters');
+    if(filtersEl){
+      filtersEl.classList.remove('hidden');
+      const classifHtml=CLASSIF_ORDER.filter(c=>availClassifs.has(c)).map(c=>{const sel=allClassif||_selectedClassifs.has(c);const on=CLASSIF_ON[c]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}"><input type="checkbox" class="hidden" ${sel?'checked':''} onchange="_toggleMetierClassif('${c.replace(/'/g,"\\'") }',this.checked)">${c}</label>`;}).join('');
+      const statutHtml=STATUT_ORDER.filter(s=>availStatuts.has(s)).map(s=>{const sel=allStatut||_selectedStatuts.has(s);const on=STATUT_ON[s]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}"><input type="checkbox" class="hidden" ${sel?'checked':''} onchange="_toggleMetierStatut('${s}',this.checked)">${s}</label>`;}).join('');
+      filtersEl.innerHTML=`<span class="text-[10px] font-bold text-gray-600 shrink-0">Classif :</span><div class="flex flex-wrap gap-1">${classifHtml}</div><span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Statut :</span><div class="flex flex-wrap gap-1">${statutHtml}</div>`;
+    }
+    // Build metier aggregates
+    const metierMap={};let totalClients=0,filteredClients=0;
     for(const[cc,info] of chalandiseData.entries()){
-      if(!info.metier)continue;
-      totalClients++;
-      if(!clientMatchesDeptFilter(info))continue;
+      if(!info.metier)continue;totalClients++;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
       filteredClients++;
       const m=info.metier;
-      if(!metierMap[m])metierMap[m]={metier:m,nbZone:0,caTerr:0,perdusZone:0};
-      metierMap[m].nbZone++;
-      const terrClient=clientsMap[cc];
-      if(terrClient)metierMap[m].caTerr+=terrClient.ca;
-      else{const s=(info.statut||'').toLowerCase();if(s.includes('inactif')||s.includes('perdu'))metierMap[m].perdusZone++;}
+      if(!metierMap[m])metierMap[m]={metier:m,nbZone:0,ca2025:0,caPDV:0,perdus:0};
+      metierMap[m].nbZone++;metierMap[m].ca2025+=(info.ca2025||0);metierMap[m].caPDV+=(clientPDVCA[cc]||0);
+      const ns=_normalizeStatut(info.statut);if(ns==='Inactif'||ns==='Perdu')metierMap[m].perdus++;
     }
+    // Update header counter
     const hdrEl=document.getElementById('terrClientsMetierHeader');
-    if(hdrEl){const deptNote=_selectedDepts.size?` <span class="text-sm font-normal text-rose-600 ml-2">${filteredClients} clients sélectionnés / ${totalClients} total</span>`:`<span class="text-sm font-normal text-gray-500 ml-1">(${totalClients} clients)</span>`;hdrEl.innerHTML='🏢 Clients par Métier'+deptNote;}
-    const metiersArr=Object.values(metierMap).filter(m=>m.nbZone>0).sort((a,b)=>b.caTerr-a.caTerr);
+    if(hdrEl){const anyFilter=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size;const note=anyFilter?` <span class="text-sm font-normal text-rose-600 ml-2">${filteredClients} affichés / ${totalClients}</span>`:`<span class="text-sm font-normal text-gray-500 ml-1">(${totalClients} clients)</span>`;hdrEl.innerHTML='🏢 Clients par Métier'+note;}
+    // Sort: perdus desc then ca2025 desc
+    const metiersArr=Object.values(metierMap).filter(m=>m.nbZone>0).sort((a,b)=>b.perdus-a.perdus||b.ca2025-a.ca2025);
     let mHtml='';
-    for(const m of metiersArr){
+    metiersArr.forEach((m,idx)=>{
       const mEnc=encodeURIComponent(m.metier);
-      mHtml+=`<tr class="border-b text-[11px] hover:bg-gray-50"><td class="py-2 px-3 font-semibold">${m.metier}</td><td class="py-2 px-3 text-right">${m.nbZone}</td><td class="py-2 px-3 text-right font-bold">${formatEuro(m.caTerr)}</td><td class="py-2 px-3 text-right ${m.perdusZone>0?'text-red-600 font-bold':'text-gray-400'}">${m.perdusZone||'—'}</td><td class="py-2 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td></tr>`;
-    }
+      mHtml+=`<tr class="border-b text-[11px] hover:bg-gray-50">
+        <td class="py-2 px-3 font-semibold cursor-pointer select-none" onclick="_toggleTerrMetierDrill(${idx},this)">${m.metier} <span id="terrMetierArrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-2 px-3 text-right">${m.nbZone}</td>
+        <td class="py-2 px-3 text-right font-bold ${m.ca2025>0?'text-amber-600':'text-gray-400'}">${m.ca2025>0?formatEuro(m.ca2025):'—'}</td>
+        <td class="py-2 px-3 text-right font-bold ${m.caPDV>0?'text-emerald-600':'text-gray-400'}">${m.caPDV>0?formatEuro(m.caPDV):'—'}</td>
+        <td class="py-2 px-3 text-right ${m.perdus>0?'text-red-600 font-bold':'text-gray-400'}">${m.perdus||'—'}</td>
+        <td class="py-2 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
+      </tr>
+      <tr id="terrMetierDrill-${idx}" style="display:none"><td colspan="6" class="p-0 bg-gray-50"><div id="terrMetierDrillInner-${idx}" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+    });
     const tEl=document.getElementById('terrClientsMetierTable');
-    if(tEl)tEl.innerHTML=mHtml||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun métier identifié</td></tr>';
+    if(tEl)tEl.innerHTML=mHtml||'<tr><td colspan="6" class="text-center py-4 text-gray-400">Aucun métier identifié pour ce filtre</td></tr>';
+  }
+  function _toggleTerrMetierDrill(idx,cell){
+    const drill=document.getElementById('terrMetierDrill-'+idx);if(!drill)return;
+    const arrow=document.getElementById('terrMetierArrow-'+idx);
+    const isOpen=drill.style.display!=='none';
+    drill.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
+    if(!isOpen){const inner=document.getElementById('terrMetierDrillInner-'+idx);const metier=cell.textContent.replace(/[▼▲]/g,'').trim();if(inner)_loadTerrMetierDrill(inner,metier);}
+  }
+  function _loadTerrMetierDrill(innerEl,metier){
+    const clientPDVCA={};for(const[cc,artMap] of ventesClientArticle.entries())clientPDVCA[cc]=[...artMap.values()].reduce((s,d)=>s+d.sumPrelevee,0);
+    const clients=[];
+    for(const[cc,info] of chalandiseData.entries()){
+      if(info.metier!==metier)continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
+      const caPDV=clientPDVCA[cc]||0;const prio=_diagClientPrio(info,caPDV);
+      clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,caPDV,ville:info.ville||'',prio});
+    }
+    clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);return cp||b.ca2025-a.ca2025;});
+    if(!clients.length){innerEl.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun client pour ce filtre.</div>';return;}
+    const PRIO_LBL=['','🟠 Actif Legallais sans PDV','🔴 Perdu récent','🟤 Perdu ancien','🔵 Prospect','✅ Actif PDV'];
+    const PRIO_BG=['','bg-amber-50','bg-rose-50','bg-stone-50','bg-blue-50',''];
+    let rows='';let prioShown=-1;
+    for(const c of clients){
+      if(c.prio!==prioShown){rows+=`<tr><td colspan="8" class="py-1 px-3 text-[9px] font-bold text-gray-500 uppercase tracking-wide bg-gray-100 border-t border-gray-200">${PRIO_LBL[c.prio]||'Autre'}</td></tr>`;prioShown=c.prio;}
+      rows+=`<tr class="border-t border-gray-100 text-[10px] ${PRIO_BG[c.prio]||''}"><td class="py-1 px-3 font-mono text-gray-500">${c.code}</td><td class="py-1 px-3 max-w-[120px] truncate">${c.nom||'—'}</td><td class="py-1 px-3 text-[9px] text-gray-500">${c.statut||'—'}</td><td class="py-1 px-3 text-[9px] text-gray-500">${c.activitePDV||'—'}</td><td class="py-1 px-3">${_diagClassifBadge(c.classification)}</td><td class="py-1 px-3 text-right ${c.ca2025>0?'text-amber-600 font-bold':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-3 text-right ${c.caPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td><td class="py-1 px-3 text-[9px] text-gray-500">${c.ville||'—'}</td></tr>`;
+    }
+    innerEl.innerHTML=`<div class="overflow-x-auto" style="max-height:280px;overflow-y:auto"><table class="min-w-full"><thead style="position:sticky;top:0;z-index:10;background:#f1f5f9"><tr class="text-[9px] font-bold text-gray-600 border-b-2 border-gray-300"><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-left">Statut</th><th class="py-1.5 px-3 text-left">Act. PDV Zone</th><th class="py-1.5 px-3 text-left">Classif.</th><th class="py-1.5 px-3 text-right">CA 2025</th><th class="py-1.5 px-3 text-right">CA PDV Zone</th><th class="py-1.5 px-3 text-left">Ville</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   // V24.4: Territoire tab spinner + progress
   function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock','terrClientsMetierBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
@@ -2521,7 +2585,7 @@
     const clients=[];
     for(const[cc,info] of chalandiseData.entries()){
       if(info.metier!==metier)continue;
-      if(!clientMatchesDeptFilter(info))continue;
+      if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
       const myData=ventesClientArticle.get(cc);
       const famCA=myData?[...myData.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;
       const prio=_diagClientPrio(info,famCA);
@@ -2568,7 +2632,7 @@
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille dans les données stock',metiers:[]};
     // article → clients → métier
     const metierBuyers={};
-    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
+    for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
     const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
     if(!totalBuyers)return{status:'warn',reason:'Aucun acheteur de cette famille identifié dans la chalandise — vérifiez que les codes clients correspondent entre Consommé et Chalandise',metiers:[]};
     let top3;
@@ -2579,7 +2643,7 @@
       const clients=[];
       for(const[cc,info] of chalandiseData.entries()){
         if(info.metier!==metier)continue;
-        if(!clientMatchesDeptFilter(info))continue;
+        if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info))continue;
         const myData=ventesClientArticle.get(cc);
         const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
         const prio=_diagClientPrio(info,famCA);
@@ -2638,8 +2702,9 @@
         ${moreRows?`<div id="${pageId}_more" style="display:none"><div class="overflow-x-auto"><table class="min-w-full"><tbody>${moreRows}</tbody></table></div></div><button class="mt-1 text-[10px] text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-0.5 rounded transition-colors" data-target="${pageId}_more" data-more="${more.length}" onclick="_diagL4Toggle(this)">▼ Voir plus (${more.length})</button>`:''}
       </div>`;
     }).join('');
-    const deptNote=_selectedDepts.size?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">🗺️ Filtre : ${[..._selectedDepts].sort().join(', ')}</span>`:'';
-    const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+deptNote;
+    const filterParts=[];if(_selectedDepts.size)filterParts.push('🗺️ '+[..._selectedDepts].sort().join(', '));if(_selectedClassifs.size)filterParts.push('🏷️ '+[..._selectedClassifs].join(', '));if(_selectedStatuts.size)filterParts.push('👤 '+[..._selectedStatuts].join(', '));
+    const filterNote=filterParts.length?`<span class="ml-2 text-[10px] text-rose-400 font-semibold">${filterParts.join(' · ')}</span>`:'';
+    const subHdr=(l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone de chalandise`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> acheteur${l.totalBuyers>1?'s':''} identifié${l.totalBuyers>1?'s':''} dans la chalandise`)+filterNote;
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 4 — Clients métier</span>${_diagBadge(l.status)}</div>
       <p class="text-xs text-slate-400 mb-3">${subHdr}</p>
