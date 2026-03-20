@@ -3295,34 +3295,31 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const statusRup=ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn';
     const statusMM=nbMM===0?'ok':nbMM>5?'error':'warn';
     const v1={status:[statusRup,statusMM].includes('error')?'error':[statusRup,statusMM].includes('warn')?'warn':'ok',arts:cellArts.length,enStock,nonRef,ruptures,caPerduTotal,nonCal:nonCal.length,sousD:sousD.length,mmDetail,nbMM,dormants,statusRup,statusMM};
-    // V2 — Mes Clients (chalandise, aggregated across cell families)
+    // V2 — Mes Clients (chalandise, croisée avec les acheteurs des articles de la case)
     let v2;
     if(hasChal){
       const famArts=new Set(cellArts.map(r=>r.code));
       const metierBuyers={};
       for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
       const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
-      if(!totalBuyers){v2={status:'warn',reason:'Aucun acheteur identifié dans la chalandise pour cette case',metiers:[],perdus:0,potentiel:0};}
+      if(!totalBuyers){v2={status:'warn',reason:'Aucun client identifié dans la chalandise pour ces articles',metiers:[],perdus:0,potentiel:0,cellMode:true,cellKey:key,nbArts:cellArts.length};}
       else{
         const top3=Object.entries(metierBuyers).sort((a,b)=>b[1].size-a[1].size).slice(0,3);
         const metiers=top3.map(([metier,buyerSet])=>{
           const pct=Math.round(buyerSet.size/totalBuyers*100);
-          const clients=[];
-          for(const[cc,info] of chalandiseData.entries()){
-            if(info.metier!==metier)continue;
-            const myData=ventesClientArticle.get(cc);
-            const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;
-            const prio=_diagClientPrio(info,famCA);
-            clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',activiteGlobale:info.activiteGlobale||info.activite||'',activitePDV:info.activitePDV||'',classification:info.classification||'',ca2025:info.ca2025||0,famCA,ville:info.ville||'',prio});
-          }
-          clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;return cp||b.ca2025-a.ca2025;});
-          const p2=clients.filter(c=>c.prio===2).length,p3=clients.filter(c=>c.prio===3).length;
-          const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+c.ca2025,0);
-          return{metier,pct,total:clients.length,p1:clients.filter(c=>c.prio===1).length,p2,p3,p4:clients.filter(c=>c.prio===4).length,p5:clients.filter(c=>c.prio===5).length,potentiel,clients};
+          // Actifs : uniquement les clients qui achètent des articles de la case
+          const actifClients=[];
+          for(const cc of buyerSet){const info=chalandiseData.get(cc);if(!info)continue;const myData=ventesClientArticle.get(cc);const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;actifClients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca2025:info.ca2025||0,famCA});}
+          actifClients.sort((a,b)=>b.famCA-a.famCA||b.ca2025-a.ca2025);
+          const caActifs=actifClients.reduce((s,c)=>s+c.famCA,0);
+          // Perdus : clients chalandise de ce métier n'achetant pas les articles de la case
+          let perduCount=0,potentiel=0;
+          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const st=(info.statut||'').toLowerCase();if(st.includes('inactif')||st.includes('perdu')||st.includes('prospect')){perduCount++;potentiel+=(info.ca2025||0);}}
+          return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:perduCount,potentiel,clients:actifClients};
         });
-        const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
+        const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
         const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-        v2={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
+        v2={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel,cellMode:true,cellKey:key,nbArts:cellArts.length};
       }
     }else{v2={status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};}
     // V3 — Le Réseau (median across stores, aggregated across cell families)
@@ -3515,7 +3512,30 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
   function _diagRenderV2(v,hasChal){
     if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-[10px] text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
-    if(!v.metiers?.length)return`<div class="diag-voyant diag-v2"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${v.reason||'Aucun métier identifié dans la chalandise pour cette famille'}</p></div>`;
+    if(!v.metiers?.length){const msg=v.cellMode?'Aucun client identifié dans la chalandise pour ces articles.':(v.reason||'Aucun métier identifié dans la chalandise pour cette famille');return`<div class="diag-voyant diag-v2"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs text-slate-400">⚠️ ${msg}</p></div>`;}
+    // Cell mode (depuis Radar case ABC/FMR) : croisement articles de la case → acheteurs → chalandise
+    if(v.cellMode){
+      const metiersHtml=v.metiers.map((m,mIdx)=>{
+        const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        const caHtml=m.caActifs>0?` · CA : <strong class="text-emerald-400">${formatEuro(m.caActifs)}</strong>`:'';
+        return`<div class="${mIdx>0?'mt-3 pt-3 border-t border-slate-700':''} bg-slate-800/50 rounded-lg p-3">
+          <div class="flex flex-wrap items-center gap-2 mb-1.5">
+            <span class="text-xs font-extrabold text-rose-300">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-400 text-[10px]">⭐</span>':''}</span>
+            <span class="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+          </div>
+          <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>
+          ${m.perdus>0?`<p class="text-[11px] text-rose-400 mb-1">→ <strong>${m.perdus}</strong> client${m.perdus>1?'s':''} perdu${m.perdus>1?'s':''} sur ce métier</p>`:''}
+          ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
+          <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Territoire →</button>
+        </div>`;
+      }).join('');
+      const perdusTxt=v.perdus>0?` · <span class="text-rose-400">${v.perdus} perdu${v.perdus>1?'s':''} sur ces métiers</span>`:'';
+      return`<div class="diag-voyant diag-v2">
+        <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
+        <p class="text-[10px] text-slate-400 mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt} :</p>
+        ${metiersHtml}
+      </div>`;
+    }
     const metiersHtml=v.metiers.map((m,mIdx)=>{
       const pctActifPDV=m.total>0?Math.round(m.p5/m.total*100):0;
       const counters=[m.p5?`<span class="text-emerald-400">${m.p5} actifs PDV (${pctActifPDV}%)</span>`:'',m.p1?`<span class="text-amber-400">${m.p1} actifs sans achat PDV</span>`:'`',(m.p2+m.p3)?`<span class="text-rose-400">${m.p2+m.p3} perdus</span>`:''].filter(s=>s&&s!=='`').join(' · ');
