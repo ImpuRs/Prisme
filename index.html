@@ -46,7 +46,7 @@
     .obs-expand-icon{display:inline-block;transition:transform .15s}
     .cockpit-link{cursor:pointer;display:inline-flex;align-items:center;gap:2px;font-size:.6rem;padding:2px 6px;border-radius:6px;transition:all .15s}
     .cockpit-link:hover{transform:scale(1.05)}
-    [data-tooltip]{position:relative}[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:8px 12px;border-radius:6px;font-size:12px;white-space:normal;max-width:250px;z-index:9999;pointer-events:none;line-height:1.5;text-align:left;margin-bottom:4px}
+    [data-tooltip]{position:relative}
     .toast-enter{animation:slideIn .3s ease-out forwards}.toast-leave{animation:slideOut .3s ease-in forwards}
     @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
     @keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
@@ -69,7 +69,7 @@
     .shortcut-card:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(0,0,0,.08)}
     /* V24.3: Info tooltip */
     .info-tip{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#e2e8f0;color:#64748b;font-size:.6rem;cursor:help;font-style:normal;margin-left:5px;position:relative;vertical-align:middle;flex-shrink:0}
-    .info-tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:8px 12px;border-radius:6px;font-size:12px;white-space:normal;max-width:250px;z-index:9999;text-align:left;line-height:1.5;pointer-events:none;margin-bottom:4px}
+    /* Tooltip rendered by JS (#g-tooltip) — no ::after pseudo-element */
     /* V24.4: Territoire */
     .canal-bar{height:24px;border-radius:6px;transition:width .5s ease;display:flex;align-items:center;padding:0 8px;font-size:.65rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;min-width:30px}
     .terr-row{cursor:pointer;transition:background .15s}
@@ -699,12 +699,12 @@
           <table class="min-w-full text-xs">
             <thead class="bg-gray-100 text-gray-700 font-bold sticky top-0">
               <tr>
-                <th class="py-2 px-3 text-left">Agence</th>
-                <th class="py-2 px-3 text-center">Réf stockées<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center">Serv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
-                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-right">Rang<em class="info-tip" data-tip="Classement par Nb ventes (BL prélevé) décroissant. #1 = agence la plus active du bassin.">ℹ</em></th>
+                <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Réf stockées<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
+                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement par Nb ventes (BL prélevé) décroissant. #1 = agence la plus active du bassin.">ℹ</em></th>
               </tr>
             </thead>
             <tbody id="benchStoreTable"></tbody>
@@ -3819,6 +3819,34 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+
+  // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
+  (function(){
+    const tt=document.createElement('div');
+    tt.id='g-tooltip';
+    Object.assign(tt.style,{display:'none',position:'fixed',zIndex:'9999',background:'#fff',color:'#1e293b',border:'1px solid #d1d5db',boxShadow:'0 4px 14px rgba(0,0,0,0.15)',padding:'8px 12px',borderRadius:'6px',fontSize:'12px',maxWidth:'250px',lineHeight:'1.5',pointerEvents:'none',whiteSpace:'normal',textAlign:'left'});
+    document.body.appendChild(tt);
+    function showTip(el){
+      const text=el.getAttribute('data-tip')||el.getAttribute('data-tooltip');
+      if(!text)return;
+      tt.textContent=text;
+      tt.style.display='block';
+      const r=el.getBoundingClientRect(),ttW=tt.offsetWidth,ttH=tt.offsetHeight;
+      let top=r.top-ttH-8;
+      if(top<8)top=r.bottom+8;// flip below if no room above
+      let left=r.left+r.width/2-ttW/2;
+      left=Math.max(8,Math.min(left,window.innerWidth-ttW-8));
+      tt.style.top=top+'px';tt.style.left=left+'px';
+    }
+    document.addEventListener('mouseover',function(e){
+      const el=e.target.closest('.info-tip[data-tip],[data-tooltip]');
+      if(el)showTip(el);
+    });
+    document.addEventListener('mouseout',function(e){
+      const el=e.target.closest('.info-tip[data-tip],[data-tooltip]');
+      if(el&&!el.contains(e.relatedTarget))tt.style.display='none';
+    });
+  })();
   </script>
 </body>
 </html>
