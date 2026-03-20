@@ -1436,9 +1436,6 @@
       const articleRaw={};ventesParMagasin={};blData={};articleFamille={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;
 
-      // DEBUG CA — enlever après diagnostic
-      let _dbg={rows:0,sumCaP:0,sumCaE:0,sumQteP:0,sumQteE:0,caPCol:null,caECol:null,samples:[]};
-
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
@@ -1446,16 +1443,9 @@
       const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const cc0=extractClientCode(codeClientRaw);if(cc0)clientsMagasin.add(cc0);}
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
-      // DEBUG — capture pour selectedMyStore
-      if(sk===selectedMyStore){
-        _dbg.rows++;_dbg.sumCaP+=caP;_dbg.sumCaE+=caE;_dbg.sumQteP+=qteP;_dbg.sumQteE+=qteE;
-        if(!_dbg.caPCol){const ks=Object.keys(row),tl='prél';_dbg.caPCol=ks.find(k=>(k.toLowerCase().includes('ca')||k.toLowerCase().includes('montant'))&&k.toLowerCase().includes(tl))||'NOT FOUND';}
-        if(!_dbg.caECol){const ks=Object.keys(row),tl='enlév';_dbg.caECol=ks.find(k=>(k.toLowerCase().includes('ca')||k.toLowerCase().includes('montant'))&&k.toLowerCase().includes(tl))||ks.find(k=>(k.toLowerCase().includes('ca')||k.toLowerCase().includes('montant'))&&k.toLowerCase().includes('enlev'))||'NOT FOUND';}
-        if(_dbg.samples.length<5&&(caP>0||caE>0))_dbg.samples.push({code,caP,caE,qteP,qteE,cols:Object.keys(row).filter(k=>k.toLowerCase().includes('ca')||k.toLowerCase().includes('montant')).join('|')});
-      }
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
-      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(caP>0||caE>0)ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
+      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
@@ -1471,23 +1461,6 @@
       }
       if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
-      // DEBUG — résultat final
-      const _dbgV=ventesParMagasin[selectedMyStore]||{};
-      const _dbgTotalCA=Object.values(_dbgV).reduce((s,d)=>s+d.sumCA,0);
-      const _dbgTotalQteP=Object.values(_dbgV).reduce((s,d)=>s+d.sumPrelevee,0);
-      const _dbgTotalQteE=Object.values(_dbgV).reduce((s,d)=>s+d.sumEnleve,0);
-      console.group(`[PILOT DEBUG] CA Parsing — ${selectedMyStore} (canal MAGASIN strict)`);
-      console.log('Lignes traitées :', _dbg.rows);
-      console.log('Colonne caP matchée :', _dbg.caPCol);
-      console.log('Colonne caE matchée :', _dbg.caECol);
-      console.log('Σ caP brut (lignes) :', _dbg.sumCaP.toFixed(2));
-      console.log('Σ caE brut (lignes) :', _dbg.sumCaE.toFixed(2));
-      console.log('Σ CA total brut (caP+caE) :', (_dbg.sumCaP+_dbg.sumCaE).toFixed(2));
-      console.log('Σ sumCA agrégé (ventesParMagasin) :', _dbgTotalCA.toFixed(2), '← valeur utilisée par Observatoire');
-      console.log('Σ sumPrelevee (qté) :', _dbgTotalQteP, '| sumEnleve :', _dbgTotalQteE);
-      console.log('Echantillon 5 premières lignes avec CA:', _dbg.samples);
-      console.log('Toutes les colonnes du 1er row:', Object.keys(dataC[0]||{}).join(' | '));
-      console.groupEnd();
       // V24.4: convert canalAgence bl sets to counts
       for(const c of Object.keys(canalAgence))canalAgence[c].bl=canalAgence[c].bl.size;
       // V24.4: build blConsommeSet ONCE here (before territoire processing)
