@@ -746,6 +746,8 @@
   // V23: track parent refs excluded
   let parentRefsExcluded=0;
   let globalJoursOuvres=250;
+  // Mapping lettre Code famille → Univers (utilisé si colonne 'Univers' absente du consommé)
+  const FAM_LETTER_UNIVERS={'A':'Agencement ameublement','B':'Bâtiment','C':'Consommables','R':'Électricité','E':'EPI','G':'Génie climatique','M':'Maintenance et équipements','O':'Outillage','L':'Plomberie'};
   // V24: ABC/FMR
   let abcMatrixData={};
   // V24.4: Territoire
@@ -832,8 +834,8 @@
       chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
       _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;
       _buildDeptFilter();
-      // Show territoire tab if data already computed — always show tab button when chalandise loaded
-      if(finalData&&finalData.length>0){const btn=document.getElementById('btnTabTerritoire');if(btn)btn.classList.remove('hidden');renderTerritoireTab();}
+      // Territoire tab : chalandise = seul déclencheur. Afficher dès que finalData est prêt.
+      const _terrBtn=document.getElementById('btnTabTerritoire');if(_terrBtn)_terrBtn.classList.remove('hidden');if(finalData&&finalData.length>0)renderTerritoireTab();
       // Populate métier select
       const msel=document.getElementById('benchMetierSelect');
       if(msel){const metierCounts={};for(const v of chalandiseData.values())metierCounts[v.metier]=(metierCounts[v.metier]||0)+1;msel.innerHTML='<option value="">Tous les clients ('+chalandiseData.size+')</option>'+chalandiseMetiers.map(m=>`<option value="${m}">${m} (${metierCounts[m]||0})</option>`).join('');}
@@ -1521,7 +1523,7 @@
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
-      const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
+      const _uv=(getVal(row,'Univers')||'').toString().trim();const _cf=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const famConso=_uv||(_cf?FAM_LETTER_UNIVERS[_cf[0].toUpperCase()]||'Inconnu':(getVal(row,'Famille')||'').toString().trim());if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
@@ -1616,8 +1618,8 @@
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      // V1: Territoire tab always visible after processData; placeholder shown when chalandise not loaded
-      document.getElementById('btnTabTerritoire').classList.remove('hidden');
+      // Territoire tab visible seulement quand la chalandise est chargée (pas de dépendance au fichier BL)
+      if(chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}else{document.getElementById('btnTabTerritoire').classList.add('hidden');}
       if(!chalandiseReady){document.getElementById('navTerr').classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
@@ -2483,7 +2485,7 @@
       for(const[cc,artMap] of ventesClientArticle.entries()){if(!metierClients.has(cc))continue;for(const[code,data] of artMap.entries()){if(!myV[code])myV[code]={sumPrelevee:0,countBL:0};myV[code].sumPrelevee+=data.sumPrelevee;myV[code].countBL+=data.countBL;}}
     }else{myV=ventesParMagasin[selectedMyStore]||{};}
     const bv={};
-    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
+    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!/^\d{6}$/.test(a))continue;if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
     // Apply universe filter — narrow bv and myV to the selected famille/univers
     if(obsFilterUnivers){
       for(const k of Object.keys(bv)){if(articleFamille[k]!==obsFilterUnivers)delete bv[k];}
@@ -2500,8 +2502,8 @@
     benchLists.storePerf=sp;
     // V2 Phase 1: median per family (per-store aggregates)
     const myFamFreq={};const storesFamFreq={};
-    for(const[code,data] of Object.entries(myV)){const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
-    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
+    for(const[code,data] of Object.entries(myV)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
+    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
     const allFamsSet=new Set([...Object.keys(myFamFreq)]);for(const store of cs)for(const f of Object.keys(storesFamFreq[store]||{}))allFamsSet.add(f);
     const bassinFamMedian={};for(const fam of allFamsSet){const vals=cs.map(s=>(storesFamFreq[s]||{})[fam]||0).filter(v=>v>0);if(vals.length)bassinFamMedian[fam]=_median(vals);}
     const familyPerf=[];let familyPerfMasked=0;
@@ -2518,7 +2520,7 @@
     // Per-store family CA & Ref — prefer direct CA columns, fallback to (sumPrelevee+sumEnleve)*prix
     const storeFamCA={},storeFamRef={},storeTotalCA={};
     const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
-    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
+    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;if(!/^\d{6}$/.test(code))continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
     // CA median per family across comparison stores — used for F&F filter and diagnostic
     const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
     benchLists._bassinFamCAMed=bassinFamCAMed;
@@ -2526,7 +2528,7 @@
     {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=500);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
     // My family CA & Ref
     const myFamCA={},myFamRef={};let myTotalCA=0;
-    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
+    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
     // Determine comparison values based on selectedObsCompare
     const obsMode=selectedObsCompare||'median';
     let compV=null,compFamCA={},compFamRef={},compTotalCA=0,compRef=0,compFreq=0,compServ=0;
@@ -2555,13 +2557,13 @@
       const caMe=myFamCA[fam]||0,caOther=compFamCA[fam]||0;if(caMe<50&&caOther<50)continue;
       const refMe=myFamRef[fam]||0,refOther=compFamRef[fam]||0;
       const ecartPct=caOther>0?Math.round((caMe-caOther)/caOther*100):(caMe>0?100:0);
-      // Find missing articles
-      let missingArts=[];
-      const _splitLib=raw=>{const i=raw.indexOf(' - ');return i>0?raw.substring(i+3).trim():raw;};
-      if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);missingArts.push({code,lib:_splitLib(libelleLookup[code]||code),freqOther:data.countBL,caOther:Math.round(caA),statutMe});}
-      }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||code),freqOther:Math.round(artFreqSum[code]/cnt),caOther:Math.round(artCASum[code]/cnt),statutMe,nbStores:cnt});}}
+      // Find missing articles (standard) + collect special articles separately
+      let missingArts=[],specialArts=[];
+      const _splitLib=raw=>{if(!raw)return'Libellé non disponible';let i=raw.indexOf(' - ');if(i>0)return raw.substring(i+3).trim();i=raw.indexOf(' -');if(i>0)return raw.substring(i+2).trim();i=raw.indexOf('- ');if(i>0)return raw.substring(i+2).trim();return raw;};
+      if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:data.countBL,caOther:Math.round(caA)});continue;}const r2=finalDataByCode[code];const statMe2=!r2?'❌ Absent':r2.stockActuel>0?'✅ En stock':r2.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:data.countBL,caOther:Math.round(caA),statutMe:statMe2});}
+      }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
       missingArts.sort((a,b)=>b.freqOther-a.freqOther);missingArts=missingArts.slice(0,50);
-      const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts};
+      const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts,specialArts};
       if(ecartPct<=-5)obsFamiliesLose.push(entry);else if(ecartPct>=5)obsFamiliesWin.push(entry);
     }
     // Sort by absolute CA gap descending (biggest missed revenue first)
@@ -2591,7 +2593,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Forces & Faiblesses (median)
     p=[];let sousPerf=0;if(familyPerf&&familyPerf.length){for(let fpi=0;fpi<familyPerf.length;fpi++){const fp=familyPerf[fpi];const pctMed=fp.med>0?Math.round((fp.my/fp.med)*100):null;const isS=fp.ecart>20,isW=fp.ecart<-20,isCrit=pctMed!==null&&pctMed<50;const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'bg-emerald-50':isCrit?'bg-red-50':isW?'bg-amber-50':'';const medColor=pctMed===null?'text-gray-400':pctMed>=100?'text-emerald-700 font-extrabold':pctMed>=50?'text-amber-700 font-bold':'text-red-600 font-extrabold';const medStr=pctMed!==null?pctMed+'%':'—';if(isCrit)sousPerf++;const perfDot=pctMed===null?'<span class="text-gray-300">—</span>':pctMed>=100?'<span class="inline-block w-3 h-3 rounded-full bg-emerald-500 align-middle"></span>':pctMed>=50?'<span class="inline-block w-3 h-3 rounded-full bg-amber-400 align-middle"></span>':'<span class="inline-block w-3 h-3 rounded-full bg-red-500 align-middle"></span>';const famEnc=encodeURIComponent(fp.fam);const fpId='fp_'+fpi;const diagBtn=isCrit?`<button class="diag-btn bg-red-100 text-red-700 hover:bg-red-200 mt-2" onclick="event.stopPropagation();openDiagnostic(decodeURIComponent('${famEnc}'),'bench')">🔍 Diag.</button>`:'';const detailHtml=`<div class="flex flex-wrap gap-4 text-[11px]"><span class="text-gray-500">Nb ventes Moi : <strong>${fp.my}</strong></span><span class="text-gray-500">Nb ventes méd. : <strong>${fp.med}</strong></span><span class="text-gray-500">Écart : <span class="${medColor}">${fp.ecart>0?'+':''}${fp.ecart.toFixed(0)}%</span></span><span class="text-gray-500">% méd. : <span class="${medColor}">${medStr}</span></span></div>${diagBtn}`;p.push(`<tr class="border-b ${bg} cursor-pointer hover:opacity-90 transition-colors" onclick="toggleObsFamily('${fpId}')"><td class="py-1.5 px-2 text-[11px] font-semibold"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-right ${medColor} text-xs">${medStr}</td><td class="py-1.5 px-2 text-center">${perfDot}</td></tr><tr id="${fpId}" class="hidden ${bg}"><td colspan="3"><div class="px-3 py-2">${detailHtml}</div></td></tr>`);}}
     rT('benchFamilyTable',p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">—</td></tr>');
-    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} masquée${m>1?'s':''} (activité réseau trop faible : fréquence < 2 ou CA médiane < 500 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
+    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} marginale${m>1?'s':''} masquée${m>1?'s':''} (CA médiane < 500 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     const fbadge=document.getElementById('obsFamilyBadge');if(fbadge){if(sousPerf>0){fbadge.textContent=sousPerf+' sous la médiane';fbadge.classList.remove('hidden');}else fbadge.classList.add('hidden');}
     // Store ranking
@@ -2684,7 +2686,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] mb-2 pt-2 px-3"><span class="text-gray-500">CA Moi : <strong class="text-blue-700">${formatEuro(f.caMe)}</strong></span><span class="text-gray-500">${caAutreLabel} : <strong>${formatEuro(f.caOther)}</strong></span><span class="text-gray-500">Écart : ${ecText}</span><span class="text-gray-500">Réf Moi : <strong>${f.refMe}</strong></span><span class="text-gray-500">${refAutreLabel} : <strong>${f.refOther}</strong></span></div>`;
       const ecBg=f.ecartPct<-30?'bg-red-50/80':'bg-amber-50/70';
       const noArts=!artsToRef.length&&!artsVisi.length?'<p class="text-gray-400 text-[10px] py-2">Aucun article identifié.</p>':'';
-      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}</div></td></tr>`;
+      const specs=f.specialArts||[];const specCA=specs.reduce((s,a)=>s+a.caOther,0);
+      const specEncart=specs.length?`<div class="mx-3 mt-3 p-2 bg-gray-100 rounded border border-gray-200 text-[10px] text-gray-500"><p class="font-bold text-gray-600 mb-1">⚠️ ${specs.length} article${specs.length>1?'s':''} spéciaux détectés chez ${obsLabel}${specCA>0?' (CA : '+formatEuro(specCA)+')':''}</p><p class="font-mono text-gray-400 text-[9px] mb-1">${specs.slice(0,15).map(a=>a.code).join(' · ')}</p><p class="italic text-gray-400">Vérifiez si ces commandes spéciales sont récurrentes.</p></div>`:'';
+      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}${specEncart}</div></td></tr>`;
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="3" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
@@ -3241,19 +3245,21 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(hasMulti){
       const myArtSet=new Set(cellArts.map(r=>r.code));
       const cellFamSet=new Set(cellArts.map(r=>r.famille).filter(Boolean));
-      const artStoreFreqs={};
+      const artStoreFreqs={};const storeRefCounts=[];
       const nbOtherStores=storesIntersection.size-1;
       for(const store of storesIntersection){
         if(store===selectedMyStore)continue;
-        const sv=ventesParMagasin[store]||{};
-        for(const[code,sv2] of Object.entries(sv)){if(!cellFamSet.has(articleFamille[code]))continue;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(sv2.countBL||0);}
+        const sv=ventesParMagasin[store]||{};let cnt=0;
+        for(const[code,sv2] of Object.entries(sv)){if(!cellFamSet.has(articleFamille[code]))continue;if((sv2.countBL||0)>0)cnt++;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(sv2.countBL||0);}
+        if(cnt>0)storeRefCounts.push(cnt);
       }
+      const refMedian=storeRefCounts.length?Math.round(_median(storeRefCounts)):0;
       const missing=[];
       for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
       const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:myArtSet.size,reseauCount:myArtSet.size+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0};
-    }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0};}
+      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:myArtSet.size,reseauCount:myArtSet.size+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian};
+    }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
     _diagLevels={v1,v2,v3};
     const acts=[];
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
@@ -3501,16 +3507,29 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
   function _diagRenderV3(v,hasMulti){
     if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] text-emerald-600 mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
+    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
+    const missingSection=(v.missing||[]).length?`<p class="text-[10px] text-amber-300 font-bold mb-1">⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> forte rotation (A/B)':''}:</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th><th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
+    // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
+    if(v.isCellMode){
+      const refLine=v.refMedian>0
+        ?`Réf dans cette case — Vous : <strong class="text-white">${v.myCount}</strong> · Médiane réseau : <strong class="text-white">${v.refMedian}</strong> <span class="${v.myCount>=v.refMedian?'text-emerald-400':'text-amber-400'}">(${v.myCount>=v.refMedian?'+':''}${v.myCount-v.refMedian} vs médiane)</span>`
+        :`<span class="text-slate-400">⚪ Non applicable — comparaison réseau disponible par famille dans l'Observatoire</span>`;
+      return`<div class="diag-voyant diag-v3">
+        <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
+        <p class="text-xs mb-3">${refLine}</p>
+        ${missingSection}
+      </div>`;
+    }
+    // Mode famille (depuis Bench / Cockpit / Stock)
     const caIcon=v.caEcart>=0?'🟢':v.caEcart>=-50?'🟠':'🔴';
     const ecartStr=(v.caEcart>=0?'+':'')+v.caEcart+'%';
     const ecartColor=v.caEcart>=0?'text-emerald-400':v.caEcart>=-50?'text-amber-400':'text-red-400';
     const caLine=v.medCA>0?`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> vs médiane réseau <strong class="text-white">${formatEuro(v.medCA)}</strong> <span class="${ecartColor}">(${ecartStr})</span>`:`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> <span class="text-slate-500">(médiane non calculable — réseau insuffisant)</span>`;
-    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
     const exclRows=(v.exclusives||[]).map(a=>`<tr class="border-t border-blue-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center text-blue-300 font-bold">${a.myFreq}</td></tr>`).join('');
     return`<div class="diag-voyant diag-v3">
       <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error')}</div>
       <p class="text-xs mb-3">${caIcon} ${caLine}</p>
-      ${(v.missing||[]).length?`<p class="text-[10px] text-amber-300 font-bold mb-1">⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> forte rotation (A/B)':''}:</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th><th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>'}
+      ${missingSection}
       ${(v.exclusives||[]).length?`<p class="text-[10px] text-blue-300 font-bold mt-2 mb-1">⭐ ${v.exclusives.length} exclusivité${v.exclusives.length>1?'s':''} — articles que <2 autres agences vendent :</p><div class="overflow-x-auto" style="max-height:120px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-blue-300 border-b border-blue-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. moi</th></tr></thead><tbody>${exclRows}</tbody></table></div>`:''}
     </div>`;
   }
@@ -3783,6 +3802,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(v3.medCA>0&&v3.medCA<500){
         if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente pour votre agence — volume réseau insuffisant (médiane réseau ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
         if(acts.length===0)acts.push({priority:99,src:'ℹ️',label:`Famille marginale dans le réseau (médiane ${formatEuro(v3.medCA)}). Pas d'action prioritaire.`,fn:null,isInfo:true});
+      }
+      // Famille absente chez moi mais réseau actif (CA médiane ≥ 500€) → évaluer opportunité, sans lien cliquable
+      if(v3.myCA===0&&v3.medCA>=500&&acts.length===0){
+        acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans l'Observatoire.`,fn:null,isInfo:true});
       }
     }
     // Sort by priority and limit to 3
