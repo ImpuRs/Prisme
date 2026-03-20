@@ -2519,6 +2519,11 @@
     const storeFamCA={},storeFamRef={},storeTotalCA={};
     const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
     for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
+    // CA median per family across comparison stores — used for F&F filter and diagnostic
+    const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
+    benchLists._bassinFamCAMed=bassinFamCAMed;
+    // Post-filter familyPerf: remove families with CA médiane < 500€ (volume trop faible, pas une vraie faiblesse exploitable)
+    {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=500);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
     // My family CA & Ref
     const myFamCA={},myFamRef={};let myTotalCA=0;
     for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
@@ -2586,7 +2591,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Forces & Faiblesses (median)
     p=[];let sousPerf=0;if(familyPerf&&familyPerf.length){for(let fpi=0;fpi<familyPerf.length;fpi++){const fp=familyPerf[fpi];const pctMed=fp.med>0?Math.round((fp.my/fp.med)*100):null;const isS=fp.ecart>20,isW=fp.ecart<-20,isCrit=pctMed!==null&&pctMed<50;const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'bg-emerald-50':isCrit?'bg-red-50':isW?'bg-amber-50':'';const medColor=pctMed===null?'text-gray-400':pctMed>=100?'text-emerald-700 font-extrabold':pctMed>=50?'text-amber-700 font-bold':'text-red-600 font-extrabold';const medStr=pctMed!==null?pctMed+'%':'—';if(isCrit)sousPerf++;const perfDot=pctMed===null?'<span class="text-gray-300">—</span>':pctMed>=100?'<span class="inline-block w-3 h-3 rounded-full bg-emerald-500 align-middle"></span>':pctMed>=50?'<span class="inline-block w-3 h-3 rounded-full bg-amber-400 align-middle"></span>':'<span class="inline-block w-3 h-3 rounded-full bg-red-500 align-middle"></span>';const famEnc=encodeURIComponent(fp.fam);const fpId='fp_'+fpi;const diagBtn=isCrit?`<button class="diag-btn bg-red-100 text-red-700 hover:bg-red-200 mt-2" onclick="event.stopPropagation();openDiagnostic(decodeURIComponent('${famEnc}'),'bench')">🔍 Diag.</button>`:'';const detailHtml=`<div class="flex flex-wrap gap-4 text-[11px]"><span class="text-gray-500">Nb ventes Moi : <strong>${fp.my}</strong></span><span class="text-gray-500">Nb ventes méd. : <strong>${fp.med}</strong></span><span class="text-gray-500">Écart : <span class="${medColor}">${fp.ecart>0?'+':''}${fp.ecart.toFixed(0)}%</span></span><span class="text-gray-500">% méd. : <span class="${medColor}">${medStr}</span></span></div>${diagBtn}`;p.push(`<tr class="border-b ${bg} cursor-pointer hover:opacity-90 transition-colors" onclick="toggleObsFamily('${fpId}')"><td class="py-1.5 px-2 text-[11px] font-semibold"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-right ${medColor} text-xs">${medStr}</td><td class="py-1.5 px-2 text-center">${perfDot}</td></tr><tr id="${fpId}" class="hidden ${bg}"><td colspan="3"><div class="px-3 py-2">${detailHtml}</div></td></tr>`);}}
     rT('benchFamilyTable',p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">—</td></tr>');
-    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} sans activité réseau (médiane < 2) masquée${m>1?'s':''}.`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
+    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} masquée${m>1?'s':''} (activité réseau trop faible : fréquence < 2 ou CA médiane < 500 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     const fbadge=document.getElementById('obsFamilyBadge');if(fbadge){if(sousPerf>0){fbadge.textContent=sousPerf+' sous la médiane';fbadge.classList.remove('hidden');}else fbadge.classList.add('hidden');}
     // Store ranking
@@ -3773,9 +3778,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(v3&&v3.status!=='lock'){
       if(v3.missing?.length>0){
         acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
-      } else if(v3.caEcart<0&&v3.medCA>0){
-        const pctLabel=v3.caEcart>=-50?'entre 50 et 100%':'< 50%';
-        acts.push({priority:4,src:'🔭',label:`CA réseau ${v3.caEcart}% sous la médiane (${formatEuro(v3.myCA)} vs ${formatEuro(v3.medCA)}) — Explorer l'Observatoire`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+      }
+      // Famille marginale — CA médiane < 500€ dans le réseau : pas d'action réseau exploitable
+      if(v3.medCA>0&&v3.medCA<500){
+        if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente pour votre agence — volume réseau insuffisant (médiane réseau ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
+        if(acts.length===0)acts.push({priority:99,src:'ℹ️',label:`Famille marginale dans le réseau (médiane ${formatEuro(v3.medCA)}). Pas d'action prioritaire.`,fn:null,isInfo:true});
       }
     }
     // Sort by priority and limit to 3
@@ -3790,7 +3797,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
   function _diagRenderPlan(famille,actions){
     if(!actions.length)return`<div class="mt-4 p-4 bg-slate-800 border border-slate-700 rounded-xl"><p class="text-xs text-emerald-400">✅ Aucune action prioritaire — votre agence est bien calibrée pour cette famille.</p></div>`;
-    _diagPlanCopyText=actions.map((a,i)=>`${i+1}. [${a.src||'📦'}] ${a.label}`).join('\n');
+    // Conclusion pure (famille non pertinente / marginale sans action)
+    if(actions.length===1&&actions[0].isInfo)return`<div class="mt-4 p-4 bg-slate-800 border border-slate-700 rounded-xl flex items-start gap-2"><span class="text-lg flex-shrink-0">${actions[0].src||'ℹ️'}</span><p class="text-xs text-slate-300">${actions[0].label}</p></div>`;
+    const realActs=actions.filter(a=>!a.isInfo);
+    _diagPlanCopyText=realActs.map((a,i)=>`${i+1}. [${a.src||'📦'}] ${a.label}`).join('\n');
     return`<div class="mt-4 p-4 bg-slate-800 border border-slate-600 rounded-xl">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-extrabold text-sm text-white">📋 Plan d'action — <span class="text-cyan-400">${famille}</span></h3>
@@ -3799,7 +3809,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded font-bold">📥 CSV</button>
         </div>
       </div>
-      ${actions.map((a,i)=>`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><span class="text-slate-400 text-[10px] ml-3 flex-shrink-0">→ Voir</span></div>`).join('')}
+      ${actions.map((a,i)=>a.isInfo?`<div class="px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600 flex items-center gap-2 text-xs text-slate-300 mt-1"><span class="flex-shrink-0">${a.src||'ℹ️'}</span><span>${a.label}</span></div>`:`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><span class="text-slate-400 text-[10px] ml-3 flex-shrink-0">→ Voir</span></div>`).join('')}
     </div>`;
   }
   function exportDiagnosticCSV(famille){
