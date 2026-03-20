@@ -746,6 +746,8 @@
   // V23: track parent refs excluded
   let parentRefsExcluded=0;
   let globalJoursOuvres=250;
+  // Mapping lettre Code famille → Univers (utilisé si colonne 'Univers' absente du consommé)
+  const FAM_LETTER_UNIVERS={'A':'Agencement ameublement','B':'Bâtiment','C':'Consommables','R':'Électricité','E':'EPI','G':'Génie climatique','M':'Maintenance et équipements','O':'Outillage','L':'Plomberie'};
   // V24: ABC/FMR
   let abcMatrixData={};
   // V24.4: Territoire
@@ -1521,7 +1523,7 @@
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
-      const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
+      const _uv=(getVal(row,'Univers')||'').toString().trim();const _cf=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const famConso=_uv||(_cf?FAM_LETTER_UNIVERS[_cf[0].toUpperCase()]||'Inconnu':(getVal(row,'Famille')||'').toString().trim());if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
