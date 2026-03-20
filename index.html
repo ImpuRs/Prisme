@@ -195,7 +195,7 @@
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
-        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Observatoire <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
+        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Observatoire</button></li>
       </ul>
     </div>
 
@@ -882,9 +882,8 @@
     if(comInput&&comList){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');if(_selectedCommercial)comInput.value=_selectedCommercial;}
   }
   function _buildChalandiseOverview(){
-    console.log('[PILOT] _buildChalandiseOverview called, chalandiseReady=',chalandiseReady,'chalandiseData.size=',chalandiseData.size);
     const blk=document.getElementById('terrChalandiseOverview');
-    if(!blk){console.warn('[PILOT] terrChalandiseOverview element not found in DOM');return;}
+    if(!blk)return;
     if(!chalandiseReady){blk.classList.add('hidden');return;}
     blk.classList.remove('hidden');
     _buildDeptFilter();
@@ -2484,9 +2483,7 @@
     const mDiv=document.getElementById('benchMetierDiv');if(mDiv)mDiv.classList.toggle('hidden',!chalandiseReady);
     // Render observatory sections
     renderObservatoire();
-    // Update tab badge
-    document.getElementById('benchTabBadge').textContent=missed.length;
-    const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
+const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Render accordion detail tables
