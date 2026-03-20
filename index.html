@@ -2525,7 +2525,7 @@
     const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
     benchLists._bassinFamCAMed=bassinFamCAMed;
     // Post-filter familyPerf: remove families with CA médiane < 500€ (volume trop faible, pas une vraie faiblesse exploitable)
-    {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=500);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
+    {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=1000);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
     // My family CA & Ref
     const myFamCA={},myFamRef={};let myTotalCA=0;
     for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
@@ -2593,7 +2593,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Forces & Faiblesses (median)
     p=[];let sousPerf=0;if(familyPerf&&familyPerf.length){for(let fpi=0;fpi<familyPerf.length;fpi++){const fp=familyPerf[fpi];const pctMed=fp.med>0?Math.round((fp.my/fp.med)*100):null;const isS=fp.ecart>20,isW=fp.ecart<-20,isCrit=pctMed!==null&&pctMed<50;const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'bg-emerald-50':isCrit?'bg-red-50':isW?'bg-amber-50':'';const medColor=pctMed===null?'text-gray-400':pctMed>=100?'text-emerald-700 font-extrabold':pctMed>=50?'text-amber-700 font-bold':'text-red-600 font-extrabold';const medStr=pctMed!==null?pctMed+'%':'—';if(isCrit)sousPerf++;const perfDot=pctMed===null?'<span class="text-gray-300">—</span>':pctMed>=100?'<span class="inline-block w-3 h-3 rounded-full bg-emerald-500 align-middle"></span>':pctMed>=50?'<span class="inline-block w-3 h-3 rounded-full bg-amber-400 align-middle"></span>':'<span class="inline-block w-3 h-3 rounded-full bg-red-500 align-middle"></span>';const famEnc=encodeURIComponent(fp.fam);const fpId='fp_'+fpi;const diagBtn=isCrit?`<button class="diag-btn bg-red-100 text-red-700 hover:bg-red-200 mt-2" onclick="event.stopPropagation();openDiagnostic(decodeURIComponent('${famEnc}'),'bench')">🔍 Diag.</button>`:'';const detailHtml=`<div class="flex flex-wrap gap-4 text-[11px]"><span class="text-gray-500">Nb ventes Moi : <strong>${fp.my}</strong></span><span class="text-gray-500">Nb ventes méd. : <strong>${fp.med}</strong></span><span class="text-gray-500">Écart : <span class="${medColor}">${fp.ecart>0?'+':''}${fp.ecart.toFixed(0)}%</span></span><span class="text-gray-500">% méd. : <span class="${medColor}">${medStr}</span></span></div>${diagBtn}`;p.push(`<tr class="border-b ${bg} cursor-pointer hover:opacity-90 transition-colors" onclick="toggleObsFamily('${fpId}')"><td class="py-1.5 px-2 text-[11px] font-semibold"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-right ${medColor} text-xs">${medStr}</td><td class="py-1.5 px-2 text-center">${perfDot}</td></tr><tr id="${fpId}" class="hidden ${bg}"><td colspan="3"><div class="px-3 py-2">${detailHtml}</div></td></tr>`);}}
     rT('benchFamilyTable',p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">—</td></tr>');
-    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} marginale${m>1?'s':''} masquée${m>1?'s':''} (CA médiane < 500 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
+    const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} marginale${m>1?'s':''} masquée${m>1?'s':''} (CA médiane < 1 000 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     const fbadge=document.getElementById('obsFamilyBadge');if(fbadge){if(sousPerf>0){fbadge.textContent=sousPerf+' sous la médiane';fbadge.classList.remove('hidden');}else fbadge.classList.add('hidden');}
     // Store ranking
@@ -2675,9 +2675,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const trueMissing=artsToRef.length||Math.max(0,f.refOther-f.refMe);
       const refBadge=trueMissing>0?`<span class="badge bg-red-500 text-white">${trueMissing}</span>`:'<span class="text-gray-300">—</span>';
       const ecText=f.caMe===0?'<span class="text-red-700 font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'text-red-700 font-extrabold':f.ecartPct<-10?'text-amber-700 font-bold':'text-gray-700'}">${f.ecartPct}%</span>`;
-      const artFreqLabel=isMedian?'Nb ventes moyen':`Nb ventes (${obsLabel})`;
+      const artFreqLabel=isMedian?'Nb agences':`Nb ventes (${obsLabel})`;
       const artCALabel=isMedian?'CA médiane réseau':`CA chez ${obsLabel}`;
-      const artRow=a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-right text-gray-600">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
+      const artRow=a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${isMedian?(a.nbStores??a.freqOther):a.freqOther}</td><td class="py-0.5 px-2 text-right text-gray-600">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
       const artThead=`<thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${artFreqLabel}</th><th class="py-1 px-2 text-right">${artCALabel}</th></tr></thead>`;
       const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1">❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés) :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
       const list2Html=artsVisi.length?`<div class="mb-2"><p class="text-[10px] font-bold text-amber-700 mb-1">⚠️ ${artsVisi.length} article${artsVisi.length>1?'s':''} en stock non vendus — vérifier visibilité/emplacement :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsVisi.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
@@ -3798,13 +3798,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(v3.missing?.length>0){
         acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
       }
-      // Famille marginale — CA médiane < 500€ dans le réseau : pas d'action réseau exploitable
-      if(v3.medCA>0&&v3.medCA<500){
-        if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente pour votre agence — volume réseau insuffisant (médiane réseau ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
+      // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
+      if(v3.medCA>0&&v3.medCA<1000){
+        if(v3.myCA===0)return [{priority:0,src:'✅',label:`Famille non pertinente — volume réseau insuffisant (médiane ${formatEuro(v3.medCA)}).`,fn:null,isInfo:true}];
         if(acts.length===0)acts.push({priority:99,src:'ℹ️',label:`Famille marginale dans le réseau (médiane ${formatEuro(v3.medCA)}). Pas d'action prioritaire.`,fn:null,isInfo:true});
       }
-      // Famille absente chez moi mais réseau actif (CA médiane ≥ 500€) → évaluer opportunité, sans lien cliquable
-      if(v3.myCA===0&&v3.medCA>=500&&acts.length===0){
+      // Famille absente chez moi mais réseau actif (CA médiane ≥ 1000€) → évaluer opportunité, sans lien cliquable
+      if(v3.myCA===0&&v3.medCA>=1000&&acts.length===0){
         acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans l'Observatoire.`,fn:null,isInfo:true});
       }
     }
