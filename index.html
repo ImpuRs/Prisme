@@ -721,6 +721,7 @@
   function daysBetween(a,b){const d=b.getTime()-a.getTime();return d>0?Math.ceil(d/864e5):0;}
   function getVal(r,...k){const ks=Object.keys(r);for(const p of k){const f=ks.find(x=>x.toLowerCase().includes(p.toLowerCase()));if(f!==undefined)return r[f];}return'';}
   function getQuantityColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();let f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&(l.includes('qté')||l.includes('qte')||l.includes('qt')||l.includes('quantité'));});if(!f)f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&!l.includes('ca ')&&!l.includes('vmb');});return f?parseFloat(r[f]||0):0;}
+  function getCaColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();const f=ks.find(k=>{const l=k.toLowerCase();return(l.includes('ca')||l.includes('montant'))&&l.includes(tl);});return f?parseFloat((r[f]||'').toString().replace(',','.'))||0:0;}
   function extractStoreCode(row){return(getVal(row,'Code PDV','PDV','Code Agence','Agence','code pdv','code agence')||'').toString().trim().toUpperCase();}
   function readExcel(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{try{const w=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:''}));}catch(e){rej(e);}};r.onerror=()=>rej(new Error('Lecture impossible'));r.readAsArrayBuffer(f);});}
   function yieldToMain(){return new Promise(r=>setTimeout(r,0));}
@@ -1441,10 +1442,10 @@
       // V24.4: capture client codes
       const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const cc0=extractClientCode(codeClientRaw);if(cc0)clientsMagasin.add(cc0);}
       if(canal!==''&&canal!=='MAGASIN')continue;
-      const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const sk=store||'INCONNU';
+      const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
-      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
+      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;if(caP>0||caE>0)ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
@@ -2427,12 +2428,13 @@
     const prixLookup={};for(const r of finalData)prixLookup[r.code]=r.prixUnitaire||0;
     const finalDataByCode={};for(const r of finalData)finalDataByCode[r.code]=r;
     const allOtherStores=[...storesIntersection].filter(s=>s!==selectedMyStore);
-    // Per-store family CA & Ref (using my store's prices as proxy)
+    // Per-store family CA & Ref — prefer direct CA columns, fallback to (sumPrelevee+sumEnleve)*prix
     const storeFamCA={},storeFamRef={},storeTotalCA={};
-    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee)continue;const fam=articleFamille[code];if(!fam)continue;const prix=prixLookup[code]||0;storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+data.sumPrelevee*prix;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=data.sumPrelevee*prix;}storeTotalCA[store]=ca;}
+    const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
+    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
     // My family CA & Ref
     const myFamCA={},myFamRef={};let myTotalCA=0;
-    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee)continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;myTotalCA+=data.sumPrelevee*prix;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+data.sumPrelevee*prix;myFamRef[fam]=(myFamRef[fam]||0)+1;}
+    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
     // Determine comparison values based on selectedObsCompare
     const obsMode=selectedObsCompare||'median';
     let compV=null,compFamCA={},compFamRef={},compTotalCA=0,compRef=0,compFreq=0,compServ=0;
