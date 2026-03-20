@@ -603,6 +603,7 @@
           <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mt-2">
             <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
             <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
+            <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
             <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
             <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
           </div>
@@ -972,8 +973,17 @@
   function _buildChalandiseOverview(){
     const blk=document.getElementById('terrChalandiseOverview');
     if(!blk)return;
-    if(!chalandiseReady){blk.classList.add('hidden');return;}
+    if(!chalandiseReady&&_selectedCrossStatus!=='fidele'){blk.classList.add('hidden');return;}
     blk.classList.remove('hidden');
+    _buildCockpitClient();
+    // 🟣 Fidèles hors zone — show message in L1 table, cockpit already rendered above
+    if(_selectedCrossStatus==='fidele'){
+      const hd=document.getElementById('terrOverviewL1Head'),tb=document.getElementById('terrOverviewL1Table');
+      if(hd)hd.innerHTML='';
+      if(tb)tb.innerHTML=`<tr><td colspan="9" class="py-6 text-center text-xs text-gray-400">🟣 Les fidèles hors zone n'appartiennent pas à la zone de chalandise — ils ne sont pas affichés dans le tableau par direction.</td></tr>`;
+      const ctr=document.getElementById('terrOverviewCounter');if(ctr)ctr.textContent=crossingStats?`${crossingStats.fideles.size} fidèles hors zone`:'';
+      return;
+    }
     _buildDeptFilter();
     _buildOverviewFilterChips();
     const hasTerr=territoireReady&&territoireLines.length>0;
@@ -1253,8 +1263,20 @@
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
-    if(!chalandiseReady){el.classList.add('hidden');return;}
+    if(!chalandiseReady&&_selectedCrossStatus!=='fidele'){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
+    // Special rendering for 🟣 Fidèles hors zone — clients in consommé but not in chalandise
+    if(_selectedCrossStatus==='fidele'){
+      if(!crossingStats||!crossingStats.fideles.size){el.innerHTML='<div class="bg-white rounded-xl shadow-md border p-5 text-gray-400 text-sm">Aucun fidèle hors zone identifié.</div>';return;}
+      const terrNom={};if(territoireReady)for(const l of territoireLines){if(l.clientCode&&l.clientNom&&!terrNom[l.clientCode])terrNom[l.clientCode]=l.clientNom;}
+      const fideleList=[];
+      for(const cc of crossingStats.fideles){const artMap=ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:terrNom[cc]||'—',ca,nbArts});}
+      fideleList.sort((a,b)=>b.ca-a.ca);
+      const show=fideleList.slice(0,100),more=fideleList.length-100;
+      const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
+      el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser</p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA consommé</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
+      return;
+    }
     const hasTerr=territoireReady&&territoireLines.length>0;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
     // Categorize clients
@@ -1382,18 +1404,20 @@
   }
   function _passesClientCrossFilter(cc){
     if(!_selectedCrossStatus||!crossingStats)return true;
+    if(_selectedCrossStatus==='fidele')return crossingStats.fideles.has(cc);   // never true for chalandise clients
     if(_selectedCrossStatus==='capte')return crossingStats.captes.has(cc);
     if(_selectedCrossStatus==='potentiel')return crossingStats.potentiels.has(cc);
     return true;
   }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
-    ['btnCrossAll','btnCrossPotentiels','btnCrossCaptes'].forEach(id=>{
-      const btn=document.getElementById(id);if(!btn)return;
-      const active=(id==='btnCrossAll'&&!status)||(id==='btnCrossPotentiels'&&status==='potentiel')||(id==='btnCrossCaptes'&&status==='capte');
+    const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
+    for(const[id,val] of Object.entries(map)){
+      const btn=document.getElementById(id);if(!btn)continue;
+      const active=val===status;
       btn.classList.toggle('bg-slate-700',active);btn.classList.toggle('text-white',active);btn.classList.toggle('border-slate-600',active);
       btn.classList.toggle('bg-white',!active);btn.classList.toggle('text-gray-700',!active);btn.classList.toggle('border-gray-300',!active);
-    });
+    }
     _buildChalandiseOverview();
   }
 
