@@ -154,8 +154,9 @@
       <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 mt-3 gap-6">
-      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — enrichit le Territoire et le Benchmark.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
-      <div id="dropTerritoire" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
+      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — active l'onglet 🔗 Territoire (Plan de vol, Cockpit client) · enrichit le Benchmark.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+      <!-- V2 : Ventes Territoire (BL Qlik) — masqué en V1, à réactiver pour Vue Direction / Top 100 / Contributeurs -->
+      <div id="dropTerritoire" style="display:none" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
@@ -404,8 +405,8 @@
         <p id="terrProgressText" class="text-violet-500 text-xs font-mono mt-1">0%</p>
       </div>
 
-      <!-- 1. Résumé exécutif du croisement — territory only -->
-      <div id="terrCroisementBlock" class="hidden mb-5">
+      <!-- 1. Résumé exécutif du croisement — V2 (nécessite BL Territoire) -->
+      <div id="terrCroisementBlock" style="display:none" class="hidden mb-5">
         <div id="terrCroisementSummary" class="exec-summary rounded-xl p-5 text-white">
           <div class="flex items-center gap-2 mb-2"><span class="text-lg">🔗</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
           <div id="terrCroisementText" class="text-sm leading-relaxed space-y-1"></div>
@@ -418,16 +419,16 @@
         <div id="canalAgenceBlock" class="space-y-2"></div>
       </div>
 
-      <!-- 2b. Need-territoire banner — chalandise loaded but no territoire -->
+      <!-- 2b. V2 teaser — analyse avancée territoire -->
       <div id="terrNeedTerrBlock" class="hidden mb-4 p-4 bg-violet-50 border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-3">
-        <span class="text-2xl flex-shrink-0">📂</span>
-        <div><p class="text-violet-700 font-semibold text-sm">Chargez le fichier Territoire (BL Qlik) pour activer l'analyse complète</p><p class="text-violet-500 text-xs mt-0.5">KPI CA territoire · Vue Direction · Contributeurs · Top 100 · Croisement rayon</p></div>
+        <span class="text-2xl flex-shrink-0">📊</span>
+        <div><p class="text-violet-700 font-semibold text-sm">Analyse avancée Territoire — disponible en V2</p><p class="text-violet-500 text-xs mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA territoire · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
       </div>
 
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
-      <!-- 3. KPI territoire (5 cartes) — territory only -->
-      <div id="terrKPIBlock" class="hidden mb-4">
+      <!-- 3. KPI territoire — V2 (nécessite BL Territoire) -->
+      <div id="terrKPIBlock" style="display:none" class="hidden mb-4">
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-1">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-xl font-extrabold">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-1"></p></div>
           <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-1">💰 CA Total territoire</h4><p id="terrKpiCATotal" class="text-xl font-extrabold">—</p><p class="text-indigo-200 text-[10px] mt-1">source unique · fichier territoire</p></div>
@@ -437,14 +438,14 @@
         </div>
       </div>
 
-      <!-- 4. Special articles banner — territory only -->
-      <div id="terrSpecialKPIBlock" class="hidden mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
+      <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
+      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
         <span class="text-xl flex-shrink-0">📌</span>
         <div><p id="terrSpecialKPIText" class="text-sm font-bold text-amber-800"></p><p class="text-[10px] text-amber-600 mt-0.5">Les articles spéciaux (codes non standard) sont exclus de la vue Direction, Top 100 et du croisement rayon.</p></div>
       </div>
 
-      <!-- 5. Filtres locaux — territory only -->
-      <div id="terrFiltersBlock" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
+      <!-- 5. Filtres locaux territoire — V2 (nécessite BL Territoire) -->
+      <div id="terrFiltersBlock" style="display:none" class="hidden mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-wrap gap-3 items-center">
         <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[180px] p-2 text-sm border rounded-lg" placeholder="🔍 Code, libellé, direction…">
         <select id="terrFilterDir" onchange="renderTerritoireTab()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Toutes Directions</option></select>
         <div class="relative" id="terrSecteurDropdown">
@@ -463,8 +464,8 @@
         <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-2 px-3 rounded-lg font-semibold">↺ Reset</button>
       </div>
 
-      <!-- 6. Vue par Direction → Famille → Articles -->
-      <div id="terrDirectionBlock" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
+      <!-- 6. Vue par Direction — V2 (nécessite BL Territoire) -->
+      <div id="terrDirectionBlock" style="display:none" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 p-4 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
         <table class="min-w-full text-xs">
           <thead class="bg-gray-800 text-white">
@@ -482,8 +483,8 @@
         </table>
       </div>
 
-      <!-- 7. Contributeurs agence → Direction → Secteur → Client → Articles -->
-      <div id="terrContribBlock" class="hidden mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
+      <!-- 7. Contributeurs agence — V2 (nécessite BL Territoire) -->
+      <div id="terrContribBlock" style="display:none" class="hidden mb-6 bg-white rounded-xl shadow-md border overflow-x-auto">
         <div class="flex items-center justify-between p-4 border-b">
           <h3 class="font-extrabold text-gray-800 flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Qui vous amène du business ? Direction → Secteur → Client → Articles</span></h3>
           <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs">📥 CSV secteurs</button>
@@ -503,8 +504,8 @@
         </table>
       </div>
 
-      <!-- 8. Top 100 articles -->
-      <div id="terrTop100Block" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
+      <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
+      <div id="terrTop100Block" style="display:none" class="hidden mb-8 bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 p-4 border-b">🏆 Top 100 articles (CA territoire décroissant)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
@@ -524,8 +525,8 @@
         </div>
       </div>
 
-      <!-- 9. Clients top 50 -->
-      <div id="terrClientsBlock" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
+      <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
+      <div id="terrClientsBlock" style="display:none" class="hidden bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 p-4 border-b">👥 Clients (top 50 par CA territoire)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
@@ -1240,7 +1241,9 @@
       </div>`;
   }
   // V24.4: Territoire tab spinner + progress
-  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock','terrChalandiseOverview'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
+  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);
+  // V1: terrChalandiseOverview excluded — always driven by chalandise, not BL loading
+  ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
   // VOLET 4: Period alert
   function fmtDate(d){if(!d)return'?';return d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});}
   function updatePeriodAlert(){
@@ -1547,8 +1550,8 @@
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      // Show territoire tab button if territoire file OR chalandise already loaded
-      if(f3||chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}
+      // V1: Territoire tab unlocked by Zone de Chalandise (file 4 BL hidden until V2)
+      if(chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}
       else{document.getElementById('btnTabTerritoire').classList.add('hidden');document.getElementById('navTerr').classList.add('hidden');}
       // Render main UI immediately — don't wait for territoire
       currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
@@ -1800,7 +1803,7 @@
     renderCanalAgence();
     const hasTerr=territoireReady&&territoireLines.length>0;
     const hasChal=chalandiseReady;
-    // Show/hide chalandise-only blocks
+    // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
     // Show chalandise overview if chalandise loaded
     _buildChalandiseOverview();
