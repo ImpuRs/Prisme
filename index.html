@@ -1582,8 +1582,6 @@
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
-      // V24.4: capture client codes
-      const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const cc0=extractClientCode(codeClientRaw);if(cc0)clientsMagasin.add(cc0);}
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
@@ -1593,6 +1591,8 @@
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
+      // clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
+      if(cc2&&(!selectedMyStore||sk===selectedMyStore))clientsMagasin.add(cc2);
       if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
       // V2 Phase 2: articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
