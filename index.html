@@ -2933,8 +2933,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS);
-    _insights.ruptures=lstR.length;_insights.dormants=lstD.length;
-    renderInsightsBanner();
+    if(dataSource===finalData){_insights.ruptures=lstR.length;_insights.dormants=lstD.length;renderInsightsBanner();}
   }
 
   // ★ V23/V24.2: Executive Summary
