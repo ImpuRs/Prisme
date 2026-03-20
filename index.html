@@ -646,7 +646,7 @@
           <div id="benchUnderperformBanner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-400 rounded-xl text-xs font-bold text-amber-800"></div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div class="bg-white p-4 rounded-xl border-2 border-violet-200"><h4 class="font-extrabold text-violet-800 mb-2 text-sm">📊 Forces & Faiblesses (vs médiane bassin)</h4><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Méd.</th><th class="py-2 px-2 text-right">% méd.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div></div>
-            <div class="bg-white p-4 rounded-xl border-2 border-cyan-200"><h4 class="font-extrabold text-cyan-800 mb-2 text-sm flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h4><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Serv.</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
+            <div class="bg-white p-4 rounded-xl border-2 border-cyan-200"><h4 class="font-extrabold text-cyan-800 mb-2 text-sm flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h4><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="% réf actives / total réf réseau">Couv.</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
           </div>
         </div>
       </details>
@@ -2517,7 +2517,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // KPI CARDS
     const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,assort:0},compared:{ca:0,ref:0,serv:0,freq:0,assort:0}};
     const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct'?v+'%':v.toLocaleString('fr');
-    const kpiDefs=[{label:'💰 CA vendu',key:'ca',fmt:'euro'},{label:'📦 Réf actives',key:'ref',fmt:'num'},{label:'✅ Taux service',key:'serv',fmt:'pct'},{label:'🔄 Fréquence',key:'freq',fmt:'num'},{label:'🎯 Assortiment',key:'assort',fmt:'pct'}];
+    const kpiDefs=[
+      {label:'💰 CA vendu',key:'ca',fmt:'euro',tip:'CA net prélevé comptoir (canal MAGASIN, avoirs déduits). Ne comprend pas les enlevés colis.'},
+      {label:'📦 Réf actives',key:'ref',fmt:'num',tip:'Nombre d\'articles distincts achetés en prélevé au moins une fois sur la période.'},
+      {label:'🌐 Couv. réseau',key:'serv',fmt:'pct',tip:'% des références du bassin vendues par ce magasin (réf actives moi ÷ total réf distinctes dans le réseau). ≠ Taux de dispo Mon Stock (articles fréquents non en rupture ÷ articles fréquents).'},
+      {label:'🔄 Fréquence',key:'freq',fmt:'num',tip:'Nombre total de lignes de BL sur la période — mesure l\'activité comptoir (passages).'},
+      {label:'🎯 Assortiment',key:'assort',fmt:'pct',tip:'Profondeur de gamme : mes réf actives ÷ moyenne des réf actives du réseau × 100. 100% = dans la moyenne réseau.'}
+    ];
     const cardsHtml=kpiDefs.map(r=>{
       const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
       const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
@@ -2526,7 +2532,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'border-amber-200':'border-red-300';
       const cardBg=pct>=0?'bg-emerald-50/40':pct>=-10?'bg-yellow-50/40':pct>=-30?'bg-amber-50/40':'bg-red-50/40';
       return `<div class="bg-white rounded-xl border-2 ${cardBorder} ${cardBg} p-3 flex flex-col gap-1 shadow-sm">
-        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">${r.label}</p>
+        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
         <div class="flex items-end justify-between gap-1">
           <div><p class="text-sm font-extrabold text-blue-700">${fmtVal(me,r.fmt)}</p><p class="text-[9px] text-gray-400">${selectedMyStore||'Moi'}</p></div>
           <div class="text-right"><p class="text-xs text-gray-500">${fmtVal(comp,r.fmt)}</p><p class="text-[9px] text-gray-400">${obsLabel}</p></div>
