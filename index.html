@@ -2576,8 +2576,8 @@
       let missingArts=[],specialArts=[];
       const _splitLib=raw=>{if(!raw)return'Libellé non disponible';const m=/^\d{6} - /.exec(raw);return m?raw.substring(m[0].length).trim():raw;};
       if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:data.countBL,caOther:Math.round(caA)});continue;}const r2=finalDataByCode[code];const statMe2=!r2?'❌ Absent':r2.stockActuel>0?'✅ En stock':r2.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:data.countBL,caOther:Math.round(caA),statutMe:statMe2});}
-      }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
-      missingArts.sort((a,b)=>b.freqOther-a.freqOther);missingArts=missingArts.slice(0,50);
+      }else{const threshold=refMe===0?2:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
+      if(refMe===0){missingArts.sort((a,b)=>b.caOther-a.caOther);}else{missingArts.sort((a,b)=>b.freqOther-a.freqOther);}missingArts=missingArts.slice(0,50);
       const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts,specialArts};
       if(ecartPct<=-5)obsFamiliesLose.push(entry);else if(ecartPct>=5)obsFamiliesWin.push(entry);
     }
@@ -2694,7 +2694,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const artCALabel=isMedian?'CA médiane réseau':`CA chez ${obsLabel}`;
       const artRow=a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${isMedian?(a.nbStores??a.freqOther):a.freqOther}</td><td class="py-0.5 px-2 text-right text-gray-600">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
       const artThead=`<thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${artFreqLabel}</th><th class="py-1 px-2 text-right">${artCALabel}</th></tr></thead>`;
-      const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1">❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés) :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
+      const famAbsent=f.refMe===0;const list1Label=famAbsent?`📋 Articles vendus par le réseau dans cette famille (${artsToRef.length})`:`❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés)`;const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold ${famAbsent?'text-blue-700':'text-red-700'} mb-1">${list1Label} :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,famAbsent?50:20).map(artRow).join('')}</tbody></table></div>`:'';
       const list2Html=artsVisi.length?`<div class="mb-2"><p class="text-[10px] font-bold text-amber-700 mb-1">⚠️ ${artsVisi.length} article${artsVisi.length>1?'s':''} en stock non vendus — vérifier visibilité/emplacement :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsVisi.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
       const copyBtn=artsToRef.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold">📋 Copier liste 1</button>`:'';
       const caAutreLabel=isMedian?'CA médiane réseau':`CA ${obsLabel}`;const refAutreLabel=isMedian?'Réf méd.':`Réf ${obsLabel}`;
@@ -3491,29 +3491,33 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       myCA+=(data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0));
     }
     // Per-store CA + article presence counts
-    const artStoreCnt={},artStoreFreqs={},storeCAs=[];
+    const artStoreCnt={},artStoreFreqs={},artStoreCAs={},storeCAs=[];
     for(const store of cs){
       const sv=ventesParMagasin[store]||{};let storeCA=0;
       for(const[code,data] of Object.entries(sv)){
         if((articleFamille[code]||'')!==famille)continue;
-        if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0){artStoreCnt[code]=(artStoreCnt[code]||0)+1;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(data.countBL||0);}
-        storeCA+=(data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0));
+        const codeCA=data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0);
+        if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0){artStoreCnt[code]=(artStoreCnt[code]||0)+1;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(data.countBL||0);if(!artStoreCAs[code])artStoreCAs[code]=[];artStoreCAs[code].push(codeCA);}
+        storeCA+=codeCA;
       }
       if(storeCA>0)storeCAs.push(storeCA);
     }
     const medCA=storeCAs.length?_median(storeCAs):0;
     const caEcart=medCA>0?Math.round((myCA-medCA)/medCA*100):(myCA>0?100:0);
-    // Missing: sold by ≥50% of other stores, I don't sell
-    const threshold50=Math.max(1,Math.ceil(nbOtherStores*0.5));
+    // Missing: absent family → ≥2 stores (all network articles), present → ≥50%
+    const isFamilyAbsent=myArts.size===0;
+    const threshold=isFamilyAbsent?2:Math.max(1,Math.ceil(nbOtherStores*0.5));
     const missing=[];
     for(const[code,cnt] of Object.entries(artStoreCnt)){
-      if(myArts.has(code)||cnt<threshold50)continue;
+      if(myArts.has(code)||cnt<threshold)continue;
       const rawLib=libelleLookup[code]||code;const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
       const d=finalData.find(r=>r.code===code);
       const medFreq=artStoreFreqs[code]?.length?_median(artStoreFreqs[code]):0;
-      missing.push({code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
+      const medCA=artStoreCAs[code]?.length?Math.round(_median(artStoreCAs[code])):0;
+      missing.push({code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,medCA,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
     }
-    missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
+    if(isFamilyAbsent){missing.sort((a,b)=>b.medCA-a.medCA||b.nbStores-a.nbStores);}
+    else{missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);}
     // Exclusives: I sell, < 2 other stores sell
     const exclusives=[];
     for(const code of myArts){
@@ -3525,12 +3529,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     exclusives.sort((a,b)=>b.myFreq-a.myFreq);
     const status=medCA<=0?'ok':caEcart>=0?'ok':caEcart>=-50?'warn':'error';
     const strongMissing=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:missing.slice(0,25),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size};
+    return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:isFamilyAbsent?missing:missing.slice(0,25),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size,isFamilyAbsent};
   }
   function _diagRenderV3(v,hasMulti){
     if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] text-emerald-600 mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
-    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
-    const missingSection=(v.missing||[]).length?`<p class="text-[10px] text-amber-300 font-bold mb-1">⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> forte rotation (A/B)':''}:</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th><th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
+    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';const medCACell=v.isFamilyAbsent?`<td class="py-1 px-2 text-right text-emerald-300">${a.medCA>0?formatEuro(a.medCA):'—'}</td>`:'';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td>${medCACell}<td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
+    const missingIntro=v.isFamilyAbsent?`📋 <strong>${v.missing.length}</strong> article${v.missing.length>1?'s':''} vendus par le réseau dans cette famille — triés par CA médiane :`:`⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> forte rotation (A/B)':''}:`;
+    const caThCell=v.isFamilyAbsent?'<th class="py-1.5 px-2 text-right">CA méd.</th>':'';
+    const missingSection=(v.missing||[]).length?`<p class="text-[10px] ${v.isFamilyAbsent?'text-blue-300':'text-amber-300'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}<th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:v.isFamilyAbsent?'<p class="text-[10px] text-slate-400 mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
     // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
     if(v.isCellMode){
       const refLine=v.refMedian>0
