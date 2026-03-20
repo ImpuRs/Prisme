@@ -627,10 +627,6 @@
             <label class="block text-xs font-bold text-cyan-200 mb-1">🔭 Comparer avec</label>
             <select id="obsCompareSelect" onchange="onObsCompareChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="median">📊 Médiane réseau</option></select>
           </div>
-          <div id="benchMetierDiv" class="hidden flex-1 min-w-[180px]">
-            <label class="block text-xs font-bold text-rose-200 mb-1">🏢 Métier (Zone de Chalandise)</label>
-            <select id="benchMetierSelect" onchange="onBenchMetierChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="">Tous les clients</option></select>
-          </div>
         </div>
         <!-- Checkboxes multi-agences pour choisir lesquelles inclure dans la médiane -->
         <div id="benchPickDiv" class="mt-3 bg-white/10 rounded-lg p-3">
@@ -782,7 +778,6 @@
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
   let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
   let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
-  let selectedBenchMetier='';
   let selectedObsCompare='median'; // 'median' or a store code
   let obsFilterUnivers='';         // filtre univers Observatoire
   let obsFilterMinCA=0;            // seuil écart CA minimum Observatoire
@@ -840,10 +835,6 @@
       _buildDeptFilter();
       // Territoire tab : chalandise = seul déclencheur. Afficher dès que finalData est prêt.
       const _terrBtn=document.getElementById('btnTabTerritoire');if(_terrBtn)_terrBtn.classList.remove('hidden');if(finalData&&finalData.length>0)renderTerritoireTab();
-      // Populate métier select
-      const msel=document.getElementById('benchMetierSelect');
-      if(msel){const metierCounts={};for(const v of chalandiseData.values())metierCounts[v.metier]=(metierCounts[v.metier]||0)+1;msel.innerHTML='<option value="">Tous les clients ('+chalandiseData.size+')</option>'+chalandiseMetiers.map(m=>`<option value="${m}">${m} (${metierCounts[m]||0})</option>`).join('');}
-      const mDiv=document.getElementById('benchMetierDiv');if(mDiv)mDiv.classList.remove('hidden');
       const navChal=document.getElementById('navChalandise');if(navChal)navChal.classList.remove('hidden');
       const actifs=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('actif')).length;
       const perdus=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('perdu')||v.statut.toLowerCase().includes('inactif')).length;
@@ -2495,13 +2486,7 @@
   function computeBenchmark(){
     const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};if(!cs.length)return;
     const n=cs.length;
-    // V2 Phase 1: métier filter — build filtered myV from ventesClientArticle if needed
-    let myV;
-    if(selectedBenchMetier&&chalandiseReady&&ventesClientArticle.size){
-      const metierClients=new Set([...chalandiseData.entries()].filter(([,v])=>v.metier===selectedBenchMetier).map(([k])=>k));
-      myV={};
-      for(const[cc,artMap] of ventesClientArticle.entries()){if(!metierClients.has(cc))continue;for(const[code,data] of artMap.entries()){if(!myV[code])myV[code]={sumPrelevee:0,countBL:0};myV[code].sumPrelevee+=data.sumPrelevee;myV[code].countBL+=data.countBL;}}
-    }else{myV=ventesParMagasin[selectedMyStore]||{};}
+    const myV=ventesParMagasin[selectedMyStore]||{};
     const bv={};
     for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!/^\d{6}$/.test(a))continue;if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
     // Apply universe filter — narrow bv and myV to the selected famille/univers
@@ -2593,8 +2578,6 @@
 
   function renderBenchmark(){
     const{missed,under,over,storePerf,familyPerf}=benchLists;const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').toLowerCase().trim();
-    // Show/hide métier select
-    const mDiv=document.getElementById('benchMetierDiv');if(mDiv)mDiv.classList.toggle('hidden',!chalandiseReady);
     // Render observatory sections
     renderObservatoire();
 const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
@@ -2818,12 +2801,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const lines=['Famille\tCA Moi\tCA Autre\tÉcart %\tRéf Moi\tRéf Autre'];
     for(const f of rows)lines.push(`${f.fam}\t${Math.round(f.caMe)}\t${Math.round(f.caOther)}\t${f.ecartPct}%\t${f.refMe}\t${f.refOther}`);
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
-  }
-
-  // V2 Phase 1: métier filter change handler
-  function onBenchMetierChange(){
-    selectedBenchMetier=(document.getElementById('benchMetierSelect')?.value)||'';
-    computeBenchmark();renderBenchmark();
   }
 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
