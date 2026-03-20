@@ -2474,7 +2474,7 @@
     obsFamiliesLose.sort((a,b)=>Math.abs(b.caOther-b.caMe)-Math.abs(a.caOther-a.caMe)||a.ecartPct-b.ecartPct);
     obsFamiliesWin.sort((a,b)=>(b.caMe-b.caOther)-(a.caMe-a.caOther));
     benchLists.obsFamiliesLose=obsFamiliesLose;benchLists.obsFamiliesWin=obsFamiliesWin;
-    benchLists.obsActionPlan=obsFamiliesLose.slice(0,3).map(f=>({fam:f.fam,ecartPct:f.ecartPct,nbToRef:f.missingArts.length,refOther:f.refOther,caPotentiel:Math.round(Math.abs(f.caOther-f.caMe))}));
+    benchLists.obsActionPlan=obsFamiliesLose.slice(0,3).map(f=>{const artsToRef=(f.missingArts||[]).filter(a=>a.statutMe!=='✅ En stock');const artsVisi=(f.missingArts||[]).filter(a=>a.statutMe==='✅ En stock');return{fam:f.fam,ecartPct:f.ecartPct,nbToRef:artsToRef.length,nbVisibility:artsVisi.length,refOther:f.refOther,caPotentiel:Math.round(Math.abs(f.caOther-f.caMe))};});
   }
 
   function renderBenchmark(){
@@ -2548,7 +2548,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const potLabel=a.caPotentiel>0?formatEuro(a.caPotentiel):'N/A';
       const refStr=a.refOther>0?` — sur <strong>${a.refOther} réf</strong>`:'';
       const action=`→ Référencer <strong>${a.nbToRef>0?a.nbToRef+(a.nbToRef>1?' articles':' article'):a.refOther+(a.refOther>1?' réf':' réf')}</strong> en <strong>${a.fam}</strong> — potentiel <strong class="text-emerald-700">${potLabel}</strong>${refStr}`;
-      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${formatEuro(a.caPotentiel)}</span> manquants</p></div></div>`;
+      const visLine=a.nbVisibility>0?`<p class="text-[10px] text-amber-700 font-semibold mt-1">⚠️ Vérifier visibilité de <strong>${a.nbVisibility}</strong> article${a.nbVisibility>1?'s':''} en stock non vendus (emplacement ? mise en avant ?)</p>`:'';
+      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${formatEuro(a.caPotentiel)}</span> manquants</p>${visLine}</div></div>`;
     }).join('');
     if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="text-gray-400 text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
     // Families where I lose
@@ -2556,16 +2557,21 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const loseRows=(obsFamiliesLose||[]).map((f,i)=>{
       const famId='obsLose_'+i;
       const caGap=f.caMe-f.caOther;
-      const refGap=Math.max(0,f.refOther-f.refMe);
-      const ecGapCell=`<span class="font-extrabold text-red-700">${formatEuro(caGap)}</span>`;
-      const refBadge=refGap>0?`<span class="badge bg-red-500 text-white">${refGap}</span>`:'<span class="text-gray-300">—</span>';
-      const ecText=f.caMe===0?'<span class="text-red-700 font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'text-red-700 font-extrabold':f.ecartPct<-10?'text-amber-700 font-bold':'text-gray-700'}">${f.ecartPct}%</span>`;
       const arts=f.missingArts||[];
-      const copyBtn=arts.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold">📋 Copier</button>`:'';
-      const artsHtml=arts.length?`<div id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1.5">Articles présents chez l'autre, absents chez moi (top ${Math.min(arts.length,20)}) :</p><table class="min-w-full text-[10px]"><thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th><th class="py-1 px-2 text-center">Statut chez moi</th></tr></thead><tbody>${arts.slice(0,20).map(a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-center">${a.statutMe}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-gray-400 text-[10px] py-2">Aucun article manquant identifié.</p>';
+      const artsToRef=arts.filter(a=>a.statutMe!=='✅ En stock');
+      const artsVisi=arts.filter(a=>a.statutMe==='✅ En stock');
+      const ecGapCell=`<span class="font-extrabold text-red-700">${formatEuro(caGap)}</span>`;
+      const refBadge=artsToRef.length>0?`<span class="badge bg-red-500 text-white">${artsToRef.length}</span>`:'<span class="text-gray-300">—</span>';
+      const ecText=f.caMe===0?'<span class="text-red-700 font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'text-red-700 font-extrabold':f.ecartPct<-10?'text-amber-700 font-bold':'text-gray-700'}">${f.ecartPct}%</span>`;
+      const artRow=a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td></tr>`;
+      const artThead=`<thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th></tr></thead>`;
+      const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1">❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés) :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
+      const list2Html=artsVisi.length?`<div class="mb-2"><p class="text-[10px] font-bold text-amber-700 mb-1">⚠️ ${artsVisi.length} article${artsVisi.length>1?'s':''} en stock non vendus — vérifier visibilité/emplacement :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsVisi.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
+      const copyBtn=artsToRef.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold">📋 Copier liste 1</button>`:'';
       const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] mb-2 pt-2 px-3"><span class="text-gray-500">CA Moi : <strong class="text-blue-700">${formatEuro(f.caMe)}</strong></span><span class="text-gray-500">CA Autre : <strong>${formatEuro(f.caOther)}</strong></span><span class="text-gray-500">Écart : ${ecText}</span><span class="text-gray-500">Réf Moi : <strong>${f.refMe}</strong></span><span class="text-gray-500">Réf Autre : <strong>${f.refOther}</strong></span></div>`;
       const ecBg=f.ecartPct<-30?'bg-red-50/80':'bg-amber-50/70';
-      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${artsHtml}</div>`}</div></td></tr>`;
+      const noArts=!artsToRef.length&&!artsVisi.length?'<p class="text-gray-400 text-[10px] py-2">Aucun article identifié.</p>':'';
+      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}</div></td></tr>`;
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="3" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
