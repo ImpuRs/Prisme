@@ -3051,10 +3051,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':'Retour au Stock';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
+    const nbAgences=storesIntersection.size;
+    const agenceCtxHtml=`<p class="text-xs text-cyan-300 font-semibold mt-1">🏪 ${agenceLabel}${hasMulti?` <span class="text-slate-400 font-normal">(${nbAgences} agences chargées)</span>`:'<span class="text-slate-400 font-normal"> (mono-agence)</span>'}</p>`;
     const filesHtml=[
       `<span class="text-emerald-400">✅ Ventes</span>`,
       `<span class="text-emerald-400">✅ Stock</span>`,
-      hasMulti?`<span class="text-emerald-400">✅ Multi-agences</span>`:`<span class="text-slate-500">❌ Multi-agences</span>`,
+      hasMulti?`<span class="text-emerald-400">✅ ${nbAgences} agences</span>`:`<span class="text-slate-500">❌ 1 agence</span>`,
       hasChal?`<span class="text-emerald-400">✅ Chalandise</span>`:`<span class="text-slate-500">❌ Chalandise</span>`,
     ].join('<span class="text-slate-600 mx-1">·</span>');
     let v1,v2,v3,actions,titleHtml;
@@ -3065,12 +3067,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const l4m=_diagLevel4MetierMode(metier,hasChal);
       _diagLevels={l1:l1m,l2:l2m,l3:l3m,l4:l4m};
       actions=_diagActions=_diagGenActionsMetier(metier,l1m,l2m,l3m,l4m);
-      titleHtml=`🔍 Diagnostic : <span class="text-rose-300">${metier}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-cyan-400">${agenceLabel}</span>`;
+      titleHtml=`🔍 Diagnostic : <span class="text-rose-300">${metier}</span>`;
       panel.innerHTML=`
         <div class="flex items-start justify-between mb-5">
           <div>
             <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
             <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+            ${agenceCtxHtml}
             <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
           </div>
           <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
@@ -3088,12 +3091,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     v3=_diagVoyant3(famille,hasMulti);
     _diagLevels={v1,v2,v3};
     actions=_diagActions=_diagGenActions(famille,v1,v2,v3);
-    titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-cyan-400">${agenceLabel}</span>`;
+    titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span>`;
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
         <div>
           <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+          ${agenceCtxHtml}
           <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
@@ -3110,7 +3114,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const hasMulti=storesIntersection.size>1;
     const hasChal=chalandiseReady;
     const agenceLabel=selectedMyStore||'Votre agence';
-    const filesHtml=[`<span class="text-emerald-400">✅ Ventes</span>`,`<span class="text-emerald-400">✅ Stock</span>`,hasMulti?`<span class="text-emerald-400">✅ Multi-agences</span>`:`<span class="text-slate-500">❌ Multi-agences</span>`,hasChal?`<span class="text-emerald-400">✅ Chalandise</span>`:`<span class="text-slate-500">❌ Chalandise</span>`].join('<span class="text-slate-600 mx-1">·</span>');
+    const nbAgences=storesIntersection.size;
+    const agenceCtxHtml=`<p class="text-xs text-cyan-300 font-semibold mt-1">🏪 ${agenceLabel}${hasMulti?` <span class="text-slate-400 font-normal">(${nbAgences} agences chargées)</span>`:'<span class="text-slate-400 font-normal"> (mono-agence)</span>'}</p>`;
+    const filesHtml=[`<span class="text-emerald-400">✅ Ventes</span>`,`<span class="text-emerald-400">✅ Stock</span>`,hasMulti?`<span class="text-emerald-400">✅ ${nbAgences} agences</span>`:`<span class="text-slate-500">❌ 1 agence</span>`,hasChal?`<span class="text-emerald-400">✅ Chalandise</span>`:`<span class="text-slate-500">❌ Chalandise</span>`].join('<span class="text-slate-600 mx-1">·</span>');
     // V1 — Mon Rayon (computed inline for cell articles)
     let caPerduTotal=0;
     const enStock=cellArts.filter(r=>r.stockActuel>0).length;
@@ -3189,6 +3195,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         <div>
           <button onclick="switchTab('abc');closeDiagnostic()" class="text-[11px] text-slate-400 hover:text-white mb-2 flex items-center gap-1">← Retour au Radar</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+          ${agenceCtxHtml}
           <p class="text-[10px] text-slate-500 mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
