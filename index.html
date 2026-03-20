@@ -2469,9 +2469,11 @@
       const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts};
       if(ecartPct<=-5)obsFamiliesLose.push(entry);else if(ecartPct>=5)obsFamiliesWin.push(entry);
     }
-    obsFamiliesLose.sort((a,b)=>a.ecartPct-b.ecartPct);obsFamiliesWin.sort((a,b)=>b.ecartPct-a.ecartPct);
+    // Sort by absolute CA gap descending (biggest missed revenue first)
+    obsFamiliesLose.sort((a,b)=>Math.abs(b.caOther-b.caMe)-Math.abs(a.caOther-a.caMe)||a.ecartPct-b.ecartPct);
+    obsFamiliesWin.sort((a,b)=>b.ecartPct-a.ecartPct);
     benchLists.obsFamiliesLose=obsFamiliesLose;benchLists.obsFamiliesWin=obsFamiliesWin;
-    benchLists.obsActionPlan=obsFamiliesLose.slice(0,3).map(f=>({fam:f.fam,ecartPct:f.ecartPct,nbToRef:f.missingArts.length,caPotentiel:Math.round(Math.abs(f.caOther-f.caMe))}));
+    benchLists.obsActionPlan=obsFamiliesLose.slice(0,3).map(f=>({fam:f.fam,ecartPct:f.ecartPct,nbToRef:f.missingArts.length,refOther:f.refOther,caPotentiel:Math.round(Math.abs(f.caOther-f.caMe))}));
   }
 
   function renderBenchmark(){
@@ -2534,25 +2536,31 @@
       </div>`;
     }).join('');
     if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
-    // Plan d'action — format prescriptif
+    // Plan d'action — format prescriptif, trié par écart CA absolu (déjà trié dans computeBenchmark)
     const planHtml=(obsActionPlan||[]).map((a,i)=>{
       const stars=i===0?'⭐⭐⭐':i===1?'⭐⭐':'⭐';
       const border=a.ecartPct<-30?'border-red-300 bg-red-50':'border-amber-300 bg-amber-50';
       const potLabel=a.caPotentiel>0?formatEuro(a.caPotentiel):'N/A';
-      const action=a.nbToRef>0
-        ?`→ Référencer <strong>${a.nbToRef} article${a.nbToRef>1?'s':''}</strong> en <strong>${a.fam}</strong> (potentiel <strong class="text-emerald-700">${potLabel}</strong>)`
-        :`→ Améliorer la performance en <strong>${a.fam}</strong> (écart <strong class="text-red-700">${a.ecartPct}%</strong> vs ${obsLabel})`;
-      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${a.ecartPct}%</span></p></div></div>`;
+      const refStr=a.refOther>0?` — sur <strong>${a.refOther} réf</strong>`:'';
+      const action=`→ Référencer <strong>${a.nbToRef>0?a.nbToRef+(a.nbToRef>1?' articles':' article'):a.refOther+(a.refOther>1?' réf':' réf')}</strong> en <strong>${a.fam}</strong> — potentiel <strong class="text-emerald-700">${potLabel}</strong>${refStr}`;
+      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${formatEuro(a.caPotentiel)}</span> manquants</p></div></div>`;
     }).join('');
     if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="text-gray-400 text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
     // Families where I lose
     if(el('obsLoseBadge'))el('obsLoseBadge').textContent=(obsFamiliesLose||[]).length;
     const loseRows=(obsFamiliesLose||[]).map((f,i)=>{
-      const famId='obsLose_'+i;const ec=f.ecartPct;const ecColor=ec<-30?'text-red-700 font-extrabold':ec<-10?'text-amber-700 font-bold':'text-gray-700';const ecBg=ec<-30?'bg-red-50':ec<-10?'bg-amber-50':'';
+      const famId='obsLose_'+i;const ec=f.ecartPct;const ecBg=ec<-30?'bg-red-50':ec<-10?'bg-amber-50':'';
+      // Écart % : 'Absent' en rouge si CA Moi = 0, sinon écart coloré
+      const ecartCell=f.caMe===0
+        ?'<span class="text-red-700 font-extrabold text-[10px]">Absent</span>'
+        :`<span class="${ec<-30?'text-red-700 font-extrabold':ec<-10?'text-amber-700 font-bold':'text-gray-700'}">${ec}%</span>`;
+      // Articles manquants : réf autre - réf moi
       const arts=f.missingArts||[];
+      const refGap=Math.max(0,f.refOther-f.refMe);
       const copyBtn=arts.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold ml-1">📋</button>`:'';
+      const artsCell=refGap>0?`<span class="font-extrabold text-red-700">+${refGap}</span>${copyBtn}`:(arts.length?`<span class="badge bg-red-100 text-red-700">${arts.length}</span>${copyBtn}`:'<span class="text-gray-300">—</span>');
       const artsHtml=arts.length?`<div class="pt-2 px-3 pb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1.5">Articles présents chez l'autre, absents chez moi (top ${Math.min(arts.length,20)}) :</p><table class="min-w-full text-[10px]"><thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th><th class="py-1 px-2 text-center">Statut chez moi</th></tr></thead><tbody>${arts.slice(0,20).map(a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-center">${a.statutMe}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-gray-400 text-[10px] px-3 py-2">Aucun article manquant identifié.</p>';
-      return `<tr class="border-b cursor-pointer ${ecBg} hover:opacity-90" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right font-bold text-blue-700">${formatEuro(f.caMe)}</td><td class="py-2 px-3 text-right text-gray-600">${formatEuro(f.caOther)}</td><td class="py-2 px-3 text-right ${ecColor}">${f.ecartPct}%</td><td class="py-2 px-3 text-center text-blue-700 font-bold">${f.refMe}</td><td class="py-2 px-3 text-center text-gray-500">${f.refOther}</td><td class="py-2 px-3 text-center">${arts.length?`<span class="badge bg-red-100 text-red-700">${arts.length}</span>${copyBtn}`:''}</td></tr><tr id="${famId}" class="hidden bg-red-50/70"><td colspan="7">${artsHtml}</td></tr>`;
+      return `<tr class="border-b cursor-pointer ${ecBg} hover:opacity-90" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right font-bold text-blue-700">${formatEuro(f.caMe)}</td><td class="py-2 px-3 text-right text-gray-600">${formatEuro(f.caOther)}</td><td class="py-2 px-3 text-right">${ecartCell}</td><td class="py-2 px-3 text-center text-blue-700 font-bold">${f.refMe}</td><td class="py-2 px-3 text-center text-gray-500">${f.refOther}</td><td class="py-2 px-3 text-center">${artsCell}</td></tr><tr id="${famId}" class="hidden bg-red-50/70"><td colspan="7">${artsHtml}</td></tr>`;
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="7" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
