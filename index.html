@@ -622,16 +622,16 @@
       </div>
       <!-- 4. FAMILLES OÙ L'AUTRE ME BAT -->
       <div class="bg-white rounded-xl shadow-md border-2 border-red-200 mb-6">
-        <div class="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between"><h3 class="font-extrabold text-red-800 flex items-center gap-2">📉 Familles où l'autre me bat <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3><button onclick="copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200">📋 Copier</button></div>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-right">Écart CA</th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
+        <div class="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between"><h3 class="font-extrabold text-red-800 flex items-center gap-2"><span id="obsLoseTitle">📉 Familles où l'autre me bat</span> <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3><button onclick="copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200">📋 Copier</button></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA</th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
       </div>
       <!-- 5. MES FORCES — accordéon replié par défaut -->
       <details class="bg-white rounded-xl shadow-md border-2 border-emerald-200 mb-6">
         <summary class="px-5 py-3 bg-emerald-50 border-b border-emerald-200 cursor-pointer hover:bg-emerald-100 select-none flex items-center justify-between">
-          <h3 class="font-extrabold text-emerald-800 flex items-center gap-2">💪 Mes Forces <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
+          <h3 class="font-extrabold text-emerald-800 flex items-center gap-2"><span id="obsWinTitle">💪 Mes Forces</span> <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold hover:bg-emerald-200 border border-emerald-300">📋 Copier</button><span class="text-emerald-600 text-xs">▼</span></div>
         </summary>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
       </details>
       <!-- 6. DÉTAIL ARTICLES (accordion, replié par défaut) -->
       <details class="bg-white rounded-xl shadow-md border border-gray-200 mb-6">
@@ -2513,11 +2513,17 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const{obsKpis,obsFamiliesLose,obsFamiliesWin,obsActionPlan}=benchLists;
     const obsMode=selectedObsCompare||'median';
     const obsLabel=obsMode==='median'?'Médiane réseau':obsMode;
+    const isMedian=obsMode==='median';
     const el=id=>document.getElementById(id);
     if(el('obsMyStore'))el('obsMyStore').textContent=selectedMyStore||'—';
     if(el('obsCompareLabel'))el('obsCompareLabel').textContent=obsLabel;
     if(el('obsKpiMyLabel'))el('obsKpiMyLabel').textContent=selectedMyStore||'—';
     if(el('obsKpiCompLabel'))el('obsKpiCompLabel').textContent=obsLabel;
+    // Dynamic section titles & column headers
+    if(el('obsLoseTitle'))el('obsLoseTitle').textContent=isMedian?'📉 Familles sous la médiane réseau':`📉 Familles où ${obsLabel} me bat`;
+    if(el('obsWinTitle'))el('obsWinTitle').textContent=isMedian?'💪 Familles au-dessus de la médiane':`💪 Familles où je bats ${obsLabel}`;
+    if(el('obsLoseTh1'))el('obsLoseTh1').textContent=isMedian?'Écart vs médiane':`CA ${obsLabel}`;
+    if(el('obsWinTh1'))el('obsWinTh1').textContent=isMedian?'Avance vs médiane':`Avance sur ${obsLabel}`;
     // KPI CARDS
     const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,assort:0},compared:{ca:0,ref:0,serv:0,freq:0,assort:0}};
     const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct'?v+'%':v.toLocaleString('fr');
@@ -2568,8 +2574,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const trueMissing=artsToRef.length||Math.max(0,f.refOther-f.refMe);
       const refBadge=trueMissing>0?`<span class="badge bg-red-500 text-white">${trueMissing}</span>`:'<span class="text-gray-300">—</span>';
       const ecText=f.caMe===0?'<span class="text-red-700 font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'text-red-700 font-extrabold':f.ecartPct<-10?'text-amber-700 font-bold':'text-gray-700'}">${f.ecartPct}%</span>`;
+      const artFreqLabel=isMedian?'Fréq médiane':`Fréq chez ${obsLabel}`;
+      const artCALabel=isMedian?'CA médiane réseau':`CA chez ${obsLabel}`;
       const artRow=a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-right text-gray-600">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
-      const artThead=`<thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th><th class="py-1 px-2 text-right">CA chez l'autre</th></tr></thead>`;
+      const artThead=`<thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${artFreqLabel}</th><th class="py-1 px-2 text-right">${artCALabel}</th></tr></thead>`;
       const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1">❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés) :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
       const list2Html=artsVisi.length?`<div class="mb-2"><p class="text-[10px] font-bold text-amber-700 mb-1">⚠️ ${artsVisi.length} article${artsVisi.length>1?'s':''} en stock non vendus — vérifier visibilité/emplacement :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsVisi.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
       const copyBtn=artsToRef.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold">📋 Copier liste 1</button>`:'';
