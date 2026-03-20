@@ -3012,7 +3012,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
-  let _diagLevels={};let _diagActions=[];
+  let _diagLevels={};let _diagActions=[];let _diagPlanCopyText='';
   let _diagMetierFilter='';let _diagCurrentFamille='';let _diagCurrentSource='';
 
   function openDiagnostic(famille,source){
@@ -3088,7 +3088,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     v3=_diagVoyant3(famille,hasMulti);
     _diagLevels={v1,v2,v3};
     actions=_diagActions=_diagGenActions(famille,v1,v2,v3);
-    titleHtml=`🔍 Plan de vol : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-cyan-400">${agenceLabel}</span>`;
+    titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span> <span class="text-slate-500 font-normal text-base">·</span> <span class="text-cyan-400">${agenceLabel}</span>`;
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
         <div>
@@ -3183,7 +3183,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];currentPage=0;switchTab('table');renderAll();}});}
     if(v2.status!=='lock'&&v2.perdus>0){const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
     _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
-    const titleHtml=`✈️ Plan de vol : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
+    const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
         <div>
@@ -3242,7 +3242,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const top5MM=v.mmDetail.slice(0,5);
     const dormHtml=v.dormants.length>0?`<p class="text-[11px] text-amber-400 mt-1">💤 <strong>${v.dormants.length}</strong> article${v.dormants.length>1?'s':''} en stock sans vente récente (dormants) → envisager déstockage</p>`:'';
     return`<div class="diag-voyant diag-v1">
-      <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-blue-300">📦 Mon Rayon</span>${_diagBadge(v.status)}</div>
+      <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-blue-300">📦 Mon Agence</span>${_diagBadge(v.status)}</div>
       <p class="text-[10px] text-slate-400 mb-3"><strong class="text-white">${v.arts}</strong> articles · <strong class="text-white">${v.enStock}</strong> en stock${v.nonRef>0?' · <span class="text-slate-500">'+v.nonRef+' non référencés</span>':''}</p>
       <p class="text-xs ${rupClass} font-bold mb-1">${rupIcon} ${rupText}</p>
       ${top5.length?`<div class="mb-2">${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded bg-slate-800/60 text-[11px]"><span class="text-slate-500">·</span><span class="flex-1"><span class="font-mono text-slate-400">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — Fréq ${r.W}, rupture ${r.jours}j → <span class="font-bold ${r.jours>=25?'text-amber-400':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="text-rose-400 text-[10px]">('+formatEuro(r.ca)+')</span>':''}</span></div>`).join('')}${v.ruptures.length>5?`<p class="text-[10px] text-slate-500 ml-4">… et ${v.ruptures.length-5} autre${v.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
@@ -3685,15 +3685,21 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Sort by priority and limit to 3
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
   }
+  function _copyDiagPlan(){
+    if(!_diagPlanCopyText)return;
+    navigator.clipboard.writeText(_diagPlanCopyText).then(()=>{
+      const b=document.getElementById('_diagCopyBtn');
+      if(b){b.textContent='✅ Copié';setTimeout(()=>{b.textContent='📋 Copier';},1500);}
+    });
+  }
   function _diagRenderPlan(famille,actions){
-    if(!actions.length)return`<div class="mt-4 p-4 bg-slate-800 border border-slate-700 rounded-xl"><p class="text-xs text-emerald-400">✅ Aucune action prioritaire — votre rayon est bien calibré pour cette famille.</p></div>`;
-    const copyText=actions.map((a,i)=>`${i+1}. [${a.src||'📦'}] ${a.label}`).join('\n');
-    const copyId='_diagCopyBtn_'+Math.random().toString(36).slice(2,6);
+    if(!actions.length)return`<div class="mt-4 p-4 bg-slate-800 border border-slate-700 rounded-xl"><p class="text-xs text-emerald-400">✅ Aucune action prioritaire — votre agence est bien calibrée pour cette famille.</p></div>`;
+    _diagPlanCopyText=actions.map((a,i)=>`${i+1}. [${a.src||'📦'}] ${a.label}`).join('\n');
     return`<div class="mt-4 p-4 bg-slate-800 border border-slate-600 rounded-xl">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="font-extrabold text-sm text-white">✈️ Plan de vol — <span class="text-cyan-400">${famille}</span></h3>
+        <h3 class="font-extrabold text-sm text-white">📋 Plan d'action — <span class="text-cyan-400">${famille}</span></h3>
         <div class="flex items-center gap-2">
-          <button id="${copyId}" onclick="(()=>{navigator.clipboard.writeText(${JSON.stringify(copyText)}).then(()=>{const b=document.getElementById('${copyId}');if(b){b.textContent='✅ Copié';setTimeout(()=>{b.textContent='📋 Copier';},1500);}});})()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded font-bold">📋 Copier</button>
+          <button id="_diagCopyBtn" onclick="_copyDiagPlan()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded font-bold">📋 Copier</button>
           <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded font-bold">📥 CSV</button>
         </div>
       </div>
@@ -3704,9 +3710,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const{v1,v2,v3,l1,l2,l3,l4}=_diagLevels;const SEP=';';
     const lines=['\uFEFF'+['Voyant','Type','Code','Libellé','Détail','Valeur'].join(SEP)];
     // V1 / L1 ruptures
-    for(const r of((v1||l1)?.ruptures||[]))lines.push(['📦 Mon Rayon - Rupture','Rupture',r.code,`"${r.lib}"`,`${r.jours}j rupture · Fréq:${r.W}`,r.ca||0].join(SEP));
+    for(const r of((v1||l1)?.ruptures||[]))lines.push(['📦 Mon Agence - Rupture','Rupture',r.code,`"${r.lib}"`,`${r.jours}j rupture · Fréq:${r.W}`,r.ca||0].join(SEP));
     // V1 / L2 calibrage
-    for(const r of((v1?.mmDetail)||(l2?.detail)||[]))lines.push(['📦 Mon Rayon - Calibrage','MIN/MAX sous-dimensionné',r.code,`"${r.lib}"`,`Ancien MIN:${r.ancienMin} Nouveau MIN:${r.nouveauMin}`,''].join(SEP));
+    for(const r of((v1?.mmDetail)||(l2?.detail)||[]))lines.push(['📦 Mon Agence - Calibrage','MIN/MAX sous-dimensionné',r.code,`"${r.lib}"`,`Ancien MIN:${r.ancienMin} Nouveau MIN:${r.nouveauMin}`,''].join(SEP));
     // V2 / L4 clients perdus
     const v2metiers=(v2||l4)?.metiers||[];for(const m of v2metiers){for(const c of(m.clients||[]).filter(c=>c.prio===2||c.prio===3))lines.push(['👥 Mes Clients','Perdu à reconquérir',c.code,`"${c.nom}"`,c.statut,c.ca2025||0].join(SEP));}
     // V3 / L3 missing articles
