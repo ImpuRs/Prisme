@@ -3284,7 +3284,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function _diagBadge(s){
-    const m={ok:{cls:'diag-ok',txt:'✅ Bon'},warn:{cls:'diag-warn',txt:'⚠️ À corriger'},error:{cls:'diag-error',txt:'🔴 Problème'},lock:{cls:'diag-lock',txt:'🔒 Non disponible'},absent:{cls:'diag-lock',txt:'⚪ Absent'}};
+    const m={ok:{cls:'diag-ok',txt:'✅ Bon'},warn:{cls:'diag-warn',txt:'⚠️ À corriger'},error:{cls:'diag-error',txt:'🔴 Problème'},lock:{cls:'diag-lock',txt:'🔒 Non disponible'},absent:{cls:'diag-lock',txt:'⚪ Absent'},na:{cls:'diag-lock',txt:'⚪ Non applicable'}};
     const d=m[s]||m.lock;return`<span class="diag-badge ${d.cls}">${d.txt}</span>`;
   }
 
@@ -3515,7 +3515,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         ?`Réf dans cette case — Vous : <strong class="text-white">${v.myCount}</strong> · Médiane réseau : <strong class="text-white">${v.refMedian}</strong> <span class="${v.myCount>=v.refMedian?'text-emerald-400':'text-amber-400'}">(${v.myCount>=v.refMedian?'+':''}${v.myCount-v.refMedian} vs médiane)</span>`
         :`<span class="text-slate-400">⚪ Non applicable — comparaison réseau disponible par famille dans l'Observatoire</span>`;
       return`<div class="diag-voyant diag-v3">
-        <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
+        <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.refMedian>0?v.status:'na')}</div>
         <p class="text-xs mb-3">${refLine}</p>
         ${missingSection}
       </div>`;
