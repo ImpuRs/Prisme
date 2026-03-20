@@ -3102,6 +3102,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function closeDiagnostic(){
     const overlay=document.getElementById('diagnosticOverlay');
     if(overlay)overlay.classList.remove('active');
+    // Reset famille filter — diagnostic is a temporary view, not a persistent filter
+    const ff=document.getElementById('filterFamille');if(ff)ff.value='';
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
 
@@ -3112,7 +3114,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(!isMetierMode)famille=decodeURIComponent(famille);
     const hasMulti=storesIntersection.size>1;
     const hasChal=chalandiseReady;
-    const srcLabel=source==='bench'?'Retour au Bench':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':'Retour au Stock';
+    const srcLabel=source==='bench'?'Retour à l\'Observatoire':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':source==='stock'?'Retour au Stock':'Retour';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
     const nbAgences=storesIntersection.size;
@@ -3166,7 +3168,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         </div>
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
-      ${_diagRenderV1(v1)}
+      ${_diagRenderV1(v1,hasMulti&&v3&&v3.status!=='lock'&&(v3.medCA>0||v3.missing?.length>0))}
       ${_diagRenderV2(v2,hasChal)}
       ${_diagRenderV3(v3,hasMulti)}
       <div id="_diagPlan">${_diagRenderPlan(famille,actions)}</div>`;
@@ -3264,20 +3266,21 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         </div>
         <button onclick="closeDiagnostic()" class="text-slate-400 hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
-      ${_diagRenderV1(v1)}
+      ${_diagRenderV1(v1,hasMulti&&v3&&v3.status!=='lock'&&(v3.medCA>0||v3.missing?.length>0))}
       ${_diagRenderV2(v2,hasChal)}
       ${_diagRenderV3(v3,hasMulti)}
       <div id="_diagPlan">${_diagRenderPlan(key,_diagActions)}</div>`;
   }
 
   function _diagBadge(s){
-    const m={ok:{cls:'diag-ok',txt:'✅ Bon'},warn:{cls:'diag-warn',txt:'⚠️ À corriger'},error:{cls:'diag-error',txt:'🔴 Problème'},lock:{cls:'diag-lock',txt:'🔒 Non disponible'}};
+    const m={ok:{cls:'diag-ok',txt:'✅ Bon'},warn:{cls:'diag-warn',txt:'⚠️ À corriger'},error:{cls:'diag-error',txt:'🔴 Problème'},lock:{cls:'diag-lock',txt:'🔒 Non disponible'},absent:{cls:'diag-lock',txt:'⚪ Absent'}};
     const d=m[s]||m.lock;return`<span class="diag-badge ${d.cls}">${d.txt}</span>`;
   }
 
   // ── VOYANT 1 : 📦 MON RAYON (toujours actif) ──
   function _diagVoyant1(famille){
     const arts=finalData.filter(r=>r.famille===famille);
+    if(!arts.length)return{status:'absent',arts:0,enStock:0,nonRef:0,ruptures:[],caPerduTotal:0,nbMM:0,dormants:[],mmDetail:[],nonCal:0,sousD:0,statusRup:'ok',statusMM:'ok'};
     // Stock / ruptures
     const enStock=arts.filter(r=>r.stockActuel>0).length;
     const nonRef=arts.filter(r=>r.stockActuel<=0&&r.W<3).length;
@@ -3301,7 +3304,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const worstStatus=[statusRup,statusMM,statusDorm].includes('error')?'error':[statusRup,statusMM,statusDorm].includes('warn')?'warn':'ok';
     return{status:worstStatus,arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,nonCal:nonCal.length,sousD:sousD.length,mmDetail,nbMM,dormants,statusRup,statusMM};
   }
-  function _diagRenderV1(v){
+  function _diagRenderV1(v,hasNetworkData){
+    if(v.status==='absent')return`<div class="diag-voyant diag-v1"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-blue-300">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs text-slate-400 mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] text-emerald-400 mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
     const rupIcon=v.ruptures.length===0?'✅':v.ruptures.length<=3?'⚠️':'🚨';
     const rupClass=v.ruptures.length===0?'text-emerald-400':v.ruptures.length<=3?'text-amber-400':'text-rose-400';
     const rupText=v.ruptures.length===0?'Pas de rupture sur cette famille':`${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — CA perdu estimé : <strong>${v.caPerduTotal>0?formatEuro(v.caPerduTotal):'<1€'}</strong>`;
@@ -3766,8 +3770,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
     }
     // 🔭 LE RÉSEAU actions
-    if(v3&&v3.status!=='lock'&&v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+    if(v3&&v3.status!=='lock'){
+      if(v3.missing?.length>0){
+        acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+      } else if(v3.caEcart<0&&v3.medCA>0){
+        const pctLabel=v3.caEcart>=-50?'entre 50 et 100%':'< 50%';
+        acts.push({priority:4,src:'🔭',label:`CA réseau ${v3.caEcart}% sous la médiane (${formatEuro(v3.myCA)} vs ${formatEuro(v3.medCA)}) — Explorer l'Observatoire`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+      }
     }
     // Sort by priority and limit to 3
     return acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
