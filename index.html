@@ -2513,7 +2513,7 @@
     for(const[k,v] of Object.entries(myV)){if(v.sumPrelevee>0)sp[selectedMyStore].ref++;sp[selectedMyStore].freq+=v.countBL;}
     sp[selectedMyStore].serv=Math.round((sp[selectedMyStore].ref/totalArtsInBassin)*100);
     if(chalandiseReady&&ventesClientsPerStore[selectedMyStore])sp[selectedMyStore].clientsZone=[...ventesClientsPerStore[selectedMyStore]].filter(c=>chalandiseData.has(c)).length;
-    for(const store of cs){sp[store]={ref:0,freq:0,serv:0,clientsZone:0};const sv=ventesParMagasin[store]||{};for(const[k,v] of Object.entries(sv)){if(v.sumPrelevee>0)sp[store].ref++;sp[store].freq+=v.countBL;}sp[store].serv=Math.round((sp[store].ref/totalArtsInBassin)*100);if(chalandiseReady&&ventesClientsPerStore[store])sp[store].clientsZone=[...ventesClientsPerStore[store]].filter(c=>chalandiseData.has(c)).length;}
+    for(const store of cs){sp[store]={ref:0,freq:0,serv:0,clientsZone:0};const sv=ventesParMagasin[store]||{};for(const[k,v] of Object.entries(sv)){if(obsFilterUnivers&&articleUnivers[k]!==obsFilterUnivers)continue;if(v.sumPrelevee>0)sp[store].ref++;sp[store].freq+=v.countBL;}sp[store].serv=Math.round((sp[store].ref/totalArtsInBassin)*100);if(chalandiseReady&&ventesClientsPerStore[store])sp[store].clientsZone=[...ventesClientsPerStore[store]].filter(c=>chalandiseData.has(c)).length;}
     benchLists.storePerf=sp;
     // V2 Phase 1: median per family (per-store aggregates)
     const myFamFreq={};const storesFamFreq={};
