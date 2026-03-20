@@ -1335,12 +1335,12 @@
     const mkLink=(txt,tab)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
     const mkAction=(txt,fn)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
     const parts=[];
-    parts.push(mkLink(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,'cockpit'));
+    parts.push(mkAction(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,"showCockpitInTable('ruptures')"));
     if(hasTerr){
       parts.push(mkLink(`${absentsTerr} article${absentsTerr!==1?'s':''} territoire absents du rayon`,`territoire`));
       parts.push(mkLink(`${extClients} client${extClients!==1?'s':''} qui ne viennent jamais`,`territoire`));
     }else{
-      parts.push(mkLink(`${dormants} dormant${dormants!==1?'s':''} à traiter`,'cockpit'));
+      parts.push(mkAction(`${dormants} dormant${dormants!==1?'s':''} à traiter`,"showCockpitInTable('dormants')"));
     }
     el.innerHTML=`<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>`+parts.join(`<span class="text-slate-500 mx-1">·</span>`);
     el.classList.remove('hidden');
@@ -1470,7 +1470,10 @@
   function filterByAge(b){document.getElementById('filterAge').value=b;updateActiveAgeIndicator();currentPage=0;switchTab('table');renderAll();}
   function clearAgeFilter(){document.getElementById('filterAge').value='';updateActiveAgeIndicator();currentPage=0;renderAll();}
   function updateActiveAgeIndicator(){const v=document.getElementById('filterAge').value;const el=document.getElementById('activeAgeFilter');if(v&&AGE_BRACKETS[v]){const b=AGE_BRACKETS[v];el.className=`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`;document.getElementById('activeAgeLabel').textContent='⏳ '+b.label;el.classList.remove('hidden');}else el.classList.add('hidden');}
-  function showCockpitInTable(type){document.getElementById('filterCockpit').value=type;document.getElementById('activeCockpitLabel').textContent={ruptures:'🚨 Ruptures',fantomes:'👻 Articles sans emplacement',anomalies:'⚠️ Anomalies',saso:'📦 SASO',dormants:'💤 Dormants',fins:'📉 Fins de série',top20:'🏆 Top 20 fréquence',nouveautes:'✨ Nouveautés',colisrayon:'📦→🏪 Colis à stocker'}[type]||type;document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}
+  function showCockpitInTable(type){document.getElementById('filterCockpit').value=type;document.getElementById('activeCockpitLabel').textContent={ruptures:'🚨 Ruptures',fantomes:'👻 Articles sans emplacement',anomalies:'⚠️ Anomalies',saso:'📦 SASO',dormants:'💤 Dormants',fins:'📉 Fins de série',top20:'🏆 Top 20 fréquence',nouveautes:'✨ Nouveautés',colisrayon:'📦→🏪 Colis à stocker'}[type]||type;document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');
+    // Re-filter + render table only — do NOT call renderAll() to avoid circular dependency:
+    // renderAll() → renderDashboardAndCockpit() resets cockpitLists from filteredData → sets become empty
+    filteredData=getFilteredData();filteredData.sort((a,b)=>{let vA=a[sortCol],vB=b[sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;});updateActiveAgeIndicator();renderTable(true);}
   function clearCockpitFilter(silent){document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');if(!silent){currentPage=0;renderAll();}}
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
   function buildBenchCheckboxes(){
