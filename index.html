@@ -2503,7 +2503,7 @@
     // V2 Phase 1: median per family (per-store aggregates)
     const myFamFreq={};const storesFamFreq={};
     for(const[code,data] of Object.entries(myV)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
-    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
+    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;if(obsFilterUnivers&&articleUnivers[code]!==obsFilterUnivers)continue;const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
     const allFamsSet=new Set([...Object.keys(myFamFreq)]);for(const store of cs)for(const f of Object.keys(storesFamFreq[store]||{}))allFamsSet.add(f);
     const bassinFamMedian={};for(const fam of allFamsSet){const vals=cs.map(s=>(storesFamFreq[s]||{})[fam]||0).filter(v=>v>0);if(vals.length)bassinFamMedian[fam]=_median(vals);}
     const familyPerf=[];let familyPerfMasked=0;
@@ -2520,7 +2520,7 @@
     // Per-store family CA & Ref — prefer direct CA columns, fallback to (sumPrelevee+sumEnleve)*prix
     const storeFamCA={},storeFamRef={},storeTotalCA={};
     const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
-    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;if(!/^\d{6}$/.test(code))continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
+    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;if(!/^\d{6}$/.test(code))continue;if(obsFilterUnivers&&articleUnivers[code]!==obsFilterUnivers)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
     // CA median per family across comparison stores — used for F&F filter and diagnostic
     const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
     benchLists._bassinFamCAMed=bassinFamCAMed;
