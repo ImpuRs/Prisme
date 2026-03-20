@@ -2436,7 +2436,6 @@
     // Determine comparison values based on selectedObsCompare
     const obsMode=selectedObsCompare||'median';
     let compV=null,compFamCA={},compFamRef={},compTotalCA=0,compRef=0,compFreq=0,compServ=0;
-    const sp=benchLists.storePerf;
     if(obsMode!=='median'&&storesIntersection.has(obsMode)){
       // Single store
       compV=ventesParMagasin[obsMode]||{};compTotalCA=storeTotalCA[obsMode]||0;compRef=sp[obsMode]?.ref||0;compFreq=sp[obsMode]?.freq||0;compServ=sp[obsMode]?.serv||0;compFamCA=storeFamCA[obsMode]||{};compFamRef=storeFamRef[obsMode]||{};
