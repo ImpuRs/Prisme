@@ -187,6 +187,22 @@
       </div>
     </div>
 
+    <!-- ★ FILTRES OBSERVATOIRE (affiché uniquement quand onglet Observatoire actif) -->
+    <div id="obsFilters" class="hidden mb-4 bg-cyan-50 p-4 rounded-xl border border-cyan-200 shadow-inner">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-cyan-800 uppercase flex items-center gap-2">🔭 Filtres Observatoire</h3>
+        <button onclick="resetObsFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
+      </div>
+      <div class="flex flex-wrap gap-3 items-center">
+        <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-cyan-300 bg-white min-w-[200px]"><option value="">🌐 Tous les univers</option></select>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</label>
+          <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="w-28 p-2 border border-cyan-300 rounded-lg text-sm font-semibold bg-white">
+          <span class="text-sm text-gray-500">€</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ONGLETS -->
     <div id="tabsContainer" class="hidden mb-6 border-b-2 border-gray-200">
       <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
@@ -601,6 +617,11 @@
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
+      <!-- BARRE DE RECHERCHE ARTICLE -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-4">
+        <input type="text" id="obsArtSearch" oninput="renderObsArticleSearch()" class="w-full p-3 text-sm border-2 border-cyan-200 rounded-lg font-semibold focus:ring-2 focus:ring-cyan-400 outline-none" placeholder="🔍 Rechercher un article (code ou libellé) — Manqué, Sous-perf ou Sur-perf">
+        <div id="obsArtSearchResult" class="mt-2"></div>
+      </div>
       <!-- 2. KPI COMPARATIFS — ligne de cartes -->
       <div class="mb-6">
         <div class="flex items-center justify-between mb-3">
@@ -632,23 +653,6 @@
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold hover:bg-emerald-200 border border-emerald-300">📋 Copier</button><span class="text-emerald-600 text-xs">▼</span></div>
         </summary>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
-      </details>
-      <!-- 6. DÉTAIL ARTICLES (accordion, replié par défaut) -->
-      <details class="bg-white rounded-xl shadow-md border border-gray-200 mb-6">
-        <summary class="px-5 py-3 font-bold text-gray-700 text-sm cursor-pointer hover:bg-gray-50 select-none">📦 Détail articles — Manquées · Sous-Perf · Sur-Perf · Classement</summary>
-        <div class="p-5">
-          <div class="mb-4"><input type="text" id="benchSearch" oninput="renderBenchmark()" class="w-full p-3 text-sm border-2 border-gray-300 rounded-lg font-semibold" placeholder="🔍 Rechercher dans les articles…"></div>
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-            <div class="bg-white p-4 rounded-xl border-2 border-red-200"><div class="flex items-center justify-between mb-2"><h4 class="font-extrabold text-red-800 flex items-center gap-1 text-sm">🚫 Manquées <span id="badgeMissed" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Articles vendus par d'autres agences que vous ne vendez pas. Nb ventes réseau = total de lignes de vente (BL) sur toutes les agences comparées. Nb agences = combien d'agences vendent cet article.">ℹ</em></h4><button onclick="exportBenchList('missed')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold">📥</button></div><p class="text-[10px] text-gray-500 mb-2">🟢=en stock · 🔴=stock 0</p><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-1.5 px-2">Code/Lib</th><th class="py-1.5 px-2 text-center">Nb ventes réseau</th><th class="py-1.5 px-2 text-center">Nb agences</th><th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-center">💡</th></tr></thead><tbody id="benchMissedTable" class="divide-y divide-red-50"></tbody></table></div></div>
-            <div class="bg-white p-4 rounded-xl border-2 border-amber-200"><div class="flex items-center justify-between mb-2"><h4 class="font-extrabold text-amber-800 flex items-center gap-1 text-sm">📉 Sous-Perf <span id="badgeUnder" class="badge bg-amber-500 text-white"></span><em class="info-tip" data-tip="Articles où votre quantité vendue est significativement inférieure à la médiane réseau (&lt;50%). Opportunité de progression.">ℹ</em></h4><button onclick="exportBenchList('under')" class="text-[10px] bg-amber-100 text-amber-700 py-1 px-2 rounded font-bold">📥</button></div><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-amber-50 text-amber-800 sticky top-0 font-bold"><tr><th class="py-1.5 px-2">Code/Lib</th><th class="py-1.5 px-2 text-center">Qté (moi)</th><th class="py-1.5 px-2 text-center">Qté (médiane)</th><th class="py-1.5 px-2 text-right">Ratio</th></tr></thead><tbody id="benchUnderTable" class="divide-y divide-amber-50"></tbody></table></div></div>
-            <div class="bg-white p-4 rounded-xl border-2 border-emerald-200"><div class="flex items-center justify-between mb-2"><h4 class="font-extrabold text-emerald-800 flex items-center gap-1 text-sm">🏆 Sur-Perf <span id="badgeOver" class="badge bg-emerald-500 text-white"></span><em class="info-tip" data-tip="Articles où votre quantité vendue est significativement supérieure à la médiane réseau (&gt;150%). Vos points forts à défendre.">ℹ</em></h4><button onclick="exportBenchList('over')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold">📥</button></div><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-1.5 px-2">Code/Lib</th><th class="py-1.5 px-2 text-center">Qté (moi)</th><th class="py-1.5 px-2 text-center">Qté (médiane)</th><th class="py-1.5 px-2 text-right">Ratio</th></tr></thead><tbody id="benchOverTable" class="divide-y divide-emerald-50"></tbody></table></div></div>
-          </div>
-          <div id="benchUnderperformBanner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-400 rounded-xl text-xs font-bold text-amber-800"></div>
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div class="bg-white p-4 rounded-xl border-2 border-violet-200"><h4 class="font-extrabold text-violet-800 mb-2 text-sm">📊 Forces & Faiblesses (vs médiane bassin)</h4><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-right">% méd.</th><th class="py-2 px-2 text-center">Perf</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div><p id="benchFamilyNote" class="text-[10px] text-gray-400 mt-2 hidden"></p></div>
-            <div class="bg-white p-4 rounded-xl border-2 border-cyan-200"><h4 class="font-extrabold text-cyan-800 mb-2 text-sm flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span><em class="info-tip" data-tip="Classement parmi les agences comparées. Trié par nb de ventes (BL) décroissant. % réseau = réf vendues ÷ total réf du bassin.">ℹ</em></h4><p id="benchMyRank" class="hidden text-lg font-extrabold text-cyan-700 mb-2"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Agence</th><th class="py-2 px-2 text-center">Réf actives</th><th class="py-2 px-2 text-center">Nb ventes</th><th class="py-2 px-2 text-center">% réseau</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients zone</th><th class="py-2 px-2 text-right">Rang</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
-          </div>
-        </div>
       </details>
     </div>
 
@@ -709,6 +713,8 @@
   let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
   let selectedBenchMetier='';
   let selectedObsCompare='median'; // 'median' or a store code
+  let obsFilterUnivers='';         // filtre univers Observatoire
+  let obsFilterMinCA=0;            // seuil écart CA minimum Observatoire
   let _includePerdu24m=false; // toggle: include perdus >24m in overview counts
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
@@ -1335,7 +1341,10 @@
   function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
   function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
   function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
-  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-indigo-600','text-indigo-600','border-violet-600','text-violet-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='territoire'){btn.classList.add('border-violet-600','text-violet-600','active');if(chalandiseReady||territoireReady)renderTerritoireTab();}else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}}
+  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-indigo-600','text-indigo-600','border-violet-600','text-violet-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='territoire'){btn.classList.add('border-violet-600','text-violet-600','active');if(chalandiseReady||territoireReady)renderTerritoireTab();}else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}
+  // Swap filters: obs filters on bench tab, global filters on all others
+  const loaded=!document.getElementById('tabsContainer').classList.contains('hidden');
+  if(loaded){const gf=document.getElementById('globalFilters'),of2=document.getElementById('obsFilters');if(gf&&of2){if(id==='bench'){gf.classList.add('hidden');of2.classList.remove('hidden');}else{gf.classList.remove('hidden');of2.classList.add('hidden');}}}}
   function populateSelect(id,vals){const s=document.getElementById(id);const f=s.options[0].textContent;s.innerHTML=`<option value="">${f}</option>`;[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});}
 
   function getFilteredData(){
@@ -1542,7 +1551,7 @@
       if(f3||chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}
       else{document.getElementById('btnTabTerritoire').classList.add('hidden');document.getElementById('navTerr').classList.add('hidden');}
       // Render main UI immediately — don't wait for territoire
-      currentPage=0;renderAll();if(useMulti)renderBenchmark();
+      currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
@@ -2403,6 +2412,12 @@
     }else{myV=ventesParMagasin[selectedMyStore]||{};}
     const bv={};
     for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
+    // Apply universe filter — narrow bv and myV to the selected famille/univers
+    if(obsFilterUnivers){
+      for(const k of Object.keys(bv)){if(articleFamille[k]!==obsFilterUnivers)delete bv[k];}
+      const myVF={};for(const[k,v] of Object.entries(myV)){if(articleFamille[k]===obsFilterUnivers)myVF[k]=v;}
+      myV=myVF;
+    }
     // Store performance + taux service
     const totalArtsInBassin=Object.keys(bv).length||1;
     const sp={};sp[selectedMyStore]={ref:0,freq:0,serv:0,clientsZone:0};
@@ -2487,16 +2502,17 @@
 const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
-    // Render accordion detail tables
+    // Detail tables (elements removed from DOM — render only if still present)
+    const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
     let p=[];for(const m of fM){const dc=m.myStock>0?'text-green-600':'text-red-500';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:bg-red-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-red-600">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center text-gray-500">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'text-green-600':'text-red-600'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
-    document.getElementById('benchMissedTable').innerHTML=p.join('')||'<tr><td colspan="5" class="text-center py-4 text-gray-400">🎉</td></tr>';
+    rT('benchMissedTable',p.join('')||'<tr><td colspan="5" class="text-center py-4 text-gray-400">🎉</td></tr>');
     p=[];for(const u of fU){const rt=(u.ratio*100).toFixed(0)+'%',bw=Math.min(u.ratio*100,100);p.push(`<tr class="border-b hover:bg-amber-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${u.code}</span><span class="text-[11px] font-semibold leading-tight" title="${u.lib}">${u.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-amber-700">${u.myQte}</td><td class="py-1.5 px-2 text-center text-gray-600">${u.avg}</td><td class="py-1.5 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-12 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-amber-500 rounded-full" style="width:${bw}%"></div></div><span class="text-amber-700 font-bold text-[10px]">${rt}</span></div></td></tr>`);}
-    document.getElementById('benchUnderTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">🎉</td></tr>';
+    rT('benchUnderTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">🎉</td></tr>');
     p=[];for(const o of fO)p.push(`<tr class="border-b hover:bg-emerald-50"><td class="py-1.5 px-2"><span class="font-mono text-gray-500 block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${o.lib}">${o.lib}</span></td><td class="py-1.5 px-2 text-center font-bold text-emerald-700">${o.myQte}</td><td class="py-1.5 px-2 text-center text-gray-600">${o.avg}</td><td class="py-1.5 px-2 text-right text-emerald-700 font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);
-    document.getElementById('benchOverTable').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">—</td></tr>';
+    rT('benchOverTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400">—</td></tr>');
     // Forces & Faiblesses (median)
     p=[];let sousPerf=0;if(familyPerf&&familyPerf.length){for(let fpi=0;fpi<familyPerf.length;fpi++){const fp=familyPerf[fpi];const pctMed=fp.med>0?Math.round((fp.my/fp.med)*100):null;const isS=fp.ecart>20,isW=fp.ecart<-20,isCrit=pctMed!==null&&pctMed<50;const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'bg-emerald-50':isCrit?'bg-red-50':isW?'bg-amber-50':'';const medColor=pctMed===null?'text-gray-400':pctMed>=100?'text-emerald-700 font-extrabold':pctMed>=50?'text-amber-700 font-bold':'text-red-600 font-extrabold';const medStr=pctMed!==null?pctMed+'%':'—';if(isCrit)sousPerf++;const perfDot=pctMed===null?'<span class="text-gray-300">—</span>':pctMed>=100?'<span class="inline-block w-3 h-3 rounded-full bg-emerald-500 align-middle"></span>':pctMed>=50?'<span class="inline-block w-3 h-3 rounded-full bg-amber-400 align-middle"></span>':'<span class="inline-block w-3 h-3 rounded-full bg-red-500 align-middle"></span>';const famEnc=encodeURIComponent(fp.fam);const fpId='fp_'+fpi;const diagBtn=isCrit?`<button class="diag-btn bg-red-100 text-red-700 hover:bg-red-200 mt-2" onclick="event.stopPropagation();openDiagnostic(decodeURIComponent('${famEnc}'),'bench')">🔍 Diag.</button>`:'';const detailHtml=`<div class="flex flex-wrap gap-4 text-[11px]"><span class="text-gray-500">Fréq Moi : <strong>${fp.my}</strong></span><span class="text-gray-500">Méd. : <strong>${fp.med}</strong></span><span class="text-gray-500">Écart : <span class="${medColor}">${fp.ecart>0?'+':''}${fp.ecart.toFixed(0)}%</span></span><span class="text-gray-500">% méd. : <span class="${medColor}">${medStr}</span></span></div>${diagBtn}`;p.push(`<tr class="border-b ${bg} cursor-pointer hover:opacity-90 transition-colors" onclick="toggleObsFamily('${fpId}')"><td class="py-1.5 px-2 text-[11px] font-semibold"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${icon} ${fp.fam}</td><td class="py-1.5 px-2 text-right ${medColor} text-xs">${medStr}</td><td class="py-1.5 px-2 text-center">${perfDot}</td></tr><tr id="${fpId}" class="hidden ${bg}"><td colspan="3"><div class="px-3 py-2">${detailHtml}</div></td></tr>`);}}
-    document.getElementById('benchFamilyTable').innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">—</td></tr>';
+    rT('benchFamilyTable',p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400">—</td></tr>');
     const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} sans activité réseau (médiane < 2) masquée${m>1?'s':''}.`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     // Store ranking
@@ -2505,7 +2521,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>=80?'text-emerald-700':data.serv>=60?'text-amber-700':'text-red-600';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${data.clientsZone>0?'text-rose-700':'text-gray-400'}">${data.clientsZone>0?data.clientsZone:'—'}</td>`:'';p.push(`<tr class="border-b ${isMe?'bg-cyan-50 font-bold':'hover:bg-gray-50'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
-    document.getElementById('benchStoreTable').innerHTML=p.join('');
+    rT('benchStoreTable',p.join(''));
   }
 
   // === OBSERVATOIRE HELPERS ===
@@ -2562,9 +2578,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${formatEuro(a.caPotentiel)}</span> manquants</p>${visLine}</div></div>`;
     }).join('');
     if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="text-gray-400 text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
-    // Families where I lose
-    if(el('obsLoseBadge'))el('obsLoseBadge').textContent=(obsFamiliesLose||[]).length;
-    const loseRows=(obsFamiliesLose||[]).map((f,i)=>{
+    // Families where I lose — apply min CA filter
+    const minCA=obsFilterMinCA||0;
+    const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
+    const winFiltered=(obsFamiliesWin||[]).filter(f=>!minCA||Math.abs((f.caMe||0)-(f.caOther||0))>=minCA);
+    if(el('obsLoseBadge'))el('obsLoseBadge').textContent=loseFiltered.length;
+    const loseRows=loseFiltered.map((f,i)=>{
       const famId='obsLose_'+i;
       const caGap=f.caMe-f.caOther;
       const arts=f.missingArts||[];
@@ -2588,8 +2607,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="3" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
-    if(el('obsWinBadge'))el('obsWinBadge').textContent=(obsFamiliesWin||[]).length;
-    const winRows=(obsFamiliesWin||[]).map((f,i)=>{
+    if(el('obsWinBadge'))el('obsWinBadge').textContent=winFiltered.length;
+    const winRows=winFiltered.map((f,i)=>{
       const winId='obsWin_'+i;
       const caAdv=f.caMe-f.caOther;
       const refAdv=Math.max(0,f.refMe-f.refOther);
@@ -2622,6 +2641,41 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const t0=performance.now();
     computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+  }
+
+  function onObsFilterChange(){
+    obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
+    obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
+    const t0=performance.now();computeBenchmark();renderBenchmark();
+    document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+  }
+
+  function resetObsFilters(){
+    obsFilterUnivers='';obsFilterMinCA=0;
+    const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
+    const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
+    const t0=performance.now();computeBenchmark();renderBenchmark();
+    document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+  }
+
+  function _buildObsUniversDropdown(){
+    const sel=document.getElementById('obsFilterUnivers');if(!sel)return;
+    const univs=new Set();
+    for(const v of Object.values(articleFamille))if(v)univs.add(v);
+    const cur=sel.value;
+    sel.innerHTML='<option value="">🌐 Tous les univers</option>';
+    [...univs].sort().forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=u;if(u===cur)o.selected=true;sel.appendChild(o);});
+  }
+
+  function renderObsArticleSearch(){
+    const q=(document.getElementById('obsArtSearch')?.value||'').toLowerCase().trim();
+    const res=document.getElementById('obsArtSearchResult');if(!res)return;
+    if(!q){res.innerHTML='';return;}
+    const{missed,under,over}=benchLists;const rows=[];
+    for(const m of(missed||[])){if((m.code+' '+m.lib).toLowerCase().includes(q)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:bg-red-50"><span class="font-mono text-[10px] text-gray-500 w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] text-gray-500 shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
+    for(const u of(under||[])){if((u.code+' '+u.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:bg-amber-50"><span class="font-mono text-[10px] text-gray-500 w-16 shrink-0">${u.code}</span><span class="flex-1 text-xs min-w-0">${u.lib}</span><span class="badge bg-amber-500 text-white text-[9px] shrink-0">📉 Sous-perf</span><span class="text-[10px] text-gray-500 shrink-0">Moi: ${u.myQte} · Méd: ${u.avg} · ${(u.ratio*100).toFixed(0)}%</span></div>`);}}
+    for(const o of(over||[])){if((o.code+' '+o.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:bg-emerald-50"><span class="font-mono text-[10px] text-gray-500 w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] text-gray-500 shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
+    res.innerHTML=rows.length?`<div class="bg-white border rounded-xl overflow-hidden shadow-sm mt-1">${rows.join('')}</div>`:'<p class="text-sm text-gray-400 mt-2 text-center py-2">Aucun article trouvé.</p>';
   }
 
   function copyObsActionPlan(){
