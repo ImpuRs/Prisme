@@ -191,7 +191,7 @@
     <div id="tabsContainer" class="hidden mb-6 border-b-2 border-gray-200">
       <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
         <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
-        <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Stock</button></li>
+        <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
@@ -577,41 +577,65 @@
       <!-- 1. HEADER -->
       <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div><h2 class="text-2xl font-extrabold">🔭 Observatoire</h2><p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Génère un plan d'action</p></div>
-          <div class="flex items-center gap-3 text-xl font-extrabold"><span id="obsMyStore" class="bg-white/20 px-3 py-1 rounded-lg">—</span><span class="text-cyan-300">vs</span><span id="obsCompareLabel" class="bg-white/20 px-3 py-1 rounded-lg">—</span></div>
-        </div>
-        <div class="bg-white/10 rounded-lg p-4 flex flex-wrap items-end gap-4">
-          <div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-200 mb-1">🔭 Comparer avec</label><select id="obsCompareSelect" onchange="onObsCompareChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="median">📊 Médiane réseau</option></select></div>
-          <div id="benchMetierDiv" class="hidden flex-1 min-w-[180px]"><label class="block text-xs font-bold text-rose-200 mb-1">🏢 Métier (Zone de Chalandise)</label><select id="benchMetierSelect" onchange="onBenchMetierChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="">Tous les clients</option></select></div>
+          <div>
+            <h2 class="text-2xl font-extrabold">🔭 Observatoire — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span></h2>
+            <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Plan d'action prescriptif</p>
+          </div>
           <span id="benchRecalcTime" class="text-xs text-green-300 font-mono"></span>
         </div>
-        <!-- Hidden compat elements (keep getBenchCompareStores working) -->
+        <div class="bg-white/10 rounded-lg p-4 flex flex-wrap items-end gap-4">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-bold text-cyan-200 mb-1">🔭 Comparer avec</label>
+            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="median">📊 Médiane réseau</option></select>
+          </div>
+          <div id="benchMetierDiv" class="hidden flex-1 min-w-[180px]">
+            <label class="block text-xs font-bold text-rose-200 mb-1">🏢 Métier (Zone de Chalandise)</label>
+            <select id="benchMetierSelect" onchange="onBenchMetierChange()" class="w-full p-2 rounded-lg text-sm font-bold text-gray-800"><option value="">Tous les clients</option></select>
+          </div>
+        </div>
+        <!-- Checkboxes multi-agences pour choisir lesquelles inclure dans la médiane -->
+        <div id="benchPickDiv" class="mt-3 bg-white/10 rounded-lg p-3">
+          <p class="text-xs font-bold text-cyan-200 mb-2">📋 Agences incluses dans la médiane réseau :</p>
+          <div id="benchPickCheckboxes" class="flex flex-wrap gap-2 max-h-28 overflow-y-auto"></div>
+        </div>
+        <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
-        <div id="benchPickDiv" class="hidden"><div id="benchPickCheckboxes"></div></div>
       </div>
-      <!-- 2. KPI COMPARATIFS -->
-      <div class="bg-white rounded-xl shadow-md border border-gray-200 mb-6 overflow-hidden">
-        <div class="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between"><h3 class="font-extrabold text-gray-800 text-sm">📊 KPI Comparatifs</h3><span class="text-xs text-gray-500">Source : données consommé</span></div>
-        <div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-700 font-bold"><tr><th class="py-2 px-4 text-left">Indicateur</th><th class="py-2 px-4 text-right">Moi (<span id="obsKpiMyLabel">—</span>)</th><th class="py-2 px-4 text-right" id="obsKpiCompHeader">Comparé</th><th class="py-2 px-4 text-right">Écart</th></tr></thead><tbody id="obsKpiBody" class="divide-y divide-gray-100"></tbody></table></div>
+      <!-- 2. KPI COMPARATIFS — ligne de cartes -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-extrabold text-gray-800 text-sm">📊 KPI Comparatifs <span class="text-gray-400 font-normal text-xs ml-1">Source : données consommé</span></h3>
+          <span id="obsKpiCompHeader" class="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded border">vs <span id="obsKpiCompLabel">—</span></span>
+        </div>
+        <div id="obsKpiCards" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
+        <!-- Legacy ids for renderObservatoire compat -->
+        <span id="obsKpiMyLabel" class="hidden"></span>
+        <tbody id="obsKpiBody" class="hidden"></tbody>
       </div>
-      <!-- 3. FAMILLES OÙ L'AUTRE ME BAT -->
+      <!-- 3. PLAN D'ACTION AUTO — bien visible, après KPI -->
+      <div class="bg-white rounded-xl shadow-md border-2 border-blue-300 mb-6">
+        <div class="px-5 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+          <div><h3 class="font-extrabold text-blue-800 text-sm">🎯 Plan d'action prioritaire</h3><p class="text-[10px] text-blue-600 mt-0.5">Top 3 familles à traiter · Prescriptif · Trié par écart CA</p></div>
+          <button onclick="copyObsActionPlan()" class="text-[10px] bg-blue-100 text-blue-700 py-1 px-2 rounded font-bold hover:bg-blue-200">📋 Copier</button>
+        </div>
+        <div id="obsActionPlanDiv" class="p-4 space-y-2"></div>
+      </div>
+      <!-- 4. FAMILLES OÙ L'AUTRE ME BAT -->
       <div class="bg-white rounded-xl shadow-md border-2 border-red-200 mb-6">
         <div class="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between"><h3 class="font-extrabold text-red-800 flex items-center gap-2">📉 Familles où l'autre me bat <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span></h3><button onclick="copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200">📋 Copier</button></div>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-right">CA Moi</th><th class="py-2 px-3 text-right">CA Autre</th><th class="py-2 px-3 text-right">Écart %</th><th class="py-2 px-3 text-center">Réf Moi</th><th class="py-2 px-3 text-center">Réf Autre</th><th class="py-2 px-3 text-center">Articles +</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
       </div>
-      <!-- 4. MES FORCES -->
-      <div class="bg-white rounded-xl shadow-md border-2 border-emerald-200 mb-6">
-        <div class="px-5 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between"><h3 class="font-extrabold text-emerald-800 flex items-center gap-2">💪 Mes Forces <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3><button onclick="copyObsSection('win')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold hover:bg-emerald-200">📋 Copier</button></div>
+      <!-- 5. MES FORCES — accordéon replié par défaut -->
+      <details class="bg-white rounded-xl shadow-md border-2 border-emerald-200 mb-6">
+        <summary class="px-5 py-3 bg-emerald-50 border-b border-emerald-200 cursor-pointer hover:bg-emerald-100 select-none flex items-center justify-between">
+          <h3 class="font-extrabold text-emerald-800 flex items-center gap-2">💪 Mes Forces <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold hover:bg-emerald-200 border border-emerald-300">📋 Copier</button><span class="text-emerald-600 text-xs">▼</span></div>
+        </summary>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-right">CA Moi</th><th class="py-2 px-3 text-right">CA Autre</th><th class="py-2 px-3 text-right">Écart %</th><th class="py-2 px-3 text-center">Réf Moi</th><th class="py-2 px-3 text-center">Réf Autre</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
-      </div>
-      <!-- 5. PLAN D'ACTION AUTO -->
-      <div class="bg-white rounded-xl shadow-md border-2 border-blue-200 mb-6">
-        <div class="px-5 py-3 bg-blue-50 border-b border-blue-200"><h3 class="font-extrabold text-blue-800">🎯 Plan d'action prioritaire</h3><p class="text-[10px] text-blue-600 mt-0.5">Top 3 familles où agir en priorité · Trié par écart CA</p></div>
-        <div id="obsActionPlanDiv" class="p-4 space-y-2"></div>
-      </div>
+      </details>
       <!-- 6. DÉTAIL ARTICLES (accordion, replié par défaut) -->
       <details class="bg-white rounded-xl shadow-md border border-gray-200 mb-6">
-        <summary class="px-5 py-3 font-bold text-gray-700 text-sm cursor-pointer hover:bg-gray-50 select-none">📦 Détail articles — Manquées · Sous-Perf · Sur-Perf</summary>
+        <summary class="px-5 py-3 font-bold text-gray-700 text-sm cursor-pointer hover:bg-gray-50 select-none">📦 Détail articles — Manquées · Sous-Perf · Sur-Perf · Classement</summary>
         <div class="p-5">
           <div class="mb-4"><input type="text" id="benchSearch" oninput="renderBenchmark()" class="w-full p-3 text-sm border-2 border-gray-300 rounded-lg font-semibold" placeholder="🔍 Rechercher dans les articles…"></div>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
@@ -1354,10 +1378,23 @@
   function updateActiveAgeIndicator(){const v=document.getElementById('filterAge').value;const el=document.getElementById('activeAgeFilter');if(v&&AGE_BRACKETS[v]){const b=AGE_BRACKETS[v];el.className=`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`;document.getElementById('activeAgeLabel').textContent='⏳ '+b.label;el.classList.remove('hidden');}else el.classList.add('hidden');}
   function showCockpitInTable(type){document.getElementById('filterCockpit').value=type;document.getElementById('activeCockpitLabel').textContent={ruptures:'🚨 Ruptures',fantomes:'👻 Articles sans emplacement',anomalies:'⚠️ Anomalies',saso:'📦 SASO',dormants:'💤 Dormants',fins:'📉 Fins de série',top20:'🏆 Top 20 fréquence',nouveautes:'✨ Nouveautés',colisrayon:'📦→🏪 Colis à stocker'}[type]||type;document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}
   function clearCockpitFilter(silent){document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');if(!silent){currentPage=0;renderAll();}}
-  function onBenchParamChange(){if(document.getElementById('benchCompareMode').value==='pick'){buildBenchCheckboxes();document.getElementById('benchPickDiv').classList.remove('hidden');}else document.getElementById('benchPickDiv').classList.add('hidden');recalcBenchmarkInstant();}
-  function buildBenchCheckboxes(){const div=document.getElementById('benchPickCheckboxes');div.innerHTML='';[...storesIntersection].sort().filter(s=>s!==selectedMyStore).forEach(s=>{div.innerHTML+=`<label class="flex items-center gap-1 p-1 rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="${s}" checked onchange="recalcBenchmarkInstant()" class="rounded"><span class="font-semibold">${s}</span></label>`;});buildObsCompareSelect();}
-  function getBenchCompareStores(){if(document.getElementById('benchCompareMode').value==='all')return[...storesIntersection].filter(s=>s!==selectedMyStore);const c=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>c.push(cb.value));return c;}
-  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+  function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
+  function buildBenchCheckboxes(){
+    const div=document.getElementById('benchPickCheckboxes');if(!div)return;
+    const stores=[...storesIntersection].sort().filter(s=>s!==selectedMyStore);
+    // Keep previous checked state if available
+    const prevChecked=new Set();document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>prevChecked.add(cb.value));
+    const allWasEmpty=prevChecked.size===0;
+    div.innerHTML=stores.map(s=>{const checked=allWasEmpty||prevChecked.has(s)?'checked':'';return `<label class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer border transition-colors ${checked?'bg-white text-cyan-800 border-cyan-300':'bg-white/20 text-white border-white/30'} hover:opacity-80"><input type="checkbox" value="${s}" ${checked} onchange="this.closest('label').className=this.checked?'inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer border transition-colors bg-white text-cyan-800 border-cyan-300 hover:opacity-80':'inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold cursor-pointer border transition-colors bg-white/20 text-white border-white/30 hover:opacity-80';recalcBenchmarkInstant()" class="w-3 h-3 accent-cyan-600">${s}</label>`;}).join('');
+    buildObsCompareSelect();
+  }
+  function getBenchCompareStores(){
+    // Always use checkboxes; fall back to all stores if none are checked yet (initial state)
+    const checked=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>checked.push(cb.value));
+    if(checked.length)return checked;
+    return[...storesIntersection].filter(s=>s!==selectedMyStore);
+  }
+  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
@@ -2412,7 +2449,12 @@
       const allFamsSet2=new Set(Object.keys(myFamCA));for(const s of cs)for(const f of Object.keys(storeFamCA[s]||{}))allFamsSet2.add(f);
       for(const fam of allFamsSet2){const caV=cs.map(s=>storeFamCA[s]?.[fam]||0).filter(v=>v>0);compFamCA[fam]=caV.length?_median(caV):0;const refV2=cs.map(s=>storeFamRef[s]?.[fam]||0).filter(v=>v>0);compFamRef[fam]=refV2.length?Math.round(_median(refV2)):0;}
     }
-    benchLists.obsKpis={mine:{ca:myTotalCA,ref:sp[selectedMyStore]?.ref||0,serv:sp[selectedMyStore]?.serv||0,freq:sp[selectedMyStore]?.freq||0},compared:{ca:compTotalCA,ref:compRef,serv:compServ,freq:compFreq}};
+    // Assortiment = my refs / avg refs (in %)
+    const myRef=sp[selectedMyStore]?.ref||0;
+    const avgRef=cs.length>0?Math.round(cs.reduce((s,store)=>s+(sp[store]?.ref||0),0)/cs.length):0;
+    const myAssort=avgRef>0?Math.round((myRef/avgRef)*100):0;
+    const compAssort=100; // baseline is 100% for comparison
+    benchLists.obsKpis={mine:{ca:myTotalCA,ref:myRef,serv:sp[selectedMyStore]?.serv||0,freq:sp[selectedMyStore]?.freq||0,assort:myAssort},compared:{ca:compTotalCA,ref:compRef,serv:compServ,freq:compFreq,assort:compAssort}};
     // Build family comparison
     const allFams2=new Set([...Object.keys(myFamCA),...Object.keys(compFamCA)]);
     const obsFamiliesLose=[],obsFamiliesWin=[];
@@ -2471,42 +2513,100 @@
     if(el('obsMyStore'))el('obsMyStore').textContent=selectedMyStore||'—';
     if(el('obsCompareLabel'))el('obsCompareLabel').textContent=obsLabel;
     if(el('obsKpiMyLabel'))el('obsKpiMyLabel').textContent=selectedMyStore||'—';
-    if(el('obsKpiCompHeader'))el('obsKpiCompHeader').textContent=obsLabel;
-    // KPI table
-    const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0},compared:{ca:0,ref:0,serv:0,freq:0}};
+    if(el('obsKpiCompLabel'))el('obsKpiCompLabel').textContent=obsLabel;
+    // KPI CARDS
+    const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,assort:0},compared:{ca:0,ref:0,serv:0,freq:0,assort:0}};
     const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct'?v+'%':v.toLocaleString('fr');
-    const kpiDefs=[{label:'💰 CA vendu (€)',key:'ca',fmt:'euro'},{label:'📦 Réf actives',key:'ref',fmt:'num'},{label:'✅ Taux service',key:'serv',fmt:'pct'},{label:'🔄 Fréquence (BL)',key:'freq',fmt:'num'}];
-    const kpiHtml=kpiDefs.map(r=>{const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);const bg=pct>=0?'':pct>=-10?'':pct>=-30?'bg-amber-50':'bg-red-50';const icon=pct>=0?'🟢':pct>=-10?'':pct>=-30?'🟠':'🔴';const color=pct>=0?'text-emerald-700 font-bold':pct>=-10?'text-gray-700':pct>=-30?'text-amber-700 font-bold':'text-red-700 font-extrabold';return `<tr class="${bg}"><td class="py-2 px-4 font-semibold text-gray-700">${r.label}</td><td class="py-2 px-4 text-right font-bold text-blue-700">${fmtVal(me,r.fmt)}</td><td class="py-2 px-4 text-right text-gray-600">${fmtVal(comp,r.fmt)}</td><td class="py-2 px-4 text-right ${color}">${icon} ${pct>0?'+':''}${pct}%</td></tr>`;}).join('');
-    if(el('obsKpiBody'))el('obsKpiBody').innerHTML=kpiHtml;
+    const kpiDefs=[{label:'💰 CA vendu',key:'ca',fmt:'euro'},{label:'📦 Réf actives',key:'ref',fmt:'num'},{label:'✅ Taux service',key:'serv',fmt:'pct'},{label:'🔄 Fréquence',key:'freq',fmt:'num'},{label:'🎯 Assortiment',key:'assort',fmt:'pct'}];
+    const cardsHtml=kpiDefs.map(r=>{
+      const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
+      const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
+      const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-30?'🟠':'🔴';
+      const ecartColor=pct>=0?'text-emerald-700 font-extrabold':pct>=-10?'text-yellow-700 font-bold':pct>=-30?'text-amber-700 font-bold':'text-red-700 font-extrabold';
+      const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'border-amber-200':'border-red-300';
+      const cardBg=pct>=0?'bg-emerald-50/40':pct>=-10?'bg-yellow-50/40':pct>=-30?'bg-amber-50/40':'bg-red-50/40';
+      return `<div class="bg-white rounded-xl border-2 ${cardBorder} ${cardBg} p-3 flex flex-col gap-1 shadow-sm">
+        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">${r.label}</p>
+        <div class="flex items-end justify-between gap-1">
+          <div><p class="text-sm font-extrabold text-blue-700">${fmtVal(me,r.fmt)}</p><p class="text-[9px] text-gray-400">${selectedMyStore||'Moi'}</p></div>
+          <div class="text-right"><p class="text-xs text-gray-500">${fmtVal(comp,r.fmt)}</p><p class="text-[9px] text-gray-400">${obsLabel}</p></div>
+        </div>
+        <p class="text-xs ${ecartColor} border-t pt-1 mt-0.5">${ecartIcon} ${pct>0?'+':''}${pct}%</p>
+      </div>`;
+    }).join('');
+    if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
+    // Plan d'action — format prescriptif
+    const planHtml=(obsActionPlan||[]).map((a,i)=>{
+      const stars=i===0?'⭐⭐⭐':i===1?'⭐⭐':'⭐';
+      const border=a.ecartPct<-30?'border-red-300 bg-red-50':'border-amber-300 bg-amber-50';
+      const potLabel=a.caPotentiel>0?formatEuro(a.caPotentiel):'N/A';
+      const action=a.nbToRef>0
+        ?`→ Référencer <strong>${a.nbToRef} article${a.nbToRef>1?'s':''}</strong> en <strong>${a.fam}</strong> (potentiel <strong class="text-emerald-700">${potLabel}</strong>)`
+        :`→ Améliorer la performance en <strong>${a.fam}</strong> (écart <strong class="text-red-700">${a.ecartPct}%</strong> vs ${obsLabel})`;
+      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm text-gray-800 leading-snug">${action}</p><p class="text-[10px] text-gray-500 mt-1">Écart CA : <span class="font-bold text-red-700">${a.ecartPct}%</span></p></div></div>`;
+    }).join('');
+    if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="text-gray-400 text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
     // Families where I lose
     if(el('obsLoseBadge'))el('obsLoseBadge').textContent=(obsFamiliesLose||[]).length;
     const loseRows=(obsFamiliesLose||[]).map((f,i)=>{
       const famId='obsLose_'+i;const ec=f.ecartPct;const ecColor=ec<-30?'text-red-700 font-extrabold':ec<-10?'text-amber-700 font-bold':'text-gray-700';const ecBg=ec<-30?'bg-red-50':ec<-10?'bg-amber-50':'';
       const arts=f.missingArts||[];
-      const artsHtml=arts.length?`<div class="pt-2 px-3 pb-3"><p class="text-[10px] font-bold text-red-700 mb-1.5">Articles présents chez l'autre, absents chez moi (top ${Math.min(arts.length,20)}) :</p><table class="min-w-full text-[10px]"><thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th><th class="py-1 px-2 text-center">Statut chez moi</th></tr></thead><tbody>${arts.slice(0,20).map(a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-center">${a.statutMe}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-gray-400 text-[10px] px-3 py-2">Aucun article manquant identifié.</p>';
-      return `<tr class="border-b cursor-pointer ${ecBg} hover:opacity-90" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right font-bold text-blue-700">${formatEuro(f.caMe)}</td><td class="py-2 px-3 text-right text-gray-600">${formatEuro(f.caOther)}</td><td class="py-2 px-3 text-right ${ecColor}">${f.ecartPct}%</td><td class="py-2 px-3 text-center text-blue-700 font-bold">${f.refMe}</td><td class="py-2 px-3 text-center text-gray-500">${f.refOther}</td><td class="py-2 px-3 text-center">${arts.length?`<span class="badge bg-red-100 text-red-700">${arts.length}</span>`:''}</td></tr><tr id="${famId}" class="hidden bg-red-50/70"><td colspan="7">${artsHtml}</td></tr>`;
+      const copyBtn=arts.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] bg-white border border-red-200 text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 font-bold ml-1">📋</button>`:'';
+      const artsHtml=arts.length?`<div class="pt-2 px-3 pb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold text-red-700 mb-1.5">Articles présents chez l'autre, absents chez moi (top ${Math.min(arts.length,20)}) :</p><table class="min-w-full text-[10px]"><thead class="text-gray-600 font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq autre</th><th class="py-1 px-2 text-center">Statut chez moi</th></tr></thead><tbody>${arts.slice(0,20).map(a=>`<tr class="border-b border-red-100"><td class="py-0.5 px-2 font-mono text-gray-500">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freqOther}</td><td class="py-0.5 px-2 text-center">${a.statutMe}</td></tr>`).join('')}</tbody></table></div>`:'<p class="text-gray-400 text-[10px] px-3 py-2">Aucun article manquant identifié.</p>';
+      return `<tr class="border-b cursor-pointer ${ecBg} hover:opacity-90" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right font-bold text-blue-700">${formatEuro(f.caMe)}</td><td class="py-2 px-3 text-right text-gray-600">${formatEuro(f.caOther)}</td><td class="py-2 px-3 text-right ${ecColor}">${f.ecartPct}%</td><td class="py-2 px-3 text-center text-blue-700 font-bold">${f.refMe}</td><td class="py-2 px-3 text-center text-gray-500">${f.refOther}</td><td class="py-2 px-3 text-center">${arts.length?`<span class="badge bg-red-100 text-red-700">${arts.length}</span>${copyBtn}`:''}</td></tr><tr id="${famId}" class="hidden bg-red-50/70"><td colspan="7">${artsHtml}</td></tr>`;
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="7" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
     if(el('obsWinBadge'))el('obsWinBadge').textContent=(obsFamiliesWin||[]).length;
     const winRows=(obsFamiliesWin||[]).map(f=>`<tr class="border-b hover:bg-emerald-50"><td class="py-2 px-3 font-semibold text-gray-800">${f.fam}</td><td class="py-2 px-3 text-right font-bold text-blue-700">${formatEuro(f.caMe)}</td><td class="py-2 px-3 text-right text-gray-600">${formatEuro(f.caOther)}</td><td class="py-2 px-3 text-right text-emerald-700 font-bold">+${f.ecartPct}%</td><td class="py-2 px-3 text-center text-blue-700 font-bold">${f.refMe}</td><td class="py-2 px-3 text-center text-gray-500">${f.refOther}</td></tr>`).join('');
     if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="6" class="py-4 text-center text-gray-400">—</td></tr>';
-    // Plan d'action
-    const planHtml=(obsActionPlan||[]).map((a,i)=>{const stars=i===0?'⭐⭐⭐':i===1?'⭐⭐':'⭐';const border=a.ecartPct<-30?'border-red-300 bg-red-50':'border-amber-300 bg-amber-50';return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5">${stars}</span><div class="flex-1 min-w-0"><p class="font-extrabold text-gray-800 text-sm truncate">${a.fam}</p><p class="text-[10px] text-gray-600 mt-0.5">Écart <span class="font-bold text-red-700">${a.ecartPct}%</span> · À référencer : <span class="font-bold">${a.nbToRef} art.</span> · CA potentiel : <span class="font-bold text-emerald-700">${formatEuro(a.caPotentiel)}</span></p></div></div>`;}).join('');
-    if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="text-gray-400 text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
   }
 
   function buildObsCompareSelect(){
     const sel=document.getElementById('obsCompareSelect');if(!sel)return;
     const current=selectedObsCompare||'median';
     sel.innerHTML='<option value="median">📊 Médiane réseau</option>';
-    [...storesIntersection].sort().filter(s=>s!==selectedMyStore).forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;if(s===current)o.selected=true;sel.appendChild(o);});
+    [...storesIntersection].sort().filter(s=>s!==selectedMyStore).forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='🏪 '+s;if(s===current)o.selected=true;sel.appendChild(o);});
     if(current==='median')sel.value='median';
+    _updateObsCheckboxVisibility();
+  }
+
+  function _updateObsCheckboxVisibility(){
+    const isMedian=(selectedObsCompare||'median')==='median';
+    const pickDiv=document.getElementById('benchPickDiv');
+    if(pickDiv)pickDiv.classList.toggle('hidden',!isMedian);
   }
 
   function onObsCompareChange(){
     selectedObsCompare=document.getElementById('obsCompareSelect')?.value||'median';
+    _updateObsCheckboxVisibility();
+    const t0=performance.now();
     computeBenchmark();renderBenchmark();
+    document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+  }
+
+  function copyObsActionPlan(){
+    const plan=benchLists.obsActionPlan||[];
+    if(!plan.length){showToast('Aucun plan à copier','warning');return;}
+    const obsLabel=(selectedObsCompare||'median')==='median'?'Médiane réseau':selectedObsCompare;
+    const lines=[`Plan d'action Observatoire — ${selectedMyStore||'Moi'} vs ${obsLabel}`,''];
+    plan.forEach((a,i)=>{
+      const potLabel=a.caPotentiel>0?`${a.caPotentiel.toLocaleString('fr')}€`:'N/A';
+      const txt=a.nbToRef>0
+        ?`${i+1}. → Référencer ${a.nbToRef} article${a.nbToRef>1?'s':''} en ${a.fam} (potentiel ${potLabel})`
+        :`${i+1}. → Améliorer la performance en ${a.fam} (écart ${a.ecartPct}% vs ${obsLabel})`;
+      lines.push(txt);
+    });
+    navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Plan copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
+  }
+
+  function copyObsArticleList(containerId){
+    const container=document.getElementById(containerId);if(!container)return;
+    const rows=[...container.querySelectorAll('tbody tr')];
+    if(!rows.length){showToast('Aucun article à copier','warning');return;}
+    const lines=['Code\tLibellé\tFréq autre\tStatut chez moi'];
+    for(const row of rows){const cells=[...row.querySelectorAll('td')].map(td=>td.textContent.trim());lines.push(cells.join('\t'));}
+    navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Liste copiée dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
   }
 
   function toggleObsFamily(id){
