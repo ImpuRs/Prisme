@@ -195,7 +195,7 @@
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
-        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Observatoire <span id="benchTabBadge" class="badge bg-cyan-500 text-white ml-1"></span></button></li>
+        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Observatoire</button></li>
       </ul>
     </div>
 
@@ -233,12 +233,12 @@
     <!-- TAB 2 : DASHBOARD -->
     <div id="tabDash" class="tab-content hidden">
       <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1">Total</h4><p id="dashTotalValue" class="text-xl font-extrabold">0€</p><p id="dashTotalCount" class="text-blue-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1">☠️ Stock mort</h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p><p class="text-red-300 text-[9px] mt-0.5">articles &gt; 1 an sans sortie</p></div>
-        <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1">📊 Surstock</h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1">👁️ CAPALIN</h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1">✅ Taux Service</h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-rose-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1">💸 CA Perdu</h4><p id="dashCAPerdu" class="text-xl font-extrabold">0€</p><p id="dashCAPerduCount" class="text-rose-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">Valeur stock<em class="info-tip" data-tip="Somme des PRMP × quantité en stock pour tous les articles en rayon.">ℹ</em></h4><p id="dashTotalValue" class="text-xl font-extrabold">0€</p><p id="dashTotalCount" class="text-blue-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">☠️ Dormants<em class="info-tip" data-tip="Articles en stock sans aucune vente sur la période du consommé (&gt;1 an). Candidats au renvoi dépôt.">ℹ</em></h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">📊 Surstock<em class="info-tip" data-tip="Articles dont le stock dépasse le MAX ERP. Excédent à renvoyer au dépôt ou à déstoccer.">ℹ</em></h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">👁️ CAPALIN<em class="info-tip" data-tip="Stock actuel dépasse l\'ancien MAX ERP (capacité linéaire). Excédent visible par le client mais mal rangé.">ℹ</em></h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">✅ Taux Service<em class="info-tip" data-tip="Réf fréquentes (≥3 commandes/an) en stock ÷ total réf fréquentes. Cible : &gt;95%.">ℹ</em></h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-rose-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">💸 CA Perdu<em class="info-tip" data-tip="Estimation du CA manqué sur les ruptures : jours rupture × conso/jour × prix unitaire.">ℹ</em></h4><p id="dashCAPerdu" class="text-xl font-extrabold">0€</p><p id="dashCAPerduCount" class="text-rose-200 text-[10px] mt-1"></p></div>
       </div>
       <!-- Évolution historique (moved before shortcuts per V24.4 reorder) -->
       <div class="mb-4 flex justify-end gap-2">
@@ -310,7 +310,7 @@
 
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles commandés ≥3 fois/an mais stock à 0 — ventes perdues">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
+          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
           <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">⚠️ Anomalies<em class="info-tip" data-tip="Articles vendus avec du stock mais aucun MIN/MAX paramétré dans l'ERP">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeAnomalies" class="badge bg-red-300 text-red-900"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('anomalies')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionAnomalies" class="divide-y divide-red-100"></tbody></table></div></div>
         </div>
       </div>
@@ -615,14 +615,14 @@
       <!-- 3. PLAN D'ACTION AUTO — bien visible, après KPI -->
       <div class="bg-white rounded-xl shadow-md border-2 border-blue-300 mb-6">
         <div class="px-5 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
-          <div><h3 class="font-extrabold text-blue-800 text-sm">🎯 Plan d'action prioritaire</h3><p class="text-[10px] text-blue-600 mt-0.5">Top 3 familles à traiter · Prescriptif · Trié par écart CA</p></div>
+          <div><h3 class="font-extrabold text-blue-800 text-sm flex items-center gap-1">🎯 Plan d'action prioritaire<em class="info-tip" data-tip="Top 3 familles où l'agence comparée vous dépasse, triées par écart CA absolu. Cliquer sur un article pour voir les détails.">ℹ</em></h3><p class="text-[10px] text-blue-600 mt-0.5">Top 3 familles à traiter · Prescriptif · Trié par écart CA</p></div>
           <button onclick="copyObsActionPlan()" class="text-[10px] bg-blue-100 text-blue-700 py-1 px-2 rounded font-bold hover:bg-blue-200">📋 Copier</button>
         </div>
         <div id="obsActionPlanDiv" class="p-4 space-y-2"></div>
       </div>
       <!-- 4. FAMILLES OÙ L'AUTRE ME BAT -->
       <div class="bg-white rounded-xl shadow-md border-2 border-red-200 mb-6">
-        <div class="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between"><h3 class="font-extrabold text-red-800 flex items-center gap-2">📉 Familles où l'autre me bat <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span></h3><button onclick="copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200">📋 Copier</button></div>
+        <div class="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center justify-between"><h3 class="font-extrabold text-red-800 flex items-center gap-2">📉 Familles où l'autre me bat <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3><button onclick="copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200">📋 Copier</button></div>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-right">CA Moi</th><th class="py-2 px-3 text-right">CA Autre</th><th class="py-2 px-3 text-right">Écart %</th><th class="py-2 px-3 text-center">Réf Moi</th><th class="py-2 px-3 text-center">Réf Autre</th><th class="py-2 px-3 text-center">Articles +</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
       </div>
       <!-- 5. MES FORCES — accordéon replié par défaut -->
@@ -646,7 +646,7 @@
           <div id="benchUnderperformBanner" class="hidden mb-4 p-3 bg-amber-50 border border-amber-400 rounded-xl text-xs font-bold text-amber-800"></div>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div class="bg-white p-4 rounded-xl border-2 border-violet-200"><h4 class="font-extrabold text-violet-800 mb-2 text-sm">📊 Forces & Faiblesses (vs médiane bassin)</h4><div class="bench-list-scroll"><table class="min-w-full text-xs"><thead class="bg-violet-50 text-violet-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Famille</th><th class="py-2 px-2 text-center">Moi</th><th class="py-2 px-2 text-center">Méd.</th><th class="py-2 px-2 text-right">% méd.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="benchFamilyTable" class="divide-y divide-violet-50"></tbody></table></div></div>
-            <div class="bg-white p-4 rounded-xl border-2 border-cyan-200"><h4 class="font-extrabold text-cyan-800 mb-2 text-sm flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h4><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Serv.</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
+            <div class="bg-white p-4 rounded-xl border-2 border-cyan-200"><h4 class="font-extrabold text-cyan-800 mb-2 text-sm flex items-center gap-2">🏪 Classement <span id="badgeStores" class="badge bg-cyan-500 text-white"></span></h4><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-50 text-cyan-800 sticky top-0 font-bold"><tr><th class="py-2 px-2">Mag</th><th class="py-2 px-2 text-center">Réf</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="% réf actives / total réf réseau">Couv.</th><th class="py-2 px-2 text-center" id="benchClientsZoneHeader" style="display:none">Clients</th><th class="py-2 px-2 text-right">Perf</th></tr></thead><tbody id="benchStoreTable" class="divide-y divide-cyan-50"></tbody></table></div></div>
           </div>
         </div>
       </details>
@@ -882,9 +882,8 @@
     if(comInput&&comList){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');if(_selectedCommercial)comInput.value=_selectedCommercial;}
   }
   function _buildChalandiseOverview(){
-    console.log('[PILOT] _buildChalandiseOverview called, chalandiseReady=',chalandiseReady,'chalandiseData.size=',chalandiseData.size);
     const blk=document.getElementById('terrChalandiseOverview');
-    if(!blk){console.warn('[PILOT] terrChalandiseOverview element not found in DOM');return;}
+    if(!blk)return;
     if(!chalandiseReady){blk.classList.add('hidden');return;}
     blk.classList.remove('hidden');
     _buildDeptFilter();
@@ -2484,9 +2483,7 @@
     const mDiv=document.getElementById('benchMetierDiv');if(mDiv)mDiv.classList.toggle('hidden',!chalandiseReady);
     // Render observatory sections
     renderObservatoire();
-    // Update tab badge
-    document.getElementById('benchTabBadge').textContent=missed.length;
-    const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
+const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Render accordion detail tables
@@ -2520,7 +2517,13 @@
     // KPI CARDS
     const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,assort:0},compared:{ca:0,ref:0,serv:0,freq:0,assort:0}};
     const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct'?v+'%':v.toLocaleString('fr');
-    const kpiDefs=[{label:'💰 CA vendu',key:'ca',fmt:'euro'},{label:'📦 Réf actives',key:'ref',fmt:'num'},{label:'✅ Taux service',key:'serv',fmt:'pct'},{label:'🔄 Fréquence',key:'freq',fmt:'num'},{label:'🎯 Assortiment',key:'assort',fmt:'pct'}];
+    const kpiDefs=[
+      {label:'💰 CA vendu',key:'ca',fmt:'euro',tip:'CA canal MAGASIN (Prélevé + Enlevé) sur la période du consommé. Avoirs déduits.'},
+      {label:'📦 Réf actives',key:'ref',fmt:'num',tip:'Nombre d\'articles différents vendus au moins 1 fois en prélevé comptoir sur la période.'},
+      {label:'🌐 Couv. réseau',key:'serv',fmt:'pct',tip:'Réf actives ce magasin ÷ total réf du bassin × 100. ≠ Taux de dispo Mon Stock (réf fréq. en stock ÷ réf fréquentes).'},
+      {label:'🔄 Fréquence',key:'freq',fmt:'num',tip:'Nombre total de lignes de vente (BL) sur la période. Mesure l\'activité comptoir.'},
+      {label:'🎯 Assortiment',key:'assort',fmt:'pct',tip:'Mes réf actives ÷ moyenne réseau × 100. >100% = gamme plus large que la moyenne réseau.'}
+    ];
     const cardsHtml=kpiDefs.map(r=>{
       const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
       const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
@@ -2529,7 +2532,7 @@
       const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'border-amber-200':'border-red-300';
       const cardBg=pct>=0?'bg-emerald-50/40':pct>=-10?'bg-yellow-50/40':pct>=-30?'bg-amber-50/40':'bg-red-50/40';
       return `<div class="bg-white rounded-xl border-2 ${cardBorder} ${cardBg} p-3 flex flex-col gap-1 shadow-sm">
-        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">${r.label}</p>
+        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
         <div class="flex items-end justify-between gap-1">
           <div><p class="text-sm font-extrabold text-blue-700">${fmtVal(me,r.fmt)}</p><p class="text-[9px] text-gray-400">${selectedMyStore||'Moi'}</p></div>
           <div class="text-right"><p class="text-xs text-gray-500">${fmtVal(comp,r.fmt)}</p><p class="text-[9px] text-gray-400">${obsLabel}</p></div>
@@ -2887,6 +2890,7 @@
         const bg=CELL_BG[key];
         const diagBtn=d.count>0?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-white/20 hover:bg-white/40 transition-colors" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" title="Diagnostic ${key} (${d.count} articles)">🔍 Diag.</button>`:'';
         html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
+          <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.22);color:#fff;margin:0">ℹ</em>
           <div class="font-extrabold text-2xl">${d.count}</div>
           <div class="text-[10px] opacity-80">articles</div>
           <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
