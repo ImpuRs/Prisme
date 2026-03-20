@@ -2837,6 +2837,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set()};
     parentRefsExcluded=0;
     const dataSource=(filteredData.length>0&&filteredData.length<finalData.length)?filteredData:finalData;
+    // CA perdu — contexte multi vs mono agence
+    const hasMulti=storesIntersection.size>1;
+    const medianCAByCode={};
+    if(hasMulti&&selectedMyStore){const cs=[...storesIntersection];const myV=ventesParMagasin[selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>ventesParMagasin[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
 
     for(const r of dataSource){const lv=(r.stockActuel>0)?r.stockActuel*r.prixUnitaire:0;
     if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
@@ -2846,10 +2850,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(!r.isParent){ // V23: skip parent references
         const caPotentiel=Math.round(r.W*r.prixUnitaire);
         const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
-        // V24.2: CA perdu estimé — conso/j × jours en rupture (plafond 90j) × PU
+        // CA perdu : médiane réseau par article (multi) ou CA historique période (mono)
         const joursRupture=Math.min(r.ageJours>=999?90:r.ageJours,90);
-        const caPerdu=Math.round((r.V/globalJoursOuvres)*joursRupture*r.prixUnitaire);
-        totalCAPerdu+=caPerdu;
+        const caPerdu=hasMulti?Math.round(medianCAByCode[r.code]||0):Math.round(r.V*r.prixUnitaire);
+        if(caPerdu>0)totalCAPerdu+=caPerdu;
         lstR.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:caPotentiel,caPot:caPotentiel,prioScore,joursRupture,caPerdu,condit:null});
         cockpitLists.ruptures.add(r.code);
       } else {
@@ -2914,7 +2918,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
     const ruptTotEl=document.getElementById('actionRupturesTotal');
-    if(ruptTotEl)ruptTotEl.innerHTML=lstR.length>0?`<tr><td colspan="4" class="py-2 px-2 text-right text-xs font-extrabold text-rose-700 border-t border-rose-200">💸 Total CA perdu estimé : ${formatEuro(totalCAPerdu)}</td></tr>`:'';
+    {const caPerduFooter=hasMulti?`💸 CA perdu estimé : ${formatEuro(totalCAPerdu)} (vs médiane réseau)`:totalCAPerdu>=100?`💸 CA historique des articles en rupture : ${formatEuro(totalCAPerdu)}`:`💸 CA perdu non estimable — historique insuffisant`;if(ruptTotEl)ruptTotEl.innerHTML=lstR.length>0?`<tr><td colspan="4" class="py-2 px-2 text-right text-xs font-extrabold text-rose-700 border-t border-rose-200">${caPerduFooter}</td></tr>`:'';};
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const p=[];l.sort((a,b)=>b.sv-a.sv).slice(0,lim).forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';}
@@ -2931,17 +2935,21 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     })();
 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
-    renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS);
+    renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===finalData){_insights.ruptures=lstR.length;_insights.dormants=lstD.length;renderInsightsBanner();}
   }
 
   // ★ V23/V24.2: Executive Summary
-  function renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS){
+  function renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti){
     const lines=[];
-    // Line 1: Ruptures + CA perdu estimé (V24.2) + CA potentiel annuel
+    // Line 1: Ruptures + CA perdu (adapté multi/mono)
     if(lstR.length>0){
       const top3=lstR.slice(0,3).map(r=>r.lib.substring(0,25)).join(', ');
-      lines.push(`<p>🚨 <strong>${lstR.length} rupture${lstR.length>1?'s':''}</strong> — ~<strong class="text-rose-400">${formatEuro(totalCAPerdu)}</strong> de CA perdu estimé sur la période (<strong class="text-red-400">${formatEuro(totalCAPotPerdu)}</strong>/an potentiel). Top : ${top3}.</p>`);
+      let caPerduText;
+      if(hasMulti){caPerduText=`~<strong class="text-rose-400">${formatEuro(totalCAPerdu)}</strong> de CA perdu estimé (vs médiane réseau)`;}
+      else if(totalCAPerdu>=100){caPerduText=`~<strong class="text-rose-400">${formatEuro(totalCAPerdu)}</strong> de CA historique des articles en rupture`;}
+      else{caPerduText=`<span class="text-slate-400">CA perdu non estimable — historique insuffisant</span>`;}
+      lines.push(`<p>🚨 <strong>${lstR.length} rupture${lstR.length>1?'s':''}</strong> — ${caPerduText} (<strong class="text-red-400">${formatEuro(totalCAPotPerdu)}</strong>/an potentiel). Top : ${top3}.</p>`);
     } else {
       lines.push(`<p>✅ <strong>Aucune rupture</strong> sur les articles fréquents — bravo !</p>`);
     }
