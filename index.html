@@ -1441,7 +1441,7 @@
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
       // V24.4: capture client codes
       const codeClientRaw=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();if(codeClientRaw){const cc0=extractClientCode(codeClientRaw);if(cc0)clientsMagasin.add(cc0);}
-      if(canal!==''&&canal!=='MAGASIN')continue;
+      if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const store=extractStoreCode(row),code=cleanCode(getVal(row,'Article','Code'));const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
