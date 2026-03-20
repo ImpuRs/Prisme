@@ -2483,7 +2483,7 @@
       for(const[cc,artMap] of ventesClientArticle.entries()){if(!metierClients.has(cc))continue;for(const[code,data] of artMap.entries()){if(!myV[code])myV[code]={sumPrelevee:0,countBL:0};myV[code].sumPrelevee+=data.sumPrelevee;myV[code].countBL+=data.countBL;}}
     }else{myV=ventesParMagasin[selectedMyStore]||{};}
     const bv={};
-    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
+    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!/^\d{6}$/.test(a))continue;if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
     // Apply universe filter — narrow bv and myV to the selected famille/univers
     if(obsFilterUnivers){
       for(const k of Object.keys(bv)){if(articleFamille[k]!==obsFilterUnivers)delete bv[k];}
@@ -2500,8 +2500,8 @@
     benchLists.storePerf=sp;
     // V2 Phase 1: median per family (per-store aggregates)
     const myFamFreq={};const storesFamFreq={};
-    for(const[code,data] of Object.entries(myV)){const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
-    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
+    for(const[code,data] of Object.entries(myV)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
+    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
     const allFamsSet=new Set([...Object.keys(myFamFreq)]);for(const store of cs)for(const f of Object.keys(storesFamFreq[store]||{}))allFamsSet.add(f);
     const bassinFamMedian={};for(const fam of allFamsSet){const vals=cs.map(s=>(storesFamFreq[s]||{})[fam]||0).filter(v=>v>0);if(vals.length)bassinFamMedian[fam]=_median(vals);}
     const familyPerf=[];let familyPerfMasked=0;
@@ -2518,7 +2518,7 @@
     // Per-store family CA & Ref — prefer direct CA columns, fallback to (sumPrelevee+sumEnleve)*prix
     const storeFamCA={},storeFamRef={},storeTotalCA={};
     const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
-    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
+    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;if(!/^\d{6}$/.test(code))continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
     // CA median per family across comparison stores — used for F&F filter and diagnostic
     const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
     benchLists._bassinFamCAMed=bassinFamCAMed;
@@ -2526,7 +2526,7 @@
     {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=500);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
     // My family CA & Ref
     const myFamCA={},myFamRef={};let myTotalCA=0;
-    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
+    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
     // Determine comparison values based on selectedObsCompare
     const obsMode=selectedObsCompare||'median';
     let compV=null,compFamCA={},compFamRef={},compTotalCA=0,compRef=0,compFreq=0,compServ=0;
@@ -2555,13 +2555,13 @@
       const caMe=myFamCA[fam]||0,caOther=compFamCA[fam]||0;if(caMe<50&&caOther<50)continue;
       const refMe=myFamRef[fam]||0,refOther=compFamRef[fam]||0;
       const ecartPct=caOther>0?Math.round((caMe-caOther)/caOther*100):(caMe>0?100:0);
-      // Find missing articles
-      let missingArts=[];
-      const _splitLib=raw=>{const i=raw.indexOf(' - ');return i>0?raw.substring(i+3).trim():raw;};
-      if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);missingArts.push({code,lib:_splitLib(libelleLookup[code]||code),freqOther:data.countBL,caOther:Math.round(caA),statutMe});}
-      }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||code),freqOther:Math.round(artFreqSum[code]/cnt),caOther:Math.round(artCASum[code]/cnt),statutMe,nbStores:cnt});}}
+      // Find missing articles (standard) + collect special articles separately
+      let missingArts=[],specialArts=[];
+      const _splitLib=raw=>{if(!raw)return'Libellé non disponible';let i=raw.indexOf(' - ');if(i>0)return raw.substring(i+3).trim();i=raw.indexOf(' -');if(i>0)return raw.substring(i+2).trim();i=raw.indexOf('- ');if(i>0)return raw.substring(i+2).trim();return raw;};
+      if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:data.countBL,caOther:Math.round(caA)});continue;}const r2=finalDataByCode[code];const statMe2=!r2?'❌ Absent':r2.stockActuel>0?'✅ En stock':r2.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:data.countBL,caOther:Math.round(caA),statutMe:statMe2});}
+      }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
       missingArts.sort((a,b)=>b.freqOther-a.freqOther);missingArts=missingArts.slice(0,50);
-      const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts};
+      const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts,specialArts};
       if(ecartPct<=-5)obsFamiliesLose.push(entry);else if(ecartPct>=5)obsFamiliesWin.push(entry);
     }
     // Sort by absolute CA gap descending (biggest missed revenue first)
@@ -2684,7 +2684,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] mb-2 pt-2 px-3"><span class="text-gray-500">CA Moi : <strong class="text-blue-700">${formatEuro(f.caMe)}</strong></span><span class="text-gray-500">${caAutreLabel} : <strong>${formatEuro(f.caOther)}</strong></span><span class="text-gray-500">Écart : ${ecText}</span><span class="text-gray-500">Réf Moi : <strong>${f.refMe}</strong></span><span class="text-gray-500">${refAutreLabel} : <strong>${f.refOther}</strong></span></div>`;
       const ecBg=f.ecartPct<-30?'bg-red-50/80':'bg-amber-50/70';
       const noArts=!artsToRef.length&&!artsVisi.length?'<p class="text-gray-400 text-[10px] py-2">Aucun article identifié.</p>':'';
-      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}</div></td></tr>`;
+      const specs=f.specialArts||[];const specCA=specs.reduce((s,a)=>s+a.caOther,0);
+      const specEncart=specs.length?`<div class="mx-3 mt-3 p-2 bg-gray-100 rounded border border-gray-200 text-[10px] text-gray-500"><p class="font-bold text-gray-600 mb-1">⚠️ ${specs.length} article${specs.length>1?'s':''} spéciaux détectés chez ${obsLabel}${specCA>0?' (CA : '+formatEuro(specCA)+')':''}</p><p class="font-mono text-gray-400 text-[9px] mb-1">${specs.slice(0,15).map(a=>a.code).join(' · ')}</p><p class="italic text-gray-400">Vérifiez si ces commandes spéciales sont récurrentes.</p></div>`:'';
+      return `<tr class="border-b cursor-pointer hover:bg-red-50/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="3"><div class="pb-3">${detailGrid}${copyBtn?`<div class="px-3 mb-2">${copyBtn}</div>`:''}${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}${specEncart}</div></td></tr>`;
     }).join('');
     if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="3" class="py-4 text-center text-gray-400">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
     // Families where I win
