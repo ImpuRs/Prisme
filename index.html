@@ -460,6 +460,16 @@
         </div>
       </div>
 
+      <!-- 3b. Croisement consommé×chalandise — visible dès que les 2 sont chargés -->
+      <div id="terrCrossingKPI" class="hidden mb-4 bg-slate-800 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="text-slate-400 text-[10px] font-bold uppercase shrink-0">🔀 Croisement</span>
+        <span class="text-[11px] font-bold text-violet-300">🟣 <span id="terrCrossKpiFideles">0</span> fidèles hors zone</span>
+        <span class="text-slate-600">·</span>
+        <span class="text-[11px] font-bold text-rose-300">🔴 <span id="terrCrossKpiPotentiels">0</span> potentiels non captés</span>
+        <span class="text-slate-600">·</span>
+        <span class="text-[11px] font-bold text-emerald-300">🟢 <span id="terrCrossKpiCaptes">0</span> captés</span>
+      </div>
+
       <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
       <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-3">
         <span class="text-xl flex-shrink-0">📌</span>
@@ -589,6 +599,12 @@
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
             <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
+          </div>
+          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mt-2">
+            <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
+            <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
+            <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
+            <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
           </div>
         </div>
         <!-- Dynamic counter -->
@@ -781,6 +797,8 @@
   let selectedObsCompare='median'; // 'median' or a store code
   let obsFilterUnivers='';         // filtre univers Observatoire
   let obsFilterMinCA=0;            // seuil écart CA minimum Observatoire
+  let crossingStats=null;          // {fideles:Set,potentiels:Set,captes:Set} — consommé×chalandise
+  let _selectedCrossStatus='';     // ''|'potentiel'|'capte'
   let _includePerdu24m=false; // toggle: include perdus >24m in overview counts
 
   function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
@@ -839,8 +857,10 @@
       const actifs=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('actif')).length;
       const perdus=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('perdu')||v.statut.toLowerCase().includes('inactif')).length;
       showToast(`📋 Chalandise : ${chalandiseData.size} clients · ${chalandiseMetiers.length} métiers · ${actifs} actifs · ${perdus} perdus`,'success');
-      // Re-compute bench if already rendered
+      // Re-compute bench + crossing if already rendered
+      computeClientCrossing();
       if(selectedMyStore&&Object.keys(ventesParMagasin).length>1){computeBenchmark();renderBenchmark();}
+      if(finalData&&finalData.length>0)renderTerritoireTab();
     }catch(e){console.error('Chalandise parse error',e);showToast('Erreur lecture Chalandise: '+e.message,'error');}
   }
   function onChalandiseSelected(input){
@@ -1167,6 +1187,7 @@
       if((info.metier||'Autre')!==metier)continue;
       if((info.secteur||'—')!==secteur)continue;
       const pdvActif=_isPDVActif(cc);
+      if(!_passesClientCrossFilter(cc))continue;
       clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif});
     }
     clients.sort(_overviewClientSort);
@@ -1177,7 +1198,7 @@
       const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
       const pdvBg=globActif&&!c._pdvActif?'bg-amber-50':perdu?'bg-rose-50':'';
       html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:bg-blue-50" onclick="_toggleClientArticles(this,'${c.code}')">
-        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span> <span class="font-semibold">${c.nom}</span></td>
+        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span></td>
         <td class="py-1 px-2 text-[9px] text-gray-500">${c.commercial||'—'}</td>
         <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
         <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'text-amber-700':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
@@ -1251,6 +1272,7 @@
       const pdvInactif=actPDV.includes('inactif');
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier)};
       // URGENCES: Actif global + Inactif PDV Zone + Pot+
+      if(!_passesClientCrossFilter(cc))continue;
       if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       // DEVELOPPER: Perdus récents + Pot+, OR Prospects Pot+
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
@@ -1276,7 +1298,7 @@
         const caVal=usePDV?c.caPDVN:c.ca2025;
         const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');
         html+=`<tr class="border-t border-gray-200 hover:bg-white/50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')">
-          <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span> <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</td>
+          <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</td>
           <td class="py-1 px-2 text-[10px] text-gray-500">${c.commercial||'—'}</td>
           <td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td>
           <td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td>
@@ -1340,6 +1362,40 @@
   function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
   function formatCouv(j){if(j>=999)return'—';return j+'j';}
   function couvColor(j){if(j>=999)return'text-gray-400';if(j<=7)return'text-red-600 font-extrabold';if(j<=21)return'text-orange-600 font-bold';if(j<=60)return'text-green-600';return'text-blue-500';}
+
+  // ★ V2: Client crossing — consommé × chalandise
+  function computeClientCrossing(){
+    if(!chalandiseReady||!clientsMagasin.size){crossingStats=null;return;}
+    const fideles=new Set(),potentiels=new Set(),captes=new Set();
+    for(const cc of clientsMagasin){if(chalandiseData.has(cc))captes.add(cc);else fideles.add(cc);}
+    for(const[cc,info] of chalandiseData.entries()){
+      if(!clientsMagasin.has(cc)){const s=(info.statut||'').toLowerCase();if(s.includes('actif')&&!s.includes('inactif'))potentiels.add(cc);}
+    }
+    crossingStats={fideles,potentiels,captes};
+  }
+  function _crossBadge(cc){
+    if(!crossingStats)return'';
+    if(crossingStats.captes.has(cc))return'<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
+    if(crossingStats.potentiels.has(cc))return'<span class="ml-0.5 text-[10px]" title="Potentiel non capté — dans la zone, n\'est pas encore venu en agence">🔴</span>';
+    if(crossingStats.fideles.has(cc))return'<span class="ml-0.5 text-[10px]" title="Fidèle hors zone — vient en agence malgré la distance">🟣</span>';
+    return'';
+  }
+  function _passesClientCrossFilter(cc){
+    if(!_selectedCrossStatus||!crossingStats)return true;
+    if(_selectedCrossStatus==='capte')return crossingStats.captes.has(cc);
+    if(_selectedCrossStatus==='potentiel')return crossingStats.potentiels.has(cc);
+    return true;
+  }
+  function _setCrossFilter(status){
+    _selectedCrossStatus=status;
+    ['btnCrossAll','btnCrossPotentiels','btnCrossCaptes'].forEach(id=>{
+      const btn=document.getElementById(id);if(!btn)return;
+      const active=(id==='btnCrossAll'&&!status)||(id==='btnCrossPotentiels'&&status==='potentiel')||(id==='btnCrossCaptes'&&status==='capte');
+      btn.classList.toggle('bg-slate-700',active);btn.classList.toggle('text-white',active);btn.classList.toggle('border-slate-600',active);
+      btn.classList.toggle('bg-white',!active);btn.classList.toggle('text-gray-700',!active);btn.classList.toggle('border-gray-300',!active);
+    });
+    _buildChalandiseOverview();
+  }
 
   // ★ V23: Priority score — Fréq × PU × coeff ancienneté
   function calcPriorityScore(freq,pu,ageJours){
@@ -1632,7 +1688,7 @@
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
       // Render main UI immediately — don't wait for territoire
-      currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      computeClientCrossing();currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,selectedMyStore,finalData.length,elapsed);
@@ -1887,6 +1943,8 @@
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
     // Show chalandise overview if chalandise loaded
     _buildChalandiseOverview();
+    // Crossing KPI + filter row — updated regardless of hasTerr
+    {const crossEl=document.getElementById('terrCrossingKPI');if(crossEl){if(crossingStats){crossEl.classList.remove('hidden');const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};s('terrCrossKpiFideles',crossingStats.fideles.size.toLocaleString('fr'));s('terrCrossKpiPotentiels',crossingStats.potentiels.size.toLocaleString('fr'));s('terrCrossKpiCaptes',crossingStats.captes.size.toLocaleString('fr'));}else crossEl.classList.add('hidden');}const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!crossingStats);}
     if(!hasTerr&&!hasChal)return;
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
@@ -3758,7 +3816,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     });
     const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
     const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-    return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
+    let crossCaptes=0,crossPot=0;
+    if(crossingStats){
+      const famBuyerSet=new Set();for(const a of famArts){const b=articleClients.get(a);if(b)for(const c of b)famBuyerSet.add(c);}
+      crossCaptes=[...famBuyerSet].filter(c=>crossingStats.captes.has(c)).length;
+      for(const m of metiers)for(const c of m.clients){if(crossingStats.potentiels.has(c.code))crossPot++;}
+    }
+    return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel,crossCaptes,crossPot};
   }
   function _diagRenderL4(l,hasChal){
     if(!hasChal||l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">👥 Niveau 3 — Clients métier</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p></div>`;
@@ -3781,6 +3845,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       <div class="diag-level-hdr"><span class="font-bold text-sm text-rose-300">👥 Niveau 3 — Clients métier</span>${_diagBadge(l.status)}</div>
       <p class="text-xs text-slate-400 mb-3">${l.isMetierMode?`<strong class="text-white">${l.totalBuyers}</strong> client${l.totalBuyers>1?'s':''} dans la zone`:`Top ${l.metiers.length} métier${l.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${l.totalBuyers}</strong> identifié${l.totalBuyers>1?'s':''} dans la chalandise`}</p>
       ${metiersHtml}
+      ${(l.crossCaptes||l.crossPot)?`<p class="text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-700">🔀 Croisement zone : <span class="text-emerald-400 font-bold">🟢 ${l.crossCaptes||0} captés</span> · <span class="text-rose-400 font-bold">🔴 ${l.crossPot||0} potentiels non captés</span></p>`:''}
     </div>`;
   }
 
