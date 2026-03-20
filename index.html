@@ -203,7 +203,7 @@
         <button onclick="resetObsFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
       </div>
       <div class="flex flex-wrap gap-3 items-center">
-        <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-cyan-300 bg-white min-w-[200px]"><option value="">🌐 Tous les univers</option></select>
+        <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="p-2 border border-cyan-300 rounded-lg text-sm font-semibold bg-white min-w-[200px]" placeholder="🌐 Tous les univers…"><datalist id="listObsUnivers"></datalist>
         <div class="flex items-center gap-2">
           <label class="text-sm font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</label>
           <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="w-28 p-2 border border-cyan-300 rounded-lg text-sm font-semibold bg-white">
@@ -2729,12 +2729,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function _buildObsUniversDropdown(){
-    const sel=document.getElementById('obsFilterUnivers');if(!sel)return;
+    const dl=document.getElementById('listObsUnivers');if(!dl)return;
     const univs=new Set();
     for(const v of Object.values(articleFamille))if(v)univs.add(v);
-    const cur=sel.value;
-    sel.innerHTML='<option value="">🌐 Tous les univers</option>';
-    [...univs].sort().forEach(u=>{const o=document.createElement('option');o.value=u;o.textContent=u;if(u===cur)o.selected=true;sel.appendChild(o);});
+    dl.innerHTML='';[...univs].sort().forEach(u=>{const o=document.createElement('option');o.value=u;dl.appendChild(o);});
   }
 
   function renderObsArticleSearch(){
@@ -3435,53 +3433,69 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 3 : 🔭 LE RÉSEAU (multi-agences) ──
   function _diagVoyant3(famille,hasMulti){
     if(!hasMulti)return{status:'lock',reason:'Données multi-agences requises — chargez un fichier Consommé incluant plusieurs agences'};
-    const myArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
-    // For each article in the famille sold by other stores, collect per-store freq
-    const artStoreFreqs={};
-    const nbOtherStores=storesIntersection.size-1;
-    for(const store of storesIntersection){
-      if(store===selectedMyStore)continue;
-      const sv=ventesParMagasin[store]||{};
-      for(const[code,v] of Object.entries(sv)){
-        if((articleFamille[code]||'')!==famille)continue;
-        if(!artStoreFreqs[code])artStoreFreqs[code]=[];
-        artStoreFreqs[code].push(v.countBL||0);
-      }
+    const cs=[...storesIntersection].filter(s=>s!==selectedMyStore);
+    const nbOtherStores=cs.length;
+    if(!nbOtherStores)return{status:'lock',reason:'Un seul magasin dans le fichier'};
+    // Price lookup (my finalData)
+    const prixLookup={};for(const r of finalData)prixLookup[r.code]=r.prixUnitaire||0;
+    // My arts + my CA for this famille
+    const myV=ventesParMagasin[selectedMyStore]||{};
+    const myArts=new Set();let myCA=0;
+    for(const[code,data] of Object.entries(myV)){
+      if((articleFamille[code]||'')!==famille)continue;
+      if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0)myArts.add(code);
+      myCA+=(data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0));
     }
-    // Articles NOT in my range that other stores sell (with decent median freq)
+    // Per-store CA + article presence counts
+    const artStoreCnt={},artStoreFreqs={},storeCAs=[];
+    for(const store of cs){
+      const sv=ventesParMagasin[store]||{};let storeCA=0;
+      for(const[code,data] of Object.entries(sv)){
+        if((articleFamille[code]||'')!==famille)continue;
+        if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0){artStoreCnt[code]=(artStoreCnt[code]||0)+1;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(data.countBL||0);}
+        storeCA+=(data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0));
+      }
+      if(storeCA>0)storeCAs.push(storeCA);
+    }
+    const medCA=storeCAs.length?_median(storeCAs):0;
+    const caEcart=medCA>0?Math.round((myCA-medCA)/medCA*100):(myCA>0?100:0);
+    // Missing: sold by ≥50% of other stores, I don't sell
+    const threshold50=Math.max(1,Math.ceil(nbOtherStores*0.5));
     const missing=[];
-    for(const[code,freqs] of Object.entries(artStoreFreqs)){
-      if(myArts.has(code))continue;
-      const medFreq=_median(freqs);
-      if(medFreq<2)continue; // too rare
-      const nbStores=freqs.length;
-      const lib=libelleLookup[code]||code;
+    for(const[code,cnt] of Object.entries(artStoreCnt)){
+      if(myArts.has(code)||cnt<threshold50)continue;
+      const rawLib=libelleLookup[code]||code;const lib=rawLib.includes(' - ')?rawLib.substring(rawLib.indexOf(' - ')+3).trim():rawLib;
       const d=finalData.find(r=>r.code===code);
-      missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
+      const medFreq=artStoreFreqs[code]?.length?_median(artStoreFreqs[code]):0;
+      missing.push({code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
     }
     missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
-    const myCount=myArts.size;
-    const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    // Also compute articles I sell that the network barely sells (potential over-reference)
-    const oversized=[];
-    for(const code of myArts){const freqs=artStoreFreqs[code]||[];const medFreq=freqs.length?_median(freqs):0;const myR=finalData.find(r=>r.code===code);if(myR&&myR.W>=3&&medFreq<1&&freqs.length>=Math.max(2,nbOtherStores*0.4))oversized.push({code,lib:myR.libelle,myFreq:myR.W,medNetFreq:Math.round(medFreq*10)/10});}
-    const status=missing.length===0?'ok':strong>2?'error':'warn';
-    return{status,myCount,reseauCount:myCount+Object.keys(artStoreFreqs).filter(c=>!myArts.has(c)).length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,oversized:oversized.slice(0,10)};
+    // Exclusives: I sell, < 2 other stores sell
+    const exclusives=[];
+    for(const code of myArts){
+      if((artStoreCnt[code]||0)>=2)continue;
+      const rawLib=libelleLookup[code]||code;const lib=rawLib.includes(' - ')?rawLib.substring(rawLib.indexOf(' - ')+3).trim():rawLib;
+      const d=finalData.find(r=>r.code===code);
+      exclusives.push({code,lib,nbStores:artStoreCnt[code]||0,myFreq:d?.W||0});
+    }
+    exclusives.sort((a,b)=>b.myFreq-a.myFreq);
+    const status=medCA<=0?'ok':caEcart>=0?'ok':caEcart>=-50?'warn':'error';
+    const strongMissing=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
+    return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:missing.slice(0,25),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size};
   }
   function _diagRenderV3(v,hasMulti){
     if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] text-emerald-600 mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
-    const rows=(v.missing||[]).map(a=>{
-      const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';
-      const fmrColor=a.fmrClass==='F'?'text-emerald-400':a.fmrClass==='M'?'text-blue-400':'text-red-400';
-      return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td><td class="py-1 px-2 text-center font-bold ${fmrColor}">${a.fmrClass}</td></tr>`;
-    }).join('');
-    const verdictText=v.missing.length===0?'✅ Gamme complète — vous vendez tous les articles que le réseau vend en médiane':`<span class="text-amber-400">⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} absents de votre rayon${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> en forte rotation (A/B)':''}</span>`;
+    const caIcon=v.caEcart>=0?'🟢':v.caEcart>=-50?'🟠':'🔴';
+    const ecartStr=(v.caEcart>=0?'+':'')+v.caEcart+'%';
+    const ecartColor=v.caEcart>=0?'text-emerald-400':v.caEcart>=-50?'text-amber-400':'text-red-400';
+    const caLine=v.medCA>0?`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> vs médiane réseau <strong class="text-white">${formatEuro(v.medCA)}</strong> <span class="${ecartColor}">(${ecartStr})</span>`:`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> <span class="text-slate-500">(médiane non calculable — réseau insuffisant)</span>`;
+    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td><td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
+    const exclRows=(v.exclusives||[]).map(a=>`<tr class="border-t border-blue-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center text-blue-300 font-bold">${a.myFreq}</td></tr>`).join('');
     return`<div class="diag-voyant diag-v3">
-      <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
-      <p class="text-[10px] text-slate-400 mb-2">Comparaison médiane réseau · <strong class="text-white">${v.myCount}</strong> réf. vous vs <strong class="text-white">${v.reseauCount}</strong> vues réseau (<strong class="text-white">${v.nbOtherStores}</strong> autres agences)</p>
-      <p class="text-xs mb-2">${verdictText}</p>
-      ${v.missing.length?`<div class="overflow-x-auto" style="max-height:220px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50" style="position:sticky;top:0;z-index:10;background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
-      ${v.oversized.length?`<p class="text-[11px] text-slate-500 mt-2">💡 ${v.oversized.length} article${v.oversized.length>1?'s':''} que vous vendez mais absents du réseau (spécifiques PDV)</p>`:''}
+      <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error')}</div>
+      <p class="text-xs mb-3">${caIcon} ${caLine}</p>
+      ${v.missing.length?`<p class="text-[10px] text-amber-300 font-bold mb-1">⚠️ ${v.missing.length} article${v.missing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${v.strongMissing>0?' — dont <strong>'+v.strongMissing+'</strong> forte rotation (A/B)':''}:</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th><th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>'}
+      ${v.exclusives.length?`<p class="text-[10px] text-blue-300 font-bold mt-2 mb-1">⭐ ${v.exclusives.length} exclusivité${v.exclusives.length>1?'s':''} — articles que <2 autres agences vendent :</p><div class="overflow-x-auto" style="max-height:120px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-blue-300 border-b border-blue-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. moi</th></tr></thead><tbody>${exclRows}</tbody></table></div>`:''}
     </div>`;
   }
 
