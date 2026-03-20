@@ -791,7 +791,8 @@
   let _selectedCommercial='';         // empty = all commercials (no filter)
   let _selectedMetier='';             // empty = all métiers (no filter)
   let _filterStrategiqueOnly=false;   // toggle: show only strategic métiers
-  let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,countBL}>>
+  let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,sumCA,countBL}>>
+  let clientNomLookup={};           // Map<clientCode, nomClient> — extrait du consommé
   let ventesClientsPerStore={};     // {store: Set<clientCode>}
   let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
   let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
@@ -1270,7 +1271,7 @@
       if(!crossingStats||!crossingStats.fideles.size){el.innerHTML='<div class="bg-white rounded-xl shadow-md border p-5 text-gray-400 text-sm">Aucun fidèle hors zone identifié.</div>';return;}
       const terrNom={};if(territoireReady)for(const l of territoireLines){if(l.clientCode&&l.clientNom&&!terrNom[l.clientCode])terrNom[l.clientCode]=l.clientNom;}
       const fideleList=[];
-      for(const cc of crossingStats.fideles){const artMap=ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+d.sumPrelevee,0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:terrNom[cc]||'—',ca,nbArts});}
+      for(const cc of crossingStats.fideles){const artMap=ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:clientNomLookup[cc]||terrNom[cc]||'—',ca,nbArts});}
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
       const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
@@ -1600,7 +1601,7 @@
 
       updatePipeline('stock','active');updatePipeline('consomme','active');
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
+      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();clientNomLookup={};ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
@@ -1617,7 +1618,9 @@
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
       // clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
       if(cc2&&(!selectedMyStore||sk===selectedMyStore))clientsMagasin.add(cc2);
-      if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.countBL++;}
+      // clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
+      if(cc2&&!clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
+      if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.sumCA+=caP+caE;e.countBL++;}
       // V2 Phase 2: articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
       const codeClient=extractClientCode(rawClient);
