@@ -738,7 +738,7 @@
 
   let finalData=[],filteredData=[],sortCol='V',sortAsc=false,currentPage=0,debounceTimer=null;
   let ventesParMagasin={},stockParMagasin={},storesIntersection=new Set();
-  let selectedMyStore='',libelleLookup={},articleFamille={};
+  let selectedMyStore='',libelleLookup={},articleFamille={},articleUnivers={};
   let benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[],obsKpis:null,obsFamiliesLose:[],obsFamiliesWin:[],obsActionPlan:[]};
   let cockpitLists={};
   let ventesAnalysis={refParBL:0,famParBL:0,totalBL:0,refActives:0,attractivite:{}};
@@ -1512,7 +1512,7 @@
 
       updatePipeline('stock','active');updatePipeline('consomme','active');
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
+      const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
@@ -1523,7 +1523,7 @@
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
-      const _uv=(getVal(row,'Univers')||'').toString().trim();const _cf=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const famConso=_uv||(_cf?FAM_LETTER_UNIVERS[_cf[0].toUpperCase()]||'Inconnu':(getVal(row,'Famille')||'').toString().trim());if(famConso&&code)articleFamille[code]=famConso;
+      const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)articleFamille[code]=famConso;const _uv2=(getVal(row,'Univers')||'').toString().trim();const _cf2=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)articleUnivers[code]=univConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
@@ -2488,8 +2488,8 @@
     for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!/^\d{6}$/.test(a))continue;if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
     // Apply universe filter — narrow bv and myV to the selected famille/univers
     if(obsFilterUnivers){
-      for(const k of Object.keys(bv)){if(articleFamille[k]!==obsFilterUnivers)delete bv[k];}
-      const myVF={};for(const[k,v] of Object.entries(myV)){if(articleFamille[k]===obsFilterUnivers)myVF[k]=v;}
+      for(const k of Object.keys(bv)){if(articleUnivers[k]!==obsFilterUnivers)delete bv[k];}
+      const myVF={};for(const[k,v] of Object.entries(myV)){if(articleUnivers[k]===obsFilterUnivers)myVF[k]=v;}
       myV=myVF;
     }
     // Store performance + taux service
@@ -2747,7 +2747,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function _buildObsUniversDropdown(){
     const dl=document.getElementById('listObsUnivers');if(!dl)return;
     const univs=new Set();
-    for(const v of Object.values(articleFamille))if(v)univs.add(v);
+    for(const v of Object.values(articleUnivers))if(v)univs.add(v);
     dl.innerHTML='';[...univs].sort().forEach(u=>{const o=document.createElement('option');o.value=u;dl.appendChild(o);});
   }
 
