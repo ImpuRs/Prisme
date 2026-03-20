@@ -696,7 +696,7 @@
       <!-- CLASSEMENT AGENCES — fermé par défaut -->
       <details class="bg-white rounded-xl shadow-md border mb-6">
         <summary class="px-5 py-3 bg-gray-50 border-b select-none flex items-center justify-between hover:bg-gray-100">
-          <div class="flex items-center gap-2"><h3 class="font-extrabold text-gray-800 text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200"></span></div>
+          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold text-gray-800 text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200"></span></div>
           <span class="acc-arrow text-gray-500">▶</span>
         </summary>
         <div class="overflow-x-auto">
@@ -1335,12 +1335,12 @@
     const mkLink=(txt,tab)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
     const mkAction=(txt,fn)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
     const parts=[];
-    parts.push(mkAction(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,`showCockpitInTable('ruptures')`));
+    parts.push(mkLink(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,'cockpit'));
     if(hasTerr){
       parts.push(mkLink(`${absentsTerr} article${absentsTerr!==1?'s':''} territoire absents du rayon`,`territoire`));
       parts.push(mkLink(`${extClients} client${extClients!==1?'s':''} qui ne viennent jamais`,`territoire`));
     }else{
-      parts.push(mkAction(`${dormants} dormant${dormants!==1?'s':''} à traiter`,`showCockpitInTable('dormants')`));
+      parts.push(mkLink(`${dormants} dormant${dormants!==1?'s':''} à traiter`,'cockpit'));
     }
     el.innerHTML=`<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>`+parts.join(`<span class="text-slate-500 mx-1">·</span>`);
     el.classList.remove('hidden');
@@ -2618,6 +2618,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>=80?'text-emerald-700':data.serv>=60?'text-amber-700':'text-red-600';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${data.clientsZone>0?'text-rose-700':'text-gray-400'}">${data.clientsZone>0?data.clientsZone:'—'}</td>`:'';p.push(`<tr class="border-b ${isMe?'bg-cyan-50 font-bold':'hover:bg-gray-50'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
     rT('benchStoreTable',p.join(''));
+    const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=obsFilterUnivers?`🏆 Classement agences — Univers : ${obsFilterUnivers}`:'🏆 Classement agences';
   }
 
   // === OBSERVATOIRE HELPERS ===
