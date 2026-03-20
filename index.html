@@ -159,7 +159,11 @@
       </div>
     </div>
 
+    <!-- UPLOAD SUMMARY (compact banner after load) -->
+    <div id="importSummary" class="hidden mb-6 bg-slate-800 text-white text-sm py-3 px-4 rounded-xl flex items-center gap-1 flex-wrap shadow-md"></div>
+
     <!-- UPLOAD -->
+    <div id="importZone">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
       <div id="dropConsomme" class="p-5 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-lg text-blue-900 mb-1">1. Ventes (Consommé)</h2><p class="text-xs text-blue-600 mb-2">Fichier consommé (ventes magasin)</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
       <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
@@ -175,6 +179,7 @@
     <div id="storeWarnings" class="hidden mb-4 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
 
     <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
+    </div><!-- /importZone -->
 
     <!-- ★ FILTRES GLOBAUX -->
     <div id="globalFilters" class="hidden mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
@@ -1329,13 +1334,14 @@
     const{ruptures,dormants,absentsTerr,extClients,hasTerr}=_insights;
     if(!ruptures&&!dormants&&!absentsTerr&&!extClients){el.classList.add('hidden');return;}
     const mkLink=(txt,tab)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
+    const mkAction=(txt,fn)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
     const parts=[];
-    parts.push(mkLink(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,`action`));
+    parts.push(mkAction(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,`showCockpitInTable('ruptures')`));
     if(hasTerr){
       parts.push(mkLink(`${absentsTerr} article${absentsTerr!==1?'s':''} territoire absents du rayon`,`territoire`));
       parts.push(mkLink(`${extClients} client${extClients!==1?'s':''} qui ne viennent jamais`,`territoire`));
     }else{
-      parts.push(mkLink(`${dormants} dormant${dormants!==1?'s':''} à traiter`,`action`));
+      parts.push(mkAction(`${dormants} dormant${dormants!==1?'s':''} à traiter`,`showCockpitInTable('dormants')`));
     }
     el.innerHTML=`<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>`+parts.join(`<span class="text-slate-500 mx-1">·</span>`);
     el.classList.remove('hidden');
@@ -1410,6 +1416,15 @@
   function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
   function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
   function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
+  function collapseImportZone(nbFiles,store,nbArts,elapsed){
+    const iz=document.getElementById('importZone'),is=document.getElementById('importSummary');if(!iz||!is)return;
+    is.innerHTML=`<span class="text-emerald-400 font-bold">✅ ${nbFiles} fichier${nbFiles>1?'s':''} chargés</span><span class="text-slate-500 mx-2">—</span><span class="text-white font-semibold">${store}</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-200">${nbArts.toLocaleString('fr')} art.</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-400">${elapsed}s</span><button onclick="expandImportZone()" class="ml-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded-lg font-semibold shrink-0">▼ Modifier les fichiers</button>`;
+    iz.classList.add('hidden');is.classList.remove('hidden');
+  }
+  function expandImportZone(){
+    const iz=document.getElementById('importZone'),is=document.getElementById('importSummary');
+    if(iz)iz.classList.remove('hidden');if(is)is.classList.add('hidden');
+  }
   function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-indigo-600','text-indigo-600','border-violet-600','text-violet-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='territoire'){btn.classList.add('border-violet-600','text-violet-600','active');if(chalandiseReady||territoireReady)renderTerritoireTab();}else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}
   // Swap filters: obs filters on bench tab, global filters on all others
   const loaded=!document.getElementById('tabsContainer').classList.contains('hidden');
@@ -1627,6 +1642,7 @@
       currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
+      const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,selectedMyStore,finalData.length,elapsed);
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
@@ -2509,7 +2525,7 @@
     const familyPerf=[];let familyPerfMasked=0;
     for(const fam of allFamsSet){const my=myFamFreq[fam]||0;const med=bassinFamMedian[fam]||0;if(med<2){if(my>0)familyPerfMasked++;continue;}const ecart=med>0?((my-med)/med*100):(my>0?100:0);familyPerf.push({fam,my,med:Math.round(med),ecart});}
     familyPerf.sort((a,b)=>a.ecart-b.ecart);benchLists.familyPerf=familyPerf;benchLists.familyPerfMasked=familyPerfMasked;
-    for(const[a,b] of Object.entries(bv)){if(b.tb<3)continue;const md=myV[a],mq=md?md.sumPrelevee:0;const avg=b.tp/n;const _rawLib=libelleLookup[a]||a;const lib=_rawLib.includes(' - ')?_rawLib.substring(_rawLib.indexOf(' - ')+3).trim():_rawLib;const ms=(stockParMagasin[selectedMyStore]||{})[a];const mst=ms?ms.stockActuel:0;
+    for(const[a,b] of Object.entries(bv)){if(b.tb<3)continue;const md=myV[a],mq=md?md.sumPrelevee:0;const avg=b.tp/n;const _rawLib=libelleLookup[a]||a;const lib=/^\d{6} - /.test(_rawLib)?_rawLib.substring(9).trim():_rawLib;const ms=(stockParMagasin[selectedMyStore]||{})[a];const mst=ms?ms.stockActuel:0;
     if(mq===0&&b.sc>=Math.min(2,n)){let diagnostic=mst>0?'🟢 En stock — visibilité?':'🔴 Stock 0 — référencer?';benchLists.missed.push({code:a,lib,bassinFreq:b.tb,sc:b.sc,nbCompare:n,myStock:mst,sv:b.tb,diagnostic});}
     else if(mq>0&&avg>0){const r=mq/avg;if(r<0.5&&b.sc>=2)benchLists.under.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:avg-mq});else if(r>1.5&&mq>=5)benchLists.over.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:r});}}
     benchLists.missed.sort((a,b)=>b.sv-a.sv);benchLists.under.sort((a,b)=>b.sv-a.sv);benchLists.over.sort((a,b)=>b.sv-a.sv);
@@ -2559,7 +2575,7 @@
       const ecartPct=caOther>0?Math.round((caMe-caOther)/caOther*100):(caMe>0?100:0);
       // Find missing articles (standard) + collect special articles separately
       let missingArts=[],specialArts=[];
-      const _splitLib=raw=>{if(!raw)return'Libellé non disponible';let i=raw.indexOf(' - ');if(i>0)return raw.substring(i+3).trim();i=raw.indexOf(' -');if(i>0)return raw.substring(i+2).trim();i=raw.indexOf('- ');if(i>0)return raw.substring(i+2).trim();return raw;};
+      const _splitLib=raw=>{if(!raw)return'Libellé non disponible';const m=/^\d{6} - /.exec(raw);return m?raw.substring(m[0].length).trim():raw;};
       if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:data.countBL,caOther:Math.round(caA)});continue;}const r2=finalDataByCode[code];const statMe2=!r2?'❌ Absent':r2.stockActuel>0?'✅ En stock':r2.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:data.countBL,caOther:Math.round(caA),statutMe:statMe2});}
       }else{const threshold=refMe===0?1:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
       missingArts.sort((a,b)=>b.freqOther-a.freqOther);missingArts=missingArts.slice(0,50);
@@ -3486,7 +3502,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const missing=[];
     for(const[code,cnt] of Object.entries(artStoreCnt)){
       if(myArts.has(code)||cnt<threshold50)continue;
-      const rawLib=libelleLookup[code]||code;const lib=rawLib.includes(' - ')?rawLib.substring(rawLib.indexOf(' - ')+3).trim():rawLib;
+      const rawLib=libelleLookup[code]||code;const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
       const d=finalData.find(r=>r.code===code);
       const medFreq=artStoreFreqs[code]?.length?_median(artStoreFreqs[code]):0;
       missing.push({code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
@@ -3496,7 +3512,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const exclusives=[];
     for(const code of myArts){
       if((artStoreCnt[code]||0)>=2)continue;
-      const rawLib=libelleLookup[code]||code;const lib=rawLib.includes(' - ')?rawLib.substring(rawLib.indexOf(' - ')+3).trim():rawLib;
+      const rawLib=libelleLookup[code]||code;const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
       const d=finalData.find(r=>r.code===code);
       exclusives.push({code,lib,nbStores:artStoreCnt[code]||0,myFreq:d?.W||0});
     }
