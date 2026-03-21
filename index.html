@@ -127,13 +127,13 @@
     <span class="text-gray-500">→</span>
     <span id="pipeStock" class="text-gray-400">📦 Stock</span>
     <span id="pipeSepTerr" class="text-gray-500 hidden">→</span>
-    <span id="pipeTerritoire" class="text-gray-400 hidden">🔗 Territoire</span>
+    <span id="pipeTerritoire" class="text-gray-400 hidden">🔗 Le Terrain</span>
   </div></div>
 
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden text-xs text-cyan-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Territoire chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden text-xs text-cyan-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
     </div>
   </nav>
 
@@ -168,9 +168,9 @@
       <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 mt-3 gap-6">
-      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — active l'onglet 🔗 Territoire (Plan de vol, Cockpit client) · enrichit le Benchmark.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — active l'onglet 🔗 Le Terrain (Plan de vol, Cockpit client) · enrichit le Benchmark.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
       <!-- V2 : Ventes Territoire (BL Qlik) — masqué en V1, à réactiver pour Vue Direction / Top 100 / Contributeurs -->
-      <div id="dropTerritoire" style="display:none" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Territoire <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Territoire.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
+      <div id="dropTerritoire" style="display:none" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Le Terrain <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Le Terrain.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
@@ -226,7 +226,7 @@
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
-        <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
+        <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
       </ul>
     </div>
@@ -437,14 +437,14 @@
       <!-- 2a. Placeholder — chalandise not loaded yet -->
       <div id="terrNoChalandise" class="hidden mb-6 p-6 bg-rose-50 border-2 border-dashed border-rose-300 rounded-xl text-center">
         <p class="text-3xl mb-3">🗺️</p>
-        <p class="text-rose-700 font-extrabold text-base mb-1">Chargez la Zone de Chalandise pour activer le Territoire</p>
+        <p class="text-rose-700 font-extrabold text-base mb-1">Chargez la Zone de Chalandise pour activer Le Terrain</p>
         <p class="text-rose-500 text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
       </div>
 
       <!-- 2b. V2 teaser — analyse avancée territoire -->
       <div id="terrNeedTerrBlock" class="hidden mb-4 p-4 bg-violet-50 border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-3">
         <span class="text-2xl flex-shrink-0">📊</span>
-        <div><p class="text-violet-700 font-semibold text-sm">Analyse avancée Territoire — disponible en V2</p><p class="text-violet-500 text-xs mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA territoire · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
+        <div><p class="text-violet-700 font-semibold text-sm">Analyse avancée Le Terrain — disponible en V2</p><p class="text-violet-500 text-xs mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
       </div>
 
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
@@ -503,7 +503,7 @@
           <thead class="bg-gray-800 text-white">
             <tr>
               <th class="py-2 px-3 text-left">Direction</th>
-              <th class="py-2 px-3 text-right">CA Territoire</th>
+              <th class="py-2 px-3 text-right">CA Le Terrain</th>
               <th class="py-2 px-3 text-center">Nb articles</th>
               <th class="py-2 px-3 text-center">✅ En rayon</th>
               <th class="py-2 px-3 text-center">⚠️ Rupture</th>
@@ -547,7 +547,7 @@
                 <th class="py-2 px-2 text-left">Libellé</th>
                 <th class="py-2 px-2 text-left">Direction</th>
                 <th class="py-2 px-2 text-center">BL</th>
-                <th class="py-2 px-2 text-right">CA Territoire</th>
+                <th class="py-2 px-2 text-right">CA Le Terrain</th>
                 <th class="py-2 px-2 text-center">Rayon</th>
                 <th class="py-2 px-2 text-right">Stock actuel</th>
               </tr>
@@ -566,7 +566,7 @@
               <tr>
                 <th class="py-2 px-2 text-left">Code</th>
                 <th class="py-2 px-2 text-left">Nom</th>
-                <th class="py-2 px-2 text-right">CA Territoire</th>
+                <th class="py-2 px-2 text-right">CA Le Terrain</th>
                 <th class="py-2 px-2 text-center">Nb Réf</th>
                 <th class="py-2 px-2 text-center">Type</th>
               </tr>
@@ -1088,36 +1088,58 @@
     if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
     const hasTerr=territoireReady&&territoireLines.length>0;
     const stockMap=new Map(finalData.map(r=>[r.code,r]));
-    let articles=[];
+    // Section 1 : achats comptoir (ventesClientArticle)
+    const artData=ventesClientArticle.get(clientCode);
+    let comptoirArts=[];
+    if(artData&&artData.size>0){
+      comptoirArts=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
+        const si=stockMap.get(code);
+        return{code,libelle:si?si.libelle:libelleLookup[code]||code,qty:d.countBL,ca:d.sumPrelevee,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
+      });
+    }
+    // Section 2 : achats hors comptoir (territoireLines — tous canaux BL omnicanal)
+    let terrArts=[];
     if(hasTerr){
-      // Top 20 articles from territory for this client
       const artMap={};
-      for(const l of territoireLines){if(l.clientCode===clientCode){if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,qty:0,ca:0,rayonStatus:l.rayonStatus};artMap[l.code].qty+=1;artMap[l.code].ca+=l.ca;}}
-      articles=Object.values(artMap).sort((a,b)=>b.ca-a.ca).slice(0,20);
+      for(const l of territoireLines){
+        if(l.clientCode===clientCode){
+          if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0,canals:new Set(),rayonStatus:l.rayonStatus};
+          artMap[l.code].ca+=l.ca;
+          if(l.canal)artMap[l.code].canals.add(l.canal);
+        }
+      }
+      terrArts=Object.values(artMap).sort((a,b)=>b.ca-a.ca).slice(0,20);
+    }
+    const hasComptoir=comptoirArts.length>0;
+    const hasTerrArts=terrArts.length>0;
+    let panelHtml=`<td colspan="9" class="p-0"><div class="bg-sky-50 border-t-2 border-sky-300 px-4 py-2">`;
+    if(!hasComptoir&&!hasTerrArts){
+      panelHtml+=`<p class="text-gray-400 text-[10px]">Ce client est dans votre zone de chalandise mais aucun historique d'achat trouvé dans vos fichiers.</p>`;
     }else{
-      // Top 20 from consommé
-      const artData=ventesClientArticle.get(clientCode);
-      if(artData){
-        articles=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
-          const si=stockMap.get(code);
-          return{code,libelle:si?si.libelle:libelleLookup[code]||code,qty:d.countBL,ca:d.sumPrelevee,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
-        });
+      if(hasComptoir){
+        const nbInRayon=comptoirArts.filter(a=>a.rayonStatus==='green').length;
+        const nbAbsent=comptoirArts.filter(a=>a.rayonStatus==='red').length;
+        panelHtml+=`<p class="text-[10px] font-bold text-sky-800 mb-1">🏪 Achats comptoir : ${comptoirArts.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — référencez ces '+nbAbsent+' articles pour le capter':''}</p>`;
+        panelHtml+=`<table class="min-w-full text-[10px]${hasTerrArts?' mb-3':''}"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
+        for(const a of comptoirArts){
+          const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
+          const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
+          const bg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+          panelHtml+=`<tr class="border-t border-sky-100 ${bg}"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-center">${a.qty}</td><td class="py-0.5 px-2 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center">${ri}</td><td class="py-0.5 px-2 text-right">${st}</td></tr>`;
+        }
+        panelHtml+=`</tbody></table>`;
+      }
+      if(hasTerrArts){
+        const totalCA=terrArts.reduce((s,a)=>s+a.ca,0);
+        panelHtml+=`<p class="text-[10px] font-bold text-violet-800 mb-1${hasComptoir?' mt-2':''}">📦 Ce client achète chez Legallais (hors votre comptoir) — ${terrArts.length} réf. · ${formatEuro(totalCA)} CA</p>`;
+        panelHtml+=`<table class="min-w-full text-[10px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Canal</th></tr></thead><tbody>`;
+        for(const a of terrArts){
+          const canalStr=[...a.canals].join(' / ')||'—';
+          panelHtml+=`<tr class="border-t border-violet-100"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-gray-500 max-w-[120px] truncate">${a.famille}</td><td class="py-0.5 px-2 text-right font-bold text-violet-700">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center text-gray-500">${canalStr}</td></tr>`;
+        }
+        panelHtml+=`</tbody></table>`;
       }
     }
-    const nbInRayon=articles.filter(a=>a.rayonStatus==='green').length;
-    const nbAbsent=articles.filter(a=>a.rayonStatus==='red').length;
-    let panelHtml=`<td colspan="9" class="p-0"><div class="bg-sky-50 border-t-2 border-sky-300 px-4 py-2">`;
-    if(articles.length){
-      panelHtml+=`<p class="text-[10px] font-bold text-sky-800 mb-1">Ce client achète ${articles.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — pour le capter, référencez ces '+nbAbsent+' articles':''}</p>`;
-      panelHtml+=`<table class="min-w-full text-[10px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
-      for(const a of articles){
-        const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
-        const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-        const bg=a.rayonStatus==='red'?'bg-red-50':a.rayonStatus==='yellow'?'bg-yellow-50':'';
-        panelHtml+=`<tr class="border-t border-sky-100 ${bg}"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-center">${a.qty}</td><td class="py-0.5 px-2 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center">${ri}</td><td class="py-0.5 px-2 text-right">${st}</td></tr>`;
-      }
-      panelHtml+=`</tbody></table>`;
-    }else{panelHtml+=`<p class="text-gray-400 text-[10px]">Aucun article trouvé pour ce client.</p>`;}
     panelHtml+=`</div></td>`;
     const tr=document.createElement('tr');tr.className='client-art-panel';tr.innerHTML=panelHtml;
     row.insertAdjacentElement('afterend',tr);
@@ -1538,7 +1560,7 @@
       }
     }
 
-    // Direction table — new columns: CA Territoire | Nb articles | ✅ | ⚠️ | ❌ | % couverture
+    // Direction table — new columns: CA Le Terrain | Nb articles | ✅ | ⚠️ | ❌ | % couverture
     const dirs={};
     for(const l of linesFiltered){
       if(!dirs[l.direction])dirs[l.direction]={dir:l.direction,caTotal:0,refSet:new Set(),greenSet:new Set(),yellowSet:new Set(),redSet:new Set(),familles:{}};
@@ -1570,7 +1592,7 @@
     }
     const dtEl=document.getElementById('terrDirectionTable');if(dtEl)dtEl.innerHTML=tbody||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucune donnée</td></tr>';
 
-    // Top 100 standard articles only — columns: Code | Libellé | Direction | BL | CA Territoire | Rayon | Stock actuel
+    // Top 100 standard articles only — columns: Code | Libellé | Direction | BL | CA Le Terrain | Rayon | Stock actuel
     const artMap={};
     for(const l of linesFiltered){
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,direction:l.direction,bl:new Set(),caTotal:0,rayonStatus:l.rayonStatus};
@@ -1632,7 +1654,7 @@
       familles[famKey].caTotal+=l.ca;familles[famKey].nb.add(l.code);
     }
     const dirEnc=encodeURIComponent(direction);
-    let html=`<table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-center">Nb art.</th><th class="py-1.5 px-3 text-right">CA Territoire</th></tr></thead><tbody>`;
+    let html=`<table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800"><tr><th class="py-1.5 px-4 text-left">Famille</th><th class="py-1.5 px-3 text-center">Nb art.</th><th class="py-1.5 px-3 text-right">CA Le Terrain</th></tr></thead><tbody>`;
     Object.entries(familles).sort((a,b)=>b[1].caTotal-a[1].caTotal).forEach(([fam,fd])=>{
       const famLabel=fam?fam:'❓ Non référencé en agence';
       const famRowId='terr-fam-'+direction.replace(/\W/g,'_')+'-'+fam.replace(/\W/g,'_')+'_f';
@@ -2052,7 +2074,7 @@
     const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
     for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
   }
 
 
@@ -2445,7 +2467,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const top100InStock=top100Ex.filter(([,a])=>a.rayonStatus==='green').length;
       const absentTop100=top100Ex.filter(([,a])=>a.rayonStatus==='red').length;
       const pctCouv=top100Ex.length>0?Math.round(top100InStock/top100Ex.length*100):0;
-      lines.push(`<p>🔗 Territoire chargé — <strong class="text-violet-400">${pctCouv}%</strong> du Top 100 articles en rayon. <strong>${absentTop100}</strong> articles absents du rayon (❌).</p>`);
+      lines.push(`<p>🔗 Le Terrain chargé — <strong class="text-violet-400">${pctCouv}%</strong> du Top 100 articles en rayon. <strong>${absentTop100}</strong> articles absents du rayon (❌).</p>`);
     }
     document.getElementById('execSummaryText').innerHTML=lines.join('');
   }
@@ -2591,7 +2613,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(!isMetierMode)famille=decodeURIComponent(famille);
     const hasMulti=storesIntersection.size>1;
     const hasChal=chalandiseReady;
-    const srcLabel=source==='bench'?'Retour à Le Réseau':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':source==='stock'?'Retour au Stock':'Retour';
+    const srcLabel=source==='bench'?'Retour à Le Réseau':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Terrain':source==='stock'?'Retour au Stock':'Retour';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
     const nbAgences=storesIntersection.size;
@@ -2910,7 +2932,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>
           ${m.perdus>0?`<p class="text-[11px] text-rose-400 mb-1">→ <strong>${m.perdus}</strong> perdu${m.perdus>1?'s':''} : ${m.inactifsRecents>0?`<span class="text-amber-400">${m.inactifsRecents} inactif${m.inactifsRecents>1?'s':''} récent${m.inactifsRecents>1?'s':''}</span>`:''}${m.inactifsRecents>0&&m.perdusAnciens>0?' · ':''}${m.perdusAnciens>0?`<span class="text-slate-400">${m.perdusAnciens} perdu${m.perdusAnciens>1?'s':''} >24m</span>`:''}</p>`:''}
           ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-          <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Territoire →</button>
+          <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
         </div>`;
       }).join('');
       const perdusTxt=v.perdus>0?` · <span class="text-rose-400">${v.perdus} perdu${v.perdus>1?'s':''} sur ces métiers</span>`:'';
@@ -2931,7 +2953,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         </div>
         <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone · ${counters}</p>
         ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Territoire →</button>
+        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
       </div>`;
     }).join('');
     return`<div class="diag-voyant diag-v2">
@@ -3030,7 +3052,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   // ── Level 3: Gamme ──
   function _diagLevel3(famille,hasBench,hasTerr,refStore){
-    if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Territoire ou des données multi-agences pour activer l\'analyse de gamme'};
+    if(!hasBench&&!hasTerr)return{status:'lock',reason:'Chargez le fichier Le Terrain ou des données multi-agences pour activer l\'analyse de gamme'};
     const myArts=new Set(finalData.filter(r=>r.famille===famille).map(r=>r.code));
     if(hasBench&&refStore){
       const refV=ventesParMagasin[refStore]||{};
@@ -3054,7 +3076,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
   function _diagRenderL3(l,hasBench,hasTerr){
     if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
-    const srcLabel=l.mode==='bench'?`<em class="text-amber-300">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Territoire : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
+    const srcLabel=l.mode==='bench'?`<em class="text-amber-300">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Le Terrain : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
     const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA territoire</th>`;
     const rows=(l.missing||[]).map(a=>{
       const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';
@@ -3250,7 +3272,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         </div>
         <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone → ${counters}</p>
         ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir le détail dans l'onglet Territoire →</button>
+        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir le détail dans l'onglet Le Terrain →</button>
       </div>`;
     }).join('');
     return`<div class="diag-level">
