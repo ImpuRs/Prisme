@@ -88,6 +88,10 @@
     #diagnosticOverlay.active{display:flex;align-items:flex-start;justify-content:center}
     #diagnosticPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:880px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     .diag-level{background:#1e293b;border:1px solid #2d3f55;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+    /* Reporting overlay */
+    #reportingOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:16px 8px}
+    #reportingOverlay.active{display:flex;align-items:flex-start;justify-content:center}
+    #reportingPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:760px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     .diag-level-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .diag-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:9999px;white-space:nowrap}
     .diag-ok{background:#14532d;color:#4ade80}.diag-warn{background:#713f12;color:#fbbf24}
@@ -118,6 +122,10 @@
   <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
     <div id="diagnosticPanel"></div>
   </div>
+  <!-- Reporting overlay -->
+  <div id="reportingOverlay" onclick="if(event.target===this)closeReporting()">
+    <div id="reportingPanel"></div>
+  </div>
 
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
@@ -133,7 +141,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
     </div>
   </nav>
 
@@ -1227,6 +1235,74 @@
     }
     if(navPeriod)navPeriod.classList.remove('hidden');
   }
+  // ── Reporting ──
+  function generateReportText(){
+    const pStart=periodFilterStart||consommePeriodMinFull||consommePeriodMin;
+    const pEnd=periodFilterEnd||consommePeriodMaxFull||consommePeriodMax;
+    const periodStr=pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—';
+    const agence=selectedMyStore||'—';
+    // Taux de service
+    let serviceOk=0,serviceTotal=0;
+    for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
+    const sr=serviceTotal>0?((serviceOk/serviceTotal)*100).toFixed(1):'—';
+    // Ruptures + CA récupérable
+    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent);
+    const caRecup=Math.round(rupturesList.reduce((s,r)=>s+estimerCAPerdu(r),0));
+    // Dormants
+    const dormantsList=finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
+    const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
+    // Benchmark
+    const win3=(benchLists.obsFamiliesWin||[]).slice(0,3);
+    const lose3=(benchLists.obsFamiliesLose||[]).slice(0,3);
+    const kpis=benchLists.obsKpis;
+    const hasBench=kpis!==null;
+    // Articles réseau manquants (missed = vendus en réseau, pas chez moi)
+    const manquants=benchLists.missed||[];
+    const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
+    // Clients silencieux >30j
+    const now=new Date();let silencieuxCount=0;
+    for(const[,lastDate] of clientLastOrder.entries()){if(daysBetween(lastDate,now)>30)silencieuxCount++;}
+    // Captation par métier stratégique (si chalandise chargée)
+    const captLines=[];
+    if(chalandiseReady&&chalandiseData&&chalandiseData.size>0){
+      const mBought={},mTotal={};
+      for(const[code,info] of chalandiseData.entries()){
+        const met=(info.metier||'').trim();if(!met||!METIERS_STRATEGIQUES.includes(met))continue;
+        mTotal[met]=(mTotal[met]||0)+1;
+        if(ventesClientArticle&&ventesClientArticle.has(code))mBought[met]=(mBought[met]||0)+1;
+      }
+      Object.entries(mTotal).filter(([,t])=>t>=3)
+        .map(([met,total])=>({met,total,pct:Math.round(((mBought[met]||0)/total)*100)}))
+        .filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct).slice(0,3)
+        .forEach(x=>captLines.push(`${x.met} (${x.pct}%)`));
+    }
+    // Fichiers
+    const fichiersList=['Consommé','État du Stock'];
+    if(territoireReady)fichiersList.push('Le Terrain');
+    if(chalandiseReady)fichiersList.push('Chalandise');
+    // Build text
+    const hr='─'.repeat(52);
+    const L=[];
+    L.push(`REPORTING ${agence} — ${periodStr}`);
+    L.push(hr);L.push('');
+    L.push('FACTEURS DE SUCCÈS');
+    L.push(`• Taux de service : ${sr}% · ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} (CA récupérable : ${formatEuro(caRecup)})`);
+    if(win3.length>0)L.push(`• Forces réseau : ${win3.map(f=>`${f.fam} (${f.ecartPct>0?'+':''}${f.ecartPct}%)`).join(', ')}`);
+    else if(hasBench)L.push('• Forces réseau : aucune famille en sur-performance vs bassin');
+    if(kpis)L.push(`• PDM bassin : ${kpis.mine.pdm}%`);
+    L.push('');
+    L.push("POINTS D'AMÉLIORATION");
+    L.push(`• ${dormantsList.length} dormant${dormantsList.length!==1?'s':''} (${formatEuro(dormantVal)} immobilisés)`);
+    if(manquants.length>0)L.push(`• ${manquants.length} article${manquants.length!==1?'s':''} réseau absents${manquantsHF>0?` (dont ${manquantsHF} forte rotation)`:''}`);
+    if(silencieuxCount>0)L.push(`• ${silencieuxCount} client${silencieuxCount!==1?'s':''} silencieux >30j`);
+    if(lose3.length>0)L.push(`• Familles sous médiane : ${lose3.map(f=>`${f.fam} (${f.ecartPct}%)`).join(', ')}`);
+    if(captLines.length>0)L.push(`• Captation PDV faible : ${captLines.join(', ')}`);
+    L.push('');
+    L.push('AUTRES');
+    L.push(`• Période : ${periodStr}`);
+    L.push(`• ${finalData.length.toLocaleString('fr')} articles · ${fichiersList.length} fichiers chargés (${fichiersList.join(', ')})`);
+    return L.join('\n');
+  }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
   function _cockpitToggleFullList(id){
     const el=document.getElementById(id);if(!el)return;
@@ -1252,8 +1328,7 @@
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
     // Categorize & score clients
-    const urgences=[],developper=[],fideliser=[];
-    let silentCount=0;
+    const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
     for(const[cc,info] of chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
@@ -1270,29 +1345,32 @@
       const pdvInactif=actPDV.includes('inactif');
       const lastOrder=clientLastOrder.get(cc)||null;
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
-      const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>60;
+      const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
       const clientArtData=ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-      const baseScore=_clientUrgencyScore(cc,info);
-      const finalScore=(isSilent&&caPDVN>0&&daysSinceLastOrder>90)?Math.max(baseScore,caPDVN*2):baseScore;
+      const finalScore=_clientUrgencyScore(cc,info);
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder};
-      if(isSilent&&caPDVN>0){silentCount++;urgences.push(c);}
+      if(isSilent&&caPDVN>0)silencieux.push(c);
       else if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
       else if(pdvActif&&classif==='FID Pot+')fideliser.push(c);
     }
+    // Silencieux: priorité aux gros clients silencieux depuis le plus longtemps
+    silencieux.sort((a,b)=>((b._daysSince||0)*(b.caPDVN||0))-((a._daysSince||0)*(a.caPDVN||0)));
     urgences.sort((a,b)=>b._score-a._score);
     developper.sort((a,b)=>b._score-a._score);
     fideliser.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
     const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
     const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
     // Dynamic reason functions
+    function _silRaison(c){
+      const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
+      if(c._daysSince>90)return`Pas de commande depuis ${c._daysSince}j — client à risque (${caPDVFmt} CA PDV)`;
+      if(c._daysSince>60)return`Silencieux depuis ${c._daysSince}j — à relancer (${caPDVFmt} CA PDV)`;
+      return`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA PDV)`;
+    }
+    function _silColor(c){return c._daysSince>90?'text-red-700':c._daysSince>60?'text-orange-600':'text-yellow-700';}
     function _urgRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
-      const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
-      if(c._isSilent&&c.caPDVN>0){
-        if(c._daysSince>90)return`⚠️ Pas de commande depuis ${c._daysSince} jours — était client régulier (${caPDVFmt} CA PDV)`;
-        return`👀 Dernière commande il y a ${c._daysSince} jours — à surveiller`;
-      }
       const classif=_normalizeClassif(c.classification);
       if(c._globActif&&!c._pdvActif)return`${caFmt} chez Legallais, ne vient pas en agence — potentiel captation`;
       if(c._perdu&&classif==='FID Pot+')return'Client fidèle perdu récemment — reconquête prioritaire';
@@ -1312,17 +1390,19 @@
       return'Bon client PDV à entretenir';
     }
     // Cache reasons + export data
+    silencieux.forEach(c=>c._reason=_silRaison(c));
     urgences.forEach(c=>c._reason=_urgRaison(c));
     developper.forEach(c=>c._reason=_devRaison(c));
     fideliser.forEach(c=>c._reason=_fidRaison(c));
-    _cockpitExportData={urgences,developper,fideliser};
+    _cockpitExportData={silencieux,urgences,developper,fideliser};
     // Card renderer
     function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
       const caPDV=c.caPDVN>0?formatEuro(c.caPDVN):'—';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1358,9 +1438,9 @@
       return html;
     }
     // Summary banner
-    const silentBit=silentCount>0?` · <span class="text-amber-600">⚠️ ${silentCount} client${silentCount>1?'s':''} silencieux (&gt;60j sans commande)</span>`:'';
-    const banner=`<div class="mb-3 px-4 py-2 bg-gray-50 border rounded-lg text-[11px] font-semibold text-gray-700">Sur votre sélection : <span class="text-red-600">🔴 ${urgences.length} urgence${urgences.length!==1?'s':''}</span> · <span class="text-orange-500">🟠 ${developper.length} à développer</span> · <span class="text-green-600">🟢 ${fideliser.length} à fidéliser</span>${silentBit}</div>`;
-    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold text-gray-800 flex-1">🎯 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('URGENCES — Top 10 actions immédiates','Triés par potentiel × urgence · {total} clients dans cette catégorie','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    const silBit=silencieux.length>0?`<span class="text-rose-600">🚨 ${silencieux.length} silencieux</span> · `:'';
+    const banner=`<div class="mb-3 px-4 py-2 bg-gray-50 border rounded-lg text-[11px] font-semibold text-gray-700">Sur votre sélection : ${silBit}<span class="text-red-600">🔴 ${urgences.length} à capter</span> · <span class="text-orange-500">🟠 ${developper.length} à développer</span> · <span class="text-green-600">🟢 ${fideliser.length} à fidéliser</span></div>`;
+    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-rose-50 via-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold text-gray-800 flex-1">🎯 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','bg-rose-50','border-rose-500','hover:bg-rose-50',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV','Clients qui achètent chez Legallais mais ne viennent pas en agence · {total} clients','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
   }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
@@ -1394,7 +1474,7 @@
   }
   function exportCockpitCSV(catKey){
     if(!_cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-    const map={'cockpit-urg-full':['Urgence',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
+    const map={'cockpit-sil-full':['Silencieux',_cockpitExportData.silencieux],'cockpit-urg-full':['À capter',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
     const entry=map[catKey];if(!entry)return;
     const[catLabel,clients]=entry;
     const rows=clients.map(c=>_cockpitRowCSV(catLabel,c,'Non',''));
@@ -1405,7 +1485,7 @@
   }
   function exportCockpitCSVAll(){
     if(!_cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-    const catMap={'cockpit-urg-full':['Urgence',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
+    const catMap={'cockpit-sil-full':['Silencieux',_cockpitExportData.silencieux],'cockpit-urg-full':['À capter',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
     const rows=[];
     for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
     const date=new Date().toISOString().slice(0,10);
@@ -1424,7 +1504,7 @@
   function _confirmExclude(cc,encodedNom,catKey){
     const nom=decodeURIComponent(encodedNom);
     const sel=document.getElementById('excl-sel-'+cc);const reason=sel?sel.value:'Pas pertinent';
-    const allClients=[...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
+    const allClients=[...(_cockpitExportData?.silencieux||[]),...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
     const clientData=allClients.find(c=>c.code===cc)||{code:cc,nom};
     excludedClients.set(cc,{reason,date:new Date().toISOString().slice(0,10),by:selectedMyStore||'',category:catKey,nom,clientData});
     showToast(`👁️ ${nom} masqué — ${reason}`,'info');
@@ -1457,7 +1537,7 @@
         const data=JSON.parse(e.target.result);
         if(!data.exclusions||!Array.isArray(data.exclusions))throw new Error('Format invalide');
         let count=0;
-        const allClients=[...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
+        const allClients=[...(_cockpitExportData?.silencieux||[]),...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
         for(const ex of data.exclusions){
           if(!ex.code)continue;
           const clientData=allClients.find(c=>c.code===ex.code)||{code:ex.code,nom:ex.nom||ex.code};
@@ -1641,6 +1721,7 @@
       document.getElementById('navStats').textContent=finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent='⚡'+elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
       if(selectedMyStore){document.getElementById('navStore').textContent='🏪 '+selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
