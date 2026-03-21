@@ -133,7 +133,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden text-xs text-cyan-300 font-mono"></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
     </div>
   </nav>
 
@@ -180,9 +180,6 @@
 
     <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
-
-    <!-- ★ FILTRE PÉRIODE GLOBAL -->
-    <div id="periodFilterZone" class="hidden mb-3"></div>
 
     <!-- ★ FILTRES GLOBAUX -->
     <div id="globalFilters" class="hidden mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
@@ -1152,16 +1149,31 @@
     row.insertAdjacentElement('afterend',tr);
   }
   // ── Filtre période global ──
+  function togglePeriodDropdown(){
+    const dd=document.getElementById('periodDropdown');if(!dd)return;
+    const open=dd.classList.toggle('hidden');
+    if(!open){
+      setTimeout(()=>{
+        document.addEventListener('click',function _closePd(e){
+          const nav=document.getElementById('navPeriod');
+          if(!nav||!nav.contains(e.target)){dd.classList.add('hidden');document.removeEventListener('click',_closePd);}
+        });
+      },0);
+    }
+  }
   function applyPeriodFilter(startTs,endTs){
+    const dd=document.getElementById('periodDropdown');if(dd)dd.classList.add('hidden');
     periodFilterStart=startTs?new Date(+startTs):null;
     periodFilterEnd=endTs?new Date(+endTs):null;
     processData();
   }
   function buildPeriodFilter(){
-    const el=document.getElementById('periodFilterZone');if(!el)return;
+    const dd=document.getElementById('periodDropdown');
+    const btn=document.getElementById('navPeriodBtn');
+    const navPeriod=document.getElementById('navPeriod');
     const minD=consommePeriodMinFull||consommePeriodMin;
     const maxD=consommePeriodMaxFull||consommePeriodMax;
-    if(!minD||!maxD){el.classList.add('hidden');return;}
+    if(!minD||!maxD){if(navPeriod)navPeriod.classList.add('hidden');return;}
     // Build months array
     const months=[];let cur=new Date(minD.getFullYear(),minD.getMonth(),1);
     const endD=new Date(maxD.getFullYear(),maxD.getMonth(),1);
@@ -1193,18 +1205,27 @@
       html+=pill(`${qLabel} ${y}`,sTs,eTs);
     }
     html+=`</div>`;
-    // Short period warning + nav indicator
+    // Short period warning inside dropdown
     let warnHtml='';
-    const nav=document.getElementById('navPeriod');
     if(periodFilterStart&&periodFilterEnd){
       const filteredDays=daysBetween(periodFilterStart,periodFilterEnd);
       if(filteredDays<90)warnHtml=`<p class="text-[10px] text-amber-600 font-bold mt-1.5">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`;
-      if(nav){nav.textContent=`📅 Filtre : ${fmtDate(periodFilterStart)} → ${fmtDate(periodFilterEnd)}`;nav.classList.remove('hidden');nav.style.color='#fde047';}
-    } else {
-      if(nav){nav.style.color='';updatePeriodAlert();}
     }
-    el.innerHTML=`<div class="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">${html}${warnHtml}</div>`;
-    el.classList.remove('hidden');
+    if(dd)dd.innerHTML=html+warnHtml;
+    // Update navbar button style for active filter vs full range
+    if(btn){
+      if(periodFilterStart&&periodFilterEnd){
+        const label=periodFilterStart.getMonth()===periodFilterEnd.getMonth()&&periodFilterStart.getFullYear()===periodFilterEnd.getFullYear()
+          ?fmtDate(periodFilterStart)
+          :`${fmtDate(periodFilterStart)} → ${fmtDate(periodFilterEnd)}`;
+        btn.textContent=`📅 ${label}`;
+        btn.style.cssText='color:#fde047;font-weight:800';
+      } else {
+        btn.style.cssText='';
+        updatePeriodAlert();
+      }
+    }
+    if(navPeriod)navPeriod.classList.remove('hidden');
   }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
   function _cockpitToggleFullList(id){
