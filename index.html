@@ -1065,7 +1065,7 @@
     clients.sort(_overviewClientSort);
     if(!clients.length){el.innerHTML='<div class="text-gray-400 text-xs py-2">Aucun client.</div>';return;}
     const show=clients.slice(0,limit),more=clients.length-limit;
-    let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800 font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA 2025</th><th class="py-1 px-2 text-right">CA PDV Zone</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+    let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="bg-blue-100 text-blue-800 font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-right">CA PDV Zone</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
     for(const c of show){
       const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
       const pdvBg=globActif&&!c._pdvActif?'bg-amber-50':perdu?'bg-rose-50':'';
@@ -1158,7 +1158,7 @@
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
       const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser</p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA consommé</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
+      el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="text-gray-400">(CA = achats comptoir uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA comptoir</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
       return;
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
@@ -1199,7 +1199,7 @@
       const usePDV=caField(sortField);
       if(!clients.length)return`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-[10px] text-gray-500 mb-2">${desc}</p><p class="text-xs text-gray-400">${emptyMsg}</p></div>`;
       let html=`<div class="${color} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div><p class="text-[10px] text-gray-500 mb-2">${desc}</p>`;
-      html+=`<div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA PDV Zone':'CA 2025'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
+      html+=`<div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA PDV Zone':'CA Legallais'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
       for(const c of show){
         const caVal=usePDV?c.caPDVN:c.ca2025;
         const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');
@@ -1220,7 +1220,7 @@
       <div class="bg-white rounded-xl shadow-md border overflow-hidden">
         <div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50">
           <h3 class="font-extrabold text-gray-800">🎯 Cockpit Client</h3>
-          <p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}</p>
+          <p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux (source chalandise) · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p>
         </div>
         <div class="grid grid-cols-1 gap-4 p-4">
           ${renderBlock('URGENCES — Actions immédiates','Clients actifs chez Legallais mais qui ne viennent pas/plus dans votre agence — FID Pot+ et OCC Pot+','🔴','bg-red-50','border-red-500',urgences,'ca2025')}
