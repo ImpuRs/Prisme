@@ -331,7 +331,7 @@ function computeBenchmark() {
   const myAssort = avgRef > 0 ? Math.round((myRef / avgRef) * 100) : 0;
   const compAssort = 100;
   const myPdm = Math.round(myPoids * 1000) / 10; const compPdmVals = cs.map(s => bassinTotalCA > 0 ? (storeTotalCA[s] || 0) / bassinTotalCA * 100 : 0).filter(v => v > 0); const compPdmMed = Math.round((compPdmVals.length ? _median(compPdmVals) : 0) * 10) / 10; const compPdm = (obsMode !== 'median' && storesIntersection.has(obsMode)) ? Math.round((storeTotalCA[obsMode] || 0) / bassinTotalCA * 1000) / 10 : compPdmMed;
-  benchLists._myPoids = myPoids; benchLists._bassinFamCATot = bassinFamCATot;
+  benchLists._myPoids = myPoids; benchLists._bassinFamCATot = bassinFamCATot; benchLists._myFamCA = myFamCA;
   benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[selectedMyStore]?.serv || 0, freq: sp[selectedMyStore]?.freq || 0, pdm: myPdm }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm } };
   const allFams2 = new Set([...Object.keys(myFamCA), ...Object.keys(compFamCA)]);
   const obsFamiliesLose = [], obsFamiliesWin = [];
