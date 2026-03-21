@@ -216,6 +216,37 @@ function renderInsightsBanner() {
   banner.classList.remove('hidden');
 }
 
+// ── Reporting ────────────────────────────────────────────────
+function openReporting() {
+  const overlay = document.getElementById('reportingOverlay');
+  const panel = document.getElementById('reportingPanel');
+  if (!overlay || !panel) return;
+  const text = generateReportText();
+  panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
+    <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${selectedMyStore || ''}</h2>
+    <div class="flex items-center gap-2 shrink-0">
+      <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
+      <button onclick="closeReporting()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
+    </div>
+  </div>
+  <textarea id="reportingTextarea" class="w-full bg-slate-900 text-slate-200 text-xs font-mono p-4 rounded-xl border border-slate-700 resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+  <p class="text-[10px] text-slate-500 mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
+  overlay.classList.add('active');
+}
+
+function closeReporting() {
+  const overlay = document.getElementById('reportingOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function copyReportText() {
+  const ta = document.getElementById('reportingTextarea');
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value)
+    .then(() => showToast('📋 Rapport copié dans le presse-papier !', 'success'))
+    .catch(() => { ta.select(); document.execCommand('copy'); showToast('📋 Rapport copié !', 'success'); });
+}
+
 // ── Table sort / pagination ───────────────────────────────────
 function sortBy(c) { if (sortCol === c) sortAsc = !sortAsc; else { sortCol = c; sortAsc = false; } currentPage = 0; renderTable(); }
 function changePage(d) { const m = Math.ceil(filteredData.length / PAGE_SIZE) - 1; currentPage = Math.max(0, Math.min(currentPage + d, m)); renderTable(true); }
