@@ -3045,8 +3045,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // V3 — Le Réseau (median across stores, aggregated across cell families)
     let v3;
     if(hasMulti){
-      const myArtSet=new Set(cellArts.map(r=>r.code));
       const cellFamSet=new Set(cellArts.map(r=>r.famille).filter(Boolean));
+      const myArtSet=new Set(finalData.filter(r=>cellFamSet.has(r.famille)).map(r=>r.code));
       const artStoreFreqs={};const storeRefCounts=[];
       const nbOtherStores=storesIntersection.size-1;
       for(const store of storesIntersection){
@@ -3060,7 +3060,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
       const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:myArtSet.size,reseauCount:myArtSet.size+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
+      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:cellArts.length,reseauCount:cellArts.length+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
     }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
     _diagLevels={v1,v2,v3};
     const acts=[];
