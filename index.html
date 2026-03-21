@@ -344,6 +344,34 @@
     <!-- TAB 3 : COCKPIT -->
     <div id="tabAction" class="tab-content hidden">
 
+      <!-- ★ ÉQUATION COMMERCIALE ★ -->
+      <div id="cockpitEquation" class="hidden mb-4">
+        <div class="flex items-center justify-center gap-3 py-3 bg-white rounded-xl border shadow-sm flex-wrap">
+          <div class="text-center px-4 py-2 bg-gray-50 rounded-lg">
+            <p class="text-[10px] font-bold text-gray-500 uppercase">👥 Clients PDV</p>
+            <p id="eqClients" class="text-xl font-extrabold text-gray-800">—</p>
+          </div>
+          <span class="text-2xl text-gray-300 font-light">×</span>
+          <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+            <div class="text-center">
+              <p class="text-[10px] font-bold text-gray-500 uppercase">📊 Fréquence</p>
+              <p id="eqFreq" class="text-xl font-extrabold text-gray-800">—</p>
+            </div>
+            <span class="text-lg text-gray-300">×</span>
+            <div class="text-center">
+              <p class="text-[10px] font-bold text-gray-500 uppercase">🛒 Panier moyen</p>
+              <p id="eqPanier" class="text-xl font-extrabold text-gray-800">—</p>
+            </div>
+          </div>
+          <span class="text-2xl text-gray-300 font-light">=</span>
+          <div class="text-center px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+            <p class="text-[10px] font-bold text-blue-500 uppercase">💰 CA PDV</p>
+            <p id="eqCA" class="text-xl font-extrabold text-blue-700">—</p>
+          </div>
+        </div>
+        <p id="eqSource" class="text-[10px] text-gray-400 text-center mt-1"></p>
+      </div>
+
       <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
       <div id="execSummary" class="exec-summary rounded-xl p-5 mb-8 text-white">
         <div class="flex items-center gap-2 mb-3"><span class="text-lg">⚡</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-blue-300">Résumé exécutif</h3></div>
@@ -2664,6 +2692,25 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ★ DASHBOARD + COCKPIT
   function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Service',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
+  function renderCockpitEquation(){
+    const el=document.getElementById('cockpitEquation');if(!el)return;
+    const nbClientsPDV=clientsMagasin.size;
+    const nbBLPDV=ventesAnalysis?ventesAnalysis.totalBL:0;
+    const freqPDV=nbClientsPDV>0?(nbBLPDV/nbClientsPDV).toFixed(1):0;
+    const storeData=ventesParMagasin[selectedMyStore]||{};
+    const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
+    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):0;
+    if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
+    el.classList.remove('hidden');
+    const fmtD=d=>{if(!d)return'?';const m=String(d).match(/^(\d{4})-(\d{2})/);return m?m[2]+'/'+m[1]:d;};
+    document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
+    document.getElementById('eqFreq').textContent=freqPDV;
+    document.getElementById('eqPanier').textContent=panierMoyen>0?panierMoyen.toLocaleString('fr')+' €':'—';
+    document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
+    const src=document.getElementById('eqSource');
+    if(src)src.textContent=`Source : fichier Consommé canal MAGASIN · Période : ${fmtD(consommePeriodMin)} → ${fmtD(consommePeriodMax)}`;
+  }
+
   function renderDashboardAndCockpit(){
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[];const finCodes=new Set();
@@ -2767,6 +2814,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       el.innerHTML=rows.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';
     })();
 
+    renderCockpitEquation();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===finalData){_insights.ruptures=lstR.length;_insights.dormants=lstD.length;renderInsightsBanner();}
