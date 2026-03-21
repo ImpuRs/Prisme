@@ -428,12 +428,6 @@
         </div>
       </div>
 
-      <!-- 2. Canal distribution — always shown when consommé loaded -->
-      <div class="mb-2 bg-white p-2 rounded-xl shadow-md border">
-        <h3 class="font-extrabold text-gray-800 text-xs mb-1.5 flex items-center gap-2">📡 Comment arrive votre business <span class="text-[10px] font-normal text-gray-400">— basé sur le fichier Consommé</span></h3>
-        <div id="canalAgenceBlock" class="space-y-1.5"></div>
-      </div>
-
       <!-- 2a. Placeholder — chalandise not loaded yet -->
       <div id="terrNoChalandise" class="hidden mb-2 p-2 bg-rose-50 border-2 border-dashed border-rose-300 rounded-xl text-center">
         <p class="text-xl mb-1">🗺️</p>
@@ -1479,7 +1473,6 @@
   });
 
   function renderTerritoireTab(){
-    renderCanalAgence();
     const hasTerr=territoireReady&&territoireLines.length>0;
     const hasChal=chalandiseReady;
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasChal);
