@@ -3535,7 +3535,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;return cp||b.ca2025-a.ca2025;});
     const p1=clients.filter(c=>c.prio===1).length,p2=clients.filter(c=>c.prio===2).length;
     const p3=clients.filter(c=>c.prio===3).length,p4=clients.filter(c=>c.prio===4).length,p5=clients.filter(c=>c.prio===5).length;
-    const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+c.ca2025,0);
+    const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0);
     const perdus=p2+p3;
     return{status:perdus>2?'warn':'ok',totalBuyers:clients.length,metiers:[{metier,pct:100,total:clients.length,p1,p2,p3,p4,p5,potentiel,clients}],perdus,potentiel,isMetierMode:true};
   }
@@ -3596,7 +3596,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const p2=clients.filter(c=>c.prio===2);
       const p3=clients.filter(c=>c.prio===3);
       const p4=clients.filter(c=>c.prio===4);
-      const potentiel=p2.reduce((s,c)=>s+c.ca2025,0)+p3.reduce((s,c)=>s+c.ca2025,0);
+      const potentiel=p2.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0)+p3.reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0);
       return{metier,pct,total:clients.length,p1:p1.length,p2:p2.length,p3:p3.length,p4:p4.length,p5:clients.filter(c=>c.prio===5).length,potentiel,clients};
     });
     const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
