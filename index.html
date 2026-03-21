@@ -744,6 +744,7 @@
   <script src="js/constants.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/state.js"></script>
+  <script src="js/engine.js"></script>
   <script>
   'use strict';
 
@@ -806,13 +807,6 @@
   function updateProgress(c,t,txt,step){const p=t>0?Math.round(c/t*100):0;document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressPct').textContent=p+'%';if(txt)document.getElementById('loadingText').textContent=txt;if(step)document.getElementById('loadingStep').textContent=step;}
   // V24.4: Per-file pipeline status (loading overlay)
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
-  // ── Département filter helpers ──
-  function clientMatchesDeptFilter(info){if(!_selectedDepts.size)return true;const dept=(info.cp||'').toString().slice(0,2);return _selectedDepts.has(dept);}
-  function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
-  function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
-  function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
-  function clientMatchesCommercialFilter(info){if(!_selectedCommercial)return true;return(info.commercial||'')===_selectedCommercial;}
-  function clientMatchesMetierFilter(info){if(!_selectedMetier)return true;return(info.metier||'')===_selectedMetier;}
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_selectedClassifs.size){_selectedClassifs=new Set(all);_selectedClassifs.delete(c);}else if(_selectedClassifs.has(c)){_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_selectedActivitesPDV.size){_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);}else if(_selectedActivitesPDV.has(a)){_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
@@ -856,7 +850,6 @@
   }
   function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_selectedMetier='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
-  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info)&&clientMatchesMetierFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
@@ -877,10 +870,6 @@
     },300);
   }
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
-  function _isPDVActif(cc){const art=ventesClientArticle.get(cc);return art&&art.size>0;}
-  function _isPerdu(info){const s=_normalizeStatut(info.statut);return s==='Inactif'||s==='Perdu';}
-  function _isProspect(info){return _normalizeStatut(info.statut)==='Prospect';}
-  function _isPerdu24plus(info){return _isPerdu(info)&&!(info.ca2025||0)&&!(info.ca2026||0);}
   function _buildOverviewFilterChips(){
     const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
     const CLASSIF_ON={'FID Pot+':'bg-emerald-600 text-white border-emerald-600','FID Pot-':'bg-gray-500 text-white border-gray-500','OCC Pot+':'bg-blue-600 text-white border-blue-600','OCC Pot-':'bg-blue-400 text-white border-blue-400','NC':'bg-slate-400 text-white border-slate-400'};
@@ -1116,7 +1105,6 @@
     if(aP!==bP)return aP-bP;
     return(b.ca2025||0)-(a.ca2025||0);
   }
-  function _isGlobalActif(info){const aG=(info.activiteGlobale||info.activite||'').toLowerCase();const s=(info.statut||'').toLowerCase();return aG.includes('actif')||(s.includes('actif')&&!s.includes('inactif'));}
   function _renderOverviewL4(el,direction,metier,secteur,limit){
     limit=limit||20;
     const clients=[];
@@ -1311,34 +1299,6 @@
     el.classList.remove('hidden');
   }
   function updateTerrProgress(cur,total){const pct=total>0?Math.round(cur/total*100):0;const bar=document.getElementById('terrProgressBar');const txt=document.getElementById('terrProgressText');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=pct+'%';const pipe=document.getElementById('pipeTerritoire');if(pipe&&pct<100)pipe.textContent=`🔗 Territoire… ${pct}%`;}
-  function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
-  function formatCouv(j){if(j>=999)return'—';return j+'j';}
-  function couvColor(j){if(j>=999)return'text-gray-400';if(j<=7)return'text-red-600 font-extrabold';if(j<=21)return'text-orange-600 font-bold';if(j<=60)return'text-green-600';return'text-blue-500';}
-
-  // ★ V2: Client crossing — consommé × chalandise
-  function computeClientCrossing(){
-    if(!chalandiseReady||!clientsMagasin.size){crossingStats=null;return;}
-    const fideles=new Set(),potentiels=new Set(),captes=new Set();
-    for(const cc of clientsMagasin){if(chalandiseData.has(cc))captes.add(cc);else fideles.add(cc);}
-    for(const[cc,info] of chalandiseData.entries()){
-      if(!clientsMagasin.has(cc)){const s=(info.statut||'').toLowerCase();if(s.includes('actif')&&!s.includes('inactif'))potentiels.add(cc);}
-    }
-    crossingStats={fideles,potentiels,captes};
-  }
-  function _crossBadge(cc){
-    if(!crossingStats)return'';
-    if(crossingStats.captes.has(cc))return'<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
-    if(crossingStats.potentiels.has(cc))return'<span class="ml-0.5 text-[10px]" title="Potentiel non capté — dans la zone, n\'est pas encore venu en agence">🔴</span>';
-    if(crossingStats.fideles.has(cc))return'<span class="ml-0.5 text-[10px]" title="Fidèle hors zone — vient en agence malgré la distance">🟣</span>';
-    return'';
-  }
-  function _passesClientCrossFilter(cc){
-    if(!_selectedCrossStatus||!crossingStats)return true;
-    if(_selectedCrossStatus==='fidele')return crossingStats.fideles.has(cc);   // never true for chalandise clients
-    if(_selectedCrossStatus==='capte')return crossingStats.captes.has(cc);
-    if(_selectedCrossStatus==='potentiel')return crossingStats.potentiels.has(cc);
-    return true;
-  }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
     const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
@@ -1351,60 +1311,6 @@
     _buildChalandiseOverview();
   }
 
-  // ★ V23: Priority score — Fréq × PU × coeff ancienneté
-  function calcPriorityScore(freq,pu,ageJours){
-    const caPerdu=freq*pu; // CA potentiel perdu annuel
-    // Coeff ancienneté: plus c'est ancien, plus c'est grave
-    let ageCoeff=1;
-    if(ageJours<30)ageCoeff=0.8;
-    else if(ageJours<90)ageCoeff=1;
-    else if(ageJours<180)ageCoeff=1.2;
-    else ageCoeff=1.5;
-    return Math.round(caPerdu*ageCoeff);
-  }
-  function prioClass(score){if(score>=5000)return'prio-critical';if(score>=1000)return'prio-high';if(score>=300)return'prio-medium';return'prio-low';}
-  function prioLabel(score){if(score>=5000)return'🔴';if(score>=1000)return'🟠';if(score>=300)return'🟡';return'⚪';}
-
-  // ★ V23: Detect parent reference (all 3 dates empty)
-  function isParentRef(row){
-    const d1=getVal(row,'dernière sortie','sortie');
-    const d2=getVal(row,'première entrée','premiere entree','première réception');
-    const d3=getVal(row,'dernière entrée','entrée');
-    function isEmpty(v){if(!v)return true;const s=v.toString().trim();return s===''||s==='-'||s==='0'||s==='NaN';}
-    return isEmpty(d1)&&isEmpty(d2)&&isEmpty(d3);
-  }
-
-  // ★ V24: Compute ABC / FMR classifications + build matrix data
-  function computeABCFMR(data){
-    // ABC: based on rotation value = V × prixUnitaire, for active articles (W≥1)
-    const active=data.filter(r=>r.W>=1);
-    active.sort((a,b)=>(b.V*b.prixUnitaire)-(a.V*a.prixUnitaire));
-    const totalRot=active.reduce((s,r)=>s+r.V*r.prixUnitaire,0);
-    let cumul=0;const abcMap={};
-    for(const r of active){
-      cumul+=r.V*r.prixUnitaire;
-      const p=totalRot>0?cumul/totalRot:1;
-      abcMap[r.code]=p<=0.8?'A':p<=0.95?'B':'C';
-    }
-    // Assign ABC + FMR to each article
-    for(const r of data){
-      if(r.W>=1){
-        r.abcClass=abcMap[r.code]||'C';
-        r.fmrClass=r.W>=12?'F':r.W>=4?'M':'R';
-      } else {
-        r.abcClass='';r.fmrClass='';
-      }
-    }
-    // Build matrix aggregate data
-    const totalStockVal=data.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
-    const mx={};
-    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
-      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
-      const sv=items.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
-      mx[key]={count:items.length,stockVal:sv,pctTotal:totalStockVal>0?sv/totalStockVal*100:0};
-    }
-    abcMatrixData=mx;
-  }
 
   // ★ V24: Click on ABC matrix cell → filter Articles tab
   function filterByAbcFmr(abc,fmr){
@@ -1625,10 +1531,7 @@
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
 
-      // ★ Fix: PU fallback from consommé for articles with prixUnitaire=0 (stock=0 → PRMP=0)
-      {const mySk=selectedMyStore||Object.keys(ventesParMagasin)[0]||'';for(const r of finalData){if(r.prixUnitaire>0)continue;// Fallback 1: PU from own store's consommé (sumCA/sumPrelevee)
-      const myV=ventesParMagasin[mySk]?.[r.code];if(myV&&myV.sumPrelevee>0&&myV.sumCA>0){r.prixUnitaire=Math.round(myV.sumCA/myV.sumPrelevee*100)/100;continue;}// Fallback 2: PU from any other store's consommé (multi-agence)
-      for(const sk of Object.keys(ventesParMagasin)){if(sk===mySk)continue;const sv=ventesParMagasin[sk]?.[r.code];if(sv&&sv.sumPrelevee>0&&sv.sumCA>0){r.prixUnitaire=Math.round(sv.sumCA/sv.sumPrelevee*100)/100;break;}}}}
+      enrichPrixUnitaire();
 
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
@@ -3022,16 +2925,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(fmr)data=data.filter(r=>r.fmrClass===fmr);
     return data;
   }
-  function _radarComputeMatrix(data){
-    const totalStock=data.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0)||1;
-    const mx={};
-    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
-      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
-      const stockVal=items.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0);
-      mx[key]={count:items.length,stockVal,pctTotal:(stockVal/totalStock)*100};
-    }
-    return mx;
-  }
   function renderABCTab(){
     if(!finalData.length||!Object.keys(abcMatrixData).length)return;
     const radarData=_radarFilteredData();
@@ -3199,7 +3092,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const nonRef=cellArts.filter(r=>r.stockActuel<=0&&r.W<3).length;
     const ruptures=cellArts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);caPerduTotal+=ca;
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);caPerduTotal+=ca;
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     const activeArts=cellArts.filter(r=>r.W>=1);
@@ -3296,7 +3189,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
       caPerduTotal+=ca;return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     // Calibrage MIN/MAX
@@ -3344,7 +3237,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
       caPerduTotal+=ca;
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
@@ -3616,7 +3509,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const enStock=topArts.filter(a=>a.stockActuel!==null&&a.stockActuel>0).length;
     let caPerduTotal=0;
     const ruptures=topArts.filter(a=>a.W>=3&&a.stockActuel!==null&&a.stockActuel<=0&&!a.isParent).map(a=>{
-      const jours=90;const ca=Math.round((a.V/globalJoursOuvres)*jours*a.prixUnitaire);caPerduTotal+=ca;
+      const jours=90;const ca=estimerCAPerdu(a.V,a.prixUnitaire,jours);caPerduTotal+=ca;
       return{code:a.code,lib:a.lib,W:a.W,jours,ca,freq:a.freq};
     }).sort((a,b)=>b.ca-a.ca);
     return{status:ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn',metier,metierClients:metierClients.size,arts:topArts.length,enStock,ruptures,caPerduTotal,topArts};
@@ -3721,21 +3614,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ── Level 4: Clients métier ──
-  // Priority: 1=actif global+inactif PDV, 2=inactif2026 seul, 3=inactif2026/2025, 4=prospect, 5=actif PDV
-  function _diagClientPrio(info,famCA){
-    const s=(info.statut||'').toLowerCase();
-    const aG=(info.activiteGlobale||info.activite||'').toLowerCase();
-    const isGlobalActif=aG.includes('actif')||(s.includes('actif')&&!s.includes('inactif'));
-    const isPDVActif=famCA>0;
-    if(isGlobalActif&&!isPDVActif)return 1;
-    if(s.includes('inactif')&&s.includes('2026')&&!s.includes('2025'))return 2;
-    if(s.includes('inactif')||s.includes('perdu'))return 3;
-    if(s.includes('prospect'))return 4;
-    if(isGlobalActif&&isPDVActif)return 5;
-    return 4;
-  }
-  function _diagClassifPrio(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return 0;if(u.includes('OCC')&&u.includes('POT+'))return 1;if(u.includes('POT-'))return 2;return 3;}
-  function _diagClassifBadge(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;if(u.includes('OCC')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;if(u.includes('POT-'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;if(c&&c!=='—')return`<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;return'<span class="text-slate-600 text-[9px]">—</span>';}
   function _diagLevel4(famille,hasChal,metierFilter){
     metierFilter=metierFilter||'';
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
@@ -3885,7 +3763,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     showToast('📥 Plan de vol exporté','success');
   }
 
-  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?estimerCAPerdu(r.V,r.prixUnitaire,Math.min(r.ageJours>=999?90:r.ageJours,90)):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
 
   // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
   (function(){
