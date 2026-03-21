@@ -137,8 +137,11 @@
     </div>
   </nav>
 
-  <!-- Bandeau opportunités global — visible sur tous les onglets après analyse -->
-  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2.5 border-b border-slate-700 flex flex-wrap items-center gap-x-3 gap-y-1"></div>
+  <!-- Bandeau unifié insights + résumé fichiers -->
+  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
+    <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
+    <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
+  </div>
 
   <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
 
@@ -158,8 +161,6 @@
       </div>
     </div>
 
-    <!-- UPLOAD SUMMARY (compact banner after load) -->
-    <div id="importSummary" class="hidden mb-6 bg-slate-800 text-white text-sm py-3 px-4 rounded-xl flex items-center gap-1 flex-wrap shadow-md"></div>
 
     <!-- UPLOAD -->
     <div id="importZone">
@@ -1249,7 +1250,7 @@
       const lastOrder=clientLastOrder.get(cc)||null;
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>60;
-      const caPDVN=info.caPDVN||0;
+      const clientArtData=ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
       const baseScore=_clientUrgencyScore(cc,info);
       const finalScore=(isSilent&&caPDVN>0&&daysSinceLastOrder>90)?Math.max(baseScore,caPDVN*2):baseScore;
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder};
