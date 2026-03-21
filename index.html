@@ -1249,7 +1249,7 @@
       const lastOrder=clientLastOrder.get(cc)||null;
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>60;
-      const caPDVN=info.caPDVN||0;
+      const clientArtData=ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
       const baseScore=_clientUrgencyScore(cc,info);
       const finalScore=(isSilent&&caPDVN>0&&daysSinceLastOrder>90)?Math.max(baseScore,caPDVN*2):baseScore;
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder};
