@@ -3046,7 +3046,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let v3;
     if(hasMulti){
       const cellFamSet=new Set(cellArts.map(r=>r.famille).filter(Boolean));
-      const myArtSet=new Set(finalData.filter(r=>cellFamSet.has(r.famille)).map(r=>r.code));
+      const myArtSet=new Set(finalData.filter(r=>r.W>=1).map(r=>r.code));
       const artStoreFreqs={};const storeRefCounts=[];
       const nbOtherStores=storesIntersection.size-1;
       for(const store of storesIntersection){
