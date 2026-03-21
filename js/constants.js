@@ -35,6 +35,13 @@ const FAM_LETTER_UNIVERS = {
   'M': 'Maintenance et équipements', 'O': 'Outillage', 'L': 'Plomberie'
 };
 
+// Labels des cases de la matrice ABC/FMR (utilisé dans _diagRenderV3 et ailleurs)
+const RADAR_LABELS = {
+  AF: 'Pépites', AM: 'Surveiller', AR: 'Gros paniers',
+  BF: 'Confort',  BM: 'Standard',  BR: 'Questionner',
+  CF: 'Réguliers',CM: 'Réduire',   CR: 'Déréférencer'
+};
+
 // Mapping première lettre code secteur → Direction commerciale
 const SECTEUR_DIR_MAP = {
   'M': 'Maintenance', 'B': 'Second Œuvre', 'L': 'DVP Plomberie', 'F': 'DVI Industrie'
