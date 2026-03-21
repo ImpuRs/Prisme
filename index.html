@@ -1292,6 +1292,13 @@
     const pEnd=periodFilterEnd||consommePeriodMaxFull||consommePeriodMax;
     const periodStr=pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—';
     const agence=selectedMyStore||'—';
+    // Équation commerciale
+    const nbClientsPDV=clientsMagasin.size;
+    const nbBLPDV=ventesAnalysis?ventesAnalysis.totalBL:0;
+    const freqPDV=nbClientsPDV>0?(nbBLPDV/nbClientsPDV).toFixed(1):0;
+    const storeData=ventesParMagasin[selectedMyStore]||{};
+    const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
+    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):0;
     // Taux de service
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
@@ -1307,13 +1314,25 @@
     const lose3=(benchLists.obsFamiliesLose||[]).slice(0,3);
     const kpis=benchLists.obsKpis;
     const hasBench=kpis!==null;
-    // Articles réseau manquants (missed = vendus en réseau, pas chez moi)
+    // Articles réseau manquants
     const manquants=benchLists.missed||[];
     const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
-    // Clients silencieux >30j
-    const now=new Date();let silencieuxCount=0;
-    for(const[,lastDate] of clientLastOrder.entries()){if(daysBetween(lastDate,now)>30)silencieuxCount++;}
-    // Captation par métier stratégique (si chalandise chargée)
+    const mmMap={};for(const r of finalData)mmMap[r.code]={min:r.nouveauMin,max:r.nouveauMax};
+    const manquantsAvecMM=manquants.filter(a=>mmMap[a.code]&&(mmMap[a.code].min||0)>0).length;
+    // Clients silencieux >30j (avec CA PDV et noms)
+    const now=new Date();const silencieuxList=[];
+    for(const[cc,lastDate] of clientLastOrder.entries()){
+      if(daysBetween(lastDate,now)>30){
+        const artData=ventesClientArticle.get(cc);
+        const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        if(caPDV>0){const nom=clientNomLookup[cc]||(chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
+      }
+    }
+    silencieuxList.sort((a,b)=>b.caPDV-a.caPDV);
+    const silencieuxCount=silencieuxList.length;
+    const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.caPDV,0);
+    const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
+    // Captation par métier stratégique
     const captLines=[];
     if(chalandiseReady&&chalandiseData&&chalandiseData.size>0){
       const mBought={},mTotal={};
@@ -1327,6 +1346,9 @@
         .filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct).slice(0,3)
         .forEach(x=>captLines.push(`${x.met} (${x.pct}%)`));
     }
+    // Clients à capter : actifs Legallais hors PDV
+    let clientsACapter=0;
+    if(chalandiseReady){for(const[cc,info] of chalandiseData.entries()){if((info.ca2025||0)>0&&!ventesClientArticle.has(cc))clientsACapter++;}}
     // Fichiers
     const fichiersList=['Consommé','État du Stock'];
     if(territoireReady)fichiersList.push('Le Terrain');
@@ -1336,22 +1358,30 @@
     const L=[];
     L.push(`REPORTING ${agence} — ${periodStr}`);
     L.push(hr);L.push('');
+    // Équation commerciale
+    if(nbClientsPDV>0||caPDVTotal>0){
+      L.push('ÉQUATION COMMERCIALE');
+      L.push(`• Clients PDV : ${nbClientsPDV.toLocaleString('fr')}  ×  Fréquence : ${freqPDV} BLs/client  ×  Panier moyen : ${panierMoyen.toLocaleString('fr')} €  =  CA PDV : ${formatEuro(caPDVTotal)}`);
+      L.push('');
+    }
     L.push('FACTEURS DE SUCCÈS');
     L.push(`• Taux de service : ${sr}% · ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} (CA récupérable : ${formatEuro(caRecup)})`);
-    if(win3.length>0)L.push(`• Forces réseau : ${win3.map(f=>`${f.fam} (${f.ecartPct>0?'+':''}${f.ecartPct}%)`).join(', ')}`);
-    else if(hasBench)L.push('• Forces réseau : aucune famille en sur-performance vs bassin');
     if(kpis)L.push(`• PDM bassin : ${kpis.mine.pdm}%`);
+    if(win3.length>0)L.push(`• Forces réseau (top 3) : ${win3.map(f=>`${f.fam} (${f.ecartPct>0?'+':''}${f.ecartPct}%${f.ecartTheorique>0?' · CA théo: +'+formatEuro(f.ecartTheorique):''})`).join(', ')}`);
+    else if(hasBench)L.push('• Forces réseau : aucune famille en sur-performance vs bassin');
     L.push('');
     L.push("POINTS D'AMÉLIORATION");
     L.push(`• ${dormantsList.length} dormant${dormantsList.length!==1?'s':''} (${formatEuro(dormantVal)} immobilisés)`);
-    if(manquants.length>0)L.push(`• ${manquants.length} article${manquants.length!==1?'s':''} réseau absents${manquantsHF>0?` (dont ${manquantsHF} forte rotation)`:''}`);
-    if(silencieuxCount>0)L.push(`• ${silencieuxCount} client${silencieuxCount!==1?'s':''} silencieux >30j`);
-    if(lose3.length>0)L.push(`• Familles sous médiane : ${lose3.map(f=>`${f.fam} (${f.ecartPct}%)`).join(', ')}`);
-    if(captLines.length>0)L.push(`• Captation PDV faible : ${captLines.join(', ')}`);
+    if(silencieuxCount>0)L.push(`• ${silencieuxCount} client${silencieuxCount!==1?'s':''} silencieux >30j (CA PDV cumulé : ${formatEuro(silencieuxCA)})${silencieuxTop3?' — top 3 : '+silencieuxTop3:''}`);
+    if(captLines.length>0)L.push(`• Taux captation PDV par métier stratégique (plus faibles) : ${captLines.join(', ')}`);
+    if(manquants.length>0)L.push(`• ${manquants.length} article${manquants.length!==1?'s':''} réseau manquants${manquantsHF>0?` (dont ${manquantsHF} forte rotation)`:''}${manquantsAvecMM>0?` · ${manquantsAvecMM} avec MIN/MAX préconisé`:''}`);
+    if(lose3.length>0)L.push(`• Familles sous médiane (top 3) : ${lose3.map(f=>`${f.fam} (${f.ecartPct}%${f.ecartTheorique<0?' · écart théo: '+formatEuro(f.ecartTheorique):''})`).join(', ')}`);
     L.push('');
     L.push('AUTRES');
     L.push(`• Période : ${periodStr}`);
     L.push(`• ${finalData.length.toLocaleString('fr')} articles · ${fichiersList.length} fichiers chargés (${fichiersList.join(', ')})`);
+    if(clientsACapter>0)L.push(`• Clients à capter : ${clientsACapter.toLocaleString('fr')} actifs Legallais hors PDV`);
+    if(excludedClients.size>0)L.push(`• Clients exclus du cockpit : ${excludedClients.size}`);
     return L.join('\n');
   }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
