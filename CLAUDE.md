@@ -9,6 +9,9 @@ PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de d
   - `js/constants.js` — PAGE_SIZE, CHUNK_SIZE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP
   - `js/utils.js` — fonctions utilitaires pures (cleanCode, cleanPrice, formatEuro, parseExcelDate, readExcel, etc.)
   - `js/state.js` — toutes les variables `let` globales (finalData, filteredData, chalandiseData, etc.)
+  - `js/engine.js` — moteur de calcul métier (estimerCAPerdu, enrichPrixUnitaire, calcPriorityScore, computeABCFMR, calcCouverture, etc.) — dépend de constants, utils, state
+  - `js/parser.js` — pipeline données : parsing fichiers (parseChalandise, parseTerritoireFile, _terrWorker, launchTerritoireWorker), filtres secteur, computeBenchmark — dépend de constants, utils, state, engine
+  - `js/ui.js` — Fonctions UI transverses (toast, tabs, filtres, export) — dépend de constants, utils, state
 - **Pas de bundler/build step** — les modules JS sont chargés via `<script src>`, pas de npm/webpack
 - **Pas de framework**, pas de backend
 - **Dépendances CDN** : Tailwind CSS, SheetJS (xlsx.full.min.js), Google Fonts (Inter)

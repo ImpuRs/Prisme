@@ -745,68 +745,11 @@
   <script src="js/utils.js"></script>
   <script src="js/state.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/ui.js"></script>
   <script>
   'use strict';
 
-  function showToast(message,type='info'){const container=document.getElementById('toastContainer');if(!container)return;const toast=document.createElement('div');const colors={success:'bg-emerald-100 border-emerald-500 text-emerald-800',error:'bg-red-100 border-red-500 text-red-800',warning:'bg-amber-100 border-amber-500 text-amber-800',info:'bg-blue-100 border-blue-500 text-blue-800'};toast.className=`p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type]||colors.info}`;toast.innerHTML=message;container.appendChild(toast);setTimeout(()=>{toast.classList.replace('toast-enter','toast-leave');setTimeout(()=>toast.remove(),300);},3500);}
-
-
-
-
-  // V2 Phase 1: Zone de Chalandise parsing
-  async function parseChalandise(file){
-    chalandiseData=new Map();chalandiseReady=false;chalandiseMetiers=[];
-    try{
-      const buf=await file.arrayBuffer();let rows;
-      const isCSV=file.name.toLowerCase().endsWith('.csv');
-      if(isCSV){
-        try{const wb=XLSX.read(new Uint8Array(buf),{type:'array',codepage:1252});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});}
-        catch(e){const wb=XLSX.read(new Uint8Array(buf),{type:'array'});rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});}
-      }else{
-        const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});
-        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
-      }
-      if(!rows||!rows.length){showToast('Chalandise : fichier vide','warning');return;}
-      const getC=(row,key)=>{const ks=Object.keys(row),kl=key.toLowerCase();const f=ks.find(k=>k.toLowerCase().includes(kl));return f!==undefined?(row[f]||'').toString().trim():'';}
-      const parseChalCA=v=>{if(!v&&v!==0)return 0;return parseFloat(v.toString().replace(/€/g,'').replace(/[\s\u00a0]/g,'').replace(/,/g,'.'))||0;};
-      const colKeys=rows[0]?Object.keys(rows[0]):[];
-      const getByPos=(row,idx)=>{const k=colKeys[idx];return k!==undefined?(row[k]||'').toString().trim():'';};
-      const metierSet=new Set();
-      for(const row of rows){
-        const cc=extractClientCode(getC(row,'code client')||getC(row,'code pdv'));if(!cc)continue;
-        const metier=getC(row,'libellé court métier')||getC(row,'metier')||getC(row,'métier')||'Autre';
-        const statut=getC(row,'statut actuel général')||getC(row,'statut actuel')||getC(row,'statut');
-        const activiteGlobale=getC(row,'activité globale')||getC(row,'activite globale')||getC(row,'activité')||getC(row,'activite');
-        const activitePDV=getC(row,'activité pdv zone')||getC(row,'activite pdv zone')||getC(row,'activité pdv')||getC(row,'activite pdv')||getC(row,'pdv zone')||getC(row,'statut pdv');
-        const ca2026=parseChalCA(getC(row,'ca 2026')||getC(row,'ca2026')||getC(row,'chiffre affaires 2026')||getByPos(row,19));
-        const ca2025=parseChalCA(getC(row,'ca 2025')||getC(row,'ca2025')||getC(row,'chiffre affaires 2025')||getC(row,'ca_2025')||getByPos(row,20));
-        const caPDVN=parseChalCA(getC(row,'ca pdv zone n')||getC(row,'ca n pdv zone')||getC(row,'ca pdv n')||getByPos(row,22));
-        const caPDVN1=parseChalCA(getC(row,'ca pdv zone n-1')||getC(row,'ca n-1 pdv zone')||getC(row,'ca pdv n-1')||getByPos(row,23));
-        chalandiseData.set(cc,{nom:getC(row,'nom client')||getC(row,'nom'),metier,statut,classification:getC(row,'classification'),activite:activiteGlobale,activiteGlobale,activitePDV,ca2026,ca2025,caPDVN,caPDVN1,secteur:getC(row,'secteur'),commercial:getC(row,'commercial'),cp:getC(row,'cp')||getC(row,'code postal'),ville:getC(row,'ville')});
-        metierSet.add(metier);
-      }
-      chalandiseMetiers=[...metierSet].sort();chalandiseReady=true;
-      _selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_filterStrategiqueOnly=false;
-      _buildDeptFilter();
-      // Territoire tab : chalandise = seul déclencheur. Afficher dès que finalData est prêt.
-      const _terrBtn=document.getElementById('btnTabTerritoire');if(_terrBtn)_terrBtn.classList.remove('hidden');if(finalData&&finalData.length>0)renderTerritoireTab();
-      const navChal=document.getElementById('navChalandise');if(navChal)navChal.classList.remove('hidden');
-      const actifs=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('actif')).length;
-      const perdus=[...chalandiseData.values()].filter(v=>v.statut.toLowerCase().includes('perdu')||v.statut.toLowerCase().includes('inactif')).length;
-      showToast(`📋 Chalandise : ${chalandiseData.size} clients · ${chalandiseMetiers.length} métiers · ${actifs} actifs · ${perdus} perdus`,'success');
-      // Re-compute bench + crossing if already rendered
-      computeClientCrossing();
-      if(selectedMyStore&&Object.keys(ventesParMagasin).length>1){computeBenchmark();renderBenchmark();}
-      if(finalData&&finalData.length>0)renderTerritoireTab();
-    }catch(e){console.error('Chalandise parse error',e);showToast('Erreur lecture Chalandise: '+e.message,'error');}
-  }
-  function onChalandiseSelected(input){
-    onFileSelected(input,'dropChalandise');
-    if(input.files&&input.files[0])parseChalandise(input.files[0]);
-  }
-  function updateProgress(c,t,txt,step){const p=t>0?Math.round(c/t*100):0;document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressPct').textContent=p+'%';if(txt)document.getElementById('loadingText').textContent=txt;if(step)document.getElementById('loadingStep').textContent=step;}
-  // V24.4: Per-file pipeline status (loading overlay)
-  function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_selectedClassifs.size){_selectedClassifs=new Set(all);_selectedClassifs.delete(c);}else if(_selectedClassifs.has(c)){_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_selectedActivitesPDV.size){_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);}else if(_selectedActivitesPDV.has(a)){_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
@@ -1264,41 +1207,6 @@
         </div>
       </div>`;
   }
-  // V24.4: Territoire tab spinner + progress
-  function showTerritoireLoading(show){const sp=document.getElementById('terrLoadingSpinner');if(sp)sp.classList.toggle('hidden',!show);
-  // V1: terrChalandiseOverview excluded — always driven by chalandise, not BL loading
-  ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
-  // VOLET 4: Period alert
-  function updatePeriodAlert(){
-    const banner=document.getElementById('periodBanner');const navPeriod=document.getElementById('navPeriod');
-    if(!consommePeriodMin||!consommePeriodMax){if(banner)banner.classList.remove('active');if(navPeriod)navPeriod.classList.add('hidden');return;}
-    const dMin=fmtDate(consommePeriodMin),dMax=fmtDate(consommePeriodMax);
-    if(consommeMoisCouverts<10){
-      if(banner){banner.textContent=`⚠️ Votre consommé ne couvre que ${consommeMoisCouverts} mois (${dMin} — ${dMax}). Les MIN/MAX sont calibrés pour 12 mois glissants — résultats potentiellement sous-dimensionnés.`;banner.classList.add('active');}
-      if(navPeriod)navPeriod.classList.add('hidden');
-    }else{
-      if(banner)banner.classList.remove('active');
-      if(navPeriod){navPeriod.textContent=`📅 ${dMin} — ${dMax}`;navPeriod.classList.remove('hidden');}
-    }
-  }
-  function renderInsightsBanner(){
-    const el=document.getElementById('insightsBanner');if(!el)return;
-    const{ruptures,dormants,absentsTerr,extClients,hasTerr}=_insights;
-    if(!ruptures&&!dormants&&!absentsTerr&&!extClients){el.classList.add('hidden');return;}
-    const mkLink=(txt,tab)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
-    const mkAction=(txt,fn)=>`<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
-    const parts=[];
-    parts.push(mkAction(`${ruptures} rupture${ruptures!==1?'s':''} critiques`,"showCockpitInTable('ruptures')"));
-    if(hasTerr){
-      parts.push(mkLink(`${absentsTerr} article${absentsTerr!==1?'s':''} territoire absents du rayon`,`territoire`));
-      parts.push(mkLink(`${extClients} client${extClients!==1?'s':''} qui ne viennent jamais`,`territoire`));
-    }else{
-      parts.push(mkAction(`${dormants} dormant${dormants!==1?'s':''} à traiter`,"showCockpitInTable('dormants')"));
-    }
-    el.innerHTML=`<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>`+parts.join(`<span class="text-slate-500 mx-1">·</span>`);
-    el.classList.remove('hidden');
-  }
-  function updateTerrProgress(cur,total){const pct=total>0?Math.round(cur/total*100):0;const bar=document.getElementById('terrProgressBar');const txt=document.getElementById('terrProgressText');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=pct+'%';const pipe=document.getElementById('pipeTerritoire');if(pipe&&pct<100)pipe.textContent=`🔗 Territoire… ${pct}%`;}
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
     const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
@@ -1312,76 +1220,6 @@
   }
 
 
-  // ★ V24: Click on ABC matrix cell → filter Articles tab
-  function filterByAbcFmr(abc,fmr){
-    document.getElementById('filterABC').value=abc;
-    document.getElementById('filterFMR').value=fmr;
-    currentPage=0;switchTab('table');renderAll();
-  }
-
-  function onFileSelected(i,id){document.getElementById(id).classList.toggle('file-loaded',i.files.length>0);}
-  function showLoading(t,s){document.getElementById('loadingOverlay').classList.add('active');updateProgress(0,100,t,s);}
-  function hideLoading(){document.getElementById('loadingOverlay').classList.remove('active');}
-  function collapseImportZone(nbFiles,store,nbArts,elapsed){
-    const iz=document.getElementById('importZone'),is=document.getElementById('importSummary');if(!iz||!is)return;
-    is.innerHTML=`<span class="text-emerald-400 font-bold">✅ ${nbFiles} fichier${nbFiles>1?'s':''} chargés</span><span class="text-slate-500 mx-2">—</span><span class="text-white font-semibold">${store}</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-200">${nbArts.toLocaleString('fr')} art.</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-400">${elapsed}s</span><button onclick="expandImportZone()" class="ml-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded-lg font-semibold shrink-0">▼ Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-xs bg-blue-900 hover:bg-blue-800 text-blue-200 py-1 px-3 rounded-lg font-semibold shrink-0">📖 Glossaire</button>`;
-    iz.classList.add('hidden');is.classList.remove('hidden');
-  }
-  function expandImportZone(){
-    const iz=document.getElementById('importZone'),is=document.getElementById('importSummary');
-    if(iz)iz.classList.remove('hidden');if(is)is.classList.add('hidden');
-  }
-  function switchTab(id){document.querySelectorAll('.tab-content').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('border-blue-600','text-blue-600','border-red-600','text-red-700','border-cyan-600','text-cyan-700','border-indigo-600','text-indigo-600','border-violet-600','text-violet-600','active');b.classList.add('border-transparent','text-gray-500');});const tab=document.getElementById('tab'+id.charAt(0).toUpperCase()+id.slice(1));if(tab)tab.classList.remove('hidden');const btn=document.querySelector(`[data-tab="${id}"]`);if(btn){btn.classList.remove('border-transparent','text-gray-500');if(id==='action')btn.classList.add('border-red-600','text-red-700','active');else if(id==='bench')btn.classList.add('border-cyan-600','text-cyan-700','active');else if(id==='territoire'){btn.classList.add('border-violet-600','text-violet-600','active');if(chalandiseReady||territoireReady)renderTerritoireTab();}else if(id==='abc')btn.classList.add('border-indigo-600','text-indigo-600','active');else btn.classList.add('border-blue-600','text-blue-600','active');}
-  // Swap filters: obs filters on bench tab, global filters on all others
-  const loaded=!document.getElementById('tabsContainer').classList.contains('hidden');
-  if(loaded){const gf=document.getElementById('globalFilters'),of2=document.getElementById('obsFilters');if(gf&&of2){if(id==='bench'){gf.classList.add('hidden');of2.classList.remove('hidden');}else{gf.classList.remove('hidden');of2.classList.add('hidden');}}}}
-  function populateSelect(id,vals){const s=document.getElementById(id);if(!s)return;if(s.tagName==='INPUT'){const dl=document.getElementById(s.getAttribute('list'));if(dl){dl.innerHTML='';[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;dl.appendChild(o);});}return;}const f=s.options[0].textContent;s.innerHTML=`<option value="">${f}</option>`;[...vals].sort().forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});}
-
-  function getFilteredData(){
-    const fam=(document.getElementById('filterFamille').value||'').trim(),sFam=(document.getElementById('filterSousFamille').value||'').trim(),emp=(document.getElementById('filterEmplacement').value||'').trim(),stat=document.getElementById('filterStatut').value,af=document.getElementById('filterAge').value;
-    const cockpitType=document.getElementById('filterCockpit').value;
-    const abc=document.getElementById('filterABC').value,fmr=document.getElementById('filterFMR').value;
-    const terms=document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const filtered=finalData.filter(r=>{
-      if(fam&&!(r.famille||'').toLowerCase().includes(fam.toLowerCase()))return false;
-      if(sFam&&!(r.sousFamille||'').toLowerCase().includes(sFam.toLowerCase()))return false;
-      if(emp&&!(r.emplacement||'').toLowerCase().includes(emp.toLowerCase()))return false;
-      if(stat&&r.statut!==stat)return false;
-      if(af){const b=AGE_BRACKETS[af];if(b&&(r.ageJours<b.min||r.ageJours>=b.max))return false;}
-      if(cockpitType&&cockpitLists[cockpitType]&&!cockpitLists[cockpitType].has(r.code))return false;
-      if(abc&&r.abcClass!==abc)return false;
-      if(fmr&&r.fmrClass!==fmr)return false;
-      if(terms.length>0){const h=(r.code+' '+r.libelle+' '+r.famille).toLowerCase();return terms.every(t=>h.includes(t));}
-      return true;
-    });
-    let activeCount=0;if(fam)activeCount++;if(sFam)activeCount++;if(emp)activeCount++;if(stat)activeCount++;if(af)activeCount++;if(terms.length)activeCount++;if(cockpitType)activeCount++;if(abc)activeCount++;if(fmr)activeCount++;
-    const el=document.getElementById('filterActiveCount');if(el)el.textContent=activeCount>0?`(${activeCount} actif${activeCount>1?'s':''})`:'';
-    return filtered;
-  }
-
-  function renderAll(){
-    filteredData=getFilteredData();
-    filteredData.sort((a,b)=>{let vA=a[sortCol],vB=b[sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;});
-    updateActiveAgeIndicator();
-    renderTable(true);
-    renderDashboardAndCockpit();
-    renderABCTab();
-    renderCanalAgence();
-    // V24.4 perf: renderTerritoireTab() NOT called here — territory renders once after worker finishes
-    // and re-renders only when territoire-local filters change (oninput/onchange on terrSearch/terrFilterDir/terrFilterRayon)
-  }
-
-  function onFilterChange(){currentPage=0;clearCockpitFilter(true);renderAll();}
-  function debouncedRender(){clearTimeout(debounceTimer);debounceTimer=setTimeout(()=>{currentPage=0;renderAll();},250);}
-  function resetFilters(){document.getElementById('searchInput').value='';['filterFamille','filterSousFamille','filterEmplacement','filterStatut','filterAge','filterABC','filterFMR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});clearCockpitFilter(true);updateActiveAgeIndicator();currentPage=0;renderAll();}
-  function filterByAge(b){document.getElementById('filterAge').value=b;updateActiveAgeIndicator();currentPage=0;switchTab('table');renderAll();}
-  function clearAgeFilter(){document.getElementById('filterAge').value='';updateActiveAgeIndicator();currentPage=0;renderAll();}
-  function updateActiveAgeIndicator(){const v=document.getElementById('filterAge').value;const el=document.getElementById('activeAgeFilter');if(v&&AGE_BRACKETS[v]){const b=AGE_BRACKETS[v];el.className=`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`;document.getElementById('activeAgeLabel').textContent='⏳ '+b.label;el.classList.remove('hidden');}else el.classList.add('hidden');}
-  function showCockpitInTable(type){document.getElementById('filterCockpit').value=type;document.getElementById('activeCockpitLabel').textContent={ruptures:'🚨 Ruptures',fantomes:'👻 Articles sans emplacement',anomalies:'⚠️ Anomalies',saso:'📦 SASO',dormants:'💤 Dormants',fins:'📉 Fins de série',top20:'🏆 Top 20 fréquence',nouveautes:'✨ Nouveautés',colisrayon:'📦→🏪 Colis à stocker'}[type]||type;document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');
-    // Re-filter + render table only — do NOT call renderAll() to avoid circular dependency:
-    // renderAll() → renderDashboardAndCockpit() resets cockpitLists from filteredData → sets become empty
-    filteredData=getFilteredData();filteredData.sort((a,b)=>{let vA=a[sortCol],vB=b[sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;});updateActiveAgeIndicator();renderTable(true);}
-  function clearCockpitFilter(silent){document.getElementById('filterCockpit').value='';document.getElementById('activeCockpitFilter').classList.add('hidden');if(!silent){currentPage=0;renderAll();}}
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
   function buildBenchCheckboxes(){
     const div=document.getElementById('benchPickCheckboxes');if(!div)return;
@@ -1576,136 +1414,6 @@
     }
   }
 
-  // V24.4: Parse territoire file (CSV auto-sep or XLSX)
-  async function parseTerritoireFile(f){
-    return new Promise((res,rej)=>{
-      const reader=new FileReader();
-      reader.onerror=()=>rej(new Error('Lecture impossible'));
-      const ext=f.name.toLowerCase();
-      if(ext.endsWith('.csv')){
-        // Try UTF-8 first
-        reader.onload=e=>{
-          try{
-            let text=e.target.result;
-            // Detect separator
-            const firstLine=text.split('\n')[0]||'';
-            const sep=firstLine.includes(';')?';':',';
-            const rows=parseCSVText(text,sep);
-            res(rows);
-          }catch(err){rej(err);}
-        };
-        reader.readAsText(f,'UTF-8');
-      } else {
-        reader.onload=e=>{
-          try{
-            const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});
-            res(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
-          }catch(err){rej(err);}
-        };
-        reader.readAsArrayBuffer(f);
-      }
-    });
-  }
-
-  // V24.4 perf: Web Worker code — runs off the main thread, completely frees the UI
-  // Uses function.toString() trick to avoid string-escaping issues with regex literals
-  function _terrWorker(){
-    'use strict';
-    function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
-    function extractClientCode(val){const s=(val||'').toString().trim();const idx=s.indexOf(' - ');return idx>=0?s.slice(0,idx).trim():s;}
-    self.onmessage=function(ev){
-      const{rows,blConsommeArr,clientsMagasinArr,stockArr,libelleLookupObj,articleFamilleObj}=ev.data;
-      const blConsommeSet=new Set(blConsommeArr);
-      const clientsMagasin=new Set(clientsMagasinArr);
-      const stockMap=new Map(stockArr.map(r=>[r.code,r]));
-      const sample=rows[0]||{};
-      const findCol=s=>Object.keys(sample).find(k=>k.toLowerCase().includes(s.toLowerCase()));
-      const cClient=findCol('code client')||findCol('code et nom');
-      const cNom=findCol('nom client')||findCol('nom');
-      const cDir=findCol('direction');
-      const cSecteur=findCol('secteur')||findCol('code secteur')||findCol('commercial');
-      const cBL=findCol('numéro de bl')||findCol('numero de bl')||findCol('n° bl')||findCol('bl');
-      const cArticle=findCol('article');
-      const cQty=findCol('quantité livrée')||findCol('quantite livree')||findCol('qté')||findCol('qte');
-      const cCA=findCol('ca');
-      if(!cArticle){self.postMessage({type:'error',msg:'Territoire: colonne Article introuvable'});return;}
-      if(!cBL){self.postMessage({type:'error',msg:'Territoire: colonne Numéro de BL introuvable'});return;}
-      const lines=[];const dirSet=new Set();const secteurSet=new Set();const CHUNK=2000;const total=rows.length;
-      for(let ci=0;ci<Math.ceil(total/CHUNK);ci++){
-        const start=ci*CHUNK,end=Math.min(start+CHUNK,total);
-        for(let j=start;j<end;j++){
-          const row=rows[j];
-          const qty=cQty?cleanOmniPrice(row[cQty]):0;if(qty<0)continue;
-          const articleRaw=(cArticle?row[cArticle]||'':'').toString().trim();
-          const code=articleRaw.split(' - ')[0].trim();if(!code)continue;
-          // Standard = exactly 6 digits; everything else (S, K, letters…) = special non-stockable
-          const isSpecial=!/^\d{6}$/.test(code);
-          const bl=(cBL?row[cBL]||'':'').toString().trim();
-          const ca=cCA?cleanOmniPrice(row[cCA]):0;
-          const direction=(cDir?row[cDir]||'':'').toString().trim()||'Non défini';
-          const secteur=(cSecteur?row[cSecteur]||'':'').toString().trim();
-          const clientCodeRaw=(cClient?row[cClient]||'':'').toString().trim();
-          const clientNom=(cNom?row[cNom]||'':'').toString().trim();
-          const canal=bl&&blConsommeSet.has(bl)?'MAGASIN':'EXTÉRIEUR';
-          const stockItem=stockMap.get(code);
-          const rayonStatus=stockItem?(stockItem.stockActuel>0?'green':'yellow'):'red';
-          const ccNum=extractClientCode(clientCodeRaw);
-          const clientType=clientsMagasin.has(ccNum)?'mixte':'exterieur';
-          const famItem=articleFamilleObj[code]||(stockItem?stockItem.famille:'')||'Non classé';
-          const libelle=articleRaw.includes(' - ')?articleRaw.split(' - ').slice(1).join(' - ').trim():(libelleLookupObj[code]||code);
-          if(!isSpecial)dirSet.add(direction);
-          if(secteur)secteurSet.add(secteur);
-          lines.push({code,libelle,direction,secteur,famille:famItem,bl,ca,canal,rayonStatus,clientCode:ccNum,clientNom,clientType,isSpecial});
-        }
-        self.postMessage({type:'progress',cur:end,total});
-      }
-      const terrDirData={};
-      for(const ln of lines){
-        // terrDirData aggregates STANDARD articles only — specials excluded from direction/rayon view
-        if(ln.isSpecial)continue;
-        if(!terrDirData[ln.direction])terrDirData[ln.direction]={dir:ln.direction,caTotal:0,caMag:0,caExt:0,refSet:new Set(),absentSet:new Set(),familles:{}};
-        const d=terrDirData[ln.direction];
-        d.caTotal+=ln.ca;if(ln.canal==='MAGASIN')d.caMag+=ln.ca;else d.caExt+=ln.ca;
-        d.refSet.add(ln.code);if(ln.rayonStatus==='red')d.absentSet.add(ln.code);
-        if(!d.familles[ln.famille])d.familles[ln.famille]={caTotal:0,caMag:0,caExt:0};
-        d.familles[ln.famille].caTotal+=ln.ca;
-        if(ln.canal==='MAGASIN')d.familles[ln.famille].caMag+=ln.ca;else d.familles[ln.famille].caExt+=ln.ca;
-      }
-      self.postMessage({type:'done',lines,terrDirData,dirsSorted:[...dirSet].sort(),secteursSorted:[...secteurSet].sort()});
-    };
-  }
-
-  // V24.4 perf: Launch territoire in a Web Worker — main thread never blocks
-  function launchTerritoireWorker(rows,progressCb){
-    return new Promise((resolve,reject)=>{
-      let workerUrl;
-      try{
-        const code=`(${_terrWorker.toString()})()`;
-        const blob=new Blob([code],{type:'text/javascript'});
-        workerUrl=URL.createObjectURL(blob);
-      }catch(e){reject(new Error('Worker indisponible: '+e.message));return;}
-      const worker=new Worker(workerUrl);
-      // Pass only what the worker needs — compact stockArr to reduce serialization cost
-      const stockArr=finalData.map(r=>({code:r.code,stockActuel:r.stockActuel,famille:r.famille}));
-      worker.postMessage({rows,blConsommeArr:[...blConsommeSet],clientsMagasinArr:[...clientsMagasin],stockArr,libelleLookupObj:libelleLookup,articleFamilleObj:articleFamille});
-      worker.onmessage=function(ev){
-        const d=ev.data;
-        if(d.type==='progress'){if(progressCb)progressCb(d.cur,d.total);}
-        else if(d.type==='done'){
-          territoireLines=d.lines;terrDirectionData=d.terrDirData;
-          const sel=document.getElementById('terrFilterDir');
-          if(sel){sel.innerHTML='<option value="">Toutes Directions</option>';d.dirsSorted.forEach(dir=>{sel.innerHTML+=`<option value="${dir}">${dir}</option>`;});}
-          // Build secteur multi-select checkboxes
-          buildSecteurCheckboxes(d.secteursSorted||[]);
-          territoireReady=true;
-          worker.terminate();URL.revokeObjectURL(workerUrl);resolve();
-        }else if(d.type==='error'){
-          worker.terminate();URL.revokeObjectURL(workerUrl);reject(new Error(d.msg));
-        }
-      };
-      worker.onerror=function(e){worker.terminate();URL.revokeObjectURL(workerUrl);reject(new Error(e.message||'Worker error'));};
-    });
-  }
 
   // V24.4: Render canal distribution block (always shown in Territoire tab)
   function renderCanalAgence(){
@@ -1732,49 +1440,6 @@
     el.innerHTML=html;
   }
 
-  // V24.5: Secteur multi-select helpers
-  function buildSecteurCheckboxes(secteurs){
-    const div=document.getElementById('terrSecteurCheckboxes');if(!div)return;
-    if(!secteurs.length){div.innerHTML='<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>';return;}
-    let html='';
-    for(const s of secteurs){
-      const dirLabel=getSecteurDirection(s);
-      const label=dirLabel?`${s} (${dirLabel})`:s;
-      html+=`<label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs">
-        <input type="checkbox" value="${s}" checked onchange="onSecteurChange()" class="rounded">
-        <span class="font-semibold">${label}</span>
-      </label>`;
-    }
-    div.innerHTML=html;
-  }
-  function toggleSecteurDropdown(){
-    const panel=document.getElementById('terrSecteurPanel');
-    if(panel)panel.classList.toggle('hidden');
-  }
-  function toggleAllSecteurs(checked){
-    document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>{cb.checked=checked;});
-    onSecteurChange();
-  }
-  function onSecteurChange(){
-    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
-    const checked=[...all].filter(cb=>cb.checked);
-    const allCb=document.getElementById('terrSecteurAll');
-    if(allCb)allCb.checked=(checked.length===all.length);
-    const label=document.getElementById('terrSecteurLabel');
-    if(label){
-      if(checked.length===all.length||checked.length===0)label.textContent='Tous Secteurs';
-      else if(checked.length===1)label.textContent=checked[0].value;
-      else label.textContent=checked.length+' secteurs';
-    }
-    renderTerritoireTab();
-  }
-  function getSelectedSecteurs(){
-    const all=document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]');
-    if(!all.length)return null; // no secteur data
-    const checked=[...all].filter(cb=>cb.checked).map(cb=>cb.value);
-    if(checked.length===all.length)return null; // all selected = no filter
-    return new Set(checked);
-  }
   // Close secteur dropdown on outside click
   document.addEventListener('click',function(e){
     const dd=document.getElementById('terrSecteurDropdown');
@@ -2387,98 +2052,6 @@
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
 
-  function computeBenchmark(){
-    const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};if(!cs.length)return;
-    const n=cs.length;
-    const myV=ventesParMagasin[selectedMyStore]||{};
-    const bv={};
-    for(const store of cs){const sv=ventesParMagasin[store]||{};for(const[a,d] of Object.entries(sv)){if(!/^\d{6}$/.test(a))continue;if(!bv[a])bv[a]={tp:0,tb:0,sc:0};bv[a].tp+=d.sumPrelevee;bv[a].tb+=d.countBL;bv[a].sc++;}}
-    // Apply universe filter — narrow bv and myV to the selected famille/univers
-    if(obsFilterUnivers){
-      for(const k of Object.keys(bv)){if(articleUnivers[k]!==obsFilterUnivers)delete bv[k];}
-      const myVF={};for(const[k,v] of Object.entries(myV)){if(articleUnivers[k]===obsFilterUnivers)myVF[k]=v;}
-      myV=myVF;
-    }
-    // Store performance + taux service
-    const totalArtsInBassin=Object.keys(bv).length||1;
-    const sp={};sp[selectedMyStore]={ref:0,freq:0,serv:0,clientsZone:0};
-    for(const[k,v] of Object.entries(myV)){if(v.sumPrelevee>0)sp[selectedMyStore].ref++;sp[selectedMyStore].freq+=v.countBL;}
-    sp[selectedMyStore].serv=Math.round((sp[selectedMyStore].ref/totalArtsInBassin)*100);
-    if(chalandiseReady&&ventesClientsPerStore[selectedMyStore])sp[selectedMyStore].clientsZone=[...ventesClientsPerStore[selectedMyStore]].filter(c=>chalandiseData.has(c)).length;
-    for(const store of cs){sp[store]={ref:0,freq:0,serv:0,clientsZone:0};const sv=ventesParMagasin[store]||{};for(const[k,v] of Object.entries(sv)){if(obsFilterUnivers&&articleUnivers[k]!==obsFilterUnivers)continue;if(v.sumPrelevee>0)sp[store].ref++;sp[store].freq+=v.countBL;}sp[store].serv=Math.round((sp[store].ref/totalArtsInBassin)*100);if(chalandiseReady&&ventesClientsPerStore[store])sp[store].clientsZone=[...ventesClientsPerStore[store]].filter(c=>chalandiseData.has(c)).length;}
-    benchLists.storePerf=sp;
-    // V2 Phase 1: median per family (per-store aggregates)
-    const myFamFreq={};const storesFamFreq={};
-    for(const[code,data] of Object.entries(myV)){if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code]||'';if(fam)myFamFreq[fam]=(myFamFreq[fam]||0)+data.countBL;}
-    for(const store of cs){storesFamFreq[store]={};const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;if(obsFilterUnivers&&articleUnivers[code]!==obsFilterUnivers)continue;const fam=articleFamille[code]||'';if(fam)storesFamFreq[store][fam]=(storesFamFreq[store][fam]||0)+data.countBL;}}
-    const allFamsSet=new Set([...Object.keys(myFamFreq)]);for(const store of cs)for(const f of Object.keys(storesFamFreq[store]||{}))allFamsSet.add(f);
-    const bassinFamMedian={};for(const fam of allFamsSet){const vals=cs.map(s=>(storesFamFreq[s]||{})[fam]||0).filter(v=>v>0);if(vals.length)bassinFamMedian[fam]=_median(vals);}
-    const familyPerf=[];let familyPerfMasked=0;
-    for(const fam of allFamsSet){const my=myFamFreq[fam]||0;const med=bassinFamMedian[fam]||0;if(med<2){if(my>0)familyPerfMasked++;continue;}const ecart=med>0?((my-med)/med*100):(my>0?100:0);familyPerf.push({fam,my,med:Math.round(med),ecart});}
-    familyPerf.sort((a,b)=>a.ecart-b.ecart);benchLists.familyPerf=familyPerf;benchLists.familyPerfMasked=familyPerfMasked;
-    for(const[a,b] of Object.entries(bv)){if(b.tb<3)continue;const md=myV[a],mq=md?md.sumPrelevee:0;const avg=b.tp/n;const _rawLib=libelleLookup[a]||a;const lib=/^\d{6} - /.test(_rawLib)?_rawLib.substring(9).trim():_rawLib;const ms=(stockParMagasin[selectedMyStore]||{})[a];const mst=ms?ms.stockActuel:0;
-    if(mq===0&&b.sc>=Math.min(2,n)){let diagnostic=mst>0?'🟢 En stock — visibilité?':'🔴 Stock 0 — référencer?';benchLists.missed.push({code:a,lib,bassinFreq:b.tb,sc:b.sc,nbCompare:n,myStock:mst,sv:b.tb,diagnostic});}
-    else if(mq>0&&avg>0){const r=mq/avg;if(r<0.5&&b.sc>=2)benchLists.under.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:avg-mq});else if(r>1.5&&mq>=5)benchLists.over.push({code:a,lib,myQte:Math.round(mq),avg:Math.round(avg),ratio:r,sv:r});}}
-    benchLists.missed.sort((a,b)=>b.sv-a.sv);benchLists.under.sort((a,b)=>b.sv-a.sv);benchLists.over.sort((a,b)=>b.sv-a.sv);
-    // === OBSERVATOIRE DATA ===
-    const prixLookup={};for(const r of finalData)prixLookup[r.code]=r.prixUnitaire||0;
-    const finalDataByCode={};for(const r of finalData)finalDataByCode[r.code]=r;
-    const allOtherStores=[...storesIntersection].filter(s=>s!==selectedMyStore);
-    // Per-store family CA & Ref — prefer direct CA columns, fallback to (sumPrelevee+sumEnleve)*prix
-    const storeFamCA={},storeFamRef={},storeTotalCA={};
-    const artCA=(data,prix)=>data.sumCA>0?data.sumCA:(data.sumPrelevee+data.sumEnleve)*prix;
-    for(const store of allOtherStores){storeFamCA[store]={};storeFamRef[store]={};let ca=0;const sv=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv)){if(!data.sumPrelevee&&!data.sumEnleve)continue;const fam=articleFamille[code];if(!fam)continue;if(!/^\d{6}$/.test(code))continue;if(obsFilterUnivers&&articleUnivers[code]!==obsFilterUnivers)continue;const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);storeFamCA[store][fam]=(storeFamCA[store][fam]||0)+lineCA;storeFamRef[store][fam]=(storeFamRef[store][fam]||0)+1;ca+=lineCA;}storeTotalCA[store]=ca;}
-    // CA median per family across comparison stores — used for F&F filter and diagnostic
-    const bassinFamCAMed={};for(const fam of allFamsSet){const caVals=cs.map(s=>(storeFamCA[s]||{})[fam]||0).filter(v=>v>0);if(caVals.length)bassinFamCAMed[fam]=_median(caVals);}
-    benchLists._bassinFamCAMed=bassinFamCAMed;
-    // Post-filter familyPerf: remove families with CA médiane < 500€ (volume trop faible, pas une vraie faiblesse exploitable)
-    {const _bfpBefore=benchLists.familyPerf.length;benchLists.familyPerf=benchLists.familyPerf.filter(fp=>(bassinFamCAMed[fp.fam]||0)>=1000);benchLists.familyPerfMasked=(benchLists.familyPerfMasked||0)+(_bfpBefore-benchLists.familyPerf.length);}
-    // My family CA & Ref
-    const myFamCA={},myFamRef={};let myTotalCA=0;
-    for(const[code,data] of Object.entries(myV)){if(!data.sumPrelevee&&!data.sumEnleve)continue;if(!/^\d{6}$/.test(code))continue;const fam=articleFamille[code];const prix=prixLookup[code]||0;const lineCA=artCA(data,prix);myTotalCA+=lineCA;if(!fam)continue;myFamCA[fam]=(myFamCA[fam]||0)+lineCA;myFamRef[fam]=(myFamRef[fam]||0)+1;}
-    // Determine comparison values based on selectedObsCompare
-    const obsMode=selectedObsCompare||'median';
-    let compV=null,compFamCA={},compFamRef={},compTotalCA=0,compRef=0,compFreq=0,compServ=0;
-    if(obsMode!=='median'&&storesIntersection.has(obsMode)){
-      // Single store
-      compV=ventesParMagasin[obsMode]||{};compTotalCA=storeTotalCA[obsMode]||0;compRef=sp[obsMode]?.ref||0;compFreq=sp[obsMode]?.freq||0;compServ=sp[obsMode]?.serv||0;compFamCA=storeFamCA[obsMode]||{};compFamRef=storeFamRef[obsMode]||{};
-    }else{
-      // Median of cs (current bassin selection)
-      const caTotals=cs.map(s=>storeTotalCA[s]||0).filter(v=>v>0);compTotalCA=_median(caTotals);
-      const refV=cs.map(s=>sp[s]?.ref||0).filter(v=>v>0);compRef=Math.round(_median(refV));
-      const freqV=cs.map(s=>sp[s]?.freq||0).filter(v=>v>0);compFreq=Math.round(_median(freqV));
-      const servV=cs.map(s=>sp[s]?.serv||0).filter(v=>v>0);compServ=Math.round(_median(servV));
-      const allFamsSet2=new Set(Object.keys(myFamCA));for(const s of cs)for(const f of Object.keys(storeFamCA[s]||{}))allFamsSet2.add(f);
-      for(const fam of allFamsSet2){const caV=cs.map(s=>storeFamCA[s]?.[fam]||0).filter(v=>v>0);compFamCA[fam]=caV.length?_median(caV):0;const refV2=cs.map(s=>storeFamRef[s]?.[fam]||0).filter(v=>v>0);compFamRef[fam]=refV2.length?Math.round(_median(refV2)):0;}
-    }
-    // Assortiment = my refs / avg refs (in %)
-    const myRef=sp[selectedMyStore]?.ref||0;
-    const avgRef=cs.length>0?Math.round(cs.reduce((s,store)=>s+(sp[store]?.ref||0),0)/cs.length):0;
-    const myAssort=avgRef>0?Math.round((myRef/avgRef)*100):0;
-    const compAssort=100; // baseline is 100% for comparison
-    benchLists.obsKpis={mine:{ca:myTotalCA,ref:myRef,serv:sp[selectedMyStore]?.serv||0,freq:sp[selectedMyStore]?.freq||0,assort:myAssort},compared:{ca:compTotalCA,ref:compRef,serv:compServ,freq:compFreq,assort:compAssort}};
-    // Build family comparison
-    const allFams2=new Set([...Object.keys(myFamCA),...Object.keys(compFamCA)]);
-    const obsFamiliesLose=[],obsFamiliesWin=[];
-    for(const fam of allFams2){
-      const caMe=myFamCA[fam]||0,caOther=compFamCA[fam]||0;if(caMe<50&&caOther<50)continue;
-      const refMe=myFamRef[fam]||0,refOther=compFamRef[fam]||0;
-      const ecartPct=caOther>0?Math.round((caMe-caOther)/caOther*100):(caMe>0?100:0);
-      // Find missing articles (standard) + collect special articles separately
-      let missingArts=[],specialArts=[];
-      const _splitLib=raw=>{if(!raw)return'Libellé non disponible';const m=/^\d{6} - /.exec(raw);return m?raw.substring(m[0].length).trim():raw;};
-      if(compV){for(const[code,data] of Object.entries(compV)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;if((myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caA=artCA(data,prixLookup[code]||0);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:data.countBL,caOther:Math.round(caA)});continue;}const r2=finalDataByCode[code];const statMe2=!r2?'❌ Absent':r2.stockActuel>0?'✅ En stock':r2.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:data.countBL,caOther:Math.round(caA),statutMe:statMe2});}
-      }else{const threshold=refMe===0?2:Math.max(2,Math.ceil(cs.length/2));const artCnt={},artFreqSum={},artCASum={};for(const store of cs){const sv2=ventesParMagasin[store]||{};for(const[code,data] of Object.entries(sv2)){if(articleFamille[code]!==fam||(data.sumPrelevee||0)+(data.sumEnleve||0)<=0)continue;artCnt[code]=(artCnt[code]||0)+1;artFreqSum[code]=(artFreqSum[code]||0)+data.countBL;artCASum[code]=(artCASum[code]||0)+artCA(data,prixLookup[code]||0);}}for(const[code,cnt] of Object.entries(artCnt)){if(cnt<threshold||(myV[code]?.sumPrelevee||0)>0)continue;const r=finalDataByCode[code];const statutMe=!r?'❌ Absent':r.stockActuel>0?'✅ En stock':r.ancienMax>0?'⚠️ Rupture':'❌ Absent';const caO2=Math.round(artCASum[code]/cnt);if(!/^\d{6}$/.test(code)){specialArts.push({code,freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,nbStores:cnt});continue;}const r2b=finalDataByCode[code];const statMe2b=!r2b?'❌ Absent':r2b.stockActuel>0?'✅ En stock':r2b.ancienMax>0?'⚠️ Rupture':'❌ Absent';missingArts.push({code,lib:_splitLib(libelleLookup[code]||'Libellé non disponible'),freqOther:Math.round(artFreqSum[code]/cnt),caOther:caO2,statutMe:statMe2b,nbStores:cnt});}}
-      if(refMe===0){missingArts.sort((a,b)=>b.caOther-a.caOther);}else{missingArts.sort((a,b)=>b.freqOther-a.freqOther);}missingArts=missingArts.slice(0,50);
-      const entry={fam,caMe,caOther,ecartPct,refMe,refOther,missingArts,specialArts};
-      if(ecartPct<=-5)obsFamiliesLose.push(entry);else if(ecartPct>=5)obsFamiliesWin.push(entry);
-    }
-    // Sort by absolute CA gap descending (biggest missed revenue first)
-    obsFamiliesLose.sort((a,b)=>Math.abs(b.caOther-b.caMe)-Math.abs(a.caOther-a.caMe)||a.ecartPct-b.ecartPct);
-    obsFamiliesWin.sort((a,b)=>(b.caMe-b.caOther)-(a.caMe-a.caOther));
-    benchLists.obsFamiliesLose=obsFamiliesLose;benchLists.obsFamiliesWin=obsFamiliesWin;
-    benchLists.obsActionPlan=obsFamiliesLose.slice(0,3).map(f=>{const artsToRef=(f.missingArts||[]).filter(a=>a.statutMe!=='✅ En stock');const artsVisi=(f.missingArts||[]).filter(a=>a.statutMe==='✅ En stock');return{fam:f.fam,ecartPct:f.ecartPct,nbToRef:artsToRef.length,nbVisibility:artsVisi.length,refOther:f.refOther,caPotentiel:Math.round(Math.abs(f.caOther-f.caMe))};});
-  }
 
   function renderBenchmark(){
     const{missed,under,over,storePerf,familyPerf}=benchLists;const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').toLowerCase().trim();
@@ -2710,9 +2283,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
-  function clearSavedKPI(){kpiHistory=[];document.getElementById('compareBlock').classList.add('hidden');showToast('🗑️ Historique effacé.','success');}
-  function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='PILOT_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
-  function importKPIhistory(input){if(!input.files.length)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(data.history&&data.history.length){kpiHistory=data.history;showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`,'success');renderAll();}else{showToast('❌ Fichier invalide.','error');}}catch(err){showToast('❌ Erreur : '+err.message,'error');}};reader.readAsText(input.files[0]);input.value='';}
   function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Service',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
   function renderDashboardAndCockpit(){
@@ -2875,8 +2445,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ★ TABLEAU
-  function sortBy(c){if(sortCol===c)sortAsc=!sortAsc;else{sortCol=c;sortAsc=false;}currentPage=0;renderTable();}
-  function changePage(d){const m=Math.ceil(filteredData.length/PAGE_SIZE)-1;currentPage=Math.max(0,Math.min(currentPage+d,m));renderTable(true);}
   function renderTable(pageOnly){
     if(!pageOnly){
       filteredData=getFilteredData();
@@ -3763,7 +3331,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     showToast('📥 Plan de vol exporté','success');
   }
 
-  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?estimerCAPerdu(r.V,r.prixUnitaire,Math.min(r.ageJours>=999?90:r.ageJours,90)):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
 
   // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
   (function(){
