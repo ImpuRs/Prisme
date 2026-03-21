@@ -1310,6 +1310,10 @@
     el.style.display=hidden?'block':'none';
     const btn=document.getElementById(id+'-btn');if(btn)btn.textContent=hidden?'▲ Masquer la liste complète':'▼ Voir tous les clients →';
   }
+  function _cockpitToggleSection(listId){
+    const body=document.getElementById(listId+'-body');const arrow=document.getElementById(listId+'-arrow');if(!body)return;
+    const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'';if(arrow)arrow.textContent=isOpen?'▶':'▼';
+  }
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
     if(!chalandiseReady&&_selectedCrossStatus!=='fidele'){el.classList.add('hidden');return;}
@@ -1421,20 +1425,26 @@
       const rows=excl.map(([cc,v])=>`<div class="flex items-center gap-2 bg-gray-50 rounded px-2 py-1"><span class="font-mono text-gray-400 shrink-0">${cc}</span><span class="flex-1 font-semibold truncate">${v.nom||cc}</span><span class="text-gray-400 italic shrink-0">${v.reason}</span><button onclick="_unexcludeClient('${cc}')" class="text-blue-600 hover:underline font-bold shrink-0">Réintégrer</button></div>`).join('');
       return`<div class="mt-3 pt-2 border-t border-gray-200"><div class="flex items-center gap-2 text-[10px] text-gray-500 flex-wrap">👁️ <span>${n} client${n>1?'s':''} masqué${n>1?'s':''}</span><button onclick="_toggleExcludedList('${exclListId}')" class="text-blue-600 hover:underline">Voir</button><span>·</span><button onclick="_unexcludeAll('${listId}')" class="text-blue-600 hover:underline">Tout réafficher</button></div><div id="${exclListId}" style="display:none" class="mt-1.5 space-y-1 text-[10px]">${rows}</div></div>`;
     }
-    // Block renderer: Top 10 cards + optional full list
+    // Block renderer: Top 10 cards + optional full list — collapsible accordion
     function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId){
       const top10=clients.slice(0,10);
       const total=clients.length;
-      if(!total)return`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">${emptyMsg}</p>${_excludedBandeau(listId)}</div>`;
-      let html=`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}">`;
-      html+=`<div class="flex items-center gap-2 mb-0.5 flex-wrap"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
-      html+=`<p class="text-[10px] text-gray-500 mb-3">${subtitle.replace('{total}',total)}</p>`;
-      html+=`<div class="space-y-2">`;
+      const isOpen=listId==='cockpit-sil-full';
+      const arrow=isOpen?'▼':'▶';
+      const bodyDisplay=isOpen?'':'display:none';
+      if(!total){
+        return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] text-gray-400 w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs text-gray-400 px-4 pb-4">${emptyMsg}</p>${_excludedBandeau(listId)}</div></div>`;
+      }
+      let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}">`;
+      html+=`<div class="flex items-center gap-2 p-4 pb-1 flex-wrap cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] text-gray-400 w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
+      html+=`<div id="${listId}-body" style="${bodyDisplay}">`;
+      html+=`<p class="text-[10px] text-gray-500 px-4 pt-1 pb-3">${subtitle.replace('{total}',total)}</p>`;
+      html+=`<div class="space-y-2 px-4">`;
       for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg,listId);
       html+=`</div>`;
-      if(total>10){html+=`<button id="${listId}-btn" class="mt-3 text-[11px] font-bold text-blue-600 hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button>`;html+=_fullTable(clients,sortField,listId);}
+      if(total>10){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold text-blue-600 hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,sortField,listId);}
       html+=_excludedBandeau(listId);
-      html+=`</div>`;
+      html+=`</div></div>`;
       return html;
     }
     // Summary banner
