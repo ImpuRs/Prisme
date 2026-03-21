@@ -52,6 +52,12 @@ let terrContribByDirection = new Map();
 let consommePeriodMin = null;
 let consommePeriodMax = null;
 let consommeMoisCouverts = 0;
+let consommePeriodMinFull = null; // plage totale avant tout filtre période
+let consommePeriodMaxFull = null;
+
+// ── Filtre période global ──
+let periodFilterStart = null; // null = pas de filtre (toute la période)
+let periodFilterEnd = null;
 
 // ── Insights banner ──
 let _insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
@@ -86,6 +92,8 @@ let obsFilterMinCA = 0;
 // ── Croisement consommé × chalandise ──
 let crossingStats = null;
 let _selectedCrossStatus = '';
+let _cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
+let excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
 let _includePerdu24m = false;
 
 // ── KPI history ──
