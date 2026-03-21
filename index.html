@@ -1071,7 +1071,7 @@
       const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
       const pdvBg=globActif&&!c._pdvActif?'bg-amber-50':perdu?'bg-rose-50':'';
       html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:bg-blue-50" onclick="_toggleClientArticles(this,'${c.code}')">
-        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span></td>
+        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${_clientStatusBadge(c.code,c)}</td>
         <td class="py-1 px-2 text-[9px] text-gray-500">${c.commercial||'—'}</td>
         <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
         <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'text-amber-700':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
@@ -1205,7 +1205,7 @@
         const caVal=usePDV?c.caPDVN:c.ca2025;
         const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');
         html+=`<tr class="border-t border-gray-200 hover:bg-white/50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')">
-          <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</td>
+          <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}${_clientStatusBadge(c.code,c)}</td>
           <td class="py-1 px-2 text-[10px] text-gray-500">${c.commercial||'—'}</td>
           <td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td>
           <td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td>
@@ -1963,7 +1963,7 @@
       const cliRowId='contrib-cli-'+c.code;
       html+=`<tr class="contrib-client-row border-t border-emerald-200 ${rowBg}" onclick="toggleContribClient('${cliRowId}','${c.code}')">
         <td class="py-1.5 px-3 font-mono">${c.code} <span class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 max-w-[160px] truncate">${c.nom}</td>
+        <td class="py-1.5 px-3 max-w-[160px] truncate">${c.nom}${chalandiseReady?_clientStatusBadge(c.code,chalandiseData.get(c.code)||{}):''}</td>
         <td class="py-1.5 px-3 text-right font-bold">${formatEuro(c.ca)}</td>
         <td class="py-1.5 px-3 text-center font-bold">${vient?'✅ Oui':'❌ Jamais'}</td>
         <td class="py-1.5 px-3 text-center">${c.blAgence.size}</td>
