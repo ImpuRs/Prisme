@@ -57,14 +57,23 @@ function updateTerrProgress(cur, total) {
 function onFileSelected(i, id) { document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0); }
 
 function collapseImportZone(nbFiles, store, nbArts, elapsed) {
-  const iz = document.getElementById('importZone'), is = document.getElementById('importSummary'); if (!iz || !is) return;
-  is.innerHTML = `<span class="text-emerald-400 font-bold">✅ ${nbFiles} fichier${nbFiles > 1 ? 's' : ''} chargés</span><span class="text-slate-500 mx-2">—</span><span class="text-white font-semibold">${store}</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-200">${nbArts.toLocaleString('fr')} art.</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-400">${elapsed}s</span><button onclick="expandImportZone()" class="ml-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1 px-3 rounded-lg font-semibold shrink-0">▼ Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-xs bg-blue-900 hover:bg-blue-800 text-blue-200 py-1 px-3 rounded-lg font-semibold shrink-0">📖 Glossaire</button>`;
-  iz.classList.add('hidden'); is.classList.remove('hidden');
+  const iz = document.getElementById('importZone');
+  const bannerRight = document.getElementById('insightsBannerRight');
+  const banner = document.getElementById('insightsBanner');
+  if (!iz || !bannerRight || !banner) return;
+  bannerRight.innerHTML = `<span class="text-emerald-400 font-bold">✅</span><span class="text-white font-semibold ml-1">${store}</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-300">${nbArts.toLocaleString('fr')} art.</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-400">${elapsed}s</span><button onclick="expandImportZone()" class="ml-2 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-0.5 px-2 rounded font-semibold">▼ Modifier</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-[10px] bg-blue-900 hover:bg-blue-800 text-blue-200 py-0.5 px-2 rounded font-semibold">📖 Glossaire</button>`;
+  iz.classList.add('hidden');
+  banner.classList.remove('hidden');
 }
 
 function expandImportZone() {
-  const iz = document.getElementById('importZone'), is = document.getElementById('importSummary');
-  if (iz) iz.classList.remove('hidden'); if (is) is.classList.add('hidden');
+  const iz = document.getElementById('importZone');
+  const bannerRight = document.getElementById('insightsBannerRight');
+  const bannerLeft = document.getElementById('insightsBannerLeft');
+  const banner = document.getElementById('insightsBanner');
+  if (iz) iz.classList.remove('hidden');
+  if (bannerRight) bannerRight.innerHTML = '';
+  if (banner && bannerLeft && !bannerLeft.innerHTML.trim()) banner.classList.add('hidden');
 }
 
 // ── Tab navigation ────────────────────────────────────────────
@@ -181,9 +190,16 @@ function updatePeriodAlert() {
 }
 
 function renderInsightsBanner() {
-  const el = document.getElementById('insightsBanner'); if (!el) return;
+  const el = document.getElementById('insightsBannerLeft');
+  const banner = document.getElementById('insightsBanner');
+  if (!el || !banner) return;
   const { ruptures, dormants, absentsTerr, extClients, hasTerr } = _insights;
-  if (!ruptures && !dormants && !absentsTerr && !extClients) { el.classList.add('hidden'); return; }
+  if (!ruptures && !dormants && !absentsTerr && !extClients) {
+    el.innerHTML = '';
+    const right = document.getElementById('insightsBannerRight');
+    if (!right || !right.innerHTML.trim()) banner.classList.add('hidden');
+    return;
+  }
   const mkLink = (txt, tab) => `<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
   const mkAction = (txt, fn) => `<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
   const parts = [];
@@ -195,7 +211,7 @@ function renderInsightsBanner() {
     parts.push(mkAction(`${dormants} dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')"));
   }
   el.innerHTML = `<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>` + parts.join(`<span class="text-slate-500 mx-1">·</span>`);
-  el.classList.remove('hidden');
+  banner.classList.remove('hidden');
 }
 
 // ── Table sort / pagination ───────────────────────────────────
