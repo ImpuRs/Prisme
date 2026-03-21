@@ -429,13 +429,13 @@
       </div>
 
       <!-- 2. Canal distribution — always shown when consommé loaded -->
-      <div class="mb-3 bg-white p-3 rounded-xl shadow-md border">
-        <h3 class="font-extrabold text-gray-800 text-sm mb-2 flex items-center gap-2">📡 Comment arrive votre business <span class="text-[10px] font-normal text-gray-400">— basé sur le fichier Consommé</span></h3>
+      <div class="mb-2 bg-white p-2 rounded-xl shadow-md border">
+        <h3 class="font-extrabold text-gray-800 text-xs mb-1.5 flex items-center gap-2">📡 Comment arrive votre business <span class="text-[10px] font-normal text-gray-400">— basé sur le fichier Consommé</span></h3>
         <div id="canalAgenceBlock" class="space-y-1.5"></div>
       </div>
 
       <!-- 2a. Placeholder — chalandise not loaded yet -->
-      <div id="terrNoChalandise" class="hidden mb-3 p-3 bg-rose-50 border-2 border-dashed border-rose-300 rounded-xl text-center">
+      <div id="terrNoChalandise" class="hidden mb-2 p-2 bg-rose-50 border-2 border-dashed border-rose-300 rounded-xl text-center">
         <p class="text-xl mb-1">🗺️</p>
         <p class="text-rose-700 font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
         <p class="text-rose-500 text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
@@ -450,8 +450,8 @@
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
       <!-- 3. KPI territoire — V2 (nécessite BL Territoire) -->
-      <div id="terrKPIBlock" style="display:none" class="hidden mb-3">
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-2">
+      <div id="terrKPIBlock" style="display:none" class="hidden mb-2">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
           <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
           <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
           <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p></div>
@@ -461,7 +461,7 @@
       </div>
 
       <!-- 3b. Croisement consommé×chalandise — visible dès que les 2 sont chargés -->
-      <div id="terrCrossingKPI" class="hidden mb-4 bg-slate-800 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div id="terrCrossingKPI" class="hidden mb-2 bg-slate-800 rounded-xl px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span class="text-slate-400 text-[10px] font-bold uppercase shrink-0">🔀 Croisement</span>
         <span class="text-[11px] font-bold text-violet-300">🟣 <span id="terrCrossKpiFideles">0</span> fidèles hors zone</span>
         <span class="text-slate-600">·</span>
@@ -471,13 +471,13 @@
       </div>
 
       <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
-      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2">
+      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 px-2 py-1.5 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2">
         <span class="text-base flex-shrink-0">📌</span>
         <div><p id="terrSpecialKPIText" class="text-xs font-bold text-amber-800 inline"></p><span class="text-[10px] text-amber-600 ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
       </div>
 
       <!-- 5. Filtres locaux territoire — V2 (nécessite BL Territoire) -->
-      <div id="terrFiltersBlock" style="display:none" class="hidden mb-2 bg-gray-50 px-3 py-2 rounded-xl border border-gray-200 flex flex-wrap gap-2 items-center">
+      <div id="terrFiltersBlock" style="display:none" class="hidden mb-1.5 bg-gray-50 px-2 py-1.5 rounded-xl border border-gray-200 flex flex-wrap gap-1.5 items-center">
         <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[160px] py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
         <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold"><option value="">Toutes Directions</option></select>
         <div class="relative" id="terrSecteurDropdown">
@@ -497,18 +497,18 @@
       </div>
 
       <!-- 6. Vue par Direction — V2 (nécessite BL Territoire) -->
-      <div id="terrDirectionBlock" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
+      <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
         <table class="min-w-full text-xs">
           <thead class="bg-gray-800 text-white">
             <tr>
-              <th class="py-2 px-3 text-left">Direction</th>
-              <th class="py-2 px-3 text-right">CA Le Terrain</th>
-              <th class="py-2 px-3 text-center">Nb articles</th>
-              <th class="py-2 px-3 text-center">✅ En rayon</th>
-              <th class="py-2 px-3 text-center">⚠️ Rupture</th>
-              <th class="py-2 px-3 text-center">❌ Absent</th>
-              <th class="py-2 px-3 text-center min-w-[120px]">% couverture</th>
+              <th class="py-1.5 px-2 text-left">Direction</th>
+              <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+              <th class="py-1.5 px-2 text-center">Nb articles</th>
+              <th class="py-1.5 px-2 text-center">✅ En rayon</th>
+              <th class="py-1.5 px-2 text-center">⚠️ Rupture</th>
+              <th class="py-1.5 px-2 text-center">❌ Absent</th>
+              <th class="py-1.5 px-2 text-center min-w-[110px]">% couverture</th>
             </tr>
           </thead>
           <tbody id="terrDirectionTable"></tbody>
@@ -516,20 +516,20 @@
       </div>
 
       <!-- 7. Contributeurs agence — V2 (nécessite BL Territoire) -->
-      <div id="terrContribBlock" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <div class="flex items-center justify-between px-3 py-2 border-b">
-          <h3 class="font-extrabold text-gray-800 text-sm flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Direction → Secteur → Client → Articles</span></h3>
+      <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <div class="flex items-center justify-between px-2 py-1.5 border-b">
+          <h3 class="font-extrabold text-gray-800 text-xs flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Direction → Secteur → Client → Articles</span></h3>
           <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
         </div>
-        <div id="terrContribSummary" class="px-4 py-2 text-xs text-gray-500 border-b bg-gray-50"></div>
+        <div id="terrContribSummary" class="px-3 py-1.5 text-xs text-gray-500 border-b bg-gray-50"></div>
         <table class="min-w-full text-xs">
           <thead class="bg-gray-800 text-white">
             <tr>
-              <th class="py-2 px-3 text-left">Direction</th>
-              <th class="py-2 px-3 text-center">BL territoire</th>
-              <th class="py-2 px-3 text-center">BL agence</th>
-              <th class="py-2 px-3 text-center min-w-[140px]">% agence</th>
-              <th class="py-2 px-3 text-right">CA Legallais</th>
+              <th class="py-1.5 px-2 text-left">Direction</th>
+              <th class="py-1.5 px-2 text-center">BL territoire</th>
+              <th class="py-1.5 px-2 text-center">BL agence</th>
+              <th class="py-1.5 px-2 text-center min-w-[130px]">% agence</th>
+              <th class="py-1.5 px-2 text-right">CA Legallais</th>
             </tr>
           </thead>
           <tbody id="terrContribTable"></tbody>
@@ -537,19 +537,19 @@
       </div>
 
       <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
-      <div id="terrTop100Block" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
+      <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
               <tr>
-                <th class="py-2 px-2 text-left">Code</th>
-                <th class="py-2 px-2 text-left">Libellé</th>
-                <th class="py-2 px-2 text-left">Direction</th>
-                <th class="py-2 px-2 text-center">BL</th>
-                <th class="py-2 px-2 text-right">CA Le Terrain</th>
-                <th class="py-2 px-2 text-center">Rayon</th>
-                <th class="py-2 px-2 text-right">Stock actuel</th>
+                <th class="py-1.5 px-2 text-left">Code</th>
+                <th class="py-1.5 px-2 text-left">Libellé</th>
+                <th class="py-1.5 px-2 text-left">Direction</th>
+                <th class="py-1.5 px-2 text-center">BL</th>
+                <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                <th class="py-1.5 px-2 text-center">Rayon</th>
+                <th class="py-1.5 px-2 text-right">Stock actuel</th>
               </tr>
             </thead>
             <tbody id="terrTop100Table"></tbody>
@@ -558,17 +558,17 @@
       </div>
 
       <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
-      <div id="terrClientsBlock" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">👥 Clients (top 50 par CA Legallais)</h3>
+      <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
+        <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b">👥 Clients (top 50 par CA Legallais)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
               <tr>
-                <th class="py-2 px-2 text-left">Code</th>
-                <th class="py-2 px-2 text-left">Nom</th>
-                <th class="py-2 px-2 text-right">CA Le Terrain</th>
-                <th class="py-2 px-2 text-center">Nb Réf</th>
-                <th class="py-2 px-2 text-center">Type</th>
+                <th class="py-1.5 px-2 text-left">Code</th>
+                <th class="py-1.5 px-2 text-left">Nom</th>
+                <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                <th class="py-1.5 px-2 text-center">Nb Réf</th>
+                <th class="py-1.5 px-2 text-center">Type</th>
               </tr>
             </thead>
             <tbody id="terrClientsTable"></tbody>
@@ -577,9 +577,9 @@
       </div>
 
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
-      <div id="terrChalandiseOverview" class="hidden mt-3">
+      <div id="terrChalandiseOverview" class="hidden mt-2">
         <!-- Filters -->
-        <div class="mb-2 bg-rose-50 p-2 rounded-xl border border-rose-200">
+        <div class="mb-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
           <div class="flex flex-wrap gap-2 items-center">
             <span class="text-xs font-bold text-rose-700 shrink-0">🗺️ Départements :</span>
             <div id="terrDeptCheckboxes" class="flex flex-wrap gap-1"></div>
@@ -609,13 +609,13 @@
           </div>
         </div>
         <!-- Dynamic counter -->
-        <div id="terrOverviewCounter" class="mb-1.5 text-xs font-bold text-gray-600"></div>
+        <div id="terrOverviewCounter" class="mb-1 text-xs font-bold text-gray-600"></div>
         <!-- Cockpit Client -->
-        <div id="terrCockpitClient" class="hidden mb-3"></div>
+        <div id="terrCockpitClient" class="hidden mb-2"></div>
         <!-- Header -->
         <div class="bg-white rounded-xl shadow-md border overflow-hidden">
-          <div class="px-3 py-2 border-b bg-gradient-to-r from-rose-50 to-violet-50">
-            <h3 class="font-extrabold text-gray-800 text-sm">🎯 Votre territoire en un coup d'oeil</h3>
+          <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
+            <h3 class="font-extrabold text-gray-800 text-xs">🎯 Votre territoire en un coup d'oeil</h3>
           </div>
           <!-- Level 1: Direction commerciale -->
           <div class="overflow-x-auto">
@@ -851,7 +851,7 @@
     _buildOverviewFilterChips();
     const hasTerr=territoireReady&&territoireLines.length>0;
     // Aggregate by direction commerciale — FIXED columns
-    const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalExcluded24m=0;
+    const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
     for(const[cc,info] of chalandiseData.entries()){
       totalClients++;
       if(!_clientPassesFilters(info))continue;
@@ -863,7 +863,7 @@
       const dirKey=dir||'Autre';
       if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const d=dirMap[dirKey];d.total++;
-      if(_isGlobalActif(info))d.actifsLeg++;
+      if(_isGlobalActif(info)){d.actifsLeg++;totalActifsLeg++;}
       const pdvActif=_isPDVActif(cc);
       if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
       if(_isProspect(info))d.prospects++;
@@ -874,18 +874,19 @@
       d.caPDVZone+=(info.caPDVN||0);
     }
     // Fixed thead — columns NEVER change
-    const colSpan=8;
+    const colSpan=9;
     const headEl=document.getElementById('terrOverviewL1Head');
     if(headEl){
-      headEl.innerHTML=`<tr><th class="py-2 px-3 text-left">Direction</th><th class="py-2 px-3 text-center">Total</th><th class="py-2 px-3 text-center">Actifs Legallais</th><th class="py-2 px-3 text-center">Actifs PDV</th><th class="py-2 px-3 text-center">Prospects</th><th class="py-2 px-3 text-center">Perdus 12-24m</th><th class="py-2 px-3 text-center">Inactifs</th><th class="py-2 px-3 text-center min-w-[120px]">% capté PDV</th></tr>`;
+      headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
     }
     // Counter
     const ctrEl=document.getElementById('terrOverviewCounter');
     const nonProsp=filteredClients-[...Object.values(dirMap)].reduce((s,d)=>s+d.prospects,0);
     const pctCapte=nonProsp>0?Math.round(totalActifsPDV/nonProsp*100):0;
+    const pctCapteLeg=nonProsp>0?Math.round(totalActifsLeg/nonProsp*100):0;
     const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
     let ctrHtml=filterActive?`<span class="text-rose-600">${filteredClients} clients filtrés</span> / ${totalClients} total`:`${totalClients} clients`;
-    ctrHtml+=` · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
+    ctrHtml+=` · <span class="text-blue-600">${pctCapteLeg}% captés Leg.</span> · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
     if(!_includePerdu24m&&totalExcluded24m>0)ctrHtml+=` · <span class="text-gray-400">${totalExcluded24m} perdus &gt;24m exclus</span>`;
     if(ctrEl)ctrEl.innerHTML=ctrHtml;
     // Sort by % capté ascending (opportunities first)
@@ -895,17 +896,19 @@
     dirsArr.forEach((d,idx)=>{
       const base=d.total-d.prospects;
       const pctC=base>0?Math.round(d.actifsPDV/base*100):0;
+      const pctL=base>0?Math.round(d.actifsLeg/base*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const dirEnc=encodeURIComponent(d.dir);
       html+=`<tr class="border-b text-[11px] hover:bg-gray-50 cursor-pointer font-semibold" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
-        <td class="py-2 px-3">${d.dir} <span id="overviewL1Arrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-2 px-3 text-center font-bold">${d.total}</td>
-        <td class="py-2 px-3 text-center ${d.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${d.actifsLeg||'—'}</td>
-        <td class="py-2 px-3 text-center ${d.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${d.actifsPDV||'—'}</td>
-        <td class="py-2 px-3 text-center ${d.prospects>0?'text-blue-600':'text-gray-400'}">${d.prospects||'—'}</td>
-        <td class="py-2 px-3 text-center ${d.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${d.perdus12_24||'—'}</td>
-        <td class="py-2 px-3 text-center ${d.inactifs>0?'text-gray-600':'text-gray-400'}">${d.inactifs||'—'}</td>
-        <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pctC}%</span></div></td>
+        <td class="py-1.5 px-2">${d.dir} <span id="overviewL1Arrow-${idx}" class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
+        <td class="py-1.5 px-2 text-center ${d.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${d.actifsLeg||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${d.actifsPDV||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.prospects>0?'text-blue-600':'text-gray-400'}">${d.prospects||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${d.perdus12_24||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.inactifs>0?'text-gray-600':'text-gray-400'}">${d.inactifs||'—'}</td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right text-blue-600">${pctL}%</span></div></td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pctC}%</span></div></td>
       </tr>
       <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 bg-rose-50"><div id="overviewL2Inner-${idx}" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
     });
@@ -947,26 +950,28 @@
     metiersArr.sort((a,b)=>{const aS=_isMetierStrategique(a.metier)?0:1,bS=_isMetierStrategique(b.metier)?0:1;if(aS!==bS)return aS-bS;return b.perdus12_24-a.perdus12_24||b.total-a.total;});
     if(!metiersArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun client pour ce filtre.</div>';return;}
     const dirEnc=encodeURIComponent(direction);
-    const headCols='<th class="py-1.5 px-3 text-left">Métier</th><th class="py-1.5 px-3 text-center">Total</th><th class="py-1.5 px-3 text-center">Actifs Leg.</th><th class="py-1.5 px-3 text-center">Actifs PDV</th><th class="py-1.5 px-3 text-center">Prospects</th><th class="py-1.5 px-3 text-center">Perdus 12-24m</th><th class="py-1.5 px-3 text-center">Inactifs</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté PDV</th><th class="py-1.5 px-3 text-center">🔍</th>';
+    const headCols='<th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV</th><th class="py-1.5 px-2 text-center">🔍</th>';
     let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-rose-100 text-rose-800 font-bold"><tr>${headCols}</tr></thead><tbody>`;
     metiersArr.forEach((m,mIdx)=>{
       const base=m.total-m.prospects;
       const pctC=base>0?Math.round(m.actifsPDV/base*100):0;
+      const pctL=base>0?Math.round(m.actifsLeg/base*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const mEnc=encodeURIComponent(m.metier);
       const rowId=`overviewL3-${dirEnc}-${mIdx}`;
       html+=`<tr class="border-t border-rose-200 hover:bg-rose-50 cursor-pointer font-semibold" onclick="_toggleOverviewL3('${dirEnc}','${mEnc}','${rowId}')">
-        <td class="py-1.5 px-3">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-500 text-[10px]" title="Métier stratégique Legallais">⭐</span>':''} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 text-center font-bold">${m.total}</td>
-        <td class="py-1.5 px-3 text-center ${m.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${m.actifsLeg||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${m.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${m.actifsPDV||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${m.prospects>0?'text-blue-600':'text-gray-400'}">${m.prospects||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${m.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${m.perdus12_24||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${m.inactifs>0?'text-gray-600':'text-gray-400'}">${m.inactifs||'—'}</td>
-        <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
-        <td class="py-1.5 px-3 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
+        <td class="py-1.5 px-2">${m.metier}${_isMetierStrategique(m.metier)?' <span class="text-amber-500 text-[10px]" title="Métier stratégique Legallais">⭐</span>':''} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-1.5 px-2 text-center font-bold">${m.total}</td>
+        <td class="py-1.5 px-2 text-center ${m.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${m.actifsLeg||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${m.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${m.actifsPDV||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${m.prospects>0?'text-blue-600':'text-gray-400'}">${m.prospects||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${m.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${m.perdus12_24||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${m.inactifs>0?'text-gray-600':'text-gray-400'}">${m.inactifs||'—'}</td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] w-7 text-right text-blue-600">${pctL}%</span></div></td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-7 text-right">${pctC}%</span></div></td>
+        <td class="py-1.5 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="event.stopPropagation();openDiagnosticMetier(decodeURIComponent('${mEnc}'))">🔍</button></td>
       </tr>
-      <tr id="${rowId}" style="display:none"><td colspan="9" class="p-0 bg-violet-50"><div id="${rowId}-inner" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
+      <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 bg-violet-50"><div id="${rowId}-inner" class="text-xs text-gray-400 px-4 py-2">Chargement…</div></td></tr>`;
     });
     html+=`</tbody></table></div>`;
     el.innerHTML=html;
@@ -1006,26 +1011,28 @@
     sectsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
     if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 text-gray-400 text-xs">Aucun secteur identifié.</div>';return;}
     const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
-    const headCols='<th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-left">Commercial</th><th class="py-1.5 px-3 text-center">Total</th><th class="py-1.5 px-3 text-center">Actifs Leg.</th><th class="py-1.5 px-3 text-center">Actifs PDV</th><th class="py-1.5 px-3 text-center">Prospects</th><th class="py-1.5 px-3 text-center">Perdus 12-24m</th><th class="py-1.5 px-3 text-center">Inactifs</th><th class="py-1.5 px-3 text-center min-w-[100px]">% capté PDV</th>';
+    const headCols='<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV</th>';
     let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800 font-bold"><tr>${headCols}</tr></thead><tbody>`;
     sectsArr.forEach((s,sIdx)=>{
       const base=s.total-s.prospects;
       const pctC=base>0?Math.round(s.actifsPDV/base*100):0;
+      const pctL=base>0?Math.round(s.actifsLeg/base*100):0;
       const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
       const sEnc=encodeURIComponent(s.secteur);
       const rowId=`overviewL4-${dirEnc}-${mEnc}-${sIdx}`;
       html+=`<tr class="border-t border-violet-200 hover:bg-violet-50 cursor-pointer" onclick="_toggleOverviewL4('${dirEnc}','${mEnc}','${sEnc}','${rowId}')">
-        <td class="py-1.5 px-3 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 text-gray-600">${s.commercial}</td>
-        <td class="py-1.5 px-3 text-center font-bold">${s.total}</td>
-        <td class="py-1.5 px-3 text-center ${s.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${s.actifsLeg||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${s.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${s.actifsPDV||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${s.prospects>0?'text-blue-600':'text-gray-400'}">${s.prospects||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${s.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${s.perdus12_24||'—'}</td>
-        <td class="py-1.5 px-3 text-center ${s.inactifs>0?'text-gray-600':'text-gray-400'}">${s.inactifs||'—'}</td>
-        <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-2"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-8 text-right">${pctC}%</span></div></td>
+        <td class="py-1.5 px-2 font-semibold">${s.secteur} <span id="${rowId}-arrow" class="text-gray-400 text-[9px]">▼</span></td>
+        <td class="py-1.5 px-2 text-gray-600">${s.commercial}</td>
+        <td class="py-1.5 px-2 text-center font-bold">${s.total}</td>
+        <td class="py-1.5 px-2 text-center ${s.actifsLeg>0?'text-green-700 font-bold':'text-gray-400'}">${s.actifsLeg||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${s.actifsPDV>0?'text-emerald-600 font-bold':'text-gray-400'}">${s.actifsPDV||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${s.prospects>0?'text-blue-600':'text-gray-400'}">${s.prospects||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${s.perdus12_24>0?'text-orange-600 font-bold':'text-gray-400'}">${s.perdus12_24||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${s.inactifs>0?'text-gray-600':'text-gray-400'}">${s.inactifs||'—'}</td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] w-7 text-right text-blue-600">${pctL}%</span></div></td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] w-7 text-right">${pctC}%</span></div></td>
       </tr>
-      <tr id="${rowId}" style="display:none"><td colspan="9" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
+      <tr id="${rowId}" style="display:none"><td colspan="10" class="p-0 bg-blue-50"><div id="${rowId}-inner" class="text-xs px-4 py-2">Chargement…</div></td></tr>`;
     });
     html+=`</tbody></table></div>`;
     el.innerHTML=html;
