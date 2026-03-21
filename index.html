@@ -741,82 +741,16 @@
   </div>
   <footer class="text-center text-xs text-gray-400 py-4">PILOT PRO 1.0</footer>
 
+  <script src="js/constants.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
   <script>
   'use strict';
 
   function showToast(message,type='info'){const container=document.getElementById('toastContainer');if(!container)return;const toast=document.createElement('div');const colors={success:'bg-emerald-100 border-emerald-500 text-emerald-800',error:'bg-red-100 border-red-500 text-red-800',warning:'bg-amber-100 border-amber-500 text-amber-800',info:'bg-blue-100 border-blue-500 text-blue-800'};toast.className=`p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type]||colors.info}`;toast.innerHTML=message;container.appendChild(toast);setTimeout(()=>{toast.classList.replace('toast-enter','toast-leave');setTimeout(()=>toast.remove(),300);},3500);}
 
-  const PAGE_SIZE=200,CHUNK_SIZE=5000,TERR_CHUNK_SIZE=10000,DORMANT_DAYS=365,NOUVEAUTE_DAYS=35,SECURITY_DAYS=3,HIGH_PRICE=150;
-  const METIERS_STRATEGIQUES=['menuisier agenceur poseur','menuisier agenceur fabricant','menuisier specialiste','fermeture','centre de formation','formation metier','serrurier','metalier','métallier','aluminier','charpentier','couvreur','ossature bois','major','menuisier bois','menuisier aluminier','hotellerie','hôtellerie','plein air','hebergement','hébergement','santé','sante','collectivite','collectivité','administration','industrie','logistique','facility management','plombier','chauffagiste'];
-  function _isMetierStrategique(metier){const l=(metier||'').toLowerCase();return METIERS_STRATEGIQUES.some(m=>l.includes(m));}
-  const AGE_BRACKETS={fresh:{min:0,max:90,label:'🟢 <90j',color:'text-green-700',bg:'bg-green-50',dotClass:'age-fresh',badgeBg:'bg-green-100 text-green-800'},warm:{min:90,max:180,label:'🟡 90–180j',color:'text-yellow-600',bg:'bg-yellow-50',dotClass:'age-warm',badgeBg:'bg-yellow-100 text-yellow-800'},hot:{min:180,max:365,label:'🟠 180j–1an',color:'text-orange-600',bg:'bg-orange-50',dotClass:'age-hot',badgeBg:'bg-orange-100 text-orange-800'},critical:{min:365,max:Infinity,label:'🔴 >1an',color:'text-red-700',bg:'bg-red-50',dotClass:'age-critical',badgeBg:'bg-red-100 text-red-800'}};
-  function getAgeBracket(d){return d<90?'fresh':d<180?'warm':d<=365?'hot':'critical';}
-  function getAgeLabel(d){if(d>=999)return'—';if(d<90)return d+'j';if(d<365)return Math.round(d/30)+'m';return(d/365).toFixed(1)+'a';}
 
-  let finalData=[],filteredData=[],sortCol='V',sortAsc=false,currentPage=0,debounceTimer=null;
-  let ventesParMagasin={},stockParMagasin={},storesIntersection=new Set();
-  let selectedMyStore='',libelleLookup={},articleFamille={},articleUnivers={};
-  let benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[],obsKpis:null,obsFamiliesLose:[],obsFamiliesWin:[],obsActionPlan:[]};
-  let cockpitLists={};
-  let ventesAnalysis={refParBL:0,famParBL:0,totalBL:0,refActives:0,attractivite:{}};
-  let blData={};
-  // V23: track parent refs excluded
-  let parentRefsExcluded=0;
-  let globalJoursOuvres=250;
-  // Mapping lettre Code famille → Univers (utilisé si colonne 'Univers' absente du consommé)
-  const FAM_LETTER_UNIVERS={'A':'Agencement ameublement','B':'Bâtiment','C':'Consommables','R':'Électricité','E':'EPI','G':'Génie climatique','M':'Maintenance et équipements','O':'Outillage','L':'Plomberie'};
-  // V24: ABC/FMR
-  let abcMatrixData={};
-  // V24.4: Territoire
-  let canalAgence={};        // {MAGASIN:{bl:0,ca:0}, INTERNET:{...}, ...}
-  let blConsommeSet=new Set(); // BL nums from consommé
-  let clientsMagasin=new Set(); // client codes from consommé
-  let territoireLines=[];    // parsed omnicanal lines
-  let territoireReady=false; // true if 4th file loaded & processed
-  let terrDirectionData={};  // aggregated by direction
-  // VOLET 4: Period tracking
-  let consommePeriodMin=null,consommePeriodMax=null,consommeMoisCouverts=0;
-  let _insights={ruptures:0,dormants:0,absentsTerr:0,extClients:0,hasTerr:false};
-  // VOLET 2bis: Contributeurs agence — secteur & direction aggregates (populated after worker done)
-  let terrContribBySecteur=new Map();
-  let terrContribByDirection=new Map();
-  // V2 Phase 1: Zone de Chalandise + Benchmark métier
-  let chalandiseData=new Map();     // Map<clientCode, {nom,metier,statut,...}>
-  let chalandiseReady=false;
-  let chalandiseMetiers=[];         // sorted list of distinct métiers
-  let _selectedDepts=new Set();       // empty = all depts selected (no filter)
-  let _selectedClassifs=new Set();    // empty = all classifications selected
-  let _selectedStatuts=new Set();     // empty = all statuts selected
-  let _selectedActivitesPDV=new Set();// empty = all activités PDV Zone selected
-  let _selectedCommercial='';         // empty = all commercials (no filter)
-  let _selectedMetier='';             // empty = all métiers (no filter)
-  let _filterStrategiqueOnly=false;   // toggle: show only strategic métiers
-  let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,sumCA,countBL}>>
-  let clientNomLookup={};           // Map<clientCode, nomClient> — extrait du consommé
-  let ventesClientsPerStore={};     // {store: Set<clientCode>}
-  let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
-  let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
-  let selectedObsCompare='median'; // 'median' or a store code
-  let obsFilterUnivers='';         // filtre univers Observatoire
-  let obsFilterMinCA=0;            // seuil écart CA minimum Observatoire
-  let crossingStats=null;          // {fideles:Set,potentiels:Set,captes:Set} — consommé×chalandise
-  let _selectedCrossStatus='';     // ''|'potentiel'|'capte'
-  let _includePerdu24m=false; // toggle: include perdus >24m in overview counts
 
-  function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
-  // Extracts the pure client code from any format:
-  // '572030 - ECO-BATIMENT' → '572030' ; '572030' → '572030' ; '490208 - NOM' → '490208'
-  function extractClientCode(val){const s=(val||'').toString().trim();const idx=s.indexOf(' - ');return idx>=0?s.slice(0,idx).trim():s;}  function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
-  function formatEuro(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);}
-  function pct(p,t){return t>0?((p/t)*100).toFixed(1)+'%':'0%';}
-  function parseExcelDate(v){if(!v)return null;if(v instanceof Date)return isNaN(v.getTime())?null:v;if(typeof v==='number')return new Date(Math.round((v-25569)*864e5));if(typeof v==='string'){const c=v.split(' ')[0],p=c.split(/[-/]/);if(p.length===3){let[a,b,d]=p.map(x=>parseInt(x,10));if(d<100)d+=2000;if(a>12)return new Date(d,b-1,a);if(b>12)return new Date(d,a-1,b);return new Date(d,b-1,a);}const x=new Date(v);return isNaN(x.getTime())?null:x;}return null;}
-  function daysBetween(a,b){const d=b.getTime()-a.getTime();return d>0?Math.ceil(d/864e5):0;}
-  function getVal(r,...k){const ks=Object.keys(r);for(const p of k){const f=ks.find(x=>x.toLowerCase().includes(p.toLowerCase()));if(f!==undefined)return r[f];}return'';}
-  function getQuantityColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();let f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&(l.includes('qté')||l.includes('qte')||l.includes('qt')||l.includes('quantité'));});if(!f)f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&!l.includes('ca ')&&!l.includes('vmb');});return f?parseFloat(r[f]||0):0;}
-  function getCaColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();const f=ks.find(k=>{const l=k.toLowerCase();return(l.includes('ca')||l.includes('montant'))&&l.includes(tl);});return f?parseFloat((r[f]||'').toString().replace(',','.'))||0:0;}
-  function extractStoreCode(row){return(getVal(row,'Code PDV','PDV','Code Agence','Agence','code pdv','code agence')||'').toString().trim().toUpperCase();}
-  function readExcel(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{try{const w=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:''}));}catch(e){rej(e);}};r.onerror=()=>rej(new Error('Lecture impossible'));r.readAsArrayBuffer(f);});}
-  function yieldToMain(){return new Promise(r=>setTimeout(r,0));}
 
   // V2 Phase 1: Zone de Chalandise parsing
   async function parseChalandise(file){
@@ -874,9 +808,6 @@
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
   // ── Département filter helpers ──
   function clientMatchesDeptFilter(info){if(!_selectedDepts.size)return true;const dept=(info.cp||'').toString().slice(0,2);return _selectedDepts.has(dept);}
-  function _normalizeClassif(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
-  function _classifShort(c){const n=_normalizeClassif(c);if(n==='FID Pot+')return'<span class="text-emerald-600 font-bold">FID+</span>';if(n==='OCC Pot+')return'<span class="text-blue-600 font-bold">OCC+</span>';if(n==='FID Pot-')return'<span class="text-gray-500">FID-</span>';if(n==='OCC Pot-')return'<span class="text-gray-400">OCC-</span>';return'<span class="text-gray-300">NC</span>';}
-  function _normalizeStatut(s){const l=(s||'').toLowerCase();if(l.includes('prospect'))return'Prospect';if(l.includes('perdu'))return'Perdu';if(l.includes('inactif'))return'Inactif';if(l.includes('actif'))return'Actif';return'Inactif';}
   function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
   function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
   function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
@@ -925,7 +856,6 @@
   }
   function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_selectedMetier='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
-  let _overviewOpenL2=null,_overviewOpenL3=null;
   function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info)&&clientMatchesMetierFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
@@ -1351,7 +1281,6 @@
   // V1: terrChalandiseOverview excluded — always driven by chalandise, not BL loading
   ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
   // VOLET 4: Period alert
-  function fmtDate(d){if(!d)return'?';return d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});}
   function updatePeriodAlert(){
     const banner=document.getElementById('periodBanner');const navPeriod=document.getElementById('navPeriod');
     if(!consommePeriodMin||!consommePeriodMax){if(banner)banner.classList.remove('active');if(navPeriod)navPeriod.classList.add('hidden');return;}
@@ -1775,21 +1704,6 @@
     });
   }
 
-  function parseCSVText(text,sep){
-    const lines=text.split(/\r?\n/);if(!lines.length)return[];
-    const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
-    const rows=[];
-    for(let i=1;i<lines.length;i++){
-      const l=lines[i].trim();if(!l)continue;
-      const vals=l.split(sep);const obj={};
-      headers.forEach((h,idx)=>{obj[h]=(vals[idx]||'').trim().replace(/^"|"$/g,'');});
-      rows.push(obj);
-    }
-    return rows;
-  }
-
-  function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
-
   // V24.4 perf: Web Worker code — runs off the main thread, completely frees the UI
   // Uses function.toString() trick to avoid string-escaping issues with regex literals
   function _terrWorker(){
@@ -1916,8 +1830,6 @@
   }
 
   // V24.5: Secteur multi-select helpers
-  const SECTEUR_DIR_MAP={M:'Maintenance',B:'Second Œuvre',L:'DVP Plomberie',F:'DVI Industrie'};
-  function getSecteurDirection(code){if(!code)return'';return SECTEUR_DIR_MAP[code.charAt(0).toUpperCase()]||'';}
   function buildSecteurCheckboxes(secteurs){
     const div=document.getElementById('terrSecteurCheckboxes');if(!div)return;
     if(!secteurs.length){div.innerHTML='<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>';return;}
@@ -2572,7 +2484,6 @@
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
 
-  function _median(arr){if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);const m=s.length;return m%2?s[(m-1)/2]:(s[m/2-1]+s[m/2])/2;}
   function computeBenchmark(){
     const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};if(!cs.length)return;
     const n=cs.length;
@@ -2896,7 +2807,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
-  let kpiHistory=[];
   function clearSavedKPI(){kpiHistory=[];document.getElementById('compareBlock').classList.add('hidden');showToast('🗑️ Historique effacé.','success');}
   function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='PILOT_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
   function importKPIhistory(input){if(!input.files.length)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(data.history&&data.history.length){kpiHistory=data.history;showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`,'success');renderAll();}else{showToast('❌ Fichier invalide.','error');}}catch(err){showToast('❌ Erreur : '+err.message,'error');}};reader.readAsText(input.files[0]);input.value='';}
@@ -3178,8 +3088,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
-  let _diagLevels={};let _diagActions=[];let _diagPlanCopyText='';
-  let _diagMetierFilter='';let _diagCurrentFamille='';let _diagCurrentSource='';
 
   function openDiagnostic(famille,source){
     const overlay=document.getElementById('diagnosticOverlay');
