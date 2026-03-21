@@ -92,6 +92,7 @@ let obsFilterMinCA = 0;
 // ── Croisement consommé × chalandise ──
 let crossingStats = null;
 let _selectedCrossStatus = '';
+let _cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
 let _includePerdu24m = false;
 
 // ── KPI history ──

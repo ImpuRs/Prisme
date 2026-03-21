@@ -1287,6 +1287,11 @@
       if(_normalizeClassif(c.classification)==='FID Pot+')return'Top client en agence — à fidéliser absolument';
       return'Bon client PDV à entretenir';
     }
+    // Cache reasons + export data
+    urgences.forEach(c=>c._reason=_urgRaison(c));
+    developper.forEach(c=>c._reason=_devRaison(c));
+    fideliser.forEach(c=>c._reason=_fidRaison(c));
+    _cockpitExportData={urgences,developper,fideliser};
     // Card renderer
     function _clientCard(c,raisonFn,scoreColor,hoverBg){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
@@ -1308,7 +1313,7 @@
       const total=clients.length;
       if(!total)return`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">${emptyMsg}</p></div>`;
       let html=`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}">`;
-      html+=`<div class="flex items-center gap-2 mb-0.5"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span></div>`;
+      html+=`<div class="flex items-center gap-2 mb-0.5 flex-wrap"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
       html+=`<p class="text-[10px] text-gray-500 mb-3">${subtitle.replace('{total}',total)}</p>`;
       html+=`<div class="space-y-2">`;
       for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg);
@@ -1320,7 +1325,7 @@
     // Summary banner
     const silentBit=silentCount>0?` · <span class="text-amber-600">⚠️ ${silentCount} client${silentCount>1?'s':''} silencieux (&gt;60j sans commande)</span>`:'';
     const banner=`<div class="mb-3 px-4 py-2 bg-gray-50 border rounded-lg text-[11px] font-semibold text-gray-700">Sur votre sélection : <span class="text-red-600">🔴 ${urgences.length} urgence${urgences.length!==1?'s':''}</span> · <span class="text-orange-500">🟠 ${developper.length} à développer</span> · <span class="text-green-600">🟢 ${fideliser.length} à fidéliser</span>${silentBit}</div>`;
-    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50"><h3 class="font-extrabold text-gray-800">🎯 Cockpit Client</h3><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('URGENCES — Top 10 actions immédiates','Triés par potentiel × urgence · {total} clients dans cette catégorie','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-3"><h3 class="font-extrabold text-gray-800 flex-1">🎯 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('URGENCES — Top 10 actions immédiates','Triés par potentiel × urgence · {total} clients dans cette catégorie','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
   }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
@@ -1334,6 +1339,41 @@
     _buildChalandiseOverview();
   }
 
+
+  // ── Cockpit Client CSV Export ──
+  function _cockpitRowCSV(cat,c){
+    const SEP=';';
+    const caLeg=c.ca2025>0?c.ca2025.toFixed(2).replace('.',','):'—';
+    const caPDV=c.caPDVN>0?c.caPDVN.toFixed(2).replace('.',','):'—';
+    const dernCmd=c._lastOrderDate?c._lastOrderDate.toLocaleDateString('fr-FR'):'—';
+    const jours=c._daysSince!=null?c._daysSince:'—';
+    const statut=_clientStatusText(c.code,c);
+    const raison=(c._reason||'').replace(/"/g,'""');
+    return[cat,c.code,`"${(c.nom||'').replace(/"/g,'""')}"`,statut,`"${_normalizeClassif(c.classification)}"`,`"${(c.metier||'').replace(/"/g,'""')}"`,`"${(c.commercial||'').replace(/"/g,'""')}"`,`"${(c.ville||'').replace(/"/g,'""')}"`,caLeg,caPDV,dernCmd,jours,c._score,`"${raison}"`].join(SEP);
+  }
+  function _downloadCockpitCSV(rows,filename,label){
+    const header='\uFEFFCatégorie;Code;Nom;Statut;Classification;Métier;Commercial;Ville;CA Legallais;CA PDV;Dernière commande;Jours sans commande;Score;Raison';
+    const blob=new Blob([[header,...rows].join('\n')],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+    showToast(`📥 CSV ${label} — ${rows.length} clients`,'success');
+  }
+  function exportCockpitCSV(catKey){
+    if(!_cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
+    const map={'cockpit-urg-full':['Urgence',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
+    const entry=map[catKey];if(!entry)return;
+    const[catLabel,clients]=entry;
+    const date=new Date().toISOString().slice(0,10);
+    const agence=selectedMyStore||'AGENCE';
+    _downloadCockpitCSV(clients.map(c=>_cockpitRowCSV(catLabel,c)),`PILOT_${agence}_Clients_${catLabel}_${date}.csv`,catLabel);
+  }
+  function exportCockpitCSVAll(){
+    if(!_cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
+    const rows=[];
+    for(const[cat,list] of[['Urgence',_cockpitExportData.urgences],['Développer',_cockpitExportData.developper],['Fidéliser',_cockpitExportData.fideliser]])for(const c of list)rows.push(_cockpitRowCSV(cat,c));
+    const date=new Date().toISOString().slice(0,10);
+    const agence=selectedMyStore||'AGENCE';
+    _downloadCockpitCSV(rows,`PILOT_${agence}_Clients_${date}.csv`,'Toutes catégories');
+  }
 
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
   function buildBenchCheckboxes(){

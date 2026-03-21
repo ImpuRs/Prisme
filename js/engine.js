@@ -196,6 +196,16 @@ function _clientStatusBadge(cc, info) {
   return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 ml-1">Inactif</span>';
 }
 
+function _clientStatusText(cc, info) {
+  const pdvActif = ventesClientArticle.has(cc) && ventesClientArticle.get(cc).size > 0;
+  const globalActif = _isGlobalActif(info);
+  if (pdvActif) return 'Actif PDV';
+  if (globalActif) return 'Actif Leg.';
+  if (_isProspect(info)) return 'Prospect';
+  if (_isPerdu(info) && (info.ca2025 || 0) > 0) return 'Perdu 12-24m';
+  return 'Inactif';
+}
+
 function _crossBadge(cc) {
   if (!crossingStats) return '';
   if (crossingStats.captes.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
