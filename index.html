@@ -584,40 +584,54 @@
       <div id="terrChalandiseOverview" class="hidden mt-2">
         <!-- Filters -->
         <div class="mb-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
-          <div class="flex flex-wrap gap-2 items-center">
-            <span class="text-xs font-bold text-rose-700 shrink-0">🗺️ Départements :</span>
-            <div id="terrDeptCheckboxes" class="flex flex-wrap gap-1"></div>
-            <span id="terrDeptCount" class="text-xs text-rose-500 font-semibold ml-1"></span>
-          </div>
-          <div class="flex flex-wrap gap-1.5 items-center mt-1.5">
-            <span class="text-[10px] font-bold text-gray-600 shrink-0">Classif :</span>
-            <div id="terrOverviewClassifChips" class="flex flex-wrap gap-1"></div>
-            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
-            <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
-          </div>
-          <div class="flex flex-wrap gap-1.5 items-center mt-1.5">
-            <span class="text-[10px] font-bold text-gray-600 shrink-0">Métier :</span>
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Tous" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[160px]"><datalist id="terrMetierList"></datalist>
-            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Tous" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><datalist id="terrCommercialList"></datalist>
-            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
-          </div>
-          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mt-1.5">
+          <!-- Row 1: Croisement (shown only when territory loaded) -->
+          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mb-1.5">
             <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
             <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
             <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
             <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
             <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
           </div>
+          <!-- Row 2: Compact dropdowns + inputs -->
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <div class="relative" id="terrDeptDropdownWrap">
+              <button type="button" onclick="_toggleDeptDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[95px] text-left flex items-center justify-between gap-1">
+                <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrDeptPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[150px] max-h-48 overflow-y-auto">
+                <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <div class="relative" id="terrClassifDropdownWrap">
+              <button type="button" onclick="_toggleClassifDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrClassifPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[160px]">
+                <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <div class="relative" id="terrActPDVDropdownWrap">
+              <button type="button" onclick="_toggleActPDVDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrActPDVPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[185px]">
+                <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Métier" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px]"><datalist id="terrMetierList"></datalist>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Commercial" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[120px]"><datalist id="terrCommercialList"></datalist>
+          </div>
+          <!-- Row 3: Toggles -->
+          <div class="flex flex-wrap gap-1.5 items-center mt-1">
+            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
+            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
+          </div>
         </div>
         <!-- Dynamic counter -->
         <div id="terrOverviewCounter" class="mb-1 text-xs font-bold text-gray-600"></div>
-        <!-- Cockpit Client -->
-        <div id="terrCockpitClient" class="hidden mb-2"></div>
         <!-- Header -->
-        <div class="bg-white rounded-xl shadow-md border overflow-hidden">
+        <div class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
           <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
             <h3 class="font-extrabold text-gray-800 text-xs">🎯 Votre territoire en un coup d'oeil</h3>
           </div>
@@ -629,6 +643,8 @@
             </table>
           </div>
         </div>
+        <!-- Cockpit Client -->
+        <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
     </div>
 
@@ -760,19 +776,18 @@
   function _getAllDepts(){const m={};for(const info of chalandiseData.values()){const d=(info.cp||'').toString().slice(0,2);if(d&&d.trim())m[d]=(m[d]||0)+1;}return m;}
   function _buildDeptFilter(){
     const container=document.getElementById('terrDeptCheckboxes');
-    const countEl=document.getElementById('terrDeptCount');
+    const labelEl=document.getElementById('terrDeptLabel');
     if(!container)return;
     if(!chalandiseReady){return;}
     const deptMap=_getAllDepts();
     const depts=Object.entries(deptMap).sort((a,b)=>a[0].localeCompare(b[0]));
-    if(!depts.length){container.innerHTML='<span class="text-xs text-rose-400">— aucun CP renseigné —</span>';if(countEl)countEl.textContent='';return;}
-    // FIX: _selectedDepts empty = all selected. Visual must match.
+    if(!depts.length){container.innerHTML='<span class="text-xs text-rose-400">— aucun CP —</span>';if(labelEl)labelEl.textContent='🗺️ Dépt: —';return;}
     const allSel=!_selectedDepts.size;
     container.innerHTML=depts.map(([dept,cnt])=>{
       const sel=allSel||_selectedDepts.has(dept);
-      return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs cursor-pointer border transition-colors ${sel?'bg-rose-600 text-white border-rose-600':'bg-white text-rose-500 border-rose-200 opacity-60 hover:opacity-90'}" onclick="_toggleDept('${dept}',event)">${dept}<span class="text-[9px] opacity-75">(${cnt})</span></label>`;
+      return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-rose-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleDept('${dept}')" class="rounded accent-rose-600"><span class="font-semibold">${dept}</span><span class="text-gray-400">(${cnt})</span></label>`;
     }).join('');
-    if(countEl){const selCount=allSel?depts.length:_selectedDepts.size;countEl.textContent=selCount+'/'+depts.length+' dépt.';}
+    if(labelEl){const selCount=allSel?depts.length:_selectedDepts.size;labelEl.textContent=`🗺️ Dépt: ${selCount}/${depts.length}`;}
   }
   function _toggleDept(dept,event){
     if(event)event.preventDefault();
@@ -797,6 +812,9 @@
   }
   function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_selectedMetier='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
+  function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
@@ -824,10 +842,15 @@
     for(const info of chalandiseData.values()){availClassifs.add(_normalizeClassif(info.classification));if(info.activitePDV)availActPDV.add(info.activitePDV);}
     const allC=!_selectedClassifs.size,allA=!_selectedActivitesPDV.size;
     const cEl=document.getElementById('terrOverviewClassifChips');
-    if(cEl)cEl.innerHTML=CLASSIF_ORDER.filter(c=>availClassifs.has(c)).map(c=>{const sel=allC||_selectedClassifs.has(c);const on=CLASSIF_ON[c]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)">${c}</label>`;}).join('');
+    const availClassifList=CLASSIF_ORDER.filter(c=>availClassifs.has(c));
+    if(cEl)cEl.innerHTML=availClassifList.map(c=>{const sel=allC||_selectedClassifs.has(c);return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)" class="rounded"><span class="font-semibold">${c}</span></label>`;}).join('');
+    const classifLabelEl=document.getElementById('terrClassifLabel');
+    if(classifLabelEl){if(allC)classifLabelEl.textContent='Classif: toutes';else{const sel=[..._selectedClassifs];classifLabelEl.textContent=sel.length<=2?'Classif: '+sel.join(', '):'Classif: '+sel.length+'/'+availClassifList.length;}}
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
-    if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
+    if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewActPDV('${aEsc}',event)" class="rounded"><span class="font-semibold">${a}</span></label>`;}).join('');
+    const actLabelEl=document.getElementById('terrActPDVLabel');
+    if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
     // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
@@ -1310,6 +1333,10 @@
     el.style.display=hidden?'block':'none';
     const btn=document.getElementById(id+'-btn');if(btn)btn.textContent=hidden?'▲ Masquer la liste complète':'▼ Voir tous les clients →';
   }
+  function _cockpitToggleSection(listId){
+    const body=document.getElementById(listId+'-body');const arrow=document.getElementById(listId+'-arrow');if(!body)return;
+    const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'';if(arrow)arrow.textContent=isOpen?'▶':'▼';
+  }
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
     if(!chalandiseReady&&_selectedCrossStatus!=='fidele'){el.classList.add('hidden');return;}
@@ -1421,20 +1448,26 @@
       const rows=excl.map(([cc,v])=>`<div class="flex items-center gap-2 bg-gray-50 rounded px-2 py-1"><span class="font-mono text-gray-400 shrink-0">${cc}</span><span class="flex-1 font-semibold truncate">${v.nom||cc}</span><span class="text-gray-400 italic shrink-0">${v.reason}</span><button onclick="_unexcludeClient('${cc}')" class="text-blue-600 hover:underline font-bold shrink-0">Réintégrer</button></div>`).join('');
       return`<div class="mt-3 pt-2 border-t border-gray-200"><div class="flex items-center gap-2 text-[10px] text-gray-500 flex-wrap">👁️ <span>${n} client${n>1?'s':''} masqué${n>1?'s':''}</span><button onclick="_toggleExcludedList('${exclListId}')" class="text-blue-600 hover:underline">Voir</button><span>·</span><button onclick="_unexcludeAll('${listId}')" class="text-blue-600 hover:underline">Tout réafficher</button></div><div id="${exclListId}" style="display:none" class="mt-1.5 space-y-1 text-[10px]">${rows}</div></div>`;
     }
-    // Block renderer: Top 10 cards + optional full list
+    // Block renderer: Top 10 cards + optional full list — collapsible accordion
     function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId){
       const top10=clients.slice(0,10);
       const total=clients.length;
-      if(!total)return`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">${emptyMsg}</p>${_excludedBandeau(listId)}</div>`;
-      let html=`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}">`;
-      html+=`<div class="flex items-center gap-2 mb-0.5 flex-wrap"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
-      html+=`<p class="text-[10px] text-gray-500 mb-3">${subtitle.replace('{total}',total)}</p>`;
-      html+=`<div class="space-y-2">`;
+      const isOpen=listId==='cockpit-sil-full';
+      const arrow=isOpen?'▼':'▶';
+      const bodyDisplay=isOpen?'':'display:none';
+      if(!total){
+        return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] text-gray-400 w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs text-gray-400 px-4 pb-4">${emptyMsg}</p>${_excludedBandeau(listId)}</div></div>`;
+      }
+      let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}">`;
+      html+=`<div class="flex items-center gap-2 p-4 pb-1 flex-wrap cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] text-gray-400 w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
+      html+=`<div id="${listId}-body" style="${bodyDisplay}">`;
+      html+=`<p class="text-[10px] text-gray-500 px-4 pt-1 pb-3">${subtitle.replace('{total}',total)}</p>`;
+      html+=`<div class="space-y-2 px-4">`;
       for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg,listId);
       html+=`</div>`;
-      if(total>10){html+=`<button id="${listId}-btn" class="mt-3 text-[11px] font-bold text-blue-600 hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button>`;html+=_fullTable(clients,sortField,listId);}
+      if(total>10){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold text-blue-600 hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,sortField,listId);}
       html+=_excludedBandeau(listId);
-      html+=`</div>`;
+      html+=`</div></div>`;
       return html;
     }
     // Summary banner
@@ -1781,10 +1814,13 @@
     el.innerHTML=html;
   }
 
-  // Close secteur dropdown on outside click
+  // Close dropdowns on outside click
   document.addEventListener('click',function(e){
     const dd=document.getElementById('terrSecteurDropdown');
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
+    if(!document.getElementById('terrDeptDropdownWrap')?.contains(e.target))document.getElementById('terrDeptPanel')?.classList.add('hidden');
+    if(!document.getElementById('terrClassifDropdownWrap')?.contains(e.target))document.getElementById('terrClassifPanel')?.classList.add('hidden');
+    if(!document.getElementById('terrActPDVDropdownWrap')?.contains(e.target))document.getElementById('terrActPDVPanel')?.classList.add('hidden');
   });
 
   function renderTerritoireTab(){
@@ -3047,19 +3083,19 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(hasMulti){
       const cellFamSet=new Set(cellArts.map(r=>r.famille).filter(Boolean));
       const myArtSet=new Set(finalData.filter(r=>r.W>=1).map(r=>r.code));
-      const artStoreFreqs={};const storeRefCounts=[];
+      const artStoreFreqs={};const artStorePrelevee={};const storeRefCounts=[];
       const nbOtherStores=storesIntersection.size-1;
       for(const store of storesIntersection){
         if(store===selectedMyStore)continue;
         const sv=ventesParMagasin[store]||{};let cnt=0;
-        for(const[code,sv2] of Object.entries(sv)){if(!cellFamSet.has(articleFamille[code]))continue;if((sv2.countBL||0)>0)cnt++;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(sv2.countBL||0);}
+        for(const[code,sv2] of Object.entries(sv)){if(!cellFamSet.has(articleFamille[code]))continue;if((sv2.countBL||0)>0)cnt++;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(sv2.countBL||0);if(!artStorePrelevee[code])artStorePrelevee[code]=[];artStorePrelevee[code].push({sumPrelevee:sv2.sumPrelevee||0,countBL:sv2.countBL||0});}
         if(cnt>0)storeRefCounts.push(cnt);
       }
       const refMedian=storeRefCounts.length?Math.round(_median(storeRefCounts)):0;
       const missing=[];
-      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});}
+      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);const networkFmr=medFreq>=12?'F':medFreq>=4?'M':'R';const spa=artStorePrelevee[code]||[];let precoMin=0,precoMax=0,precoStores=0;if(spa.length>0){const mp=_median(spa.map(s=>s.sumPrelevee));const mf=_median(spa.map(s=>s.countBL));const U=mf>0?mp/mf:0;const X=mp/globalJoursOuvres;const maxCmd=Math.max(...spa.filter(s=>s.countBL>0).map(s=>s.sumPrelevee/s.countBL),0);const dlR=maxCmd>3*U?3*U:maxCmd;const dl=Math.min(dlR,U*5);precoMin=Math.max(Math.round(dl+X*SECURITY_DAYS),1);precoMax=Math.max(Math.round(precoMin+X*(mf>12?21:10)),precoMin+1);precoStores=spa.length;}missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?',networkFmr,precoMin,precoMax,precoStores});}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
-      const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
+      const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
       v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:cellArts.length,reseauCount:cellArts.length+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
     }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
     _diagLevels={v1,v2,v3};
@@ -3067,7 +3103,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
     if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});}
     if(v2.status!=='lock'&&v2.perdus>0){const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
-    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const strongLabel=v3.strongMissing>0?` — dont ${v3.strongMissing} en forte rotation (A/B)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau${strongLabel}`,fn:()=>{closeDiagnostic();switchTab('bench');}});}
+    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const strongLabel=v3.strongMissing>0?` — dont ${v3.strongMissing} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau${strongLabel}`,fn:()=>{closeDiagnostic();switchTab('bench');}});}
     _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
@@ -3337,11 +3373,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
   function _diagRenderV3(v,hasMulti){
     if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] text-emerald-600 mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
-    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';const medCACell=v.isFamilyAbsent?`<td class="py-1 px-2 text-right text-emerald-300">${a.medCA>0?formatEuro(a.medCA):'—'}</td>`:'';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td>${medCACell}<td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td></tr>`;}).join('');
-    const displayedMissing=v.missing||[];const displayedStrong=displayedMissing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    const missingIntro=v.isCellMode?(displayedStrong>0?`dont <strong>${displayedStrong}</strong> en forte rotation (A/B) :`:''):v.isFamilyAbsent?`📋 <strong>${displayedMissing.length}</strong> article${displayedMissing.length>1?'s':''} vendus par le réseau dans cette famille — triés par CA médiane :`:`⚠️ ${displayedMissing.length} article${displayedMissing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${displayedStrong>0?' — dont <strong>'+displayedStrong+'</strong> forte rotation (A/B)':''}:`;
-    const caThCell=v.isFamilyAbsent?'<th class="py-1.5 px-2 text-right">CA méd.</th>':'';
-    const missingSection=(v.missing||[]).length?`<p class="text-[10px] ${v.isFamilyAbsent?'text-blue-300':'text-amber-300'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}<th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:v.isFamilyAbsent?'<p class="text-[10px] text-slate-400 mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
+    const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';const medCACell=v.isFamilyAbsent?`<td class="py-1 px-2 text-right text-emerald-300">${a.medCA>0?formatEuro(a.medCA):'—'}</td>`:'';const fmrNetColor=a.networkFmr==='F'?'text-emerald-400':a.networkFmr==='M'?'text-blue-400':'text-amber-400';const classCell=v.isCellMode?`<td class="py-1 px-2 text-center font-bold ${fmrNetColor}">${a.networkFmr||'?'}</td>`:`<td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td>`;const minMaxCell=v.isCellMode?(a.precoMin?`<td class="py-1 px-2 text-center text-[10px] text-cyan-300" title="Basé sur la médiane réseau (${a.precoStores} agences)">${a.precoMin}/${a.precoMax}</td>`:'<td class="py-1 px-2 text-center text-slate-500">—</td>'):'';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td>${medCACell}${classCell}${minMaxCell}</tr>`;}).join('');
+    const displayedMissing=v.missing||[];const displayedStrong=v.isCellMode?displayedMissing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length:displayedMissing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
+    const missingIntro=v.isCellMode?(displayedStrong>0?`dont <strong>${displayedStrong}</strong> en forte rotation réseau (F/M) :`:''):v.isFamilyAbsent?`📋 <strong>${displayedMissing.length}</strong> article${displayedMissing.length>1?'s':''} vendus par le réseau dans cette famille — triés par CA médiane :`:`⚠️ ${displayedMissing.length} article${displayedMissing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${displayedStrong>0?' — dont <strong>'+displayedStrong+'</strong> forte rotation (A/B)':''}:`;
+    const caThCell=v.isFamilyAbsent?'<th class="py-1.5 px-2 text-right">CA méd.</th>':'';const abcThCell=v.isCellMode?'<th class="py-1.5 px-2 text-center">FMR rés.</th>':'<th class="py-1.5 px-2 text-center">ABC</th>';const minMaxThCell=v.isCellMode?'<th class="py-1.5 px-2 text-center">Stock préco.</th>':'';
+    const missingSection=(v.missing||[]).length?`<p class="text-[10px] ${v.isFamilyAbsent?'text-blue-300':'text-amber-300'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}${abcThCell}${minMaxThCell}</tr></thead><tbody>${missingRows}</tbody></table></div>`:v.isFamilyAbsent?'<p class="text-[10px] text-slate-400 mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
     // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
     if(v.isCellMode){
       const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;const refLine=`${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="text-amber-400">${v.missing.length} article${v.missing.length>1?'s':''} du réseau absents chez vous</span>`:'<span class="text-emerald-400">gamme complète</span>'}`;
