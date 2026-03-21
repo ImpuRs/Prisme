@@ -1118,7 +1118,8 @@
     const hasTerrArts=terrArts.length>0;
     let panelHtml=`<td colspan="9" class="p-0"><div class="bg-sky-50 border-t-2 border-sky-300 px-4 py-2">`;
     if(!hasComptoir&&!hasTerrArts){
-      panelHtml+=`<p class="text-gray-400 text-[10px]">Ce client est dans votre zone de chalandise mais aucun historique d'achat trouvé dans vos fichiers.</p>`;
+      const _cInfo=chalandiseData.get(clientCode);const _ca25=(_cInfo&&_cInfo.ca2025)||0;
+      panelHtml+=_ca25>0?`<p class="text-[10px] text-blue-700 font-semibold">Ce client achète chez Legallais (${formatEuro(_ca25)}) via d'autres canaux (Internet, DCS, Commercial) — opportunité de captation PDV</p>`:`<p class="text-gray-400 text-[10px]">Prospect — aucun historique d'achat.</p>`;
     }else{
       if(hasComptoir){
         const nbInRayon=comptoirArts.filter(a=>a.rayonStatus==='green').length;
@@ -1291,7 +1292,7 @@
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
       const caPDV=c.caPDVN>0?formatEuro(c.caPDVN):'—';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
-      return`<div class="flex items-start gap-3 p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><div class="flex-1 min-w-0"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div><div class="text-right shrink-0">${c._score>0?`<p class="text-xs font-extrabold ${scoreColor}">${c._score.toLocaleString('fr-FR')} pts</p>`:''}</div></div>`;
+      return`<div class="flex items-start gap-3 p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><div class="flex-1 min-w-0"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
