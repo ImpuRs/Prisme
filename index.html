@@ -2723,7 +2723,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
       const strong=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:myArtSet.size,reseauCount:myArtSet.size+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian};
+      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:myArtSet.size,reseauCount:myArtSet.size+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
     }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
     _diagLevels={v1,v2,v3};
     const acts=[];
@@ -3006,7 +3006,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const missingSection=(v.missing||[]).length?`<p class="text-[10px] ${v.isFamilyAbsent?'text-blue-300':'text-amber-300'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}<th class="py-1.5 px-2 text-center">ABC</th></tr></thead><tbody>${missingRows}</tbody></table></div>`:v.isFamilyAbsent?'<p class="text-[10px] text-slate-400 mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
     // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
     if(v.isCellMode){
-      const refLine=`Votre case : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="text-amber-400">${v.missing.length} article${v.missing.length>1?'s':''} du réseau absents chez vous</span>`:'<span class="text-emerald-400">gamme complète</span>'}`;
+      const cellLabel=v.cellKey?(v.cellKey+(LABELS[v.cellKey]?' — '+LABELS[v.cellKey]:'')):'' ;const refLine=`${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="text-amber-400">${v.missing.length} article${v.missing.length>1?'s':''} du réseau absents chez vous</span>`:'<span class="text-emerald-400">gamme complète</span>'}`;
       return`<div class="diag-voyant diag-v3">
         <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
         <p class="text-xs mb-3">${refLine}</p>
