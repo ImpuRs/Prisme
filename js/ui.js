@@ -61,7 +61,7 @@ function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
   if (!iz || !bannerRight || !banner) return;
-  bannerRight.innerHTML = `<span class="text-emerald-400 font-bold">✅</span><span class="text-white font-semibold ml-1">${store}</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-300">${nbArts.toLocaleString('fr')} art.</span><span class="text-slate-500 mx-1">·</span><span class="text-slate-400">${elapsed}s</span><button onclick="expandImportZone()" class="ml-2 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-0.5 px-2 rounded font-semibold">▼ Modifier</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-[10px] bg-blue-900 hover:bg-blue-800 text-blue-200 py-0.5 px-2 rounded font-semibold">📖 Glossaire</button>`;
+  bannerRight.innerHTML = `<button onclick="expandImportZone()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-0.5 px-2 rounded font-semibold">▼ Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-[10px] bg-blue-900 hover:bg-blue-800 text-blue-200 py-0.5 px-2 rounded font-semibold">📖 Glossaire</button>`;
   iz.classList.add('hidden');
   banner.classList.remove('hidden');
 }
@@ -180,13 +180,15 @@ function clearCockpitFilter(silent) {
 function updatePeriodAlert() {
   if (!consommePeriodMin || !consommePeriodMax) return;
   const banner = document.getElementById('periodBanner');
-  const navPeriod = document.getElementById('navPeriod');
   if (consommeMoisCouverts < 10) {
     if (banner) { banner.textContent = `⚠️ Attention : votre fichier Consommé couvre ${consommeMoisCouverts} mois (${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}). Pour un calcul MIN/MAX fiable, 12 mois minimum sont recommandés.`; banner.classList.add('active'); }
   } else {
     if (banner) banner.classList.remove('active');
   }
-  if (navPeriod) { navPeriod.textContent = `📅 ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; navPeriod.classList.remove('hidden'); }
+  const btn = document.getElementById('navPeriodBtn');
+  const navPeriod = document.getElementById('navPeriod');
+  if (btn) { btn.textContent = `📅 ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; btn.style.cssText = ''; }
+  if (navPeriod) navPeriod.classList.remove('hidden');
 }
 
 function renderInsightsBanner() {
