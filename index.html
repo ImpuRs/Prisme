@@ -741,82 +741,17 @@
   </div>
   <footer class="text-center text-xs text-gray-400 py-4">PILOT PRO 1.0</footer>
 
+  <script src="js/constants.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/engine.js"></script>
   <script>
   'use strict';
 
   function showToast(message,type='info'){const container=document.getElementById('toastContainer');if(!container)return;const toast=document.createElement('div');const colors={success:'bg-emerald-100 border-emerald-500 text-emerald-800',error:'bg-red-100 border-red-500 text-red-800',warning:'bg-amber-100 border-amber-500 text-amber-800',info:'bg-blue-100 border-blue-500 text-blue-800'};toast.className=`p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type]||colors.info}`;toast.innerHTML=message;container.appendChild(toast);setTimeout(()=>{toast.classList.replace('toast-enter','toast-leave');setTimeout(()=>toast.remove(),300);},3500);}
 
-  const PAGE_SIZE=200,CHUNK_SIZE=5000,TERR_CHUNK_SIZE=10000,DORMANT_DAYS=365,NOUVEAUTE_DAYS=35,SECURITY_DAYS=3,HIGH_PRICE=150;
-  const METIERS_STRATEGIQUES=['menuisier agenceur poseur','menuisier agenceur fabricant','menuisier specialiste','fermeture','centre de formation','formation metier','serrurier','metalier','métallier','aluminier','charpentier','couvreur','ossature bois','major','menuisier bois','menuisier aluminier','hotellerie','hôtellerie','plein air','hebergement','hébergement','santé','sante','collectivite','collectivité','administration','industrie','logistique','facility management','plombier','chauffagiste'];
-  function _isMetierStrategique(metier){const l=(metier||'').toLowerCase();return METIERS_STRATEGIQUES.some(m=>l.includes(m));}
-  const AGE_BRACKETS={fresh:{min:0,max:90,label:'🟢 <90j',color:'text-green-700',bg:'bg-green-50',dotClass:'age-fresh',badgeBg:'bg-green-100 text-green-800'},warm:{min:90,max:180,label:'🟡 90–180j',color:'text-yellow-600',bg:'bg-yellow-50',dotClass:'age-warm',badgeBg:'bg-yellow-100 text-yellow-800'},hot:{min:180,max:365,label:'🟠 180j–1an',color:'text-orange-600',bg:'bg-orange-50',dotClass:'age-hot',badgeBg:'bg-orange-100 text-orange-800'},critical:{min:365,max:Infinity,label:'🔴 >1an',color:'text-red-700',bg:'bg-red-50',dotClass:'age-critical',badgeBg:'bg-red-100 text-red-800'}};
-  function getAgeBracket(d){return d<90?'fresh':d<180?'warm':d<=365?'hot':'critical';}
-  function getAgeLabel(d){if(d>=999)return'—';if(d<90)return d+'j';if(d<365)return Math.round(d/30)+'m';return(d/365).toFixed(1)+'a';}
 
-  let finalData=[],filteredData=[],sortCol='V',sortAsc=false,currentPage=0,debounceTimer=null;
-  let ventesParMagasin={},stockParMagasin={},storesIntersection=new Set();
-  let selectedMyStore='',libelleLookup={},articleFamille={},articleUnivers={};
-  let benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[],obsKpis:null,obsFamiliesLose:[],obsFamiliesWin:[],obsActionPlan:[]};
-  let cockpitLists={};
-  let ventesAnalysis={refParBL:0,famParBL:0,totalBL:0,refActives:0,attractivite:{}};
-  let blData={};
-  // V23: track parent refs excluded
-  let parentRefsExcluded=0;
-  let globalJoursOuvres=250;
-  // Mapping lettre Code famille → Univers (utilisé si colonne 'Univers' absente du consommé)
-  const FAM_LETTER_UNIVERS={'A':'Agencement ameublement','B':'Bâtiment','C':'Consommables','R':'Électricité','E':'EPI','G':'Génie climatique','M':'Maintenance et équipements','O':'Outillage','L':'Plomberie'};
-  // V24: ABC/FMR
-  let abcMatrixData={};
-  // V24.4: Territoire
-  let canalAgence={};        // {MAGASIN:{bl:0,ca:0}, INTERNET:{...}, ...}
-  let blConsommeSet=new Set(); // BL nums from consommé
-  let clientsMagasin=new Set(); // client codes from consommé
-  let territoireLines=[];    // parsed omnicanal lines
-  let territoireReady=false; // true if 4th file loaded & processed
-  let terrDirectionData={};  // aggregated by direction
-  // VOLET 4: Period tracking
-  let consommePeriodMin=null,consommePeriodMax=null,consommeMoisCouverts=0;
-  let _insights={ruptures:0,dormants:0,absentsTerr:0,extClients:0,hasTerr:false};
-  // VOLET 2bis: Contributeurs agence — secteur & direction aggregates (populated after worker done)
-  let terrContribBySecteur=new Map();
-  let terrContribByDirection=new Map();
-  // V2 Phase 1: Zone de Chalandise + Benchmark métier
-  let chalandiseData=new Map();     // Map<clientCode, {nom,metier,statut,...}>
-  let chalandiseReady=false;
-  let chalandiseMetiers=[];         // sorted list of distinct métiers
-  let _selectedDepts=new Set();       // empty = all depts selected (no filter)
-  let _selectedClassifs=new Set();    // empty = all classifications selected
-  let _selectedStatuts=new Set();     // empty = all statuts selected
-  let _selectedActivitesPDV=new Set();// empty = all activités PDV Zone selected
-  let _selectedCommercial='';         // empty = all commercials (no filter)
-  let _selectedMetier='';             // empty = all métiers (no filter)
-  let _filterStrategiqueOnly=false;   // toggle: show only strategic métiers
-  let ventesClientArticle=new Map(); // Map<clientCode, Map<articleCode, {sumPrelevee,sumCA,countBL}>>
-  let clientNomLookup={};           // Map<clientCode, nomClient> — extrait du consommé
-  let ventesClientsPerStore={};     // {store: Set<clientCode>}
-  let articleClients=new Map();     // Map<articleCode, Set<clientCode>> — pour diagnostic L4
-  let clientArticles=new Map();     // Map<clientCode, Set<articleCode>> — pour diagnostic L4
-  let selectedObsCompare='median'; // 'median' or a store code
-  let obsFilterUnivers='';         // filtre univers Observatoire
-  let obsFilterMinCA=0;            // seuil écart CA minimum Observatoire
-  let crossingStats=null;          // {fideles:Set,potentiels:Set,captes:Set} — consommé×chalandise
-  let _selectedCrossStatus='';     // ''|'potentiel'|'capte'
-  let _includePerdu24m=false; // toggle: include perdus >24m in overview counts
 
-  function cleanCode(s){return s?s.toString().split('-')[0].trim():'';}
-  // Extracts the pure client code from any format:
-  // '572030 - ECO-BATIMENT' → '572030' ; '572030' → '572030' ; '490208 - NOM' → '490208'
-  function extractClientCode(val){const s=(val||'').toString().trim();const idx=s.indexOf(' - ');return idx>=0?s.slice(0,idx).trim():s;}  function cleanPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/,/g,'.').replace(/[−–—]/g,'-');const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
-  function formatEuro(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);}
-  function pct(p,t){return t>0?((p/t)*100).toFixed(1)+'%':'0%';}
-  function parseExcelDate(v){if(!v)return null;if(v instanceof Date)return isNaN(v.getTime())?null:v;if(typeof v==='number')return new Date(Math.round((v-25569)*864e5));if(typeof v==='string'){const c=v.split(' ')[0],p=c.split(/[-/]/);if(p.length===3){let[a,b,d]=p.map(x=>parseInt(x,10));if(d<100)d+=2000;if(a>12)return new Date(d,b-1,a);if(b>12)return new Date(d,a-1,b);return new Date(d,b-1,a);}const x=new Date(v);return isNaN(x.getTime())?null:x;}return null;}
-  function daysBetween(a,b){const d=b.getTime()-a.getTime();return d>0?Math.ceil(d/864e5):0;}
-  function getVal(r,...k){const ks=Object.keys(r);for(const p of k){const f=ks.find(x=>x.toLowerCase().includes(p.toLowerCase()));if(f!==undefined)return r[f];}return'';}
-  function getQuantityColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();let f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&(l.includes('qté')||l.includes('qte')||l.includes('qt')||l.includes('quantité'));});if(!f)f=ks.find(k=>{const l=k.toLowerCase();return l.includes(tl)&&!l.includes('ca ')&&!l.includes('vmb');});return f?parseFloat(r[f]||0):0;}
-  function getCaColumn(r,t){const ks=Object.keys(r),tl=t.toLowerCase();const f=ks.find(k=>{const l=k.toLowerCase();return(l.includes('ca')||l.includes('montant'))&&l.includes(tl);});return f?parseFloat((r[f]||'').toString().replace(',','.'))||0:0;}
-  function extractStoreCode(row){return(getVal(row,'Code PDV','PDV','Code Agence','Agence','code pdv','code agence')||'').toString().trim().toUpperCase();}
-  function readExcel(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{try{const w=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false});res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]],{defval:''}));}catch(e){rej(e);}};r.onerror=()=>rej(new Error('Lecture impossible'));r.readAsArrayBuffer(f);});}
-  function yieldToMain(){return new Promise(r=>setTimeout(r,0));}
 
   // V2 Phase 1: Zone de Chalandise parsing
   async function parseChalandise(file){
@@ -872,16 +807,6 @@
   function updateProgress(c,t,txt,step){const p=t>0?Math.round(c/t*100):0;document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressPct').textContent=p+'%';if(txt)document.getElementById('loadingText').textContent=txt;if(step)document.getElementById('loadingStep').textContent=step;}
   // V24.4: Per-file pipeline status (loading overlay)
   function updatePipeline(step,status){const idMap={consomme:'pipeConsomme',stock:'pipeStock',territoire:'pipeTerritoire'};const el=document.getElementById(idMap[step]);if(!el)return;const cls={pending:'text-gray-400',active:'text-blue-300 font-bold animate-pulse',done:'text-green-400 font-bold'};el.className=cls[status]||'text-gray-400';if(status==='done')el.textContent={consomme:'✅ Consommé',stock:'✅ Stock',territoire:'✅ Territoire'}[step]||'✅';if(status!=='pending'){const pl=document.getElementById('loadingPipeline');if(pl)pl.classList.remove('hidden');}if(step==='territoire'){const sep=document.getElementById('pipeSepTerr');if(sep)sep.classList.remove('hidden');el.classList.remove('hidden');}}
-  // ── Département filter helpers ──
-  function clientMatchesDeptFilter(info){if(!_selectedDepts.size)return true;const dept=(info.cp||'').toString().slice(0,2);return _selectedDepts.has(dept);}
-  function _normalizeClassif(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
-  function _classifShort(c){const n=_normalizeClassif(c);if(n==='FID Pot+')return'<span class="text-emerald-600 font-bold">FID+</span>';if(n==='OCC Pot+')return'<span class="text-blue-600 font-bold">OCC+</span>';if(n==='FID Pot-')return'<span class="text-gray-500">FID-</span>';if(n==='OCC Pot-')return'<span class="text-gray-400">OCC-</span>';return'<span class="text-gray-300">NC</span>';}
-  function _normalizeStatut(s){const l=(s||'').toLowerCase();if(l.includes('prospect'))return'Prospect';if(l.includes('perdu'))return'Perdu';if(l.includes('inactif'))return'Inactif';if(l.includes('actif'))return'Actif';return'Inactif';}
-  function clientMatchesClassifFilter(info){if(!_selectedClassifs.size)return true;return _selectedClassifs.has(_normalizeClassif(info.classification));}
-  function clientMatchesStatutFilter(info){if(!_selectedStatuts.size)return true;return _selectedStatuts.has(_normalizeStatut(info.statut));}
-  function clientMatchesActivitePDVFilter(info){if(!_selectedActivitesPDV.size)return true;return _selectedActivitesPDV.has(info.activitePDV||'');}
-  function clientMatchesCommercialFilter(info){if(!_selectedCommercial)return true;return(info.commercial||'')===_selectedCommercial;}
-  function clientMatchesMetierFilter(info){if(!_selectedMetier)return true;return(info.metier||'')===_selectedMetier;}
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_selectedClassifs.size){_selectedClassifs=new Set(all);_selectedClassifs.delete(c);}else if(_selectedClassifs.has(c)){_selectedClassifs.delete(c);if(!_selectedClassifs.size)_selectedClassifs=new Set();}else{_selectedClassifs.add(c);if(_selectedClassifs.size>=all.size)_selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_selectedActivitesPDV.size){_selectedActivitesPDV=new Set(all);_selectedActivitesPDV.delete(a);}else if(_selectedActivitesPDV.has(a)){_selectedActivitesPDV.delete(a);if(!_selectedActivitesPDV.size)_selectedActivitesPDV=new Set();}else{_selectedActivitesPDV.add(a);if(_selectedActivitesPDV.size>=all.size)_selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-green-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
@@ -925,8 +850,6 @@
   }
   function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_selectedMetier='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
-  let _overviewOpenL2=null,_overviewOpenL3=null;
-  function _clientPassesFilters(info){if(_filterStrategiqueOnly&&!_isMetierStrategique(info.metier))return false;return clientMatchesDeptFilter(info)&&clientMatchesClassifFilter(info)&&clientMatchesActivitePDVFilter(info)&&clientMatchesCommercialFilter(info)&&clientMatchesMetierFilter(info);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
@@ -947,10 +870,6 @@
     },300);
   }
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
-  function _isPDVActif(cc){const art=ventesClientArticle.get(cc);return art&&art.size>0;}
-  function _isPerdu(info){const s=_normalizeStatut(info.statut);return s==='Inactif'||s==='Perdu';}
-  function _isProspect(info){return _normalizeStatut(info.statut)==='Prospect';}
-  function _isPerdu24plus(info){return _isPerdu(info)&&!(info.ca2025||0)&&!(info.ca2026||0);}
   function _buildOverviewFilterChips(){
     const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
     const CLASSIF_ON={'FID Pot+':'bg-emerald-600 text-white border-emerald-600','FID Pot-':'bg-gray-500 text-white border-gray-500','OCC Pot+':'bg-blue-600 text-white border-blue-600','OCC Pot-':'bg-blue-400 text-white border-blue-400','NC':'bg-slate-400 text-white border-slate-400'};
@@ -1186,7 +1105,6 @@
     if(aP!==bP)return aP-bP;
     return(b.ca2025||0)-(a.ca2025||0);
   }
-  function _isGlobalActif(info){const aG=(info.activiteGlobale||info.activite||'').toLowerCase();const s=(info.statut||'').toLowerCase();return aG.includes('actif')||(s.includes('actif')&&!s.includes('inactif'));}
   function _renderOverviewL4(el,direction,metier,secteur,limit){
     limit=limit||20;
     const clients=[];
@@ -1351,7 +1269,6 @@
   // V1: terrChalandiseOverview excluded — always driven by chalandise, not BL loading
   ['terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrTop100Block','terrClientsBlock','terrContribBlock'].forEach(id=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',show);});}
   // VOLET 4: Period alert
-  function fmtDate(d){if(!d)return'?';return d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});}
   function updatePeriodAlert(){
     const banner=document.getElementById('periodBanner');const navPeriod=document.getElementById('navPeriod');
     if(!consommePeriodMin||!consommePeriodMax){if(banner)banner.classList.remove('active');if(navPeriod)navPeriod.classList.add('hidden');return;}
@@ -1382,34 +1299,6 @@
     el.classList.remove('hidden');
   }
   function updateTerrProgress(cur,total){const pct=total>0?Math.round(cur/total*100):0;const bar=document.getElementById('terrProgressBar');const txt=document.getElementById('terrProgressText');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=pct+'%';const pipe=document.getElementById('pipeTerritoire');if(pipe&&pct<100)pipe.textContent=`🔗 Territoire… ${pct}%`;}
-  function calcCouverture(stock,V){if(V<=0||stock<=0)return 999;return Math.round(stock/(V/globalJoursOuvres));}
-  function formatCouv(j){if(j>=999)return'—';return j+'j';}
-  function couvColor(j){if(j>=999)return'text-gray-400';if(j<=7)return'text-red-600 font-extrabold';if(j<=21)return'text-orange-600 font-bold';if(j<=60)return'text-green-600';return'text-blue-500';}
-
-  // ★ V2: Client crossing — consommé × chalandise
-  function computeClientCrossing(){
-    if(!chalandiseReady||!clientsMagasin.size){crossingStats=null;return;}
-    const fideles=new Set(),potentiels=new Set(),captes=new Set();
-    for(const cc of clientsMagasin){if(chalandiseData.has(cc))captes.add(cc);else fideles.add(cc);}
-    for(const[cc,info] of chalandiseData.entries()){
-      if(!clientsMagasin.has(cc)){const s=(info.statut||'').toLowerCase();if(s.includes('actif')&&!s.includes('inactif'))potentiels.add(cc);}
-    }
-    crossingStats={fideles,potentiels,captes};
-  }
-  function _crossBadge(cc){
-    if(!crossingStats)return'';
-    if(crossingStats.captes.has(cc))return'<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
-    if(crossingStats.potentiels.has(cc))return'<span class="ml-0.5 text-[10px]" title="Potentiel non capté — dans la zone, n\'est pas encore venu en agence">🔴</span>';
-    if(crossingStats.fideles.has(cc))return'<span class="ml-0.5 text-[10px]" title="Fidèle hors zone — vient en agence malgré la distance">🟣</span>';
-    return'';
-  }
-  function _passesClientCrossFilter(cc){
-    if(!_selectedCrossStatus||!crossingStats)return true;
-    if(_selectedCrossStatus==='fidele')return crossingStats.fideles.has(cc);   // never true for chalandise clients
-    if(_selectedCrossStatus==='capte')return crossingStats.captes.has(cc);
-    if(_selectedCrossStatus==='potentiel')return crossingStats.potentiels.has(cc);
-    return true;
-  }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
     const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
@@ -1422,60 +1311,6 @@
     _buildChalandiseOverview();
   }
 
-  // ★ V23: Priority score — Fréq × PU × coeff ancienneté
-  function calcPriorityScore(freq,pu,ageJours){
-    const caPerdu=freq*pu; // CA potentiel perdu annuel
-    // Coeff ancienneté: plus c'est ancien, plus c'est grave
-    let ageCoeff=1;
-    if(ageJours<30)ageCoeff=0.8;
-    else if(ageJours<90)ageCoeff=1;
-    else if(ageJours<180)ageCoeff=1.2;
-    else ageCoeff=1.5;
-    return Math.round(caPerdu*ageCoeff);
-  }
-  function prioClass(score){if(score>=5000)return'prio-critical';if(score>=1000)return'prio-high';if(score>=300)return'prio-medium';return'prio-low';}
-  function prioLabel(score){if(score>=5000)return'🔴';if(score>=1000)return'🟠';if(score>=300)return'🟡';return'⚪';}
-
-  // ★ V23: Detect parent reference (all 3 dates empty)
-  function isParentRef(row){
-    const d1=getVal(row,'dernière sortie','sortie');
-    const d2=getVal(row,'première entrée','premiere entree','première réception');
-    const d3=getVal(row,'dernière entrée','entrée');
-    function isEmpty(v){if(!v)return true;const s=v.toString().trim();return s===''||s==='-'||s==='0'||s==='NaN';}
-    return isEmpty(d1)&&isEmpty(d2)&&isEmpty(d3);
-  }
-
-  // ★ V24: Compute ABC / FMR classifications + build matrix data
-  function computeABCFMR(data){
-    // ABC: based on rotation value = V × prixUnitaire, for active articles (W≥1)
-    const active=data.filter(r=>r.W>=1);
-    active.sort((a,b)=>(b.V*b.prixUnitaire)-(a.V*a.prixUnitaire));
-    const totalRot=active.reduce((s,r)=>s+r.V*r.prixUnitaire,0);
-    let cumul=0;const abcMap={};
-    for(const r of active){
-      cumul+=r.V*r.prixUnitaire;
-      const p=totalRot>0?cumul/totalRot:1;
-      abcMap[r.code]=p<=0.8?'A':p<=0.95?'B':'C';
-    }
-    // Assign ABC + FMR to each article
-    for(const r of data){
-      if(r.W>=1){
-        r.abcClass=abcMap[r.code]||'C';
-        r.fmrClass=r.W>=12?'F':r.W>=4?'M':'R';
-      } else {
-        r.abcClass='';r.fmrClass='';
-      }
-    }
-    // Build matrix aggregate data
-    const totalStockVal=data.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
-    const mx={};
-    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
-      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
-      const sv=items.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
-      mx[key]={count:items.length,stockVal:sv,pctTotal:totalStockVal>0?sv/totalStockVal*100:0};
-    }
-    abcMatrixData=mx;
-  }
 
   // ★ V24: Click on ABC matrix cell → filter Articles tab
   function filterByAbcFmr(abc,fmr){
@@ -1696,10 +1531,7 @@
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
 
-      // ★ Fix: PU fallback from consommé for articles with prixUnitaire=0 (stock=0 → PRMP=0)
-      {const mySk=selectedMyStore||Object.keys(ventesParMagasin)[0]||'';for(const r of finalData){if(r.prixUnitaire>0)continue;// Fallback 1: PU from own store's consommé (sumCA/sumPrelevee)
-      const myV=ventesParMagasin[mySk]?.[r.code];if(myV&&myV.sumPrelevee>0&&myV.sumCA>0){r.prixUnitaire=Math.round(myV.sumCA/myV.sumPrelevee*100)/100;continue;}// Fallback 2: PU from any other store's consommé (multi-agence)
-      for(const sk of Object.keys(ventesParMagasin)){if(sk===mySk)continue;const sv=ventesParMagasin[sk]?.[r.code];if(sv&&sv.sumPrelevee>0&&sv.sumCA>0){r.prixUnitaire=Math.round(sv.sumCA/sv.sumPrelevee*100)/100;break;}}}}
+      enrichPrixUnitaire();
 
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
@@ -1774,21 +1606,6 @@
       }
     });
   }
-
-  function parseCSVText(text,sep){
-    const lines=text.split(/\r?\n/);if(!lines.length)return[];
-    const headers=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
-    const rows=[];
-    for(let i=1;i<lines.length;i++){
-      const l=lines[i].trim();if(!l)continue;
-      const vals=l.split(sep);const obj={};
-      headers.forEach((h,idx)=>{obj[h]=(vals[idx]||'').trim().replace(/^"|"$/g,'');});
-      rows.push(obj);
-    }
-    return rows;
-  }
-
-  function cleanOmniPrice(v){if(!v)return 0;const s=v.toString().replace(/\s/g,'').replace(/€/g,'').replace(/,/g,'.');return parseFloat(s)||0;}
 
   // V24.4 perf: Web Worker code — runs off the main thread, completely frees the UI
   // Uses function.toString() trick to avoid string-escaping issues with regex literals
@@ -1916,8 +1733,6 @@
   }
 
   // V24.5: Secteur multi-select helpers
-  const SECTEUR_DIR_MAP={M:'Maintenance',B:'Second Œuvre',L:'DVP Plomberie',F:'DVI Industrie'};
-  function getSecteurDirection(code){if(!code)return'';return SECTEUR_DIR_MAP[code.charAt(0).toUpperCase()]||'';}
   function buildSecteurCheckboxes(secteurs){
     const div=document.getElementById('terrSecteurCheckboxes');if(!div)return;
     if(!secteurs.length){div.innerHTML='<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>';return;}
@@ -2572,7 +2387,6 @@
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Territoire_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Territoire téléchargé','success');
   }
 
-  function _median(arr){if(!arr.length)return 0;const s=[...arr].sort((a,b)=>a-b);const m=s.length;return m%2?s[(m-1)/2]:(s[m/2-1]+s[m/2])/2;}
   function computeBenchmark(){
     const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));benchLists={missed:[],under:[],over:[],storePerf:{},familyPerf:[]};if(!cs.length)return;
     const n=cs.length;
@@ -2896,7 +2710,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
-  let kpiHistory=[];
   function clearSavedKPI(){kpiHistory=[];document.getElementById('compareBlock').classList.add('hidden');showToast('🗑️ Historique effacé.','success');}
   function exportKPIhistory(){if(!kpiHistory.length){showToast('⚠️ Lancez d\'abord une analyse.','warning');return;}const blob=new Blob([JSON.stringify({magasin:selectedMyStore,exportDate:new Date().toISOString(),history:kpiHistory},null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='PILOT_historique_'+(selectedMyStore||'X')+'_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 Historique exporté','success');}
   function importKPIhistory(input){if(!input.files.length)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(data.history&&data.history.length){kpiHistory=data.history;showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`,'success');renderAll();}else{showToast('❌ Fichier invalide.','error');}}catch(err){showToast('❌ Erreur : '+err.message,'error');}};reader.readAsText(input.files[0]);input.value='';}
@@ -3112,16 +2925,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(fmr)data=data.filter(r=>r.fmrClass===fmr);
     return data;
   }
-  function _radarComputeMatrix(data){
-    const totalStock=data.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0)||1;
-    const mx={};
-    for(const abc of['A','B','C'])for(const fmr of['F','M','R']){
-      const key=abc+fmr,items=data.filter(r=>r.abcClass===abc&&r.fmrClass===fmr);
-      const stockVal=items.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0);
-      mx[key]={count:items.length,stockVal,pctTotal:(stockVal/totalStock)*100};
-    }
-    return mx;
-  }
   function renderABCTab(){
     if(!finalData.length||!Object.keys(abcMatrixData).length)return;
     const radarData=_radarFilteredData();
@@ -3178,8 +2981,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
-  let _diagLevels={};let _diagActions=[];let _diagPlanCopyText='';
-  let _diagMetierFilter='';let _diagCurrentFamille='';let _diagCurrentSource='';
 
   function openDiagnostic(famille,source){
     const overlay=document.getElementById('diagnosticOverlay');
@@ -3291,7 +3092,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const nonRef=cellArts.filter(r=>r.stockActuel<=0&&r.W<3).length;
     const ruptures=cellArts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);caPerduTotal+=ca;
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);caPerduTotal+=ca;
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     const activeArts=cellArts.filter(r=>r.W>=1);
@@ -3388,7 +3189,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
       caPerduTotal+=ca;return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
     // Calibrage MIN/MAX
@@ -3436,7 +3237,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let caPerduTotal=0;
     const ruptures=arts.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent).map(r=>{
       const jours=Math.min(r.ageJours>=999?90:r.ageJours,90);
-      const ca=Math.round((r.V/globalJoursOuvres)*jours*r.prixUnitaire);
+      const ca=estimerCAPerdu(r.V,r.prixUnitaire,jours);
       caPerduTotal+=ca;
       return{code:r.code,lib:r.libelle,W:r.W,jours,ca};
     }).sort((a,b)=>b.ca-a.ca);
@@ -3708,7 +3509,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const enStock=topArts.filter(a=>a.stockActuel!==null&&a.stockActuel>0).length;
     let caPerduTotal=0;
     const ruptures=topArts.filter(a=>a.W>=3&&a.stockActuel!==null&&a.stockActuel<=0&&!a.isParent).map(a=>{
-      const jours=90;const ca=Math.round((a.V/globalJoursOuvres)*jours*a.prixUnitaire);caPerduTotal+=ca;
+      const jours=90;const ca=estimerCAPerdu(a.V,a.prixUnitaire,jours);caPerduTotal+=ca;
       return{code:a.code,lib:a.lib,W:a.W,jours,ca,freq:a.freq};
     }).sort((a,b)=>b.ca-a.ca);
     return{status:ruptures.length===0?'ok':caPerduTotal>=1000?'error':'warn',metier,metierClients:metierClients.size,arts:topArts.length,enStock,ruptures,caPerduTotal,topArts};
@@ -3813,21 +3614,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // ── Level 4: Clients métier ──
-  // Priority: 1=actif global+inactif PDV, 2=inactif2026 seul, 3=inactif2026/2025, 4=prospect, 5=actif PDV
-  function _diagClientPrio(info,famCA){
-    const s=(info.statut||'').toLowerCase();
-    const aG=(info.activiteGlobale||info.activite||'').toLowerCase();
-    const isGlobalActif=aG.includes('actif')||(s.includes('actif')&&!s.includes('inactif'));
-    const isPDVActif=famCA>0;
-    if(isGlobalActif&&!isPDVActif)return 1;
-    if(s.includes('inactif')&&s.includes('2026')&&!s.includes('2025'))return 2;
-    if(s.includes('inactif')||s.includes('perdu'))return 3;
-    if(s.includes('prospect'))return 4;
-    if(isGlobalActif&&isPDVActif)return 5;
-    return 4;
-  }
-  function _diagClassifPrio(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return 0;if(u.includes('OCC')&&u.includes('POT+'))return 1;if(u.includes('POT-'))return 2;return 3;}
-  function _diagClassifBadge(c){const u=(c||'').toUpperCase();if(u.includes('FID')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-400">${c}</span>`;if(u.includes('OCC')&&u.includes('POT+'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-400">${c}</span>`;if(u.includes('POT-'))return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;if(c&&c!=='—')return`<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;return'<span class="text-slate-600 text-[9px]">—</span>';}
   function _diagLevel4(famille,hasChal,metierFilter){
     metierFilter=metierFilter||'';
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
@@ -3977,7 +3763,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     showToast('📥 Plan de vol exporté','success');
   }
 
-  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?Math.round((r.V/globalJoursOuvres)*Math.min(r.ageJours>=999?90:r.ageJours,90)*r.prixUnitaire):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
+  function downloadCSV(){const SEP=';',hd=['Code','Libelle','Famille','S/Fam','Empl','Statut','Age','Tranche','Nouv','RefPere','Preleve','Enleve','Freq','Stock','Couverture(j)','PU','AncMin','AncMax','MIN','MAX','ABC','FMR','CAPerdu'];const lines=['\uFEFF'+hd.join(SEP)];const data=filteredData.length?filteredData:finalData;for(const r of data){const br=getAgeBracket(r.ageJours);const caPerduCSV=(r.W>=3&&r.stockActuel<=0&&!r.isParent&&r.V>0)?estimerCAPerdu(r.V,r.prixUnitaire,Math.min(r.ageJours>=999?90:r.ageJours,90)):0;lines.push([r.code,`"${r.libelle.replace(/"/g,'""')}"`,`"${r.famille}"`,`"${r.sousFamille}"`,`"${r.emplacement}"`,`"${r.statut}"`,r.ageJours,AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g,'').trim(),r.isNouveaute?'OUI':'NON',r.isParent?'OUI':'NON',r.V,r.enleveTotal||0,r.W,r.stockActuel,r.couvertureJours>=999?'':r.couvertureJours,r.prixUnitaire.toFixed(2).replace('.',','),r.ancienMin,r.ancienMax,r.nouveauMin,r.nouveauMax,r.abcClass||'',r.fmrClass||'',caPerduCSV||''].join(SEP));}const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_${selectedMyStore||'X'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV téléchargé','success');}
 
   // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
   (function(){
