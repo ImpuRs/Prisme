@@ -312,6 +312,8 @@ function computeBenchmark() {
   for (const fp of benchLists.familyPerf) { const myArts = []; for (const [c, d] of Object.entries(myV)) { if (!/^\d{6}$/.test(c) || articleFamille[c] !== fp.fam) continue; const artVals = cs.map(s => ((ventesParMagasin[s] || {})[c] || {}).countBL || 0).filter(v => v > 0); const med = artVals.length ? Math.round(_median(artVals)) : 0; const pct = med > 0 ? Math.round(d.countBL / med * 100) : null; const _rawLib = libelleLookup[c] || c; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; myArts.push({ code: c, lib, my: d.countBL, med, pct }); } fp.topArticles = myArts.sort((a, b) => b.my - a.my).slice(0, 5); }
   const myFamCA = {}, myFamRef = {}; let myTotalCA = 0;
   for (const [code, data] of Object.entries(myV)) { if (!data.sumPrelevee && !data.sumEnleve) continue; if (!/^\d{6}$/.test(code)) continue; const fam = articleFamille[code]; const prix = prixLookup[code] || 0; const lineCA = artCA(data, prix); myTotalCA += lineCA; if (!fam) continue; myFamCA[fam] = (myFamCA[fam] || 0) + lineCA; myFamRef[fam] = (myFamRef[fam] || 0) + 1; }
+  // PDM bassin — poids de mon magasin dans le bassin
+  const bassinTotalCA = myTotalCA + Object.values(storeTotalCA).reduce((s, v) => s + v, 0); const myPoids = bassinTotalCA > 0 ? myTotalCA / bassinTotalCA : 0; const bassinFamCATot = {}; for (const [fam, ca] of Object.entries(myFamCA)) bassinFamCATot[fam] = ca; for (const store of allOtherStores) for (const [fam, ca] of Object.entries(storeFamCA[store] || {})) bassinFamCATot[fam] = (bassinFamCATot[fam] || 0) + ca;
   const obsMode = selectedObsCompare || 'median';
   let compV = null, compFamCA = {}, compFamRef = {}, compTotalCA = 0, compRef = 0, compFreq = 0, compServ = 0;
   if (obsMode !== 'median' && storesIntersection.has(obsMode)) {
@@ -328,7 +330,9 @@ function computeBenchmark() {
   const avgRef = cs.length > 0 ? Math.round(cs.reduce((s, store) => s + (sp[store]?.ref || 0), 0) / cs.length) : 0;
   const myAssort = avgRef > 0 ? Math.round((myRef / avgRef) * 100) : 0;
   const compAssort = 100;
-  benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[selectedMyStore]?.serv || 0, freq: sp[selectedMyStore]?.freq || 0, assort: myAssort }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, assort: compAssort } };
+  const myPdm = Math.round(myPoids * 1000) / 10; const compPdmVals = cs.map(s => bassinTotalCA > 0 ? (storeTotalCA[s] || 0) / bassinTotalCA * 100 : 0).filter(v => v > 0); const compPdmMed = Math.round((compPdmVals.length ? _median(compPdmVals) : 0) * 10) / 10; const compPdm = (obsMode !== 'median' && storesIntersection.has(obsMode)) ? Math.round((storeTotalCA[obsMode] || 0) / bassinTotalCA * 1000) / 10 : compPdmMed;
+  benchLists._myPoids = myPoids; benchLists._bassinFamCATot = bassinFamCATot;
+  benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[selectedMyStore]?.serv || 0, freq: sp[selectedMyStore]?.freq || 0, pdm: myPdm }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm } };
   const allFams2 = new Set([...Object.keys(myFamCA), ...Object.keys(compFamCA)]);
   const obsFamiliesLose = [], obsFamiliesWin = [];
   for (const fam of allFams2) {
@@ -342,7 +346,7 @@ function computeBenchmark() {
     if (refMe === 0) { missingArts.sort((a, b) => b.caOther - a.caOther); } else { missingArts.sort((a, b) => b.freqOther - a.freqOther); } missingArts = missingArts.slice(0, 50);
     // Articles exclusifs — vendus par moi mais pas par la comparaison
     const exclusiveArts = []; if (compV) { for (const [code, data] of Object.entries(myV)) { if (articleFamille[code] !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; if ((compV[code]?.sumPrelevee || 0) > 0 || (compV[code]?.sumEnleve || 0) > 0) continue; const lib = libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data, prixLookup[code] || 0)) }); } } else { const threshold = Math.max(2, Math.ceil(cs.length / 2)); for (const [code, data] of Object.entries(myV)) { if (articleFamille[code] !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; let otherCount = 0; for (const store of cs) { if ((ventesParMagasin[store]?.[code]?.sumPrelevee || 0) > 0) otherCount++; } if (otherCount >= threshold) continue; const lib = libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data, prixLookup[code] || 0)), nbStores: otherCount }); } } exclusiveArts.sort((a, b) => b.ca - a.ca);
-    const entry = { fam, caMe, caOther, ecartPct, refMe, refOther, missingArts, specialArts, exclusiveArts: exclusiveArts.slice(0, 30) };
+    const entry = { fam, caMe, caOther, ecartPct, refMe, refOther, missingArts, specialArts, exclusiveArts: exclusiveArts.slice(0, 30), caTheorique: Math.round(myPoids * (bassinFamCATot[fam] || 0)), ecartTheorique: Math.round((myFamCA[fam] || 0) - myPoids * (bassinFamCATot[fam] || 0)) };
     if (ecartPct <= -5) obsFamiliesLose.push(entry); else if (ecartPct >= 5) obsFamiliesWin.push(entry);
   }
   obsFamiliesLose.sort((a, b) => Math.abs(b.caOther - b.caMe) - Math.abs(a.caOther - a.caMe) || a.ecartPct - b.ecartPct);
