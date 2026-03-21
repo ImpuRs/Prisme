@@ -200,6 +200,7 @@
         <select id="filterFMR" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F — Fréquent (≥12)</option><option value="M">M — Moyen (4-11)</option><option value="R">R — Rare (≤3)</option></select>
       </div>
       <input type="hidden" id="filterCockpit" value="">
+      <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
       <div class="flex flex-wrap gap-2 mt-2">
         <div id="activeAgeFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-lg leading-none">&times;</span></div>
         <div id="activeCockpitFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-lg leading-none">&times;</span></div>
@@ -1236,6 +1237,7 @@
       if(!_clientPassesFilters(info))continue;
       if(!_includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
+      if(excludedClients.has(cc))continue;
       const pdvActif=_isPDVActif(cc);
       const globActif=_isGlobalActif(info);
       const classif=_normalizeClassif(info.classification);
@@ -1293,11 +1295,12 @@
     fideliser.forEach(c=>c._reason=_fidRaison(c));
     _cockpitExportData={urgences,developper,fideliser};
     // Card renderer
-    function _clientCard(c,raisonFn,scoreColor,hoverBg){
+    function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
       const caPDV=c.caPDVN>0?formatEuro(c.caPDVN):'—';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
-      return`<div class="flex items-start gap-3 p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><div class="flex-1 min-w-0"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div></div>`;
+      const encNom=encodeURIComponent(c.nom||c.code);
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1307,25 +1310,35 @@
       t+=`</tbody></table></div>`;
       return t;
     }
+    // Excluded clients bandeau for a block
+    function _excludedBandeau(listId){
+      const excl=[...excludedClients.entries()].filter(([,v])=>v.category===listId);
+      if(!excl.length)return'';
+      const n=excl.length;
+      const exclListId=`${listId}-excl-detail`;
+      const rows=excl.map(([cc,v])=>`<div class="flex items-center gap-2 bg-gray-50 rounded px-2 py-1"><span class="font-mono text-gray-400 shrink-0">${cc}</span><span class="flex-1 font-semibold truncate">${v.nom||cc}</span><span class="text-gray-400 italic shrink-0">${v.reason}</span><button onclick="_unexcludeClient('${cc}')" class="text-blue-600 hover:underline font-bold shrink-0">Réintégrer</button></div>`).join('');
+      return`<div class="mt-3 pt-2 border-t border-gray-200"><div class="flex items-center gap-2 text-[10px] text-gray-500 flex-wrap">👁️ <span>${n} client${n>1?'s':''} masqué${n>1?'s':''}</span><button onclick="_toggleExcludedList('${exclListId}')" class="text-blue-600 hover:underline">Voir</button><span>·</span><button onclick="_unexcludeAll('${listId}')" class="text-blue-600 hover:underline">Tout réafficher</button></div><div id="${exclListId}" style="display:none" class="mt-1.5 space-y-1 text-[10px]">${rows}</div></div>`;
+    }
     // Block renderer: Top 10 cards + optional full list
     function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId){
       const top10=clients.slice(0,10);
       const total=clients.length;
-      if(!total)return`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">${emptyMsg}</p></div>`;
+      if(!total)return`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 mb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge bg-gray-200 text-gray-600">0</span></div><p class="text-xs text-gray-400">${emptyMsg}</p>${_excludedBandeau(listId)}</div>`;
       let html=`<div class="${bgColor} p-4 rounded-xl border-t-4 ${borderColor}">`;
       html+=`<div class="flex items-center gap-2 mb-0.5 flex-wrap"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
       html+=`<p class="text-[10px] text-gray-500 mb-3">${subtitle.replace('{total}',total)}</p>`;
       html+=`<div class="space-y-2">`;
-      for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg);
+      for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg,listId);
       html+=`</div>`;
       if(total>10){html+=`<button id="${listId}-btn" class="mt-3 text-[11px] font-bold text-blue-600 hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button>`;html+=_fullTable(clients,sortField,listId);}
+      html+=_excludedBandeau(listId);
       html+=`</div>`;
       return html;
     }
     // Summary banner
     const silentBit=silentCount>0?` · <span class="text-amber-600">⚠️ ${silentCount} client${silentCount>1?'s':''} silencieux (&gt;60j sans commande)</span>`:'';
     const banner=`<div class="mb-3 px-4 py-2 bg-gray-50 border rounded-lg text-[11px] font-semibold text-gray-700">Sur votre sélection : <span class="text-red-600">🔴 ${urgences.length} urgence${urgences.length!==1?'s':''}</span> · <span class="text-orange-500">🟠 ${developper.length} à développer</span> · <span class="text-green-600">🟢 ${fideliser.length} à fidéliser</span>${silentBit}</div>`;
-    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-3"><h3 class="font-extrabold text-gray-800 flex-1">🎯 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('URGENCES — Top 10 actions immédiates','Triés par potentiel × urgence · {total} clients dans cette catégorie','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold text-gray-800 flex-1">🎯 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('URGENCES — Top 10 actions immédiates','Triés par potentiel × urgence · {total} clients dans cette catégorie','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
   }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
@@ -1341,7 +1354,7 @@
 
 
   // ── Cockpit Client CSV Export ──
-  function _cockpitRowCSV(cat,c){
+  function _cockpitRowCSV(cat,c,exclu,exclusionReason){
     const SEP=';';
     const caLeg=c.ca2025>0?c.ca2025.toFixed(2).replace('.',','):'—';
     const caPDV=c.caPDVN>0?c.caPDVN.toFixed(2).replace('.',','):'—';
@@ -1349,10 +1362,10 @@
     const jours=c._daysSince!=null?c._daysSince:'—';
     const statut=_clientStatusText(c.code,c);
     const raison=(c._reason||'').replace(/"/g,'""');
-    return[cat,c.code,`"${(c.nom||'').replace(/"/g,'""')}"`,statut,`"${_normalizeClassif(c.classification)}"`,`"${(c.metier||'').replace(/"/g,'""')}"`,`"${(c.commercial||'').replace(/"/g,'""')}"`,`"${(c.ville||'').replace(/"/g,'""')}"`,caLeg,caPDV,dernCmd,jours,c._score,`"${raison}"`].join(SEP);
+    return[cat,c.code,`"${(c.nom||'').replace(/"/g,'""')}"`,statut,`"${_normalizeClassif(c.classification)}"`,`"${(c.metier||'').replace(/"/g,'""')}"`,`"${(c.commercial||'').replace(/"/g,'""')}"`,`"${(c.ville||'').replace(/"/g,'""')}"`,caLeg,caPDV,dernCmd,jours,c._score,`"${raison}"`,exclu||'Non',`"${(exclusionReason||'').replace(/"/g,'""')}"`].join(SEP);
   }
   function _downloadCockpitCSV(rows,filename,label){
-    const header='\uFEFFCatégorie;Code;Nom;Statut;Classification;Métier;Commercial;Ville;CA Legallais;CA PDV;Dernière commande;Jours sans commande;Score;Raison';
+    const header='\uFEFFCatégorie;Code;Nom;Statut;Classification;Métier;Commercial;Ville;CA Legallais;CA PDV;Dernière commande;Jours sans commande;Score;Raison;Exclu;Raison exclusion';
     const blob=new Blob([[header,...rows].join('\n')],{type:'text/csv;charset=utf-8;'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
     showToast(`📥 CSV ${label} — ${rows.length} clients`,'success');
@@ -1362,17 +1375,79 @@
     const map={'cockpit-urg-full':['Urgence',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
     const entry=map[catKey];if(!entry)return;
     const[catLabel,clients]=entry;
+    const rows=clients.map(c=>_cockpitRowCSV(catLabel,c,'Non',''));
+    // Include excluded clients for this category
+    for(const[cc,v] of excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}
     const date=new Date().toISOString().slice(0,10);
-    const agence=selectedMyStore||'AGENCE';
-    _downloadCockpitCSV(clients.map(c=>_cockpitRowCSV(catLabel,c)),`PILOT_${agence}_Clients_${catLabel}_${date}.csv`,catLabel);
+    _downloadCockpitCSV(rows,`PILOT_${selectedMyStore||'AGENCE'}_Clients_${catLabel}_${date}.csv`,catLabel);
   }
   function exportCockpitCSVAll(){
     if(!_cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
+    const catMap={'cockpit-urg-full':['Urgence',_cockpitExportData.urgences],'cockpit-dev-full':['Développer',_cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_cockpitExportData.fideliser]};
     const rows=[];
-    for(const[cat,list] of[['Urgence',_cockpitExportData.urgences],['Développer',_cockpitExportData.developper],['Fidéliser',_cockpitExportData.fideliser]])for(const c of list)rows.push(_cockpitRowCSV(cat,c));
+    for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
     const date=new Date().toISOString().slice(0,10);
-    const agence=selectedMyStore||'AGENCE';
-    _downloadCockpitCSV(rows,`PILOT_${agence}_Clients_${date}.csv`,'Toutes catégories');
+    _downloadCockpitCSV(rows,`PILOT_${selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
+  }
+
+  // ── Client exclusion (hide from cockpit) ──
+  function _showExcludePrompt(cc,encodedNom,catKey){
+    const card=document.getElementById('cockpit-card-'+cc);if(!card)return;
+    const existing=card.querySelector('.excl-prompt');if(existing){existing.remove();return;}
+    const nom=decodeURIComponent(encodedNom);
+    const div=document.createElement('div');div.className='excl-prompt mt-2 pt-2 border-t border-gray-200 flex items-center gap-2 flex-wrap';
+    div.innerHTML=`<span class="text-[10px] text-gray-500">Raison :</span><select id="excl-sel-${cc}" class="text-[10px] border rounded p-1"><option value="Pas pertinent">Pas pertinent</option><option value="Hors cible">Hors cible</option><option value="Déjà traité">Déjà traité</option><option value="Autre">Autre</option></select><button onclick="_confirmExclude('${cc}','${encodeURIComponent(nom)}','${catKey}')" class="text-[10px] bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded font-bold">Masquer</button><button onclick="this.closest('.excl-prompt').remove()" class="text-[10px] text-gray-400 hover:text-gray-600 px-1">Annuler</button>`;
+    card.appendChild(div);
+  }
+  function _confirmExclude(cc,encodedNom,catKey){
+    const nom=decodeURIComponent(encodedNom);
+    const sel=document.getElementById('excl-sel-'+cc);const reason=sel?sel.value:'Pas pertinent';
+    const allClients=[...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
+    const clientData=allClients.find(c=>c.code===cc)||{code:cc,nom};
+    excludedClients.set(cc,{reason,date:new Date().toISOString().slice(0,10),by:selectedMyStore||'',category:catKey,nom,clientData});
+    showToast(`👁️ ${nom} masqué — ${reason}`,'info');
+    _buildCockpitClient();
+  }
+  function _unexcludeClient(cc){
+    excludedClients.delete(cc);
+    _buildCockpitClient();
+  }
+  function _unexcludeAll(catKey){
+    for(const[cc,v] of excludedClients.entries()){if(v.category===catKey)excludedClients.delete(cc);}
+    _buildCockpitClient();
+  }
+  function _toggleExcludedList(id){
+    const el=document.getElementById(id);if(!el)return;
+    el.style.display=el.style.display==='none'?'block':'none';
+  }
+  function exportExclusionsJSON(){
+    if(!excludedClients.size){showToast('Aucune exclusion à exporter','info');return;}
+    const data={magasin:selectedMyStore||'AGENCE',date:new Date().toISOString().slice(0,10),exclusions:[...excludedClients.entries()].map(([cc,v])=>({code:cc,nom:v.nom||cc,reason:v.reason,date:v.date,category:v.category}))};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PILOT_${data.magasin}_exclusions.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+    showToast(`📤 ${data.exclusions.length} exclusions exportées`,'success');
+  }
+  function importExclusionsJSON(input){
+    const file=input.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try{
+        const data=JSON.parse(e.target.result);
+        if(!data.exclusions||!Array.isArray(data.exclusions))throw new Error('Format invalide');
+        let count=0;
+        const allClients=[...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
+        for(const ex of data.exclusions){
+          if(!ex.code)continue;
+          const clientData=allClients.find(c=>c.code===ex.code)||{code:ex.code,nom:ex.nom||ex.code};
+          excludedClients.set(ex.code,{reason:ex.reason||'Importé',date:ex.date||'',by:ex.by||'',category:ex.category||'cockpit-urg-full',nom:ex.nom||ex.code,clientData});
+          count++;
+        }
+        input.value='';
+        showToast(`✅ ${count} exclusions importées`,'success');
+        _buildCockpitClient();
+      }catch(err){showToast('⚠️ Erreur import : '+err.message,'error');}
+    };
+    reader.readAsText(file);
   }
 
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
