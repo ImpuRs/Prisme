@@ -52,6 +52,12 @@ let terrContribByDirection = new Map();
 let consommePeriodMin = null;
 let consommePeriodMax = null;
 let consommeMoisCouverts = 0;
+let consommePeriodMinFull = null; // plage totale avant tout filtre période
+let consommePeriodMaxFull = null;
+
+// ── Filtre période global ──
+let periodFilterStart = null; // null = pas de filtre (toute la période)
+let periodFilterEnd = null;
 
 // ── Insights banner ──
 let _insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
