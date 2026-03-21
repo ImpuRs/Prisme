@@ -2702,13 +2702,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):0;
     if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
-    const fmtD=d=>{if(!d)return'?';const m=String(d).match(/^(\d{4})-(\d{2})/);return m?m[2]+'/'+m[1]:d;};
     document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
     document.getElementById('eqFreq').textContent=freqPDV;
     document.getElementById('eqPanier').textContent=panierMoyen>0?panierMoyen.toLocaleString('fr')+' €':'—';
     document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
     const src=document.getElementById('eqSource');
-    if(src)src.textContent=`Source : fichier Consommé canal MAGASIN · Période : ${fmtD(consommePeriodMin)} → ${fmtD(consommePeriodMax)}`;
+    if(src)src.textContent=`Source : Consommé canal MAGASIN · ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`;
   }
 
   function renderDashboardAndCockpit(){
