@@ -308,6 +308,8 @@ function computeBenchmark() {
   const bassinFamCAMed = {}; for (const fam of allFamsSet) { const caVals = cs.map(s => (storeFamCA[s] || {})[fam] || 0).filter(v => v > 0); if (caVals.length) bassinFamCAMed[fam] = _median(caVals); }
   benchLists._bassinFamCAMed = bassinFamCAMed;
   { const _bfpBefore = benchLists.familyPerf.length; benchLists.familyPerf = benchLists.familyPerf.filter(fp => (bassinFamCAMed[fp.fam] || 0) >= 1000); benchLists.familyPerfMasked = (benchLists.familyPerfMasked || 0) + (_bfpBefore - benchLists.familyPerf.length); }
+  // Top 5 articles per family (Moi / Méd. / % bassin) for F&F expand
+  for (const fp of benchLists.familyPerf) { const myArts = []; for (const [c, d] of Object.entries(myV)) { if (!/^\d{6}$/.test(c) || articleFamille[c] !== fp.fam) continue; const artVals = cs.map(s => ((ventesParMagasin[s] || {})[c] || {}).countBL || 0).filter(v => v > 0); const med = artVals.length ? Math.round(_median(artVals)) : 0; const pct = med > 0 ? Math.round(d.countBL / med * 100) : null; const _rawLib = libelleLookup[c] || c; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; myArts.push({ code: c, lib, my: d.countBL, med, pct }); } fp.topArticles = myArts.sort((a, b) => b.my - a.my).slice(0, 5); }
   const myFamCA = {}, myFamRef = {}; let myTotalCA = 0;
   for (const [code, data] of Object.entries(myV)) { if (!data.sumPrelevee && !data.sumEnleve) continue; if (!/^\d{6}$/.test(code)) continue; const fam = articleFamille[code]; const prix = prixLookup[code] || 0; const lineCA = artCA(data, prix); myTotalCA += lineCA; if (!fam) continue; myFamCA[fam] = (myFamCA[fam] || 0) + lineCA; myFamRef[fam] = (myFamRef[fam] || 0) + 1; }
   const obsMode = selectedObsCompare || 'median';
