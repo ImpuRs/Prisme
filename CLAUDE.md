@@ -1,7 +1,7 @@
 # CLAUDE.md — Contexte PILOT PRO
 
 ## Qu'est-ce que ce projet ?
-PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Territoire, Zone de Chalandise).
+PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Le Terrain, Zone de Chalandise).
 
 ## Architecture
 - **Point d'entrée** : `index.html` contient la structure HTML, le CSS et le `<script>` principal
@@ -55,7 +55,7 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
   - `renderAll()` / `renderTable()` / `renderDashboardAndCockpit()` : affichage
   - `renderABCTab()` : onglet Radar — matrice 3×3 ABC/FMR cliquable + filtres Famille/Emplacement + guides
   - `computeBenchmark()` / `renderBenchmark()` : module benchmark
-  - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` : onglet Territoire
+  - `renderCanalAgence()` / `renderTerritoireTab()` / `exportTerritoireCSV()` : onglet Le Terrain
   - `renderTerrCroisementSummary()` : bloc résumé auto-détecté (VOLET 3)
   - `buildTerrContrib()` / `renderTerrContrib()` / `toggleContribSecteur()` / `renderContribClients()` / `toggleContribClient()` / `renderContribArticles()` / `exportContribCSV()` : drilldown contributeurs agence (VOLET 2bis)
   - `renderExecSummary()` : résumé exécutif (ruptures, stock, service, C-Rare, territoire couverture rayon)
@@ -96,18 +96,19 @@ Pas de tests automatisés pour l'instant. Tester manuellement avec les fichiers 
 - **Bandeau sous-performance** : `benchUnderperformBanner` affiche "⚠️ X familles en sous-performance vs bassin (< 50% médiane)"
 - **Classement magasins** : colonnes Réf | Fréq | Serv. (taux de service = réf vendues / total articles bassin) | Clients zone (si chalandise, clients de la zone actifs dans ce magasin) | Perf
 
-## Territoire — onglet optionnel
+## Le Terrain — onglet optionnel
 - **3ème fichier** : `fileTerritoire` — BL omnicanal exporté depuis Qlik
 - **Articles spéciaux** : codes non standard exclus des vues Direction/Top 100/rayon. KPI `📌 X% du CA = spécial non stockable`
 - **Statut rayon** : ✅ En rayon (stock > 0), ⚠️ Rupture (référencé, stock = 0), ❌ Absent (non référencé) — toujours avec texte (accessible daltoniens)
 - **Filtre multi-select secteur** : checkboxes par code secteur avec direction (M=Maintenance, B=Second Œuvre, L=DVP Plomberie, F=DVI Industrie)
 - **KPI : 5 cartes** : Lignes | CA Total (source unique) | Couverture rayon Top 100 | % Spécial | Clients — **JAMAIS de ratio entre 2 fichiers différents**
-- **Vue Direction** : CA Territoire | Nb articles | ✅ En rayon | ⚠️ Rupture | ❌ Absent | % couverture (nb en rayon / nb total) — pas de CA croisé
-- **Top 100** : Code | Libellé | Direction | BL | CA Territoire | Rayon (✅/⚠️/❌ + texte) | Stock actuel — pas de CA Magasin/Extérieur
-- **Clients** : Code | Nom | CA Territoire | Nb réf | Type (✅ Mixte / ❌ Ext. pur) — pas de CA croisé
+- **Vue Direction** : CA Le Terrain | Nb articles | ✅ En rayon | ⚠️ Rupture | ❌ Absent | % couverture (nb en rayon / nb total) — pas de CA croisé
+- **Top 100** : Code | Libellé | Direction | BL | CA Le Terrain | Rayon (✅/⚠️/❌ + texte) | Stock actuel — pas de CA Magasin/Extérieur
+- **Clients** : Code | Nom | CA Le Terrain | Nb réf | Type (✅ Mixte / ❌ Ext. pur) — pas de CA croisé
 - **Résumé croisement** (VOLET 3) : bloc sombre auto-généré au-dessus des KPIs avec toutes les métriques auto-détectées
 - **Contributeurs agence** (VOLET 2bis) : drilldown 3 niveaux — Secteurs (trié % agence asc = opportunités) → Clients → Articles. Lazy loading au clic. Export CSV Vue 1.
-- **Résumé exécutif** cockpit, 5ème ligne : % couverture rayon Top 100 (source unique territoire, pas de CA croisé)
+- **Résumé exécutif** cockpit, 5ème ligne : % couverture rayon Top 100 (source unique Le Terrain, pas de CA croisé)
+- **`_toggleClientArticles`** : affiche 2 sections quand les 2 sources sont dispo — 🏪 Achats comptoir (ventesClientArticle) + 📦 Achats chez Legallais hors comptoir (territoireLines, tous canaux BL omnicanal)
 
 ## Diagnostic Cascade Adaptatif — V2 Phase 2
 
