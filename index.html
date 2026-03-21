@@ -584,32 +584,48 @@
       <div id="terrChalandiseOverview" class="hidden mt-2">
         <!-- Filters -->
         <div class="mb-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
-          <div class="flex flex-wrap gap-2 items-center">
-            <span class="text-xs font-bold text-rose-700 shrink-0">🗺️ Départements :</span>
-            <div id="terrDeptCheckboxes" class="flex flex-wrap gap-1"></div>
-            <span id="terrDeptCount" class="text-xs text-rose-500 font-semibold ml-1"></span>
-          </div>
-          <div class="flex flex-wrap gap-1.5 items-center mt-1.5">
-            <span class="text-[10px] font-bold text-gray-600 shrink-0">Classif :</span>
-            <div id="terrOverviewClassifChips" class="flex flex-wrap gap-1"></div>
-            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Activité PDV :</span>
-            <div id="terrOverviewActPDVChips" class="flex flex-wrap gap-1"></div>
-          </div>
-          <div class="flex flex-wrap gap-1.5 items-center mt-1.5">
-            <span class="text-[10px] font-bold text-gray-600 shrink-0">Métier :</span>
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Tous" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[160px]"><datalist id="terrMetierList"></datalist>
-            <span class="text-[10px] font-bold text-gray-600 shrink-0 ml-2">Commercial :</span>
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Tous" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[140px]"><datalist id="terrCommercialList"></datalist>
-            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer ml-2"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
-          </div>
-          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mt-1.5">
+          <!-- Row 1: Croisement (shown only when territory loaded) -->
+          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mb-1.5">
             <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
             <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
             <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
             <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
             <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
+          </div>
+          <!-- Row 2: Compact dropdowns + inputs -->
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <div class="relative" id="terrDeptDropdownWrap">
+              <button type="button" onclick="_toggleDeptDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[95px] text-left flex items-center justify-between gap-1">
+                <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrDeptPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[150px] max-h-48 overflow-y-auto">
+                <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <div class="relative" id="terrClassifDropdownWrap">
+              <button type="button" onclick="_toggleClassifDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrClassifPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[160px]">
+                <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <div class="relative" id="terrActPDVDropdownWrap">
+              <button type="button" onclick="_toggleActPDVDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+              </button>
+              <div id="terrActPDVPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[185px]">
+                <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Métier" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px]"><datalist id="terrMetierList"></datalist>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Commercial" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[120px]"><datalist id="terrCommercialList"></datalist>
+          </div>
+          <!-- Row 3: Toggles -->
+          <div class="flex flex-wrap gap-1.5 items-center mt-1">
+            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
+            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
           </div>
         </div>
         <!-- Dynamic counter -->
@@ -760,19 +776,18 @@
   function _getAllDepts(){const m={};for(const info of chalandiseData.values()){const d=(info.cp||'').toString().slice(0,2);if(d&&d.trim())m[d]=(m[d]||0)+1;}return m;}
   function _buildDeptFilter(){
     const container=document.getElementById('terrDeptCheckboxes');
-    const countEl=document.getElementById('terrDeptCount');
+    const labelEl=document.getElementById('terrDeptLabel');
     if(!container)return;
     if(!chalandiseReady){return;}
     const deptMap=_getAllDepts();
     const depts=Object.entries(deptMap).sort((a,b)=>a[0].localeCompare(b[0]));
-    if(!depts.length){container.innerHTML='<span class="text-xs text-rose-400">— aucun CP renseigné —</span>';if(countEl)countEl.textContent='';return;}
-    // FIX: _selectedDepts empty = all selected. Visual must match.
+    if(!depts.length){container.innerHTML='<span class="text-xs text-rose-400">— aucun CP —</span>';if(labelEl)labelEl.textContent='🗺️ Dépt: —';return;}
     const allSel=!_selectedDepts.size;
     container.innerHTML=depts.map(([dept,cnt])=>{
       const sel=allSel||_selectedDepts.has(dept);
-      return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs cursor-pointer border transition-colors ${sel?'bg-rose-600 text-white border-rose-600':'bg-white text-rose-500 border-rose-200 opacity-60 hover:opacity-90'}" onclick="_toggleDept('${dept}',event)">${dept}<span class="text-[9px] opacity-75">(${cnt})</span></label>`;
+      return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-rose-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleDept('${dept}')" class="rounded accent-rose-600"><span class="font-semibold">${dept}</span><span class="text-gray-400">(${cnt})</span></label>`;
     }).join('');
-    if(countEl){const selCount=allSel?depts.length:_selectedDepts.size;countEl.textContent=selCount+'/'+depts.length+' dépt.';}
+    if(labelEl){const selCount=allSel?depts.length:_selectedDepts.size;labelEl.textContent=`🗺️ Dépt: ${selCount}/${depts.length}`;}
   }
   function _toggleDept(dept,event){
     if(event)event.preventDefault();
@@ -797,6 +812,9 @@
   }
   function _resetChalandiseFilters(){_selectedDepts=new Set();_selectedClassifs=new Set();_selectedStatuts=new Set();_selectedActivitesPDV=new Set();_selectedCommercial='';_selectedMetier='';_filterStrategiqueOnly=false;_includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('bg-gray-200','text-gray-600');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
+  function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
@@ -824,10 +842,15 @@
     for(const info of chalandiseData.values()){availClassifs.add(_normalizeClassif(info.classification));if(info.activitePDV)availActPDV.add(info.activitePDV);}
     const allC=!_selectedClassifs.size,allA=!_selectedActivitesPDV.size;
     const cEl=document.getElementById('terrOverviewClassifChips');
-    if(cEl)cEl.innerHTML=CLASSIF_ORDER.filter(c=>availClassifs.has(c)).map(c=>{const sel=allC||_selectedClassifs.has(c);const on=CLASSIF_ON[c]||'bg-gray-500 text-white border-gray-500';return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)">${c}</label>`;}).join('');
+    const availClassifList=CLASSIF_ORDER.filter(c=>availClassifs.has(c));
+    if(cEl)cEl.innerHTML=availClassifList.map(c=>{const sel=allC||_selectedClassifs.has(c);return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)" class="rounded"><span class="font-semibold">${c}</span></label>`;}).join('');
+    const classifLabelEl=document.getElementById('terrClassifLabel');
+    if(classifLabelEl){if(allC)classifLabelEl.textContent='Classif: toutes';else{const sel=[..._selectedClassifs];classifLabelEl.textContent=sel.length<=2?'Classif: '+sel.join(', '):'Classif: '+sel.length+'/'+availClassifList.length;}}
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
-    if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const on=_activitePDVColor(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] cursor-pointer border transition-colors ${sel?on:'bg-white text-gray-500 border-gray-200 opacity-50'}" onclick="_toggleOverviewActPDV('${aEsc}',event)">${a}</label>`;}).join('');
+    if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewActPDV('${aEsc}',event)" class="rounded"><span class="font-semibold">${a}</span></label>`;}).join('');
+    const actLabelEl=document.getElementById('terrActPDVLabel');
+    if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
     // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
@@ -1791,10 +1814,13 @@
     el.innerHTML=html;
   }
 
-  // Close secteur dropdown on outside click
+  // Close dropdowns on outside click
   document.addEventListener('click',function(e){
     const dd=document.getElementById('terrSecteurDropdown');
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
+    if(!document.getElementById('terrDeptDropdownWrap')?.contains(e.target))document.getElementById('terrDeptPanel')?.classList.add('hidden');
+    if(!document.getElementById('terrClassifDropdownWrap')?.contains(e.target))document.getElementById('terrClassifPanel')?.classList.add('hidden');
+    if(!document.getElementById('terrActPDVDropdownWrap')?.contains(e.target))document.getElementById('terrActPDVPanel')?.classList.add('hidden');
   });
 
   function renderTerritoireTab(){
