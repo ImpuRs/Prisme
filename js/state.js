@@ -93,6 +93,7 @@ let obsFilterMinCA = 0;
 let crossingStats = null;
 let _selectedCrossStatus = '';
 let _cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
+let excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
 let _includePerdu24m = false;
 
 // ── KPI history ──
