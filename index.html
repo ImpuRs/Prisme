@@ -1696,6 +1696,11 @@
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
 
+      // ★ Fix: PU fallback from consommé for articles with prixUnitaire=0 (stock=0 → PRMP=0)
+      {const mySk=selectedMyStore||Object.keys(ventesParMagasin)[0]||'';for(const r of finalData){if(r.prixUnitaire>0)continue;// Fallback 1: PU from own store's consommé (sumCA/sumPrelevee)
+      const myV=ventesParMagasin[mySk]?.[r.code];if(myV&&myV.sumPrelevee>0&&myV.sumCA>0){r.prixUnitaire=Math.round(myV.sumCA/myV.sumPrelevee*100)/100;continue;}// Fallback 2: PU from any other store's consommé (multi-agence)
+      for(const sk of Object.keys(ventesParMagasin)){if(sk===mySk)continue;const sv=ventesParMagasin[sk]?.[r.code];if(sv&&sv.sumPrelevee>0&&sv.sumCA>0){r.prixUnitaire=Math.round(sv.sumCA/sv.sumPrelevee*100)/100;break;}}}}
+
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(finalData.length>0&&finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
