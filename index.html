@@ -2722,7 +2722,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     _diagLevels={v1,v2,v3};
     const acts=[];
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
-    if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];currentPage=0;switchTab('table');renderAll();}});}
+    if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});}
     if(v2.status!=='lock'&&v2.perdus>0){const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
     _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
@@ -3165,13 +3165,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(l1&&l1.ruptures&&l1.ruptures.length>0){
       const caVal=l1.caPerduTotal||0;
       const caLabel=caVal>0?formatEuro(caVal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(r.prixUnitaire||0)),0))+' potentiel annuel';
-      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+      acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});
     }
     const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
     if(nbMM>0){
       const top5=(l2.detail||[]).slice(0,5);
       const detailHtml=top5.map(r=>`<span class="font-mono text-slate-400">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
-      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();currentPage=0;switchTab('table');renderAll();}});
+      acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});
     }
     if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(territoireReady)switchTab('territoire');}});
     if(l4&&l4.perdus>0){
