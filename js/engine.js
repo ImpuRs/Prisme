@@ -168,6 +168,34 @@ function computeClientCrossing() {
   crossingStats = { fideles, potentiels, captes };
 }
 
+function _clientUrgencyScore(cc, info) {
+  const caLeg = info.ca2025 || 0;
+  const pdvActif = ventesClientArticle.has(cc) && ventesClientArticle.get(cc).size > 0;
+  const globalActif = _isGlobalActif(info);
+  const classif = _normalizeClassif(info.classification);
+  const isFidPlus = classif === 'FID Pot+';
+  const isOccPlus = classif === 'OCC Pot+';
+  const isStrategique = _isMetierStrategique(info.metier);
+  let score = caLeg;
+  if (globalActif && !pdvActif) score *= 3;
+  else if (_isPerdu(info) && caLeg > 0) score *= 2;
+  else if (_isPerdu(info)) score *= 0.5;
+  if (isFidPlus) score *= 2;
+  else if (isOccPlus) score *= 1.5;
+  if (isStrategique) score *= 1.3;
+  return Math.round(score);
+}
+
+function _clientStatusBadge(cc, info) {
+  const pdvActif = ventesClientArticle.has(cc) && ventesClientArticle.get(cc).size > 0;
+  const globalActif = _isGlobalActif(info);
+  if (pdvActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 ml-1">Actif PDV</span>';
+  if (globalActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 ml-1">Actif Leg.</span>';
+  if (_isProspect(info)) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 ml-1">Prospect</span>';
+  if (_isPerdu(info) && (info.ca2025 || 0) > 0) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 ml-1">Perdu 12-24m</span>';
+  return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 ml-1">Inactif</span>';
+}
+
 function _crossBadge(cc) {
   if (!crossingStats) return '';
   if (crossingStats.captes.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';

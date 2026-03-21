@@ -72,6 +72,7 @@ let _filterStrategiqueOnly = false;
 
 // ── Client data ──
 let ventesClientArticle = new Map();
+let clientLastOrder = new Map(); // Map<clientCode, Date> — dernière commande PDV
 let clientNomLookup = {};
 let ventesClientsPerStore = {};
 let articleClients = new Map();
