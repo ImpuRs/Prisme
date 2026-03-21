@@ -203,10 +203,10 @@
       </div>
     </div>
 
-    <!-- ★ FILTRES OBSERVATOIRE (affiché uniquement quand onglet Observatoire actif) -->
+    <!-- ★ FILTRES LE RÉSEAU (affiché uniquement quand onglet Le Réseau actif) -->
     <div id="obsFilters" class="hidden mb-4 bg-cyan-50 p-4 rounded-xl border border-cyan-200 shadow-inner">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-bold text-cyan-800 uppercase flex items-center gap-2">🔭 Filtres Observatoire</h3>
+        <h3 class="text-sm font-bold text-cyan-800 uppercase flex items-center gap-2">🔭 Filtres Le Réseau</h3>
         <button onclick="resetObsFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
       </div>
       <div class="flex flex-wrap gap-3 items-center">
@@ -227,7 +227,7 @@
         <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Territoire</button></li>
-        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Observatoire</button></li>
+        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
       </ul>
     </div>
 
@@ -634,8 +634,8 @@
       <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
           <div>
-            <h2 class="text-2xl font-extrabold">🔭 Observatoire — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span></h2>
-            <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Plan d'action prescriptif</p>
+            <h2 class="text-2xl font-extrabold">🔭 Le Réseau — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span></h2>
+            <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Analyse réseau</p>
           </div>
           <span id="benchRecalcTime" class="text-xs text-green-300 font-mono"></span>
         </div>
@@ -2251,7 +2251,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const plan=benchLists.obsActionPlan||[];
     if(!plan.length){showToast('Aucun plan à copier','warning');return;}
     const obsLabel=(selectedObsCompare||'median')==='median'?'Médiane réseau':selectedObsCompare;
-    const lines=[`Plan d'action Observatoire — ${selectedMyStore||'Moi'} vs ${obsLabel}`,''];
+    const lines=[`Plan d'action Le Réseau — ${selectedMyStore||'Moi'} vs ${obsLabel}`,''];
     plan.forEach((a,i)=>{
       const potLabel=a.caPotentiel>0?`${a.caPotentiel.toLocaleString('fr')}€`:'N/A';
       const txt=a.nbToRef>0
@@ -2591,7 +2591,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(!isMetierMode)famille=decodeURIComponent(famille);
     const hasMulti=storesIntersection.size>1;
     const hasChal=chalandiseReady;
-    const srcLabel=source==='bench'?'Retour à l\'Observatoire':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':source==='stock'?'Retour au Stock':'Retour';
+    const srcLabel=source==='bench'?'Retour à Le Réseau':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Territoire':source==='stock'?'Retour au Stock':'Retour';
     const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
     const agenceLabel=selectedMyStore||'Votre agence';
     const nbAgences=storesIntersection.size;
@@ -3290,7 +3290,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       }
       // Famille absente chez moi mais réseau actif (CA médiane ≥ 1000€) → évaluer opportunité, sans lien cliquable
       if(v3.myCA===0&&v3.medCA>=1000&&acts.length===0){
-        acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans l'Observatoire.`,fn:null,isInfo:true});
+        acts.push({priority:99,src:'⚠️',label:`Famille absente de votre rayon. Le réseau fait ${formatEuro(v3.medCA)} en médiane. Évaluez l'opportunité dans Le Réseau.`,fn:null,isInfo:true});
       }
     }
     // Sort by priority and limit to 3
