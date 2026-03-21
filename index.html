@@ -453,7 +453,7 @@
       <div id="terrKPIBlock" style="display:none" class="hidden mb-3">
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-2">
           <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
-          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Total territoire</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
+          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
           <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p></div>
           <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
           <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
@@ -529,7 +529,7 @@
               <th class="py-2 px-3 text-center">BL territoire</th>
               <th class="py-2 px-3 text-center">BL agence</th>
               <th class="py-2 px-3 text-center min-w-[140px]">% agence</th>
-              <th class="py-2 px-3 text-right">CA territoire</th>
+              <th class="py-2 px-3 text-right">CA Legallais</th>
             </tr>
           </thead>
           <tbody id="terrContribTable"></tbody>
@@ -538,7 +538,7 @@
 
       <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
       <div id="terrTop100Block" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">🏆 Top 100 articles (CA territoire décroissant)</h3>
+        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -559,7 +559,7 @@
 
       <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
       <div id="terrClientsBlock" style="display:none" class="hidden mb-2 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">👥 Clients (top 50 par CA territoire)</h3>
+        <h3 class="font-extrabold text-gray-800 text-sm px-3 py-2 border-b">👥 Clients (top 50 par CA Legallais)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -1158,7 +1158,7 @@
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
       const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="text-gray-400">(CA = achats comptoir uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA comptoir</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
+      el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="text-gray-400">(CA = CA PDV uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
       return;
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
@@ -1538,7 +1538,7 @@
 
     // Special KPI banner
     const spEl=document.getElementById('terrSpecialKPIText');
-    if(spEl)spEl.textContent=`${pctSpecial}% du CA territoire est du spécial non stockable — ${formatEuro(specialCA)} (hors de la vue Direction, Top 100 et croisement rayon)`;
+    if(spEl)spEl.textContent=`${pctSpecial}% du CA Legallais est du spécial non stockable — ${formatEuro(specialCA)} (hors de la vue Direction, Top 100 et croisement rayon)`;
 
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
@@ -1696,7 +1696,7 @@
     const LIMIT=50;
     let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px] px-3 pt-3">${statusLabel} — ${arts.length} article${arts.length>1?'s':''} dans <em>${direction}</em></div>`;
     if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-[11px] px-3 pb-3">Aucun article.</p>';inner.dataset.mode=status;return;}
-    html+=`<table class="min-w-full text-[11px]"><thead class="${hdrCls}"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody id="${rowId}-statusbody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="${hdrCls}"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-left">Famille</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody id="${rowId}-statusbody">`;
     html+=_buildTerrDirStatusRows(arts.slice(0,LIMIT),stockMap,isStd);
     html+=`</tbody></table>`;
     if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs font-bold hover:underline text-gray-600" onclick="_loadMoreTerrDirStatus(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}','${status}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
@@ -1768,7 +1768,7 @@
       `<span class="terr-status-badge text-amber-700${statusFilter==='yellow'?' underline':''}" title="Filtrer Rupture" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgYellow})">⚠️ ${nbYellow}</span> · `+
       `<span class="terr-status-badge text-red-700${statusFilter==='red'?' underline':''}" title="Filtrer Absent" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgRed})">❌ ${nbRed}</span>${resetBtn}</div>`;
     if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-[11px] px-2 pb-2">Aucun article pour ce filtre.</p>';return;}
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
     html+=_buildTerrFamArtRows(arts.slice(0,LIMIT),stockMap);
     html+=`</tbody></table>`;
     if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs text-sky-700 font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encDir}','${encFam}','${statusFilter}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
@@ -1899,7 +1899,7 @@
     if(!secteurs.length){inner.innerHTML='<p class="text-gray-400 text-[11px]">Aucun secteur pour cette direction.</p>';return;}
     const oppo=secteurs.filter(s=>s.pct<10).length;
     let html=`<div class="text-[11px] font-bold text-gray-700 mb-2">${secteurs.length} secteur${secteurs.length>1?'s':''} · ${oppo} opportunité${oppo>1?'s':''} (&lt;10% agence) — trié par % BL agence croissant</div>`;
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA territoire</th></tr></thead><tbody id="${rowId}-sectbody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA Legallais</th></tr></thead><tbody id="${rowId}-sectbody">`;
     html+=_buildSecteurRows(secteurs.slice(0,LIMIT));
     html+=`</tbody></table>`;
     if(secteurs.length>LIMIT)html+=`<button class="mt-2 text-xs text-violet-700 font-bold hover:underline" onclick="_loadMoreSecteurs(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}')">▼ Voir plus (${secteurs.length-LIMIT} restants…)</button>`;
@@ -1949,7 +1949,7 @@
     const LIMIT=50;
     const mixte=clients.filter(c=>c.blAgence.size>0).length,jamais=clients.filter(c=>c.blAgence.size===0).length;
     let html=`<div class="font-bold text-gray-700 mb-2 text-[11px]">✅ ${mixte} client${mixte>1?'s':''} viennent en agence · ❌ ${jamais} ne viennent jamais</div>`;
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-emerald-100 text-emerald-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Agence</th><th class="py-1.5 px-3 text-center">BL agence</th></tr></thead><tbody id="${rowId}-clibody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-emerald-100 text-emerald-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Nom</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-center">Agence</th><th class="py-1.5 px-3 text-center">BL agence</th></tr></thead><tbody id="${rowId}-clibody">`;
     html+=_buildClientRows(clients.slice(0,LIMIT));
     html+=`</tbody></table>`;
     if(clients.length>LIMIT)html+=`<button class="mt-2 text-xs text-emerald-700 font-bold hover:underline" onclick="_loadMoreClients(this,'${rowId}',${LIMIT},'${encodeURIComponent(secteur)}')">▼ Voir plus (${clients.length-LIMIT} restants…)</button>`;
@@ -2011,7 +2011,7 @@
     const nbSpe=arts.length-stdArts.length;
     let html=`<div class="font-semibold text-gray-700 mb-2 text-[11px]">Ce client achète <strong>${arts.length}</strong> réf. dont <strong class="text-emerald-700">${nbEnRayon} en rayon</strong>, <strong class="text-red-700">${nbAbsent} absentes</strong>${nbSpe>0?`, <span class="text-gray-400">${nbSpe} SPÉ</span>`:''}</div>`;
     if(!arts.length){inner.innerHTML=html+'<p class="text-gray-400 text-xs">Aucun article trouvé.</p>';return;}
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA territoire</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody>`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="bg-gray-100 text-gray-700"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock</th></tr></thead><tbody>`;
     for(const a of arts.slice(0,LIMIT)){
       const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
       const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
@@ -2048,7 +2048,7 @@
   function exportContribCSV(){
     if(!terrContribBySecteur.size){showToast('⚠️ Aucune donnée contributeurs','warning');return;}
     const SEP=';';
-    const h=['Direction','Secteur','BL territoire','BL agence','% agence','CA territoire'];
+    const h=['Direction','Secteur','BL territoire','BL agence','% agence','CA Legallais'];
     const lines=['\uFEFF'+h.join(SEP)];
     const rows=[...terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
     for(const r of rows)lines.push([r.dir,r.secteur,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
@@ -3077,7 +3077,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function _diagRenderL3(l,hasBench,hasTerr){
     if(l.status==='lock')return`<div class="diag-level" style="opacity:.55"><div class="diag-level-hdr"><span class="font-bold text-sm text-slate-400">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${l.reason}</p></div>`;
     const srcLabel=l.mode==='bench'?`<em class="text-amber-300">${l.refStore}</em> a <strong class="text-white">${l.refCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong>`:`Le Terrain : <strong class="text-white">${l.terrCount}</strong> réf., vous en avez <strong class="text-white">${l.myCount}</strong> en stock`;
-    const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA territoire</th>`;
+    const colHeaders=l.mode==='bench'?`<th class="py-1.5 px-2 text-center">Fréq réf.</th><th class="py-1.5 px-2 text-center">ABC</th><th class="py-1.5 px-2 text-center">FMR</th>`:`<th class="py-1.5 px-2 text-right">CA Legallais</th>`;
     const rows=(l.missing||[]).map(a=>{
       const abcColor=a.abcClass==='A'?'text-emerald-400':a.abcClass==='B'?'text-blue-400':'text-slate-400';
       const fmrColor=a.fmrClass==='F'?'text-emerald-400':a.fmrClass==='M'?'text-blue-400':'text-red-400';
