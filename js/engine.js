@@ -168,6 +168,24 @@ function computeClientCrossing() {
   crossingStats = { fideles, potentiels, captes };
 }
 
+function _clientUrgencyScore(cc, info) {
+  const caLeg = info.ca2025 || 0;
+  const pdvActif = ventesClientArticle.has(cc) && ventesClientArticle.get(cc).size > 0;
+  const globalActif = _isGlobalActif(info);
+  const classif = _normalizeClassif(info.classification);
+  const isFidPlus = classif === 'FID Pot+';
+  const isOccPlus = classif === 'OCC Pot+';
+  const isStrategique = _isMetierStrategique(info.metier);
+  let score = caLeg;
+  if (globalActif && !pdvActif) score *= 3;
+  else if (_isPerdu(info) && caLeg > 0) score *= 2;
+  else if (_isPerdu(info)) score *= 0.5;
+  if (isFidPlus) score *= 2;
+  else if (isOccPlus) score *= 1.5;
+  if (isStrategique) score *= 1.3;
+  return Math.round(score);
+}
+
 function _clientStatusBadge(cc, info) {
   const pdvActif = ventesClientArticle.has(cc) && ventesClientArticle.get(cc).size > 0;
   const globalActif = _isGlobalActif(info);
