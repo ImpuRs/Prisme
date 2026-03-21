@@ -88,6 +88,10 @@
     #diagnosticOverlay.active{display:flex;align-items:flex-start;justify-content:center}
     #diagnosticPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:880px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     .diag-level{background:#1e293b;border:1px solid #2d3f55;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+    /* Reporting overlay */
+    #reportingOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:16px 8px}
+    #reportingOverlay.active{display:flex;align-items:flex-start;justify-content:center}
+    #reportingPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:760px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     .diag-level-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .diag-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:9999px;white-space:nowrap}
     .diag-ok{background:#14532d;color:#4ade80}.diag-warn{background:#713f12;color:#fbbf24}
@@ -118,6 +122,10 @@
   <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
     <div id="diagnosticPanel"></div>
   </div>
+  <!-- Reporting overlay -->
+  <div id="reportingOverlay" onclick="if(event.target===this)closeReporting()">
+    <div id="reportingPanel"></div>
+  </div>
 
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
@@ -133,7 +141,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
     </div>
   </nav>
 
@@ -1227,6 +1235,74 @@
     }
     if(navPeriod)navPeriod.classList.remove('hidden');
   }
+  // ── Reporting ──
+  function generateReportText(){
+    const pStart=periodFilterStart||consommePeriodMinFull||consommePeriodMin;
+    const pEnd=periodFilterEnd||consommePeriodMaxFull||consommePeriodMax;
+    const periodStr=pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—';
+    const agence=selectedMyStore||'—';
+    // Taux de service
+    let serviceOk=0,serviceTotal=0;
+    for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
+    const sr=serviceTotal>0?((serviceOk/serviceTotal)*100).toFixed(1):'—';
+    // Ruptures + CA récupérable
+    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent);
+    const caRecup=Math.round(rupturesList.reduce((s,r)=>s+estimerCAPerdu(r),0));
+    // Dormants
+    const dormantsList=finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
+    const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
+    // Benchmark
+    const win3=(benchLists.obsFamiliesWin||[]).slice(0,3);
+    const lose3=(benchLists.obsFamiliesLose||[]).slice(0,3);
+    const kpis=benchLists.obsKpis;
+    const hasBench=kpis!==null;
+    // Articles réseau manquants (missed = vendus en réseau, pas chez moi)
+    const manquants=benchLists.missed||[];
+    const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
+    // Clients silencieux >60j
+    const now=new Date();let silencieuxCount=0;
+    for(const[,lastDate] of clientLastOrder.entries()){if(daysBetween(lastDate,now)>60)silencieuxCount++;}
+    // Captation par métier stratégique (si chalandise chargée)
+    const captLines=[];
+    if(chalandiseReady&&chalandiseData&&chalandiseData.size>0){
+      const mBought={},mTotal={};
+      for(const[code,info] of chalandiseData.entries()){
+        const met=(info.metier||'').trim();if(!met||!METIERS_STRATEGIQUES.includes(met))continue;
+        mTotal[met]=(mTotal[met]||0)+1;
+        if(ventesClientArticle&&ventesClientArticle.has(code))mBought[met]=(mBought[met]||0)+1;
+      }
+      Object.entries(mTotal).filter(([,t])=>t>=3)
+        .map(([met,total])=>({met,total,pct:Math.round(((mBought[met]||0)/total)*100)}))
+        .filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct).slice(0,3)
+        .forEach(x=>captLines.push(`${x.met} (${x.pct}%)`));
+    }
+    // Fichiers
+    const fichiersList=['Consommé','État du Stock'];
+    if(territoireReady)fichiersList.push('Le Terrain');
+    if(chalandiseReady)fichiersList.push('Chalandise');
+    // Build text
+    const hr='─'.repeat(52);
+    const L=[];
+    L.push(`REPORTING ${agence} — ${periodStr}`);
+    L.push(hr);L.push('');
+    L.push('FACTEURS DE SUCCÈS');
+    L.push(`• Taux de service : ${sr}% · ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} (CA récupérable : ${formatEuro(caRecup)})`);
+    if(win3.length>0)L.push(`• Forces réseau : ${win3.map(f=>`${f.fam} (${f.ecartPct>0?'+':''}${f.ecartPct}%)`).join(', ')}`);
+    else if(hasBench)L.push('• Forces réseau : aucune famille en sur-performance vs bassin');
+    if(kpis)L.push(`• PDM bassin : ${kpis.mine.pdm}%`);
+    L.push('');
+    L.push("POINTS D'AMÉLIORATION");
+    L.push(`• ${dormantsList.length} dormant${dormantsList.length!==1?'s':''} (${formatEuro(dormantVal)} immobilisés)`);
+    if(manquants.length>0)L.push(`• ${manquants.length} article${manquants.length!==1?'s':''} réseau absents${manquantsHF>0?` (dont ${manquantsHF} forte rotation)`:''}`);
+    if(silencieuxCount>0)L.push(`• ${silencieuxCount} client${silencieuxCount!==1?'s':''} silencieux >60j`);
+    if(lose3.length>0)L.push(`• Familles sous médiane : ${lose3.map(f=>`${f.fam} (${f.ecartPct}%)`).join(', ')}`);
+    if(captLines.length>0)L.push(`• Captation PDV faible : ${captLines.join(', ')}`);
+    L.push('');
+    L.push('AUTRES');
+    L.push(`• Période : ${periodStr}`);
+    L.push(`• ${finalData.length.toLocaleString('fr')} articles · ${fichiersList.length} fichiers chargés (${fichiersList.join(', ')})`);
+    return L.join('\n');
+  }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
   function _cockpitToggleFullList(id){
     const el=document.getElementById(id);if(!el)return;
@@ -1641,6 +1717,7 @@
       document.getElementById('navStats').textContent=finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent='⚡'+elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
       if(selectedMyStore){document.getElementById('navStore').textContent='🏪 '+selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
