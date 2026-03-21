@@ -4,8 +4,13 @@
 PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Territoire, Zone de Chalandise).
 
 ## Architecture
-- **Un seul fichier** : `index.html` contient tout (HTML + CSS + JS)
-- **Pas de build**, pas de framework, pas de backend
+- **Point d'entrée** : `index.html` contient la structure HTML, le CSS et le `<script>` principal
+- **Modules JS** (chargés via `<script src>` avant le script principal) :
+  - `js/constants.js` — PAGE_SIZE, CHUNK_SIZE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP
+  - `js/utils.js` — fonctions utilitaires pures (cleanCode, cleanPrice, formatEuro, parseExcelDate, readExcel, etc.)
+  - `js/state.js` — toutes les variables `let` globales (finalData, filteredData, chalandiseData, etc.)
+- **Pas de bundler/build step** — les modules JS sont chargés via `<script src>`, pas de npm/webpack
+- **Pas de framework**, pas de backend
 - **Dépendances CDN** : Tailwind CSS, SheetJS (xlsx.full.min.js), Google Fonts (Inter)
 - **Hébergement** : Google Apps Script (iframe) ou navigateur local
 
@@ -14,7 +19,7 @@ PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de d
 - Fonctions nommées (pas de classes)
 - Variables globales déclarées en haut du script
 - Nommage : camelCase pour les fonctions/variables, UPPER_CASE pour les constantes
-- Pas de TypeScript, pas de modules — tout est dans un seul `<script>`
+- Pas de TypeScript, pas de modules ES — les modules sont des fichiers JS classiques chargés via `<script src>`
 - DOM manipulé via innerHTML pour les tableaux (performance sur 10k+ lignes)
 - Traitement par chunks (CHUNK_SIZE=5000) avec `yieldToMain()` pour ne pas bloquer l'UI
 - `globalJoursOuvres` (défaut 250) : calculé dynamiquement dans `processData()` et utilisé par `calcCouverture()` pour aligner la couverture sur la période réelle du fichier Consommé
@@ -132,7 +137,6 @@ npx html-validate index.html
 ```
 
 ## Ce qu'il NE FAUT PAS faire
-- Séparer le fichier en plusieurs fichiers (contrainte Apps Script iframe)
-- Ajouter un bundler/build step
+- Ajouter un bundler/build step — les modules JS sont chargés via `<script src>` directement
 - Utiliser localStorage (bloqué dans l'iframe GAS)
 - Modifier les règles de calcul MIN/MAX sans comprendre la doc technique
