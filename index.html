@@ -2696,9 +2696,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           actifClients.sort((a,b)=>b.famCA-a.famCA||b.ca2025-a.ca2025);
           const caActifs=actifClients.reduce((s,c)=>s+c.famCA,0);
           // Perdus : clients chalandise de ce métier n'achetant pas les articles de la case
-          let perduCount=0,potentiel=0;
-          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const st=(info.statut||'').toLowerCase();if(st.includes('inactif')||st.includes('perdu')||st.includes('prospect')){perduCount++;potentiel+=(info.ca2025||0);}}
-          return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:perduCount,potentiel,clients:actifClients};
+          let perduCount=0,potentiel=0,inactifsRecents=0,perdusAnciens=0;
+          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const st=(info.statut||'').toLowerCase();if(st.includes('inactif')||st.includes('perdu')||st.includes('prospect')){perduCount++;if((info.ca2025||0)>0)inactifsRecents++;else perdusAnciens++;const clientData=ventesClientArticle.get(cc);let clientFamCA=0;if(clientData){for(const[artCode,artData]of clientData.entries()){if(famArts.has(artCode))clientFamCA+=artData.sumCA||0;}}potentiel+=clientFamCA>0?clientFamCA:Math.round((info.ca2025||0)*0.05);}}
+          return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:perduCount,inactifsRecents,perdusAnciens,potentiel,clients:actifClients};
         });
         const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
         const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
@@ -2908,7 +2908,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
             <span class="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
           </div>
           <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>
-          ${m.perdus>0?`<p class="text-[11px] text-rose-400 mb-1">→ <strong>${m.perdus}</strong> client${m.perdus>1?'s':''} perdu${m.perdus>1?'s':''} sur ce métier</p>`:''}
+          ${m.perdus>0?`<p class="text-[11px] text-rose-400 mb-1">→ <strong>${m.perdus}</strong> perdu${m.perdus>1?'s':''} : ${m.inactifsRecents>0?`<span class="text-amber-400">${m.inactifsRecents} inactif${m.inactifsRecents>1?'s':''} récent${m.inactifsRecents>1?'s':''}</span>`:''}${m.inactifsRecents>0&&m.perdusAnciens>0?' · ':''}${m.perdusAnciens>0?`<span class="text-slate-400">${m.perdusAnciens} perdu${m.perdusAnciens>1?'s':''} >24m</span>`:''}</p>`:''}
           ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
           <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Territoire →</button>
         </div>`;
