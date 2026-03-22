@@ -232,21 +232,35 @@
     /* Colored light backgrounds → dark tints */
     html.dark .bg-blue-50    { background-color: rgba(59,130,246,.1) !important; }
     html.dark .bg-blue-100   { background-color: rgba(59,130,246,.15) !important; }
+    html.dark .bg-blue-200   { background-color: rgba(59,130,246,.22) !important; }
+    html.dark .bg-blue-300   { background-color: rgba(59,130,246,.3) !important; }
     html.dark .bg-red-50     { background-color: rgba(239,68,68,.1) !important; }
     html.dark .bg-red-100    { background-color: rgba(239,68,68,.15) !important; }
+    html.dark .bg-red-200    { background-color: rgba(239,68,68,.22) !important; }
+    html.dark .bg-red-300    { background-color: rgba(239,68,68,.3) !important; }
     html.dark .bg-amber-50   { background-color: rgba(245,158,11,.1) !important; }
     html.dark .bg-amber-100  { background-color: rgba(245,158,11,.15) !important; }
+    html.dark .bg-amber-200  { background-color: rgba(245,158,11,.22) !important; }
     html.dark .bg-cyan-50    { background-color: rgba(6,182,212,.1) !important; }
     html.dark .bg-cyan-100   { background-color: rgba(6,182,212,.15) !important; }
+    html.dark .bg-cyan-200   { background-color: rgba(6,182,212,.22) !important; }
     html.dark .bg-rose-50    { background-color: rgba(244,63,94,.1) !important; }
     html.dark .bg-rose-100   { background-color: rgba(244,63,94,.15) !important; }
+    html.dark .bg-rose-200   { background-color: rgba(244,63,94,.22) !important; }
     html.dark .bg-violet-50  { background-color: rgba(139,92,246,.1) !important; }
     html.dark .bg-violet-100 { background-color: rgba(139,92,246,.15) !important; }
+    html.dark .bg-violet-200 { background-color: rgba(139,92,246,.22) !important; }
     html.dark .bg-indigo-50  { background-color: rgba(99,102,241,.1) !important; }
+    html.dark .bg-indigo-100 { background-color: rgba(99,102,241,.15) !important; }
     html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.1) !important; }
     html.dark .bg-emerald-100{ background-color: rgba(16,185,129,.15) !important; }
+    html.dark .bg-emerald-200{ background-color: rgba(16,185,129,.22) !important; }
     html.dark .bg-orange-50  { background-color: rgba(249,115,22,.1) !important; }
     html.dark .bg-orange-100 { background-color: rgba(249,115,22,.15) !important; }
+    html.dark .bg-orange-200 { background-color: rgba(249,115,22,.22) !important; }
+    html.dark .bg-purple-50  { background-color: rgba(168,85,247,.1) !important; }
+    html.dark .bg-purple-100 { background-color: rgba(168,85,247,.15) !important; }
+    html.dark .bg-purple-200 { background-color: rgba(168,85,247,.22) !important; }
     html.dark .bg-green-50   { background-color: rgba(34,197,94,.1) !important; }
     html.dark .bg-pink-50    { background-color: rgba(236,72,153,.1) !important; }
     html.dark .bg-purple-50  { background-color: rgba(168,85,247,.1) !important; }
@@ -267,6 +281,7 @@
     html.dark .text-red-800    { color: #fca5a5 !important; }
     html.dark .text-red-700    { color: #f87171 !important; }
     html.dark .text-red-600    { color: #f87171 !important; }
+    html.dark .text-amber-900  { color: #fde68a !important; }
     html.dark .text-amber-800  { color: #fcd34d !important; }
     html.dark .text-amber-700  { color: #fbbf24 !important; }
     html.dark .text-amber-600  { color: #f59e0b !important; }
@@ -279,10 +294,13 @@
     html.dark .text-violet-700 { color: #c4b5fd !important; }
     html.dark .text-violet-600 { color: #a78bfa !important; }
     html.dark .text-violet-500 { color: #8b5cf6 !important; }
+    html.dark .text-purple-900 { color: #e9d5ff !important; }
     html.dark .text-purple-800 { color: #d8b4fe !important; }
     html.dark .text-purple-700 { color: #c084fc !important; }
+    html.dark .text-orange-900 { color: #fed7aa !important; }
     html.dark .text-orange-700 { color: #fb923c !important; }
     html.dark .text-orange-600 { color: #f97316 !important; }
+    html.dark .text-indigo-900 { color: #c7d2fe !important; }
     html.dark .text-rose-900   { color: #fda4af !important; }
     html.dark .text-rose-800   { color: #fda4af !important; }
     html.dark .text-rose-700   { color: #fb7185 !important; }
@@ -361,6 +379,11 @@
     html.dark .hover\:bg-violet-50:hover  { background-color: rgba(139,92,246,.1) !important; }
     html.dark .hover\:bg-rose-50:hover    { background-color: rgba(244,63,94,.1) !important; }
     html.dark .hover\:bg-amber-400:hover  { background-color: #d97706 !important; }
+    /* ── Sticky thead: force opaque background so rows don't bleed through ── */
+    html.dark thead.sticky,
+    html.dark thead[class*="sticky"] { background-color: #1e293b !important; z-index: 10; }
+    /* JS-generated semi-transparent bg-white/90 theads */
+    html.dark .bg-white\/90 { background-color: rgba(30,41,59,.97) !important; }
     /* ── Inputs & form elements ── */
     html.dark input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]),
     html.dark select,
