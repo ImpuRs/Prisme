@@ -73,7 +73,6 @@ async function parseChalandise(file) {
   const nbActifs = [...chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('actif') && !s.includes('inactif'); }).length;
   const nbPerdus = [...chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('perdu') || s.includes('inactif'); }).length;
   showToast(`📋 Chalandise : ${chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus`, 'success');
-  const navC = document.getElementById('navChalandise'); if (navC) { navC.textContent = '📋 Chalandise'; navC.classList.remove('hidden'); }
   // Show territoire tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on territoire tab

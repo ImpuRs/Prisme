@@ -219,7 +219,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div><button onclick="openCmdPalette()" class="text-slate-300 hover:text-white text-sm flex items-center gap-1 hover:bg-blue-800 py-1 px-2 rounded-lg transition-colors" title="Recherche universelle (Ctrl+K / Cmd+K)">🔍 <span class="hidden sm:inline text-xs font-mono opacity-70">Cmd+K</span></button><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><button onclick="openCmdPalette()" class="text-slate-300 hover:text-white text-sm flex items-center gap-1 hover:bg-blue-800 py-1 px-2 rounded-lg transition-colors" title="Recherche universelle (Ctrl+K / Cmd+K)">🔍 <span class="hidden sm:inline text-xs font-mono opacity-70">Cmd+K</span></button><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
     </div>
   </nav>
 
@@ -2429,7 +2429,6 @@
       // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
       const _terrBtn=document.getElementById('btnTabTerritoire');
       if(finalData.length>0){_terrBtn.classList.remove('hidden');let _tBadge=_terrBtn.querySelector('.terr-enrich-badge');if(!_tBadge){_tBadge=document.createElement('span');_tBadge.className='terr-enrich-badge';_terrBtn.appendChild(_tBadge);}_tBadge.textContent=chalandiseReady?'✦':'';_tBadge.className='terr-enrich-badge text-[9px] ml-0.5 '+(chalandiseReady?'text-rose-400 font-bold':'');}else{_terrBtn.classList.add('hidden');}
-      if(!chalandiseReady){document.getElementById('navTerr').classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
       // Render main UI immediately — don't wait for territoire
@@ -2447,7 +2446,6 @@
         const terrRaw=await terrParsePromise;
         if(terrRaw&&terrRaw.length){
           await launchTerritoireWorker(terrRaw,updateTerrProgress);
-          document.getElementById('navTerr').classList.remove('hidden');
           updatePipeline('territoire','done');
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
