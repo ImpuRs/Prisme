@@ -98,9 +98,11 @@ function switchTab(id) {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
+  // Contextual panel title
+  const titles = { table: '📋 Filtres Articles', dash: '📊 Filtres Stock', action: '⚙️ Filtres Cockpit', abc: '📡 Filtres Radar', territoire: '🔗 Filtres Le Terrain', bench: '🔭 Filtres Le Réseau', promo: '🎯 Filtres Promo' };
+  const titleEl = document.getElementById('filterPanelTitle');
+  if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
 }
-
-function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
 function openFilterDrawer() {
