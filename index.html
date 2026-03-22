@@ -1679,7 +1679,7 @@
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
     const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
     // Ruptures
-    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent);
+    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
     // Dormants
     const dormantsList=finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
     const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
@@ -3690,9 +3690,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const r of dataSource){const lv=(r.stockActuel>0)?r.stockActuel*r.prixUnitaire:0;
     if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
 
-    // ★ V23: Ruptures — exclude parent refs (no dates) + sort by CA potentiel
+    // ★ V23: Ruptures — exclude parent refs (no dates) + colis-only (enlevé sans prélevé) + sort by CA potentiel
     if(r.W>=3&&r.stockActuel<=0){
-      if(!r.isParent){ // V23: skip parent references
+      if(!r.isParent&&!(r.V===0&&r.enleveTotal>0)){ // skip parent refs & colis-only
         const caPotentiel=Math.round(r.W*r.prixUnitaire);
         const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
         // CA perdu : médiane réseau par article (multi) ou CA historique période (mono)
