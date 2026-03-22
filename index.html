@@ -1693,7 +1693,7 @@
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(finalData.map(r=>[r.code,r.famille]));
-    const ruptureSet=new Set(finalData.filter(r=>r.stockActuel===0&&r.frequence>=3).map(r=>r.code));
+    const ruptureArts=finalData.filter(r=>r.stockActuel<=0&&r.W>=3);
     // Silencieux >30j
     const silencieux=[];
     for(const[cc,lastDate] of clientLastOrder.entries()){
@@ -1716,17 +1716,22 @@
       topClients.push({cc,nom,ca,nbArts:artMap.size});
     }
     topClients.sort((a,b)=>b.ca-a.ca);
-    // Clients impactés par ruptures
+    // Clients impactés par ruptures — via articleClients (article→clients, sans filtre store)
     const rupClients=[];
-    if(ruptureSet.size){
-      for(const[cc,artMap] of ventesClientArticle.entries()){
-        let nbRup=0,caRup=0;
-        for(const[artCode,v] of artMap.entries()){if(!ruptureSet.has(artCode))continue;if(selFam&&famMap.get(artCode)!==selFam)continue;nbRup++;caRup+=(v.sumCA||0);}
-        if(!nbRup)continue;
-        const nom=clientNomLookup[cc]||cc;
-        if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
-        rupClients.push({cc,nom,nbRup,caRup});
+    if(ruptureArts.length){
+      const clientRupMap=new Map();
+      for(const art of ruptureArts){
+        if(selFam&&famMap.get(art.code)!==selFam)continue;
+        const buyers=articleClients.get(art.code);if(!buyers)continue;
+        for(const cc of buyers){
+          const nom=clientNomLookup[cc]||cc;
+          if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+          const caArt=(ventesClientArticle.get(cc)||new Map()).get(art.code);
+          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
+          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
+        }
       }
+      rupClients.push(...clientRupMap.values());
       rupClients.sort((a,b)=>b.caRup-a.caRup);
     }
     const silSet=new Set(silencieux.map(c=>c.cc));
@@ -1736,13 +1741,13 @@
       const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'text-red-600':c.d>60?'text-orange-500':'text-yellow-600';return`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="bg-rose-50 rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-rose-100"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
     }
+    if(rupClients.length){
+      const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold text-red-600 text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'text-amber-700 font-bold':'text-gray-400'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
+      html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div></div>`;
+    }
     if(topClients.length){
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 text-[10px] text-gray-400 font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${silSet.has(c.cc)?' <span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] text-gray-500">${c.nbArts}</td></tr>`).join('');
       html+=`<div class="bg-white rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal text-gray-400">${topClients.length} client${topClients.length>1?'s':''}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-    }
-    if(rupClients.length){
-      const rows=rupClients.slice(0,15).map(c=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold text-red-600 text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] text-gray-500">${formatEuro(c.caRup)}</td></tr>`).join('');
-      html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Réf en rupture</th><th class="py-1.5 px-2 text-right">CA concerné</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>15?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-15} autres</p>`:''}</div></div>`;
     }
     if(!silencieux.length&&!topClients.length)html+=`<p class="text-center text-gray-400 text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
     el.innerHTML=html;
