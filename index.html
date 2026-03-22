@@ -255,10 +255,11 @@
             </div>
           </div>
 
-          <!-- Client search — always shown when Le Terrain is active -->
+          <!-- Client search + famille filter (degraded mode) — always shown when Le Terrain is active -->
           <div id="terrClientSearchBlock" class="flex flex-col gap-1">
             <hr class="border-gray-200 my-0.5">
             <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white">
+            <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><option value="">Toutes familles</option></select>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
@@ -660,6 +661,9 @@
         <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — disponible en V2</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
       </div>
 
+      <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
+      <div id="terrDegradedBlock" class="hidden mt-2"></div>
+
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
       <!-- 3. KPI territoire — V2 (nécessite BL Territoire) -->
@@ -1059,10 +1063,7 @@
   let _terrClientSearchTimer=null;
   function _onTerrClientSearch(){
     clearTimeout(_terrClientSearchTimer);
-    _terrClientSearchTimer=setTimeout(()=>{
-      if(chalandiseReady)_buildCockpitClient();
-      renderTerritoireTab();
-    },300);
+    _terrClientSearchTimer=setTimeout(()=>renderTerritoireTab(),300);
   }
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
   function _navigateToOverviewMetier(metier){
@@ -1676,6 +1677,77 @@
     const body=document.getElementById(listId+'-body');const arrow=document.getElementById(listId+'-arrow');if(!body)return;
     const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'';if(arrow)arrow.textContent=isOpen?'▶':'▼';
   }
+  function _populateTerrFamilleFilter(){
+    const sel=document.getElementById('terrFamilleFilter');if(!sel||!finalData.length)return;
+    const fams=[...new Set(finalData.map(r=>r.famille).filter(Boolean))].sort();
+    const cur=sel.value;
+    sel.innerHTML='<option value="">Toutes familles</option>';
+    fams.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;sel.appendChild(o);});
+    if(cur)sel.value=cur;
+  }
+
+  function _buildDegradedCockpit(){
+    const el=document.getElementById('terrDegradedBlock');if(!el||!finalData.length)return;
+    _populateTerrFamilleFilter();
+    const qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
+    const _today=new Date();
+    const famMap=new Map(finalData.map(r=>[r.code,r.famille]));
+    const ruptureSet=new Set(finalData.filter(r=>r.stockActuel===0&&r.frequence>=3).map(r=>r.code));
+    // Silencieux >30j
+    const silencieux=[];
+    for(const[cc,lastDate] of clientLastOrder.entries()){
+      const d=daysBetween(lastDate,_today);if(d<=30)continue;
+      const artMap=ventesClientArticle.get(cc);if(!artMap)continue;
+      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
+      if(ca<=0)continue;
+      const nom=clientNomLookup[cc]||cc;
+      if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+      silencieux.push({cc,nom,ca,d});
+    }
+    silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
+    // Top clients by CA PDV
+    const topClients=[];
+    for(const[cc,artMap] of ventesClientArticle.entries()){
+      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
+      if(ca<=0)continue;
+      const nom=clientNomLookup[cc]||cc;
+      if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+      topClients.push({cc,nom,ca,nbArts:artMap.size});
+    }
+    topClients.sort((a,b)=>b.ca-a.ca);
+    // Clients impactés par ruptures
+    const rupClients=[];
+    if(ruptureSet.size){
+      for(const[cc,artMap] of ventesClientArticle.entries()){
+        let nbRup=0,caRup=0;
+        for(const[artCode,v] of artMap.entries()){if(!ruptureSet.has(artCode))continue;if(selFam&&famMap.get(artCode)!==selFam)continue;nbRup++;caRup+=(v.sumCA||0);}
+        if(!nbRup)continue;
+        const nom=clientNomLookup[cc]||cc;
+        if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+        rupClients.push({cc,nom,nbRup,caRup});
+      }
+      rupClients.sort((a,b)=>b.caRup-a.caRup);
+    }
+    const silSet=new Set(silencieux.map(c=>c.cc));
+    const banner=`<div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
+    let html=banner;
+    if(silencieux.length){
+      const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'text-red-600':c.d>60?'text-orange-500':'text-yellow-600';return`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
+      html+=`<div class="bg-rose-50 rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-rose-100"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
+    }
+    if(topClients.length){
+      const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 text-[10px] text-gray-400 font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${silSet.has(c.cc)?' <span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] text-gray-500">${c.nbArts}</td></tr>`).join('');
+      html+=`<div class="bg-white rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal text-gray-400">${topClients.length} client${topClients.length>1?'s':''}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    }
+    if(rupClients.length){
+      const rows=rupClients.slice(0,15).map(c=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold text-red-600 text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] text-gray-500">${formatEuro(c.caRup)}</td></tr>`).join('');
+      html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Réf en rupture</th><th class="py-1.5 px-2 text-right">CA concerné</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>15?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-15} autres</p>`:''}</div></div>`;
+    }
+    if(!silencieux.length&&!topClients.length)html+=`<p class="text-center text-gray-400 text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
+    el.innerHTML=html;
+  }
+
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
     if(!chalandiseReady&&_selectedCrossStatus!=='fidele'){el.classList.add('hidden');return;}
@@ -2100,8 +2172,9 @@
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      // Territoire tab visible seulement quand la chalandise est chargée (pas de dépendance au fichier BL)
-      if(chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}else{document.getElementById('btnTabTerritoire').classList.add('hidden');}
+      // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
+      const _terrBtn=document.getElementById('btnTabTerritoire');
+      if(finalData.length>0){_terrBtn.classList.remove('hidden');let _tBadge=_terrBtn.querySelector('.terr-enrich-badge');if(!_tBadge){_tBadge=document.createElement('span');_tBadge.className='terr-enrich-badge';_terrBtn.appendChild(_tBadge);}_tBadge.textContent=chalandiseReady?'✦':'';_tBadge.className='terr-enrich-badge text-[9px] ml-0.5 '+(chalandiseReady?'text-rose-400 font-bold':'');}else{_terrBtn.classList.add('hidden');}
       if(!chalandiseReady){document.getElementById('navTerr').classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
@@ -2165,7 +2238,15 @@
   function renderTerritoireTab(){
     const hasTerr=territoireReady&&territoireLines.length>0;
     const hasChal=chalandiseReady;
-    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasChal);
+    const hasData=finalData.length>0;
+    const degraded=!hasTerr&&!hasChal&&hasData;
+    // terrNoChalandise: only when truly nothing loaded
+    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData);
+    // terrDegradedBlock: degraded mode only
+    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',!degraded);
+    // Left panel: territory filters only with territoire data; famille filter in degraded mode
+    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
+    const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
     // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
     // Show chalandise overview + left panel filters if chalandise loaded
@@ -2175,7 +2256,8 @@
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
     {const sumCross=document.getElementById('terrSumCroisement');if(sumCross){if(crossingStats){sumCross.classList.remove('hidden');const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};s('terrSumFideles',crossingStats.fideles.size.toLocaleString('fr-FR'));s('terrSumPotentiels',crossingStats.potentiels.size.toLocaleString('fr-FR'));s('terrSumCaptes',crossingStats.captes.size.toLocaleString('fr-FR'));}else sumCross.classList.add('hidden');}const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!crossingStats);}
-    if(!hasTerr&&!hasChal)return;
+    if(!hasData&&!hasTerr&&!hasChal)return;
+    if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
       ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
