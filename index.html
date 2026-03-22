@@ -260,14 +260,22 @@
 
         <!-- GROUP Promo -->
         <div id="filterGroupPromo" class="hidden">
-          <p class="text-[10px] font-bold text-gray-600 mb-1.5">Qui achète cet article / famille / marque ?</p>
-          <div class="flex flex-col gap-1.5">
-            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-xs py-1.5 px-2 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
-            <div class="flex gap-1">
-              <button onclick="runPromoSearch()" class="flex-1 text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-2 rounded-lg transition-colors">🎯 Cibler</button>
-              <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📥</button>
-              <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📋</button>
-            </div>
+          <div id="promoFiltersPlaceholder" class="py-6 text-center">
+            <div class="text-2xl mb-2">🎯</div>
+            <p class="text-[11px] text-gray-400 italic leading-relaxed">Lancez une recherche<br>pour activer les filtres</p>
+          </div>
+          <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
+            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+            <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
+            <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
+            <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
+            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
+            <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
+            <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
+              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-amber-500">
+              ⭐ Stratégiques uniquement
+            </label>
+            <button onclick="_resetPromoFilters()" class="text-[10px] text-gray-400 hover:text-gray-600 text-left mt-1">↺ Réinitialiser les filtres</button>
           </div>
         </div>
 
@@ -877,11 +885,20 @@
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
         <p class="text-amber-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
-      <!-- Search block (input moved to filter panel) -->
+      <!-- Search bar — main entry point -->
+      <div class="bg-white rounded-xl border shadow-sm p-4 mb-4">
+        <p class="text-xs font-bold text-gray-500 mb-2">Qui achète cet article / famille / marque ?</p>
+        <div class="flex gap-2 flex-wrap">
+          <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="flex-1 min-w-[200px] text-sm py-2 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
+          <button onclick="runPromoSearch()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
+          <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
+          <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
+        </div>
+      </div>
+      <!-- Results block -->
       <div id="promoTargetingBlock" class="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
           <h3 class="font-extrabold text-gray-800 text-sm">Résultats de ciblage</h3>
-          <span class="text-[10px] text-gray-400">Utilisez le panneau Filtres à gauche pour rechercher</span>
         </div>
         <div class="p-3">
           <div id="promoMatchInfo" class="hidden mt-2 text-xs text-gray-500"></div>
@@ -2764,15 +2781,67 @@
     }
 
     _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
+    _populatePromoFilterDropdowns();
+    _renderPromoResults();
+  }
+
+  function _populatePromoFilterDropdowns(){
+    const r=_promoLastResult;if(!r)return;
+    const all=[...r.sectionA,...r.sectionB,...r.sectionC];
+    const uniq=(key)=>[...new Set(all.map(c=>c[key]||'').filter(Boolean))].sort();
+    const fill=(id,vals)=>{
+      const sel=document.getElementById(id);if(!sel)return;
+      const cur=sel.value;
+      const first=sel.options[0].outerHTML;
+      sel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+      if(vals.includes(cur))sel.value=cur;
+    };
+    fill('promoFilterMetier',uniq('metier'));
+    fill('promoFilterCommercial',uniq('commercial'));
+    fill('promoFilterClassif',uniq('classification'));
+    // Departments from chalandiseData cp field
+    const depts=new Set();
+    for(const c of all){const info=chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'');if(cp.length>=2)depts.add(cp.slice(0,2));}
+    fill('promoFilterDept',[...depts].sort());
+    // Show refinement panel
+    const ph=document.getElementById('promoFiltersPlaceholder');const rf=document.getElementById('promoRefinementFilters');
+    if(ph)ph.classList.add('hidden');if(rf)rf.classList.remove('hidden');
+  }
+
+  function _applyPromoFilters(){_renderPromoResults();}
+
+  function _resetPromoFilters(){
+    ['promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
+    const st=document.getElementById('promoFilterStrat');if(st)st.checked=false;
     _renderPromoResults();
   }
 
   function _renderPromoResults(){
     const r=_promoLastResult;if(!r)return;
     const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
+    // Read refinement filters
+    const fMetier=(document.getElementById('promoFilterMetier')||{}).value||'';
+    const fComm=(document.getElementById('promoFilterCommercial')||{}).value||'';
+    const fClassif=(document.getElementById('promoFilterClassif')||{}).value||'';
+    const fCAMin=parseFloat((document.getElementById('promoFilterCAMin')||{}).value)||0;
+    const fDept=(document.getElementById('promoFilterDept')||{}).value||'';
+    const fStrat=(document.getElementById('promoFilterStrat')||{}).checked||false;
+    const pass=(c,caField)=>{
+      if(fMetier&&(c.metier||'')!==fMetier)return false;
+      if(fComm&&(c.commercial||'')!==fComm)return false;
+      if(fClassif&&(c.classification||'')!==fClassif)return false;
+      if(fCAMin>0&&((c[caField]||0))<fCAMin)return false;
+      if(fDept){const info=chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'').slice(0,2);if(cp!==fDept)return false;}
+      if(fStrat){const info=chalandiseData.get(c.cc)||{};const m=(info.metier||c.metier||'').toLowerCase();if(!METIERS_STRATEGIQUES.some(s=>m===s||m.includes(s)))return false;}
+      return true;
+    };
+    const sA=r.sectionA.filter(c=>pass(c,'ca'));
+    const sB=r.sectionB.filter(c=>pass(c,'ca2025'));
+    const sC=r.sectionC.filter(c=>pass(c,'ca2025'));
     // Section A
-    document.getElementById('promoCountA').textContent=r.sectionA.length;
-    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>{
+    document.getElementById('promoCountA').textContent=sA.length+(sA.length<r.sectionA.length?' / '+r.sectionA.length:'');
+    document.getElementById('promoTableA').innerHTML=sA.slice(0,200).map(c=>{
       const inChal=chalandiseReady&&chalandiseData.has(c.cc);
       const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1 py-0.5 font-normal">hors zone</span>':'';
       const metierCell=c.metier||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
@@ -2780,11 +2849,11 @@
       return`<tr class="border-t border-emerald-50 hover:bg-emerald-100 cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono text-gray-400 text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}</td><td class="py-1 px-2 text-gray-500">${metierCell}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${commCell}</td></tr>`;
     }).join('');
     // Section B
-    document.getElementById('promoCountB').textContent=r.sectionB.length;
-    document.getElementById('promoTableB').innerHTML=r.sectionB.length?r.sectionB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
+    document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
     // Section C
-    document.getElementById('promoCountC').textContent=r.sectionC.length;
-    document.getElementById('promoTableC').innerHTML=r.sectionC.length?r.sectionC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.classification||'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(chalandiseReady?'Aucun prospect identifié dans les métiers cibles ('+[...(_promoLastResult.sectionA.reduce((s,c)=>{if(c.metier)s.add(c.metier);return s;},new Set()))].slice(0,3).join(', ')+')':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoCountC').textContent=sC.length+(sC.length<r.sectionC.length?' / '+r.sectionC.length:'');
+    document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.classification||'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
     document.getElementById('promoResults').classList.remove('hidden');
     document.getElementById('promoExportBtn').classList.remove('hidden');
     document.getElementById('promoCopyBtn').classList.remove('hidden');
