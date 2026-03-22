@@ -91,11 +91,31 @@ function switchTab(id) {
     else if (id === 'promo') btn.classList.add('border-amber-500', 'text-amber-600', 'active');
     else btn.classList.add('border-blue-600', 'text-blue-600', 'active');
   }
-  const loaded = !document.getElementById('tabsContainer').classList.contains('hidden');
-  if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire' || id === 'promo') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
+  // Update filter panel groups based on active tab
+  const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
+  const activeGroup = id === 'bench' ? 'bench' : id === 'territoire' ? 'territoire' : id === 'promo' ? 'promo' : 'stock';
+  Object.entries(groups).forEach(([key, gid]) => {
+    const el = document.getElementById(gid); if (!el) return;
+    el.classList.toggle('hidden', key !== activeGroup);
+  });
 }
 
 function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
+
+// ── Filter drawer (mobile) ─────────────────────────────────────
+function openFilterDrawer() {
+  const panel = document.getElementById('filterPanel');
+  const overlay = document.getElementById('filterOverlay');
+  if (panel) panel.classList.add('drawer-open');
+  if (overlay) overlay.classList.add('active');
+}
+
+function closeFilterDrawer() {
+  const panel = document.getElementById('filterPanel');
+  const overlay = document.getElementById('filterOverlay');
+  if (panel) panel.classList.remove('drawer-open');
+  if (overlay) overlay.classList.remove('active');
+}
 
 function populateSelect(id, vals) {
   const s = document.getElementById(id); if (!s) return;
@@ -290,3 +310,262 @@ function downloadCSV() {
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 CSV téléchargé', 'success');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// COMMAND PALETTE (Cmd+K)
+// ═══════════════════════════════════════════════════════════════
+
+const _CMD_ACTIONS = [
+  { kw: ['rupture','ruptures'], icon: '🚨', label: 'Voir les ruptures', fn: () => { showCockpitInTable('ruptures'); } },
+  { kw: ['dormant','dormants'], icon: '💤', label: 'Voir les dormants', fn: () => { showCockpitInTable('dormants'); } },
+  { kw: ['anomalie','anomalies'], icon: '⚠️', label: 'Voir les anomalies', fn: () => { showCockpitInTable('anomalies'); } },
+  { kw: ['saso'], icon: '📦', label: 'Voir les SASO', fn: () => { showCockpitInTable('saso'); } },
+  { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('territoire'); } },
+  { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
+  { kw: ['promo'], icon: '🎯', label: 'Onglet Promo', fn: () => { switchTab('promo'); } },
+  { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
+  { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
+  { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
+  { kw: ['cockpit','actions','urgences'], icon: '⚙️', label: 'Onglet Cockpit', fn: () => { switchTab('action'); } },
+  { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('dash'); } },
+  { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
+  { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
+  { kw: ['glossaire'], icon: '🧠', label: 'Afficher le glossaire', fn: () => { const g = document.getElementById('glossaire'); if (g) { g.classList.toggle('hidden'); g.scrollIntoView({ behavior: 'smooth' }); } } },
+];
+
+let _cmdTimer = null;
+let _cmdSelectedIdx = -1;
+let _cmdItems = []; // flat list of rendered clickable items for keyboard nav
+
+function openCmdPalette() {
+  const pal = document.getElementById('cmdPalette');
+  const inp = document.getElementById('cmdInput');
+  if (!pal || !inp) return;
+  pal.classList.remove('hidden');
+  inp.value = '';
+  _cmdSelectedIdx = -1;
+  _cmdRender('');
+  setTimeout(() => inp.focus(), 30);
+}
+
+function closeCmdPalette() {
+  const pal = document.getElementById('cmdPalette');
+  if (pal) pal.classList.add('hidden');
+  _cmdSelectedIdx = -1;
+  _cmdItems = [];
+}
+
+function _cmdRender(q) {
+  const res = document.getElementById('cmdResults');
+  if (!res) return;
+  const groups = _cmdBuildResults(q.trim());
+  if (!groups.length) {
+    res.innerHTML = '<div class="cmd-empty">Aucun résultat — essayez "ruptures", un code article ou un nom client</div>';
+    _cmdItems = [];
+    return;
+  }
+  let html = '';
+  _cmdItems = [];
+  let idx = 0;
+  for (const g of groups) {
+    html += `<div class="cmd-group-header">${g.header} <span class="opacity-60">(${g.items.length})</span></div>`;
+    for (const item of g.items) {
+      const dataIdx = idx++;
+      _cmdItems.push(item);
+      html += `<div class="cmd-item" data-cidx="${dataIdx}" onclick="_cmdExec(${dataIdx})">
+        <span class="cmd-item-icon">${item.icon}</span>
+        <div class="min-w-0 flex-1">
+          <div class="cmd-item-main">${item.main}</div>
+          ${item.sub ? `<div class="cmd-item-sub">${item.sub}</div>` : ''}
+        </div>
+        ${item.badge ? `<span class="cmd-item-badge ${item.badgeCls || 'bg-gray-100 text-gray-600'}">${item.badge}</span>` : ''}
+        <span class="text-gray-300 text-xs ml-1">↵</span>
+      </div>`;
+    }
+  }
+  res.innerHTML = html;
+}
+
+function _cmdBuildResults(q) {
+  const groups = [];
+  const ql = q.toLowerCase();
+
+  // 1. Quick actions
+  const matchedActions = [];
+  for (const a of _CMD_ACTIONS) {
+    if (!q || a.kw.some(k => k.includes(ql) || ql.includes(k.split(' ')[0]))) {
+      matchedActions.push({ icon: a.icon, main: a.label, sub: '', fn: a.fn });
+      if (matchedActions.length >= 5) break;
+    }
+  }
+  if (matchedActions.length) groups.push({ header: '⚡ Actions', items: matchedActions });
+
+  if (!q) return groups;
+
+  // 2. Articles (search finalData)
+  if (typeof finalData !== 'undefined' && finalData.length) {
+    const terms = ql.split(/\s+/).filter(Boolean);
+    const artResults = [];
+    for (const r of finalData) {
+      if (artResults.length >= 5) break;
+      const haystack = (r.code + ' ' + r.libelle + ' ' + (r.famille || '')).toLowerCase();
+      if (terms.every(t => haystack.includes(t))) {
+        const stockColor = r.stockActuel <= 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+        artResults.push({
+          icon: '📦',
+          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${r.code}</span>${_cmdEsc(r.libelle)}`,
+          sub: `${r.famille || '—'} · Stock: ${r.stockActuel}`,
+          badge: [r.abcClass, r.fmrClass].filter(Boolean).join(''),
+          badgeCls: 'bg-indigo-100 text-indigo-700',
+          fn: () => {
+            document.getElementById('searchInput').value = r.code;
+            switchTab('table');
+            onFilterChange();
+          }
+        });
+      }
+    }
+    if (artResults.length) groups.push({ header: '📦 Articles', items: artResults });
+  }
+
+  // 3. Clients (chalandiseData + clientNomLookup fallback)
+  const clientResults = [];
+  if (typeof chalandiseData !== 'undefined' && chalandiseData.size) {
+    for (const [code, info] of chalandiseData) {
+      if (clientResults.length >= 5) break;
+      if (code.toLowerCase().includes(ql) || (info.nom || '').toLowerCase().includes(ql)) {
+        const ca = _cmdClientCA(code);
+        const isActif = (info.statut || '').toLowerCase().includes('actif');
+        clientResults.push({
+          icon: '👤',
+          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${code}</span>${_cmdEsc(info.nom || code)}`,
+          sub: [info.metier, ca ? ca + '€ CA' : ''].filter(Boolean).join(' · '),
+          badge: isActif ? 'Actif' : (info.statut || ''),
+          badgeCls: isActif ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500',
+          fn: () => { switchTab('territoire'); }
+        });
+      }
+    }
+  }
+  if (clientResults.length < 5 && typeof clientNomLookup !== 'undefined') {
+    for (const [code, nom] of Object.entries(clientNomLookup)) {
+      if (clientResults.length >= 5) break;
+      if (typeof chalandiseData !== 'undefined' && chalandiseData.has(code)) continue;
+      if (code.toLowerCase().includes(ql) || (nom || '').toLowerCase().includes(ql)) {
+        clientResults.push({
+          icon: '👤',
+          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${code}</span>${_cmdEsc(nom || code)}`,
+          sub: '',
+          fn: () => { switchTab('territoire'); }
+        });
+      }
+    }
+  }
+  if (clientResults.length) groups.push({ header: '👥 Clients', items: clientResults });
+
+  // 4. Familles
+  if (typeof finalData !== 'undefined' && finalData.length) {
+    const famSet = new Set();
+    finalData.forEach(r => { if (r.famille) famSet.add(r.famille); });
+    const famResults = [];
+    for (const f of famSet) {
+      if (famResults.length >= 3) break;
+      if (f.toLowerCase().includes(ql)) {
+        famResults.push({
+          icon: '🏷️',
+          main: _cmdEsc(f),
+          sub: 'Filtrer par famille',
+          fn: () => {
+            document.getElementById('filterFamille').value = f;
+            switchTab('table');
+            onFilterChange();
+          }
+        });
+      }
+    }
+    if (famResults.length) groups.push({ header: '🏷️ Familles', items: famResults });
+  }
+
+  // 5. Agences (storesIntersection)
+  if (typeof storesIntersection !== 'undefined' && storesIntersection.size > 1) {
+    const agResults = [];
+    for (const s of storesIntersection) {
+      if (agResults.length >= 3) break;
+      if (s !== selectedMyStore && s.toLowerCase().includes(ql)) {
+        agResults.push({
+          icon: '🏪',
+          main: s,
+          sub: 'Comparer dans Le Réseau',
+          badge: s === selectedMyStore ? 'Mon agence' : '',
+          fn: () => {
+            switchTab('bench');
+            const sel = document.getElementById('obsCompareSelect');
+            if (sel) { sel.value = s; sel.dispatchEvent(new Event('change')); }
+          }
+        });
+      }
+    }
+    if (agResults.length) groups.push({ header: '🏪 Agences', items: agResults });
+  }
+
+  return groups;
+}
+
+function _cmdClientCA(code) {
+  if (typeof ventesClientArticle === 'undefined') return '';
+  const arts = ventesClientArticle.get(code);
+  if (!arts) return '';
+  let total = 0;
+  for (const v of arts.values()) total += (v.sumCA || 0);
+  return total > 0 ? formatEuro(total).replace('€','').trim() : '';
+}
+
+function _cmdEsc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _cmdExec(idx) {
+  const item = _cmdItems[idx];
+  if (!item) return;
+  closeCmdPalette();
+  if (item.fn) item.fn();
+}
+
+function _cmdMoveSelection(dir) {
+  const items = document.querySelectorAll('#cmdResults .cmd-item');
+  if (!items.length) return;
+  items.forEach(el => el.classList.remove('cmd-selected'));
+  _cmdSelectedIdx = Math.max(0, Math.min(_cmdSelectedIdx + dir, items.length - 1));
+  const sel = items[_cmdSelectedIdx];
+  if (sel) { sel.classList.add('cmd-selected'); sel.scrollIntoView({ block: 'nearest' }); }
+}
+
+// Keyboard listeners
+document.addEventListener('keydown', function(e) {
+  // Open: Cmd+K / Ctrl+K
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    const pal = document.getElementById('cmdPalette');
+    if (pal && pal.classList.contains('hidden')) openCmdPalette();
+    else closeCmdPalette();
+    return;
+  }
+  const pal = document.getElementById('cmdPalette');
+  if (!pal || pal.classList.contains('hidden')) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeCmdPalette(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); _cmdMoveSelection(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _cmdMoveSelection(-1); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_cmdSelectedIdx >= 0) _cmdExec(_cmdSelectedIdx);
+    else if (_cmdItems.length > 0) _cmdExec(0);
+  }
+});
+
+// Input debounce
+document.addEventListener('input', function(e) {
+  if (e.target.id !== 'cmdInput') return;
+  _cmdSelectedIdx = -1;
+  clearTimeout(_cmdTimer);
+  _cmdTimer = setTimeout(() => _cmdRender(e.target.value), 150);
+});
