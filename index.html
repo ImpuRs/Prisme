@@ -111,6 +111,14 @@
     .diag-v2{background:#1a0e1e;border-color:#7c3aed50}
     .diag-v3{background:#061a10;border-color:#15803d50}
     .diag-src-tag{display:inline-flex;align-items:center;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:9999px;margin-left:6px;background:#1e293b;color:#94a3b8}
+    /* Promo auto-suggest */
+    #promoSuggestBox{border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+    .promo-sug-group{padding:4px 12px 2px;font-size:.6rem;font-weight:700;color:#94a3b8;background:#f8fafc;text-transform:uppercase;letter-spacing:.05em}
+    .promo-sug-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;cursor:pointer;border-top:1px solid #f1f5f9;transition:background .08s}
+    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:#fff7ed}
+    .promo-sug-icon{font-size:.85rem;flex-shrink:0;line-height:1.4}
+    .promo-sug-label{font-size:.75rem;font-weight:600;color:#1e293b;line-height:1.3}
+    .promo-sug-sub{font-size:.65rem;color:#94a3b8;margin-top:1px}
     /* Command Palette */
     #cmdPalette{transition:opacity .15s ease}
     .cmd-group-header{padding:5px 14px 4px;font-size:.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;background:#f8fafc;border-bottom:1px solid #f1f5f9;position:sticky;top:0}
@@ -126,13 +134,14 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 6px rgba(0,0,0,.06)}
-    @media(min-width:1024px){#filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
+    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f3f4f6}
     /* Mobile drawer */
-    #filterPanel.drawer-open{display:flex;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
+    #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
     #filterOverlay.active{display:block}
-    #filterDrawerBtn{display:flex;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
+    #filterDrawerBtn{display:none;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
+    body.pilot-loaded #filterDrawerBtn{display:flex}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 relative">
@@ -222,7 +231,7 @@
 
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
-          <div id="terrFiltersBlock" class="hidden flex flex-col gap-1.5">
+          <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
             <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
             <div class="relative" id="terrSecteurDropdown">
@@ -259,14 +268,22 @@
 
         <!-- GROUP Promo -->
         <div id="filterGroupPromo" class="hidden">
-          <p class="text-[10px] font-bold text-gray-600 mb-1.5">Qui achète cet article / famille / marque ?</p>
-          <div class="flex flex-col gap-1.5">
-            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-xs py-1.5 px-2 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
-            <div class="flex gap-1">
-              <button onclick="runPromoSearch()" class="flex-1 text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-2 rounded-lg transition-colors">🎯 Cibler</button>
-              <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📥</button>
-              <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📋</button>
-            </div>
+          <div id="promoFiltersPlaceholder" class="py-6 text-center">
+            <div class="text-2xl mb-2">🎯</div>
+            <p class="text-[11px] text-gray-400 italic leading-relaxed">Lancez une recherche<br>pour activer les filtres</p>
+          </div>
+          <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
+            <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+            <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
+            <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
+            <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
+            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
+            <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
+            <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
+              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-orange-500">
+              ⭐ Stratégiques uniquement
+            </label>
+            <button onclick="_resetPromoFilters()" class="text-[10px] text-gray-400 hover:text-gray-600 text-left mt-1">↺ Réinitialiser les filtres</button>
           </div>
         </div>
 
@@ -332,7 +349,7 @@
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
-        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-amber-600 font-extrabold">🎯 Promo</button></li>
+        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-orange-600 font-extrabold">🎯 Promo</button></li>
       </ul>
     </div>
 
@@ -872,15 +889,27 @@
     <!-- TAB 7 : PROMO -->
     <div id="tabPromo" class="tab-content hidden">
       <!-- Header -->
-      <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white shadow-lg mb-4">
+      <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-lg mb-4">
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
-        <p class="text-amber-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
+        <p class="text-orange-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
-      <!-- Search block (input moved to filter panel) -->
-      <div id="promoTargetingBlock" class="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
-          <h3 class="font-extrabold text-gray-800 text-sm">Résultats de ciblage</h3>
-          <span class="text-[10px] text-gray-400">Utilisez le panneau Filtres à gauche pour rechercher</span>
+      <!-- Search bar — main entry point -->
+      <div class="bg-white rounded-xl border border-orange-100 shadow-sm p-4 mb-4">
+        <p class="text-xs font-bold text-orange-600 mb-2">Qui achète cet article / famille / marque ?</p>
+        <div class="flex gap-2 flex-wrap items-start">
+          <div class="flex-1 min-w-[200px] relative">
+            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-sm py-2 px-3 border border-orange-300 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-500" oninput="_onPromoInput()" onkeydown="_promoSuggestKeydown(event)" autocomplete="off">
+            <div id="promoSuggestBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 z-50 overflow-hidden" style="max-height:360px;overflow-y:auto"></div>
+          </div>
+          <button onclick="_closePromoSuggest();runPromoSearch()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
+          <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
+          <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
+        </div>
+      </div>
+      <!-- Results block -->
+      <div id="promoTargetingBlock" class="bg-white rounded-xl border border-orange-100 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-orange-100 bg-gradient-to-r from-orange-50 to-red-50 flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-extrabold text-orange-700 text-sm">Résultats de ciblage</h3>
         </div>
         <div class="p-3">
           <div id="promoMatchInfo" class="hidden mt-2 text-xs text-gray-500"></div>
@@ -1974,6 +2003,7 @@
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
+      document.body.classList.add('pilot-loaded');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
       // Territoire tab visible seulement quand la chalandise est chargée (pas de dépendance au fichier BL)
       if(chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}else{document.getElementById('btnTabTerritoire').classList.add('hidden');}
@@ -2053,7 +2083,7 @@
     if(!hasTerr&&!hasChal)return;
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
-      ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+      ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -2646,7 +2676,111 @@
   }
 
   // ── 🎯 Ciblage Promo ──
-  let _promoLastResult=null; // {matchedCodes,sectionA,sectionB,sectionC,label}
+  let _promoLastResult=null;
+  let _promoSuggestTimer=null;
+  let _promoSuggestIdx=-1;
+  let _promoSuggestItems=[];
+
+  function _onPromoInput(){
+    clearTimeout(_promoSuggestTimer);
+    _promoSuggestTimer=setTimeout(()=>{
+      const q=(document.getElementById('promoSearchInput')||{}).value||'';
+      if(q.trim().length<2){_closePromoSuggest();return;}
+      _buildPromoSuggestions(q.trim());
+    },150);
+  }
+
+  function _buildPromoSuggestions(q){
+    const ql=q.toLowerCase();
+    const terms=ql.split(/[\s,;]+/).filter(Boolean);
+    // Families
+    const famMap=new Map();
+    for(const r of finalData){const f=r.famille||'';if(!f)continue;if(terms.every(t=>f.toLowerCase().includes(t))){famMap.set(f,(famMap.get(f)||0)+1);}}
+    for(const[code,f] of Object.entries(articleFamille)){if(!f)continue;if(terms.every(t=>f.toLowerCase().includes(t))){if(!famMap.has(f))famMap.set(f,0);famMap.set(f,famMap.get(f)+1);}}
+    const famSug=[...famMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([fam,cnt])=>({type:'famille',label:fam,sub:cnt+' article'+(cnt!==1?'s':''),value:fam}));
+    // Articles
+    const artSug=[];const seen=new Set();
+    const tryAdd=(code,lib,fam)=>{
+      if(artSug.length>=4||seen.has(code))return;
+      if(terms.every(t=>code.toLowerCase().includes(t)||lib.toLowerCase().includes(t)||(fam||'').toLowerCase().includes(t))){
+        seen.add(code);
+        artSug.push({type:'article',label:code+' · '+lib.slice(0,50)+(lib.length>50?'…':''),sub:fam||'',value:code});
+      }
+    };
+    for(const r of finalData){if(artSug.length>=4)break;tryAdd(r.code,libelleLookup[r.code]||r.libelle||r.code,articleFamille[r.code]||r.famille||'');}
+    for(const[code,lib] of Object.entries(libelleLookup)){if(artSug.length>=4)break;tryAdd(code,lib,articleFamille[code]||'');}
+    _promoSuggestItems=[...famSug,...artSug];
+    _renderPromoSuggestions();
+  }
+
+  function _renderPromoSuggestions(){
+    const box=document.getElementById('promoSuggestBox');if(!box)return;
+    if(!_promoSuggestItems.length){_closePromoSuggest();return;}
+    _promoSuggestIdx=-1;
+    const famItems=_promoSuggestItems.filter(i=>i.type==='famille');
+    const artItems=_promoSuggestItems.filter(i=>i.type==='article');
+    let html='';
+    if(famItems.length){
+      html+=`<div class="promo-sug-group">Familles</div>`;
+      for(const item of famItems){
+        const idx=_promoSuggestItems.indexOf(item);
+        html+=`<div class="promo-sug-item" data-idx="${idx}" onmousedown="_selectPromoSuggestion(${idx})"><span class="promo-sug-icon">📁</span><div><div class="promo-sug-label">${item.label}</div><div class="promo-sug-sub">${item.sub}</div></div></div>`;
+      }
+    }
+    if(artItems.length){
+      html+=`<div class="promo-sug-group">Articles</div>`;
+      for(const item of artItems){
+        const idx=_promoSuggestItems.indexOf(item);
+        html+=`<div class="promo-sug-item" data-idx="${idx}" onmousedown="_selectPromoSuggestion(${idx})"><span class="promo-sug-icon">🔩</span><div><div class="promo-sug-label">${item.label}</div>${item.sub?`<div class="promo-sug-sub">${item.sub}</div>`:''}</div></div>`;
+      }
+    }
+    box.innerHTML=html;box.classList.remove('hidden');
+  }
+
+  function _closePromoSuggest(){
+    const box=document.getElementById('promoSuggestBox');if(box)box.classList.add('hidden');
+    _promoSuggestIdx=-1;_promoSuggestItems=[];
+  }
+
+  function _selectPromoSuggestion(idx){
+    const item=_promoSuggestItems[idx];if(!item)return;
+    const inp=document.getElementById('promoSearchInput');if(inp)inp.value=item.value;
+    _closePromoSuggest();runPromoSearch();
+  }
+
+  function _promoSuggestKeydown(e){
+    const box=document.getElementById('promoSuggestBox');
+    const isOpen=box&&!box.classList.contains('hidden');
+    if(e.key==='ArrowDown'){
+      if(!isOpen)return;e.preventDefault();
+      _promoSuggestIdx=Math.min(_promoSuggestIdx+1,_promoSuggestItems.length-1);
+      _promoSuggestHighlight();
+    }else if(e.key==='ArrowUp'){
+      if(!isOpen)return;e.preventDefault();
+      _promoSuggestIdx=Math.max(_promoSuggestIdx-1,-1);
+      _promoSuggestHighlight();
+    }else if(e.key==='Enter'){
+      e.preventDefault();
+      if(isOpen&&_promoSuggestIdx>=0){_selectPromoSuggestion(_promoSuggestIdx);}
+      else{_closePromoSuggest();runPromoSearch();}
+    }else if(e.key==='Escape'){
+      _closePromoSuggest();
+    }
+  }
+
+  function _promoSuggestHighlight(){
+    const box=document.getElementById('promoSuggestBox');if(!box)return;
+    box.querySelectorAll('.promo-sug-item').forEach((el,i)=>{
+      el.classList.toggle('promo-sug-sel',i===_promoSuggestIdx);
+      if(i===_promoSuggestIdx)el.scrollIntoView({block:'nearest'});
+    });
+  }
+
+  // Close suggest on outside click
+  document.addEventListener('click',e=>{
+    const box=document.getElementById('promoSuggestBox');
+    if(box&&!box.contains(e.target)&&e.target.id!=='promoSearchInput')box.classList.add('hidden');
+  });
 
   function runPromoSearch(){
     const raw=(document.getElementById('promoSearchInput')||{}).value||'';
@@ -2762,15 +2896,67 @@
     }
 
     _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
+    _populatePromoFilterDropdowns();
+    _renderPromoResults();
+  }
+
+  function _populatePromoFilterDropdowns(){
+    const r=_promoLastResult;if(!r)return;
+    const all=[...r.sectionA,...r.sectionB,...r.sectionC];
+    const uniq=(key)=>[...new Set(all.map(c=>c[key]||'').filter(Boolean))].sort();
+    const fill=(id,vals)=>{
+      const sel=document.getElementById(id);if(!sel)return;
+      const cur=sel.value;
+      const first=sel.options[0].outerHTML;
+      sel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+      if(vals.includes(cur))sel.value=cur;
+    };
+    fill('promoFilterMetier',uniq('metier'));
+    fill('promoFilterCommercial',uniq('commercial'));
+    fill('promoFilterClassif',uniq('classification'));
+    // Departments from chalandiseData cp field
+    const depts=new Set();
+    for(const c of all){const info=chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'');if(cp.length>=2)depts.add(cp.slice(0,2));}
+    fill('promoFilterDept',[...depts].sort());
+    // Show refinement panel
+    const ph=document.getElementById('promoFiltersPlaceholder');const rf=document.getElementById('promoRefinementFilters');
+    if(ph)ph.classList.add('hidden');if(rf)rf.classList.remove('hidden');
+  }
+
+  function _applyPromoFilters(){_renderPromoResults();}
+
+  function _resetPromoFilters(){
+    ['promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
+    const st=document.getElementById('promoFilterStrat');if(st)st.checked=false;
     _renderPromoResults();
   }
 
   function _renderPromoResults(){
     const r=_promoLastResult;if(!r)return;
     const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
+    // Read refinement filters
+    const fMetier=(document.getElementById('promoFilterMetier')||{}).value||'';
+    const fComm=(document.getElementById('promoFilterCommercial')||{}).value||'';
+    const fClassif=(document.getElementById('promoFilterClassif')||{}).value||'';
+    const fCAMin=parseFloat((document.getElementById('promoFilterCAMin')||{}).value)||0;
+    const fDept=(document.getElementById('promoFilterDept')||{}).value||'';
+    const fStrat=(document.getElementById('promoFilterStrat')||{}).checked||false;
+    const pass=(c,caField)=>{
+      if(fMetier&&(c.metier||'')!==fMetier)return false;
+      if(fComm&&(c.commercial||'')!==fComm)return false;
+      if(fClassif&&(c.classification||'')!==fClassif)return false;
+      if(fCAMin>0&&((c[caField]||0))<fCAMin)return false;
+      if(fDept){const info=chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'').slice(0,2);if(cp!==fDept)return false;}
+      if(fStrat){const info=chalandiseData.get(c.cc)||{};const m=(info.metier||c.metier||'').toLowerCase();if(!METIERS_STRATEGIQUES.some(s=>m===s||m.includes(s)))return false;}
+      return true;
+    };
+    const sA=r.sectionA.filter(c=>pass(c,'ca'));
+    const sB=r.sectionB.filter(c=>pass(c,'ca2025'));
+    const sC=r.sectionC.filter(c=>pass(c,'ca2025'));
     // Section A
-    document.getElementById('promoCountA').textContent=r.sectionA.length;
-    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>{
+    document.getElementById('promoCountA').textContent=sA.length+(sA.length<r.sectionA.length?' / '+r.sectionA.length:'');
+    document.getElementById('promoTableA').innerHTML=sA.slice(0,200).map(c=>{
       const inChal=chalandiseReady&&chalandiseData.has(c.cc);
       const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1 py-0.5 font-normal">hors zone</span>':'';
       const metierCell=c.metier||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
@@ -2778,11 +2964,11 @@
       return`<tr class="border-t border-emerald-50 hover:bg-emerald-100 cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono text-gray-400 text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}</td><td class="py-1 px-2 text-gray-500">${metierCell}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${commCell}</td></tr>`;
     }).join('');
     // Section B
-    document.getElementById('promoCountB').textContent=r.sectionB.length;
-    document.getElementById('promoTableB').innerHTML=r.sectionB.length?r.sectionB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
+    document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
     // Section C
-    document.getElementById('promoCountC').textContent=r.sectionC.length;
-    document.getElementById('promoTableC').innerHTML=r.sectionC.length?r.sectionC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.classification||'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(chalandiseReady?'Aucun prospect identifié dans les métiers cibles ('+[...(_promoLastResult.sectionA.reduce((s,c)=>{if(c.metier)s.add(c.metier);return s;},new Set()))].slice(0,3).join(', ')+')':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoCountC').textContent=sC.length+(sC.length<r.sectionC.length?' / '+r.sectionC.length:'');
+    document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.classification||'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
     document.getElementById('promoResults').classList.remove('hidden');
     document.getElementById('promoExportBtn').classList.remove('hidden');
     document.getElementById('promoCopyBtn').classList.remove('hidden');
