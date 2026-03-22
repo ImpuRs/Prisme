@@ -454,7 +454,7 @@
         <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">☠️ Dormants<em class="info-tip" data-tip="Articles en stock sans aucune vente sur la période du consommé (&gt;1 an). Candidats au renvoi dépôt.">ℹ</em></h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">📊 Surstock PILOT<em class="info-tip" data-tip="Stock dépassant le MAX recalculé par PILOT — articles bien gérés ERP mais au-dessus de la nouvelle préconisation. Optimisation à faire.">ℹ</em></h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">👁️ Excédent ERP<em class="info-tip" data-tip="Stock dépassant le MAX défini dans l\'ERP — à renvoyer au dépôt ou à solder.">ℹ</em></h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">✅ Taux Service<em class="info-tip" data-tip="Réf fréquentes (≥3 commandes/an) en stock ÷ total réf fréquentes. Cible : &gt;95%.">ℹ</em></h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">✅ Taux de dispo.<em class="info-tip" data-tip="Réf fréquentes (≥3 commandes/an) en stock ÷ total réf fréquentes. Cible : &gt;95%.">ℹ</em></h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-rose-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">💸 CA Perdu<em class="info-tip" data-tip="Estimation du CA manqué sur les ruptures : jours rupture × conso/jour × prix unitaire.">ℹ</em></h4><p id="dashCAPerdu" class="text-xl font-extrabold">0€</p><p id="dashCAPerduCount" class="text-rose-200 text-[10px] mt-1"></p></div>
       </div>
       <!-- Évolution historique (moved before shortcuts per V24.4 reorder) -->
@@ -739,7 +739,7 @@
 
       <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
       <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b">👥 Clients (top 50 par CA Legallais)</h3>
+        <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold text-gray-800 text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3><input type="text" id="terrClientSearch" oninput="renderTerritoireTab()" class="py-0.5 px-2 text-xs border rounded-lg w-40" placeholder="🔍 Code ou nom…"></div>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -1583,11 +1583,11 @@
         p+='.';
         if(ok(srNum)){
           const qualif=srNum>=95?'excellent':'solide';
-          p+=` Le taux de service est ${qualif} à ${srNum}% avec ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`;
+          p+=` Le taux de disponibilité est ${qualif} à ${srNum}% avec ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`;
         }
         parts.push(p);
       } else if(ok(srNum)){
-        parts.push(`Taux de service : ${srNum}% — ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`);
+        parts.push(`Taux de disponibilité : ${srNum}% — ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`);
       }
       if(parts.length)L.push(parts.join(' '));
     }
@@ -2286,8 +2286,9 @@
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
 
-    // Clients top 50 — filtered by same filters as direction/top100 views
-    const clientsList=Object.values(clientsMapFiltered).sort((a,b)=>b.ca-a.ca).slice(0,50);
+    // Clients top 50 — filtered by same filters as direction/top100 views + client search
+    const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
@@ -3416,7 +3417,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
-  function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Service',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
+  function renderComparison(currentKPI){const prev=kpiHistory.length>0?kpiHistory[kpiHistory.length-1]:null;kpiHistory.push(currentKPI);while(kpiHistory.length>12)kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
@@ -3571,9 +3572,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     }
     // Line 3: Service rate
     const srNum=parseFloat(sr);
-    if(srNum>=95)lines.push(`<p>💪 Taux de service <strong class="text-emerald-400">${sr}%</strong> — excellent.</p>`);
-    else if(srNum>=85)lines.push(`<p>👍 Taux de service <strong class="text-yellow-400">${sr}%</strong> — correct, marge de progression sur les ruptures.</p>`);
-    else lines.push(`<p>⚠️ Taux de service <strong class="text-red-400">${sr}%</strong> — priorité : résoudre les ruptures pour remonter.</p>`);
+    if(srNum>=95)lines.push(`<p>💪 Taux de disponibilité <strong class="text-emerald-400">${sr}%</strong> — excellent.</p>`);
+    else if(srNum>=85)lines.push(`<p>👍 Taux de disponibilité <strong class="text-yellow-400">${sr}%</strong> — correct, marge de progression sur les ruptures.</p>`);
+    else lines.push(`<p>⚠️ Taux de disponibilité <strong class="text-red-400">${sr}%</strong> — priorité : résoudre les ruptures pour remonter.</p>`);
     // Line 4: C-Rare (V24)
     if(finalData.length>0&&finalData[0].abcClass!==undefined){
       const crItems=finalData.filter(r=>r.abcClass==='C'&&r.fmrClass==='R'&&r.stockActuel>0);
@@ -4035,7 +4036,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       }
       clients.sort((a,b)=>{if(a.prio!==b.prio)return a.prio-b.prio;const cp=_diagClassifPrio(a.classification)-_diagClassifPrio(b.classification);if(a.prio===1||a.prio===5)return b.ca2025-a.ca2025;return cp||b.ca2025-a.ca2025;});
       const p1=clients.filter(c=>c.prio===1).length,p2=clients.filter(c=>c.prio===2).length,p3=clients.filter(c=>c.prio===3).length,p4=clients.filter(c=>c.prio===4).length;
-      const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+c.ca2025,0);
+      const potentiel=clients.filter(c=>c.prio===2||c.prio===3).reduce((s,c)=>s+(c.famCA>0?c.famCA:Math.round((c.ca2025||0)*0.05)),0);
       return{metier,pct,total:clients.length,p1,p2,p3,p4,p5:clients.filter(c=>c.prio===5).length,potentiel,clients};
     });
     const totalPerdus=metiers.reduce((s,m)=>s+m.p2+m.p3,0);
