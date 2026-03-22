@@ -671,6 +671,74 @@
             </table>
           </div>
         </div>
+        <!-- 🎯 Ciblage promo -->
+        <div id="promoTargetingBlock" class="mb-2 bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div class="px-3 py-2 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
+            <h3 class="font-extrabold text-gray-800 text-xs">🎯 Ciblage promo — Qui achète cet article / famille / marque ?</h3>
+            <span class="text-[10px] text-gray-400">Identifiez vos acheteurs, prospects et opportunités cross-sell</span>
+          </div>
+          <div class="p-2">
+            <div class="flex gap-2 items-center flex-wrap">
+              <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="flex-1 min-w-[220px] text-[11px] py-1.5 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
+              <button onclick="runPromoSearch()" class="text-[11px] bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-4 rounded-lg transition-colors">🎯 Cibler</button>
+              <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-3 rounded-lg">📥 Exporter CSV</button>
+              <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-3 rounded-lg">📋 Copier</button>
+            </div>
+            <div id="promoMatchInfo" class="hidden mt-1.5 text-[10px] text-gray-500"></div>
+            <!-- Results -->
+            <div id="promoResults" class="hidden mt-2 space-y-2">
+              <!-- Section A -->
+              <div class="rounded-lg border border-emerald-200 overflow-hidden">
+                <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
+                  <span class="text-[11px] font-bold text-emerald-800">🟢 Déjà acheteurs PDV — <span id="promoCountA">0</span> clients</span>
+                  <span id="promoArrowA" class="text-emerald-600 text-xs">▼</span>
+                </button>
+                <div id="promoBodyA" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
+                  <table class="min-w-full text-[10px]">
+                    <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
+                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                      <th class="py-1 px-2 text-right">CA sur sélection</th><th class="py-1 px-2 text-center">Dernier achat</th><th class="py-1 px-2 text-left">Commercial</th>
+                    </tr></thead>
+                    <tbody id="promoTableA"></tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- Section B -->
+              <div class="rounded-lg border border-red-200 overflow-hidden">
+                <button onclick="_togglePromoSection('B')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
+                  <span class="text-[11px] font-bold text-red-800">🔴 Achètent ailleurs — <span id="promoCountB">0</span> clients Legallais hors PDV</span>
+                  <span id="promoArrowB" class="text-red-600 text-xs">▼</span>
+                </button>
+                <div id="promoBodyB" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
+                  <table class="min-w-full text-[10px]">
+                    <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
+                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                      <th class="py-1 px-2 text-right">CA Legallais global</th><th class="py-1 px-2 text-left">Commercial</th>
+                    </tr></thead>
+                    <tbody id="promoTableB"></tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- Section C -->
+              <div class="rounded-lg border border-orange-200 overflow-hidden">
+                <button onclick="_togglePromoSection('C')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
+                  <span class="text-[11px] font-bold text-orange-800">🟠 Prospects métier — <span id="promoCountC">0</span> non-acheteurs dans les métiers cibles</span>
+                  <span id="promoArrowC" class="text-orange-600 text-xs">▼</span>
+                </button>
+                <div id="promoBodyC" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
+                  <table class="min-w-full text-[10px]">
+                    <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
+                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                      <th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-left">Commercial</th>
+                    </tr></thead>
+                    <tbody id="promoTableC"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Cockpit Client -->
         <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
@@ -2484,6 +2552,154 @@
     for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
+  }
+
+  // ── 🎯 Ciblage Promo ──
+  let _promoLastResult=null; // {matchedCodes,sectionA,sectionB,sectionC,label}
+
+  function runPromoSearch(){
+    const raw=(document.getElementById('promoSearchInput')||{}).value||'';
+    const terms=raw.split(/[\s,;]+/).map(t=>t.trim()).filter(Boolean);
+    if(!terms.length){showToast('⚠️ Saisissez un code, une famille ou un mot-clé','warning');return;}
+    if(!finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
+
+    // 1. Match articles
+    const matchedCodes=new Set();
+    for(const term of terms){
+      const tl=term.toLowerCase();
+      for(const r of finalData){
+        if(r.code===term||r.code.includes(term)||r.libelle.toLowerCase().includes(tl)||(r.famille||'').toLowerCase().includes(tl))
+          matchedCodes.add(r.code);
+      }
+    }
+    // 2. Matched families
+    const matchedFamilles=new Set();
+    for(const c of matchedCodes){const f=articleFamille[c]||(finalData.find(r=>r.code===c)||{}).famille;if(f)matchedFamilles.add(f);}
+    // Label
+    const artLabel=matchedCodes.size+' article'+(matchedCodes.size!==1?'s':'');
+    const famLabel=matchedFamilles.size?` · ${matchedFamilles.size} famille${matchedFamilles.size!==1?'s':''} (${[...matchedFamilles].slice(0,3).join(', ')}${matchedFamilles.size>3?'…':''})`:'' ;
+    const matchInfo=document.getElementById('promoMatchInfo');
+    if(matchInfo){matchInfo.textContent=`${artLabel} trouvé${matchedCodes.size!==1?'s':''}${famLabel}`;matchInfo.classList.remove('hidden');}
+    if(!matchedCodes.size){showToast('Aucun article trouvé pour cette recherche','warning');return;}
+
+    // SECTION A: Déjà acheteurs PDV
+    const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate}
+    for(const code of matchedCodes){
+      const buyers=articleClients.get(code);if(!buyers)continue;
+      for(const cc of buyers){
+        const artData=ventesClientArticle.get(cc);if(!artData)continue;
+        const d=artData.get(code);if(!d)continue;
+        if(!buyerMap.has(cc)){
+          const info=chalandiseData.get(cc)||{};
+          buyerMap.set(cc,{cc,nom:clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:clientLastOrder.get(cc)||null});
+        }
+        buyerMap.get(cc).ca+=(d.sumCA||d.sumPrelevee||0);
+      }
+    }
+    const sectionA=[...buyerMap.values()].sort((a,b)=>b.ca-a.ca);
+
+    // SECTION B: Achètent ailleurs (actifs Legallais, dans métier pertinent, pas en PDV)
+    const buyerCodes=new Set(buyerMap.keys());
+    const targetMetiers=new Set();
+    for(const c of sectionA)if(c.metier)targetMetiers.add(c.metier);
+    // fallback: all families matched — use chalandise metiers of anyone who bought these families via territoire
+    if(!targetMetiers.size&&territoireReady){
+      for(const l of territoireLines){
+        if(matchedFamilles.has(l.famille)&&l.clientCode){
+          const info=chalandiseData.get(l.clientCode)||{};if(info.metier)targetMetiers.add(info.metier);
+        }
+      }
+    }
+    const sectionB=[];
+    if(chalandiseReady&&chalandiseData.size){
+      // Clients who buy these families via territoire (other canals) but not at PDV
+      const terrBuyers=new Set();
+      if(territoireReady){
+        for(const l of territoireLines){if(matchedFamilles.has(l.famille)&&l.clientCode&&!buyerCodes.has(l.clientCode))terrBuyers.add(l.clientCode);}
+      }
+      for(const cc of terrBuyers){
+        const info=chalandiseData.get(cc)||{};
+        if(!_clientPassesFilters||_clientPassesFilters(info)){
+          const terrCA=territoireLines.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
+          sectionB.push({cc,nom:clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca2025:info.ca2025||0,terrCA});
+        }
+      }
+      sectionB.sort((a,b)=>b.terrCA-a.terrCA||b.ca2025-a.ca2025);
+    }
+
+    // SECTION C: Prospects métier (jamais acheteurs, dans métiers cibles)
+    const sectionC=[];
+    if(chalandiseReady&&chalandiseData.size&&targetMetiers.size){
+      for(const[cc,info] of chalandiseData.entries()){
+        if(buyerCodes.has(cc))continue; // already buyer
+        if(sectionB.find(b=>b.cc===cc))continue; // already in B
+        if(!targetMetiers.has(info.metier))continue;
+        if(!_clientPassesFilters||_clientPassesFilters(info)){
+          sectionC.push({cc,nom:info.nom||cc,metier:info.metier||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0});
+        }
+      }
+      sectionC.sort((a,b)=>b.ca2025-a.ca2025);
+    }
+
+    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms};
+    _renderPromoResults();
+  }
+
+  function _renderPromoResults(){
+    const r=_promoLastResult;if(!r)return;
+    const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
+    // Section A
+    document.getElementById('promoCountA').textContent=r.sectionA.length;
+    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>`<tr class="border-t border-emerald-50 hover:bg-emerald-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join('');
+    // Section B
+    document.getElementById('promoCountB').textContent=r.sectionB.length;
+    document.getElementById('promoTableB').innerHTML=r.sectionB.length?r.sectionB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
+    // Section C
+    document.getElementById('promoCountC').textContent=r.sectionC.length;
+    document.getElementById('promoTableC').innerHTML=r.sectionC.length?r.sectionC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.classification||'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(chalandiseReady?'Aucun prospect identifié dans les métiers cibles ('+[...(_promoLastResult.sectionA.reduce((s,c)=>{if(c.metier)s.add(c.metier);return s;},new Set()))].slice(0,3).join(', ')+')':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoResults').classList.remove('hidden');
+    document.getElementById('promoExportBtn').classList.remove('hidden');
+    document.getElementById('promoCopyBtn').classList.remove('hidden');
+  }
+
+  function _togglePromoSection(sec){
+    const body=document.getElementById('promoBody'+sec);const arrow=document.getElementById('promoArrow'+sec);
+    if(!body)return;const open=body.style.display==='none';body.style.display=open?'':'none';if(arrow)arrow.textContent=open?'▲':'▼';
+  }
+
+  function exportPromoCSV(){
+    const r=_promoLastResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
+    const SEP=';';const lines=['CIBLAGE PROMO — '+r.terms.join(' '),''];
+    lines.push('=== A. ACHETEURS PDV ===');
+    lines.push(['Code','Nom','Métier','CA sélection','Dernier achat','Commercial'].join(SEP));
+    const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR'):''}catch{return '';}};
+    for(const c of r.sectionA)lines.push([c.cc,`"${c.nom}"`,`"${c.metier}"`,c.ca.toFixed(2).replace('.',','),fmtD(c.lastDate),`"${c.commercial}"`].join(SEP));
+    lines.push('');lines.push('=== B. ACHÈTENT AILLEURS ===');
+    lines.push(['Code','Nom','Métier','CA Legallais','Commercial'].join(SEP));
+    for(const c of r.sectionB)lines.push([c.cc,`"${c.nom}"`,`"${c.metier}"`,c.ca2025.toFixed(2).replace('.',','),`"${c.commercial}"`].join(SEP));
+    lines.push('');lines.push('=== C. PROSPECTS MÉTIER ===');
+    lines.push(['Code','Nom','Métier','CA Legallais','Classification','Commercial'].join(SEP));
+    for(const c of r.sectionC)lines.push([c.cc,`"${c.nom}"`,`"${c.metier}"`,c.ca2025.toFixed(2).replace('.',','),`"${c.classification}"`,`"${c.commercial}"`].join(SEP));
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Promo_${r.terms[0]||'ciblage'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Ciblage téléchargé','success');
+  }
+
+  function copyPromoClipboard(){
+    const r=_promoLastResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
+    const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR'):''}catch{return '';}};
+    const lines=['🎯 Ciblage promo : '+r.terms.join(' '),''];
+    lines.push(`🟢 Acheteurs PDV (${r.sectionA.length}) :`);
+    r.sectionA.slice(0,20).forEach(c=>lines.push(`  ${c.nom} | ${c.metier||'—'} | ${c.ca>0?formatEuro(c.ca):'—'} | dernier achat: ${fmtD(c.lastDate)}`));
+    if(r.sectionA.length>20)lines.push(`  … et ${r.sectionA.length-20} autres`);
+    lines.push('');
+    lines.push(`🔴 Achètent ailleurs (${r.sectionB.length}) :`);
+    r.sectionB.slice(0,10).forEach(c=>lines.push(`  ${c.nom} | ${c.metier||'—'} | CA Leg: ${c.ca2025>0?formatEuro(c.ca2025):'—'}`));
+    if(r.sectionB.length>10)lines.push(`  … et ${r.sectionB.length-10} autres`);
+    lines.push('');
+    lines.push(`🟠 Prospects métier (${r.sectionC.length}) :`);
+    r.sectionC.slice(0,10).forEach(c=>lines.push(`  ${c.nom} | ${c.metier||'—'} | ${c.classification||'—'} | CA Leg: ${c.ca2025>0?formatEuro(c.ca2025):'—'}`));
+    if(r.sectionC.length>10)lines.push(`  … et ${r.sectionC.length-10} autres`);
+    navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('📋 Liste copiée dans le presse-papier','success')).catch(()=>showToast('Échec de la copie','error'));
   }
 
 
