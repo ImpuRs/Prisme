@@ -100,8 +100,6 @@ function switchTab(id) {
   });
 }
 
-function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
-
 // ── Filter drawer (mobile) ─────────────────────────────────────
 function openFilterDrawer() {
   const panel = document.getElementById('filterPanel');
