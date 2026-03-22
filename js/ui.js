@@ -444,7 +444,15 @@ function _cmdBuildResults(q) {
           sub: [info.metier, ca ? ca + '€ CA' : ''].filter(Boolean).join(' · '),
           badge: isActif ? 'Actif' : (info.statut || ''),
           badgeCls: isActif ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500',
-          fn: () => { switchTab('territoire'); }
+          fn: () => {
+            switchTab('territoire');
+            setTimeout(() => {
+              const searchInput = document.getElementById('terrClientSearch');
+              if (searchInput) { searchInput.value = info.nom || code; searchInput.dispatchEvent(new Event('input')); }
+              const block = document.getElementById('terrClientsBlock');
+              if (block) block.scrollIntoView({ behavior: 'smooth' });
+            }, 300);
+          }
         });
       }
     }
@@ -458,7 +466,15 @@ function _cmdBuildResults(q) {
           icon: '👤',
           main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${code}</span>${_cmdEsc(nom || code)}`,
           sub: '',
-          fn: () => { switchTab('territoire'); }
+          fn: () => {
+            switchTab('territoire');
+            setTimeout(() => {
+              const searchInput = document.getElementById('terrClientSearch');
+              if (searchInput) { searchInput.value = nom || code; searchInput.dispatchEvent(new Event('input')); }
+              const block = document.getElementById('terrClientsBlock');
+              if (block) block.scrollIntoView({ behavior: 'smooth' });
+            }, 300);
+          }
         });
       }
     }

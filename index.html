@@ -739,7 +739,7 @@
 
       <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
       <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b">👥 Clients (top 50 par CA Legallais)</h3>
+        <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold text-gray-800 text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3><input type="text" id="terrClientSearch" oninput="renderTerritoireTab()" class="py-0.5 px-2 text-xs border rounded-lg w-40" placeholder="🔍 Code ou nom…"></div>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -2286,8 +2286,9 @@
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
 
-    // Clients top 50 — filtered by same filters as direction/top100 views
-    const clientsList=Object.values(clientsMapFiltered).sort((a,b)=>b.ca-a.ca).slice(0,50);
+    // Clients top 50 — filtered by same filters as direction/top100 views + client search
+    const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
