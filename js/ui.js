@@ -91,7 +91,7 @@ function switchTab(id) {
     else btn.classList.add('border-blue-600', 'text-blue-600', 'active');
   }
   const loaded = !document.getElementById('tabsContainer').classList.contains('hidden');
-  if (loaded) { const gf = document.getElementById('globalFilters'), of2 = document.getElementById('obsFilters'); if (gf && of2) { if (id === 'bench') { gf.classList.add('hidden'); of2.classList.remove('hidden'); } else { of2.classList.add('hidden'); if (id === 'territoire') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } } }
+  if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
 }
 
 function populateSelect(id, vals) {
