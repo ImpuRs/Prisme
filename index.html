@@ -1780,7 +1780,7 @@
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):null;
-    // Taux de service
+    // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
     const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
@@ -1824,7 +1824,7 @@
     L.push(hr);L.push('');
     // ── FACTEURS DE SUCCÈS ───────────────────────────────────────
     L.push('FACTEURS DE SUCCÈS');L.push('');
-    // Para 1 : équation commerciale + taux de service intégrés
+    // Para 1 : équation commerciale + taux de disponibilité intégré
     {
       const parts=[];
       if(ok(caPDVTotal)&&caPDVTotal>0){
