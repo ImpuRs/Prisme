@@ -126,13 +126,14 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 6px rgba(0,0,0,.06)}
-    @media(min-width:1024px){#filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
+    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f3f4f6}
     /* Mobile drawer */
-    #filterPanel.drawer-open{display:flex;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
+    #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
     #filterOverlay.active{display:block}
-    #filterDrawerBtn{display:flex;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
+    #filterDrawerBtn{display:none;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
+    body.pilot-loaded #filterDrawerBtn{display:flex}
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 relative">
@@ -1974,6 +1975,7 @@
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
+      document.body.classList.add('pilot-loaded');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
       // Territoire tab visible seulement quand la chalandise est chargée (pas de dépendance au fichier BL)
       if(chalandiseReady){document.getElementById('btnTabTerritoire').classList.remove('hidden');}else{document.getElementById('btnTabTerritoire').classList.add('hidden');}
