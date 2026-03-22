@@ -115,7 +115,7 @@
     #promoSuggestBox{border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
     .promo-sug-group{padding:4px 12px 2px;font-size:.6rem;font-weight:700;color:#94a3b8;background:#f8fafc;text-transform:uppercase;letter-spacing:.05em}
     .promo-sug-item{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;cursor:pointer;border-top:1px solid #f1f5f9;transition:background .08s}
-    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:#fffbeb}
+    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:#fff7ed}
     .promo-sug-icon{font-size:.85rem;flex-shrink:0;line-height:1.4}
     .promo-sug-label{font-size:.75rem;font-weight:600;color:#1e293b;line-height:1.3}
     .promo-sug-sub{font-size:.65rem;color:#94a3b8;margin-top:1px}
@@ -273,14 +273,14 @@
             <p class="text-[11px] text-gray-400 italic leading-relaxed">Lancez une recherche<br>pour activer les filtres</p>
           </div>
           <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
-            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+            <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
             <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
             <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
             <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
             <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
             <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
             <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
-              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-amber-500">
+              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-orange-500">
               ⭐ Stratégiques uniquement
             </label>
             <button onclick="_resetPromoFilters()" class="text-[10px] text-gray-400 hover:text-gray-600 text-left mt-1">↺ Réinitialiser les filtres</button>
@@ -349,7 +349,7 @@
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
-        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-amber-600 font-extrabold">🎯 Promo</button></li>
+        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-orange-600 font-extrabold">🎯 Promo</button></li>
       </ul>
     </div>
 
@@ -889,27 +889,27 @@
     <!-- TAB 7 : PROMO -->
     <div id="tabPromo" class="tab-content hidden">
       <!-- Header -->
-      <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white shadow-lg mb-4">
+      <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-lg mb-4">
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
-        <p class="text-amber-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
+        <p class="text-orange-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
       <!-- Search bar — main entry point -->
-      <div class="bg-white rounded-xl border shadow-sm p-4 mb-4">
-        <p class="text-xs font-bold text-gray-500 mb-2">Qui achète cet article / famille / marque ?</p>
+      <div class="bg-white rounded-xl border border-orange-100 shadow-sm p-4 mb-4">
+        <p class="text-xs font-bold text-orange-600 mb-2">Qui achète cet article / famille / marque ?</p>
         <div class="flex gap-2 flex-wrap items-start">
           <div class="flex-1 min-w-[200px] relative">
-            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-sm py-2 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" oninput="_onPromoInput()" onkeydown="_promoSuggestKeydown(event)" autocomplete="off">
+            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-sm py-2 px-3 border border-orange-300 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-500" oninput="_onPromoInput()" onkeydown="_promoSuggestKeydown(event)" autocomplete="off">
             <div id="promoSuggestBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 z-50 overflow-hidden" style="max-height:360px;overflow-y:auto"></div>
           </div>
-          <button onclick="_closePromoSuggest();runPromoSearch()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
+          <button onclick="_closePromoSuggest();runPromoSearch()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
           <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
           <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
         </div>
       </div>
       <!-- Results block -->
-      <div id="promoTargetingBlock" class="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
-          <h3 class="font-extrabold text-gray-800 text-sm">Résultats de ciblage</h3>
+      <div id="promoTargetingBlock" class="bg-white rounded-xl border border-orange-100 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-orange-100 bg-gradient-to-r from-orange-50 to-red-50 flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-extrabold text-orange-700 text-sm">Résultats de ciblage</h3>
         </div>
         <div class="p-3">
           <div id="promoMatchInfo" class="hidden mt-2 text-xs text-gray-500"></div>
