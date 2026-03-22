@@ -384,17 +384,63 @@
 
     <!-- GLOSSAIRE -->
     <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-      <h3 class="font-extrabold text-blue-900 mb-4 text-lg">🧠 Glossaire</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs text-gray-600 mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir).<br><strong>Enlevé</strong> = colis commandé, ne touche pas le stock.<br>Le MIN/MAX est basé <strong>uniquement sur le prélevé</strong>.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs text-gray-600 mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (= délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs text-gray-600 mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500"><h4 class="font-bold text-sm">📊 Surstock PILOT vs 👁️ Excédent ERP</h4><p class="text-xs text-gray-600 mt-1"><strong>Surstock PILOT</strong> = stock &gt; NOUVEAU MAX recalculé par PILOT. Optimisation.<br><strong>Excédent ERP</strong> = stock &gt; ANCIEN MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs text-gray-600 mt-1">Dormant = 0 sortie &gt;1an → MIN/MAX=0.<br>Nouveauté = &lt;35j → conserve Ancien.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs text-gray-600 mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique. <span class="text-green-600">21–60j</span> optimal. <span class="text-blue-600">&gt;60j</span> surstock.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🔄 Benchmark</h4><p class="text-xs text-gray-600 mt-1"><strong>🚫 Manquées</strong> = vendues ailleurs pas chez vous. 🟢 en stock / 🔴 stock 0.<br><strong>📉 Sous-perf</strong> = &lt;50% moyenne. <strong>🏆 Sur-perf</strong> = &gt;150%.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-pink-500"><h4 class="font-bold text-sm">🧲 Attractivité</h4><p class="text-xs text-gray-600 mt-1">% de commandes contenant cette famille. Mesure le pouvoir d'attraction du rayon.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⚡ Score Priorité <span class="text-[9px] text-emerald-600">V23</span></h4><p class="text-xs text-gray-600 mt-1">Score composite = Fréquence × Prix unitaire × coefficient d'ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
+      <h3 class="font-extrabold text-blue-900 mb-5 text-lg">🧠 Glossaire PILOT PRO</h3>
+
+      <!-- Section 1 — Stock & Réappro -->
+      <p class="text-[11px] font-extrabold text-blue-700 uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs text-gray-600 mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir). <strong>Enlevé</strong> = colis commandé, ne touche pas le stock. MIN/MAX basé <strong>uniquement sur le prélevé</strong>.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs text-gray-600 mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs text-gray-600 mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📊 Surstock PILOT vs 👁️ Excédent ERP</h4><p class="text-xs text-gray-600 mt-1"><strong>Surstock PILOT</strong> = stock &gt; nouveau MAX recalculé. Optimisation à faire.<br><strong>Excédent ERP</strong> = stock &gt; ancien MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs text-gray-600 mt-1"><strong>Dormant</strong> = 0 sortie depuis &gt;1 an → MIN/MAX = 0.<br><strong>Nouveauté</strong> = référencé depuis &lt;35 jours → conserve l'ancien MIN/MAX.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">✅ Taux de disponibilité</h4><p class="text-xs text-gray-600 mt-1">Articles fréquents (≥3 cmd/an) en stock ÷ total articles fréquents. Mesure la disponibilité rayon, <strong>pas</strong> le service client.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs text-gray-600 mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique · <span class="text-green-600 font-bold">21–60j</span> optimal · <span class="text-blue-600 font-bold">&gt;60j</span> surstock.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">⚡ Score priorité</h4><p class="text-xs text-gray-600 mt-1">Fréquence × Prix unitaire × coefficient ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
+      </div>
+
+      <!-- Section 2 — Clients & Terrain -->
+      <p class="text-[11px] font-extrabold text-rose-700 uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA PDV</h4><p class="text-xs text-gray-600 mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé dans mon agence).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs text-gray-600 mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🤫 Client silencieux</h4><p class="text-xs text-gray-600 mt-1">Client régulier du PDV sans commande depuis plus de <strong>30 jours</strong>. Alerte précoce avant perte définitive.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">📍 Captation PDV / Legallais</h4><p class="text-xs text-gray-600 mt-1"><strong>PDV</strong> = % clients de la zone qui achètent dans mon agence.<br><strong>Legallais</strong> = % qui achètent chez Legallais (tous canaux).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🔴 À capter</h4><p class="text-xs text-gray-600 mt-1">Client actif Legallais qui ne vient <strong>pas</strong> en agence. Potentiel de rapatriement PDV.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟠 À développer</h4><p class="text-xs text-gray-600 mt-1">Client occasionnel ou prospect avec potentiel de croissance identifié (classification Pot+).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟢 À fidéliser</h4><p class="text-xs text-gray-600 mt-1">Bon client actif PDV, classification FID Pot+. À maintenir et développer en priorité.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟣 Fidèle hors zone</h4><p class="text-xs text-gray-600 mt-1">Client qui vient en agence mais absent du fichier chalandise (hors zone géographique définie).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs text-gray-600 mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
+      </div>
+
+      <!-- Section 3 — Radar & Diagnostic -->
+      <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Radar &amp; Diagnostic</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs text-gray-600 mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔢 FMR (fréquence)</h4><p class="text-xs text-gray-600 mt-1"><strong>F</strong> = fréquent ≥12/an · <strong>M</strong> = moyen 3–11/an · <strong>R</strong> = rare &lt;3/an.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🎯 Case Radar (ABC × FMR)</h4><p class="text-xs text-gray-600 mt-1"><strong>AF</strong> = pépites (fort CA + fréquent) · <strong>CR</strong> = candidats déréférencement · Les 9 cases croisent valeur et fréquence.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔬 Diagnostic cascade</h4><p class="text-xs text-gray-600 mt-1">3 voyants progressifs : <strong>📦 Mon Agence</strong> (stock/MIN-MAX) → <strong>👥 Mes Clients</strong> (chalandise) → <strong>🔭 Le Réseau</strong> (benchmark).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs text-gray-600 mt-1">CA PDV historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
+      </div>
+
+      <!-- Section 4 — Réseau & Benchmark -->
+      <p class="text-[11px] font-extrabold text-cyan-700 uppercase tracking-widest mb-2">🔭 Réseau &amp; Benchmark</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📐 PDM bassin</h4><p class="text-xs text-gray-600 mt-1">Part de marché = poids de mon agence × CA total du bassin par famille.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🧮 CA théorique</h4><p class="text-xs text-gray-600 mt-1">CA que mon agence devrait réaliser si elle avait la performance moyenne du réseau, pondéré par sa taille.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📊 Médiane réseau</h4><p class="text-xs text-gray-600 mt-1">Valeur centrale des agences comparables. Plus robuste que la moyenne (non biaisée par les extrêmes).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">💪 Forces / ⚠️ Faiblesses</h4><p class="text-xs text-gray-600 mt-1"><strong>Forces</strong> = familles où mon CA &gt; médiane réseau. À consolider.<br><strong>Faiblesses</strong> = mon CA &lt; médiane. Potentiel de progression.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🚫 Articles manquants</h4><p class="text-xs text-gray-600 mt-1">Vendus par ≥50% du réseau mais absents chez moi. Opportunité de référencement.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🏆 Exclusivités</h4><p class="text-xs text-gray-600 mt-1">Articles que seule mon agence vend (ou &lt;2 agences). Avantage compétitif local à valoriser.</p></div>
+      </div>
+
+      <!-- Section 5 — Équation commerciale -->
+      <p class="text-[11px] font-extrabold text-amber-700 uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs text-gray-600 mt-1"><strong>Clients PDV × Fréquence × Panier moyen = CA PDV.</strong> Les 3 leviers du chef d'agence.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs text-gray-600 mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs text-gray-600 mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ Panier moyen</h4><p class="text-xs text-gray-600 mt-1">CA total ÷ nombre de BL. Valeur moyenne d'une commande comptoir.</p></div>
       </div>
     </div>
 
