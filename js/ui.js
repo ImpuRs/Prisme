@@ -63,6 +63,7 @@ function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   if (!iz || !bannerRight || !banner) return;
   bannerRight.innerHTML = `<button onclick="expandImportZone()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-0.5 px-2 rounded font-semibold">▼ Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-[10px] bg-blue-900 hover:bg-blue-800 text-blue-200 py-0.5 px-2 rounded font-semibold">📖 Glossaire</button>`;
   iz.classList.add('hidden');
+  document.getElementById('onboardingBlock')?.classList.add('hidden');
   banner.classList.remove('hidden');
 }
 

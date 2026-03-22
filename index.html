@@ -445,6 +445,86 @@
     </div>
 
 
+    <!-- ONBOARDING — visible au premier lancement, caché après le premier processData() -->
+    <div id="onboardingBlock" class="mb-6">
+      <div class="text-center mb-6 pt-2">
+        <h1 class="text-2xl font-extrabold text-gray-800 mb-1">Bienvenue sur PILOT PRO</h1>
+        <p class="text-gray-500 text-sm">Votre copilote agence — chargez vos données pour commencer</p>
+      </div>
+      <div class="flex flex-col gap-3 mb-5">
+        <!-- Niveau 1 -->
+        <div class="flex items-stretch gap-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-extrabold text-sm flex items-center justify-center">1</span>
+            <div class="w-0.5 flex-1 bg-blue-200 mt-2"></div>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest mb-0.5">Obligatoire</p>
+            <h3 class="font-extrabold text-blue-900 text-base mb-1">📊 Consommé + État du Stock</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-blue-700">
+              <span>→ Articles, Mon Stock, COCKPIT, Radar ABC/FMR</span>
+              <span>→ Ruptures, dormants, MIN/MAX recalculés</span>
+              <span>→ Clients silencieux &amp; top clients PDV</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-blue-600 text-white font-bold px-2 py-1 rounded-lg">2 fichiers</span>
+          </div>
+        </div>
+        <!-- Flèche -->
+        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span>+ 1 fichier → niveau supérieur</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <!-- Niveau 2 -->
+        <div class="flex items-stretch gap-4 bg-rose-50 border-2 border-rose-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-rose-500 text-white font-extrabold text-sm flex items-center justify-center">2</span>
+            <div class="w-0.5 flex-1 bg-rose-200 mt-2"></div>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest mb-0.5">Optionnel</p>
+            <h3 class="font-extrabold text-rose-900 text-base mb-1">📋 Zone de Chalandise</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-rose-700">
+              <span>→ Le Terrain complet : métiers, captation</span>
+              <span>→ Cockpit client : à capter, développer, fidéliser</span>
+              <span>→ Prospects par métier &amp; potentiel récupérable</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-rose-500 text-white font-bold px-2 py-1 rounded-lg">3 fichiers</span>
+          </div>
+        </div>
+        <!-- Flèche -->
+        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span>fichier multi-agences → benchmark réseau</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <!-- Niveau 3 -->
+        <div class="flex items-stretch gap-4 bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-cyan-600 text-white font-extrabold text-sm flex items-center justify-center">3</span>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-cyan-500 uppercase tracking-widest mb-0.5">Multi-agences</p>
+            <h3 class="font-extrabold text-cyan-900 text-base mb-1">🔭 Consommé multi-agences</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-cyan-700">
+              <span>→ Le Réseau : benchmark, forces &amp; faiblesses</span>
+              <span>→ PDM bassin, CA théorique, classement agences</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-cyan-600 text-white font-bold px-2 py-1 rounded-lg">réseau</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold underline">📖 Guide rapide — consulter le glossaire</button>
+      </div>
+    </div>
+
     <!-- UPLOAD -->
     <div id="importZone">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
