@@ -3440,10 +3440,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           for(const cc of buyerSet){const info=chalandiseData.get(cc);if(!info)continue;const myData=ventesClientArticle.get(cc);const famCA=myData?[...myData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):0;actifClients.push({code:cc,nom:info.nom||'',statut:info.statut||'',ca2025:info.ca2025||0,famCA});}
           actifClients.sort((a,b)=>b.famCA-a.famCA||b.ca2025-a.ca2025);
           const caActifs=actifClients.reduce((s,c)=>s+c.famCA,0);
-          // Perdus : clients chalandise de ce métier n'achetant pas les articles de la case
-          let perduCount=0,potentiel=0,inactifsRecents=0,perdusAnciens=0;
-          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const st=(info.statut||'').toLowerCase();if(st.includes('inactif')||st.includes('perdu')||st.includes('prospect')){perduCount++;if((info.ca2025||0)>0)inactifsRecents++;else perdusAnciens++;const clientData=ventesClientArticle.get(cc);let clientFamCA=0;if(clientData){for(const[artCode,artData]of clientData.entries()){if(famArts.has(artCode))clientFamCA+=artData.sumCA||0;}}potentiel+=clientFamCA>0?clientFamCA:Math.round((info.ca2025||0)*0.05);}}
-          return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:perduCount,inactifsRecents,perdusAnciens,potentiel,clients:actifClients};
+          // Perdus pertinents (reconquête) vs Prospects métier (conquête)
+          let pertinentPerdus=0,prospectMetier=0,potentiel=0;
+          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=ventesClientArticle.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>famArts.has(artCode));if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
+          return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
         });
         const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
         const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
@@ -3475,7 +3475,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
     if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});}
     if(v2.status!=='lock'&&v2.perdus>0){const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
-    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const strongLabel=v3.strongMissing>0?` — dont ${v3.strongMissing} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau${strongLabel}`,fn:()=>{closeDiagnostic();switchTab('bench');}});}
+    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const strongLabel=v3.strongMissing>0?` — dont ${v3.strongMissing} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('.diag-v3')?.scrollIntoView({behavior:'smooth'});}});}
     _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
@@ -3653,15 +3653,16 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
             <span class="text-[10px] font-bold text-amber-400 bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
           </div>
           <p class="text-[11px] text-slate-300 mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>
-          ${m.perdus>0?`<p class="text-[11px] text-rose-400 mb-1">→ <strong>${m.perdus}</strong> perdu${m.perdus>1?'s':''} : ${m.inactifsRecents>0?`<span class="text-amber-400">${m.inactifsRecents} inactif${m.inactifsRecents>1?'s':''} récent${m.inactifsRecents>1?'s':''}</span>`:''}${m.inactifsRecents>0&&m.perdusAnciens>0?' · ':''}${m.perdusAnciens>0?`<span class="text-slate-400">${m.perdusAnciens} perdu${m.perdusAnciens>1?'s':''} >24m</span>`:''}</p>`:''}
+          ${(m.perdus>0||m.prospects>0)?`<p class="text-[11px] mb-1">${m.perdus>0?`<span class="text-rose-400">→ <strong>${m.perdus}</strong> perdu${m.perdus>1?'s':''} avec historique d'achat (reconquête)</span>`:''}${m.perdus>0&&m.prospects>0?' · ':''}${m.prospects>0?`<span class="text-orange-400">${m.prospects} prospect${m.prospects>1?'s':''} métier (conquête)</span>`:''}</p>`:''}
           ${m.potentiel>0?`<p class="text-[11px] text-amber-400 font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
           <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
         </div>`;
       }).join('');
-      const perdusTxt=v.perdus>0?` · <span class="text-rose-400">${v.perdus} perdu${v.perdus>1?'s':''} sur ces métiers</span>`:'';
+      const totalProspects=v.metiers.reduce((s,m)=>s+(m.prospects||0),0);
+      const perdusTxt=[v.perdus>0?`<span class="text-rose-400">${v.perdus} perdu${v.perdus>1?'s':''} avec historique (reconquête)</span>`:'',totalProspects>0?`<span class="text-orange-400">${totalProspects} prospect${totalProspects>1?'s':''} métier (conquête)</span>`:''].filter(Boolean).join(' · ');
       return`<div class="diag-voyant diag-v2">
         <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
-        <p class="text-[10px] text-slate-400 mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt} :</p>
+        <p class="text-[10px] text-slate-400 mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt?' · '+perdusTxt:''} :</p>
         ${metiersHtml}
       </div>`;
     }
