@@ -88,6 +88,10 @@
     #diagnosticOverlay.active{display:flex;align-items:flex-start;justify-content:center}
     #diagnosticPanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:24px;max-width:880px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     .diag-level{background:#1e293b;border:1px solid #2d3f55;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+    /* Article detail panel */
+    #articlePanelOverlay{display:none;position:fixed;inset:0;z-index:10600;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:16px 8px}
+    #articlePanelOverlay.active{display:flex;align-items:flex-start;justify-content:center}
+    #articlePanel{background:#0f172a;border:1px solid #334155;border-radius:16px;padding:20px;max-width:600px;width:100%;margin:auto;position:relative;color:#e2e8f0}
     /* Reporting overlay */
     #reportingOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:16px 8px}
     #reportingOverlay.active{display:flex;align-items:flex-start;justify-content:center}
@@ -164,6 +168,11 @@
   <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
   <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
     <div id="diagnosticPanel"></div>
+  </div>
+
+  <!-- Article Detail Panel Overlay -->
+  <div id="articlePanelOverlay" onclick="if(event.target===this)closeArticlePanel()">
+    <div id="articlePanel"></div>
   </div>
   <!-- Reporting overlay -->
   <div id="reportingOverlay" onclick="if(event.target===this)closeReporting()">
@@ -375,20 +384,146 @@
 
     <!-- GLOSSAIRE -->
     <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-      <h3 class="font-extrabold text-blue-900 mb-4 text-lg">🧠 Glossaire</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs text-gray-600 mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir).<br><strong>Enlevé</strong> = colis commandé, ne touche pas le stock.<br>Le MIN/MAX est basé <strong>uniquement sur le prélevé</strong>.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs text-gray-600 mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (= délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs text-gray-600 mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500"><h4 class="font-bold text-sm">📊 Surstock PILOT vs 👁️ Excédent ERP</h4><p class="text-xs text-gray-600 mt-1"><strong>Surstock PILOT</strong> = stock &gt; NOUVEAU MAX recalculé par PILOT. Optimisation.<br><strong>Excédent ERP</strong> = stock &gt; ANCIEN MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs text-gray-600 mt-1">Dormant = 0 sortie &gt;1an → MIN/MAX=0.<br>Nouveauté = &lt;35j → conserve Ancien.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-teal-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs text-gray-600 mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique. <span class="text-green-600">21–60j</span> optimal. <span class="text-blue-600">&gt;60j</span> surstock.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🔄 Benchmark</h4><p class="text-xs text-gray-600 mt-1"><strong>🚫 Manquées</strong> = vendues ailleurs pas chez vous. 🟢 en stock / 🔴 stock 0.<br><strong>📉 Sous-perf</strong> = &lt;50% moyenne. <strong>🏆 Sur-perf</strong> = &gt;150%.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-pink-500"><h4 class="font-bold text-sm">🧲 Attractivité</h4><p class="text-xs text-gray-600 mt-1">% de commandes contenant cette famille. Mesure le pouvoir d'attraction du rayon.</p></div>
-        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⚡ Score Priorité <span class="text-[9px] text-emerald-600">V23</span></h4><p class="text-xs text-gray-600 mt-1">Score composite = Fréquence × Prix unitaire × coefficient d'ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
+      <h3 class="font-extrabold text-blue-900 mb-5 text-lg">🧠 Glossaire PILOT PRO</h3>
+
+      <!-- Section 1 — Stock & Réappro -->
+      <p class="text-[11px] font-extrabold text-blue-700 uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛒 Prélevé vs Enlevé</h4><p class="text-xs text-gray-600 mt-1"><strong>Prélevé</strong> = sorti du stock rayon (comptoir). <strong>Enlevé</strong> = colis commandé, ne touche pas le stock. MIN/MAX basé <strong>uniquement sur le prélevé</strong>.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">🛡️ MIN (seuil de commande)</h4><p class="text-xs text-gray-600 mt-1">Plus gros panier prélevé écrêté + <strong>3 jours</strong> de sécurité (délai réappro 48h + marge). Sous le MIN → commande auto.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📦 MAX (capacité rayon)</h4><p class="text-xs text-gray-600 mt-1">MIN + <strong>21 jours</strong> si forte rotation (&gt;12 cmd/an), <strong>10 jours</strong> sinon.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📊 Surstock PILOT vs 👁️ Excédent ERP</h4><p class="text-xs text-gray-600 mt-1"><strong>Surstock PILOT</strong> = stock &gt; nouveau MAX recalculé. Optimisation à faire.<br><strong>Excédent ERP</strong> = stock &gt; ancien MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs text-gray-600 mt-1"><strong>Dormant</strong> = 0 sortie depuis &gt;1 an → MIN/MAX = 0.<br><strong>Nouveauté</strong> = référencé depuis &lt;35 jours → conserve l'ancien MIN/MAX.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">✅ Taux de disponibilité</h4><p class="text-xs text-gray-600 mt-1">Articles fréquents (≥3 cmd/an) en stock ÷ total articles fréquents. Mesure la disponibilité rayon, <strong>pas</strong> le service client.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs text-gray-600 mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique · <span class="text-green-600 font-bold">21–60j</span> optimal · <span class="text-blue-600 font-bold">&gt;60j</span> surstock.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">⚡ Score priorité</h4><p class="text-xs text-gray-600 mt-1">Fréquence × Prix unitaire × coefficient ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
+      </div>
+
+      <!-- Section 2 — Clients & Terrain -->
+      <p class="text-[11px] font-extrabold text-rose-700 uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA PDV</h4><p class="text-xs text-gray-600 mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé dans mon agence).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs text-gray-600 mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🤫 Client silencieux</h4><p class="text-xs text-gray-600 mt-1">Client régulier du PDV sans commande depuis plus de <strong>30 jours</strong>. Alerte précoce avant perte définitive.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">📍 Captation PDV / Legallais</h4><p class="text-xs text-gray-600 mt-1"><strong>PDV</strong> = % clients de la zone qui achètent dans mon agence.<br><strong>Legallais</strong> = % qui achètent chez Legallais (tous canaux).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🔴 À capter</h4><p class="text-xs text-gray-600 mt-1">Client actif Legallais qui ne vient <strong>pas</strong> en agence. Potentiel de rapatriement PDV.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟠 À développer</h4><p class="text-xs text-gray-600 mt-1">Client occasionnel ou prospect avec potentiel de croissance identifié (classification Pot+).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟢 À fidéliser</h4><p class="text-xs text-gray-600 mt-1">Bon client actif PDV, classification FID Pot+. À maintenir et développer en priorité.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🟣 Fidèle hors zone</h4><p class="text-xs text-gray-600 mt-1">Client qui vient en agence mais absent du fichier chalandise (hors zone géographique définie).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs text-gray-600 mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
+      </div>
+
+      <!-- Section 3 — Radar & Diagnostic -->
+      <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Radar &amp; Diagnostic</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs text-gray-600 mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔢 FMR (fréquence)</h4><p class="text-xs text-gray-600 mt-1"><strong>F</strong> = fréquent ≥12/an · <strong>M</strong> = moyen 3–11/an · <strong>R</strong> = rare &lt;3/an.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🎯 Case Radar (ABC × FMR)</h4><p class="text-xs text-gray-600 mt-1"><strong>AF</strong> = pépites (fort CA + fréquent) · <strong>CR</strong> = candidats déréférencement · Les 9 cases croisent valeur et fréquence.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔬 Diagnostic cascade</h4><p class="text-xs text-gray-600 mt-1">3 voyants progressifs : <strong>📦 Mon Agence</strong> (stock/MIN-MAX) → <strong>👥 Mes Clients</strong> (chalandise) → <strong>🔭 Le Réseau</strong> (benchmark).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs text-gray-600 mt-1">CA PDV historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
+      </div>
+
+      <!-- Section 4 — Réseau & Benchmark -->
+      <p class="text-[11px] font-extrabold text-cyan-700 uppercase tracking-widest mb-2">🔭 Réseau &amp; Benchmark</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📐 PDM bassin</h4><p class="text-xs text-gray-600 mt-1">Part de marché = poids de mon agence × CA total du bassin par famille.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🧮 CA théorique</h4><p class="text-xs text-gray-600 mt-1">CA que mon agence devrait réaliser si elle avait la performance moyenne du réseau, pondéré par sa taille.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📊 Médiane réseau</h4><p class="text-xs text-gray-600 mt-1">Valeur centrale des agences comparables. Plus robuste que la moyenne (non biaisée par les extrêmes).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">💪 Forces / ⚠️ Faiblesses</h4><p class="text-xs text-gray-600 mt-1"><strong>Forces</strong> = familles où mon CA &gt; médiane réseau. À consolider.<br><strong>Faiblesses</strong> = mon CA &lt; médiane. Potentiel de progression.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🚫 Articles manquants</h4><p class="text-xs text-gray-600 mt-1">Vendus par ≥50% du réseau mais absents chez moi. Opportunité de référencement.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🏆 Exclusivités</h4><p class="text-xs text-gray-600 mt-1">Articles que seule mon agence vend (ou &lt;2 agences). Avantage compétitif local à valoriser.</p></div>
+      </div>
+
+      <!-- Section 5 — Équation commerciale -->
+      <p class="text-[11px] font-extrabold text-amber-700 uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs text-gray-600 mt-1"><strong>Clients PDV × Fréquence × Panier moyen = CA PDV.</strong> Les 3 leviers du chef d'agence.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs text-gray-600 mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs text-gray-600 mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ Panier moyen</h4><p class="text-xs text-gray-600 mt-1">CA total ÷ nombre de BL. Valeur moyenne d'une commande comptoir.</p></div>
       </div>
     </div>
 
+
+    <!-- ONBOARDING — visible au premier lancement, caché après le premier processData() -->
+    <div id="onboardingBlock" class="mb-6">
+      <div class="text-center mb-6 pt-2">
+        <h1 class="text-2xl font-extrabold text-gray-800 mb-1">Bienvenue sur PILOT PRO</h1>
+        <p class="text-gray-500 text-sm">Votre copilote agence — chargez vos données pour commencer</p>
+      </div>
+      <div class="flex flex-col gap-3 mb-5">
+        <!-- Niveau 1 -->
+        <div class="flex items-stretch gap-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-extrabold text-sm flex items-center justify-center">1</span>
+            <div class="w-0.5 flex-1 bg-blue-200 mt-2"></div>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest mb-0.5">Obligatoire</p>
+            <h3 class="font-extrabold text-blue-900 text-base mb-1">📊 Consommé + État du Stock</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-blue-700">
+              <span>→ Articles, Mon Stock, COCKPIT, Radar ABC/FMR</span>
+              <span>→ Ruptures, dormants, MIN/MAX recalculés</span>
+              <span>→ Clients silencieux &amp; top clients PDV</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-blue-600 text-white font-bold px-2 py-1 rounded-lg">2 fichiers</span>
+          </div>
+        </div>
+        <!-- Flèche -->
+        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span>+ 1 fichier → niveau supérieur</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <!-- Niveau 2 -->
+        <div class="flex items-stretch gap-4 bg-rose-50 border-2 border-rose-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-rose-500 text-white font-extrabold text-sm flex items-center justify-center">2</span>
+            <div class="w-0.5 flex-1 bg-rose-200 mt-2"></div>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest mb-0.5">Optionnel</p>
+            <h3 class="font-extrabold text-rose-900 text-base mb-1">📋 Zone de Chalandise</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-rose-700">
+              <span>→ Le Terrain complet : métiers, captation</span>
+              <span>→ Cockpit client : à capter, développer, fidéliser</span>
+              <span>→ Prospects par métier &amp; potentiel récupérable</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-rose-500 text-white font-bold px-2 py-1 rounded-lg">3 fichiers</span>
+          </div>
+        </div>
+        <!-- Flèche -->
+        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
+          <div class="flex-1 h-px bg-gray-200"></div>
+          <span>fichier multi-agences → benchmark réseau</span>
+          <div class="flex-1 h-px bg-gray-200"></div>
+        </div>
+        <!-- Niveau 3 -->
+        <div class="flex items-stretch gap-4 bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
+          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
+            <span class="w-7 h-7 rounded-full bg-cyan-600 text-white font-extrabold text-sm flex items-center justify-center">3</span>
+          </div>
+          <div class="flex-1">
+            <p class="text-[10px] font-extrabold text-cyan-500 uppercase tracking-widest mb-0.5">Multi-agences</p>
+            <h3 class="font-extrabold text-cyan-900 text-base mb-1">🔭 Consommé multi-agences</h3>
+            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-cyan-700">
+              <span>→ Le Réseau : benchmark, forces &amp; faiblesses</span>
+              <span>→ PDM bassin, CA théorique, classement agences</span>
+            </div>
+          </div>
+          <div class="hidden md:flex items-center flex-shrink-0">
+            <span class="text-[10px] bg-cyan-600 text-white font-bold px-2 py-1 rounded-lg">réseau</span>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold underline">📖 Guide rapide — consulter le glossaire</button>
+      </div>
+    </div>
 
     <!-- UPLOAD -->
     <div id="importZone">
@@ -1693,7 +1828,7 @@
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(finalData.map(r=>[r.code,r.famille]));
-    const ruptureSet=new Set(finalData.filter(r=>r.stockActuel===0&&r.frequence>=3).map(r=>r.code));
+    const ruptureArts=finalData.filter(r=>r.stockActuel<=0&&r.W>=3);
     // Silencieux >30j
     const silencieux=[];
     for(const[cc,lastDate] of clientLastOrder.entries()){
@@ -1716,17 +1851,22 @@
       topClients.push({cc,nom,ca,nbArts:artMap.size});
     }
     topClients.sort((a,b)=>b.ca-a.ca);
-    // Clients impactés par ruptures
+    // Clients impactés par ruptures — via articleClients (article→clients, sans filtre store)
     const rupClients=[];
-    if(ruptureSet.size){
-      for(const[cc,artMap] of ventesClientArticle.entries()){
-        let nbRup=0,caRup=0;
-        for(const[artCode,v] of artMap.entries()){if(!ruptureSet.has(artCode))continue;if(selFam&&famMap.get(artCode)!==selFam)continue;nbRup++;caRup+=(v.sumCA||0);}
-        if(!nbRup)continue;
-        const nom=clientNomLookup[cc]||cc;
-        if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
-        rupClients.push({cc,nom,nbRup,caRup});
+    if(ruptureArts.length){
+      const clientRupMap=new Map();
+      for(const art of ruptureArts){
+        if(selFam&&famMap.get(art.code)!==selFam)continue;
+        const buyers=articleClients.get(art.code);if(!buyers)continue;
+        for(const cc of buyers){
+          const nom=clientNomLookup[cc]||cc;
+          if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+          const caArt=(ventesClientArticle.get(cc)||new Map()).get(art.code);
+          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
+          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
+        }
       }
+      rupClients.push(...clientRupMap.values());
       rupClients.sort((a,b)=>b.caRup-a.caRup);
     }
     const silSet=new Set(silencieux.map(c=>c.cc));
@@ -1736,13 +1876,13 @@
       const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'text-red-600':c.d>60?'text-orange-500':'text-yellow-600';return`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="bg-rose-50 rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-rose-100"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
     }
+    if(rupClients.length){
+      const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold text-red-600 text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'text-amber-700 font-bold':'text-gray-400'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
+      html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div></div>`;
+    }
     if(topClients.length){
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 text-[10px] text-gray-400 font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${silSet.has(c.cc)?' <span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] text-gray-500">${c.nbArts}</td></tr>`).join('');
       html+=`<div class="bg-white rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal text-gray-400">${topClients.length} client${topClients.length>1?'s':''}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-    }
-    if(rupClients.length){
-      const rows=rupClients.slice(0,15).map(c=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold text-red-600 text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] text-gray-500">${formatEuro(c.caRup)}</td></tr>`).join('');
-      html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Réf en rupture</th><th class="py-1.5 px-2 text-right">CA concerné</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>15?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-15} autres</p>`:''}</div></div>`;
     }
     if(!silencieux.length&&!topClients.length)html+=`<p class="text-center text-gray-400 text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
     el.innerHTML=html;
@@ -3616,9 +3756,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const maxScore=lstR.length>0?lstR[0].prioScore:1;
       const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
-      const iFam=finalData.find(r=>r.code===i.code)?.famille||'';
-      const famEnc=encodeURIComponent(iFam);
-      const diagCell=iFam?`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openDiagnostic(decodeURIComponent('${famEnc}'),'cockpit')">🔍</button></td>`:`<td class="py-2 px-2"></td>`;
+      const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
       p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
@@ -3829,6 +3967,70 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const ff=document.getElementById('filterFamille');if(ff)ff.value='';
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
+
+  function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
+
+  function openArticlePanel(code,source){
+    const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
+    if(!overlay||!panel)return;
+    const r=finalData.find(d=>d.code===code);
+    if(!r){panel.innerHTML='<p class="text-gray-400 p-4">Article introuvable.</p>';overlay.classList.add('active');return;}
+    const _today=new Date();
+    // Header badges
+    const abcCls=r.abcClass==='A'?'diag-ok':r.abcClass==='B'?'diag-warn':'diag-lock';
+    const fmrCls=r.fmrClass==='F'?'diag-ok':r.fmrClass==='M'?'diag-warn':'diag-lock';
+    const badges=[r.famille?`<span class="diag-badge diag-lock">${r.famille}</span>`:'',r.abcClass?`<span class="diag-badge ${abcCls}">ABC-${r.abcClass}</span>`:'',r.fmrClass?`<span class="diag-badge ${fmrCls}">FMR-${r.fmrClass}</span>`:''].filter(Boolean).join(' ');
+    // Stock section
+    const stockColor=r.stockActuel<=0?'text-red-400 font-extrabold':'text-emerald-400';
+    const joursRup=r.stockActuel<=0?Math.min(r.ageJours>=999?90:r.ageJours,90):0;
+    const caEst=Math.round((r.V||0)*(r.prixUnitaire||0));
+    const puFmt=r.prixUnitaire>0?formatEuro(r.prixUnitaire):'—';
+    const newMinFmt=r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
+    const newMaxFmt=r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
+    const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="text-gray-400">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="text-gray-400">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span><span class="text-gray-400">MIN / MAX PILOT</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="text-gray-400">Prix unitaire</span><span>${puFmt}</span><span class="text-gray-400">CA perdu estimé</span><span class="text-rose-300 font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
+    // Buyers section — compute once, reuse for plan
+    const buyers=articleClients.get(code);
+    let buyerList=[];
+    if(buyers&&buyers.size){
+      for(const cc of buyers){
+        const caArt=((ventesClientArticle.get(cc)||new Map()).get(code)||{}).sumCA||0;
+        const lastDate=clientLastOrder.get(cc)||null;
+        const daysSince=lastDate?daysBetween(lastDate,_today):null;
+        const nom=clientNomLookup[cc]||(chalandiseReady?chalandiseData.get(cc)?.nom:null)||cc;
+        let statusBadge='';
+        if(chalandiseReady){const info=chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(_isGlobalActif(info))statusBadge='<span class="diag-badge diag-warn">Actif Leg</span>';else statusBadge='<span class="diag-badge diag-error">Perdu</span>';}}
+        buyerList.push({cc,nom,caArt,daysSince,lastDate,statusBadge});
+      }
+      buyerList.sort((a,b)=>b.caArt-a.caArt);
+    }
+    let buyersHtml='';
+    if(buyerList.length){
+      const totalCA=buyerList.reduce((s,b)=>s+b.caArt,0);
+      const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t border-slate-700"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${b.cc}</td><td class="py-1 px-2 text-xs">${b.nom}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'text-emerald-400':'text-gray-500'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'text-rose-400':'text-gray-400'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
+      buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="text-gray-400 text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-gray-500 text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-[10px] text-gray-500 mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
+    }
+    // Réseau section (multi only)
+    let reseauHtml='';
+    if(storesIntersection.size>1&&selectedMyStore){
+      const cs=[...storesIntersection];const myFreq=(ventesParMagasin[selectedMyStore]||{})[code]?.countBL||0;
+      const freqs=cs.map(s=>(ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);
+      if(freqs.length>1){
+        const med=_median(freqs);const nbAg=freqs.length;const rank=[...freqs].sort((a,b)=>b-a).findIndex(f=>f<=myFreq)+1;
+        const rankCls=rank<=Math.ceil(nbAg/3)?'text-emerald-400':rank<=Math.ceil(2*nbAg/3)?'text-amber-400':'text-red-400';
+        reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔭 Réseau (${nbAg} agences)</span></div><div class="grid grid-cols-3 gap-3 text-xs text-center"><div><p class="text-gray-400 mb-0.5">Ma fréquence</p><p class="font-extrabold text-lg">${myFreq}</p></div><div><p class="text-gray-400 mb-0.5">Médiane réseau</p><p class="font-extrabold text-lg ${myFreq>=med?'text-emerald-400':'text-amber-400'}">${med.toFixed(0)}</p></div><div><p class="text-gray-400 mb-0.5">Mon rang</p><p class="font-extrabold text-lg ${rankCls}">#${rank}/${nbAg}</p></div></div></div>`;
+      }
+    }
+    // Plan d'action
+    const acts=[];
+    if(r.stockActuel<=0&&r.nouveauMin>0)acts.push(`<div class="diag-action-row"><span class="text-emerald-300 font-bold">1.</span><span class="flex-1 ml-2 text-sm">Commander — MIN recalculé : <strong>${r.nouveauMin}</strong></span><button onclick="navigator.clipboard.writeText('${code}').catch(()=>{})" class="diag-btn bg-violet-900 text-violet-200 border border-violet-500 text-[10px]">📋 Copier</button></div>`);
+    const topBuyer=buyerList.find(b=>b.caArt>0);
+    if(topBuyer&&topBuyer.daysSince!==null&&topBuyer.daysSince>30)acts.push(`<div class="diag-action-row"><span class="text-amber-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Appeler <strong>${topBuyer.nom}</strong> — plus gros acheteur, <strong class="text-rose-300">${topBuyer.daysSince}j</strong> sans commande</span></div>`);
+    if(storesIntersection.size>1&&selectedMyStore){const myF=(ventesParMagasin[selectedMyStore]||{})[code]?.countBL||0;const fr=[...storesIntersection].map(s=>(ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="text-amber-300">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
+    const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
+    // Render
+    panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono text-gray-400 text-xs">${r.code}</span>${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${reseauHtml}${planHtml}`;
+    overlay.classList.add('active');
+  }
 
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
