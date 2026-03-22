@@ -3828,6 +3828,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let v2;
     if(hasChal){
       const famArts=new Set(cellArts.map(r=>r.code));
+      const cellFamSet=new Set(cellArts.map(r=>r.famille).filter(Boolean));
       const metierBuyers={};
       for(const artCode of famArts){const buyers=articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=chalandiseData.get(cc);if(!info||!info.metier)continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
       const totalBuyers=Object.values(metierBuyers).reduce((s,set)=>s+set.size,0);
@@ -3843,13 +3844,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           const caActifs=actifClients.reduce((s,c)=>s+c.famCA,0);
           // Perdus pertinents (reconquête) vs Prospects métier (conquête)
           let pertinentPerdus=0,prospectMetier=0,potentiel=0;
-          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=ventesClientArticle.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>famArts.has(artCode));if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>famArts.has(c)).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
+          for(const[cc,info] of chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=ventesClientArticle.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>{const artFam=articleFamille[artCode];return artFam&&cellFamSet.has(artFam);});if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>{const f=articleFamille[c];return f&&cellFamSet.has(f);}).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
           return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
         });
         const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
         const totalProspects=metiers.reduce((s,m)=>s+(m.prospects||0),0);
         const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-        v2={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,prospects:totalProspects,potentiel:totalPotentiel,cellMode:true,cellKey:key,nbArts:cellArts.length};
+        v2={status:totalPerdus>0?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,prospects:totalProspects,potentiel:totalPotentiel,cellMode:true,cellKey:key,nbArts:cellArts.length};
       }
     }else{v2={status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};}
     // V3 — Le Réseau (median across stores, aggregated across cell families)
