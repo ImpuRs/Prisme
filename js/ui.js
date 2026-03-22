@@ -157,6 +157,7 @@ function renderAll() {
   renderDashboardAndCockpit();
   renderABCTab();
   renderCanalAgence();
+  if (typeof _initPromoFamilleDropdown === 'function') _initPromoFamilleDropdown();
 }
 
 function onFilterChange() { currentPage = 0; clearCockpitFilter(true); renderAll(); }

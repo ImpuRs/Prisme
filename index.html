@@ -334,14 +334,15 @@
 
         <!-- GROUP Promo -->
         <div id="filterGroupPromo" class="hidden">
-          <div id="promoFiltersPlaceholder" class="py-6 text-center">
-            <div class="text-2xl mb-2">🎯</div>
-            <p class="text-[11px] text-gray-400 italic leading-relaxed">Lancez une recherche<br>pour activer les filtres</p>
-          </div>
-          <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
-            <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+          <!-- Entry point: famille/sous-famille (always visible once data loaded) -->
+          <div id="promoEntryFilters" class="flex flex-col gap-1.5 mb-3">
+            <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Naviguer par famille</p>
             <select id="promoFilterFamille" onchange="_onPromoFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes les familles</option></select>
-            <select id="promoFilterSousFamille" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
+            <select id="promoFilterSousFamille" onchange="_onPromoSousFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
+          </div>
+          <!-- Refinements: shown after a search runs -->
+          <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
+            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5 border-t pt-2">Affiner les résultats</p>
             <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
             <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
             <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
@@ -2994,15 +2995,7 @@
       sel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
       if(vals.includes(cur))sel.value=cur;
     };
-    // Famille + Sous-famille from matchedCodes
-    const famSet=new Set();const sfSet=new Set();
-    for(const code of r.matchedCodes){
-      const f=articleFamille[code]||_promoSfMap[code]?.famille||'';
-      const sf=_promoSfMap[code]?.sousFamille||'';
-      if(f)famSet.add(f);if(sf)sfSet.add(sf);
-    }
-    fill('promoFilterFamille',[...famSet].sort());
-    fill('promoFilterSousFamille',[...sfSet].sort());
+    // Famille/sous-famille managed by entry panel (_initPromoFamilleDropdown/_onPromoFamilleChange)
     fill('promoFilterMetier',uniq('metier'));
     fill('promoFilterCommercial',uniq('commercial'));
     fill('promoFilterClassif',uniq('classification'));
@@ -3010,27 +3003,49 @@
     const depts=new Set();
     for(const c of all){const info=chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'');if(cp.length>=2)depts.add(cp.slice(0,2));}
     fill('promoFilterDept',[...depts].sort());
-    // Show refinement panel
-    const ph=document.getElementById('promoFiltersPlaceholder');const rf=document.getElementById('promoRefinementFilters');
-    if(ph)ph.classList.add('hidden');if(rf)rf.classList.remove('hidden');
+    // Show refinement panel (family entry always visible)
+    const rf=document.getElementById('promoRefinementFilters');
+    if(rf)rf.classList.remove('hidden');
+  }
+
+  function _initPromoFamilleDropdown(){
+    const sel=document.getElementById('promoFilterFamille');if(!sel||!finalData.length)return;
+    const cur=sel.value;
+    const fams=new Set();for(const r of finalData)if(r.famille)fams.add(r.famille);
+    sel.innerHTML='<option value="">Toutes les familles</option>'+[...fams].sort().map(f=>`<option value="${f}">${f}</option>`).join('');
+    if(cur&&[...fams].includes(cur))sel.value=cur;
+    // If a famille is already selected, cascade sous-famille too
+    const sfSel=document.getElementById('promoFilterSousFamille');
+    if(sfSel&&!sel.value)sfSel.innerHTML='<option value="">Toutes sous-familles</option>';
   }
 
   function _onPromoFamilleChange(){
-    // Cascade: repopulate sous-famille to only those within selected famille
-    const r=_promoLastResult;if(!r)return;
     const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
+    // Cascade sous-famille from ALL finalData based on selected famille
     const sfSel=document.getElementById('promoFilterSousFamille');if(!sfSel)return;
-    const cur=sfSel.value;
     const sfSet=new Set();
-    for(const code of r.matchedCodes){
-      if(fam&&(articleFamille[code]||_promoSfMap[code]?.famille||'')!==fam)continue;
-      const sf=_promoSfMap[code]?.sousFamille||'';if(sf)sfSet.add(sf);
+    for(const r of finalData){if(fam&&r.famille!==fam)continue;if(r.sousFamille)sfSet.add(r.sousFamille);}
+    sfSel.innerHTML='<option value="">Toutes sous-familles</option>'+[...sfSet].sort().map(v=>`<option value="${v}">${v}</option>`).join('');
+    sfSel.value='';
+    if(fam){
+      // Famille = primary entry point: pre-fill search and trigger search
+      const inp=document.getElementById('promoSearchInput');if(inp)inp.value=fam;
+      _closePromoSuggest();runPromoSearch();
     }
-    const first=sfSel.options[0].outerHTML;
-    const vals=[...sfSet].sort();
-    sfSel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
-    if(vals.includes(cur))sfSel.value=cur; else sfSel.value='';
-    _applyPromoFilters();
+  }
+
+  function _onPromoSousFamilleChange(){
+    const sf=(document.getElementById('promoFilterSousFamille')||{}).value||'';
+    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
+    if(sf){
+      // Sous-famille selected: pre-fill search and trigger search
+      const inp=document.getElementById('promoSearchInput');if(inp)inp.value=sf;
+      _closePromoSuggest();runPromoSearch();
+    } else if(fam){
+      // Sous-famille cleared: fall back to famille search
+      const inp=document.getElementById('promoSearchInput');if(inp)inp.value=fam;
+      _closePromoSuggest();runPromoSearch();
+    }
   }
 
   function _applyPromoFilters(){_renderPromoResults();}
