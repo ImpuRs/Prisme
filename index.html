@@ -2685,7 +2685,13 @@
     const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
     // Section A
     document.getElementById('promoCountA').textContent=r.sectionA.length;
-    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>`<tr class="border-t border-emerald-50 hover:bg-emerald-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join('');
+    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>{
+      const inChal=chalandiseReady&&chalandiseData.has(c.cc);
+      const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1 py-0.5 font-normal">hors zone</span>':'';
+      const metierCell=c.metier||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
+      const commCell=c.commercial||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
+      return`<tr class="border-t border-emerald-50 hover:bg-emerald-100 cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono text-gray-400 text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}</td><td class="py-1 px-2 text-gray-500">${metierCell}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${commCell}</td></tr>`;
+    }).join('');
     // Section B
     document.getElementById('promoCountB').textContent=r.sectionB.length;
     document.getElementById('promoTableB').innerHTML=r.sectionB.length?r.sectionB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
@@ -2700,6 +2706,35 @@
   function _togglePromoSection(sec){
     const body=document.getElementById('promoBody'+sec);const arrow=document.getElementById('promoArrow'+sec);
     if(!body)return;const open=body.style.display==='none';body.style.display=open?'':'none';if(arrow)arrow.textContent=open?'▲':'▼';
+  }
+
+  function _togglePromoClientArts(row,cc){
+    const next=row.nextElementSibling;
+    if(next&&next.classList.contains('promo-art-panel')){next.remove();return;}
+    const r=_promoLastResult;if(!r)return;
+    const artData=ventesClientArticle.get(cc);
+    if(!artData||!artData.size){
+      const tr=document.createElement('tr');tr.className='promo-art-panel';
+      tr.innerHTML=`<td colspan="6" class="py-2 px-4 bg-emerald-50 text-[10px] text-gray-400 italic">Aucune donnée article disponible pour ce client.</td>`;
+      row.after(tr);return;
+    }
+    // Filter to matchedCodes only, sort by CA desc, top 10
+    const rows=[...artData.entries()]
+      .filter(([code])=>r.matchedCodes.has(code))
+      .sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0))
+      .slice(0,10);
+    const allRows=rows.length?rows:[...artData.entries()].sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0)).slice(0,10);
+    const note=!rows.length?'<p class="text-[9px] text-amber-600 mb-1">Aucun achat direct sur la sélection — top articles tous codes confondus :</p>':'';
+    const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';}catch{return'—';}};
+    const lastDate=clientLastOrder.get(cc);
+    const trs=allRows.map(([code,d])=>{
+      const lib=libelleLookup[code]||(finalData.find(x=>x.code===code)||{}).libelle||code;
+      const ca=d.sumCA||d.sumPrelevee||0;
+      return`<tr class="border-t border-emerald-100"><td class="py-0.5 px-2 font-mono text-gray-400 text-[9px]">${code}</td><td class="py-0.5 px-2 text-gray-700">${lib}</td><td class="py-0.5 px-2 text-center text-gray-500">${d.countBL||'—'}</td><td class="py-0.5 px-2 text-right font-bold text-emerald-700">${ca>0?formatEuro(ca):'—'}</td><td class="py-0.5 px-2 text-center text-gray-400">${fmtD(lastDate)}</td></tr>`;
+    }).join('');
+    const tr=document.createElement('tr');tr.className='promo-art-panel';
+    tr.innerHTML=`<td colspan="6" class="py-2 px-4 bg-emerald-50 border-b border-emerald-100">${note}<table class="min-w-full text-[10px]"><thead class="bg-emerald-100 text-emerald-800 font-bold"><tr><th class="py-0.5 px-2 text-left">Code</th><th class="py-0.5 px-2 text-left">Libellé</th><th class="py-0.5 px-2 text-center">Qté</th><th class="py-0.5 px-2 text-right">CA</th><th class="py-0.5 px-2 text-center">Dernier achat</th></tr></thead><tbody>${trs}</tbody></table></td>`;
+    row.after(tr);
   }
 
   function exportPromoCSV(){
