@@ -133,7 +133,7 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 6px rgba(0,0,0,.06)}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f9fafb;border-right:1px solid #e5e7eb}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f3f4f6}
     /* Mobile drawer */
@@ -188,12 +188,18 @@
     </div>
   </nav>
 
+  <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
+  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
+    <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
+    <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
+  </div>
+
   <!-- 2-column app layout -->
   <div id="appLayout">
     <!-- LEFT: sticky filter panel -->
     <aside id="filterPanel">
-      <div class="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
-        <span class="text-sm font-extrabold text-gray-700">Filtres</span>
+      <div class="p-3 border-b border-gray-200 bg-gray-100 flex items-center justify-between flex-shrink-0">
+        <span id="filterPanelTitle" class="text-sm font-extrabold text-gray-700">Filtres</span>
         <button class="lg:hidden text-gray-400 hover:text-gray-700 text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
@@ -357,11 +363,6 @@
 
     <!-- RIGHT: main content -->
     <main id="mainContent">
-      <!-- Bandeau unifié insights + résumé fichiers -->
-      <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
-        <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
-        <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
-      </div>
 
   <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
 
