@@ -2305,6 +2305,7 @@
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
+      {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
