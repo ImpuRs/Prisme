@@ -98,6 +98,10 @@ function switchTab(id) {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
+  // Contextual panel title
+  const titles = { table: '📋 Filtres Articles', dash: '📊 Filtres Stock', action: '⚙️ Filtres Cockpit', abc: '📡 Filtres Radar', territoire: '🔗 Filtres Le Terrain', bench: '🔭 Filtres Le Réseau', promo: '🎯 Filtres Promo' };
+  const titleEl = document.getElementById('filterPanelTitle');
+  if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
