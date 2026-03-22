@@ -3446,8 +3446,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
         });
         const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
+        const totalProspects=metiers.reduce((s,m)=>s+(m.prospects||0),0);
         const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
-        v2={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel,cellMode:true,cellKey:key,nbArts:cellArts.length};
+        v2={status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,prospects:totalProspects,potentiel:totalPotentiel,cellMode:true,cellKey:key,nbArts:cellArts.length};
       }
     }else{v2={status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};}
     // V3 — Le Réseau (median across stores, aggregated across cell families)
@@ -3474,9 +3475,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const acts=[];
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
     if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});}
-    if(v2.status!=='lock'&&v2.perdus>0){const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
-    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const strongLabel=v3.strongMissing>0?` — dont ${v3.strongMissing} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('.diag-v3')?.scrollIntoView({behavior:'smooth'});}});}
-    _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,3);
+    if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');}});}
+    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('.diag-v3')?.scrollIntoView({behavior:'smooth'});}});}
+    _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
       <div class="flex items-start justify-between mb-5">
