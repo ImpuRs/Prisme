@@ -222,10 +222,11 @@
       <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
         <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
-        <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">🎯 COCKPIT</button></li>
+        <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">⚙️ COCKPIT</button></li>
         <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
         <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
         <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
+        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-amber-600 font-extrabold">🎯 Promo</button></li>
       </ul>
     </div>
 
@@ -666,74 +667,6 @@
             </table>
           </div>
         </div>
-        <!-- 🎯 Ciblage promo -->
-        <div id="promoTargetingBlock" class="mb-2 bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div class="px-3 py-2 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
-            <h3 class="font-extrabold text-gray-800 text-xs">🎯 Ciblage promo — Qui achète cet article / famille / marque ?</h3>
-            <span class="text-[10px] text-gray-400">Identifiez vos acheteurs, prospects et opportunités cross-sell</span>
-          </div>
-          <div class="p-2">
-            <div class="flex gap-2 items-center flex-wrap">
-              <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="flex-1 min-w-[220px] text-[11px] py-1.5 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
-              <button onclick="runPromoSearch()" class="text-[11px] bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-4 rounded-lg transition-colors">🎯 Cibler</button>
-              <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-3 rounded-lg">📥 Exporter CSV</button>
-              <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-3 rounded-lg">📋 Copier</button>
-            </div>
-            <div id="promoMatchInfo" class="hidden mt-1.5 text-[10px] text-gray-500"></div>
-            <!-- Results -->
-            <div id="promoResults" class="hidden mt-2 space-y-2">
-              <!-- Section A -->
-              <div class="rounded-lg border border-emerald-200 overflow-hidden">
-                <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
-                  <span class="text-[11px] font-bold text-emerald-800">🟢 Déjà acheteurs PDV — <span id="promoCountA">0</span> clients</span>
-                  <span id="promoArrowA" class="text-emerald-600 text-xs">▼</span>
-                </button>
-                <div id="promoBodyA" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
-                  <table class="min-w-full text-[10px]">
-                    <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
-                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
-                      <th class="py-1 px-2 text-right">CA sur sélection</th><th class="py-1 px-2 text-center">Dernier achat</th><th class="py-1 px-2 text-left">Commercial</th>
-                    </tr></thead>
-                    <tbody id="promoTableA"></tbody>
-                  </table>
-                </div>
-              </div>
-              <!-- Section B -->
-              <div class="rounded-lg border border-red-200 overflow-hidden">
-                <button onclick="_togglePromoSection('B')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
-                  <span class="text-[11px] font-bold text-red-800">🔴 Achètent ailleurs — <span id="promoCountB">0</span> clients Legallais hors PDV</span>
-                  <span id="promoArrowB" class="text-red-600 text-xs">▼</span>
-                </button>
-                <div id="promoBodyB" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
-                  <table class="min-w-full text-[10px]">
-                    <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
-                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
-                      <th class="py-1 px-2 text-right">CA Legallais global</th><th class="py-1 px-2 text-left">Commercial</th>
-                    </tr></thead>
-                    <tbody id="promoTableB"></tbody>
-                  </table>
-                </div>
-              </div>
-              <!-- Section C -->
-              <div class="rounded-lg border border-orange-200 overflow-hidden">
-                <button onclick="_togglePromoSection('C')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
-                  <span class="text-[11px] font-bold text-orange-800">🟠 Prospects métier — <span id="promoCountC">0</span> non-acheteurs dans les métiers cibles</span>
-                  <span id="promoArrowC" class="text-orange-600 text-xs">▼</span>
-                </button>
-                <div id="promoBodyC" class="overflow-x-auto" style="max-height:280px;overflow-y:auto">
-                  <table class="min-w-full text-[10px]">
-                    <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
-                      <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
-                      <th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-left">Commercial</th>
-                    </tr></thead>
-                    <tbody id="promoTableC"></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Cockpit Client -->
         <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
@@ -857,6 +790,82 @@
         </summary>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
       </details>
+    </div>
+
+    <!-- TAB 7 : PROMO -->
+    <div id="tabPromo" class="tab-content hidden">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white shadow-lg mb-4">
+        <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
+        <p class="text-amber-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
+      </div>
+      <!-- Search block -->
+      <div id="promoTargetingBlock" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-extrabold text-gray-800 text-sm">Qui achète cet article / famille / marque ?</h3>
+          <span class="text-[10px] text-gray-400">Tapez un code, un nom de famille ou un mot-clé</span>
+        </div>
+        <div class="p-3">
+          <div class="flex gap-2 items-center flex-wrap">
+            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="flex-1 min-w-[220px] text-sm py-2 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
+            <button onclick="runPromoSearch()" class="text-sm bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors">🎯 Cibler</button>
+            <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 Exporter CSV</button>
+            <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
+          </div>
+          <div id="promoMatchInfo" class="hidden mt-2 text-xs text-gray-500"></div>
+          <!-- Results -->
+          <div id="promoResults" class="hidden mt-3 space-y-2">
+            <!-- Section A -->
+            <div class="rounded-lg border border-emerald-200 overflow-hidden">
+              <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
+                <span class="text-[11px] font-bold text-emerald-800">🟢 Déjà acheteurs PDV — <span id="promoCountA">0</span> clients</span>
+                <span id="promoArrowA" class="text-emerald-600 text-xs">▼</span>
+              </button>
+              <div id="promoBodyA" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+                <table class="min-w-full text-[10px]">
+                  <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
+                    <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                    <th class="py-1 px-2 text-right">CA sur sélection</th><th class="py-1 px-2 text-center">Dernier achat</th><th class="py-1 px-2 text-left">Commercial</th>
+                  </tr></thead>
+                  <tbody id="promoTableA"></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Section B -->
+            <div class="rounded-lg border border-red-200 overflow-hidden">
+              <button onclick="_togglePromoSection('B')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
+                <span class="text-[11px] font-bold text-red-800">🔴 Achètent ailleurs — <span id="promoCountB">0</span> clients Legallais hors PDV</span>
+                <span id="promoArrowB" class="text-red-600 text-xs">▼</span>
+              </button>
+              <div id="promoBodyB" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+                <table class="min-w-full text-[10px]">
+                  <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
+                    <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                    <th class="py-1 px-2 text-right">CA Legallais global</th><th class="py-1 px-2 text-left">Commercial</th>
+                  </tr></thead>
+                  <tbody id="promoTableB"></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Section C -->
+            <div class="rounded-lg border border-orange-200 overflow-hidden">
+              <button onclick="_togglePromoSection('C')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
+                <span class="text-[11px] font-bold text-orange-800">🟠 Prospects métier — <span id="promoCountC">0</span> non-acheteurs dans les métiers cibles</span>
+                <span id="promoArrowC" class="text-orange-600 text-xs">▼</span>
+              </button>
+              <div id="promoBodyC" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+                <table class="min-w-full text-[10px]">
+                  <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
+                    <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
+                    <th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-left">Commercial</th>
+                  </tr></thead>
+                  <tbody id="promoTableC"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -2685,7 +2694,13 @@
     const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
     // Section A
     document.getElementById('promoCountA').textContent=r.sectionA.length;
-    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>`<tr class="border-t border-emerald-50 hover:bg-emerald-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join('');
+    document.getElementById('promoTableA').innerHTML=r.sectionA.slice(0,200).map(c=>{
+      const inChal=chalandiseReady&&chalandiseData.has(c.cc);
+      const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1 py-0.5 font-normal">hors zone</span>':'';
+      const metierCell=c.metier||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
+      const commCell=c.commercial||(!inChal?'<span class="text-gray-300 text-[9px]">hors zone</span>':'—');
+      return`<tr class="border-t border-emerald-50 hover:bg-emerald-100 cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono text-gray-400 text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}</td><td class="py-1 px-2 text-gray-500">${metierCell}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500">${fmtD(c.lastDate)}</td><td class="py-1 px-2 text-gray-500">${commCell}</td></tr>`;
+    }).join('');
     // Section B
     document.getElementById('promoCountB').textContent=r.sectionB.length;
     document.getElementById('promoTableB').innerHTML=r.sectionB.length?r.sectionB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-500">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-red-700">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-gray-500">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center text-gray-400">'+(territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
@@ -2700,6 +2715,35 @@
   function _togglePromoSection(sec){
     const body=document.getElementById('promoBody'+sec);const arrow=document.getElementById('promoArrow'+sec);
     if(!body)return;const open=body.style.display==='none';body.style.display=open?'':'none';if(arrow)arrow.textContent=open?'▲':'▼';
+  }
+
+  function _togglePromoClientArts(row,cc){
+    const next=row.nextElementSibling;
+    if(next&&next.classList.contains('promo-art-panel')){next.remove();return;}
+    const r=_promoLastResult;if(!r)return;
+    const artData=ventesClientArticle.get(cc);
+    if(!artData||!artData.size){
+      const tr=document.createElement('tr');tr.className='promo-art-panel';
+      tr.innerHTML=`<td colspan="6" class="py-2 px-4 bg-emerald-50 text-[10px] text-gray-400 italic">Aucune donnée article disponible pour ce client.</td>`;
+      row.after(tr);return;
+    }
+    // Filter to matchedCodes only, sort by CA desc, top 10
+    const rows=[...artData.entries()]
+      .filter(([code])=>r.matchedCodes.has(code))
+      .sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0))
+      .slice(0,10);
+    const allRows=rows.length?rows:[...artData.entries()].sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0)).slice(0,10);
+    const note=!rows.length?'<p class="text-[9px] text-amber-600 mb-1">Aucun achat direct sur la sélection — top articles tous codes confondus :</p>':'';
+    const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';}catch{return'—';}};
+    const lastDate=clientLastOrder.get(cc);
+    const trs=allRows.map(([code,d])=>{
+      const lib=libelleLookup[code]||(finalData.find(x=>x.code===code)||{}).libelle||code;
+      const ca=d.sumCA||d.sumPrelevee||0;
+      return`<tr class="border-t border-emerald-100"><td class="py-0.5 px-2 font-mono text-gray-400 text-[9px]">${code}</td><td class="py-0.5 px-2 text-gray-700">${lib}</td><td class="py-0.5 px-2 text-center text-gray-500">${d.countBL||'—'}</td><td class="py-0.5 px-2 text-right font-bold text-emerald-700">${ca>0?formatEuro(ca):'—'}</td><td class="py-0.5 px-2 text-center text-gray-400">${fmtD(lastDate)}</td></tr>`;
+    }).join('');
+    const tr=document.createElement('tr');tr.className='promo-art-panel';
+    tr.innerHTML=`<td colspan="6" class="py-2 px-4 bg-emerald-50 border-b border-emerald-100">${note}<table class="min-w-full text-[10px]"><thead class="bg-emerald-100 text-emerald-800 font-bold"><tr><th class="py-0.5 px-2 text-left">Code</th><th class="py-0.5 px-2 text-left">Libellé</th><th class="py-0.5 px-2 text-center">Qté</th><th class="py-0.5 px-2 text-right">CA</th><th class="py-0.5 px-2 text-center">Dernier achat</th></tr></thead><tbody>${trs}</tbody></table></td>`;
+    row.after(tr);
   }
 
   function exportPromoCSV(){
