@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" class="dark">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -137,9 +137,9 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f9fafb;border-right:1px solid #e5e7eb}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
-    #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f3f4f6}
+    #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f1f5f9}
     /* Mobile drawer */
     #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
@@ -173,262 +173,9 @@
       #insightsBanner{flex-direction:column;gap:.25rem;padding:.5rem .75rem}
     }
 
-    /* ═══════════════════════════════════════════════════════════════════════
-       DARK MODE — PILOT PRO
-       Toggle: add/remove class="dark" on <html>
-       Palette: bg #0f172a · surface #1e293b · input #334155
-                text #e2e8f0 · muted #94a3b8 · border #334155
-       ═══════════════════════════════════════════════════════════════════════ */
-    html.dark {
-      --dm-bg: #0f172a;
-      --dm-surface: #1e293b;
-      --dm-input: #334155;
-      --dm-text: #e2e8f0;
-      --dm-muted: #94a3b8;
-      --dm-border: #334155;
-    }
-    /* Body & layout */
-    html.dark body { background-color: var(--dm-bg) !important; color: var(--dm-text) !important; }
-    html.dark #filterPanel { background: var(--dm-surface) !important; border-right-color: var(--dm-border) !important; }
-    html.dark #mainContent { background: var(--dm-bg) !important; }
-    /* Scrollbar */
-    html.dark ::-webkit-scrollbar-track { background: var(--dm-surface) !important; }
-    html.dark ::-webkit-scrollbar-thumb { background: #475569 !important; }
-    /* ── Custom classes (override inline hex CSS) ── */
-    html.dark .shortcut-card { background: var(--dm-surface) !important; border-color: var(--dm-border) !important; }
-    html.dark .info-tip { background: var(--dm-input) !important; color: var(--dm-muted) !important; }
-    html.dark .contrib-dir-row:hover  { background: rgba(139,92,246,.12) !important; }
-    html.dark .contrib-dir-row.open   { background: rgba(139,92,246,.2) !important; }
-    html.dark .contrib-sect-row:hover { background: rgba(16,185,129,.1) !important; }
-    html.dark .contrib-sect-row.open  { background: rgba(16,185,129,.18) !important; }
-    html.dark .contrib-client-row:hover { background: rgba(59,130,246,.1) !important; }
-    html.dark .contrib-client-row.open  { background: rgba(59,130,246,.18) !important; }
-    html.dark .terr-row:hover    { background: rgba(59,130,246,.1) !important; }
-    html.dark .terr-row.expanded { background: rgba(59,130,246,.18) !important; }
-    html.dark .rayon-green  { background: rgba(21,128,61,.25) !important; }
-    html.dark .rayon-yellow { background: rgba(161,98,7,.25) !important; }
-    html.dark .rayon-red    { background: rgba(185,28,28,.25) !important; }
-    html.dark .terr-fam-row:hover { background: rgba(59,130,246,.12) !important; }
-    html.dark .terr-fam-row.open  { background: rgba(59,130,246,.22) !important; }
-    html.dark .file-loaded { border-color: #10b981 !important; background: rgba(16,185,129,.15) !important; }
-    html.dark .store-mine  { background: rgba(59,130,246,.2) !important; color: #93c5fd !important; border-color: rgba(59,130,246,.4) !important; }
-    html.dark .store-other { background: var(--dm-input) !important; color: var(--dm-muted) !important; border-color: #475569 !important; }
-    html.dark .promo-sug-group { background: var(--dm-surface) !important; }
-    html.dark .promo-sug-item { border-top-color: var(--dm-border) !important; }
-    html.dark .promo-sug-item:hover, html.dark .promo-sug-item.promo-sug-sel { background: rgba(251,146,60,.12) !important; }
-    html.dark .promo-sug-label { color: var(--dm-text) !important; }
-    html.dark .cmd-group-header { background: var(--dm-surface) !important; border-bottom-color: var(--dm-border) !important; }
-    html.dark .cmd-item { border-bottom-color: var(--dm-border) !important; }
-    html.dark .cmd-item:hover, html.dark .cmd-item.cmd-selected { background: rgba(59,130,246,.15) !important; }
-    html.dark .cmd-item-main { color: var(--dm-text) !important; }
-    /* Command palette shell */
-    html.dark #cmdPalette > div { background-color: var(--dm-surface) !important; }
-    /* ── Tailwind neutral backgrounds ── */
-    html.dark .bg-white    { background-color: var(--dm-surface) !important; }
-    html.dark .bg-gray-50  { background-color: var(--dm-bg) !important; }
-    html.dark .bg-gray-100 { background-color: var(--dm-surface) !important; }
-    html.dark .bg-gray-200 { background-color: var(--dm-input) !important; }
-    html.dark .bg-gray-300 { background-color: #475569 !important; }
-    /* slate family backgrounds (CSV buttons, cockpit client header) */
-    html.dark .bg-slate-50  { background-color: var(--dm-bg) !important; }
-    html.dark .bg-slate-100 { background-color: var(--dm-surface) !important; }
-    html.dark .bg-slate-200 { background-color: var(--dm-input) !important; }
-    html.dark .hover\:bg-slate-200:hover { background-color: var(--dm-input) !important; }
-    html.dark .hover\:bg-slate-100:hover { background-color: var(--dm-surface) !important; }
-    /* via-* gradient stops for cockpit client gradient header */
-    html.dark .via-red-50   { --tw-gradient-via: rgba(239,68,68,.08) var(--tw-gradient-via-position); }
-    html.dark .via-rose-50  { --tw-gradient-via: rgba(244,63,94,.08) var(--tw-gradient-via-position); }
-    html.dark .via-orange-50{ --tw-gradient-via: rgba(249,115,22,.08) var(--tw-gradient-via-position); }
-    html.dark .from-rose-50 { --tw-gradient-from: rgba(244,63,94,.08) var(--tw-gradient-from-position); }
-    html.dark .to-green-50  { --tw-gradient-to: rgba(34,197,94,.08) var(--tw-gradient-to-position); }
-    /* Colored light backgrounds → dark tints */
-    html.dark .bg-blue-50    { background-color: rgba(59,130,246,.1) !important; }
-    html.dark .bg-blue-100   { background-color: rgba(59,130,246,.15) !important; }
-    html.dark .bg-blue-200   { background-color: rgba(59,130,246,.22) !important; }
-    html.dark .bg-blue-300   { background-color: rgba(59,130,246,.3) !important; }
-    html.dark .bg-red-50     { background-color: rgba(239,68,68,.1) !important; }
-    html.dark .bg-red-100    { background-color: rgba(239,68,68,.15) !important; }
-    html.dark .bg-red-200    { background-color: rgba(239,68,68,.22) !important; }
-    html.dark .bg-red-300    { background-color: rgba(239,68,68,.3) !important; }
-    html.dark .bg-amber-50   { background-color: rgba(245,158,11,.1) !important; }
-    html.dark .bg-amber-100  { background-color: rgba(245,158,11,.15) !important; }
-    html.dark .bg-amber-200  { background-color: rgba(245,158,11,.22) !important; }
-    html.dark .bg-cyan-50    { background-color: rgba(6,182,212,.1) !important; }
-    html.dark .bg-cyan-100   { background-color: rgba(6,182,212,.15) !important; }
-    html.dark .bg-cyan-200   { background-color: rgba(6,182,212,.22) !important; }
-    html.dark .bg-rose-50    { background-color: rgba(244,63,94,.1) !important; }
-    html.dark .bg-rose-100   { background-color: rgba(244,63,94,.15) !important; }
-    html.dark .bg-rose-200   { background-color: rgba(244,63,94,.22) !important; }
-    html.dark .bg-violet-50  { background-color: rgba(139,92,246,.1) !important; }
-    html.dark .bg-violet-100 { background-color: rgba(139,92,246,.15) !important; }
-    html.dark .bg-violet-200 { background-color: rgba(139,92,246,.22) !important; }
-    html.dark .bg-indigo-50  { background-color: rgba(99,102,241,.1) !important; }
-    html.dark .bg-indigo-100 { background-color: rgba(99,102,241,.15) !important; }
-    html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.1) !important; }
-    html.dark .bg-emerald-100{ background-color: rgba(16,185,129,.15) !important; }
-    html.dark .bg-emerald-200{ background-color: rgba(16,185,129,.22) !important; }
-    html.dark .bg-orange-50  { background-color: rgba(249,115,22,.1) !important; }
-    html.dark .bg-orange-100 { background-color: rgba(249,115,22,.15) !important; }
-    html.dark .bg-orange-200 { background-color: rgba(249,115,22,.22) !important; }
-    html.dark .bg-purple-50  { background-color: rgba(168,85,247,.1) !important; }
-    html.dark .bg-purple-100 { background-color: rgba(168,85,247,.15) !important; }
-    html.dark .bg-purple-200 { background-color: rgba(168,85,247,.22) !important; }
-    html.dark .bg-green-50   { background-color: rgba(34,197,94,.1) !important; }
-    html.dark .bg-pink-50    { background-color: rgba(236,72,153,.1) !important; }
-    html.dark .bg-purple-50  { background-color: rgba(168,85,247,.1) !important; }
-    /* Gradient override */
-    html.dark .from-gray-50 { --tw-gradient-from: var(--dm-bg) var(--tw-gradient-from-position); }
-    html.dark .to-blue-50   { --tw-gradient-to: rgba(59,130,246,.1) var(--tw-gradient-to-position); }
-    /* ── Tailwind text colors ── */
-    /* gray family — boosted for readability on dark surfaces */
-    html.dark .text-gray-900 { color: #f1f5f9 !important; }
-    html.dark .text-gray-800 { color: #e2e8f0 !important; }
-    html.dark .text-gray-700 { color: #cbd5e1 !important; }
-    html.dark .text-gray-600 { color: #94a3b8 !important; }
-    html.dark .text-gray-500 { color: #94a3b8 !important; }
-    html.dark .text-gray-400 { color: #64748b !important; }
-    /* slate family — was entirely missing, caused invisible text in Le Réseau / bench accordions */
-    html.dark .text-slate-900 { color: #f1f5f9 !important; }
-    html.dark .text-slate-800 { color: #e2e8f0 !important; }
-    html.dark .text-slate-700 { color: #cbd5e1 !important; }
-    html.dark .text-slate-600 { color: #94a3b8 !important; }
-    html.dark .text-slate-500 { color: #94a3b8 !important; }
-    html.dark .text-slate-400 { color: #64748b !important; }
-    html.dark .text-slate-300 { color: #94a3b8 !important; }
-    html.dark .text-blue-900   { color: #93c5fd !important; }
-    html.dark .text-blue-800   { color: #93c5fd !important; }
-    html.dark .text-blue-700   { color: #60a5fa !important; }
-    html.dark .text-blue-600   { color: #60a5fa !important; }
-    html.dark .text-red-900    { color: #fca5a5 !important; }
-    html.dark .text-red-800    { color: #fca5a5 !important; }
-    html.dark .text-red-700    { color: #f87171 !important; }
-    html.dark .text-red-600    { color: #f87171 !important; }
-    html.dark .text-amber-900  { color: #fde68a !important; }
-    html.dark .text-amber-800  { color: #fcd34d !important; }
-    html.dark .text-amber-700  { color: #fbbf24 !important; }
-    html.dark .text-amber-600  { color: #f59e0b !important; }
-    html.dark .text-cyan-900   { color: #67e8f9 !important; }
-    html.dark .text-cyan-800   { color: #22d3ee !important; }
-    html.dark .text-cyan-700   { color: #06b6d4 !important; }
-    html.dark .text-emerald-800{ color: #6ee7b7 !important; }
-    html.dark .text-emerald-700{ color: #34d399 !important; }
-    html.dark .text-emerald-600{ color: #10b981 !important; }
-    html.dark .text-violet-700 { color: #c4b5fd !important; }
-    html.dark .text-violet-600 { color: #a78bfa !important; }
-    html.dark .text-violet-500 { color: #8b5cf6 !important; }
-    html.dark .text-purple-900 { color: #e9d5ff !important; }
-    html.dark .text-purple-800 { color: #d8b4fe !important; }
-    html.dark .text-purple-700 { color: #c084fc !important; }
-    html.dark .text-orange-900 { color: #fed7aa !important; }
-    html.dark .text-orange-700 { color: #fb923c !important; }
-    html.dark .text-orange-600 { color: #f97316 !important; }
-    html.dark .text-indigo-900 { color: #c7d2fe !important; }
-    html.dark .text-rose-900   { color: #fda4af !important; }
-    html.dark .text-rose-800   { color: #fda4af !important; }
-    html.dark .text-rose-700   { color: #fb7185 !important; }
-    html.dark .text-rose-600   { color: #fb7185 !important; }
-    html.dark .text-rose-500   { color: #f43f5e !important; }
-    html.dark .text-emerald-900{ color: #6ee7b7 !important; }
-    html.dark .text-violet-900 { color: #ddd6fe !important; }
-    html.dark .text-cyan-600   { color: #22d3ee !important; }
-    html.dark .text-blue-500   { color: #60a5fa !important; }
-    html.dark .text-indigo-700 { color: #a5b4fc !important; }
-    /* file-loaded badge */
-    html.dark .file-loaded::after { color: #34d399 !important; }
-    /* ── Tailwind borders ── */
-    html.dark .border-gray-100  { border-color: #1e293b !important; }
-    html.dark .border-gray-200  { border-color: var(--dm-border) !important; }
-    html.dark .border-gray-300  { border-color: #475569 !important; }
-    /* -200 borders: visible but subtle */
-    html.dark .border-blue-200  { border-color: rgba(59,130,246,.45) !important; }
-    html.dark .border-red-200   { border-color: rgba(239,68,68,.45) !important; }
-    html.dark .border-amber-200 { border-color: rgba(245,158,11,.45) !important; }
-    html.dark .border-emerald-200 { border-color: rgba(16,185,129,.45) !important; }
-    html.dark .border-orange-200  { border-color: rgba(249,115,22,.45) !important; }
-    html.dark .border-violet-200  { border-color: rgba(139,92,246,.45) !important; }
-    html.dark .border-rose-200    { border-color: rgba(244,63,94,.45) !important; }
-    /* -300/-400 borders: vivid (dropzones, accordions) */
-    html.dark .border-blue-300  { border-color: #3b82f6 !important; }
-    html.dark .border-blue-400  { border-color: #2563eb !important; }
-    html.dark .border-amber-300 { border-color: #f59e0b !important; }
-    html.dark .border-amber-400 { border-color: #d97706 !important; }
-    html.dark .border-cyan-300  { border-color: #06b6d4 !important; }
-    html.dark .border-cyan-400  { border-color: #0891b2 !important; }
-    html.dark .border-emerald-300 { border-color: #10b981 !important; }
-    html.dark .border-emerald-400 { border-color: #059669 !important; }
-    html.dark .border-orange-300  { border-color: #f97316 !important; }
-    html.dark .border-violet-300  { border-color: #8b5cf6 !important; }
-    html.dark .border-violet-400  { border-color: #7c3aed !important; }
-    html.dark .border-rose-300    { border-color: #f43f5e !important; }
-    html.dark .border-rose-400    { border-color: #e11d48 !important; }
-    html.dark .border-indigo-300  { border-color: #818cf8 !important; }
-    /* low-opacity borders stay subtle */
-    html.dark .border-red-50    { border-color: rgba(239,68,68,.15) !important; }
-    html.dark .border-red-100   { border-color: rgba(239,68,68,.25) !important; }
-    html.dark .border-emerald-50  { border-color: rgba(16,185,129,.15) !important; }
-    html.dark .border-emerald-100 { border-color: rgba(16,185,129,.25) !important; }
-    html.dark .border-orange-50   { border-color: rgba(249,115,22,.15) !important; }
-    html.dark .border-orange-100  { border-color: rgba(249,115,22,.25) !important; }
-    html.dark .border-violet-100  { border-color: rgba(139,92,246,.25) !important; }
-    /* Divide utility overrides */
-    html.dark .divide-gray-100>:not([hidden])~:not([hidden])    { border-color: #1e293b; }
-    html.dark .divide-red-100>:not([hidden])~:not([hidden])     { border-color: rgba(239,68,68,.15); }
-    html.dark .divide-cyan-100>:not([hidden])~:not([hidden])    { border-color: rgba(6,182,212,.15); }
-    html.dark .divide-amber-100>:not([hidden])~:not([hidden])   { border-color: rgba(245,158,11,.15); }
-    html.dark .divide-emerald-100>:not([hidden])~:not([hidden]) { border-color: rgba(16,185,129,.15); }
-    html.dark .divide-orange-100>:not([hidden])~:not([hidden])  { border-color: rgba(249,115,22,.15); }
-    html.dark .divide-violet-100>:not([hidden])~:not([hidden])  { border-color: rgba(139,92,246,.15); }
-    html.dark .divide-purple-100>:not([hidden])~:not([hidden])  { border-color: rgba(168,85,247,.15); }
-    /* ── Hover background states ── */
-    html.dark .hover\:bg-white:hover     { background-color: #273548 !important; }
-    html.dark .hover\:bg-gray-50:hover   { background-color: #273548 !important; }
-    html.dark .hover\:bg-gray-100:hover  { background-color: #334155 !important; }
-    html.dark .hover\:bg-gray-200:hover  { background-color: var(--dm-input) !important; }
-    html.dark .hover\:bg-gray-300:hover  { background-color: #475569 !important; }
-    /* Tailwind opacity-modifier variants (bg-white/50, bg-white/60, etc.) */
-    html.dark .hover\:bg-white\/40:hover { background-color: rgba(51,65,85,.35) !important; }
-    html.dark .hover\:bg-white\/50:hover { background-color: rgba(51,65,85,.4) !important; }
-    html.dark .hover\:bg-white\/60:hover { background-color: rgba(51,65,85,.45) !important; }
-    html.dark .bg-white\/50 { background-color: rgba(30,41,59,.5) !important; }
-    html.dark .bg-white\/60 { background-color: rgba(30,41,59,.6) !important; }
-    html.dark .hover\:bg-blue-50:hover   { background-color: rgba(59,130,246,.12) !important; }
-    html.dark .hover\:bg-blue-100:hover  { background-color: rgba(59,130,246,.18) !important; }
-    html.dark .hover\:bg-blue-200:hover  { background-color: rgba(59,130,246,.25) !important; }
-    html.dark .hover\:bg-red-100:hover   { background-color: rgba(239,68,68,.15) !important; }
-    html.dark .hover\:bg-red-200:hover   { background-color: rgba(239,68,68,.22) !important; }
-    html.dark .hover\:bg-amber-50:hover  { background-color: rgba(245,158,11,.1) !important; }
-    html.dark .hover\:bg-amber-100:hover { background-color: rgba(245,158,11,.15) !important; }
-    html.dark .hover\:bg-cyan-50:hover   { background-color: rgba(6,182,212,.1) !important; }
-    html.dark .hover\:bg-emerald-50:hover   { background-color: rgba(16,185,129,.1) !important; }
-    html.dark .hover\:bg-emerald-100:hover  { background-color: rgba(16,185,129,.15) !important; }
-    html.dark .hover\:bg-emerald-200:hover  { background-color: rgba(16,185,129,.22) !important; }
-    html.dark .hover\:bg-orange-50:hover  { background-color: rgba(249,115,22,.1) !important; }
-    html.dark .hover\:bg-orange-100:hover { background-color: rgba(249,115,22,.15) !important; }
-    html.dark .hover\:bg-violet-50:hover  { background-color: rgba(139,92,246,.1) !important; }
-    html.dark .hover\:bg-rose-50:hover    { background-color: rgba(244,63,94,.1) !important; }
-    html.dark .hover\:bg-amber-400:hover  { background-color: #d97706 !important; }
-    /* ── Sticky thead: force opaque background so rows don't bleed through ── */
-    html.dark thead.sticky,
-    html.dark thead[class*="sticky"] { background-color: #1e293b !important; z-index: 10; }
-    /* JS-generated semi-transparent bg-white/90 theads */
-    html.dark .bg-white\/90 { background-color: rgba(30,41,59,.97) !important; }
-    /* ── Inputs & form elements ── */
-    html.dark input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]),
-    html.dark select,
-    html.dark textarea {
-      background-color: var(--dm-input);
-      color: var(--dm-text);
-      border-color: #475569;
-    }
-    html.dark input::placeholder, html.dark textarea::placeholder { color: #64748b; }
-    /* ── Shadows ── */
-    html.dark .shadow-sm  { box-shadow: 0 1px 6px rgba(0,0,0,.4) !important; }
-    html.dark .shadow-md  { box-shadow: 0 4px 16px rgba(0,0,0,.5) !important; }
-    html.dark .shadow-xl  { box-shadow: 0 8px 32px rgba(0,0,0,.6) !important; }
-    html.dark .shadow-2xl { box-shadow: 0 16px 48px rgba(0,0,0,.65) !important; }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 relative">
+<body class="bg-slate-100 text-slate-800 relative">
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
@@ -4711,11 +4458,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         if(cnt>0)storeRefCounts.push(cnt);
       }
       const refMedian=storeRefCounts.length?Math.round(_median(storeRefCounts)):0;
-      const missing=[];
-      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);const networkFmr=medFreq>=12?'F':medFreq>=4?'M':'R';const spa=artStorePrelevee[code]||[];let precoMin=0,precoMax=0,precoStores=0;if(spa.length>0){const mp=_median(spa.map(s=>s.sumPrelevee));const mf=_median(spa.map(s=>s.countBL));const U=mf>0?mp/mf:0;const X=mp/globalJoursOuvres;const maxCmd=Math.max(...spa.filter(s=>s.countBL>0).map(s=>s.sumPrelevee/s.countBL),0);const dlR=maxCmd>3*U?3*U:maxCmd;const dl=Math.min(dlR,U*5);precoMin=Math.max(Math.round(dl+X*SECURITY_DAYS),1);precoMax=Math.max(Math.round(precoMin+X*(mf>12?21:10)),precoMin+1);precoStores=spa.length;}missing.push({code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?',networkFmr,precoMin,precoMax,precoStores});}
+      const missing=[],inStockNotSold=[];
+      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=libelleLookup[code]||code;const d=finalData.find(r=>r.code===code);const networkFmr=medFreq>=12?'F':medFreq>=4?'M':'R';const spa=artStorePrelevee[code]||[];let precoMin=0,precoMax=0,precoStores=0;if(spa.length>0){const mp=_median(spa.map(s=>s.sumPrelevee));const mf=_median(spa.map(s=>s.countBL));const U=mf>0?mp/mf:0;const X=mp/globalJoursOuvres;const maxCmd=Math.max(...spa.filter(s=>s.countBL>0).map(s=>s.sumPrelevee/s.countBL),0);const dlR=maxCmd>3*U?3*U:maxCmd;const dl=Math.min(dlR,U*5);precoMin=Math.max(Math.round(dl+X*SECURITY_DAYS),1);precoMax=Math.max(Math.round(precoMin+X*(mf>12?21:10)),precoMin+1);precoStores=spa.length;}const entry={code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?',networkFmr,precoMin,precoMax,precoStores};if((d?.stockActuel??0)>0)inStockNotSold.push({...entry,stockActuel:d.stockActuel});else missing.push(entry);}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
       const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
-      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:cellArts.length,reseauCount:cellArts.length+missing.length,missing:missing.slice(0,25),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
+      v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:cellArts.length,reseauCount:cellArts.length+missing.length,missing:missing.slice(0,25),inStockNotSold:inStockNotSold.slice(0,15),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
     }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
     _diagLevels={v1,v2,v3};
     const acts=[];
@@ -4967,14 +4714,17 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Missing: absent family → ≥2 stores (all network articles), present → ≥50%
     const isFamilyAbsent=myArts.size===0;
     const threshold=isFamilyAbsent?2:Math.max(1,Math.ceil(nbOtherStores*0.5));
-    const missing=[];
+    const byCode={};for(const r of finalData)byCode[r.code]=r;
+    const missing=[],inStockNotSold=[];
     for(const[code,cnt] of Object.entries(artStoreCnt)){
       if(myArts.has(code)||cnt<threshold)continue;
       const rawLib=libelleLookup[code]||code;const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
-      const d=finalData.find(r=>r.code===code);
+      const d=byCode[code];
       const medFreq=artStoreFreqs[code]?.length?_median(artStoreFreqs[code]):0;
       const medCA=artStoreCAs[code]?.length?Math.round(_median(artStoreCAs[code])):0;
-      missing.push({code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,medCA,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'});
+      const entry={code,lib,nbStores:cnt,medFreq:Math.round(medFreq*10)/10,medCA,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?'};
+      if((d?.stockActuel??0)>0)inStockNotSold.push({...entry,stockActuel:d.stockActuel});
+      else missing.push(entry);
     }
     if(isFamilyAbsent){missing.sort((a,b)=>b.medCA-a.medCA||b.nbStores-a.nbStores);}
     else{missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);}
@@ -4989,7 +4739,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     exclusives.sort((a,b)=>b.myFreq-a.myFreq);
     const status=medCA<=0?'ok':caEcart>=0?'ok':caEcart>=-50?'warn':'error';
     const strongMissing=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
-    return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:isFamilyAbsent?missing:missing.slice(0,25),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size,isFamilyAbsent};
+    return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:isFamilyAbsent?missing:missing.slice(0,25),inStockNotSold:inStockNotSold.slice(0,15),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size,isFamilyAbsent};
   }
   function _diagRenderV3(v,hasMulti){
     if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-slate-400">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs text-slate-500">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] text-emerald-600 mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
@@ -4998,13 +4748,17 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const missingIntro=v.isCellMode?(displayedStrong>0?`dont <strong>${displayedStrong}</strong> en forte rotation réseau (F/M) :`:''):v.isFamilyAbsent?`📋 <strong>${displayedMissing.length}</strong> article${displayedMissing.length>1?'s':''} vendus par le réseau dans cette famille — triés par CA médiane :`:`⚠️ ${displayedMissing.length} article${displayedMissing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${displayedStrong>0?' — dont <strong>'+displayedStrong+'</strong> forte rotation (A/B)':''}:`;
     const caThCell=v.isFamilyAbsent?'<th class="py-1.5 px-2 text-right">CA méd.</th>':'';const abcThCell=v.isCellMode?'<th class="py-1.5 px-2 text-center">FMR rés.</th>':'<th class="py-1.5 px-2 text-center">ABC</th>';const minMaxThCell=v.isCellMode?'<th class="py-1.5 px-2 text-center">Stock préco.</th>':'';
     const missingSection=(v.missing||[]).length?`<p class="text-[10px] ${v.isFamilyAbsent?'text-blue-300':'text-amber-300'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-emerald-300 border-b border-emerald-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}${abcThCell}${minMaxThCell}</tr></thead><tbody>${missingRows}</tbody></table></div>`:v.isFamilyAbsent?'<p class="text-[10px] text-slate-400 mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] text-emerald-400 mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';
+    const insnsRows=(v.inStockNotSold||[]).map(a=>`<tr class="border-t border-amber-900/30"><td class="py-1 px-2 font-mono text-slate-400">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center text-amber-300 font-bold">${a.stockActuel}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td></tr>`).join('');
+    const inStockNotSoldSection=(v.inStockNotSold||[]).length?`<p class="text-[10px] text-amber-300 font-bold mb-1 mt-2">⚠️ ${v.inStockNotSold.length} article${v.inStockNotSold.length>1?'s':''} en stock mais jamais vendus — vérifier visibilité rayon (emplacement, mise en avant ?) :</p><div class="overflow-x-auto" style="max-height:160px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-amber-300 border-b border-amber-900/50 sticky top-0" style="background:#1a1000"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Stock</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th></tr></thead><tbody>${insnsRows}</tbody></table></div>`:'';
     // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
     if(v.isCellMode){
-      const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;const refLine=`${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="text-amber-400">${v.missing.length} article${v.missing.length>1?'s':''} du réseau absents chez vous</span>`:'<span class="text-emerald-400">gamme complète</span>'}`;
+      const insnsCount=(v.inStockNotSold||[]).length;
+      const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;const refLine=`${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="text-amber-400">${v.missing.length} absent${v.missing.length>1?'s':''} du réseau chez vous</span>`:'<span class="text-emerald-400">gamme complète</span>'}${insnsCount>0?` · <span class="text-amber-300">${insnsCount} en stock, 0 vente</span>`:''}`;
       return`<div class="diag-voyant diag-v3">
         <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
         <p class="text-xs mb-3">${refLine}</p>
         ${missingSection}
+        ${inStockNotSoldSection}
       </div>`;
     }
     // Mode famille (depuis Bench / Cockpit / Stock)
@@ -5017,6 +4771,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-emerald-300">🔭 Le Réseau</span>${_diagBadge(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error')}</div>
       <p class="text-xs mb-3">${caIcon} ${caLine}</p>
       ${missingSection}
+      ${inStockNotSoldSection}
       ${(v.exclusives||[]).length?`<p class="text-[10px] text-blue-300 font-bold mt-2 mb-1">⭐ ${v.exclusives.length} exclusivité${v.exclusives.length>1?'s':''} — articles que <2 autres agences vendent :</p><div class="overflow-x-auto" style="max-height:120px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-blue-300 border-b border-blue-900/50 sticky top-0" style="background:#061a10"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. moi</th></tr></thead><tbody>${exclRows}</tbody></table></div>`:''}
     </div>`;
   }
@@ -5325,6 +5080,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const v2metiers=(v2||l4)?.metiers||[];for(const m of v2metiers){for(const c of(m.clients||[]).filter(c=>c.prio===2||c.prio===3))lines.push(['👥 Mes Clients','Perdu à reconquérir',c.code,`"${c.nom}"`,c.statut,c.ca2025||0].join(SEP));}
     // V3 / L3 missing articles
     for(const a of((v3||l3)?.missing||[]))lines.push(['🔭 Le Réseau','Article manquant réseau',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||a.refFreq||''].join(SEP));
+    for(const a of(v3?.inStockNotSold||[]))lines.push(['🔭 Le Réseau','En stock — 0 vente (vérifier visibilité rayon)',a.code,`"${a.lib}"`,`Stock:${a.stockActuel} ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||''].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
     showToast('📥 Plan de vol exporté','success');
