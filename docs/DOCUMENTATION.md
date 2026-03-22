@@ -282,7 +282,7 @@ Le plafond de 90 jours évite de surestimer les ruptures structurelles (articles
 Bloc en haut du cockpit, 3 lignes générées automatiquement :
 1. **Ruptures** : nombre + CA potentiel perdu annuel + top 3 articles
 2. **Assainissement** : total dormants + CAPALIN à renvoyer
-3. **Taux de service** : diagnostic (excellent / correct / priorité)
+3. **Taux de disponibilité** : diagnostic (excellent / correct / priorité)
 
 ### 4.2 Tri par CA potentiel perdu
 
@@ -347,7 +347,7 @@ Les badges 📦C24, 📦B10 etc. ont été retirés de tous les tableaux du cock
 | Dormant | Σ valeur des articles > 1 an sans sortie et non-nouveauté |
 | Surstock actif | Σ (stock - NOUVEAU MAX) × prix, pour articles actifs dépassant le MAX |
 | CAPALIN (SASO) | Σ (stock - ANCIEN MAX) × prix, pour articles dépassant l'ancien MAX ERP |
-| Taux de service | % d'articles avec fréq ≥ 3 qui ont du stock > 0 |
+| Taux de disponibilité | % d'articles avec fréq ≥ 3 qui ont du stock > 0 |
 | **💸 CA Perdu** | Σ(V÷joursOuvrés × min(ageJours,90) × PU) pour articles en rupture (V24.2) |
 
 ---

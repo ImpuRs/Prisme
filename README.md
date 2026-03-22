@@ -99,7 +99,7 @@ Première version sous le nom PILOT PRO. Récapitulatif de toutes les fonctionna
 - Export CSV complet avec toutes les colonnes
 
 **Onglet Stock**
-- 6 KPI cards (Total, Stock mort, Surstock, CAPALIN, Taux de service, CA Perdu)
+- 6 KPI cards (Total, Stock mort, Surstock, CAPALIN, Taux de disponibilité, CA Perdu)
 - Évolution historique vs dernière analyse (import/export JSON)
 - 5 raccourcis Accès rapide (Sans emplacement, Dormants, Fins, Top 20, Nouveautés)
 - Attractivité par Famille (% commandes contenant la famille)
