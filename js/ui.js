@@ -91,11 +91,31 @@ function switchTab(id) {
     else if (id === 'promo') btn.classList.add('border-amber-500', 'text-amber-600', 'active');
     else btn.classList.add('border-blue-600', 'text-blue-600', 'active');
   }
-  const loaded = !document.getElementById('tabsContainer').classList.contains('hidden');
-  if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire' || id === 'promo') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
+  // Update filter panel groups based on active tab
+  const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
+  const activeGroup = id === 'bench' ? 'bench' : id === 'territoire' ? 'territoire' : id === 'promo' ? 'promo' : 'stock';
+  Object.entries(groups).forEach(([key, gid]) => {
+    const el = document.getElementById(gid); if (!el) return;
+    el.classList.toggle('hidden', key !== activeGroup);
+  });
 }
 
 function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
+
+// ── Filter drawer (mobile) ─────────────────────────────────────
+function openFilterDrawer() {
+  const panel = document.getElementById('filterPanel');
+  const overlay = document.getElementById('filterOverlay');
+  if (panel) panel.classList.add('drawer-open');
+  if (overlay) overlay.classList.add('active');
+}
+
+function closeFilterDrawer() {
+  const panel = document.getElementById('filterPanel');
+  const overlay = document.getElementById('filterOverlay');
+  if (panel) panel.classList.remove('drawer-open');
+  if (overlay) overlay.classList.remove('active');
+}
 
 function populateSelect(id, vals) {
   const s = document.getElementById(id); if (!s) return;

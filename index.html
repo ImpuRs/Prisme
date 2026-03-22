@@ -111,9 +111,21 @@
     .diag-v2{background:#1a0e1e;border-color:#7c3aed50}
     .diag-v3{background:#061a10;border-color:#15803d50}
     .diag-src-tag{display:inline-flex;align-items:center;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:9999px;margin-left:6px;background:#1e293b;color:#94a3b8}
+    /* 2-column layout */
+    html,body{height:100%}
+    body{display:flex;flex-direction:column;overflow:hidden}
+    #appLayout{display:flex;flex:1;min-height:0}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#fff;border-right:1px solid #e2e8f0;box-shadow:2px 0 6px rgba(0,0,0,.06)}
+    @media(min-width:1024px){#filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
+    #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f3f4f6}
+    /* Mobile drawer */
+    #filterPanel.drawer-open{display:flex;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
+    #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
+    #filterOverlay.active{display:block}
+    #filterDrawerBtn{display:flex;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen relative">
+<body class="bg-gray-100 text-gray-800 relative">
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
@@ -145,11 +157,110 @@
     </div>
   </nav>
 
-  <!-- Bandeau unifié insights + résumé fichiers -->
-  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
-    <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
-    <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
-  </div>
+  <!-- 2-column app layout -->
+  <div id="appLayout">
+    <!-- LEFT: sticky filter panel -->
+    <aside id="filterPanel">
+      <div class="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
+        <span class="text-sm font-extrabold text-gray-700">Filtres</span>
+        <button class="lg:hidden text-gray-400 hover:text-gray-700 text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
+      </div>
+      <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
+
+        <!-- GROUP Stock: Articles / Mon Stock / Cockpit / Radar -->
+        <div id="filterGroupStock">
+          <div id="globalFilters" class="hidden flex flex-col gap-1.5">
+            <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
+            <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
+            <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut</option></select>
+            <div class="flex gap-1">
+              <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+              <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+            </div>
+            <div id="globalAdvancedFilters" class="hidden flex flex-col gap-1.5 pt-1.5 border-t border-gray-200">
+              <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
+              <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
+              <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50 w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+            </div>
+            <input type="hidden" id="filterCockpit" value="">
+            <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
+            <div class="flex flex-wrap gap-1 mt-0.5">
+              <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
+              <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
+            </div>
+            <div class="flex items-center justify-between mt-0.5">
+              <span id="filterActiveCount" class="text-[10px] text-gray-400 font-semibold"></span>
+              <div class="flex gap-1">
+                <button onclick="_toggleGlobalAdvanced()" class="text-[10px] text-gray-500 hover:text-gray-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none"><span id="globalAdvArrow" class="text-[9px]">▶</span> Plus</button>
+                <button onclick="resetFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP Terrain: Le Terrain -->
+        <div id="filterGroupTerritoire" class="hidden">
+          <div id="terrFiltersBlock" class="hidden flex flex-col gap-1.5">
+            <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
+            <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
+            <div class="relative" id="terrSecteurDropdown">
+              <button type="button" onclick="toggleSecteurDropdown()" class="py-1 px-2 border rounded-lg text-xs font-semibold bg-white w-full text-left flex items-center justify-between gap-1">
+                <span id="terrSecteurLabel">Tous Secteurs</span><span class="text-gray-400 text-[10px]">▼</span>
+              </button>
+              <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 bg-white border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[240px]" style="left:0">
+                <label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
+                  <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
+                </label>
+                <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
+              </div>
+            </div>
+            <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
+            <div class="flex gap-1">
+              <button onclick="exportTerritoireCSV()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+              <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP Réseau: Le Réseau -->
+        <div id="filterGroupBench" class="hidden">
+          <div class="flex flex-col gap-1.5">
+            <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
+              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white flex-1">
+              <span class="text-[10px] text-gray-500">€</span>
+            </div>
+            <button onclick="resetObsFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
+          </div>
+        </div>
+
+        <!-- GROUP Promo -->
+        <div id="filterGroupPromo" class="hidden">
+          <p class="text-[10px] font-bold text-gray-600 mb-1.5">Qui achète cet article / famille / marque ?</p>
+          <div class="flex flex-col gap-1.5">
+            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-xs py-1.5 px-2 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
+            <div class="flex gap-1">
+              <button onclick="runPromoSearch()" class="flex-1 text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold py-1.5 px-2 rounded-lg transition-colors">🎯 Cibler</button>
+              <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📥</button>
+              <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-1.5 px-2 rounded-lg">📋</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /filterPanelContent -->
+    </aside>
+
+    <!-- Mobile overlay -->
+    <div id="filterOverlay" onclick="closeFilterDrawer()"></div>
+
+    <!-- RIGHT: main content -->
+    <main id="mainContent">
+      <!-- Bandeau unifié insights + résumé fichiers -->
+      <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
+        <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
+        <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
+      </div>
 
   <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
 
@@ -189,33 +300,6 @@
     <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
 
-    <!-- ★ FILTRES GLOBAUX -->
-    <div id="globalFilters" class="hidden mb-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
-      <!-- Ligne 1 : filtres principaux -->
-      <div class="flex flex-wrap gap-1.5 items-center">
-        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[170px] py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
-        <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-        <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold"><option value="">Statut</option></select>
-        <select id="filterABC" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-        <select id="filterFMR" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
-        <span id="filterActiveCount" class="text-[10px] text-gray-400 font-semibold"></span>
-        <button onclick="_toggleGlobalAdvanced()" class="text-[10px] text-gray-500 hover:text-gray-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none"><span id="globalAdvArrow" class="text-[9px]">▶</span> Plus</button>
-        <button onclick="resetFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold ml-auto">↺ Reset</button>
-      </div>
-      <!-- Ligne 2 : filtres avancés (repliés) -->
-      <div id="globalAdvancedFilters" class="hidden mt-1.5 pt-1.5 border-t border-gray-200 flex flex-wrap gap-1.5 items-center">
-        <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
-        <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[110px]" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
-        <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
-      </div>
-      <!-- Chips filtres actifs + hidden inputs -->
-      <input type="hidden" id="filterCockpit" value="">
-      <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
-      <div class="flex flex-wrap gap-1.5 mt-1">
-        <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
-        <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
-      </div>
-    </div>
 
     <!-- ONGLETS -->
     <div id="tabsContainer" class="hidden mb-6 border-b-2 border-gray-200">
@@ -497,25 +581,6 @@
         <div><p id="terrSpecialKPIText" class="text-xs font-bold text-amber-800 inline"></p><span class="text-[10px] text-amber-600 ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
       </div>
 
-      <!-- 5. Filtres locaux territoire — V2 (nécessite BL Territoire) -->
-      <div id="terrFiltersBlock" style="display:none" class="hidden mb-1.5 bg-gray-50 px-2 py-1.5 rounded-xl border border-gray-200 flex flex-wrap gap-1.5 items-center">
-        <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="flex-1 min-w-[160px] py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
-        <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold"><option value="">Toutes Directions</option></select>
-        <div class="relative" id="terrSecteurDropdown">
-          <button type="button" onclick="toggleSecteurDropdown()" class="py-1 px-2 border rounded-lg text-xs font-semibold bg-white min-w-[160px] text-left flex items-center justify-between gap-1">
-            <span id="terrSecteurLabel">Tous Secteurs</span><span class="text-gray-400 text-[10px]">▼</span>
-          </button>
-          <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 bg-white border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[260px]" style="left:0">
-            <label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
-              <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
-            </label>
-            <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
-          </div>
-        </div>
-        <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
-        <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg text-xs">📥 CSV</button>
-        <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
-      </div>
 
       <!-- 6. Vue par Direction — V2 (nécessite BL Territoire) -->
       <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
@@ -697,16 +762,6 @@
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
-      <!-- FILTRES LE RÉSEAU (compact, intégrés à l'onglet) -->
-      <div class="mb-4 bg-cyan-50 p-1.5 rounded-xl border border-cyan-200">
-        <div class="flex flex-wrap gap-1.5 items-center">
-          <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white min-w-[180px]" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
-          <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
-          <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-24">
-          <span class="text-[10px] text-gray-500">€</span>
-          <button onclick="resetObsFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset</button>
-        </div>
-      </div>
       <!-- BARRE DE RECHERCHE ARTICLE -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-4">
         <input type="text" id="obsArtSearch" oninput="renderObsArticleSearch()" class="w-full p-3 text-sm border-2 border-cyan-200 rounded-lg font-semibold focus:ring-2 focus:ring-cyan-400 outline-none" placeholder="🔍 Rechercher un article (code ou libellé) — Manqué, Sous-perf ou Sur-perf">
@@ -799,19 +854,13 @@
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
         <p class="text-amber-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
-      <!-- Search block -->
+      <!-- Search block (input moved to filter panel) -->
       <div id="promoTargetingBlock" class="bg-white rounded-xl border shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b bg-gradient-to-r from-amber-50 to-orange-50 flex items-center justify-between gap-2 flex-wrap">
-          <h3 class="font-extrabold text-gray-800 text-sm">Qui achète cet article / famille / marque ?</h3>
-          <span class="text-[10px] text-gray-400">Tapez un code, un nom de famille ou un mot-clé</span>
+          <h3 class="font-extrabold text-gray-800 text-sm">Résultats de ciblage</h3>
+          <span class="text-[10px] text-gray-400">Utilisez le panneau Filtres à gauche pour rechercher</span>
         </div>
         <div class="p-3">
-          <div class="flex gap-2 items-center flex-wrap">
-            <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="flex-1 min-w-[220px] text-sm py-2 px-3 border rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-amber-300" onkeydown="if(event.key==='Enter')runPromoSearch()">
-            <button onclick="runPromoSearch()" class="text-sm bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors">🎯 Cibler</button>
-            <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 Exporter CSV</button>
-            <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
-          </div>
           <div id="promoMatchInfo" class="hidden mt-2 text-xs text-gray-500"></div>
           <!-- Results -->
           <div id="promoResults" class="hidden mt-3 space-y-2">
@@ -868,8 +917,13 @@
       </div>
     </div>
 
-  </div>
+  </div><!-- /container -->
   <footer class="text-center text-xs text-gray-400 py-4">PILOT PRO 1.0</footer>
+    </main><!-- /mainContent -->
+  </div><!-- /appLayout -->
+
+  <!-- Mobile filter drawer button -->
+  <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
 
   <script src="js/constants.js"></script>
   <script src="js/utils.js"></script>
