@@ -938,11 +938,13 @@
         <div class="text-center px-4 py-2 bg-blue-50 rounded-lg min-w-[90px]">
           <p class="text-[10px] font-bold text-blue-500 uppercase tracking-wide">📊 Captés Leg.</p>
           <p id="terrSumCapteLeg" class="text-xl font-extrabold text-blue-700">—</p>
+          <p id="terrSumCapteLegCount" class="text-[9px] text-blue-400 mt-0.5 hidden"></p>
         </div>
         <div class="text-gray-300 text-lg font-light hidden sm:block">›</div>
         <div class="text-center px-4 py-2 bg-green-50 rounded-lg border border-green-200 min-w-[90px]">
           <p class="text-[10px] font-bold text-green-500 uppercase tracking-wide">🏪 Captés PDV</p>
           <p id="terrSumCaptePDV" class="text-xl font-extrabold text-green-700">—</p>
+          <p id="terrSumCaptePDVCount" class="text-[9px] text-green-500 mt-0.5 hidden"></p>
         </div>
         <div id="terrSumExclusWrap" class="text-center px-4 py-2 bg-gray-50 rounded-lg min-w-[90px] hidden">
           <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">🚫 Exclus >24m</p>
@@ -1412,6 +1414,10 @@
     if(sumClients)sumClients.innerHTML=filterActive?`<span class="text-rose-600">${filteredClients.toLocaleString('fr-FR')}</span><span class="text-sm font-semibold text-gray-400"> / ${totalClients.toLocaleString('fr-FR')}</span>`:`${filteredClients.toLocaleString('fr-FR')}`;
     const sumLeg=document.getElementById('terrSumCapteLeg');if(sumLeg)sumLeg.textContent=pctCapteLeg+'%';
     const sumPDV=document.getElementById('terrSumCaptePDV');if(sumPDV)sumPDV.textContent=pctCapte+'%';
+    const legCount=document.getElementById('terrSumCapteLegCount');
+    if(legCount){if(filterActive&&nonProsp>0){legCount.textContent=totalActifsLeg.toLocaleString('fr-FR')+' / '+nonProsp.toLocaleString('fr-FR');legCount.classList.remove('hidden');}else legCount.classList.add('hidden');}
+    const pdvCount=document.getElementById('terrSumCaptePDVCount');
+    if(pdvCount){if(filterActive&&nonProsp>0){pdvCount.textContent=totalActifsPDV.toLocaleString('fr-FR')+' / '+nonProsp.toLocaleString('fr-FR');pdvCount.classList.remove('hidden');}else pdvCount.classList.add('hidden');}
     const excWrap=document.getElementById('terrSumExclusWrap');
     if(excWrap)excWrap.classList.toggle('hidden',_includePerdu24m||totalExcluded24m===0);
     const excEl=document.getElementById('terrSumExclus');if(excEl)excEl.textContent=totalExcluded24m.toLocaleString('fr-FR');
