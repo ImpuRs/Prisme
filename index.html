@@ -379,6 +379,11 @@
     html.dark .hover\:bg-violet-50:hover  { background-color: rgba(139,92,246,.1) !important; }
     html.dark .hover\:bg-rose-50:hover    { background-color: rgba(244,63,94,.1) !important; }
     html.dark .hover\:bg-amber-400:hover  { background-color: #d97706 !important; }
+    /* ── Sticky thead: force opaque background so rows don't bleed through ── */
+    html.dark thead.sticky,
+    html.dark thead[class*="sticky"] { background-color: #1e293b !important; z-index: 10; }
+    /* JS-generated semi-transparent bg-white/90 theads */
+    html.dark .bg-white\/90 { background-color: rgba(30,41,59,.97) !important; }
     /* ── Inputs & form elements ── */
     html.dark input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]),
     html.dark select,
