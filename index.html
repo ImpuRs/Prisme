@@ -3364,9 +3364,15 @@
   }
 
   function _onPromoFamilleChange(){
+    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
+    // Primary entry point: no prior search — fill search bar and trigger search
+    if(fam&&!_promoLastResult){
+      const si=document.getElementById('promoSearchInput');if(si)si.value=fam;
+      runPromoSearch();
+      return;
+    }
     // Cascade: repopulate sous-famille to only those within selected famille
     const r=_promoLastResult;if(!r)return;
-    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
     const sfSel=document.getElementById('promoFilterSousFamille');if(!sfSel)return;
     const cur=sfSel.value;
     const sfSet=new Set();
