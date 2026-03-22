@@ -1971,7 +1971,7 @@
       selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=storesIntersection.size>1;
       if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[...storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!selectedMyStore&&storesIntersection.has('AG22'))selectedMyStore='AG22';if(!selectedMyStore)selectedMyStore=[...storesIntersection][0];sel.value=selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${storesIntersection.size} mag.`;}
-      else document.getElementById('storeSelector').classList.add('hidden');
+      else{document.getElementById('storeSelector').classList.add('hidden');if(storesIntersection.size===1)selectedMyStore=[...storesIntersection][0];}
       const useMulti=hasMulti&&selectedMyStore;
 
       const stockKeys=Object.keys(dataS[0]||{});
