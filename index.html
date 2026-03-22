@@ -157,8 +157,14 @@
       #diagnosticPanel,#articlePanel,#reportingPanel{max-width:calc(100vw - 1rem)!important;padding:14px;border-radius:10px}
       /* Period dropdown: don't overflow screen edge */
       #periodDropdown{min-width:calc(100vw - 2rem)!important;right:auto!important;left:0!important}
-      /* Tabs: compact text */
-      .tab-btn{padding:.4rem .5rem;font-size:.6rem;gap:.2rem}
+      /* Tabs: horizontal scroll, min 13px labels */
+      #tabsContainer ul{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
+      #tabsContainer ul::-webkit-scrollbar{display:none}
+      .tab-btn{padding:.4rem .6rem;font-size:.8rem;gap:.2rem;white-space:nowrap}
+      /* Accordion headers: allow title to wrap, no truncation */
+      details>summary>h3,details>summary>div>h3{white-space:normal;word-break:break-word;flex-shrink:1;min-width:0}
+      details>summary>div{min-width:0;flex-shrink:1}
+      #benchUnderperformBanner{white-space:normal;word-break:break-word}
       /* Cockpit cockpitLists: single column */
       #tabAction .grid-cols-2{grid-template-columns:1fr!important}
       /* Filter drawer button: above bottom nav */
@@ -213,7 +219,7 @@
   <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-40">
     <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
       <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><div id="navTerr" class="hidden text-xs text-violet-300 font-mono">🔗 Le Terrain chargé</div><div id="navChalandise" class="hidden text-xs text-rose-300 font-mono">📋 Chalandise chargée</div><button onclick="openCmdPalette()" class="text-slate-300 hover:text-white text-sm flex items-center gap-1 hover:bg-blue-800 py-1 px-2 rounded-lg transition-colors" title="Recherche universelle (Ctrl+K / Cmd+K)">🔍 <span class="hidden sm:inline text-xs font-mono opacity-70">Cmd+K</span></button><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
+      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><button onclick="openCmdPalette()" class="text-slate-300 hover:text-white text-sm flex items-center gap-1 hover:bg-blue-800 py-1 px-2 rounded-lg transition-colors" title="Recherche universelle (Ctrl+K / Cmd+K)">🔍 <span class="hidden sm:inline text-xs font-mono opacity-70">Cmd+K</span></button><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
     </div>
   </nav>
 
@@ -1780,7 +1786,7 @@
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):null;
-    // Taux de service
+    // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
     const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
@@ -1824,7 +1830,7 @@
     L.push(hr);L.push('');
     // ── FACTEURS DE SUCCÈS ───────────────────────────────────────
     L.push('FACTEURS DE SUCCÈS');L.push('');
-    // Para 1 : équation commerciale + taux de service intégrés
+    // Para 1 : équation commerciale + taux de disponibilité intégré
     {
       const parts=[];
       if(ok(caPDVTotal)&&caPDVTotal>0){
@@ -2305,6 +2311,7 @@
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!canalAgence[canal])canalAgence[canal]={bl:new Set(),ca:0};canalAgence[canal].bl.add(nc2);}}
+      {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       if(storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)libelleLookup[code]=rawArt.substring(si+3).trim();}
@@ -2422,7 +2429,6 @@
       // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
       const _terrBtn=document.getElementById('btnTabTerritoire');
       if(finalData.length>0){_terrBtn.classList.remove('hidden');let _tBadge=_terrBtn.querySelector('.terr-enrich-badge');if(!_tBadge){_tBadge=document.createElement('span');_tBadge.className='terr-enrich-badge';_terrBtn.appendChild(_tBadge);}_tBadge.textContent=chalandiseReady?'✦':'';_tBadge.className='terr-enrich-badge text-[9px] ml-0.5 '+(chalandiseReady?'text-rose-400 font-bold':'');}else{_terrBtn.classList.add('hidden');}
-      if(!chalandiseReady){document.getElementById('navTerr').classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
       // Render main UI immediately — don't wait for territoire
@@ -2440,7 +2446,6 @@
         const terrRaw=await terrParsePromise;
         if(terrRaw&&terrRaw.length){
           await launchTerritoireWorker(terrRaw,updateTerrProgress);
-          document.getElementById('navTerr').classList.remove('hidden');
           updatePipeline('territoire','done');
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
@@ -3363,9 +3368,15 @@
   }
 
   function _onPromoFamilleChange(){
+    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
+    // Primary entry point: no prior search — fill search bar and trigger search
+    if(fam&&!_promoLastResult){
+      const si=document.getElementById('promoSearchInput');if(si)si.value=fam;
+      runPromoSearch();
+      return;
+    }
     // Cascade: repopulate sous-famille to only those within selected famille
     const r=_promoLastResult;if(!r)return;
-    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
     const sfSel=document.getElementById('promoFilterSousFamille');if(!sfSel)return;
     const cur=sfSel.value;
     const sfSet=new Set();
@@ -3559,7 +3570,8 @@
         // Detect Qlik promo format
         const colMap={};if(data[0]){for(const k of Object.keys(data[0])){const kl=k.toLowerCase().trim();if(kl.includes('code article')||kl==='code')colMap.code=k;else if(kl.includes('opération')||kl.includes('operation'))colMap.op=k;}}
         for(const row of data){
-          const code=cleanCode(String(row[colMap.code]||'').trim());
+          const raw0=String(row[colMap.code]||'').trim().split('_')[0].trim();
+          const code=cleanCode(raw0).replace(/^0+/,'');
           if(/^\d{6}$/.test(code))promoCodes.add(code);
           if(!opName&&colMap.op&&row[colMap.op])opName=String(row[colMap.op]).trim();
         }
@@ -3568,7 +3580,7 @@
     // 2. Fallback to textarea
     if(!promoCodes.size){
       const raw=(document.getElementById('promoCodesInput')||{}).value||'';
-      for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim());if(/^\d{6}$/.test(c))promoCodes.add(c);}
+      for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim().split('_')[0].trim()).replace(/^0+/,'');if(/^\d{6}$/.test(c))promoCodes.add(c);}
     }
     if(!promoCodes.size){showToast('⚠️ Aucun code article valide trouvé (format attendu : 6 chiffres)','warning');return;}
 
