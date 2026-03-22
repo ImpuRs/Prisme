@@ -223,7 +223,7 @@
 
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
-          <div id="terrFiltersBlock" class="hidden flex flex-col gap-1.5">
+          <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
             <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
             <div class="relative" id="terrSecteurDropdown">
@@ -2055,7 +2055,7 @@
     if(!hasTerr&&!hasChal)return;
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
-      ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+      ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
