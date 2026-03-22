@@ -2571,24 +2571,40 @@
     if(!terms.length){showToast('⚠️ Saisissez un code, une famille ou un mot-clé','warning');return;}
     if(!finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
 
-    // 1. Match articles
+    // 1. Match articles — finalData first, then full libelleLookup (réseau)
     const matchedCodes=new Set();
     for(const term of terms){
       const tl=term.toLowerCase();
+      // a) PDV stock — use libelleLookup as authoritative label source
       for(const r of finalData){
-        if(r.code===term||r.code.includes(term)||r.libelle.toLowerCase().includes(tl)||(r.famille||'').toLowerCase().includes(tl))
+        const lib=(libelleLookup[r.code]||r.libelle||'').toLowerCase();
+        const fam=(articleFamille[r.code]||r.famille||'').toLowerCase();
+        if(r.code===term||r.code.includes(term)||lib.includes(tl)||fam.includes(tl))
           matchedCodes.add(r.code);
       }
+      // b) Network articles present in libelleLookup but absent from PDV stock (ex: Dewalt hors rayon)
+      for(const[code,lib] of Object.entries(libelleLookup)){
+        if(matchedCodes.has(code))continue;
+        const libL=lib.toLowerCase();
+        const famL=(articleFamille[code]||'').toLowerCase();
+        if(code===term||code.includes(term)||libL.includes(tl)||famL.includes(tl))
+          matchedCodes.add(code);
+      }
     }
+
+    if(!matchedCodes.size){
+      const matchInfo=document.getElementById('promoMatchInfo');
+      if(matchInfo){matchInfo.textContent='Aucun article trouvé — essayez un autre mot-clé.';matchInfo.classList.remove('hidden');}
+      showToast('Aucun article trouvé pour cette recherche','warning');
+      return;
+    }
+
     // 2. Matched families
     const matchedFamilles=new Set();
-    for(const c of matchedCodes){const f=articleFamille[c]||(finalData.find(r=>r.code===c)||{}).famille;if(f)matchedFamilles.add(f);}
-    // Label
-    const artLabel=matchedCodes.size+' article'+(matchedCodes.size!==1?'s':'');
-    const famLabel=matchedFamilles.size?` · ${matchedFamilles.size} famille${matchedFamilles.size!==1?'s':''} (${[...matchedFamilles].slice(0,3).join(', ')}${matchedFamilles.size>3?'…':''})`:'' ;
-    const matchInfo=document.getElementById('promoMatchInfo');
-    if(matchInfo){matchInfo.textContent=`${artLabel} trouvé${matchedCodes.size!==1?'s':''}${famLabel}`;matchInfo.classList.remove('hidden');}
-    if(!matchedCodes.size){showToast('Aucun article trouvé pour cette recherche','warning');return;}
+    for(const c of matchedCodes){
+      const f=articleFamille[c]||(finalData.find(r=>r.code===c)||{}).famille;
+      if(f)matchedFamilles.add(f);
+    }
 
     // SECTION A: Déjà acheteurs PDV
     const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate}
@@ -2649,7 +2665,20 @@
       sectionC.sort((a,b)=>b.ca2025-a.ca2025);
     }
 
-    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms};
+    // Match info summary (built after section A so buyer count is known)
+    {
+      const matchInfo=document.getElementById('promoMatchInfo');
+      if(matchInfo){
+        const artLabel=matchedCodes.size+' article'+(matchedCodes.size!==1?'s':'');
+        const famLabel=matchedFamilles.size?` · ${matchedFamilles.size} famille${matchedFamilles.size!==1?'s':''} (${[...matchedFamilles].slice(0,3).join(', ')}${matchedFamilles.size>3?'…':''})`:'' ;
+        let html=`${artLabel} trouvé${matchedCodes.size!==1?'s':''}${famLabel} · <strong>${sectionA.length} acheteur${sectionA.length!==1?'s':''} PDV</strong>`;
+        if(sectionA.length===0&&matchedCodes.size>0)
+          html+=` — <span class="text-amber-600 font-semibold">Aucun achat comptoir sur ces articles. ${matchedFamilles.size?'Les résultats B &amp; C recherchent dans les familles correspondantes.':''}</span>`;
+        matchInfo.innerHTML=html;matchInfo.classList.remove('hidden');
+      }
+    }
+
+    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
     _renderPromoResults();
   }
 
