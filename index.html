@@ -190,42 +190,30 @@
     </div><!-- /importZone -->
 
     <!-- ★ FILTRES GLOBAUX -->
-    <div id="globalFilters" class="hidden mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">🎯 Filtres <span id="filterActiveCount" class="text-xs font-normal text-gray-400"></span></h3>
-        <button onclick="resetFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
+    <div id="globalFilters" class="hidden mb-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+      <!-- Ligne 1 : filtres principaux -->
+      <div class="flex flex-wrap gap-1.5 items-center">
+        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[170px] py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
+        <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
+        <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold"><option value="">Statut</option></select>
+        <select id="filterABC" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+        <select id="filterFMR" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+        <span id="filterActiveCount" class="text-[10px] text-gray-400 font-semibold"></span>
+        <button onclick="_toggleGlobalAdvanced()" class="text-[10px] text-gray-500 hover:text-gray-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none"><span id="globalAdvArrow" class="text-[9px]">▶</span> Plus</button>
+        <button onclick="resetFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold ml-auto">↺ Reset</button>
       </div>
-      <div class="flex flex-wrap gap-3 items-center">
-        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[200px] p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="🔍 Code, libellé, famille…">
-        <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[160px]" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-        <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[140px]" placeholder="🔎 S/Fam…"><datalist id="listSousFamille"></datalist>
-        <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[120px]" placeholder="🔎 Empl…"><datalist id="listEmplacement"></datalist>
-        <select id="filterStatut" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Statuts</option></select>
-        <select id="filterAge" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
-        <select id="filterABC" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — Top 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-        <select id="filterFMR" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F — Fréquent (≥12)</option><option value="M">M — Moyen (4-11)</option><option value="R">R — Rare (≤3)</option></select>
+      <!-- Ligne 2 : filtres avancés (repliés) -->
+      <div id="globalAdvancedFilters" class="hidden mt-1.5 pt-1.5 border-t border-gray-200 flex flex-wrap gap-1.5 items-center">
+        <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
+        <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[110px]" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
+        <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
       </div>
+      <!-- Chips filtres actifs + hidden inputs -->
       <input type="hidden" id="filterCockpit" value="">
       <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
-      <div class="flex flex-wrap gap-2 mt-2">
-        <div id="activeAgeFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-lg leading-none">&times;</span></div>
-        <div id="activeCockpitFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-lg leading-none">&times;</span></div>
-      </div>
-    </div>
-
-    <!-- ★ FILTRES LE RÉSEAU (affiché uniquement quand onglet Le Réseau actif) -->
-    <div id="obsFilters" class="hidden mb-4 bg-cyan-50 p-4 rounded-xl border border-cyan-200 shadow-inner">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-bold text-cyan-800 uppercase flex items-center gap-2">🔭 Filtres Le Réseau</h3>
-        <button onclick="resetObsFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
-      </div>
-      <div class="flex flex-wrap gap-3 items-center">
-        <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="p-2 border border-cyan-300 rounded-lg text-sm font-semibold bg-white min-w-[200px]" placeholder="🌐 Tous les univers…"><datalist id="listObsUnivers"></datalist>
-        <div class="flex items-center gap-2">
-          <label class="text-sm font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</label>
-          <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="w-28 p-2 border border-cyan-300 rounded-lg text-sm font-semibold bg-white">
-          <span class="text-sm text-gray-500">€</span>
-        </div>
+      <div class="flex flex-wrap gap-1.5 mt-1">
+        <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
+        <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
       </div>
     </div>
 
@@ -775,6 +763,16 @@
         </div>
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
+      </div>
+      <!-- FILTRES LE RÉSEAU (compact, intégrés à l'onglet) -->
+      <div class="mb-4 bg-cyan-50 p-1.5 rounded-xl border border-cyan-200">
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white min-w-[180px]" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
+          <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
+          <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-24">
+          <span class="text-[10px] text-gray-500">€</span>
+          <button onclick="resetObsFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset</button>
+        </div>
       </div>
       <!-- BARRE DE RECHERCHE ARTICLE -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-4">
@@ -2571,24 +2569,40 @@
     if(!terms.length){showToast('⚠️ Saisissez un code, une famille ou un mot-clé','warning');return;}
     if(!finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
 
-    // 1. Match articles
+    // 1. Match articles — finalData first, then full libelleLookup (réseau)
     const matchedCodes=new Set();
     for(const term of terms){
       const tl=term.toLowerCase();
+      // a) PDV stock — use libelleLookup as authoritative label source
       for(const r of finalData){
-        if(r.code===term||r.code.includes(term)||r.libelle.toLowerCase().includes(tl)||(r.famille||'').toLowerCase().includes(tl))
+        const lib=(libelleLookup[r.code]||r.libelle||'').toLowerCase();
+        const fam=(articleFamille[r.code]||r.famille||'').toLowerCase();
+        if(r.code===term||r.code.includes(term)||lib.includes(tl)||fam.includes(tl))
           matchedCodes.add(r.code);
       }
+      // b) Network articles present in libelleLookup but absent from PDV stock (ex: Dewalt hors rayon)
+      for(const[code,lib] of Object.entries(libelleLookup)){
+        if(matchedCodes.has(code))continue;
+        const libL=lib.toLowerCase();
+        const famL=(articleFamille[code]||'').toLowerCase();
+        if(code===term||code.includes(term)||libL.includes(tl)||famL.includes(tl))
+          matchedCodes.add(code);
+      }
     }
+
+    if(!matchedCodes.size){
+      const matchInfo=document.getElementById('promoMatchInfo');
+      if(matchInfo){matchInfo.textContent='Aucun article trouvé — essayez un autre mot-clé.';matchInfo.classList.remove('hidden');}
+      showToast('Aucun article trouvé pour cette recherche','warning');
+      return;
+    }
+
     // 2. Matched families
     const matchedFamilles=new Set();
-    for(const c of matchedCodes){const f=articleFamille[c]||(finalData.find(r=>r.code===c)||{}).famille;if(f)matchedFamilles.add(f);}
-    // Label
-    const artLabel=matchedCodes.size+' article'+(matchedCodes.size!==1?'s':'');
-    const famLabel=matchedFamilles.size?` · ${matchedFamilles.size} famille${matchedFamilles.size!==1?'s':''} (${[...matchedFamilles].slice(0,3).join(', ')}${matchedFamilles.size>3?'…':''})`:'' ;
-    const matchInfo=document.getElementById('promoMatchInfo');
-    if(matchInfo){matchInfo.textContent=`${artLabel} trouvé${matchedCodes.size!==1?'s':''}${famLabel}`;matchInfo.classList.remove('hidden');}
-    if(!matchedCodes.size){showToast('Aucun article trouvé pour cette recherche','warning');return;}
+    for(const c of matchedCodes){
+      const f=articleFamille[c]||(finalData.find(r=>r.code===c)||{}).famille;
+      if(f)matchedFamilles.add(f);
+    }
 
     // SECTION A: Déjà acheteurs PDV
     const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate}
@@ -2649,7 +2663,20 @@
       sectionC.sort((a,b)=>b.ca2025-a.ca2025);
     }
 
-    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms};
+    // Match info summary (built after section A so buyer count is known)
+    {
+      const matchInfo=document.getElementById('promoMatchInfo');
+      if(matchInfo){
+        const artLabel=matchedCodes.size+' article'+(matchedCodes.size!==1?'s':'');
+        const famLabel=matchedFamilles.size?` · ${matchedFamilles.size} famille${matchedFamilles.size!==1?'s':''} (${[...matchedFamilles].slice(0,3).join(', ')}${matchedFamilles.size>3?'…':''})`:'' ;
+        let html=`${artLabel} trouvé${matchedCodes.size!==1?'s':''}${famLabel} · <strong>${sectionA.length} acheteur${sectionA.length!==1?'s':''} PDV</strong>`;
+        if(sectionA.length===0&&matchedCodes.size>0)
+          html+=` — <span class="text-amber-600 font-semibold">Aucun achat comptoir sur ces articles. ${matchedFamilles.size?'Les résultats B &amp; C recherchent dans les familles correspondantes.':''}</span>`;
+        matchInfo.innerHTML=html;matchInfo.classList.remove('hidden');
+      }
+    }
+
+    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
     _renderPromoResults();
   }
 
