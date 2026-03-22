@@ -612,52 +612,59 @@
       <div id="terrChalandiseOverview" class="hidden mt-2">
         <!-- Filters -->
         <div class="mb-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
-          <!-- Row 1: Croisement (shown only when territory loaded) -->
-          <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mb-1.5">
-            <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
-            <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
-            <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
-            <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
-            <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
-          </div>
-          <!-- Row 2: Compact dropdowns + inputs -->
+          <!-- Row 1: Main filters (always visible) -->
           <div class="flex flex-wrap gap-1.5 items-center">
-            <div class="relative" id="terrDeptDropdownWrap">
-              <button type="button" onclick="_toggleDeptDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[95px] text-left flex items-center justify-between gap-1">
-                <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
-              </button>
-              <div id="terrDeptPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[150px] max-h-48 overflow-y-auto">
-                <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
-              </div>
-            </div>
-            <div class="relative" id="terrClassifDropdownWrap">
-              <button type="button" onclick="_toggleClassifDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
-                <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
-              </button>
-              <div id="terrClassifPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[160px]">
-                <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
-              </div>
-            </div>
-            <div class="relative" id="terrActPDVDropdownWrap">
-              <button type="button" onclick="_toggleActPDVDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
-                <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
-              </button>
-              <div id="terrActPDVPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[185px]">
-                <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
-              </div>
-            </div>
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="Métier" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px]"><datalist id="terrMetierList"></datalist>
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="Commercial" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[120px]"><datalist id="terrCommercialList"></datalist>
-          </div>
-          <!-- Row 3: Toggles -->
-          <div class="flex flex-wrap gap-1.5 items-center mt-1">
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px] bg-white"><datalist id="terrMetierList"></datalist>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px] bg-white"><datalist id="terrCommercialList"></datalist>
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
           </div>
+          <!-- Row 2: Summary counter (always visible) -->
+          <div id="terrOverviewCounter" class="mt-1 text-[10px] font-semibold text-gray-600 leading-tight"></div>
+          <!-- Advanced filters toggle -->
+          <button onclick="_toggleTerrAdvancedFilters()" class="mt-1 text-[10px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none">
+            <span id="terrAdvArrow" class="text-[9px]">▶</span> Filtres avancés
+          </button>
+          <!-- Advanced filters (collapsed by default) -->
+          <div id="terrAdvancedFilters" class="hidden mt-1.5 pt-1.5 border-t border-rose-200">
+            <!-- Croisement row (shown only when territory loaded) -->
+            <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mb-1.5">
+              <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
+              <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
+              <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
+              <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
+              <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
+            </div>
+            <!-- Compact dropdowns + perdus toggle -->
+            <div class="flex flex-wrap gap-1.5 items-center">
+              <div class="relative" id="terrDeptDropdownWrap">
+                <button type="button" onclick="_toggleDeptDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[95px] text-left flex items-center justify-between gap-1">
+                  <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrDeptPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[150px] max-h-48 overflow-y-auto">
+                  <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <div class="relative" id="terrClassifDropdownWrap">
+                <button type="button" onclick="_toggleClassifDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                  <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrClassifPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[160px]">
+                  <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <div class="relative" id="terrActPDVDropdownWrap">
+                <button type="button" onclick="_toggleActPDVDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
+                  <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrActPDVPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[185px]">
+                  <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
+            </div>
+          </div>
         </div>
-        <!-- Dynamic counter -->
-        <div id="terrOverviewCounter" class="mb-1 text-xs font-bold text-gray-600"></div>
         <!-- Header -->
         <div class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
           <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
@@ -911,6 +918,7 @@
   function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleTerrAdvancedFilters(){const adv=document.getElementById('terrAdvancedFilters');const arrow=document.getElementById('terrAdvArrow');if(!adv)return;const open=adv.classList.toggle('hidden');if(arrow)arrow.textContent=open?'▶':'▼';}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
