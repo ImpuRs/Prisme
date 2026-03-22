@@ -190,26 +190,30 @@
     </div><!-- /importZone -->
 
     <!-- ★ FILTRES GLOBAUX -->
-    <div id="globalFilters" class="hidden mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-bold text-gray-700 uppercase flex items-center gap-2">🎯 Filtres <span id="filterActiveCount" class="text-xs font-normal text-gray-400"></span></h3>
-        <button onclick="resetFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold">↺ Reset</button>
+    <div id="globalFilters" class="hidden mb-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+      <!-- Ligne 1 : filtres principaux -->
+      <div class="flex flex-wrap gap-1.5 items-center">
+        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[170px] py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
+        <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
+        <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold"><option value="">Statut</option></select>
+        <select id="filterABC" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+        <select id="filterFMR" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+        <span id="filterActiveCount" class="text-[10px] text-gray-400 font-semibold"></span>
+        <button onclick="_toggleGlobalAdvanced()" class="text-[10px] text-gray-500 hover:text-gray-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none"><span id="globalAdvArrow" class="text-[9px]">▶</span> Plus</button>
+        <button onclick="resetFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold ml-auto">↺ Reset</button>
       </div>
-      <div class="flex flex-wrap gap-3 items-center">
-        <input type="text" id="searchInput" oninput="debouncedRender()" class="flex-1 min-w-[200px] p-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold" placeholder="🔍 Code, libellé, famille…">
-        <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[160px]" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-        <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[140px]" placeholder="🔎 S/Fam…"><datalist id="listSousFamille"></datalist>
-        <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold min-w-[120px]" placeholder="🔎 Empl…"><datalist id="listEmplacement"></datalist>
-        <select id="filterStatut" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold"><option value="">Tous Statuts</option></select>
-        <select id="filterAge" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
-        <select id="filterABC" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — Top 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-        <select id="filterFMR" onchange="onFilterChange()" class="p-2 border rounded-lg text-sm font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F — Fréquent (≥12)</option><option value="M">M — Moyen (4-11)</option><option value="R">R — Rare (≤3)</option></select>
+      <!-- Ligne 2 : filtres avancés (repliés) -->
+      <div id="globalAdvancedFilters" class="hidden mt-1.5 pt-1.5 border-t border-gray-200 flex flex-wrap gap-1.5 items-center">
+        <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[130px]" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
+        <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold min-w-[110px]" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
+        <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
       </div>
+      <!-- Chips filtres actifs + hidden inputs -->
       <input type="hidden" id="filterCockpit" value="">
       <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
-      <div class="flex flex-wrap gap-2 mt-2">
-        <div id="activeAgeFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-lg leading-none">&times;</span></div>
-        <div id="activeCockpitFilter" class="hidden text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-lg leading-none">&times;</span></div>
+      <div class="flex flex-wrap gap-1.5 mt-1">
+        <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
+        <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
       </div>
     </div>
 
