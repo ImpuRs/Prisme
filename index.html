@@ -342,11 +342,13 @@
           </div>
           <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
             <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+            <select id="promoFilterFamille" onchange="_onPromoFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes les familles</option></select>
+            <select id="promoFilterSousFamille" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
             <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
             <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
             <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
-            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
             <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
+            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
             <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
               <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-orange-500">
               ⭐ Stratégiques uniquement
@@ -2963,8 +2965,12 @@
     _renderPromoResults();
   }
 
+  let _promoSfMap={}; // code → {famille, sousFamille}
+
   function _populatePromoFilterDropdowns(){
     const r=_promoLastResult;if(!r)return;
+    // Build sous-famille map from finalData (once per search)
+    _promoSfMap={};for(const row of finalData)_promoSfMap[row.code]={famille:row.famille||'',sousFamille:row.sousFamille||''};
     const all=[...r.sectionA,...r.sectionB,...r.sectionC];
     const uniq=(key)=>[...new Set(all.map(c=>c[key]||'').filter(Boolean))].sort();
     const fill=(id,vals)=>{
@@ -2974,6 +2980,15 @@
       sel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
       if(vals.includes(cur))sel.value=cur;
     };
+    // Famille + Sous-famille from matchedCodes
+    const famSet=new Set();const sfSet=new Set();
+    for(const code of r.matchedCodes){
+      const f=articleFamille[code]||_promoSfMap[code]?.famille||'';
+      const sf=_promoSfMap[code]?.sousFamille||'';
+      if(f)famSet.add(f);if(sf)sfSet.add(sf);
+    }
+    fill('promoFilterFamille',[...famSet].sort());
+    fill('promoFilterSousFamille',[...sfSet].sort());
     fill('promoFilterMetier',uniq('metier'));
     fill('promoFilterCommercial',uniq('commercial'));
     fill('promoFilterClassif',uniq('classification'));
@@ -2986,10 +3001,28 @@
     if(ph)ph.classList.add('hidden');if(rf)rf.classList.remove('hidden');
   }
 
+  function _onPromoFamilleChange(){
+    // Cascade: repopulate sous-famille to only those within selected famille
+    const r=_promoLastResult;if(!r)return;
+    const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
+    const sfSel=document.getElementById('promoFilterSousFamille');if(!sfSel)return;
+    const cur=sfSel.value;
+    const sfSet=new Set();
+    for(const code of r.matchedCodes){
+      if(fam&&(articleFamille[code]||_promoSfMap[code]?.famille||'')!==fam)continue;
+      const sf=_promoSfMap[code]?.sousFamille||'';if(sf)sfSet.add(sf);
+    }
+    const first=sfSel.options[0].outerHTML;
+    const vals=[...sfSet].sort();
+    sfSel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+    if(vals.includes(cur))sfSel.value=cur; else sfSel.value='';
+    _applyPromoFilters();
+  }
+
   function _applyPromoFilters(){_renderPromoResults();}
 
   function _resetPromoFilters(){
-    ['promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    ['promoFilterFamille','promoFilterSousFamille','promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
     const st=document.getElementById('promoFilterStrat');if(st)st.checked=false;
     _renderPromoResults();
@@ -2999,13 +3032,42 @@
     const r=_promoLastResult;if(!r)return;
     const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
     // Read refinement filters
+    const fFamille=(document.getElementById('promoFilterFamille')||{}).value||'';
+    const fSousFamille=(document.getElementById('promoFilterSousFamille')||{}).value||'';
     const fMetier=(document.getElementById('promoFilterMetier')||{}).value||'';
     const fComm=(document.getElementById('promoFilterCommercial')||{}).value||'';
     const fClassif=(document.getElementById('promoFilterClassif')||{}).value||'';
     const fCAMin=parseFloat((document.getElementById('promoFilterCAMin')||{}).value)||0;
     const fDept=(document.getElementById('promoFilterDept')||{}).value||'';
     const fStrat=(document.getElementById('promoFilterStrat')||{}).checked||false;
-    const pass=(c,caField)=>{
+    // Article-level famille/sous-famille check for section A
+    const _passFamA=(cc)=>{
+      if(!fFamille&&!fSousFamille)return true;
+      const artData=ventesClientArticle.get(cc);if(!artData)return false;
+      for(const code of artData.keys()){
+        if(!r.matchedCodes.has(code))continue;
+        const f=articleFamille[code]||_promoSfMap[code]?.famille||'';
+        const sf=_promoSfMap[code]?.sousFamille||'';
+        if(fFamille&&f!==fFamille)continue;
+        if(fSousFamille&&sf!==fSousFamille)continue;
+        return true;
+      }
+      return false;
+    };
+    // Famille check for section B (via territoireLines, sous-famille not available)
+    const _passFamB=(cc)=>{
+      if(!fFamille&&!fSousFamille)return true;
+      if(!territoireReady)return true;
+      for(const l of territoireLines){
+        if(l.clientCode!==cc)continue;
+        if(!r.matchedFamilles.has(l.famille))continue;
+        if(fFamille&&l.famille!==fFamille)continue;
+        return true;
+      }
+      return false;
+    };
+    const pass=(c,caField,famCheck)=>{
+      if(famCheck&&!famCheck(c.cc))return false;
       if(fMetier&&(c.metier||'')!==fMetier)return false;
       if(fComm&&(c.commercial||'')!==fComm)return false;
       if(fClassif&&(c.classification||'')!==fClassif)return false;
@@ -3014,9 +3076,9 @@
       if(fStrat){const info=chalandiseData.get(c.cc)||{};const m=(info.metier||c.metier||'').toLowerCase();if(!METIERS_STRATEGIQUES.some(s=>m===s||m.includes(s)))return false;}
       return true;
     };
-    const sA=r.sectionA.filter(c=>pass(c,'ca'));
-    const sB=r.sectionB.filter(c=>pass(c,'ca2025'));
-    const sC=r.sectionC.filter(c=>pass(c,'ca2025'));
+    const sA=r.sectionA.filter(c=>pass(c,'ca',_passFamA));
+    const sB=r.sectionB.filter(c=>pass(c,'ca2025',_passFamB));
+    const sC=r.sectionC.filter(c=>pass(c,'ca2025',null));
     // Section A
     document.getElementById('promoCountA').textContent=sA.length+(sA.length<r.sectionA.length?' / '+r.sectionA.length:'');
     document.getElementById('promoTableA').innerHTML=sA.slice(0,200).map(c=>{
