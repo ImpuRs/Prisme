@@ -255,6 +255,12 @@
             </div>
           </div>
 
+          <!-- Client search — always shown when Le Terrain is active -->
+          <div id="terrClientSearchBlock" class="flex flex-col gap-1">
+            <hr class="border-gray-200 my-0.5">
+            <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white">
+          </div>
+
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
             <hr class="border-gray-200 my-0.5">
@@ -739,7 +745,7 @@
 
       <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
       <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
-        <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold text-gray-800 text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3><input type="text" id="terrClientSearch" oninput="renderTerritoireTab()" class="py-0.5 px-2 text-xs border rounded-lg w-40" placeholder="🔍 Code ou nom…"></div>
+        <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold text-gray-800 text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3></div>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
             <thead class="bg-gray-800 text-white sticky top-0">
@@ -1050,6 +1056,14 @@
   function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleStrategiqueFilter(){_filterStrategiqueOnly=!_filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_filterStrategiqueOnly);btn.classList.toggle('text-white',_filterStrategiqueOnly);btn.classList.toggle('bg-gray-200',!_filterStrategiqueOnly);btn.classList.toggle('text-gray-600',!_filterStrategiqueOnly);}if(_filterStrategiqueOnly&&_selectedMetier&&!_isMetierStrategique(_selectedMetier)){_selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_selectedCommercial=(!val||commercials.has(val))?val:'';if(_selectedCommercial===val)_buildChalandiseOverview();}
+  let _terrClientSearchTimer=null;
+  function _onTerrClientSearch(){
+    clearTimeout(_terrClientSearchTimer);
+    _terrClientSearchTimer=setTimeout(()=>{
+      if(chalandiseReady)_buildCockpitClient();
+      renderTerritoireTab();
+    },300);
+  }
   function _onMetierFilter(val){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_selectedMetier=(!val||metiers.has(val))?val:'';if(_selectedMetier===val)_buildChalandiseOverview();}
   function _navigateToOverviewMetier(metier){
     closeDiagnostic();
@@ -1679,11 +1693,13 @@
       return;
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
+    const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
     for(const[cc,info] of chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
+      if(_qClient&&!cc.toLowerCase().includes(_qClient)&&!(info.nom||'').toLowerCase().includes(_qClient))continue;
       if(!_includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
       if(excludedClients.has(cc))continue;
@@ -1955,7 +1971,7 @@
       selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=storesIntersection.size>1;
       if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[...storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!selectedMyStore&&storesIntersection.has('AG22'))selectedMyStore='AG22';if(!selectedMyStore)selectedMyStore=[...storesIntersection][0];sel.value=selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${storesIntersection.size} mag.`;}
-      else document.getElementById('storeSelector').classList.add('hidden');
+      else{document.getElementById('storeSelector').classList.add('hidden');if(storesIntersection.size===1)selectedMyStore=[...storesIntersection][0];}
       const useMulti=hasMulti&&selectedMyStore;
 
       const stockKeys=Object.keys(dataS[0]||{});
@@ -2705,6 +2721,7 @@
   // Reset all territoire local filters + close all accordions
   function resetTerrFilters(){
     const s=document.getElementById('terrSearch');if(s)s.value='';
+    const cs=document.getElementById('terrClientSearch');if(cs)cs.value='';
     const d=document.getElementById('terrFilterDir');if(d)d.value='';
     const r=document.getElementById('terrFilterRayon');if(r)r.value='';
     // Reset secteur multi-select
