@@ -79,7 +79,7 @@ function expandImportZone() {
 // ── Tab navigation ────────────────────────────────────────────
 function switchTab(id) {
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-600', 'text-blue-600', 'border-red-600', 'text-red-700', 'border-cyan-600', 'text-cyan-700', 'border-indigo-600', 'text-indigo-600', 'border-violet-600', 'text-violet-600', 'active'); b.classList.add('border-transparent', 'text-gray-500'); });
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-600', 'text-blue-600', 'border-red-600', 'text-red-700', 'border-cyan-600', 'text-cyan-700', 'border-indigo-600', 'text-indigo-600', 'border-violet-600', 'text-violet-600', 'border-amber-500', 'text-amber-600', 'active'); b.classList.add('border-transparent', 'text-gray-500'); });
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
@@ -88,10 +88,11 @@ function switchTab(id) {
     else if (id === 'bench') btn.classList.add('border-cyan-600', 'text-cyan-700', 'active');
     else if (id === 'territoire') { btn.classList.add('border-violet-600', 'text-violet-600', 'active'); if (chalandiseReady || territoireReady) renderTerritoireTab(); }
     else if (id === 'abc') btn.classList.add('border-indigo-600', 'text-indigo-600', 'active');
+    else if (id === 'promo') btn.classList.add('border-amber-500', 'text-amber-600', 'active');
     else btn.classList.add('border-blue-600', 'text-blue-600', 'active');
   }
   const loaded = !document.getElementById('tabsContainer').classList.contains('hidden');
-  if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
+  if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire' || id === 'promo') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
 }
 
 function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
