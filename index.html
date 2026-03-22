@@ -3570,7 +3570,8 @@
         // Detect Qlik promo format
         const colMap={};if(data[0]){for(const k of Object.keys(data[0])){const kl=k.toLowerCase().trim();if(kl.includes('code article')||kl==='code')colMap.code=k;else if(kl.includes('opération')||kl.includes('operation'))colMap.op=k;}}
         for(const row of data){
-          const code=cleanCode(String(row[colMap.code]||'').trim());
+          const raw0=String(row[colMap.code]||'').trim().split('_')[0].trim();
+          const code=cleanCode(raw0).replace(/^0+/,'');
           if(/^\d{6}$/.test(code))promoCodes.add(code);
           if(!opName&&colMap.op&&row[colMap.op])opName=String(row[colMap.op]).trim();
         }
@@ -3579,7 +3580,7 @@
     // 2. Fallback to textarea
     if(!promoCodes.size){
       const raw=(document.getElementById('promoCodesInput')||{}).value||'';
-      for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim());if(/^\d{6}$/.test(c))promoCodes.add(c);}
+      for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim().split('_')[0].trim()).replace(/^0+/,'');if(/^\d{6}$/.test(c))promoCodes.add(c);}
     }
     if(!promoCodes.size){showToast('⚠️ Aucun code article valide trouvé (format attendu : 6 chiffres)','warning');return;}
 
