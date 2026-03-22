@@ -316,8 +316,6 @@
             </div>
             <!-- Reset -->
             <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
-            <!-- Summary counter -->
-            <div id="terrOverviewCounter" class="text-[10px] font-semibold text-gray-500 border-t border-gray-100 pt-1.5 leading-snug"></div>
           </div>
         </div>
 
@@ -771,6 +769,28 @@
         </div>
       </div>
 
+      <!-- Summary KPI bar — shown when chalandise loaded -->
+      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 bg-white rounded-xl border shadow-sm mb-3">
+        <div class="text-center px-4 py-2 bg-gray-50 rounded-lg min-w-[90px]">
+          <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">👥 Clients zone</p>
+          <p id="terrSumClients" class="text-xl font-extrabold text-gray-800">—</p>
+        </div>
+        <div class="text-gray-300 text-lg font-light hidden sm:block">›</div>
+        <div class="text-center px-4 py-2 bg-blue-50 rounded-lg min-w-[90px]">
+          <p class="text-[10px] font-bold text-blue-500 uppercase tracking-wide">📊 Captés Leg.</p>
+          <p id="terrSumCapteLeg" class="text-xl font-extrabold text-blue-700">—</p>
+        </div>
+        <div class="text-gray-300 text-lg font-light hidden sm:block">›</div>
+        <div class="text-center px-4 py-2 bg-green-50 rounded-lg border border-green-200 min-w-[90px]">
+          <p class="text-[10px] font-bold text-green-500 uppercase tracking-wide">🏪 Captés PDV</p>
+          <p id="terrSumCaptePDV" class="text-xl font-extrabold text-green-700">—</p>
+        </div>
+        <div id="terrSumExclusWrap" class="text-center px-4 py-2 bg-gray-50 rounded-lg min-w-[90px] hidden">
+          <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">🚫 Exclus >24m</p>
+          <p id="terrSumExclus" class="text-xl font-extrabold text-gray-400">—</p>
+        </div>
+      </div>
+
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
       <div id="terrChalandiseOverview" class="hidden mt-2">
         <!-- Header -->
@@ -1091,7 +1111,7 @@
       const hd=document.getElementById('terrOverviewL1Head'),tb=document.getElementById('terrOverviewL1Table');
       if(hd)hd.innerHTML='';
       if(tb)tb.innerHTML=`<tr><td colspan="9" class="py-6 text-center text-xs text-gray-400">🟣 Les fidèles hors zone n'appartiennent pas à la zone de chalandise — ils ne sont pas affichés dans le tableau par direction.</td></tr>`;
-      const ctr=document.getElementById('terrOverviewCounter');if(ctr)ctr.textContent=crossingStats?`${crossingStats.fideles.size} fidèles hors zone`:'';
+      const bar2=document.getElementById('terrSummaryBar');if(bar2)bar2.classList.add('hidden');
       return;
     }
     _buildDeptFilter();
@@ -1126,16 +1146,19 @@
     if(headEl){
       headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
     }
-    // Counter
-    const ctrEl=document.getElementById('terrOverviewCounter');
+    // Summary KPI bar
     const nonProsp=filteredClients-[...Object.values(dirMap)].reduce((s,d)=>s+d.prospects,0);
     const pctCapte=nonProsp>0?Math.round(totalActifsPDV/nonProsp*100):0;
     const pctCapteLeg=nonProsp>0?Math.round(totalActifsLeg/nonProsp*100):0;
     const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
-    let ctrHtml=filterActive?`<span class="text-rose-600">${filteredClients} clients filtrés</span> / ${totalClients} total`:`${totalClients} clients`;
-    ctrHtml+=` · <span class="text-blue-600">${pctCapteLeg}% captés Leg.</span> · <span class="text-emerald-600">${pctCapte}% captés PDV</span>`;
-    if(!_includePerdu24m&&totalExcluded24m>0)ctrHtml+=` · <span class="text-gray-400">${totalExcluded24m} perdus &gt;24m exclus</span>`;
-    if(ctrEl)ctrEl.innerHTML=ctrHtml;
+    const bar=document.getElementById('terrSummaryBar');if(bar)bar.classList.remove('hidden');
+    const sumClients=document.getElementById('terrSumClients');
+    if(sumClients)sumClients.innerHTML=filterActive?`<span class="text-rose-600">${filteredClients.toLocaleString('fr-FR')}</span><span class="text-sm font-semibold text-gray-400"> / ${totalClients.toLocaleString('fr-FR')}</span>`:`${filteredClients.toLocaleString('fr-FR')}`;
+    const sumLeg=document.getElementById('terrSumCapteLeg');if(sumLeg)sumLeg.textContent=pctCapteLeg+'%';
+    const sumPDV=document.getElementById('terrSumCaptePDV');if(sumPDV)sumPDV.textContent=pctCapte+'%';
+    const excWrap=document.getElementById('terrSumExclusWrap');
+    if(excWrap)excWrap.classList.toggle('hidden',_includePerdu24m||totalExcluded24m===0);
+    const excEl=document.getElementById('terrSumExclus');if(excEl)excEl.textContent=totalExcluded24m.toLocaleString('fr-FR');
     // Sort by % capté ascending (opportunities first)
     let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
     dirsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
@@ -2140,6 +2163,7 @@
     _buildChalandiseOverview();
     const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
+    const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI + filter row — updated regardless of hasTerr
     {const crossEl=document.getElementById('terrCrossingKPI');if(crossEl){if(crossingStats){crossEl.classList.remove('hidden');const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};s('terrCrossKpiFideles',crossingStats.fideles.size.toLocaleString('fr'));s('terrCrossKpiPotentiels',crossingStats.potentiels.size.toLocaleString('fr'));s('terrCrossKpiCaptes',crossingStats.captes.size.toLocaleString('fr'));}else crossEl.classList.add('hidden');}const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!crossingStats);}
     if(!hasTerr&&!hasChal)return;
