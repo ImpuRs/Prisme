@@ -251,6 +251,74 @@
               <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
             </div>
           </div>
+
+          <!-- Chalandise filters — shown when chalandise loaded -->
+          <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
+            <hr class="border-gray-200 my-0.5">
+            <p class="text-[10px] font-bold text-rose-500 uppercase tracking-wide">🔗 Chalandise</p>
+            <!-- Crossing KPI mini-stats -->
+            <div id="terrCrossingKPI" class="hidden bg-slate-800 rounded-lg px-2 py-1.5 flex flex-col gap-0.5">
+              <span class="text-slate-400 text-[9px] font-bold uppercase tracking-wide">🔀 Croisement</span>
+              <span class="text-[10px] font-bold text-violet-300">🟣 <span id="terrCrossKpiFideles">0</span> fidèles hors zone</span>
+              <span class="text-[10px] font-bold text-rose-300">🔴 <span id="terrCrossKpiPotentiels">0</span> potentiels non captés</span>
+              <span class="text-[10px] font-bold text-emerald-300">🟢 <span id="terrCrossKpiCaptes">0</span> captés</span>
+            </div>
+            <!-- Cross filter buttons -->
+            <div id="terrCrossFilterRow" class="hidden flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-gray-600">🔀 Filtrer :</span>
+              <div class="flex flex-wrap gap-1">
+                <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
+                <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles</button>
+                <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels</button>
+                <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
+              </div>
+            </div>
+            <!-- Métier -->
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><datalist id="terrMetierList"></datalist>
+            <!-- Commercial -->
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><datalist id="terrCommercialList"></datalist>
+            <!-- Stratégique -->
+            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+            <!-- Advanced toggle -->
+            <button onclick="_toggleTerrAdvancedFilters()" class="text-[10px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none">
+              <span id="terrAdvArrow" class="text-[9px]">▶</span> Filtres avancés
+            </button>
+            <!-- Advanced filters (inline) -->
+            <div id="terrAdvancedFilters" class="hidden flex flex-col gap-1">
+              <div id="terrDeptDropdownWrap">
+                <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white text-left flex items-center justify-between gap-1">
+                  <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 bg-white max-h-32 overflow-y-auto">
+                  <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <div id="terrClassifDropdownWrap">
+                <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white text-left flex items-center justify-between gap-1">
+                  <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 bg-white">
+                  <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <div id="terrActPDVDropdownWrap">
+                <button type="button" onclick="_toggleActPDVDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white text-left flex items-center justify-between gap-1">
+                  <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
+                </button>
+                <div id="terrActPDVPanel" class="hidden mt-0.5 border rounded-lg p-1.5 bg-white">
+                  <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
+                </div>
+              </div>
+              <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
+                <span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span>
+              </label>
+            </div>
+            <!-- Reset -->
+            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
+            <!-- Summary counter -->
+            <div id="terrOverviewCounter" class="text-[10px] font-semibold text-gray-500 border-t border-gray-100 pt-1.5 leading-snug"></div>
+          </div>
         </div>
 
         <!-- GROUP Réseau: Le Réseau -->
@@ -604,15 +672,7 @@
         </div>
       </div>
 
-      <!-- 3b. Croisement consommé×chalandise — visible dès que les 2 sont chargés -->
-      <div id="terrCrossingKPI" class="hidden mb-2 bg-slate-800 rounded-xl px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span class="text-slate-400 text-[10px] font-bold uppercase shrink-0">🔀 Croisement</span>
-        <span class="text-[11px] font-bold text-violet-300">🟣 <span id="terrCrossKpiFideles">0</span> fidèles hors zone</span>
-        <span class="text-slate-600">·</span>
-        <span class="text-[11px] font-bold text-rose-300">🔴 <span id="terrCrossKpiPotentiels">0</span> potentiels non captés</span>
-        <span class="text-slate-600">·</span>
-        <span class="text-[11px] font-bold text-emerald-300">🟢 <span id="terrCrossKpiCaptes">0</span> captés</span>
-      </div>
+
 
       <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
       <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 px-2 py-1.5 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2">
@@ -703,61 +763,6 @@
 
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
       <div id="terrChalandiseOverview" class="hidden mt-2">
-        <!-- Filters -->
-        <div class="mb-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-200">
-          <!-- Row 1: Main filters (always visible) -->
-          <div class="flex flex-wrap gap-1.5 items-center">
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px] bg-white"><datalist id="terrMetierList"></datalist>
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="text-[10px] py-1 px-2 border rounded-lg font-semibold min-w-[130px] bg-white"><datalist id="terrCommercialList"></datalist>
-            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="text-[10px] bg-gray-200 text-gray-600 hover:bg-amber-400 hover:text-white py-1 px-3 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-3 rounded-lg font-semibold ml-auto">↺ Reset filtres</button>
-          </div>
-          <!-- Row 2: Summary counter (always visible) -->
-          <div id="terrOverviewCounter" class="mt-1 text-[10px] font-semibold text-gray-600 leading-tight"></div>
-          <!-- Advanced filters toggle -->
-          <button onclick="_toggleTerrAdvancedFilters()" class="mt-1 text-[10px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-0.5 hover:underline focus:outline-none">
-            <span id="terrAdvArrow" class="text-[9px]">▶</span> Filtres avancés
-          </button>
-          <!-- Advanced filters (collapsed by default) -->
-          <div id="terrAdvancedFilters" class="hidden mt-1.5 pt-1.5 border-t border-rose-200">
-            <!-- Croisement row (shown only when territory loaded) -->
-            <div id="terrCrossFilterRow" class="hidden flex flex-wrap gap-1.5 items-center mb-1.5">
-              <span class="text-[10px] font-bold text-gray-600 shrink-0">🔀 Croisement :</span>
-              <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-slate-700 text-white border-slate-600">Tous</button>
-              <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-violet-50">🟣 Fidèles hors zone</button>
-              <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-rose-50">🔴 Potentiels non captés</button>
-              <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[10px] py-0.5 px-2 rounded-full border font-semibold bg-white text-gray-700 border-gray-300 hover:bg-emerald-50">🟢 Captés</button>
-            </div>
-            <!-- Compact dropdowns + perdus toggle -->
-            <div class="flex flex-wrap gap-1.5 items-center">
-              <div class="relative" id="terrDeptDropdownWrap">
-                <button type="button" onclick="_toggleDeptDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[95px] text-left flex items-center justify-between gap-1">
-                  <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="text-gray-400 text-[9px]">▼</span>
-                </button>
-                <div id="terrDeptPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[150px] max-h-48 overflow-y-auto">
-                  <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
-                </div>
-              </div>
-              <div class="relative" id="terrClassifDropdownWrap">
-                <button type="button" onclick="_toggleClassifDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
-                  <span id="terrClassifLabel">Classif: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
-                </button>
-                <div id="terrClassifPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[160px]">
-                  <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
-                </div>
-              </div>
-              <div class="relative" id="terrActPDVDropdownWrap">
-                <button type="button" onclick="_toggleActPDVDropdown()" class="py-1 px-2 border rounded-lg text-[10px] font-semibold bg-white min-w-[115px] text-left flex items-center justify-between gap-1">
-                  <span id="terrActPDVLabel">Activité: toutes</span><span class="text-gray-400 text-[9px]">▼</span>
-                </button>
-                <div id="terrActPDVPanel" class="hidden absolute z-50 left-0 top-full mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-[185px]">
-                  <div id="terrOverviewActPDVChips" class="space-y-0.5"></div>
-                </div>
-              </div>
-              <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1 cursor-pointer"><input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded"><span class="text-gray-600 font-semibold">Inclure perdus &gt;24m</span></label>
-            </div>
-          </div>
-        </div>
         <!-- Header -->
         <div class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
           <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
@@ -1478,22 +1483,38 @@
   function generateReportText(){
     const pStart=periodFilterStart||consommePeriodMinFull||consommePeriodMin;
     const pEnd=periodFilterEnd||consommePeriodMaxFull||consommePeriodMax;
-    const periodStr=pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—';
     const agence=selectedMyStore||'—';
+    // Period in human form e.g. "Janvier à mars 2026"
+    const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    const periodHuman=(()=>{
+      if(!pStart||!pEnd)return null;
+      try{
+        const s=new Date(pStart),e=new Date(pEnd);
+        const sm=MOIS[s.getMonth()],em=MOIS[e.getMonth()];
+        if(s.getFullYear()===e.getFullYear()){
+          return sm===em?`${sm} ${s.getFullYear()}`:`${sm} à ${em} ${e.getFullYear()}`;
+        }
+        return `${sm} ${s.getFullYear()} à ${em} ${e.getFullYear()}`;
+      }catch{return null;}
+    })();
+    const periodLabel=periodHuman?(periodHuman.charAt(0).toUpperCase()+periodHuman.slice(1)):(pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—');
+    // NaN-safe helpers
+    const ok=v=>v!==null&&v!==undefined&&!isNaN(v)&&v!=='';
+    const euro=v=>ok(v)&&v>0?formatEuro(v):null;
+    const pct=v=>ok(v)?`${Math.round(v)}%`:null;
     // Équation commerciale
     const nbClientsPDV=clientsMagasin.size;
     const nbBLPDV=ventesAnalysis?ventesAnalysis.totalBL:0;
-    const freqPDV=nbClientsPDV>0?(nbBLPDV/nbClientsPDV).toFixed(1):0;
+    const freqPDV=nbClientsPDV>0?parseFloat((nbBLPDV/nbClientsPDV).toFixed(1)):null;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
-    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):0;
+    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):null;
     // Taux de service
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
-    const sr=serviceTotal>0?((serviceOk/serviceTotal)*100).toFixed(1):'—';
-    // Ruptures + CA récupérable
+    const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
+    // Ruptures
     const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent);
-    const caRecup=Math.round(rupturesList.reduce((s,r)=>s+estimerCAPerdu(r),0));
     // Dormants
     const dormantsList=finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
     const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
@@ -1501,13 +1522,11 @@
     const win3=(benchLists.obsFamiliesWin||[]).slice(0,3);
     const lose3=(benchLists.obsFamiliesLose||[]).slice(0,3);
     const kpis=benchLists.obsKpis;
-    const hasBench=kpis!==null;
+    const hasBench=!!kpis;
     // Articles réseau manquants
     const manquants=benchLists.missed||[];
     const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
-    const mmMap={};for(const r of finalData)mmMap[r.code]={min:r.nouveauMin,max:r.nouveauMax};
-    const manquantsAvecMM=manquants.filter(a=>mmMap[a.code]&&(mmMap[a.code].min||0)>0).length;
-    // Clients silencieux >30j (avec CA PDV et noms)
+    // Clients silencieux >30j
     const now=new Date();const silencieuxList=[];
     for(const[cc,lastDate] of clientLastOrder.entries()){
       if(daysBetween(lastDate,now)>30){
@@ -1520,56 +1539,101 @@
     const silencieuxCount=silencieuxList.length;
     const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.caPDV,0);
     const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
-    // Captation par métier stratégique
-    const captLines=[];
-    if(chalandiseReady&&chalandiseData&&chalandiseData.size>0){
-      const mBought={},mTotal={};
-      for(const[code,info] of chalandiseData.entries()){
-        const met=(info.metier||'').trim();if(!met||!METIERS_STRATEGIQUES.includes(met))continue;
-        mTotal[met]=(mTotal[met]||0)+1;
-        if(ventesClientArticle&&ventesClientArticle.has(code))mBought[met]=(mBought[met]||0)+1;
-      }
-      Object.entries(mTotal).filter(([,t])=>t>=3)
-        .map(([met,total])=>({met,total,pct:Math.round(((mBought[met]||0)/total)*100)}))
-        .filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct).slice(0,3)
-        .forEach(x=>captLines.push(`${x.met} (${x.pct}%)`));
-    }
-    // Clients à capter : actifs Legallais hors PDV
+    // Clients à capter
     let clientsACapter=0;
     if(chalandiseReady){for(const[cc,info] of chalandiseData.entries()){if((info.ca2025||0)>0&&!ventesClientArticle.has(cc))clientsACapter++;}}
     // Fichiers
     const fichiersList=['Consommé','État du Stock'];
     if(territoireReady)fichiersList.push('Le Terrain');
     if(chalandiseReady)fichiersList.push('Chalandise');
-    // Build text
+    // ── Build prose ─────────────────────────────────────────────
     const hr='─'.repeat(52);
     const L=[];
-    L.push(`REPORTING ${agence} — ${periodStr}`);
+    L.push(`REPORTING ${agence} — ${periodLabel}`);
     L.push(hr);L.push('');
-    // Équation commerciale
-    if(nbClientsPDV>0||caPDVTotal>0){
-      L.push('ÉQUATION COMMERCIALE');
-      L.push(`• Clients PDV : ${nbClientsPDV.toLocaleString('fr')}  ×  Fréquence : ${freqPDV} BLs/client  ×  Panier moyen : ${panierMoyen.toLocaleString('fr')} €  =  CA PDV : ${formatEuro(caPDVTotal)}`);
-      L.push('');
+    // ── FACTEURS DE SUCCÈS ───────────────────────────────────────
+    L.push('FACTEURS DE SUCCÈS');L.push('');
+    // Para 1 : équation commerciale + taux de service intégrés
+    {
+      const parts=[];
+      if(ok(caPDVTotal)&&caPDVTotal>0){
+        let p=`La période se clôture avec un CA PDV de ${formatEuro(caPDVTotal)}`;
+        if(nbClientsPDV>0){
+          p+=`, porté par ${nbClientsPDV.toLocaleString('fr')} client${nbClientsPDV!==1?'s':''} actifs en magasin`;
+          const details=[];
+          if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
+          if(ok(panierMoyen))details.push(`panier moyen ${panierMoyen.toLocaleString('fr')} €`);
+          if(details.length)p+=` (${details.join(', ')})`;
+        }
+        p+='.';
+        if(ok(srNum)){
+          const qualif=srNum>=95?'excellent':'solide';
+          p+=` Le taux de service est ${qualif} à ${srNum}% avec ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`;
+        }
+        parts.push(p);
+      } else if(ok(srNum)){
+        parts.push(`Taux de service : ${srNum}% — ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`);
+      }
+      if(parts.length)L.push(parts.join(' '));
     }
-    L.push('FACTEURS DE SUCCÈS');
-    L.push(`• Taux de service : ${sr}% · ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} (CA récupérable : ${formatEuro(caRecup)})`);
-    if(kpis)L.push(`• PDM bassin : ${kpis.mine.pdm}%`);
-    if(win3.length>0)L.push(`• Forces réseau (top 3) : ${win3.map(f=>`${f.fam} (${f.ecartPct>0?'+':''}${f.ecartPct}%${f.ecartTheorique>0?' · CA théo: +'+formatEuro(f.ecartTheorique):''})`).join(', ')}`);
-    else if(hasBench)L.push('• Forces réseau : aucune famille en sur-performance vs bassin');
+    // Para 2 : réseau / benchmark
+    if(hasBench){
+      const pdm=kpis.mine&&ok(kpis.mine.pdm)?kpis.mine.pdm:null;
+      let p='Côté réseau';
+      if(ok(pdm))p+=`, notre PDM bassin est à ${pdm}%`;
+      p+='.';
+      if(win3.length>0){
+        const w3=win3.map(f=>`${f.fam} (+${Math.round(f.ecartPct)}% vs médiane)`).join(', ');
+        p+=` Nos forces se situent sur ${w3}.`;
+      } else {
+        p+=' Aucune famille n\'est en sur-performance vs le bassin.';
+      }
+      L.push('');L.push(p);
+    }
     L.push('');
-    L.push("POINTS D'AMÉLIORATION");
-    L.push(`• ${dormantsList.length} dormant${dormantsList.length!==1?'s':''} (${formatEuro(dormantVal)} immobilisés)`);
-    if(silencieuxCount>0)L.push(`• ${silencieuxCount} client${silencieuxCount!==1?'s':''} silencieux >30j (CA PDV cumulé : ${formatEuro(silencieuxCA)})${silencieuxTop3?' — top 3 : '+silencieuxTop3:''}`);
-    if(captLines.length>0)L.push(`• Taux captation PDV par métier stratégique (plus faibles) : ${captLines.join(', ')}`);
-    if(manquants.length>0)L.push(`• ${manquants.length} article${manquants.length!==1?'s':''} réseau manquants${manquantsHF>0?` (dont ${manquantsHF} forte rotation)`:''}${manquantsAvecMM>0?` · ${manquantsAvecMM} avec MIN/MAX préconisé`:''}`);
-    if(lose3.length>0)L.push(`• Familles sous médiane (top 3) : ${lose3.map(f=>`${f.fam} (${f.ecartPct}%${f.ecartTheorique<0?' · écart théo: '+formatEuro(f.ecartTheorique):''})`).join(', ')}`);
+    // ── POINTS D'AMÉLIORATION ────────────────────────────────────
+    L.push("POINTS D'AMÉLIORATION");L.push('');
+    // Stock
+    {
+      const parts=[];
+      if(dormantsList.length>0){
+        let s=`Stock : ${dormantsList.length.toLocaleString('fr')} dormant${dormantsList.length!==1?'s':''} à traiter`;
+        if(dormantVal>0)s+=` pour ${formatEuro(dormantVal)} immobilisés`;
+        s+='.';
+        parts.push(s);
+      }
+      if(manquants.length>0){
+        let m=`${manquants.length.toLocaleString('fr')} article${manquants.length!==1?'s':''} vendus par le réseau ${manquants.length>1?'sont absents':'est absent'} de notre rayon`;
+        if(manquantsHF>0)m+=`, dont ${manquantsHF} en forte rotation`;
+        m+=' — des opportunités de référencement à étudier.';
+        parts.push(m);
+      }
+      if(parts.length)L.push(parts.join(' '));
+    }
+    // Clients silencieux
+    if(silencieuxCount>0){
+      let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis plus de 30 jours`;
+      if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA PDV cumulé)`;
+      p+='.';
+      if(silencieuxTop3)p+=` Les ${Math.min(3,silencieuxList.length)} premier${silencieuxList.length>1?'s':''} à relancer : ${silencieuxTop3}.`;
+      L.push(p);
+    }
+    // Familles en retrait
+    if(lose3.length>0){
+      const l3=lose3.map(f=>`${f.fam} (${Math.round(f.ecartPct)}%)`).join(', ');
+      L.push(`Familles en retrait vs le réseau : ${l3} — à investiguer avec le diagnostic Radar.`);
+    }
     L.push('');
-    L.push('AUTRES');
-    L.push(`• Période : ${periodStr}`);
-    L.push(`• ${finalData.length.toLocaleString('fr')} articles · ${fichiersList.length} fichiers chargés (${fichiersList.join(', ')})`);
-    if(clientsACapter>0)L.push(`• Clients à capter : ${clientsACapter.toLocaleString('fr')} actifs Legallais hors PDV`);
-    if(excludedClients.size>0)L.push(`• Clients exclus du cockpit : ${excludedClients.size}`);
+    // ── PERSPECTIVES ─────────────────────────────────────────────
+    L.push('PERSPECTIVES');L.push('');
+    {
+      const parts=[];
+      if(clientsACapter>0){
+        parts.push(`${clientsACapter.toLocaleString('fr')} client${clientsACapter!==1?'s':''} actif${clientsACapter!==1?'s':''} Legallais ne passe${clientsACapter!==1?'nt':''} pas en agence — principal levier de croissance.`);
+      }
+      parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
+      L.push(parts.join(' '));
+    }
     return L.join('\n');
   }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
@@ -2061,13 +2125,10 @@
     el.innerHTML=html;
   }
 
-  // Close dropdowns on outside click
+  // Close secteur dropdown on outside click
   document.addEventListener('click',function(e){
     const dd=document.getElementById('terrSecteurDropdown');
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
-    if(!document.getElementById('terrDeptDropdownWrap')?.contains(e.target))document.getElementById('terrDeptPanel')?.classList.add('hidden');
-    if(!document.getElementById('terrClassifDropdownWrap')?.contains(e.target))document.getElementById('terrClassifPanel')?.classList.add('hidden');
-    if(!document.getElementById('terrActPDVDropdownWrap')?.contains(e.target))document.getElementById('terrActPDVPanel')?.classList.add('hidden');
   });
 
   function renderTerritoireTab(){
@@ -2076,8 +2137,10 @@
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasChal);
     // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
-    // Show chalandise overview if chalandise loaded
+    // Show chalandise overview + left panel filters if chalandise loaded
     _buildChalandiseOverview();
+    const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
+    if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     // Crossing KPI + filter row — updated regardless of hasTerr
     {const crossEl=document.getElementById('terrCrossingKPI');if(crossEl){if(crossingStats){crossEl.classList.remove('hidden');const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};s('terrCrossKpiFideles',crossingStats.fideles.size.toLocaleString('fr'));s('terrCrossKpiPotentiels',crossingStats.potentiels.size.toLocaleString('fr'));s('terrCrossKpiCaptes',crossingStats.captes.size.toLocaleString('fr'));}else crossEl.classList.add('hidden');}const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!crossingStats);}
     if(!hasTerr&&!hasChal)return;
