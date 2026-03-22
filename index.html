@@ -1906,6 +1906,14 @@
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
     const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    // Detect centralised / public accounts — not realistic PDV prospects
+    function _isCentralAccount(info){
+      const nom=(info.nom||'').toUpperCase();
+      const keywords=['MAIRIE','HABITAT','COMMUNE','DEPARTEMENT','REGION','CONSEIL','PREFECTURE','HOPITAL','CHU','EHPAD','MINISTERE','ARMEE','GENDARMERIE'];
+      const isBigPublic=keywords.some(k=>nom.includes(k));
+      const bigLegNoPDV=(info.ca2025||0)>50000&&!((info.caPDVN||0)>0);
+      return isBigPublic&&bigLegNoPDV;
+    }
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
@@ -1927,8 +1935,9 @@
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
       const clientArtData=ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-      const finalScore=_clientUrgencyScore(cc,info);
-      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder};
+      const _central=_isCentralAccount({...info,caPDVN});
+      const finalScore=_central?Math.round(_clientUrgencyScore(cc,info)/5):_clientUrgencyScore(cc,info);
+      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_central};
       if(isSilent&&caPDVN>0)silencieux.push(c);
       else if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
@@ -1952,6 +1961,7 @@
     function _urgRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
       const classif=_normalizeClassif(c.classification);
+      if(c._isCentral)return`Compte probablement centralisé — vérifier si démarchage agence pertinent (${caFmt} CA Legallais)`;
       if(c._globActif&&!c._pdvActif)return`${caFmt} chez Legallais, ne vient pas en agence — potentiel captation`;
       if(c._perdu&&classif==='FID Pot+')return'Client fidèle perdu récemment — reconquête prioritaire';
       if(c._perdu&&classif==='OCC Pot+')return`Client occasionnel perdu — ${caFmt} de CA à récupérer`;
@@ -1982,7 +1992,8 @@
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      const centralBadge=c._isCentral?'<span class="text-[10px] bg-gray-200 text-gray-500 rounded px-1 py-0.5 font-semibold">📋 Compte central</span>':'';
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}${centralBadge}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
