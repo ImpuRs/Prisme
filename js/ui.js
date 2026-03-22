@@ -94,6 +94,8 @@ function switchTab(id) {
   if (loaded) { const gf = document.getElementById('globalFilters'); if (gf) { if (id === 'bench' || id === 'territoire') { gf.classList.add('hidden'); } else { gf.classList.remove('hidden'); } } }
 }
 
+function _toggleGlobalAdvanced() { const adv = document.getElementById('globalAdvancedFilters'); const arrow = document.getElementById('globalAdvArrow'); if (!adv) return; const open = adv.classList.toggle('hidden'); if (arrow) arrow.textContent = open ? '▶' : '▼'; }
+
 function populateSelect(id, vals) {
   const s = document.getElementById(id); if (!s) return;
   if (s.tagName === 'INPUT') { const dl = document.getElementById(s.getAttribute('list')); if (dl) { dl.innerHTML = ''; [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); } return; }
