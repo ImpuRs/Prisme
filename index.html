@@ -31,7 +31,7 @@
     .spinner{width:56px;height:56px;border:5px solid rgba(255,255,255,.2);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:9999px;font-size:.65rem;font-weight:800}
-    .table-scroll{max-height:600px;overflow-y:auto}.list-scroll{max-height:280px;overflow-y:auto}
+    .table-scroll{max-height:600px;overflow-y:auto;overflow-x:auto}.list-scroll{max-height:280px;overflow-y:auto}
     .age-row-clickable{cursor:pointer;transition:all .15s}.age-row-clickable:hover{transform:translateX(4px)}
     .age-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
     .age-fresh{background:#22c55e}.age-warm{background:#eab308}.age-hot{background:#f97316}.age-critical{background:#ef4444}
@@ -146,6 +146,26 @@
     #filterOverlay.active{display:block}
     #filterDrawerBtn{display:none;align-items:center;gap:6px;position:fixed;bottom:16px;left:16px;z-index:50;background:#2563eb;color:#fff;padding:10px 16px;border-radius:9999px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-weight:700;font-size:.7rem;border:none;cursor:pointer}
     body.pilot-loaded #filterDrawerBtn{display:flex}
+    /* ── Mobile / iPhone ── */
+    @media(max-width:640px){
+      /* Prevent iOS auto-zoom on focus (requires 16px) */
+      input,select,textarea{font-size:16px!important}
+      /* Navbar: hide secondary stats to save space */
+      #navStats,#navPerf{display:none!important}
+      #navStore{font-size:.65rem;padding:2px 8px}
+      /* Overlay panels: full-width, comfortable padding */
+      #diagnosticPanel,#articlePanel,#reportingPanel{max-width:calc(100vw - 1rem)!important;padding:14px;border-radius:10px}
+      /* Period dropdown: don't overflow screen edge */
+      #periodDropdown{min-width:calc(100vw - 2rem)!important;right:auto!important;left:0!important}
+      /* Tabs: compact text */
+      .tab-btn{padding:.4rem .5rem;font-size:.6rem;gap:.2rem}
+      /* Cockpit cockpitLists: single column */
+      #tabAction .grid-cols-2{grid-template-columns:1fr!important}
+      /* Filter drawer button: above bottom nav */
+      #filterDrawerBtn{bottom:12px;left:12px;font-size:.6rem;padding:8px 12px}
+      /* Insights banner: wrap gracefully */
+      #insightsBanner{flex-direction:column;gap:.25rem;padding:.5rem .75rem}
+    }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 relative">
@@ -1056,6 +1076,92 @@
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
         <p class="text-orange-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
+      <!-- Import opération promo -->
+      <details id="promoImportZone" class="bg-white rounded-xl border border-orange-200 shadow-sm mb-4 overflow-hidden">
+        <summary class="flex items-center justify-between px-4 py-3 bg-orange-50 border-b border-orange-100 cursor-pointer select-none hover:bg-orange-100">
+          <span class="font-extrabold text-orange-800 text-sm flex items-center gap-2">📥 Importer une opération promo <span id="promoImportOpName" class="text-orange-500 font-normal text-xs"></span></span>
+          <span class="acc-arrow text-orange-400">▶</span>
+        </summary>
+        <div class="p-4">
+          <p class="text-xs text-gray-500 mb-3">Collez des codes articles (un par ligne) <strong>ou</strong> importez un fichier XLSX Qlik (colonnes : Code Article, Article, Operation, CA commandé Promo)</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1">Codes articles (un par ligne)</label>
+              <textarea id="promoCodesInput" placeholder="603793&#10;441273&#10;567567" rows="5" class="w-full text-sm border border-gray-300 rounded-lg p-2 font-mono resize-y"></textarea>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="block text-xs font-bold text-gray-700">Ou fichier XLSX Qlik</label>
+              <label class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-orange-300 rounded-lg p-4 cursor-pointer hover:bg-orange-50 text-center gap-1">
+                <span class="text-2xl">📂</span>
+                <span class="text-xs text-orange-600 font-semibold">Cliquer ou glisser le fichier</span>
+                <span id="promoImportFileName" class="text-[10px] text-gray-400">Aucun fichier sélectionné</span>
+                <input type="file" id="promoImportFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_onPromoImportFileChange(this)">
+              </label>
+            </div>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="runPromoImport()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-5 rounded-lg text-sm transition-colors">🎯 Analyser l'opération</button>
+            <button id="promoImportExportBtn" onclick="exportPromoImportCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 Exporter CSV</button>
+            <button onclick="_clearPromoImport()" class="text-sm text-gray-400 hover:text-gray-600 py-2 px-3">✕ Effacer</button>
+          </div>
+        </div>
+      </details>
+      <!-- Import results -->
+      <div id="promoImportBlock" class="hidden mb-4 space-y-2">
+        <!-- Summary banner -->
+        <div id="promoImportSummary" class="bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 text-xs font-semibold text-orange-800"></div>
+        <!-- Section D: vendus -->
+        <div class="rounded-lg border border-emerald-200 overflow-hidden">
+          <button onclick="_togglePromoImportSection('D')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
+            <span class="text-[11px] font-bold text-emerald-800">🟢 Articles promo vendus au comptoir — <span id="promoImportCountD">0</span> articles</span>
+            <span id="promoImportArrowD" class="text-emerald-600 text-xs">▼</span>
+          </button>
+          <div id="promoImportBodyD" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+            <table class="min-w-full text-[10px]">
+              <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
+                <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
+                <th class="py-1 px-2 text-center">Qté vendus</th><th class="py-1 px-2 text-right">CA PDV</th>
+                <th class="py-1 px-2 text-center">Nb clients</th><th class="py-1 px-2 text-center">Stock</th>
+              </tr></thead>
+              <tbody id="promoImportTableD"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Section E: non vendus -->
+        <div class="rounded-lg border border-red-200 overflow-hidden">
+          <button onclick="_togglePromoImportSection('E')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
+            <span class="text-[11px] font-bold text-red-800">🔴 Articles promo PAS vendus — <span id="promoImportCountE">0</span> articles</span>
+            <span id="promoImportArrowE" class="text-red-600 text-xs">▼</span>
+          </button>
+          <div id="promoImportBodyE" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+            <table class="min-w-full text-[10px]">
+              <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
+                <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
+                <th class="py-1 px-2 text-center">Rayon</th><th class="py-1 px-2 text-center">Stock</th>
+                <th class="py-1 px-2 text-left">Famille</th>
+              </tr></thead>
+              <tbody id="promoImportTableE"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Section F: à relancer -->
+        <div class="rounded-lg border border-orange-200 overflow-hidden">
+          <button onclick="_togglePromoImportSection('F')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
+            <span class="text-[11px] font-bold text-orange-800">👥 Clients à relancer — <span id="promoImportCountF">0</span> clients (achètent la famille mais pas la promo)</span>
+            <span id="promoImportArrowF" class="text-orange-600 text-xs">▼</span>
+          </button>
+          <div id="promoImportBodyF" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+            <table class="min-w-full text-[10px]">
+              <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
+                <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th>
+                <th class="py-1 px-2 text-left">Métier</th><th class="py-1 px-2 text-right">CA famille</th>
+                <th class="py-1 px-2 text-left">Raison</th><th class="py-1 px-2 text-left">Commercial</th>
+              </tr></thead>
+              <tbody id="promoImportTableF"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <!-- Search bar — main entry point -->
       <div class="bg-white rounded-xl border border-orange-100 shadow-sm p-4 mb-4">
         <p class="text-xs font-bold text-orange-600 mb-2">Qui achète cet article / famille / marque ?</p>
@@ -1679,7 +1785,7 @@
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
     const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
     // Ruptures
-    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent);
+    const rupturesList=finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
     // Dormants
     const dormantsList=finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
     const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
@@ -1906,6 +2012,14 @@
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
     const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    // Detect centralised / public accounts — not realistic PDV prospects
+    function _isCentralAccount(info){
+      const nom=(info.nom||'').toUpperCase();
+      const keywords=['MAIRIE','HABITAT','COMMUNE','DEPARTEMENT','REGION','CONSEIL','PREFECTURE','HOPITAL','CHU','EHPAD','MINISTERE','ARMEE','GENDARMERIE'];
+      const isBigPublic=keywords.some(k=>nom.includes(k));
+      const bigLegNoPDV=(info.ca2025||0)>50000&&!((info.caPDVN||0)>0);
+      return isBigPublic&&bigLegNoPDV;
+    }
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
@@ -1927,8 +2041,9 @@
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
       const clientArtData=ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-      const finalScore=_clientUrgencyScore(cc,info);
-      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder};
+      const _central=_isCentralAccount({...info,caPDVN});
+      const finalScore=_central?Math.round(_clientUrgencyScore(cc,info)/5):_clientUrgencyScore(cc,info);
+      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_central};
       if(isSilent&&caPDVN>0)silencieux.push(c);
       else if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
@@ -1952,6 +2067,7 @@
     function _urgRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
       const classif=_normalizeClassif(c.classification);
+      if(c._isCentral)return`Compte probablement centralisé — vérifier si démarchage agence pertinent (${caFmt} CA Legallais)`;
       if(c._globActif&&!c._pdvActif)return`${caFmt} chez Legallais, ne vient pas en agence — potentiel captation`;
       if(c._perdu&&classif==='FID Pot+')return'Client fidèle perdu récemment — reconquête prioritaire';
       if(c._perdu&&classif==='OCC Pot+')return`Client occasionnel perdu — ${caFmt} de CA à récupérer`;
@@ -1982,7 +2098,8 @@
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      const centralBadge=c._isCentral?'<span class="text-[10px] bg-gray-200 text-gray-500 rounded px-1 py-0.5 font-semibold">📋 Compte central</span>':'';
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}${centralBadge}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -3423,6 +3540,175 @@
   }
 
 
+  // ─── PROMO V2 — Import opération ─────────────────────────────────────────
+  let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, sectionF}
+
+  function _onPromoImportFileChange(input){
+    const f=input.files[0];if(!f)return;
+    document.getElementById('promoImportFileName').textContent=f.name;
+  }
+
+  function _clearPromoImport(){
+    document.getElementById('promoCodesInput').value='';
+    document.getElementById('promoImportFile').value='';
+    document.getElementById('promoImportFileName').textContent='Aucun fichier sélectionné';
+    document.getElementById('promoImportOpName').textContent='';
+    document.getElementById('promoImportBlock').classList.add('hidden');
+    document.getElementById('promoImportExportBtn').classList.add('hidden');
+    _promoImportResult=null;
+  }
+
+  async function runPromoImport(){
+    if(!finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
+    let promoCodes=new Set();let opName='';
+    // 1. Try XLSX file first
+    const fileInput=document.getElementById('promoImportFile');
+    if(fileInput&&fileInput.files[0]){
+      try{
+        const data=await readExcel(fileInput.files[0]);
+        // Detect Qlik promo format
+        const colMap={};if(data[0]){for(const k of Object.keys(data[0])){const kl=k.toLowerCase().trim();if(kl.includes('code article')||kl==='code')colMap.code=k;else if(kl.includes('opération')||kl.includes('operation'))colMap.op=k;}}
+        for(const row of data){
+          const code=cleanCode(String(row[colMap.code]||'').trim());
+          if(/^\d{6}$/.test(code))promoCodes.add(code);
+          if(!opName&&colMap.op&&row[colMap.op])opName=String(row[colMap.op]).trim();
+        }
+      }catch(e){showToast('⚠️ Erreur lecture fichier : '+e.message,'error');return;}
+    }
+    // 2. Fallback to textarea
+    if(!promoCodes.size){
+      const raw=(document.getElementById('promoCodesInput')||{}).value||'';
+      for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim());if(/^\d{6}$/.test(c))promoCodes.add(c);}
+    }
+    if(!promoCodes.size){showToast('⚠️ Aucun code article valide trouvé (format attendu : 6 chiffres)','warning');return;}
+
+    // Display op name
+    const opEl=document.getElementById('promoImportOpName');
+    if(opEl)opEl.textContent=opName?'— '+opName:'— '+promoCodes.size+' articles';
+
+    // Build article label + stock lookup
+    const stockByCode=new Map();for(const r of finalData)stockByCode.set(r.code,r);
+
+    // ── SECTION D : Articles vendus au comptoir ─────────────────────────────
+    const sectionD=[];
+    for(const code of promoCodes){
+      let qtyTotal=0,caTotal=0,buyers=new Set();
+      for(const[cc,artMap] of ventesClientArticle.entries()){
+        const d=artMap.get(code);if(!d)continue;
+        buyers.add(cc);qtyTotal+=(d.sumPrelevee||0);caTotal+=(d.sumCA||d.sumPrelevee||0);
+      }
+      if(buyers.size>0||caTotal>0){
+        const ref=stockByCode.get(code)||{};
+        const lib=libelleLookup[code]||ref.libelle||code;
+        sectionD.push({code,lib,qtyTotal,caTotal,nbClients:buyers.size,stock:ref.stockActuel??null,famille:ref.famille||articleFamille[code]||''});
+      }
+    }
+    sectionD.sort((a,b)=>b.caTotal-a.caTotal);
+
+    // ── SECTION E : Articles NON vendus ─────────────────────────────────────
+    const soldCodes=new Set(sectionD.map(x=>x.code));
+    const sectionE=[];
+    for(const code of promoCodes){
+      if(soldCodes.has(code))continue;
+      const ref=stockByCode.get(code)||{};
+      const lib=libelleLookup[code]||ref.libelle||code;
+      const stock=ref.stockActuel??null;
+      const inRayon=ref.ancienMin>0||ref.ancienMax>0;
+      const rayonStatus=stock===null?'❌ Absent':stock>0?'✅ En rayon':inRayon?'⚠️ Rupture':'❌ Absent';
+      sectionE.push({code,lib,rayonStatus,stock,famille:ref.famille||articleFamille[code]||''});
+    }
+    sectionE.sort((a,b)=>a.lib.localeCompare(b.lib));
+
+    // ── SECTION F : Clients à relancer ──────────────────────────────────────
+    // Families covered by the promo
+    const promoFams=new Set();
+    for(const code of promoCodes){const f=articleFamille[code]||(stockByCode.get(code)||{}).famille||'';if(f)promoFams.add(f);}
+    // Buyers of the promo articles specifically
+    const promoBuyers=new Set();
+    for(const[cc,artMap] of ventesClientArticle.entries()){for(const code of promoCodes){if(artMap.has(code)){promoBuyers.add(cc);break;}}}
+    // Clients who buy the family but not the promo articles
+    const sectionF=[];
+    for(const[cc,artMap] of ventesClientArticle.entries()){
+      if(promoBuyers.has(cc))continue;
+      // Check if client buys any article in the promo families
+      let famCA=0;let famStr='';
+      for(const[code,d] of artMap.entries()){
+        const f=articleFamille[code]||(stockByCode.get(code)||{}).famille||'';
+        if(promoFams.has(f)){famCA+=(d.sumCA||d.sumPrelevee||0);if(!famStr)famStr=f;}
+      }
+      if(famCA>0){
+        const info=chalandiseData.get(cc)||{};
+        const nom=clientNomLookup[cc]||info.nom||cc;
+        const raison=`Achète ${famStr||[...promoFams][0]||'la famille'} mais pas la promo`;
+        sectionF.push({cc,nom,metier:info.metier||'',commercial:info.commercial||'',famCA,raison,statut:info.statut||''});
+      }
+    }
+    sectionF.sort((a,b)=>b.famCA-a.famCA);
+
+    _promoImportResult={opName,promoCodes,sectionD,sectionE,sectionF};
+    _renderPromoImportResults();
+    // Auto-open the details block
+    const zone=document.getElementById('promoImportZone');if(zone)zone.open=true;
+    showToast(`📥 Opération analysée : ${sectionD.length} vendus · ${sectionE.length} non vendus · ${sectionF.length} à relancer`,'success');
+  }
+
+  function _renderPromoImportResults(){
+    const r=_promoImportResult;if(!r)return;
+    const block=document.getElementById('promoImportBlock');if(block)block.classList.remove('hidden');
+    // Summary
+    const sold=r.sectionD.length,unsold=r.sectionE.length,retarget=r.sectionF.length;
+    const totalCA=r.sectionD.reduce((s,x)=>s+x.caTotal,0);
+    const sumEl=document.getElementById('promoImportSummary');
+    if(sumEl)sumEl.innerHTML=`<strong>${r.promoCodes.size}</strong> articles opération · <span class="text-emerald-700">${sold} vendus (${formatEuro(totalCA)} CA PDV)</span> · <span class="text-red-600">${unsold} non vendus</span> · <span class="text-orange-600">${retarget} clients à relancer</span>${r.opName?` · <em>${r.opName}</em>`:''}`;
+    // Section D
+    document.getElementById('promoImportCountD').textContent=sold;
+    document.getElementById('promoImportTableD').innerHTML=r.sectionD.slice(0,200).map(x=>{
+      const stockCell=x.stock===null?'<span class="text-gray-400">Non référencé</span>':x.stock>0?`<span class="text-emerald-700 font-bold">${x.stock}</span>`:'<span class="text-red-500">0</span>';
+      return`<tr class="border-t border-emerald-50 hover:bg-emerald-50"><td class="py-1 px-2 font-mono text-gray-400">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center">${Math.round(x.qtyTotal)}</td><td class="py-1 px-2 text-right font-bold text-emerald-700">${x.caTotal>0?formatEuro(x.caTotal):'—'}</td><td class="py-1 px-2 text-center">${x.nbClients}</td><td class="py-1 px-2 text-center">${stockCell}</td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="py-3 text-center text-gray-400">Aucun article vendu</td></tr>';
+    // Section E
+    document.getElementById('promoImportCountE').textContent=unsold;
+    document.getElementById('promoImportTableE').innerHTML=r.sectionE.slice(0,200).map(x=>{
+      const stockCell=x.stock===null?'—':`${x.stock}`;
+      return`<tr class="border-t border-red-50 hover:bg-red-50"><td class="py-1 px-2 font-mono text-gray-400">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center text-xs">${x.rayonStatus}</td><td class="py-1 px-2 text-center">${stockCell}</td><td class="py-1 px-2 text-gray-500 text-[10px] truncate max-w-[120px]">${x.famille||'—'}</td></tr>`;
+    }).join('')||'<tr><td colspan="5" class="py-3 text-center text-emerald-600 font-semibold">✅ Tous les articles promo ont été vendus au comptoir</td></tr>';
+    // Section F
+    document.getElementById('promoImportCountF').textContent=retarget;
+    document.getElementById('promoImportTableF').innerHTML=r.sectionF.slice(0,200).map(x=>{
+      const statutBadge=x.statut?`<span class="text-[9px] bg-gray-100 text-gray-400 border border-gray-200 rounded px-1 font-normal ml-1">${x.statut}</span>`:'';
+      return`<tr class="border-t border-orange-50 hover:bg-orange-50"><td class="py-1 px-2 font-mono text-gray-400">${x.cc}</td><td class="py-1 px-2 font-semibold">${x.nom}${statutBadge}</td><td class="py-1 px-2 text-gray-500">${x.metier||'—'}</td><td class="py-1 px-2 text-right font-bold text-orange-700">${x.famCA>0?formatEuro(x.famCA):'—'}</td><td class="py-1 px-2 text-gray-500 text-[10px]">${x.raison}</td><td class="py-1 px-2 text-gray-500">${x.commercial||'—'}</td></tr>`;
+    }).join('')||'<tr><td colspan="6" class="py-3 text-center text-gray-400">'+(ventesClientArticle.size?'Aucun client à relancer identifié':'Données comptoir non disponibles')+'</td></tr>';
+    // Show export button
+    document.getElementById('promoImportExportBtn').classList.remove('hidden');
+  }
+
+  function _togglePromoImportSection(sec){
+    const body=document.getElementById('promoImportBody'+sec);const arrow=document.getElementById('promoImportArrow'+sec);
+    if(!body)return;
+    const isHidden=body.dataset.collapsed==='1';
+    body.dataset.collapsed=isHidden?'0':'1';
+    body.style.display=isHidden?'':'none';
+    if(arrow)arrow.textContent=isHidden?'▼':'▶';
+  }
+
+  function exportPromoImportCSV(){
+    const r=_promoImportResult;if(!r){showToast('Lancez d\'abord l\'analyse','warning');return;}
+    const SEP=';';const lines=[`ANALYSE OPÉRATION PROMO${r.opName?' — '+r.opName:''} — ${r.promoCodes.size} articles`,''];
+    lines.push('=== D. ARTICLES VENDUS AU COMPTOIR ===');
+    lines.push(['Code','Libellé','Qté PDV','CA PDV','Nb clients','Stock'].join(SEP));
+    for(const x of r.sectionD)lines.push([x.code,`"${x.lib}"`,Math.round(x.qtyTotal),x.caTotal.toFixed(2).replace('.',','),x.nbClients,x.stock===null?'non référencé':x.stock].join(SEP));
+    lines.push('');lines.push('=== E. ARTICLES NON VENDUS ===');
+    lines.push(['Code','Libellé','Rayon','Stock','Famille'].join(SEP));
+    for(const x of r.sectionE)lines.push([x.code,`"${x.lib}"`,x.rayonStatus,x.stock===null?'':x.stock,`"${x.famille}"`].join(SEP));
+    lines.push('');lines.push('=== F. CLIENTS À RELANCER ===');
+    lines.push(['Code','Nom','Métier','CA famille','Raison','Commercial'].join(SEP));
+    for(const x of r.sectionF)lines.push([x.cc,`"${x.nom}"`,`"${x.metier}"`,x.famCA.toFixed(2).replace('.',','),`"${x.raison}"`,`"${x.commercial}"`].join(SEP));
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const nm=`PILOT_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=nm;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV opération téléchargé','success');
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function renderBenchmark(){
     const{missed,under,over,storePerf,familyPerf}=benchLists;const cs=getBenchCompareStores().filter(s=>storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').toLowerCase().trim();
     // Render observatory sections
@@ -3690,9 +3976,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const r of dataSource){const lv=(r.stockActuel>0)?r.stockActuel*r.prixUnitaire:0;
     if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
 
-    // ★ V23: Ruptures — exclude parent refs (no dates) + sort by CA potentiel
+    // ★ V23: Ruptures — exclude parent refs (no dates) + colis-only (enlevé sans prélevé) + sort by CA potentiel
     if(r.W>=3&&r.stockActuel<=0){
-      if(!r.isParent){ // V23: skip parent references
+      if(!r.isParent&&!(r.V===0&&r.enleveTotal>0)){ // skip parent refs & colis-only
         const caPotentiel=Math.round(r.W*r.prixUnitaire);
         const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
         // CA perdu : médiane réseau par article (multi) ou CA historique période (mono)
