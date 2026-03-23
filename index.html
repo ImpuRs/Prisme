@@ -9,8 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
     /* VOLET 4: sticky period warning banner */
-    #periodBanner{display:none;position:sticky;top:0;z-index:9000;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;box-shadow:0 2px 8px rgba(0,0,0,.2);}
-    #periodBanner.active{display:block}
+    #periodBanner,#stockMonoBanner{display:none;position:sticky;top:0;z-index:9000;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+    #periodBanner.active,#stockMonoBanner.active{display:block}
     /* VOLET 2bis: contributeurs agence — 4 niveaux */
     .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:#f5f3ff}.contrib-dir-row.open{background:#ede9fe}
     .contrib-dir-detail{display:none}.contrib-dir-detail.open{display:table-row-group}
@@ -224,6 +224,8 @@
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
+  <!-- Alerte stock mono-agence avec consommé multi-agences -->
+  <div id="stockMonoBanner"></div>
 
   <!-- Command Palette -->
   <div id="cmdPalette" class="hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh]" onclick="if(event.target===this)closeCmdPalette()">
@@ -2353,6 +2355,7 @@
       for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
       for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}
       storesIntersection=new Set();for(const s of stC){if(stS.has(s))storesIntersection.add(s);}
+      storeCountConsomme=stC.size;storeCountStock=stS.size;
       selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=storesIntersection.size>1;
       if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[...storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!selectedMyStore&&storesIntersection.has('AG22'))selectedMyStore='AG22';if(!selectedMyStore)selectedMyStore=[...storesIntersection][0];sel.value=selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${storesIntersection.size} mag.`;}
