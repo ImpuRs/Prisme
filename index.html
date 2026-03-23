@@ -1736,7 +1736,7 @@
     if(artData&&artData.size>0){
       comptoirArts=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
         const si=stockMap.get(code);
-        return{code,libelle:si?si.libelle:libelleLookup[code]||code,qty:d.countBL,ca:d.sumPrelevee,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
+        return{code,libelle:si?si.libelle:libelleLookup[code]||code,qty:d.sumPrelevee,ca:d.sumCA,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
       });
     }
     // Section 2 : achats hors comptoir (territoireLines — tous canaux BL omnicanal)
