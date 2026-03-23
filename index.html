@@ -138,7 +138,12 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
-    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:0 0.75rem}
+    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;align-items:stretch}
+    #tabsFilterTitle{width:256px;flex-shrink:0;display:none;align-items:center;padding:0 0.75rem;border-right:1px solid #e2e8f0;background:#f8fafc}
+    @media(min-width:1024px){body.pilot-loaded #tabsFilterTitle{display:flex}}
+    .tab-btn{border-right:1px solid #e2e8f0;white-space:nowrap}
+    .tab-btn.active{background:#fff}
+    .tab-btn:not(.active):hover{background:#f3f4f6}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f1f5f9}
     /* Mobile drawer */
@@ -158,11 +163,10 @@
       #diagnosticPanel,#articlePanel,#reportingPanel{max-width:calc(100vw - 1rem)!important;padding:14px;border-radius:10px}
       /* Period dropdown: don't overflow screen edge */
       #periodDropdown{min-width:calc(100vw - 2rem)!important;right:auto!important;left:0!important}
-      /* Tabs: sticky below navbar + horizontal scroll */
-      #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
-      #tabsContainer ul{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
-      #tabsContainer ul::-webkit-scrollbar{display:none}
-      .tab-btn{padding:.4rem .6rem;font-size:.8rem;gap:.2rem;white-space:nowrap}
+      /* Tabs: horizontal scroll on mobile */
+      #tabsContainer>div:last-child{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      #tabsContainer>div:last-child::-webkit-scrollbar{display:none}
+      .tab-btn{padding:.5rem .75rem;font-size:.8rem;gap:.2rem}
       /* Accordion headers: allow title to wrap, no truncation */
       details>summary>h3,details>summary>div>h3{white-space:normal;word-break:break-word;flex-shrink:1;min-width:0}
       details>summary>div{min-width:0;flex-shrink:1}
@@ -232,26 +236,29 @@
     <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
   </div>
 
-  <!-- ONGLETS (sticky, hors du 2-column layout) -->
+  <!-- ONGLETS — barre unifiée sticky (titre filtres à gauche + onglets à droite) -->
   <div id="tabsContainer" class="hidden">
-    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
-      <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
-      <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
-      <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">⚙️ COCKPIT</button></li>
-      <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
-      <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
-      <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
-      <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-orange-600 font-extrabold">🎯 Promo</button></li>
-    </ul>
+    <div id="tabsFilterTitle">
+      <span id="filterPanelTitle" class="text-sm font-extrabold text-gray-700">Filtres</span>
+    </div>
+    <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
+      <button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-blue-600 text-blue-600 font-semibold text-sm">📋 Articles</button>
+      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-gray-500 font-medium text-sm">📊 Mon Stock</button>
+      <button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-red-600 font-extrabold uppercase text-sm">⚙️ COCKPIT</button>
+      <button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-indigo-600 font-bold text-sm">📡 Radar</button>
+      <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-violet-600 font-bold text-sm hidden" id="btnTabTerritoire">🔗 Le Terrain</button>
+      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-cyan-600 font-extrabold text-sm hidden" id="btnTabBench">🔭 Le Réseau</button>
+      <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-orange-600 font-extrabold text-sm">🎯 Promo</button>
+    </div>
   </div>
 
   <!-- 2-column app layout -->
   <div id="appLayout">
     <!-- LEFT: sticky filter panel -->
     <aside id="filterPanel">
-      <div class="p-3 border-b border-gray-200 bg-gray-100 flex items-center justify-between flex-shrink-0">
-        <span id="filterPanelTitle" class="text-sm font-extrabold text-gray-700">Filtres</span>
-        <button class="lg:hidden text-gray-400 hover:text-gray-700 text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
+      <div class="p-3 border-b border-gray-200 bg-gray-100 flex items-center justify-between flex-shrink-0 lg:hidden">
+        <span class="text-sm font-extrabold text-gray-700">Filtres</span>
+        <button class="text-gray-400 hover:text-gray-700 text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
 
