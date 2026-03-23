@@ -5255,9 +5255,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         console.log('PILOT: selectedMyStore sélectionné automatiquement :', selectedMyStore);
       }
       // ── Vérification de cohérence : finalData contaminé ? ──
-      // Un finalData multi-agences sauvé par erreur (ex: storesIntersection était vide lors de la
-      // session précédente) aurait N×storeCount articles. Seuil de détection : 2.5× le stock de mon agence.
-      if(storesIntersection.size>1&&selectedMyStore){
+      // Un finalData multi-agences sauvé par erreur (storesIntersection vide lors de la session
+      // précédente → useMulti=false → pas de filtre agence) aurait N×storeCount articles.
+      // On utilise storeCountConsomme (fiable même quand storesIntersection est encore vide)
+      // plutôt que storesIntersection.size qui peut être 0 dans un cache corrompu.
+      if(storeCountConsomme>1&&selectedMyStore){
         const _myStockCount=Object.keys(stockParMagasin[selectedMyStore]||{}).length;
         if(_myStockCount>0&&finalData.length>_myStockCount*2.5){
           console.warn('PILOT: cache contaminé — finalData='+finalData.length+' articles mais '+selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
