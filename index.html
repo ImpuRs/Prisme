@@ -2366,6 +2366,7 @@
 
       const stC=new Set(),stS=new Set();
       for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
+      _resetColCache();// colonnes stock ≠ colonnes consommé — purge le cache _CC pour éviter faux lookup
       for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}
       storesIntersection=new Set();for(const s of stC){if(stS.has(s))storesIntersection.add(s);}
       storeCountConsomme=stC.size;storeCountStock=stS.size;
