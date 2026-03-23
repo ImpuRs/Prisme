@@ -72,6 +72,12 @@ function getCaColumn(r, t) {
   return f ? parseFloat((r[f] || '').toString().replace(',', '.')) || 0 : 0;
 }
 
+function getVmbColumn(r, t) {
+  const ks = Object.keys(r), tl = t.toLowerCase();
+  const f = ks.find(k => { const l = k.toLowerCase(); return l.includes('vmb') && l.includes(tl); });
+  return f ? parseFloat((r[f] || '').toString().replace(',', '.')) || 0 : 0;
+}
+
 function extractStoreCode(row) {
   return (getVal(row, 'Code PDV', 'PDV', 'Code Agence', 'Agence', 'code pdv', 'code agence') || '').toString().trim().toUpperCase();
 }
