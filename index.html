@@ -157,7 +157,8 @@
       #diagnosticPanel,#articlePanel,#reportingPanel{max-width:calc(100vw - 1rem)!important;padding:14px;border-radius:10px}
       /* Period dropdown: don't overflow screen edge */
       #periodDropdown{min-width:calc(100vw - 2rem)!important;right:auto!important;left:0!important}
-      /* Tabs: horizontal scroll, min 13px labels */
+      /* Tabs: sticky below navbar + horizontal scroll */
+      #tabsContainer{position:sticky;top:64px;z-index:39;background:#f8fafc;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
       #tabsContainer ul{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
       #tabsContainer ul::-webkit-scrollbar{display:none}
       .tab-btn{padding:.4rem .6rem;font-size:.8rem;gap:.2rem;white-space:nowrap}
@@ -573,7 +574,7 @@
 
 
     <!-- ONGLETS -->
-    <div id="tabsContainer" class="hidden mb-6 border-b-2 border-gray-200">
+    <div id="tabsContainer" class="hidden mb-6">
       <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
         <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
         <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
@@ -4475,7 +4476,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');currentPage=0;switchTab('table');renderAll();}});}
     if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);currentPage=0;switchTab('table');renderAll();}});}
     if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrCockpitClient');if(!el||el.classList.contains('hidden'))return;const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);el.scrollIntoView({behavior:'smooth',block:'start'});},300);}});}
-    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{const ov=document.getElementById('diagnosticOverlay');const v3El=document.querySelector('#diagnosticPanel .diag-v3');if(ov&&v3El){const top=v3El.getBoundingClientRect().top-ov.getBoundingClientRect().top+ov.scrollTop;ov.scrollTo({top:Math.max(0,top-16),behavior:'smooth'});}}});}
+    if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
     _diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
     const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="text-amber-300">${LABELS[key]||key}</span> <span class="text-slate-400 font-normal text-sm">(${cellArts.length} articles)</span>`;
     panel.innerHTML=`
