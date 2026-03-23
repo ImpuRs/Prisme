@@ -1131,6 +1131,29 @@
           </table>
         </div>
       </details>
+      <!-- PÉPITES — articles où je surperforme le réseau — fermé par défaut -->
+      <details class="bg-white rounded-xl shadow-md border-2 border-amber-200 mb-6">
+        <summary class="px-5 py-3 bg-amber-50 border-b border-amber-200 select-none flex items-center justify-between hover:bg-amber-100">
+          <h3 class="font-extrabold text-amber-800 flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-amber-500 text-white"></span></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] bg-amber-100 text-amber-700 py-1 px-2 rounded font-bold hover:bg-amber-200 border border-amber-300">📋 Copier</button><span class="acc-arrow text-amber-600">▶</span></div>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead class="bg-amber-50 text-amber-900 sticky top-0 font-bold">
+              <tr>
+                <th class="py-2 px-3 text-left whitespace-nowrap">Code</th>
+                <th class="py-2 px-3 text-left">Libellé</th>
+                <th class="py-2 px-3 text-left whitespace-nowrap">Famille</th>
+                <th id="pepitesMeLabel" class="py-2 px-3 text-center whitespace-nowrap">Ma fréq</th>
+                <th id="pepitesCompLabel" class="py-2 px-3 text-center whitespace-nowrap">Fréq médiane réseau</th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Mon rang réseau<em class="info-tip" data-tip="Rang de fréquence de vente parmi toutes les agences du bassin. #1 = je vends cet article plus souvent que toutes les autres agences.">ℹ</em></th>
+                <th class="py-2 px-3 text-right whitespace-nowrap">CA Moi</th>
+              </tr>
+            </thead>
+            <tbody id="pepitesTable"></tbody>
+          </table>
+        </div>
+      </details>
       <!-- 5. FAMILLES AU-DESSUS DE LA MÉDIANE — fermé par défaut -->
       <details class="bg-white rounded-xl shadow-md border-2 border-emerald-200 mb-6">
         <summary class="px-5 py-3 bg-emerald-50 border-b border-emerald-200 select-none flex items-center justify-between hover:bg-emerald-100">
@@ -3976,6 +3999,19 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       return `<tr class="border-b cursor-pointer hover:bg-emerald-50/40 transition-colors" onclick="toggleObsFamily('${winId}')"><td class="py-2 px-3 font-semibold text-gray-800"><span class="obs-expand-icon text-gray-400 mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${advCell}</td><td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${winId}" class="hidden bg-emerald-50/70"><td colspan="3"><div class="pb-3">${detailGrid}${exclHtml}<div class="px-3 pb-1">${noArts}</div></div></td></tr>`;
     }).join('');
     if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="3" class="py-4 text-center text-gray-400">—</td></tr>';
+    // Pépites
+    const pepites=benchLists.pepites||[];
+    const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
+    if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Ma fréq (${selectedMyStore||'Moi'})`;
+    if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent=isMedian?'Fréq médiane réseau':`Fréq ${obsLabel}`;
+    const pepRows=pepites.map(p=>{
+      const rankLabel=p.rank===1?'🥇 #1':p.rank===2?'🥈 #2':p.rank===3?'🥉 #3':`#${p.rank}`;
+      const rankCls=p.rank===1?'text-amber-700 font-extrabold':p.rank<=3?'text-amber-600 font-bold':'text-gray-600';
+      const mult=p.compFreq>0?(p.myFreq/p.compFreq).toFixed(1):null;
+      const multStr=mult?`<span class="text-emerald-700 font-bold ml-1 text-[10px]">×${mult}</span>`:'';
+      return`<tr class="border-b hover:bg-amber-50/40"><td class="py-1.5 px-3 font-mono text-gray-500 whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold text-gray-800">${p.lib}</td><td class="py-1.5 px-3 text-gray-500 text-[11px] whitespace-nowrap">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold text-emerald-700">${p.myFreq}</td><td class="py-1.5 px-3 text-center text-gray-500">${p.compFreq}${multStr}</td><td class="py-1.5 px-3 text-center ${rankCls}">${rankLabel}<span class="text-gray-400 text-[9px] ml-1">/ ${p.rankTotal}</span></td><td class="py-1.5 px-3 text-right text-gray-600 whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
+    }).join('');
+    if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center text-gray-400 italic">Aucune pépite identifiée — fréquence insuffisante ou réseau similaire.</td></tr>';
   }
 
   function buildObsCompareSelect(){
@@ -4073,6 +4109,16 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const lines=['Famille\tCA Moi\tCA Autre\tÉcart %\tRéf Moi\tRéf Autre'];
     for(const f of rows)lines.push(`${f.fam}\t${Math.round(f.caMe)}\t${Math.round(f.caOther)}\t${f.ecartPct}%\t${f.refMe}\t${f.refOther}`);
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
+  }
+
+  function copyPepitesList(){
+    const pepites=benchLists.pepites||[];
+    if(!pepites.length){showToast('Aucune pépite à copier','warning');return;}
+    const obsMode=selectedObsCompare||'median';const isMedian=obsMode==='median';
+    const compLabel=isMedian?'Fréq médiane réseau':`Fréq ${obsMode}`;
+    const lines=[`Code\tLibellé\tFamille\tMa fréq\t${compLabel}\tMultiplicateur\tRang réseau\tCA Moi`];
+    for(const p of pepites)lines.push(`${p.code}\t${p.lib}\t${p.fam}\t${p.myFreq}\t${p.compFreq}\t×${(p.myFreq/p.compFreq).toFixed(1)}\t#${p.rank}/${p.rankTotal}\t${p.caMe}`);
+    navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepites.length} pépite${pepites.length>1?'s':''} copiée${pepites.length>1?'s':''}  dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
   }
 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}

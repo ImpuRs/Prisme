@@ -259,7 +259,7 @@ function getSelectedSecteurs() {
 // ── Benchmark multi-agences ───────────────────────────────────
 function computeBenchmark() {
   const cs = getBenchCompareStores().filter(s => storesIntersection.has(s));
-  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [] };
+  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [] };
   if (!cs.length) return;
   // Normalize famille names: strip prefix code "O05 - " etc. to avoid duplicates
   // when consommé (no prefix) and stock (with prefix) name the same family differently.
@@ -359,4 +359,24 @@ function computeBenchmark() {
   obsFamiliesWin.sort((a, b) => (b.caMe - b.caOther) - (a.caMe - a.caOther));
   benchLists.obsFamiliesLose = obsFamiliesLose; benchLists.obsFamiliesWin = obsFamiliesWin;
   benchLists.obsActionPlan = obsFamiliesLose.slice(0, 3).map(f => { const artsToRef = (f.missingArts || []).filter(a => a.statutMe !== '✅ En stock'); const artsVisi = (f.missingArts || []).filter(a => a.statutMe === '✅ En stock'); return { fam: f.fam, ecartPct: f.ecartPct, nbToRef: artsToRef.length, nbVisibility: artsVisi.length, refOther: f.refOther, caPotentiel: Math.round(Math.abs(f.caOther - f.caMe)) }; });
+  // === PÉPITES — articles où je surperforme le réseau ===
+  // Build per-code frequency list across cs stores
+  const _pepCsFreqs = {};
+  for (const store of cs) { const sv = ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) _pepCsFreqs[code] = []; _pepCsFreqs[code].push(data.countBL); } }
+  const pepites = [];
+  for (const [code, data] of Object.entries(myV)) {
+    if (!/^\d{6}$/.test(code)) continue;
+    const myFreq = data.countBL || 0;
+    if (myFreq < 3) continue;
+    const csFreqs = _pepCsFreqs[code] || [];
+    const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
+    if (compFreq <= 0 || myFreq <= compFreq * 1.5) continue;
+    const rank = csFreqs.filter(f => f > myFreq).length + 1;
+    const rankTotal = csFreqs.length + 1;
+    const fam = _normFam(articleFamille[code]) || '';
+    const _rawLib = libelleLookup[code] || code; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib;
+    pepites.push({ code, lib, fam, myFreq, compFreq: Math.round(compFreq), rank, rankTotal, caMe: Math.round(artCA(data)) });
+  }
+  pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
+  benchLists.pepites = pepites.slice(0, 50);
 }
