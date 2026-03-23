@@ -329,6 +329,7 @@
               <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
               <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50 w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
             </div>
+            <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] bg-gray-200 text-gray-600 hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
             <input type="hidden" id="filterCockpit" value="">
             <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
             <div class="flex flex-wrap gap-1 mt-0.5">
@@ -638,6 +639,8 @@
               <th class="px-2 py-3 text-xs uppercase text-center text-gray-400">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMin')">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMax')">MAX ↕</th>
+              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
+              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 bg-gray-900" onclick="sortBy('abcClass')">ABC ↕</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 bg-gray-900" onclick="sortBy('fmrClass')">FMR ↕</th>
             </tr>
@@ -697,10 +700,10 @@
             <div class="font-semibold text-xs text-gray-700">Top 20 fréquence</div>
             <div class="text-[10px] text-green-600 mt-1">par nb commandes</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('nouveautes')" style="border-left-color:#34d399">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">✨</span><span id="scNouveautesCount" class="badge bg-emerald-100 text-emerald-700">0</span></div>
-            <div class="font-semibold text-xs text-gray-700">Nouveautés</div>
-            <div class="text-[10px] text-emerald-600 mt-1">&lt;35 jours</div>
+          <div class="shortcut-card" onclick="showCockpitInTable('stockneg')" style="border-left-color:#818cf8">
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scStocknegCount" class="badge bg-indigo-100 text-indigo-700">0</span></div>
+            <div class="font-semibold text-xs text-gray-700">Stock négatif</div>
+            <div id="scStocknegVal" class="text-[10px] text-indigo-600 font-bold mt-1">—</div>
           </div>
         </div>
       </div>
@@ -774,6 +777,7 @@
         <table><tbody id="actionFin"></tbody></table>
         <table><tbody id="actionBestSellers"></tbody></table>
         <table><tbody id="actionNouveaute"></tbody></table>
+        <table><tbody id="actionStockneg"></tbody></table>
       </div>
     </div>
 
@@ -1828,8 +1832,10 @@
     const freqPDV=nbClientsPDV>0?parseFloat((nbBLPDV/nbClientsPDV).toFixed(1)):null;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
+    const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
     const _nbPassagesExec=ventesAnalysis?ventesAnalysis.nbPassages:0;
     const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
+    const txMarge=ventesAnalysis?ventesAnalysis.txMarge:null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
@@ -1884,6 +1890,7 @@
           const details=[];
           if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
           if(ok(panierMoyen))details.push(`panier moyen ${panierMoyen.toLocaleString('fr')} €`);
+          if(ok(txMarge)&&txMarge>0){const vmbStr=vmbPDV>0?` pour une VMB de ${formatEuro(Math.round(vmbPDV))}`:'';details.push(`taux de marge ${txMarge.toFixed(2)}%${vmbStr}`);}
           if(details.length)p+=` (${details.join(', ')})`;
         }
         p+='.';
@@ -1930,6 +1937,11 @@
         parts.push(m);
       }
       if(parts.length)L.push(parts.join(' '));
+    }
+    // Marge sous médiane réseau
+    if(hasBench&&kpis&&ok(kpis.mine&&kpis.mine.txMarge)&&ok(kpis.compared&&kpis.compared.txMarge)&&kpis.mine.txMarge<kpis.compared.txMarge){
+      const potVMB=Math.round((kpis.compared.txMarge-kpis.mine.txMarge)/100*caPDVTotal);
+      L.push(`Marge : taux de marge à ${kpis.mine.txMarge.toFixed(2)}% vs médiane réseau ${kpis.compared.txMarge.toFixed(2)}% — potentiel de +${formatEuro(potVMB)} de VMB.`);
     }
     // Clients silencieux
     if(silencieuxCount>0){
@@ -2419,12 +2431,12 @@
 
       updatePipeline('stock','active');
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
-      finalData=[];libelleLookup={};stockParMagasin={};cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set()};
+      finalData=[];libelleLookup={};stockParMagasin={};cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set()};
       parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
       for(let i=0;i<dataS.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataS.length);for(let j=i;j<end;j++){const row=dataS[j];const rawCode=getVal(row,'Article','Code');if(!rawCode)continue;const storeCode=extractStoreCode(row),code=cleanCode(rawCode);
-      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal};}
+      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;const _kMin=parseFloat(getVal(row,'min')||0)||0;const _kMax=parseFloat(getVal(row,'max')||0)||0;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal,qteMin:_kMin,qteMax:_kMax};}
       if(!libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==selectedMyStore)continue;
       const libelle=libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
@@ -2456,6 +2468,9 @@
       finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
+
+      // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
+      if(useMulti&&finalData.length){const _otherS=[...storesIntersection].filter(s=>s!==selectedMyStore);if(_otherS.length){for(const r of finalData){const _mins=_otherS.map(s=>stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
 
@@ -4064,8 +4079,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   function renderDashboardAndCockpit(){
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
-    const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[];const finCodes=new Set();
-    cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set()};
+    const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
+    cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set()};
     parentRefsExcluded=0;
     const dataSource=(filteredData.length>0&&filteredData.length<finalData.length)?filteredData:finalData;
     // CA perdu — contexte multi vs mono agence
@@ -4097,6 +4112,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(r.W>0)lstB.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:r.W,condit:null});
     if(r.isNouveaute&&r.stockActuel>0)lstN.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});
     if(r.enleveTotal>=5&&r.V===0)lstColis.push({code:r.code,lib:r.libelle,i1:r.enleveTotal,i2:r.stockActuel,sv:r.enleveTotal,condit:null});
+    if(r.stockActuel<0){lstStockNeg.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.stockneg.add(r.code);}
     if(r.stockActuel>0&&r.prixUnitaire>0){totalArt++;byStatus[r.statut]=(byStatus[r.statut]||0)+lv;byFamily[r.famille]=(byFamily[r.famille]||0)+lv;const isDormant=!r.isNouveaute&&r.ageJours>DORMANT_DAYS;const sl=r.statut.toLowerCase();const isFS=sl.includes('fin de série')||sl.includes('fin de serie');const iFSt=sl.includes('fin de stock');const isFin=isFS||iFSt;
     if(!r.isNouveaute&&r.ageJours>DORMANT_DAYS){dormantStock+=lv;if(lv>50){lstD.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.dormants.add(r.code);}}
     if(!isDormant&&!isFin&&!r.isNouveaute&&r.stockActuel>r.nouveauMax&&r.nouveauMax>0)activeSurstock+=(r.stockActuel-r.nouveauMax)*r.prixUnitaire;
@@ -4106,7 +4122,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Fins de stock avec min=0/max=0 (déréférencés sans prix) — hors du garde prixUnitaire>0
     if(r.stockActuel>0&&!finCodes.has(r.code)){const _sl=r.statut.toLowerCase();if(_sl.includes('fin de stock')||_sl.includes('fin de série')||_sl.includes('fin de serie')){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fins.add(r.code);}}}
 
-    document.getElementById('dashTotalValue').textContent=formatEuro(totalValue);document.getElementById('dashTotalCount').textContent=totalArt.toLocaleString('fr')+' réf.';
+    document.getElementById('dashTotalValue').textContent=formatEuro(totalValue);document.getElementById('dashTotalCount').textContent=dataSource.length.toLocaleString('fr')+' réf.';
     document.getElementById('dashDeadStock').textContent=formatEuro(dormantStock);document.getElementById('dashDeadPct').textContent=pct(dormantStock,totalValue);
     document.getElementById('dashSurstock').textContent=formatEuro(activeSurstock);document.getElementById('dashSurstockPct').textContent=pct(activeSurstock,totalValue);
     document.getElementById('dashCapalin').textContent=formatEuro(capalinOverflow);document.getElementById('dashCapalinCount').textContent=capalinCount+' art.';
@@ -4131,7 +4147,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     setSc('scFantomesCount',lstFa.length);setSc('scFantomesVal',scFaVal>0?formatEuro(scFaVal):'—');
     setSc('scDormantsCount',lstD.length);setSc('scDormantsVal',scDVal>0?formatEuro(scDVal):'—');
     setSc('scFinsCount',lstFi.length);setSc('scFinsVal',scFiVal>0?formatEuro(scFiVal):'—');
-    setSc('scNouveautesCount',lstN.length);
+    const scSnVal=Math.abs(lstStockNeg.reduce((s,i)=>s+i.sv,0));setSc('scStocknegCount',lstStockNeg.length);setSc('scStocknegVal',scSnVal>0?formatEuro(scSnVal):'—');
 
     // V23: Show excluded parent refs count
     const exclEl=document.getElementById('rupturesExcluded');
@@ -4153,7 +4169,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const p=[];l.sort((a,b)=>b.sv-a.sv).slice(0,lim).forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';}
-    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');
+    pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstStockNeg,'actionStockneg');
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
       const el=document.getElementById('actionColisRayon');if(!el)return;
@@ -4232,10 +4248,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const tp=Math.max(1,Math.ceil(filteredData.length/PAGE_SIZE));if(currentPage>=tp)currentPage=tp-1;const start=currentPage*PAGE_SIZE,pd=filteredData.slice(start,start+PAGE_SIZE);
     document.getElementById('resultCount').textContent=filteredData.length.toLocaleString('fr')+' article'+(filteredData.length>1?'s':'');document.getElementById('pageInfo').textContent=`${currentPage+1}/${tp}`;document.getElementById('btnPrev').disabled=currentPage<=0;document.getElementById('btnNext').disabled=currentPage>=tp-1;
     const p=[];
+    const showMed=storesIntersection.size>1;
+    {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
       const bg=r.isNouveaute?'bg-emerald-50':(r.nouveauMin>0?'bg-white':'bg-gray-50 text-gray-400');
       const sc=r.stockActuel<0?'text-red-600 font-extrabold':'text-orange-600 font-bold';
       const br=getAgeBracket(r.ageJours);
+      const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMin>r.medMinReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
+      const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMax>r.medMaxReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
     p.push(`<tr class="border-b hover:bg-blue-50 ${bg}">
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
@@ -4248,10 +4268,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       <td class="px-2 py-2 text-center text-xs text-gray-400">${r.ancienMin}/${r.ancienMax}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMax}</td>
+      ${_medMinCell}${_medMaxCell}
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'text-green-700 bg-green-50':r.abcClass==='B'?'text-blue-700 bg-blue-50':r.abcClass==='C'?'text-orange-700 bg-orange-50':'text-gray-400'}">${r.abcClass||'—'}</td>
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'text-green-700 bg-green-50':r.fmrClass==='M'?'text-blue-700 bg-blue-50':r.fmrClass==='R'?'text-red-600 bg-red-50':'text-gray-400'}">${r.fmrClass||'—'}</td>
     </tr>`);}
-    document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="13" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
+    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${13+(showMed?2:0)}" class="text-center py-8 text-gray-500">Aucun.</td></tr>`;
   }
 
   // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
