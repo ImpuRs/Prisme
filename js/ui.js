@@ -83,6 +83,7 @@ function expandImportZone() {
 
 // ── Tab navigation ────────────────────────────────────────────
 function switchTab(id) {
+  window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-500', 'border-red-500', 'border-cyan-500', 'border-indigo-500', 'border-violet-500', 'border-orange-500', 'active'); b.classList.add('border-transparent'); });
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
@@ -107,7 +108,6 @@ function switchTab(id) {
   const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
-  window.scrollTo(0, 0);
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
