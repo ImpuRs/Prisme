@@ -107,6 +107,7 @@ function switchTab(id) {
   const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
+  window.scrollTo(0, 0);
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
