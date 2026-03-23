@@ -1005,11 +1005,14 @@
 
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
       <div id="terrChalandiseOverview" class="hidden mt-2">
-        <!-- Header -->
-        <div class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
-          <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
+        <details class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
+          <summary class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50 select-none flex items-center justify-between cursor-pointer hover:brightness-95">
             <h3 class="font-extrabold text-gray-800 text-xs">🎯 Votre territoire en un coup d'oeil</h3>
-          </div>
+            <div class="flex items-center gap-2">
+              <span id="terrOverviewSummaryLine" class="text-[10px] text-gray-500 font-normal"></span>
+              <span class="acc-arrow text-gray-400">▶</span>
+            </div>
+          </summary>
           <!-- Level 1: Direction commerciale -->
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">
@@ -1017,7 +1020,7 @@
               <tbody id="terrOverviewL1Table"></tbody>
             </table>
           </div>
-        </div>
+        </details>
         <!-- Cockpit Client -->
         <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
@@ -1455,6 +1458,7 @@
     // Summary KPI bar — dénominateur = tous les clients filtrés (prospects inclus)
     const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
     const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
+    const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
     const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
     const bar=document.getElementById('terrSummaryBar');if(bar)bar.classList.remove('hidden');
     const sumClients=document.getElementById('terrSumClients');
