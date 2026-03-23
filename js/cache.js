@@ -214,6 +214,9 @@ async function _saveSessionToIDB() {
       consommePeriodMinFull: consommePeriodMinFull ? consommePeriodMinFull.getTime() : null,
       consommePeriodMaxFull: consommePeriodMaxFull ? consommePeriodMaxFull.getTime() : null,
       globalJoursOuvres,
+      // ── Compteurs agences (non dérivables fiablement post-restore) ──
+      storeCountConsomme,
+      storeCountStock,
       // ── Préférences ──
       selectedMyStore,
       selectedObsCompare,
@@ -278,6 +281,8 @@ async function _restoreSessionFromIDB() {
     consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : null;
     globalJoursOuvres     = data.globalJoursOuvres     || 250;
 
+    storeCountConsomme = data.storeCountConsomme || 0;
+    storeCountStock    = data.storeCountStock    || 0;
     selectedMyStore    = data.selectedMyStore    || '';
     selectedObsCompare = data.selectedObsCompare || 'median';
     obsFilterUnivers   = data.obsFilterUnivers   || '';

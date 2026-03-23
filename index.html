@@ -5247,12 +5247,25 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
         if(storesIntersection.size)console.log('PILOT: storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
       }
-      // Recalculer les compteurs d'agences (non persistés en IDB, calculés dans processData)
-      storeCountConsomme=Object.keys(ventesParMagasin).length;
-      storeCountStock=Object.keys(stockParMagasin).length;
+      // Fallback compteurs : si non persistés dans l'ancien cache, recalculer depuis les maps
+      if(!storeCountConsomme)storeCountConsomme=Object.keys(ventesParMagasin).length;
+      if(!storeCountStock)storeCountStock=Object.keys(stockParMagasin).length;
       if(!selectedMyStore&&storesIntersection.size>0){
         selectedMyStore=storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
         console.log('PILOT: selectedMyStore sélectionné automatiquement :', selectedMyStore);
+      }
+      // ── Vérification de cohérence : finalData contaminé ? ──
+      // Un finalData multi-agences sauvé par erreur (ex: storesIntersection était vide lors de la
+      // session précédente) aurait N×storeCount articles. Seuil de détection : 2.5× le stock de mon agence.
+      if(storesIntersection.size>1&&selectedMyStore){
+        const _myStockCount=Object.keys(stockParMagasin[selectedMyStore]||{}).length;
+        if(_myStockCount>0&&finalData.length>_myStockCount*2.5){
+          console.warn('PILOT: cache contaminé — finalData='+finalData.length+' articles mais '+selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
+          await _clearIDB();
+          showToast('⚠️ Cache obsolète détecté et purgé — rechargez vos fichiers.','warning');
+          _restoreFromCache();
+          return;
+        }
       }
 
       // ── Reproduit exactement la séquence de fin de processData() L2462-2488 ──
