@@ -1830,8 +1830,10 @@
     const freqPDV=nbClientsPDV>0?parseFloat((nbBLPDV/nbClientsPDV).toFixed(1)):null;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
+    const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
     const _nbPassagesExec=ventesAnalysis?ventesAnalysis.nbPassages:0;
     const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
+    const txMarge=ventesAnalysis?ventesAnalysis.txMarge:null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
@@ -1886,6 +1888,7 @@
           const details=[];
           if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
           if(ok(panierMoyen))details.push(`panier moyen ${panierMoyen.toLocaleString('fr')} €`);
+          if(ok(txMarge)&&txMarge>0){const vmbStr=vmbPDV>0?` pour une VMB de ${formatEuro(Math.round(vmbPDV))}`:'';details.push(`taux de marge ${txMarge.toFixed(2)}%${vmbStr}`);}
           if(details.length)p+=` (${details.join(', ')})`;
         }
         p+='.';
@@ -1932,6 +1935,11 @@
         parts.push(m);
       }
       if(parts.length)L.push(parts.join(' '));
+    }
+    // Marge sous médiane réseau
+    if(hasBench&&kpis&&ok(kpis.mine&&kpis.mine.txMarge)&&ok(kpis.compared&&kpis.compared.txMarge)&&kpis.mine.txMarge<kpis.compared.txMarge){
+      const potVMB=Math.round((kpis.compared.txMarge-kpis.mine.txMarge)/100*caPDVTotal);
+      L.push(`Marge : taux de marge à ${kpis.mine.txMarge.toFixed(2)}% vs médiane réseau ${kpis.compared.txMarge.toFixed(2)}% — potentiel de +${formatEuro(potVMB)} de VMB.`);
     }
     // Clients silencieux
     if(silencieuxCount>0){
