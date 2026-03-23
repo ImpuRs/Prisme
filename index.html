@@ -5239,6 +5239,19 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // 2. Tenter la restauration complète depuis IndexedDB
     const restored = await _restoreSessionFromIDB();
     if (restored && finalData.length > 0) {
+      // ── 0. Gardes-fous AVANT tout code UI — storesIntersection et selectedMyStore ──
+      // Doit s'exécuter immédiatement après await _restoreSessionFromIDB(),
+      // avant toute référence à selectedMyStore ou storesIntersection dans l'UI.
+      if(!storesIntersection.size&&Object.keys(ventesParMagasin).length>0&&Object.keys(stockParMagasin).length>0){
+        const vKeys=new Set(Object.keys(ventesParMagasin)),sKeys=new Set(Object.keys(stockParMagasin));
+        storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
+        if(storesIntersection.size)console.log('PILOT: storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
+      }
+      if(!selectedMyStore&&storesIntersection.size>0){
+        selectedMyStore=storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
+        console.log('PILOT: selectedMyStore sélectionné automatiquement :', selectedMyStore);
+      }
+
       // ── Reproduit exactement la séquence de fin de processData() L2462-2488 ──
 
       // 1. Peupler les filtres depuis finalData (équivalent populateSelect L2470)
@@ -5261,18 +5274,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
       // 3. UI state (L2477-2483)
       document.body.classList.add('pilot-loaded');
-      // Reconstruire storesIntersection si vide après restore
-      if(!storesIntersection.size&&Object.keys(ventesParMagasin).length>0&&Object.keys(stockParMagasin).length>0){
-        const vKeys=new Set(Object.keys(ventesParMagasin)),sKeys=new Set(Object.keys(stockParMagasin));
-        storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
-        if(storesIntersection.size)console.log('PILOT: storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
-      }
-      // Fix bug IDB : selectedMyStore vide → sélectionner automatiquement
-      if(!selectedMyStore&&storesIntersection.size>0){
-        selectedMyStore=storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
-        // Mettre à jour la navbar (exécutée avant ce fix, ligne 5258)
-        if(selectedMyStore){document.getElementById('navStore').textContent=selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
-      }
       const useMulti = storesIntersection.size > 1;
       // Rebuild sélecteur d'agence (non reproduit dans le parcours IDB)
       if(useMulti){
