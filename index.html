@@ -2135,6 +2135,7 @@
     }
     const hasTerr=territoireReady&&territoireLines.length>0;
     const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    let searchResultsHtml='';
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
@@ -2163,6 +2164,32 @@
       else if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
       else if(pdvActif&&classif==='FID Pot+')fideliser.push(c);
+    }
+    // ── Search results block — shows ALL matching clients regardless of category ──
+    if(_qClient){
+      const srList=[];const srSeen=new Set();
+      for(const[cc,info] of chalandiseData.entries()){
+        if(!cc.toLowerCase().includes(_qClient)&&!(info.nom||'').toLowerCase().includes(_qClient))continue;
+        srSeen.add(cc);
+        const artData=ventesClientArticle.get(cc);
+        const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        srList.push({code:cc,nom:info.nom||'',metier:info.metier||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ville:info.ville||'',ca2025:info.ca2025||0,caPDVN});
+      }
+      for(const[cc,nom] of Object.entries(clientNomLookup)){
+        if(srSeen.has(cc))continue;
+        if(!cc.toLowerCase().includes(_qClient)&&!(nom||'').toLowerCase().includes(_qClient))continue;
+        const artData=ventesClientArticle.get(cc);
+        const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        srList.push({code:cc,nom:nom||'',metier:'',statut:'',classification:'',commercial:'',ville:'',ca2025:0,caPDVN});
+      }
+      srList.sort((a,b)=>(b.caPDVN+b.ca2025)-(a.caPDVN+a.ca2025));
+      if(srList.length){
+        const rows=srList.slice(0,50).map(c=>`<tr class="border-t border-gray-100 hover:bg-blue-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.code)}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.metier||'—'}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.statut||'—'}</td><td class="py-1 px-2 text-right text-[11px] font-bold ${c.caPDVN>0?'text-emerald-700':'text-gray-400'}">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td><td class="py-1 px-2 text-right text-[11px] font-bold ${c.ca2025>0?'text-amber-700':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td></tr>`).join('');
+        const more=srList.length>50?srList.length-50:0;
+        searchResultsHtml=`<div class="mb-4 bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-3 border-b bg-blue-50 flex items-center gap-2"><h3 class="font-extrabold text-gray-800 text-sm flex-1">🔍 Résultats — "${_qClient.replace(/"/g,'&quot;')}" (${srList.length})</h3></div><div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Statut</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-right">CA Legallais</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} résultat(s) supplémentaire(s) non affiché(s)</p>`:''}</div>`;
+      }else{
+        searchResultsHtml=`<div class="mb-4 bg-white rounded-xl shadow-md border p-4 text-sm text-gray-500">🔍 Aucun client trouvé pour "<strong>${_qClient.replace(/</g,'&lt;')}</strong>".</div>`;
+      }
     }
     // Silencieux: priorité aux gros clients silencieux depuis le plus longtemps
     silencieux.sort((a,b)=>((b._daysSince||0)*(b.caPDVN||0))-((a._daysSince||0)*(a.caPDVN||0)));
@@ -2256,7 +2283,7 @@
     // Summary banner
     const silBit=silencieux.length>0?`<span class="text-rose-600">🚨 ${silencieux.length} silencieux</span> · `:'';
     const banner=`<div class="mb-3 px-4 py-2 bg-gray-50 border rounded-lg text-[11px] font-semibold text-gray-700">Sur votre sélection : ${silBit}<span class="text-red-600">🔴 ${urgences.length} à capter</span> · <span class="text-orange-500">🟠 ${developper.length} à développer</span> · <span class="text-green-600">🟢 ${fideliser.length} à fidéliser</span></div>`;
-    el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-rose-50 via-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold text-gray-800 flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','bg-rose-50','border-rose-500','hover:bg-rose-50',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV','Clients qui achètent chez Legallais mais ne viennent pas en agence · {total} clients','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    el.innerHTML=searchResultsHtml+`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-rose-50 via-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold text-gray-800 flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] text-gray-500 mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="text-gray-400">CA Legallais = CA global tous canaux · CA PDV Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','bg-rose-50','border-rose-500','hover:bg-rose-50',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV','Clients qui achètent chez Legallais mais ne viennent pas en agence · {total} clients','🔴','bg-red-50','border-red-500','hover:bg-red-50','text-red-700',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','bg-orange-50','border-orange-500','hover:bg-orange-50','text-orange-700',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA PDV · {total} clients dans cette catégorie','🟢','bg-green-50','border-green-500','hover:bg-green-50','text-green-700',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
   }
   function _setCrossFilter(status){
     _selectedCrossStatus=status;
