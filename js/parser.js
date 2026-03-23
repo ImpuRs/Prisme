@@ -281,7 +281,8 @@ function computeBenchmark() {
   for (const [k, v] of Object.entries(myV)) { if (v.sumPrelevee > 0) sp[selectedMyStore].ref++; sp[selectedMyStore].freq += v.countBL; }
   sp[selectedMyStore].serv = Math.round((sp[selectedMyStore].ref / totalArtsInBassin) * 100);
   if (chalandiseReady && ventesClientsPerStore[selectedMyStore]) sp[selectedMyStore].clientsZone = [...ventesClientsPerStore[selectedMyStore]].filter(c => chalandiseData.has(c)).length;
-  for (const store of cs) { sp[store] = { ref: 0, freq: 0, serv: 0, clientsZone: 0 }; const sv = ventesParMagasin[store] || {}; for (const [k, v] of Object.entries(sv)) { if (obsFilterUnivers && articleUnivers[k] !== obsFilterUnivers) continue; if (v.sumPrelevee > 0) sp[store].ref++; sp[store].freq += v.countBL; } sp[store].serv = Math.round((sp[store].ref / totalArtsInBassin) * 100); if (chalandiseReady && ventesClientsPerStore[store]) sp[store].clientsZone = [...ventesClientsPerStore[store]].filter(c => chalandiseData.has(c)).length; }
+  { const _sdMe = ventesParMagasin[selectedMyStore] || {}; const _cMe = Object.values(_sdMe).reduce((s, v) => s + (v.sumCA || 0), 0); const _vMe = Object.values(_sdMe).reduce((s, v) => s + (v.sumVMB || 0), 0); sp[selectedMyStore].txMarge = _cMe > 0 ? _vMe / _cMe * 100 : null; }
+  for (const store of cs) { sp[store] = { ref: 0, freq: 0, serv: 0, clientsZone: 0, txMarge: null }; const sv = ventesParMagasin[store] || {}; for (const [k, v] of Object.entries(sv)) { if (obsFilterUnivers && articleUnivers[k] !== obsFilterUnivers) continue; if (v.sumPrelevee > 0) sp[store].ref++; sp[store].freq += v.countBL; } sp[store].serv = Math.round((sp[store].ref / totalArtsInBassin) * 100); if (chalandiseReady && ventesClientsPerStore[store]) sp[store].clientsZone = [...ventesClientsPerStore[store]].filter(c => chalandiseData.has(c)).length; const _c = Object.values(sv).reduce((s, v) => s + (v.sumCA || 0), 0); const _v = Object.values(sv).reduce((s, v) => s + (v.sumVMB || 0), 0); sp[store].txMarge = _c > 0 ? _v / _c * 100 : null; }
   benchLists.storePerf = sp;
   const myFamFreq = {}; const storesFamFreq = {};
   for (const [code, data] of Object.entries(myV)) { if (!/^\d{6}$/.test(code)) continue; const fam = articleFamille[code] || ''; if (fam) myFamFreq[fam] = (myFamFreq[fam] || 0) + data.countBL; }
@@ -331,7 +332,9 @@ function computeBenchmark() {
   const compAssort = 100;
   const myPdm = Math.round(myPoids * 1000) / 10; const compPdmVals = cs.map(s => bassinTotalCA > 0 ? (storeTotalCA[s] || 0) / bassinTotalCA * 100 : 0).filter(v => v > 0); const compPdmMed = Math.round((compPdmVals.length ? _median(compPdmVals) : 0) * 10) / 10; const compPdm = (obsMode !== 'median' && storesIntersection.has(obsMode)) ? Math.round((storeTotalCA[obsMode] || 0) / bassinTotalCA * 1000) / 10 : compPdmMed;
   benchLists._myPoids = myPoids; benchLists._bassinFamCATot = bassinFamCATot; benchLists._myFamCA = myFamCA;
-  benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[selectedMyStore]?.serv || 0, freq: sp[selectedMyStore]?.freq || 0, pdm: myPdm }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm } };
+  const compTxMargeVals = cs.map(s => sp[s]?.txMarge ?? null).filter(v => v !== null && v > 0);
+  const compTxMarge = (obsMode !== 'median' && storesIntersection.has(obsMode)) ? (sp[obsMode]?.txMarge ?? null) : (compTxMargeVals.length ? _median(compTxMargeVals) : null);
+  benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[selectedMyStore]?.serv || 0, freq: sp[selectedMyStore]?.freq || 0, pdm: myPdm, txMarge: sp[selectedMyStore]?.txMarge ?? null }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm, txMarge: compTxMarge } };
   const allFams2 = new Set([...Object.keys(myFamCA), ...Object.keys(compFamCA)]);
   const obsFamiliesLose = [], obsFamiliesWin = [];
   for (const fam of allFams2) {
