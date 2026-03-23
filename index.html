@@ -2373,7 +2373,7 @@
       // clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
       if(cc2&&!clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
       if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.sumCA+=caP+caE;e.countBL++;}
-      if((!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV)passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
+      if((!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
       if(cc2&&dateV&&(!selectedMyStore||sk===selectedMyStore)){const prev=clientLastOrder.get(cc2);if(!prev||dateV>prev)clientLastOrder.set(cc2,dateV);}
       // V2 Phase 2: articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
