@@ -2444,7 +2444,7 @@
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
       // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
       const _terrBtn=document.getElementById('btnTabTerritoire');
-      if(finalData.length>0){_terrBtn.classList.remove('hidden');let _tBadge=_terrBtn.querySelector('.terr-enrich-badge');if(!_tBadge){_tBadge=document.createElement('span');_tBadge.className='terr-enrich-badge';_terrBtn.appendChild(_tBadge);}_tBadge.textContent=chalandiseReady?'✦':'';_tBadge.className='terr-enrich-badge text-[9px] ml-0.5 '+(chalandiseReady?'text-rose-400 font-bold':'');}else{_terrBtn.classList.add('hidden');}
+      if(finalData.length>0){_terrBtn.classList.remove('hidden');}else{_terrBtn.classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
       // Render main UI immediately — don't wait for territoire
