@@ -246,16 +246,13 @@ function _showCacheBanner() {
     extraWarn = ' <span class="text-amber-300 font-bold">· Données partielles (historique clients non restauré — rechargez les fichiers pour la vue complète)</span>';
   }
 
+  const btnStyle = 'font-size:10px;color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s';
+  const btnHover = 'onmouseover="this.style.color=\'rgba(255,255,255,0.65)\';this.style.borderColor=\'rgba(255,255,255,0.3)\'" onmouseout="this.style.color=\'rgba(255,255,255,0.35)\';this.style.borderColor=\'rgba(255,255,255,0.15)\'"';
   banner.innerHTML =
-    '<span class="flex items-center gap-2">' +
-      '<span>📋 Données restaurées depuis la dernière session (' + ageStr + ').' + extraWarn + '</span>' +
-    '</span>' +
-    '<span class="flex items-center gap-1 flex-shrink-0">' +
-      '<button onclick="_clearCache();expandImportZone()" ' +
-        'class="text-[10px] bg-amber-600 hover:bg-amber-500 text-white py-0.5 px-2 rounded font-semibold">' +
-        '↻ Recharger les fichiers</button>' +
-      '<button onclick="document.getElementById(\'cacheBanner\').classList.add(\'hidden\')" ' +
-        'class="text-[10px] bg-slate-600 hover:bg-slate-500 text-slate-200 py-0.5 px-2 rounded font-semibold ml-1">✕</button>' +
+    '<span>Données restaurées (' + ageStr + ').' + extraWarn + '</span>' +
+    '<span style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+      `<button onclick="_clearCache();expandImportZone()" style="${btnStyle}" ${btnHover}>↻ Recharger</button>` +
+      `<button onclick="document.getElementById('cacheBanner').classList.add('hidden')" style="${btnStyle}" ${btnHover}>✕</button>` +
     '</span>';
 
   banner.classList.remove('hidden');

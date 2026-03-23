@@ -61,7 +61,7 @@ function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
   if (!iz || !bannerRight || !banner) return;
-  bannerRight.innerHTML = `<button onclick="expandImportZone()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 py-0.5 px-2 rounded font-semibold">▼ Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" class="ml-1 text-[10px] bg-blue-900 hover:bg-blue-800 text-blue-200 py-0.5 px-2 rounded font-semibold">📖 Glossaire</button>`;
+  bannerRight.innerHTML = `<button onclick="expandImportZone()" style="font-size:10px;color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s" onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'">Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" style="font-size:10px;color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;margin-left:6px;transition:color .15s,border-color .15s" onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'">Glossaire</button>`;
   iz.classList.add('hidden');
   document.getElementById('onboardingBlock')?.classList.add('hidden');
   banner.classList.remove('hidden');
@@ -80,17 +80,17 @@ function expandImportZone() {
 // ── Tab navigation ────────────────────────────────────────────
 function switchTab(id) {
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-600', 'text-blue-600', 'border-red-600', 'text-red-700', 'border-cyan-600', 'text-cyan-700', 'border-indigo-600', 'text-indigo-600', 'border-violet-600', 'text-violet-600', 'border-orange-600', 'text-orange-600', 'active'); b.classList.add('border-transparent', 'text-gray-500'); });
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-500', 'border-red-500', 'border-cyan-500', 'border-indigo-500', 'border-violet-500', 'border-orange-500', 'active'); b.classList.add('border-transparent'); });
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
-    btn.classList.remove('border-transparent', 'text-gray-500');
-    if (id === 'action') btn.classList.add('border-red-600', 'text-red-700', 'active');
-    else if (id === 'bench') btn.classList.add('border-cyan-600', 'text-cyan-700', 'active');
-    else if (id === 'territoire') { btn.classList.add('border-violet-600', 'text-violet-600', 'active'); if (chalandiseReady || territoireReady) renderTerritoireTab(); }
-    else if (id === 'abc') btn.classList.add('border-indigo-600', 'text-indigo-600', 'active');
-    else if (id === 'promo') btn.classList.add('border-orange-600', 'text-orange-600', 'active');
-    else btn.classList.add('border-blue-600', 'text-blue-600', 'active');
+    btn.classList.remove('border-transparent');
+    if (id === 'action') btn.classList.add('border-red-500', 'active');
+    else if (id === 'bench') btn.classList.add('border-cyan-500', 'active');
+    else if (id === 'territoire') { btn.classList.add('border-violet-500', 'active'); if (chalandiseReady || territoireReady) renderTerritoireTab(); }
+    else if (id === 'abc') btn.classList.add('border-indigo-500', 'active');
+    else if (id === 'promo') btn.classList.add('border-orange-500', 'active');
+    else btn.classList.add('border-blue-500', 'active');
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -100,7 +100,7 @@ function switchTab(id) {
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Contextual panel title
-  const titles = { table: '📋 Filtres Articles', dash: '📊 Filtres Stock', action: '⚙️ Filtres Cockpit', abc: '📡 Filtres Radar', territoire: '🔗 Filtres Le Terrain', bench: '🔭 Filtres Le Réseau', promo: '🎯 Filtres Promo' };
+  const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
 }
@@ -213,7 +213,7 @@ function updatePeriodAlert() {
   }
   const btn = document.getElementById('navPeriodBtn');
   const navPeriod = document.getElementById('navPeriod');
-  if (btn) { btn.textContent = `📅 ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; btn.style.cssText = ''; }
+  if (btn) { btn.textContent = `${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; }
   if (navPeriod) navPeriod.classList.remove('hidden');
 }
 
@@ -228,17 +228,18 @@ function renderInsightsBanner() {
     if (!right || !right.innerHTML.trim()) banner.classList.add('hidden');
     return;
   }
-  const mkLink = (txt, tab) => `<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="switchTab('${tab}')">${txt}</span>`;
-  const mkAction = (txt, fn) => `<span class="cursor-pointer hover:text-white underline underline-offset-2 whitespace-nowrap" onclick="${fn}">${txt}</span>`;
+  const mkLink = (num, txt, tab, col) => `<span style="cursor:pointer;color:rgba(255,255,255,0.55);white-space:nowrap;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.color='rgba(255,255,255,0.55)'" onclick="switchTab('${tab}')"><span style="color:${col};font-weight:600">${num}</span> ${txt}</span>`;
+  const mkAction = (num, txt, fn, col) => `<span style="cursor:pointer;color:rgba(255,255,255,0.55);white-space:nowrap;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.color='rgba(255,255,255,0.55)'" onclick="${fn}"><span style="color:${col};font-weight:600">${num}</span> ${txt}</span>`;
+  const sep = `<span style="color:rgba(255,255,255,0.18);margin:0 6px">·</span>`;
   const parts = [];
-  parts.push(mkAction(`${ruptures} rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')"));
+  parts.push(mkAction(ruptures, `rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')", '#f87171'));
   if (hasTerr) {
-    parts.push(mkLink(`${absentsTerr} article${absentsTerr !== 1 ? 's' : ''} territoire absents du rayon`, `territoire`));
-    parts.push(mkLink(`${extClients} client${extClients !== 1 ? 's' : ''} qui ne viennent jamais`, `territoire`));
+    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `territoire`, '#fbbf24'));
+    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `territoire`, '#fbbf24'));
   } else {
-    parts.push(mkAction(`${dormants} dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')"));
+    parts.push(mkAction(dormants, `dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')", '#fbbf24'));
   }
-  el.innerHTML = `<span class="text-slate-400 mr-1">💡 PILOT a détecté :</span>` + parts.join(`<span class="text-slate-500 mx-1">·</span>`);
+  el.innerHTML = `<span style="color:rgba(255,255,255,0.25);margin-right:8px;font-size:10px;letter-spacing:.05em;text-transform:uppercase">Détecté</span>` + parts.join(sep);
   banner.classList.remove('hidden');
 }
 
