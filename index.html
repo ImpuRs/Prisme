@@ -138,7 +138,17 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
-    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;align-items:stretch}
+    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:none;align-items:stretch}
+    body.pilot-loaded #tabsContainer{display:flex}
+    /* First launch — hide everything except onboarding + import */
+    body:not(.pilot-loaded) .tab-content{display:none!important}
+    body:not(.pilot-loaded) #insightsBanner{display:none!important}
+    body:not(.pilot-loaded) #cacheBanner{display:none!important}
+    body:not(.pilot-loaded) #navStats,
+    body:not(.pilot-loaded) #navStore,
+    body:not(.pilot-loaded) #navPerf,
+    body:not(.pilot-loaded) #navPeriod,
+    body:not(.pilot-loaded) #navReportingBtn{display:none!important}
     #tabsFilterTitle{width:256px;flex-shrink:0;display:none;align-items:center;padding:0 0.75rem;border-right:1px solid #e2e8f0;background:#f8fafc}
     @media(min-width:1024px){body.pilot-loaded #tabsFilterTitle{display:flex}}
     .tab-btn{border-right:1px solid #e2e8f0;white-space:nowrap}
@@ -178,6 +188,35 @@
       /* Insights banner: wrap gracefully */
       #insightsBanner{flex-direction:column;gap:.25rem;padding:.5rem .75rem}
     }
+
+    /* ═══ Premium navbar ══════════════════════════════════════ */
+    nav#mainNav{background:#0a0a0f;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;position:sticky;top:0;z-index:40;flex-shrink:0;display:flex;align-items:center}
+    #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+    #mainNav .nav-logo{font-size:15px;letter-spacing:.15em;color:#fff;font-weight:300;user-select:none;cursor:default;line-height:1}
+    #mainNav .nav-logo-pro{font-weight:600;color:#10b981;letter-spacing:.05em}
+    #navStats{font-size:11px;color:rgba(255,255,255,0.4);font-family:monospace}
+    #navStore{font-size:11px;color:#d1d5db;letter-spacing:.05em;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:2px 10px;background:transparent;font-weight:400}
+    #navPerf{font-size:11px;color:rgba(255,255,255,0.4);font-family:monospace}
+    #navPeriodBtn{font-size:11px;color:rgba(255,255,255,0.4);font-family:monospace;background:none;border:none;cursor:pointer;padding:0;transition:color .15s}
+    #navPeriodBtn:hover{color:rgba(255,255,255,0.75)}
+    #navCmdBtn{font-size:10px;color:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:1px 6px;background:none;cursor:pointer;font-family:monospace;line-height:1.6;transition:color .15s,border-color .15s}
+    #navCmdBtn:hover{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.3)}
+    #navReportingBtn{font-size:11px;color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:3px 10px;background:transparent;font-weight:500;transition:color .15s,border-color .15s}
+    #navReportingBtn:hover{color:#fff;border-color:rgba(255,255,255,0.4)}
+
+    /* ═══ Premium insights / cache banners ════════════════════ */
+    #insightsBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#111118;border-bottom:1px solid rgba(255,255,255,0.05);min-height:28px;padding:0 1.25rem;font-size:11px;color:rgba(255,255,255,0.6);font-weight:400;gap:0 12px}
+    #insightsBannerLeft{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;flex:1;min-width:0}
+    #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
+    #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#111118;border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:10px;color:rgba(255,255,255,0.4);font-weight:400;gap:4px}
+
+    /* ═══ Tab bar redesign ════════════════════════════════════ */
+    #tabsContainer{background:#f8f9fa;border-bottom:1px solid #e5e7eb;box-shadow:none}
+    #tabsFilterTitle{background:#f8f9fa;border-right:1px solid #e5e7eb}
+    #filterPanelTitle{font-size:13px;font-weight:500;color:#374151}
+    #tabsContainer .tab-btn{font-size:13px;font-weight:500;height:44px;padding:0 16px;border-right:1px solid #f1f3f4;color:#9ca3af;background:transparent;gap:.375rem}
+    #tabsContainer .tab-btn.active{background:#fff;color:#111827}
+    #tabsContainer .tab-btn:not(.active):hover{color:#374151;background:transparent}
 
   </style>
 </head>
@@ -223,24 +262,34 @@
     <span id="pipeTerritoire" class="text-gray-400 hidden">🔗 Le Terrain</span>
   </div></div>
 
-  <nav class="bg-blue-900 p-4 shadow-xl sticky top-0 z-50">
-    <div class="container mx-auto flex items-center justify-between flex-wrap gap-2">
-      <div class="text-white font-extrabold text-2xl tracking-tight">🛩️ PILOT <span class="text-blue-400">PRO</span> <span class="text-xs text-blue-300 font-mono">V1.0</span></div>
-      <div class="flex items-center gap-3"><div id="navStats" class="hidden text-xs text-blue-200 font-mono"></div><div id="navStore" class="hidden text-white text-sm bg-blue-800 py-1 px-3 rounded-full border border-blue-700 font-bold"></div><div id="navPerf" class="hidden text-xs text-green-300 font-mono"></div><div id="navPeriod" class="hidden relative"><button id="navPeriodBtn" onclick="togglePeriodDropdown()" class="text-xs text-cyan-300 font-mono hover:text-white transition-colors cursor-pointer select-none">📅 —</button><div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div></div><button onclick="openCmdPalette()" class="text-slate-300 hover:text-white text-sm flex items-center gap-1 hover:bg-blue-800 py-1 px-2 rounded-lg transition-colors" title="Recherche universelle (Ctrl+K / Cmd+K)">🔍 <span class="hidden sm:inline text-xs font-mono opacity-70">Cmd+K</span></button><button id="navReportingBtn" class="hidden text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1 px-3 rounded-full font-bold transition-colors" onclick="openReporting()">📊 Reporting</button></div>
+  <nav id="mainNav">
+    <div class="nav-inner">
+      <span class="nav-logo" title="PILOT PRO V1.0">PILOT&nbsp;<span class="nav-logo-pro">PRO</span></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="navStats" class="hidden"></div>
+        <div id="navStore" class="hidden"></div>
+        <div id="navPerf" class="hidden"></div>
+        <div id="navPeriod" class="hidden" style="position:relative">
+          <button id="navPeriodBtn" onclick="togglePeriodDropdown()">—</button>
+          <div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div>
+        </div>
+        <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
+        <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
+      </div>
     </div>
   </nav>
 
   <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
-  <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
-    <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
-    <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
+  <div id="insightsBanner" class="hidden">
+    <div id="insightsBannerLeft"></div>
+    <div id="insightsBannerRight"></div>
   </div>
 
   <!-- Bandeau cache restauré — affiché uniquement quand les données viennent du localStorage -->
-  <div id="cacheBanner" class="hidden bg-slate-700 text-slate-200 text-xs font-semibold px-5 py-1.5 border-b border-slate-600 flex items-center justify-between gap-x-3 flex-wrap gap-y-1"></div>
+  <div id="cacheBanner" class="hidden"></div>
 
   <!-- ONGLETS — barre unifiée sticky (titre filtres à gauche + onglets à droite) -->
-  <div id="tabsContainer" class="hidden">
+  <div id="tabsContainer">
     <div id="tabsFilterTitle">
       <span id="filterPanelTitle" class="text-sm font-extrabold text-gray-700">Filtres</span>
     </div>
@@ -2412,10 +2461,9 @@
       populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
       document.getElementById('navStats').textContent=finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
-      document.getElementById('navPerf').textContent='⚡'+elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
-      if(selectedMyStore){document.getElementById('navStore').textContent='🏪 '+selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
+      if(selectedMyStore){document.getElementById('navStore').textContent=selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
       document.getElementById('navReportingBtn').classList.remove('hidden');
-      document.getElementById('tabsContainer').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
@@ -5139,13 +5187,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     document.body.classList.add('pilot-loaded');
     document.getElementById('importZone')?.classList.add('hidden');
     document.getElementById('onboardingBlock')?.classList.add('hidden');
-    document.getElementById('tabsContainer')?.classList.remove('hidden');
     document.getElementById('globalFilters')?.classList.remove('hidden');
     document.getElementById('navReportingBtn')?.classList.remove('hidden');
 
     if (selectedMyStore) {
       const ns = document.getElementById('navStore');
-      if (ns) { ns.textContent = '🏪 ' + selectedMyStore; ns.classList.remove('hidden'); }
+      if (ns) { ns.textContent = selectedMyStore; ns.classList.remove('hidden'); }
     }
 
     const useMulti = storesIntersection.size > 1;
