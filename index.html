@@ -639,6 +639,8 @@
               <th class="px-2 py-3 text-xs uppercase text-center text-gray-400">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMin')">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMax')">MAX ↕</th>
+              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
+              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 bg-gray-900" onclick="sortBy('abcClass')">ABC ↕</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 bg-gray-900" onclick="sortBy('fmrClass')">FMR ↕</th>
             </tr>
@@ -2434,7 +2436,7 @@
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
       for(let i=0;i<dataS.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataS.length);for(let j=i;j<end;j++){const row=dataS[j];const rawCode=getVal(row,'Article','Code');if(!rawCode)continue;const storeCode=extractStoreCode(row),code=cleanCode(rawCode);
-      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal};}
+      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;const _kMin=parseFloat(getVal(row,'min')||0)||0;const _kMax=parseFloat(getVal(row,'max')||0)||0;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal,qteMin:_kMin,qteMax:_kMax};}
       if(!libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==selectedMyStore)continue;
       const libelle=libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
@@ -2466,6 +2468,9 @@
       finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
+
+      // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
+      if(useMulti&&finalData.length){const _otherS=[...storesIntersection].filter(s=>s!==selectedMyStore);if(_otherS.length){for(const r of finalData){const _mins=_otherS.map(s=>stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
 
@@ -4243,10 +4248,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const tp=Math.max(1,Math.ceil(filteredData.length/PAGE_SIZE));if(currentPage>=tp)currentPage=tp-1;const start=currentPage*PAGE_SIZE,pd=filteredData.slice(start,start+PAGE_SIZE);
     document.getElementById('resultCount').textContent=filteredData.length.toLocaleString('fr')+' article'+(filteredData.length>1?'s':'');document.getElementById('pageInfo').textContent=`${currentPage+1}/${tp}`;document.getElementById('btnPrev').disabled=currentPage<=0;document.getElementById('btnNext').disabled=currentPage>=tp-1;
     const p=[];
+    const showMed=storesIntersection.size>1;
+    {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
       const bg=r.isNouveaute?'bg-emerald-50':(r.nouveauMin>0?'bg-white':'bg-gray-50 text-gray-400');
       const sc=r.stockActuel<0?'text-red-600 font-extrabold':'text-orange-600 font-bold';
       const br=getAgeBracket(r.ageJours);
+      const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMin>r.medMinReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
+      const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMax>r.medMaxReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
     p.push(`<tr class="border-b hover:bg-blue-50 ${bg}">
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
@@ -4259,10 +4268,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       <td class="px-2 py-2 text-center text-xs text-gray-400">${r.ancienMin}/${r.ancienMax}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-extrabold text-blue-700 bg-blue-50 text-xs">${r.nouveauMax}</td>
+      ${_medMinCell}${_medMaxCell}
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'text-green-700 bg-green-50':r.abcClass==='B'?'text-blue-700 bg-blue-50':r.abcClass==='C'?'text-orange-700 bg-orange-50':'text-gray-400'}">${r.abcClass||'—'}</td>
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'text-green-700 bg-green-50':r.fmrClass==='M'?'text-blue-700 bg-blue-50':r.fmrClass==='R'?'text-red-600 bg-red-50':'text-gray-400'}">${r.fmrClass||'—'}</td>
     </tr>`);}
-    document.getElementById('tableBody').innerHTML=p.join('')||'<tr><td colspan="13" class="text-center py-8 text-gray-500">Aucun.</td></tr>';
+    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${13+(showMed?2:0)}" class="text-center py-8 text-gray-500">Aucun.</td></tr>`;
   }
 
   // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
