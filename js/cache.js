@@ -34,7 +34,7 @@ function _saveToCache() {
         [...ventesClientArticle].map(([k, v]) => [k, Object.fromEntries([...v])])
       ),
       clientArticles: Object.fromEntries(
-        [...clientArticles].map(([k, v]) => [k, Object.fromEntries([...v])])
+        [...clientArticles].map(([k, v]) => [k, [...v]])
       ),
       articleClients: Object.fromEntries(
         [...articleClients].map(([k, v]) => [k, [...v]])
@@ -142,7 +142,7 @@ function _restoreFromCache() {
       : new Map();
 
     clientArticles = cache.clientArticles
-      ? new Map(Object.entries(cache.clientArticles).map(([k, v]) => [k, new Map(Object.entries(v))]))
+      ? new Map(Object.entries(cache.clientArticles).map(([k, v]) => [k, new Set(v)]))
       : new Map();
 
     articleClients = cache.articleClients
