@@ -109,6 +109,10 @@ function _onReloadFiles() {
   document.getElementById('cacheBanner').classList.add('hidden');
   document.getElementById('importZone')?.classList.remove('hidden');
   document.getElementById('onboardingBlock')?.classList.remove('hidden');
+  if (finalData.length > 0) {
+    const btn = document.getElementById('importZoneCancelBtn');
+    if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
+  }
 }
 
 // Purger IndexedDB + préférences localStorage + reload

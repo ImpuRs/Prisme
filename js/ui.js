@@ -75,6 +75,10 @@ function expandImportZone() {
   if (iz) iz.classList.remove('hidden');
   if (bannerRight) bannerRight.innerHTML = '';
   if (banner && bannerLeft && !bannerLeft.innerHTML.trim()) banner.classList.add('hidden');
+  if (finalData.length > 0) {
+    const btn = document.getElementById('importZoneCancelBtn');
+    if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
+  }
 }
 
 // ── Tab navigation ────────────────────────────────────────────

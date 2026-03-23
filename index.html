@@ -596,6 +596,9 @@
 
     <!-- UPLOAD -->
     <div id="importZone">
+    <div id="importZoneCancelBtn" class="hidden" style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button onclick="collapseImportZone()" style="font-size:11px;font-weight:600;color:#6b7280;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;padding:3px 12px;cursor:pointer" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">✕ Annuler</button>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-sm text-blue-900 mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] text-blue-500 mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
       <div id="dropStock" class="p-3 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-sm text-emerald-900 mb-0.5">2. État du Stock</h2><p class="text-[10px] text-emerald-500 mb-1.5">Statuts, Valeurs, Dates — obligatoire</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
