@@ -522,7 +522,20 @@
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs text-gray-600 mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
       </div>
 
-      <!-- Section 3 — Radar & Diagnostic -->
+      <!-- Section 3 — Tableau Territoire -->
+      <p class="text-[11px] font-extrabold text-emerald-700 uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🔢 Total</h4><p class="text-xs text-gray-600 mt-1">Nombre total de clients dans la zone de chalandise pour cette direction ou ce métier. Base de référence pour tous les ratios.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌐 Actifs Leg.</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté chez Legallais <strong>tous canaux confondus</strong> dans les 12 derniers mois. Source : fichier Zone de Chalandise (CA N &gt; 0).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 Actifs PDV</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté <strong>en agence</strong> (canal MAGASIN) sur la période couverte par le fichier Consommé. Sous-ensemble des Actifs Leg.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌱 Prospects</h4><p class="text-xs text-gray-600 mt-1">Clients identifiés dans la zone de chalandise mais <strong>n'ayant jamais acheté</strong> chez Legallais (CA N-1 = 0 et CA N = 0, statut non-perdu).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⏳ Perdus 12-24m</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté chez Legallais <strong>il y a 12 à 24 mois</strong> mais plus depuis (CA N-1 &gt; 0, CA N = 0). Priorité de reconquête immédiate.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">💤 Inactifs</h4><p class="text-xs text-gray-600 mt-1">Clients sans achat depuis <strong>plus de 24 mois</strong> (CA N-1 = 0 et CA N = 0, statut perdu ou inactif). Reconquête plus difficile.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">📈 % capté Leg.</h4><p class="text-xs text-gray-600 mt-1"><strong>Actifs Leg. ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui achètent encore chez Legallais. Un taux élevé = Legallais bien implanté sur ce métier.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 % capté PDV</h4><p class="text-xs text-gray-600 mt-1"><strong>Actifs PDV ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui viennent en agence. Principal levier du chef d'agence — l'écart avec % capté Leg. révèle les clients à rapatrier au comptoir.</p></div>
+      </div>
+
+      <!-- Section 4 — Radar & Diagnostic -->
       <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Radar &amp; Diagnostic</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs text-gray-600 mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
@@ -1439,14 +1452,10 @@
       if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const d=dirMap[dirKey];d.total++;
       const pdvActif=_isPDVActif(cc);
-      const legActif=_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif;
-      if(legActif){d.actifsLeg++;totalActifsLeg++;}
+      if(_isProspect(info)){d.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){d.actifsLeg++;totalActifsLeg++;}
       if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
-      if(_isProspect(info))d.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)d.perdus12_24++;
-        else d.inactifs++;
-      }
       d.caPDVZone+=(info.caPDVN||0);
     }
     // Fixed thead — columns NEVER change
@@ -1518,14 +1527,11 @@
       const m=info.metier||'Autre';
       if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const md=metierMap[m];md.total++;
-      if(_isGlobalActif(info))md.actifsLeg++;
       const pdvActif=_isPDVActif(cc);
+      if(_isProspect(info)){md.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){md.actifsLeg++;}
       if(pdvActif)md.actifsPDV++;
-      if(_isProspect(info))md.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)md.perdus12_24++;
-        else md.inactifs++;
-      }
       md.caPDVZone+=(info.caPDVN||0);
     }
     let metiersArr=Object.values(metierMap).filter(m=>m.total>0);
@@ -1580,14 +1586,11 @@
       const key=sect+'||'+comm;
       if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const sd=sectMap[key];sd.total++;
-      if(_isGlobalActif(info))sd.actifsLeg++;
       const pdvActif=_isPDVActif(cc);
+      if(_isProspect(info)){sd.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){sd.actifsLeg++;}
       if(pdvActif)sd.actifsPDV++;
-      if(_isProspect(info))sd.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)sd.perdus12_24++;
-        else sd.inactifs++;
-      }
       sd.caPDVZone+=(info.caPDVN||0);
     }
     let sectsArr=Object.values(sectMap);
@@ -2352,9 +2355,10 @@
     if(f3){updatePipeline('territoire','pending');}
     showLoading('Lecture…','');await yieldToMain();
     try{
-      updatePipeline('consomme','active');
-      const dataC=await readExcel(f1);updateProgress(25,100,'Stock…');await yieldToMain();
-      const dataS=await readExcel(f2);updateProgress(40,100);
+      updatePipeline('consomme','active');updatePipeline('stock','active');
+      updateProgress(10,100,'Lecture fichiers (parallèle)…');
+      const [dataC,dataS]=await Promise.all([readExcel(f1),readExcel(f2)]);
+      updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
       const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
       const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();
       if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
@@ -2376,9 +2380,11 @@
       const colSousFamille=stockKeys.find(k=>{const l=k.toLowerCase();return l.includes('sous')&&l.includes('famille');})||stockKeys.find(k=>k.toLowerCase().startsWith('sous-famille'));
 
       updatePipeline('stock','active');updatePipeline('consomme','active');
+      _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
       const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();clientLastOrder=new Map();clientNomLookup={};ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
+      let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
@@ -2442,13 +2448,16 @@
       ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
       updatePipeline('stock','active');
+      _resetColCache(); // colonnes stock différentes du consommé
+      // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
+      {const _ks0=Object.keys(dataS[0]||{});_cSStk=_ks0.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});_cSValS=_ks0.find(k=>{const lk=k.toLowerCase().replace(/[\r\n]/g,' ');return lk.includes('valeur')&&lk.includes('stock');});}
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       finalData=[];libelleLookup={};stockParMagasin={};cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set()};
       parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
       for(let i=0;i<dataS.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataS.length);for(let j=i;j<end;j++){const row=dataS[j];const rawCode=getVal(row,'Article','Code');if(!rawCode)continue;const storeCode=extractStoreCode(row),code=cleanCode(rawCode);
-      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;const _kMin=parseFloat(getVal(row,'min')||0)||0;const _kMax=parseFloat(getVal(row,'max')||0)||0;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal,qteMin:_kMin,qteMax:_kMax};}
+      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const _stkVal=_cSValS?cleanPrice(row[_cSValS]):null;const _kMin=parseFloat(getVal(row,'min')||0)||0;const _kMax=parseFloat(getVal(row,'max')||0)||0;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(_cSStk?row[_cSStk]:0),valeurStock:_stkVal,qteMin:_kMin,qteMax:_kMax};}
       if(!libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==selectedMyStore)continue;
       const libelle=libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
@@ -2456,7 +2465,7 @@
       const sousFamille=colSousFamille?(row[colSousFamille]||'').toString().trim():'';
       const rawEmp=(getVal(row,'Emplacement')||'').toString().trim();const emplacement=(rawEmp===''||rawEmp==='-')?'':rawEmp;
       if(famille&&famille!=='Non Classé')familles.add(famille);if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
-      const keysRow=Object.keys(row);const keyStock=keysRow.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});const keyValeurStock=keysRow.find(k=>{const lk=k.toLowerCase().replace(/[\r\n]/g,' ');return lk.includes('valeur')&&lk.includes('stock');});
+      const keyStock=_cSStk;const keyValeurStock=_cSValS;
       const stockActuel=cleanPrice(keyStock?row[keyStock]:0);const valeurStock=keyValeurStock?cleanPrice(row[keyValeurStock]):null;const prixUnitaire=(valeurStock!==null&&stockActuel!==0)?Math.abs(valeurStock/stockActuel):(Math.abs(cleanPrice(getVal(row,'Valeur','Prix')))/(Math.abs(stockActuel)||1));
       const dateSortie=parseExcelDate(getVal(row,'dernière sortie','sortie'));const date1ereEntree=parseExcelDate(getVal(row,'première entrée','premiere entree','première réception'));const dateEntree=parseExcelDate(getVal(row,'dernière entrée','entrée'));const dateRef=parseExcelDate(getVal(row,'référencement','réf'));
       const dateInactivite=dateSortie||dateEntree||dateRef;const ageJours=dateInactivite?daysBetween(dateInactivite,NOW):999;const age1ereEntree=date1ereEntree?daysBetween(date1ereEntree,NOW):999;const isNouveaute=(age1ereEntree<NOUVEAUTE_DAYS)&&(!dateSortie||ageJours<90);

@@ -54,30 +54,60 @@ function parseExcelDate(v) {
 
 function daysBetween(a, b) { const d = b.getTime() - a.getTime(); return d > 0 ? Math.ceil(d / 864e5) : 0; }
 
+// ── Column-name lookup cache (reset between datasets) ─────────────────────
+// Avoids ~1M Object.keys + find + toLowerCase calls during the parse loops.
+let _CC = { gv: {}, qty: {}, ca: {}, vmb: {} };
+function _resetColCache() { _CC = { gv: {}, qty: {}, ca: {}, vmb: {} }; }
+
 function getVal(r, ...k) {
-  const ks = Object.keys(r);
-  for (const p of k) { const f = ks.find(x => x.toLowerCase().includes(p.toLowerCase())); if (f !== undefined) return r[f]; }
-  return '';
+  const cKey = k.join('\x00');
+  let col = _CC.gv[cKey];
+  if (col === undefined) {
+    const ks = Object.keys(r);
+    col = null;
+    for (const p of k) {
+      const f = ks.find(x => x.toLowerCase().includes(p.toLowerCase()));
+      if (f !== undefined) { col = f; break; }
+    }
+    _CC.gv[cKey] = col;
+  }
+  return col !== null ? (r[col] ?? '') : '';
 }
 
 function getQuantityColumn(r, t) {
-  const ks = Object.keys(r), tl = t.toLowerCase();
-  let f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && (l.includes('qté') || l.includes('qte') || l.includes('qt') || l.includes('quantité')); });
-  if (!f) f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && !l.includes('ca ') && !l.includes('vmb'); });
-  return f ? parseFloat(r[f] || 0) : 0;
+  const tl = t.toLowerCase();
+  let col = _CC.qty[tl];
+  if (col === undefined) {
+    const ks = Object.keys(r);
+    let f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && (l.includes('qté') || l.includes('qte') || l.includes('qt') || l.includes('quantité')); });
+    if (!f) f = ks.find(k => { const l = k.toLowerCase(); return l.includes(tl) && !l.includes('ca ') && !l.includes('vmb'); });
+    _CC.qty[tl] = col = f || null;
+  }
+  return col ? parseFloat(r[col] || 0) : 0;
 }
 
 function getCaColumn(r, t) {
-  const ks = Object.keys(r), tl = t.toLowerCase();
-  const f = ks.find(k => { const l = k.toLowerCase(); return (l.includes('ca') || l.includes('montant')) && l.includes(tl); });
-  return f ? parseFloat((r[f] || '').toString().replace(',', '.')) || 0 : 0;
+  const tl = t.toLowerCase();
+  let col = _CC.ca[tl];
+  if (col === undefined) {
+    const ks = Object.keys(r);
+    const f = ks.find(k => { const l = k.toLowerCase(); return (l.includes('ca') || l.includes('montant')) && l.includes(tl); });
+    _CC.ca[tl] = col = f || null;
+  }
+  return col ? parseFloat((r[col] || '').toString().replace(',', '.')) || 0 : 0;
 }
 
 function getVmbColumn(r, t) {
-  const ks = Object.keys(r), tl = t.toLowerCase();
-  const f = ks.find(k => { const l = k.toLowerCase(); return l.includes('vmb') && l.includes(tl); });
-  return f ? parseFloat((r[f] || '').toString().replace(',', '.')) || 0 : 0;
+  const tl = t.toLowerCase();
+  let col = _CC.vmb[tl];
+  if (col === undefined) {
+    const ks = Object.keys(r);
+    const f = ks.find(k => { const l = k.toLowerCase(); return l.includes('vmb') && l.includes(tl); });
+    _CC.vmb[tl] = col = f || null;
+  }
+  return col ? parseFloat((r[col] || '').toString().replace(',', '.')) || 0 : 0;
 }
+// ──────────────────────────────────────────────────────────────────────────
 
 function extractStoreCode(row) {
   return (getVal(row, 'Code PDV', 'PDV', 'Code Agence', 'Agence', 'code pdv', 'code agence') || '').toString().trim().toUpperCase();
