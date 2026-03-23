@@ -77,6 +77,7 @@ async function parseChalandise(file) {
   const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on territoire tab
   if (finalData && finalData.length > 0) { computeClientCrossing(); renderAll(); }
+  _saveSessionToIDB(); // Sauvegarder avec les données chalandise
 }
 
 function onChalandiseSelected(input) {

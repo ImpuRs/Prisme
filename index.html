@@ -2483,7 +2483,7 @@
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,selectedMyStore,finalData.length,elapsed);
-      _saveToCache(); // Sauvegarder après le chargement principal
+      _saveToCache(); _saveSessionToIDB(); // Sauvegarder après le chargement principal
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
@@ -2497,7 +2497,7 @@
           updatePipeline('territoire','done');
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
-          _saveToCache(); // Resauvegarder avec les données territoire
+          _saveToCache(); _saveSessionToIDB(); // Resauvegarder avec les données territoire
         }else{showToast('⚠️ Fichier territoire vide ou non lisible','warning');}
       }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');updatePipeline('territoire','pending');}
       finally{showTerritoireLoading(false);}
@@ -5181,13 +5181,41 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
 
-  // ── Restauration des préférences au démarrage ─────────────────
-  (function _initFromCache() {
+  // ── Restauration de session au démarrage ─────────────────────
+  (async function _initFromCache() {
     // 1. Toujours restaurer les exclusions (pas de TTL)
     _restoreExclusions();
-    // 2. Restaurer les préférences (agence, filtres) — retourne toujours false
-    //    Les données volumineuses ne sont plus en cache : l'utilisateur recharge ses fichiers.
-    _restoreFromCache();
+    // 2. Tenter la restauration complète depuis IndexedDB
+    const restored = await _restoreSessionFromIDB();
+    if (restored && finalData.length > 0) {
+      // Masquer zone d'import, configurer l'UI comme après un chargement normal
+      document.getElementById('importZone')?.classList.add('hidden');
+      document.getElementById('onboardingBlock')?.classList.add('hidden');
+      if (selectedMyStore) {
+        document.getElementById('navStore').textContent = selectedMyStore;
+        document.getElementById('navStore').classList.remove('hidden');
+      }
+      document.getElementById('navReportingBtn').classList.remove('hidden');
+      document.getElementById('globalFilters').classList.remove('hidden');
+      document.body.classList.add('pilot-loaded');
+      const useMulti = storesIntersection.size > 1;
+      if (useMulti) { document.getElementById('btnTabBench').classList.remove('hidden'); buildBenchCheckboxes(); }
+      else { document.getElementById('btnTabBench').classList.add('hidden'); }
+      document.getElementById('btnTabTerritoire').classList.remove('hidden');
+      const terrNoC = document.getElementById('terrNoChalandise');
+      if (terrNoC) terrNoC.classList.toggle('hidden', chalandiseReady);
+      updatePeriodAlert();
+      buildPeriodFilter();
+      computeClientCrossing();
+      currentPage = 0;
+      renderAll();
+      if (useMulti) { _buildObsUniversDropdown(); renderBenchmark(); }
+      if (territoireReady) { renderTerritoireTab(); }
+      _showCacheBanner();
+    } else {
+      // Pas de session IDB — restaurer seulement les préférences (localStorage)
+      _restoreFromCache();
+    }
   })();
 
   // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
