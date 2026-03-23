@@ -12,7 +12,7 @@
     #periodBanner,#stockMonoBanner{display:none;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;}
     #periodBanner.active,#stockMonoBanner.active{display:block}
     /* ═══ Sticky header wrapper ═══════════════════════════════ */
-    #stickyHeader{position:sticky;top:0;z-index:9000}
+    #stickyHeader{position:sticky;top:0;z-index:9000;will-change:transform}
     /* VOLET 2bis: contributeurs agence — 4 niveaux */
     .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:#f5f3ff}.contrib-dir-row.open{background:#ede9fe}
     .contrib-dir-detail{display:none}.contrib-dir-detail.open{display:table-row-group}
@@ -5449,6 +5449,23 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const el=e.target.closest('.info-tip[data-tip],[data-tooltip]');
       if(el&&!el.contains(e.relatedTarget))tt.style.display='none';
     });
+  })();
+
+  // ── Fix scroll blocking after focus change (Safari/Chrome desktop + mobile) ──
+  // position:sticky elements can desync the scroll container when the page loses
+  // and regains focus. Nudging scrollTop by 1px forces a layout recalc.
+  (function(){
+    function _fixScroll(){
+      const mc=document.getElementById('mainContent');
+      if(!mc)return;
+      const s=mc.scrollTop;
+      mc.scrollTop=s+1;
+      requestAnimationFrame(function(){mc.scrollTop=s;});
+    }
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible')_fixScroll();
+    });
+    window.addEventListener('focus',_fixScroll,true);
   })();
   </script>
 </body>
