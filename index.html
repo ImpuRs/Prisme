@@ -137,7 +137,8 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow-x:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:80px;height:calc(100vh - 80px);overflow-y:auto}
+    #tabsContainer{position:sticky;top:80px;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:0.25rem 1rem}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;background:#f1f5f9}
     /* Mobile drawer */
@@ -229,6 +230,19 @@
   <div id="insightsBanner" class="hidden bg-slate-800 text-slate-200 text-xs font-bold px-5 py-2 border-b border-slate-700 flex items-center justify-between gap-x-3">
     <div id="insightsBannerLeft" class="flex flex-wrap items-center gap-x-3 gap-y-1"></div>
     <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
+  </div>
+
+  <!-- ONGLETS (sticky, hors du 2-column layout) -->
+  <div id="tabsContainer" class="hidden">
+    <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
+      <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
+      <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
+      <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">⚙️ COCKPIT</button></li>
+      <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
+      <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
+      <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
+      <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-orange-600 font-extrabold">🎯 Promo</button></li>
+    </ul>
   </div>
 
   <!-- 2-column app layout -->
@@ -572,19 +586,6 @@
     <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
 
-
-    <!-- ONGLETS -->
-    <div id="tabsContainer" class="hidden mb-6">
-      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center gap-1">
-        <li><button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-blue-600 text-blue-600">📋 Articles</button></li>
-        <li><button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-gray-500">📊 Mon Stock</button></li>
-        <li><button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-red-600 font-extrabold uppercase">⚙️ COCKPIT</button></li>
-        <li><button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-indigo-600 font-bold">📡 Radar</button></li>
-        <li><button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-violet-600 font-bold hidden" id="btnTabTerritoire">🔗 Le Terrain</button></li>
-        <li><button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-cyan-600 font-extrabold hidden" id="btnTabBench">🔭 Le Réseau</button></li>
-        <li><button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1 p-3 border-b-2 rounded-t-lg border-transparent text-orange-600 font-extrabold">🎯 Promo</button></li>
-      </ul>
-    </div>
 
     <!-- TAB 1 : ARTICLES -->
     <div id="tabTable" class="tab-content hidden">
