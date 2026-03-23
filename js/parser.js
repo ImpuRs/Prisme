@@ -259,7 +259,7 @@ function getSelectedSecteurs() {
 // ── Benchmark multi-agences ───────────────────────────────────
 function computeBenchmark() {
   const cs = getBenchCompareStores().filter(s => storesIntersection.has(s));
-  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [] };
+  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) return;
   // Normalize famille names: strip prefix code "O05 - " etc. to avoid duplicates
   // when consommé (no prefix) and stock (with prefix) name the same family differently.
@@ -359,10 +359,12 @@ function computeBenchmark() {
   obsFamiliesWin.sort((a, b) => (b.caMe - b.caOther) - (a.caMe - a.caOther));
   benchLists.obsFamiliesLose = obsFamiliesLose; benchLists.obsFamiliesWin = obsFamiliesWin;
   benchLists.obsActionPlan = obsFamiliesLose.slice(0, 3).map(f => { const artsToRef = (f.missingArts || []).filter(a => a.statutMe !== '✅ En stock'); const artsVisi = (f.missingArts || []).filter(a => a.statutMe === '✅ En stock'); return { fam: f.fam, ecartPct: f.ecartPct, nbToRef: artsToRef.length, nbVisibility: artsVisi.length, refOther: f.refOther, caPotentiel: Math.round(Math.abs(f.caOther - f.caMe)) }; });
-  // === PÉPITES — articles où je surperforme le réseau ===
-  // Build per-code frequency list across cs stores
-  const _pepCsFreqs = {};
-  for (const store of cs) { const sv = ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) _pepCsFreqs[code] = []; _pepCsFreqs[code].push(data.countBL); } }
+  // === PÉPITES — articles où je surperforme / où le réseau me surpasse ===
+  // Build per-code frequency + CA lists across cs stores (one pass)
+  const _pepCsFreqs = {}, _pepCsCA = {};
+  for (const store of cs) { const sv = ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); } }
+  const _pepLib = code => { const r = libelleLookup[code] || code; return /^\d{6} - /.test(r) ? r.substring(9).trim() : r; };
+  // 💎 Mes pépites — I outperform
   const pepites = [];
   for (const [code, data] of Object.entries(myV)) {
     if (!/^\d{6}$/.test(code)) continue;
@@ -371,12 +373,24 @@ function computeBenchmark() {
     const csFreqs = _pepCsFreqs[code] || [];
     const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
     if (compFreq <= 0 || myFreq <= compFreq * 1.5) continue;
-    const rank = csFreqs.filter(f => f > myFreq).length + 1;
-    const rankTotal = csFreqs.length + 1;
-    const fam = _normFam(articleFamille[code]) || '';
-    const _rawLib = libelleLookup[code] || code; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib;
-    pepites.push({ code, lib, fam, myFreq, compFreq: Math.round(compFreq), rank, rankTotal, caMe: Math.round(artCA(data)) });
+    const ecartPct = Math.round((myFreq / compFreq - 1) * 100);
+    pepites.push({ code, lib: _pepLib(code), fam: _normFam(articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)) });
   }
   pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
   benchLists.pepites = pepites.slice(0, 50);
+  // 🔥 Pépites réseau — comparison outperforms me
+  const pepitesOther = [];
+  const _addPepOther = (code, compFreq, caComp) => {
+    const myFreq = myV[code]?.countBL || 0;
+    if (compFreq < 3 || compFreq <= myFreq * 1.5) return;
+    const ecartPct = myFreq > 0 ? Math.round((compFreq / myFreq - 1) * 100) : null;
+    pepitesOther.push({ code, lib: _pepLib(code), fam: _normFam(articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caComp: Math.round(caComp) });
+  };
+  if (compV) {
+    for (const [code, data] of Object.entries(compV)) { if (!/^\d{6}$/.test(code)) continue; _addPepOther(code, data.countBL || 0, artCA(data)); }
+  } else {
+    for (const [code, csFreqs] of Object.entries(_pepCsFreqs)) { if (!csFreqs.length) continue; const caArr = _pepCsCA[code] || []; _addPepOther(code, _median(csFreqs), caArr.length ? _median(caArr) : 0); }
+  }
+  pepitesOther.sort((a, b) => (b.compFreq - b.myFreq) - (a.compFreq - a.myFreq));
+  benchLists.pepitesOther = pepitesOther.slice(0, 50);
 }

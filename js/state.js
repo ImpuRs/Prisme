@@ -25,7 +25,7 @@ let articleUnivers = {};
 // ── Benchmark ──
 let benchLists = {
   missed: [], under: [], over: [], storePerf: {}, familyPerf: [],
-  obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: []
+  obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: []
 };
 
 // ── Cockpit ──

@@ -348,4 +348,4 @@ function _deserializeSetsObj(obj) {
 
 // benchLists ne contient pas de Sets actuellement
 function _serializeBenchLists(bl) { return { ...bl }; }
-function _deserializeBenchLists(bl) { return bl || { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [] }; }
+function _deserializeBenchLists(bl) { return bl || { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] }; }
