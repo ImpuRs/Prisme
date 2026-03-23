@@ -236,6 +236,9 @@
     <div id="insightsBannerRight" class="flex items-center gap-1 flex-wrap shrink-0"></div>
   </div>
 
+  <!-- Bandeau cache restauré — affiché uniquement quand les données viennent du localStorage -->
+  <div id="cacheBanner" class="hidden bg-slate-700 text-slate-200 text-xs font-semibold px-5 py-1.5 border-b border-slate-600 flex items-center justify-between gap-x-3 flex-wrap gap-y-1"></div>
+
   <!-- ONGLETS — barre unifiée sticky (titre filtres à gauche + onglets à droite) -->
   <div id="tabsContainer" class="hidden">
     <div id="tabsFilterTitle">
@@ -490,6 +493,16 @@
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs text-gray-600 mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs text-gray-600 mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ Panier moyen</h4><p class="text-xs text-gray-600 mt-1">CA total ÷ nombre de BL. Valeur moyenne d'une commande comptoir.</p></div>
+      </div>
+
+      <!-- Section cache -->
+      <div class="mt-5 pt-4 border-t border-blue-200 flex items-center gap-3 flex-wrap">
+        <span class="text-[11px] text-blue-700 font-semibold">💾 Cache local :</span>
+        <button onclick="_clearCache();expandImportZone();document.getElementById('glossaire').classList.add('hidden')"
+          class="text-[11px] bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 font-semibold py-1 px-3 rounded-lg transition-colors">
+          🗑️ Effacer le cache (forcer le rechargement des fichiers)
+        </button>
+        <span class="text-[10px] text-blue-500">Les exclusions clients sont conservées même après effacement du cache.</span>
       </div>
     </div>
 
@@ -1270,6 +1283,7 @@
   <script src="js/engine.js"></script>
   <script src="js/parser.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/cache.js"></script>
   <script>
   'use strict';
 
@@ -2223,15 +2237,18 @@
     const allClients=[...(_cockpitExportData?.silencieux||[]),...(_cockpitExportData?.urgences||[]),...(_cockpitExportData?.developper||[]),...(_cockpitExportData?.fideliser||[])];
     const clientData=allClients.find(c=>c.code===cc)||{code:cc,nom};
     excludedClients.set(cc,{reason,date:new Date().toISOString().slice(0,10),by:selectedMyStore||'',category:catKey,nom,clientData});
+    _saveExclusions();
     showToast(`👁️ ${nom} masqué — ${reason}`,'info');
     _buildCockpitClient();
   }
   function _unexcludeClient(cc){
     excludedClients.delete(cc);
+    _saveExclusions();
     _buildCockpitClient();
   }
   function _unexcludeAll(catKey){
     for(const[cc,v] of excludedClients.entries()){if(v.category===catKey)excludedClients.delete(cc);}
+    _saveExclusions();
     _buildCockpitClient();
   }
   function _toggleExcludedList(id){
@@ -2261,6 +2278,7 @@
           count++;
         }
         input.value='';
+        _saveExclusions();
         showToast(`✅ ${count} exclusions importées`,'success');
         _buildCockpitClient();
       }catch(err){showToast('⚠️ Erreur import : '+err.message,'error');}
@@ -2453,6 +2471,7 @@
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,selectedMyStore,finalData.length,elapsed);
+      _saveToCache(); // Sauvegarder après le chargement principal
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('bg-gray-800','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
@@ -2466,6 +2485,7 @@
           updatePipeline('territoire','done');
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
+          _saveToCache(); // Resauvegarder avec les données territoire
         }else{showToast('⚠️ Fichier territoire vide ou non lisible','warning');}
       }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');updatePipeline('territoire','pending');}
       finally{showTerritoireLoading(false);}
@@ -5143,6 +5163,69 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     showToast('📥 Plan de vol exporté','success');
   }
 
+
+  // ── Restauration cache au démarrage ──────────────────────────
+  (function _initFromCache() {
+    // 1. Toujours restaurer les exclusions (pas de TTL)
+    _restoreExclusions();
+
+    // 2. Tenter de restaurer le cache principal
+    if (!_restoreFromCache()) return; // Pas de cache → onboarding normal
+
+    // 3. Recalculer les données dérivées
+    computeABCFMR(finalData);
+    computeClientCrossing();
+    updatePeriodAlert();
+
+    // 4. Restaurer l'état UI
+    document.body.classList.add('pilot-loaded');
+    document.getElementById('importZone')?.classList.add('hidden');
+    document.getElementById('onboardingBlock')?.classList.add('hidden');
+    document.getElementById('tabsContainer')?.classList.remove('hidden');
+    document.getElementById('globalFilters')?.classList.remove('hidden');
+    document.getElementById('navReportingBtn')?.classList.remove('hidden');
+
+    if (selectedMyStore) {
+      const ns = document.getElementById('navStore');
+      if (ns) { ns.textContent = '🏪 ' + selectedMyStore; ns.classList.remove('hidden'); }
+    }
+
+    const useMulti = storesIntersection.size > 1;
+    if (useMulti) {
+      const sel = document.getElementById('selectMyStore');
+      if (sel) {
+        sel.innerHTML = '<option value="">—</option>';
+        [...storesIntersection].sort().forEach(s => {
+          const o = document.createElement('option');
+          o.value = s; o.textContent = s; sel.appendChild(o);
+        });
+        sel.value = selectedMyStore;
+      }
+      document.getElementById('storeSelector')?.classList.remove('hidden');
+      const si = document.getElementById('storeInfo');
+      if (si) si.innerHTML = '✅ ' + storesIntersection.size + ' mag.';
+      document.getElementById('btnTabBench')?.classList.remove('hidden');
+    }
+
+    if (finalData.length > 0) document.getElementById('btnTabTerritoire')?.classList.remove('hidden');
+    const terrNoC = document.getElementById('terrNoChalandise');
+    if (terrNoC) terrNoC.classList.toggle('hidden', chalandiseReady);
+
+    // 5. Afficher l'UI
+    currentPage = 0;
+    renderAll();
+    if (useMulti) { _buildObsUniversDropdown(); renderBenchmark(); }
+
+    // 6. Masquer import zone (mode collapsed)
+    const nbF = 1 + (chalandiseReady ? 1 : 0);
+    collapseImportZone(nbF, selectedMyStore, finalData.length, 0);
+
+    // 7. Afficher le bandeau "données restaurées"
+    _showCacheBanner();
+
+    const ns2 = document.getElementById('navStats');
+    if (ns2) { ns2.textContent = finalData.length.toLocaleString('fr') + ' art.'; ns2.classList.remove('hidden'); }
+  })();
 
   // ── Global JS tooltip — position:fixed escapes overflow:auto clipping ──
   (function(){
