@@ -522,7 +522,20 @@
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🏷️ Classification</h4><p class="text-xs text-gray-600 mt-1"><strong>FID Pot+</strong> = fidèle à fort potentiel · <strong>OCC Pot+</strong> = occasionnel à potentiel. Source Legallais.</p></div>
       </div>
 
-      <!-- Section 3 — Radar & Diagnostic -->
+      <!-- Section 3 — Tableau Territoire -->
+      <p class="text-[11px] font-extrabold text-emerald-700 uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🔢 Total</h4><p class="text-xs text-gray-600 mt-1">Nombre total de clients dans la zone de chalandise pour cette direction ou ce métier. Base de référence pour tous les ratios.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌐 Actifs Leg.</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté chez Legallais <strong>tous canaux confondus</strong> dans les 12 derniers mois. Source : fichier Zone de Chalandise (CA N &gt; 0).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 Actifs PDV</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté <strong>en agence</strong> (canal MAGASIN) sur la période couverte par le fichier Consommé. Sous-ensemble des Actifs Leg.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌱 Prospects</h4><p class="text-xs text-gray-600 mt-1">Clients identifiés dans la zone de chalandise mais <strong>n'ayant jamais acheté</strong> chez Legallais (CA N-1 = 0 et CA N = 0, statut non-perdu).</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">⏳ Perdus 12-24m</h4><p class="text-xs text-gray-600 mt-1">Clients ayant acheté chez Legallais <strong>il y a 12 à 24 mois</strong> mais plus depuis (CA N-1 &gt; 0, CA N = 0). Priorité de reconquête immédiate.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">💤 Inactifs</h4><p class="text-xs text-gray-600 mt-1">Clients sans achat depuis <strong>plus de 24 mois</strong> (CA N-1 = 0 et CA N = 0, statut perdu ou inactif). Reconquête plus difficile.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">📈 % capté Leg.</h4><p class="text-xs text-gray-600 mt-1"><strong>Actifs Leg. ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui achètent encore chez Legallais. Un taux élevé = Legallais bien implanté sur ce métier.</p></div>
+        <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🏪 % capté PDV</h4><p class="text-xs text-gray-600 mt-1"><strong>Actifs PDV ÷ (Total − Prospects) × 100.</strong> Part des clients non-prospects qui viennent en agence. Principal levier du chef d'agence — l'écart avec % capté Leg. révèle les clients à rapatrier au comptoir.</p></div>
+      </div>
+
+      <!-- Section 4 — Radar & Diagnostic -->
       <p class="text-[11px] font-extrabold text-indigo-700 uppercase tracking-widest mb-2">📡 Radar &amp; Diagnostic</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🅰️ ABC (valeur)</h4><p class="text-xs text-gray-600 mt-1"><strong>A</strong> = 80% du CA (top articles) · <strong>B</strong> = 15% · <strong>C</strong> = 5% (queue de gamme).</p></div>
