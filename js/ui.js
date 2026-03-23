@@ -224,6 +224,15 @@ function updatePeriodAlert() {
   } else {
     if (banner) banner.classList.remove('active');
   }
+  const stockBanner = document.getElementById('stockMonoBanner');
+  if (stockBanner) {
+    if (storeCountConsomme > 1 && storeCountConsomme > storeCountStock) {
+      stockBanner.textContent = '⚠️ Fichier Stock mono-agence détecté — chargez un export Stock multi-agences pour activer le Réseau et le benchmark.';
+      stockBanner.classList.add('active');
+    } else {
+      stockBanner.classList.remove('active');
+    }
+  }
   const btn = document.getElementById('navPeriodBtn');
   const navPeriod = document.getElementById('navPeriod');
   if (btn) { btn.textContent = `${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; }
