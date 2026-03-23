@@ -192,7 +192,9 @@ function filterByAbcFmr(abc, fmr) {
 // ── Cockpit filter ────────────────────────────────────────────
 function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
-  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker' }[type] || type;
+  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif' }[type] || type;
+  const nbtn = document.getElementById('btnNouveautesOnly');
+  if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('text-gray-600', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
   currentPage = 0; switchTab('table');
   filteredData = getFilteredData();
@@ -203,7 +205,14 @@ function showCockpitInTable(type) {
 function clearCockpitFilter(silent) {
   document.getElementById('filterCockpit').value = '';
   document.getElementById('activeCockpitFilter').classList.add('hidden');
+  const nbtn = document.getElementById('btnNouveautesOnly');
+  if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('bg-gray-200', 'text-gray-600'); }
   if (!silent) { currentPage = 0; renderAll(); }
+}
+
+function _toggleNouveautesFilter() {
+  const fc = document.getElementById('filterCockpit');
+  if (fc && fc.value === 'nouveautes') { clearCockpitFilter(); } else { showCockpitInTable('nouveautes'); }
 }
 
 // ── Period alert ──────────────────────────────────────────────
