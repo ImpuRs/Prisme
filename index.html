@@ -5261,7 +5261,28 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
       // 3. UI state (L2477-2483)
       document.body.classList.add('pilot-loaded');
+      // Fix bug IDB : storesIntersection vide → reconstruire depuis ventesParMagasin × stockParMagasin
+      if(!storesIntersection.size){
+        const _sC=new Set(Object.keys(ventesParMagasin)),_sS=new Set(Object.keys(stockParMagasin));
+        for(const s of _sC){if(_sS.has(s))storesIntersection.add(s);}
+        if(storesIntersection.size)console.log('PILOT: storesIntersection reconstruite :',[...storesIntersection]);
+      }
+      // Fix bug IDB : selectedMyStore vide → sélectionner automatiquement
+      if(!selectedMyStore&&storesIntersection.size>0){
+        selectedMyStore=storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
+        // Mettre à jour la navbar (exécutée avant ce fix, ligne 5258)
+        if(selectedMyStore){document.getElementById('navStore').textContent=selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      }
       const useMulti = storesIntersection.size > 1;
+      // Rebuild sélecteur d'agence (non reproduit dans le parcours IDB)
+      if(useMulti){
+        const _sel=document.getElementById('selectMyStore');
+        _sel.innerHTML='<option value="">—</option>';
+        [...storesIntersection].sort().forEach(s=>{const _o=document.createElement('option');_o.value=s;_o.textContent=s;_sel.appendChild(_o);});
+        _sel.value=selectedMyStore;
+        document.getElementById('storeSelector').classList.remove('hidden');
+        document.getElementById('storeInfo').innerHTML=`✅ ${storesIntersection.size} mag.`;
+      }
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}
       else{document.getElementById('btnTabBench').classList.add('hidden');}
       document.getElementById('btnTabTerritoire').classList.remove('hidden');
