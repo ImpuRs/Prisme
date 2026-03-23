@@ -4053,7 +4053,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
     const txMarge=ventesAnalysis?ventesAnalysis.txMarge:null;const vmc=ventesAnalysis?ventesAnalysis.vmc:null;
     const extraEl=document.getElementById('eqExtra');
-    if(extraEl){const parts=[];if(txMarge>0)parts.push('Tx\u00a0marge\u00a0: <strong>'+txMarge.toFixed(2)+'%</strong>');if(vmc>0)parts.push('VMC\u00a0: <strong>'+Math.round(vmc).toLocaleString('fr')+'\u00a0€</strong>');extraEl.innerHTML=parts.length?parts.join('\u00a0\u00a0·\u00a0\u00a0'):'';extraEl.classList.toggle('hidden',!parts.length);}
+    if(extraEl){const parts=[];if(txMarge>0)parts.push('Tx\u00a0marge\u00a0: <strong>'+txMarge.toFixed(2)+'%</strong>');if(vmc>0)parts.push('VMC\u00a0: <strong>'+vmc.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+'\u00a0€</strong>');extraEl.innerHTML=parts.length?parts.join('\u00a0\u00a0·\u00a0\u00a0'):'';extraEl.classList.toggle('hidden',!parts.length);}
     const src=document.getElementById('eqSource');
     if(src)src.textContent=`Source : Consommé canal MAGASIN · ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`;
   }
