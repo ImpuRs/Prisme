@@ -369,10 +369,11 @@ function computeBenchmark() {
   for (const [code, data] of Object.entries(myV)) {
     if (!/^\d{6}$/.test(code)) continue;
     const myFreq = data.countBL || 0;
-    if (myFreq < 3) continue;
+    if (myFreq < 2) continue;
     const csFreqs = _pepCsFreqs[code] || [];
+    // In 1v1 mode: compare directly against compV; in median mode: use cs median
     const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
-    if (compFreq <= 0 || myFreq <= compFreq * 1.5) continue;
+    if (compFreq <= 0 || myFreq <= compFreq * 1.3) continue;
     const ecartPct = Math.round((myFreq / compFreq - 1) * 100);
     pepites.push({ code, lib: _pepLib(code), fam: _normFam(articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)) });
   }
@@ -382,7 +383,7 @@ function computeBenchmark() {
   const pepitesOther = [];
   const _addPepOther = (code, compFreq, caComp) => {
     const myFreq = myV[code]?.countBL || 0;
-    if (compFreq < 3 || compFreq <= myFreq * 1.5) return;
+    if (compFreq < 2 || compFreq <= myFreq * 1.3) return;
     const ecartPct = myFreq > 0 ? Math.round((compFreq / myFreq - 1) * 100) : null;
     pepitesOther.push({ code, lib: _pepLib(code), fam: _normFam(articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caComp: Math.round(caComp) });
   };
