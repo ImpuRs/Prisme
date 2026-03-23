@@ -139,7 +139,7 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;overflow-y:auto}
     #tabsContainer{position:sticky;top:0;z-index:50;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:none;align-items:stretch}
     body.pilot-loaded #tabsContainer{display:flex}
     /* First launch — hide everything except onboarding + import */
@@ -154,7 +154,7 @@
     #tabsFilterTitle{width:256px;flex-shrink:0;display:none;align-items:center;padding:0 0.75rem;border-right:1px solid #e2e8f0;background:#f8fafc}
     @media(min-width:1024px){body.pilot-loaded #tabsFilterTitle{display:flex}}
     .tab-btn{white-space:nowrap;border-bottom-width:3px;transition:color .15s ease,background .15s ease}
-    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
+    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;position:sticky;top:0;height:100vh}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f1f5f9}
     /* Mobile drawer */
     #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
@@ -451,7 +451,7 @@
             <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
-              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white flex-1">
+              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white flex-1">
               <span class="text-[10px] text-gray-500">€</span>
             </div>
             <button onclick="resetObsFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
@@ -3999,6 +3999,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const t0=performance.now();
     computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+    closeFilterDrawer();
   }
 
   function onObsFilterChange(){
@@ -4014,6 +4015,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
     const t0=performance.now();computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+    closeFilterDrawer();
   }
 
   function _buildObsUniversDropdown(){
