@@ -1453,8 +1453,8 @@
       const d=dirMap[dirKey];d.total++;
       const pdvActif=_isPDVActif(cc);
       if(_isProspect(info)){d.prospects++;}
-      else if(_isPerdu(info)){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
-      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){d.actifsLeg++;totalActifsLeg++;}
+      else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
+      else{d.actifsLeg++;totalActifsLeg++;}
       if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
       d.caPDVZone+=(info.caPDVN||0);
     }
@@ -1529,8 +1529,8 @@
       const md=metierMap[m];md.total++;
       const pdvActif=_isPDVActif(cc);
       if(_isProspect(info)){md.prospects++;}
-      else if(_isPerdu(info)){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
-      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){md.actifsLeg++;}
+      else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
+      else{md.actifsLeg++;}
       if(pdvActif)md.actifsPDV++;
       md.caPDVZone+=(info.caPDVN||0);
     }
@@ -1588,8 +1588,8 @@
       const sd=sectMap[key];sd.total++;
       const pdvActif=_isPDVActif(cc);
       if(_isProspect(info)){sd.prospects++;}
-      else if(_isPerdu(info)){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
-      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){sd.actifsLeg++;}
+      else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
+      else{sd.actifsLeg++;}
       if(pdvActif)sd.actifsPDV++;
       sd.caPDVZone+=(info.caPDVN||0);
     }
