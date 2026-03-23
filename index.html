@@ -432,7 +432,7 @@
     <!-- RIGHT: main content -->
     <main id="mainContent">
 
-  <div class="container mx-auto mt-6 p-4 md:p-6 bg-white rounded-xl shadow-lg mb-10">
+  <div class="container mx-auto mt-3 p-4 md:p-5 bg-white rounded-xl shadow-lg mb-10">
 
     <!-- GLOSSAIRE -->
     <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
@@ -508,102 +508,60 @@
 
 
     <!-- ONBOARDING — visible au premier lancement, caché après le premier processData() -->
-    <div id="onboardingBlock" class="mb-6">
-      <div class="text-center mb-6 pt-2">
-        <h1 class="text-2xl font-extrabold text-gray-800 mb-1">Bienvenue sur PILOT PRO</h1>
-        <p class="text-gray-500 text-sm">Votre copilote agence — chargez vos données pour commencer</p>
+    <div id="onboardingBlock" class="mb-3">
+      <div class="flex items-center justify-between mb-2 pt-1">
+        <div>
+          <h1 class="text-base font-extrabold text-gray-800 leading-tight">PILOT PRO — Votre copilote agence</h1>
+          <p class="text-[11px] text-gray-400">Chargez vos fichiers ci-dessous pour commencer</p>
+        </div>
+        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] text-blue-600 hover:text-blue-800 font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
       </div>
-      <div class="flex flex-col gap-3 mb-5">
-        <!-- Niveau 1 -->
-        <div class="flex items-stretch gap-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
-            <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-extrabold text-sm flex items-center justify-center">1</span>
-            <div class="w-0.5 flex-1 bg-blue-200 mt-2"></div>
-          </div>
-          <div class="flex-1">
-            <p class="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest mb-0.5">Obligatoire</p>
-            <h3 class="font-extrabold text-blue-900 text-base mb-1">📊 Consommé + État du Stock</h3>
-            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-blue-700">
-              <span>→ Articles, Mon Stock, COCKPIT, Radar ABC/FMR</span>
-              <span>→ Ruptures, dormants, MIN/MAX recalculés</span>
-              <span>→ Clients silencieux &amp; top clients PDV</span>
-            </div>
-          </div>
-          <div class="hidden md:flex items-center flex-shrink-0">
-            <span class="text-[10px] bg-blue-600 text-white font-bold px-2 py-1 rounded-lg">2 fichiers</span>
+      <!-- 3 niveaux en ligne horizontale -->
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-start gap-2">
+          <span class="w-5 h-5 rounded-full bg-blue-600 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
+          <div class="min-w-0">
+            <p class="text-[9px] font-extrabold text-blue-400 uppercase tracking-widest leading-none mb-0.5">Obligatoire</p>
+            <p class="text-[11px] font-extrabold text-blue-900 leading-tight">📊 Consommé + Stock</p>
+            <p class="text-[10px] text-blue-600 mt-0.5 leading-tight">Stock · Cockpit · Radar ABC/FMR · MIN/MAX</p>
           </div>
         </div>
-        <!-- Flèche -->
-        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
-          <div class="flex-1 h-px bg-gray-200"></div>
-          <span>+ 1 fichier → niveau supérieur</span>
-          <div class="flex-1 h-px bg-gray-200"></div>
-        </div>
-        <!-- Niveau 2 -->
-        <div class="flex items-stretch gap-4 bg-rose-50 border-2 border-rose-200 rounded-xl p-4">
-          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
-            <span class="w-7 h-7 rounded-full bg-rose-500 text-white font-extrabold text-sm flex items-center justify-center">2</span>
-            <div class="w-0.5 flex-1 bg-rose-200 mt-2"></div>
-          </div>
-          <div class="flex-1">
-            <p class="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest mb-0.5">Optionnel</p>
-            <h3 class="font-extrabold text-rose-900 text-base mb-1">📋 Zone de Chalandise</h3>
-            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-rose-700">
-              <span>→ Le Terrain complet : métiers, captation</span>
-              <span>→ Cockpit client : à capter, développer, fidéliser</span>
-              <span>→ Prospects par métier &amp; potentiel récupérable</span>
-            </div>
-          </div>
-          <div class="hidden md:flex items-center flex-shrink-0">
-            <span class="text-[10px] bg-rose-500 text-white font-bold px-2 py-1 rounded-lg">3 fichiers</span>
+        <div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 flex items-start gap-2">
+          <span class="w-5 h-5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
+          <div class="min-w-0">
+            <p class="text-[9px] font-extrabold text-rose-400 uppercase tracking-widest leading-none mb-0.5">Optionnel</p>
+            <p class="text-[11px] font-extrabold text-rose-900 leading-tight">📋 Zone de Chalandise</p>
+            <p class="text-[10px] text-rose-600 mt-0.5 leading-tight">Clients · Le Terrain · Cockpit client</p>
           </div>
         </div>
-        <!-- Flèche -->
-        <div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-semibold -my-1">
-          <div class="flex-1 h-px bg-gray-200"></div>
-          <span>fichier multi-agences → benchmark réseau</span>
-          <div class="flex-1 h-px bg-gray-200"></div>
-        </div>
-        <!-- Niveau 3 -->
-        <div class="flex items-stretch gap-4 bg-cyan-50 border-2 border-cyan-200 rounded-xl p-4">
-          <div class="flex-shrink-0 flex flex-col items-center justify-start pt-0.5">
-            <span class="w-7 h-7 rounded-full bg-cyan-600 text-white font-extrabold text-sm flex items-center justify-center">3</span>
-          </div>
-          <div class="flex-1">
-            <p class="text-[10px] font-extrabold text-cyan-500 uppercase tracking-widest mb-0.5">Multi-agences</p>
-            <h3 class="font-extrabold text-cyan-900 text-base mb-1">🔭 Consommé multi-agences</h3>
-            <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-cyan-700">
-              <span>→ Le Réseau : benchmark, forces &amp; faiblesses</span>
-              <span>→ PDM bassin, CA théorique, classement agences</span>
-            </div>
-          </div>
-          <div class="hidden md:flex items-center flex-shrink-0">
-            <span class="text-[10px] bg-cyan-600 text-white font-bold px-2 py-1 rounded-lg">réseau</span>
+        <div class="bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2 flex items-start gap-2">
+          <span class="w-5 h-5 rounded-full bg-cyan-600 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
+          <div class="min-w-0">
+            <p class="text-[9px] font-extrabold text-cyan-500 uppercase tracking-widest leading-none mb-0.5">Multi-agences</p>
+            <p class="text-[11px] font-extrabold text-cyan-900 leading-tight">🔭 Consommé réseau</p>
+            <p class="text-[10px] text-cyan-600 mt-0.5 leading-tight">Benchmark · Forces &amp; faiblesses · PDM</p>
           </div>
         </div>
-      </div>
-      <div class="text-center">
-        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-xs text-blue-600 hover:text-blue-800 font-semibold underline">📖 Guide rapide — consulter le glossaire</button>
       </div>
     </div>
 
     <!-- UPLOAD -->
     <div id="importZone">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-      <div id="dropConsomme" class="p-5 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-lg text-blue-900 mb-1">1. Ventes (Consommé)</h2><p class="text-xs text-blue-600 mb-2">Fichier consommé (ventes magasin)</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
-      <div id="dropStock" class="p-5 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-lg text-emerald-900 mb-1">2. État du Stock</h2><p class="text-xs text-emerald-600 mb-2">Statuts, Valeurs, Dates.</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-sm text-blue-900 mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] text-blue-500 mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
+      <div id="dropStock" class="p-3 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-sm text-emerald-900 mb-0.5">2. État du Stock</h2><p class="text-[10px] text-emerald-500 mb-1.5">Statuts, Valeurs, Dates — obligatoire</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 mt-3 gap-6">
-      <div id="dropChalandise" class="p-4 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-base text-rose-900 mb-1">3. Zone de Chalandise <span class="text-xs font-normal text-rose-500">(optionnel)</span></h2><p class="text-xs text-rose-600 mb-2">Export Qlik clients — active l'onglet 🔗 Le Terrain (Plan de vol, Cockpit client) · enrichit le Benchmark.</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div id="dropChalandise" class="p-3 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-sm text-rose-900 mb-0.5">3. Zone de Chalandise <span class="text-[10px] font-normal text-rose-400">(optionnel)</span></h2><p class="text-[10px] text-rose-500 mb-1.5">Export Qlik clients — active Le Terrain &amp; enrichit le Benchmark</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
       <!-- V2 : Ventes Territoire (BL Qlik) — masqué en V1, à réactiver pour Vue Direction / Top 100 / Contributeurs -->
-      <div id="dropTerritoire" style="display:none" class="p-4 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-base text-violet-900 mb-1">4. Ventes Le Terrain <span class="text-xs font-normal text-violet-500">(optionnel)</span></h2><p class="text-xs text-violet-600 mb-2">BL tous canaux — filtré depuis Qlik. Active l'onglet 🔗 Le Terrain.</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
+      <div id="dropTerritoire" style="display:none" class="p-3 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-sm text-violet-900 mb-0.5">4. Ventes Le Terrain <span class="text-[10px] font-normal text-violet-400">(optionnel)</span></h2><p class="text-[10px] text-violet-500 mb-1.5">BL tous canaux — filtré depuis Qlik</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
-    <div id="storeSelector" class="hidden mb-6 p-4 bg-cyan-50 border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-4"><div class="flex-1 min-w-[200px]"><label class="block text-sm font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-3 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 bg-white"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
-    <div id="storeWarnings" class="hidden mb-4 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
+    <div id="storeSelector" class="hidden mb-3 p-3 bg-cyan-50 border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-2 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 bg-white"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
+    <div id="storeWarnings" class="hidden mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
 
-    <div class="text-center mb-6"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-4 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-lg disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
+    <div class="text-center mb-3"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
 
 
