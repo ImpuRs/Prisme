@@ -4528,6 +4528,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(overlay)overlay.classList.remove('active');
     // Reset famille filter — diagnostic is a temporary view, not a persistent filter
     const ff=document.getElementById('filterFamille');if(ff)ff.value='';
+    window.scrollTo(0,0);
   }
   function executeDiagAction(idx){if(_diagActions[idx]&&_diagActions[idx].fn)_diagActions[idx].fn();}
 
