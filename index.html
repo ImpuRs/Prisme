@@ -596,6 +596,9 @@
 
     <!-- UPLOAD -->
     <div id="importZone">
+    <div id="importZoneCancelBtn" class="hidden" style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button onclick="collapseImportZone()" style="font-size:11px;font-weight:600;color:#6b7280;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;padding:3px 12px;cursor:pointer" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">✕ Annuler</button>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-sm text-blue-900 mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] text-blue-500 mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
       <div id="dropStock" class="p-3 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-sm text-emerald-900 mb-0.5">2. État du Stock</h2><p class="text-[10px] text-emerald-500 mb-1.5">Statuts, Valeurs, Dates — obligatoire</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
@@ -2421,7 +2424,7 @@
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
       for(let i=0;i<dataS.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataS.length);for(let j=i;j<end;j++){const row=dataS[j];const rawCode=getVal(row,'Article','Code');if(!rawCode)continue;const storeCode=extractStoreCode(row),code=cleanCode(rawCode);
-      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0)};}
+      if(storeCode&&(storesIntersection.has(storeCode)||!storesIntersection.size)){if(!stockParMagasin[storeCode])stockParMagasin[storeCode]={};const ks=Object.keys(row).find(k=>{const l=k.toLowerCase();return(l.includes('stock')||l.includes('qt')||l.includes('quant'))&&!l.includes('min')&&!l.includes('max')&&!l.includes('valeur')&&!l.includes('alerte')&&!l.includes('statut');});const ksv=Object.keys(row).find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ');return l.includes('valeur')&&l.includes('stock');});const _stkVal=ksv?cleanPrice(row[ksv]):null;stockParMagasin[storeCode][code]={stockActuel:cleanPrice(ks?row[ks]:0),valeurStock:_stkVal};}
       if(!libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==selectedMyStore)continue;
       const libelle=libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
@@ -2429,8 +2432,8 @@
       const sousFamille=colSousFamille?(row[colSousFamille]||'').toString().trim():'';
       const rawEmp=(getVal(row,'Emplacement')||'').toString().trim();const emplacement=(rawEmp===''||rawEmp==='-')?'':rawEmp;
       if(famille&&famille!=='Non Classé')familles.add(famille);if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
-      const valeurPRMP=cleanPrice(getVal(row,'Valeur','Prix'));const keysRow=Object.keys(row);const keyStock=keysRow.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});
-      const stockActuel=cleanPrice(keyStock?row[keyStock]:0);const qtePourPrix=Math.abs(stockActuel)||1;const prixUnitaire=Math.abs(valeurPRMP)/qtePourPrix;
+      const keysRow=Object.keys(row);const keyStock=keysRow.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});const keyValeurStock=keysRow.find(k=>{const lk=k.toLowerCase().replace(/[\r\n]/g,' ');return lk.includes('valeur')&&lk.includes('stock');});
+      const stockActuel=cleanPrice(keyStock?row[keyStock]:0);const valeurStock=keyValeurStock?cleanPrice(row[keyValeurStock]):null;const prixUnitaire=(valeurStock!==null&&stockActuel!==0)?Math.abs(valeurStock/stockActuel):(Math.abs(cleanPrice(getVal(row,'Valeur','Prix')))/(Math.abs(stockActuel)||1));
       const dateSortie=parseExcelDate(getVal(row,'dernière sortie','sortie'));const date1ereEntree=parseExcelDate(getVal(row,'première entrée','premiere entree','première réception'));const dateEntree=parseExcelDate(getVal(row,'dernière entrée','entrée'));const dateRef=parseExcelDate(getVal(row,'référencement','réf'));
       const dateInactivite=dateSortie||dateEntree||dateRef;const ageJours=dateInactivite?daysBetween(dateInactivite,NOW):999;const age1ereEntree=date1ereEntree?daysBetween(date1ereEntree,NOW):999;const isNouveaute=(age1ereEntree<NOUVEAUTE_DAYS)&&(!dateSortie||ageJours<90);
       const ancienMin=parseFloat(getVal(row,'min')||0);const ancienMax=parseFloat(getVal(row,'max')||0);
@@ -2450,7 +2453,7 @@
       else if(V===0){nouveauMin=0;nouveauMax=0;}
       else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);nouveauMin=Math.max(Math.min(Math.round(dl+(X*SECURITY_DAYS)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
       const couvertureJours=calcCouverture(stockActuel,V);
-      finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
+      finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       updatePipeline('stock','done');
 
@@ -4070,7 +4073,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const medianCAByCode={};
     if(hasMulti&&selectedMyStore){const cs=[...storesIntersection];const myV=ventesParMagasin[selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>ventesParMagasin[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
 
-    for(const r of dataSource){const lv=(r.stockActuel>0)?r.stockActuel*r.prixUnitaire:0;
+    for(const r of dataSource){const lv=(r.stockActuel>0)?(r.valeurStock!=null?Math.abs(r.valeurStock):r.stockActuel*(r.prixUnitaire||0)):0;
     if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
 
     // ★ V23: Ruptures — exclude parent refs (no dates) + colis-only (enlevé sans prélevé) + sort by CA potentiel
@@ -4099,7 +4102,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(!isDormant&&!isFin&&!r.isNouveaute&&r.stockActuel>r.nouveauMax&&r.nouveauMax>0)activeSurstock+=(r.stockActuel-r.nouveauMax)*r.prixUnitaire;
     if(r.ancienMax>0&&r.stockActuel>r.ancienMax){const exc=r.stockActuel-r.ancienMax,vs=exc*r.prixUnitaire;capalinOverflow+=vs;capalinCount++;lstS.push({code:r.code,lib:r.libelle,i1:exc,i2:formatEuro(vs),sv:vs,condit:null});cockpitLists.saso.add(r.code);}
     const br=(r.isNouveaute&&r.ageJours>DORMANT_DAYS)?'fresh':getAgeBracket(r.ageJours);ageBuckets[br].val+=lv;ageBuckets[br].count++;
-    if(isFin&&!finCodes.has(r.code)){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fins.add(r.code);}}}
+    if(isFin&&!finCodes.has(r.code)){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fins.add(r.code);}}
+    // Fins de stock avec min=0/max=0 (déréférencés sans prix) — hors du garde prixUnitaire>0
+    if(r.stockActuel>0&&!finCodes.has(r.code)){const _sl=r.statut.toLowerCase();if(_sl.includes('fin de stock')||_sl.includes('fin de série')||_sl.includes('fin de serie')){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});cockpitLists.fins.add(r.code);}}}
 
     document.getElementById('dashTotalValue').textContent=formatEuro(totalValue);document.getElementById('dashTotalCount').textContent=totalArt.toLocaleString('fr')+' réf.';
     document.getElementById('dashDeadStock').textContent=formatEuro(dormantStock);document.getElementById('dashDeadPct').textContent=pct(dormantStock,totalValue);
@@ -5188,29 +5193,49 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // 2. Tenter la restauration complète depuis IndexedDB
     const restored = await _restoreSessionFromIDB();
     if (restored && finalData.length > 0) {
-      // Masquer zone d'import, configurer l'UI comme après un chargement normal
-      document.getElementById('importZone')?.classList.add('hidden');
-      document.getElementById('onboardingBlock')?.classList.add('hidden');
-      if (selectedMyStore) {
-        document.getElementById('navStore').textContent = selectedMyStore;
-        document.getElementById('navStore').classList.remove('hidden');
+      // ── Reproduit exactement la séquence de fin de processData() L2462-2488 ──
+
+      // 1. Peupler les filtres depuis finalData (équivalent populateSelect L2470)
+      const _rFam=new Set(),_rSFam=new Set(),_rEmp=new Set(),_rStat=new Set();
+      for(const r of finalData){
+        if(r.famille&&r.famille!=='Non Classé')_rFam.add(r.famille);
+        if(r.sousFamille)_rSFam.add(r.sousFamille);
+        if(r.emplacement)_rEmp.add(r.emplacement);
+        if(r.statut)_rStat.add(r.statut);
       }
+      populateSelect('filterFamille',_rFam);populateSelect('filterSousFamille',_rSFam);
+      populateSelect('filterEmplacement',_rEmp);populateSelect('filterStatut',_rStat);
+
+      // 2. Navbar (L2472-2476)
+      document.getElementById('navStats').textContent=finalData.length.toLocaleString('fr')+' art.';
+      document.getElementById('navStats').classList.remove('hidden');
+      if(selectedMyStore){document.getElementById('navStore').textContent=selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
+
+      // 3. UI state (L2477-2483)
       document.body.classList.add('pilot-loaded');
       const useMulti = storesIntersection.size > 1;
-      if (useMulti) { document.getElementById('btnTabBench').classList.remove('hidden'); buildBenchCheckboxes(); }
-      else { document.getElementById('btnTabBench').classList.add('hidden'); }
+      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}
+      else{document.getElementById('btnTabBench').classList.add('hidden');}
       document.getElementById('btnTabTerritoire').classList.remove('hidden');
-      const terrNoC = document.getElementById('terrNoChalandise');
-      if (terrNoC) terrNoC.classList.toggle('hidden', chalandiseReady);
+      const terrNoC=document.getElementById('terrNoChalandise');
+      if(terrNoC)terrNoC.classList.toggle('hidden',chalandiseReady);
+
+      // 4. Période + render (L2485)
       updatePeriodAlert();
       buildPeriodFilter();
       computeClientCrossing();
-      currentPage = 0;
+      currentPage=0;
       renderAll();
-      if (useMulti) { _buildObsUniversDropdown(); renderBenchmark(); }
-      if (territoireReady) { renderTerritoireTab(); }
+      if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      if(territoireReady){renderTerritoireTab();}
+
+      // 5. Activer Cockpit + replier l'import (L2487-2488)
+      switchTab('action');
+      collapseImportZone();
+
+      // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
     } else {
       // Pas de session IDB — restaurer seulement les préférences (localStorage)
