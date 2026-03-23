@@ -48,6 +48,10 @@ let terrDirectionData = {};
 let terrContribBySecteur = new Map();
 let terrContribByDirection = new Map();
 
+// ── Agences par fichier (pour alerte stock mono-agence) ──
+let storeCountConsomme = 0; // nb agences détectées dans le consommé
+let storeCountStock = 0;    // nb agences détectées dans le stock
+
 // ── Période consommé ──
 let consommePeriodMin = null;
 let consommePeriodMax = null;
