@@ -226,7 +226,7 @@ function updatePeriodAlert() {
   }
   const stockBanner = document.getElementById('stockMonoBanner');
   if (stockBanner) {
-    if (storeCountConsomme > 1 && storeCountConsomme > storeCountStock) {
+    if (storeCountConsomme > 1 && storeCountStock <= 1) {
       stockBanner.textContent = '⚠️ Fichier Stock mono-agence détecté — chargez un export Stock multi-agences pour activer le Réseau et le benchmark.';
       stockBanner.classList.add('active');
     } else {
