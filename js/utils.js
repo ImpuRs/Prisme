@@ -147,6 +147,27 @@ function _classifShort(c) {
   return '<span class="text-gray-300">NC</span>';
 }
 
+// ── Copy-code helpers ──────────────────────────────────────────────────────
+function _doCopyCode(btn, code) {
+  navigator.clipboard.writeText(code).catch(() => {});
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✅';
+  setTimeout(() => { btn.innerHTML = orig; }, 1000);
+}
+
+function _copyCodeBtn(code) {
+  return `<button onclick="event.stopPropagation();_doCopyCode(this,'${code}')" title="Copier le code article" style="font-size:10px;line-height:1;vertical-align:middle;background:none;border:none;cursor:pointer;padding:0 2px;opacity:.55" class="hover:opacity-100 ml-0.5 inline-block align-middle">📋</button>`;
+}
+
+function _copyAllCodesDirect(btn, codesCSV) {
+  const codes = codesCSV.split(',').filter(Boolean);
+  navigator.clipboard.writeText(codes.join('\n')).catch(() => {});
+  const orig = btn.innerHTML;
+  btn.innerHTML = `✅ ${codes.length} codes copiés`;
+  setTimeout(() => { btn.innerHTML = orig; }, 1500);
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 function _normalizeStatut(s) {
   const l = (s || '').toLowerCase();
   if (l.includes('prospect')) return 'Prospect';

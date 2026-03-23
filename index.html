@@ -211,6 +211,7 @@
     #insightsBannerLeft{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;flex:1;min-width:0}
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
     #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#111118;border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:10px;color:rgba(255,255,255,0.4);font-weight:400;gap:4px}
+    #cacheBanner.hidden{display:none!important}
 
     /* ═══ Tab bar redesign ════════════════════════════════════ */
     #tabsContainer{background:#f8f9fa;border-bottom:1px solid #e5e7eb;box-shadow:none}
@@ -1004,11 +1005,14 @@
 
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
       <div id="terrChalandiseOverview" class="hidden mt-2">
-        <!-- Header -->
-        <div class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
-          <div class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50">
+        <details class="bg-white rounded-xl shadow-md border overflow-hidden mb-2">
+          <summary class="px-2 py-1.5 border-b bg-gradient-to-r from-rose-50 to-violet-50 select-none flex items-center justify-between cursor-pointer hover:brightness-95">
             <h3 class="font-extrabold text-gray-800 text-xs">🎯 Votre territoire en un coup d'oeil</h3>
-          </div>
+            <div class="flex items-center gap-2">
+              <span id="terrOverviewSummaryLine" class="text-[10px] text-gray-500 font-normal"></span>
+              <span class="acc-arrow text-gray-400">▶</span>
+            </div>
+          </summary>
           <!-- Level 1: Direction commerciale -->
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">
@@ -1016,7 +1020,7 @@
               <tbody id="terrOverviewL1Table"></tbody>
             </table>
           </div>
-        </div>
+        </details>
         <!-- Cockpit Client -->
         <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
@@ -1454,6 +1458,7 @@
     // Summary KPI bar — dénominateur = tous les clients filtrés (prospects inclus)
     const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
     const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
+    const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
     const filterActive=_selectedDepts.size||_selectedClassifs.size||_selectedStatuts.size||_selectedActivitesPDV.size||_selectedCommercial||_selectedMetier||_filterStrategiqueOnly;
     const bar=document.getElementById('terrSummaryBar');if(bar)bar.classList.remove('hidden');
     const sumClients=document.getElementById('terrSumClients');
@@ -1655,7 +1660,7 @@
       const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
       const pdvBg=globActif&&!c._pdvActif?'bg-amber-50':perdu?'bg-rose-50':'';
       html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:bg-blue-50" onclick="_toggleClientArticles(this,'${c.code}')">
-        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${_clientStatusBadge(c.code,c)}</td>
+        <td class="py-1 px-2"><span class="font-mono text-gray-400 text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}</td>
         <td class="py-1 px-2 text-[9px] text-gray-500">${c.commercial||'—'}</td>
         <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
         <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'text-amber-700':'text-gray-400'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
@@ -2047,7 +2052,7 @@
     const banner=`<div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
     let html=banner;
     if(silencieux.length){
-      const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'text-red-600':c.d>60?'text-orange-500':'text-yellow-600';return`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
+      const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'text-red-600':c.d>60?'text-orange-500':'text-yellow-600';return`<tr class="border-t border-gray-100"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="bg-rose-50 rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-rose-100"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
     }
     if(rupClients.length){
@@ -2055,7 +2060,7 @@
       html+=`<div class="bg-orange-50 rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b border-orange-100"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] text-gray-400 px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div></div>`;
     }
     if(topClients.length){
-      const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 text-[10px] text-gray-400 font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${silSet.has(c.cc)?' <span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] text-gray-500">${c.nbArts}</td></tr>`).join('');
+      const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t border-gray-100"><td class="py-1 px-2 text-[10px] text-gray-400 font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] bg-rose-100 text-rose-600 px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold text-emerald-700 text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] text-gray-500">${c.nbArts}</td></tr>`).join('');
       html+=`<div class="bg-white rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal text-gray-400">${topClients.length} client${topClients.length>1?'s':''}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-gray-50 text-gray-600 font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     }
     if(!silencieux.length&&!topClients.length)html+=`<p class="text-center text-gray-400 text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
@@ -2074,7 +2079,7 @@
       for(const cc of crossingStats.fideles){const artMap=ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:clientNomLookup[cc]||terrNom[cc]||'—',ca,nbArts});}
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
-      const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
+      const rows=show.map(c=>`<tr class="border-t border-gray-100 hover:bg-violet-50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] text-gray-500">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.code)}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'text-gray-400'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center text-gray-500 text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
       el.innerHTML=`<div class="bg-white rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold text-gray-800">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] text-gray-500 mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="text-gray-400">(CA = CA PDV uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] text-gray-400 p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
       return;
     }
@@ -2157,13 +2162,13 @@
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border bg-white ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500 hover:bg-red-50 w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] text-gray-500 mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA PDV : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
       const usePDV=sortField==='caPDVN';
       let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 bg-white/90 font-bold text-gray-600 text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA PDV Zone':'CA Legallais'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
-      for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');t+=`<tr class="border-t border-gray-200 hover:bg-white/50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}${_clientStatusBadge(c.code,c)}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.commercial||'—'}</td><td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.ville||'—'}</td></tr>`;}
+      for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=usePDV?(caVal>0?'text-emerald-700':'text-gray-400'):(caVal>0?'text-amber-700':'text-gray-400');t+=`<tr class="border-t border-gray-200 hover:bg-white/50 cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2"><span class="font-mono text-gray-400 text-[10px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${_unikLink(c.code)}${c._strat?' <span class="text-amber-500 text-[10px]" title="Métier stratégique">⭐</span>':''}${_clientStatusBadge(c.code,c)}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.commercial||'—'}</td><td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] text-gray-500">${c.ville||'—'}</td></tr>`;}
       t+=`</tbody></table></div>`;
       return t;
     }
@@ -2706,7 +2711,7 @@
       const stockQty=stockItem?stockItem.stockActuel:'—';
       const rayonIcon=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
       const rowBg=a.rayonStatus==='red'?'rayon-red':a.rayonStatus==='yellow'?'rayon-yellow':'';
-      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
+      p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}${_copyCodeBtn(a.code)}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 text-gray-400">Aucun article</td></tr>';
 
@@ -2717,7 +2722,7 @@
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
       const rowBg=c.type==='exterieur'?'bg-red-50':'';
-      pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
+      pCli+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${c.code}</td><td class="py-1.5 px-2 max-w-[180px] truncate">${c.nom}${_unikLink(c.code)}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(c.ca)}</td><td class="py-1.5 px-2 text-center">${c.refs.size}</td><td class="py-1.5 px-2 text-center font-bold">${typeIcon}</td></tr>`;
     }
     const cliEl=document.getElementById('terrClientsTable');if(cliEl)cliEl.innerHTML=pCli||'<tr><td colspan="5" class="text-center py-4 text-gray-400">Aucun client</td></tr>';
 
@@ -3065,7 +3070,7 @@
       const cliRowId='contrib-cli-'+c.code;
       html+=`<tr class="contrib-client-row border-t border-emerald-200 ${rowBg}" onclick="toggleContribClient('${cliRowId}','${c.code}')">
         <td class="py-1.5 px-3 font-mono">${c.code} <span class="text-gray-400 text-[9px]">▼</span></td>
-        <td class="py-1.5 px-3 max-w-[160px] truncate">${c.nom}${chalandiseReady?_clientStatusBadge(c.code,chalandiseData.get(c.code)||{}):''}</td>
+        <td class="py-1.5 px-3 max-w-[160px] truncate">${c.nom}${_unikLink(c.code)}${chalandiseReady?_clientStatusBadge(c.code,chalandiseData.get(c.code)||{}):''}</td>
         <td class="py-1.5 px-3 text-right font-bold">${formatEuro(c.ca)}</td>
         <td class="py-1.5 px-3 text-center font-bold">${vient?'✅ Oui':'❌ Jamais'}</td>
         <td class="py-1.5 px-3 text-center">${c.blAgence.size}</td>
@@ -4168,14 +4173,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
       const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
-      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
+      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
     const ruptTotEl=document.getElementById('actionRupturesTotal');
-    {const caPerduFooter=hasMulti?`💸 CA perdu estimé : ${formatEuro(totalCAPerdu)} (vs médiane réseau)`:totalCAPerdu>=100?`💸 CA historique des articles en rupture : ${formatEuro(totalCAPerdu)}`:`💸 CA perdu non estimable — historique insuffisant`;if(ruptTotEl)ruptTotEl.innerHTML=lstR.length>0?`<tr><td colspan="4" class="py-2 px-2 text-right text-xs font-extrabold text-rose-700 border-t border-rose-200">${caPerduFooter}</td></tr>`:'';};
+    {const caPerduFooter=hasMulti?`💸 CA perdu estimé : ${formatEuro(totalCAPerdu)} (vs médiane réseau)`:totalCAPerdu>=100?`💸 CA historique des articles en rupture : ${formatEuro(totalCAPerdu)}`:`💸 CA perdu non estimable — historique insuffisant`;if(ruptTotEl)ruptTotEl.innerHTML=lstR.length>0?`<tr><td colspan="5" class="py-2 px-2 text-right text-xs font-extrabold text-rose-700 border-t border-rose-200">${caPerduFooter}</td></tr><tr><td colspan="5" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${lstR.slice(0,50).map(r=>r.code).join(',')}" class="text-[10px] text-gray-400 hover:text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-0.5">📋 Copier ${Math.min(lstR.length,50)} codes</button></td></tr>`:'';};
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
-    function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const p=[];l.sort((a,b)=>b.sv-a.sv).slice(0,lim).forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';}
+    function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const sorted=l.sort((a,b)=>b.sv-a.sv).slice(0,lim);const p=[];sorted.forEach(i=>{p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="3" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] text-gray-400 hover:text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}}
     pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstStockNeg,'actionStockneg');
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
@@ -4183,9 +4188,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const sorted=[...lstColis].sort((a,b)=>(a.i2>0?1:0)-(b.i2>0?1:0)||b.sv-a.sv).slice(0,50);
       const rows=sorted.map(i=>{
         const actionLbl=i.i2===0?'<span class="text-cyan-700 font-bold">📦 Mettre en rayon</span>':'<span class="text-amber-700 font-bold">👁️ Vérifier visibilité</span>';
-        return `<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><span class="font-mono text-gray-500 block text-[10px]">${i.code}</span><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
+        return `<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
       });
       el.innerHTML=rows.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉</td></tr>';
+      if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="4" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] text-gray-400 hover:text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}
     })();
 
     renderCockpitEquation();
@@ -4264,7 +4270,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMin>r.medMinReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMax>r.medMaxReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
     p.push(`<tr class="border-b hover:bg-blue-50 ${bg}">
-      <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${r.isNouveaute?' ✨':''}</td>
+      <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${_copyCodeBtn(r.code)}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.V}</td>
       <td class="px-2 py-2 text-center text-cyan-600 text-xs">${r.enleveTotal||0}</td>
@@ -4425,7 +4431,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     let buyersHtml='';
     if(buyerList.length){
       const totalCA=buyerList.reduce((s,b)=>s+b.caArt,0);
-      const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t border-slate-700"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${b.cc}</td><td class="py-1 px-2 text-xs">${b.nom}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'text-emerald-400':'text-gray-500'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'text-rose-400':'text-gray-400'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
+      const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t border-slate-700"><td class="py-1 px-2 font-mono text-[10px] text-gray-400">${b.cc}</td><td class="py-1 px-2 text-xs">${b.nom}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'text-emerald-400':'text-gray-500'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'text-rose-400':'text-gray-400'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
       buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="text-gray-400 text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-gray-500 text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-[10px] text-gray-500 mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
     }
     // Réseau section (multi only)
@@ -4447,7 +4453,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(storesIntersection.size>1&&selectedMyStore){const myF=(ventesParMagasin[selectedMyStore]||{})[code]?.countBL||0;const fr=[...storesIntersection].map(s=>(ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="text-amber-300">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
     const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
     // Render
-    panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono text-gray-400 text-xs">${r.code}</span>${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${reseauHtml}${planHtml}`;
+    panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono text-gray-400 text-xs">${r.code}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${reseauHtml}${planHtml}`;
     overlay.classList.add('active');
   }
 
