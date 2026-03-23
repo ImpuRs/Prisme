@@ -1452,14 +1452,10 @@
       if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const d=dirMap[dirKey];d.total++;
       const pdvActif=_isPDVActif(cc);
-      const legActif=_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif;
-      if(legActif){d.actifsLeg++;totalActifsLeg++;}
+      if(_isProspect(info)){d.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){d.actifsLeg++;totalActifsLeg++;}
       if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
-      if(_isProspect(info))d.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)d.perdus12_24++;
-        else d.inactifs++;
-      }
       d.caPDVZone+=(info.caPDVN||0);
     }
     // Fixed thead — columns NEVER change
@@ -1531,14 +1527,11 @@
       const m=info.metier||'Autre';
       if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const md=metierMap[m];md.total++;
-      if(_isGlobalActif(info))md.actifsLeg++;
       const pdvActif=_isPDVActif(cc);
+      if(_isProspect(info)){md.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){md.actifsLeg++;}
       if(pdvActif)md.actifsPDV++;
-      if(_isProspect(info))md.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)md.perdus12_24++;
-        else md.inactifs++;
-      }
       md.caPDVZone+=(info.caPDVN||0);
     }
     let metiersArr=Object.values(metierMap).filter(m=>m.total>0);
@@ -1593,14 +1586,11 @@
       const key=sect+'||'+comm;
       if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
       const sd=sectMap[key];sd.total++;
-      if(_isGlobalActif(info))sd.actifsLeg++;
       const pdvActif=_isPDVActif(cc);
+      if(_isProspect(info)){sd.prospects++;}
+      else if(_isPerdu(info)){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
+      else if(_isGlobalActif(info)||(info.ca2025||0)>0||pdvActif){sd.actifsLeg++;}
       if(pdvActif)sd.actifsPDV++;
-      if(_isProspect(info))sd.prospects++;
-      else if(_isPerdu(info)){
-        if((info.ca2025||0)>0)sd.perdus12_24++;
-        else sd.inactifs++;
-      }
       sd.caPDVZone+=(info.caPDVN||0);
     }
     let sectsArr=Object.values(sectMap);
