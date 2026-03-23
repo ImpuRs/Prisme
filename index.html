@@ -1430,17 +1430,19 @@
     closeDiagnostic();
     // Set métier filter
     _selectedMetier=metier;
-    const metInput=document.getElementById('terrMetierFilter');
-    if(metInput)metInput.value=metier;
     // Uncheck perdus >24m
     _includePerdu24m=false;
     const cb=document.querySelector('#togglePerdu24m input');
     if(cb)cb.checked=false;
     switchTab('territoire');
     setTimeout(()=>{
+      // Force-set input AFTER rendering — datalist update in _buildOverviewFilterChips can
+      // reset the value in some browsers before the assignment executes
+      const metInput=document.getElementById('terrMetierFilter');
+      if(metInput&&metInput.value!==metier){metInput.value=metier;metInput.classList.add('border-rose-400','ring-1','ring-rose-300');}
       const cockpit=document.getElementById('terrCockpitClient');
       if(cockpit)cockpit.scrollIntoView({behavior:'smooth'});
-    },300);
+    },200);
   }
   function _togglePerdu24m(checked){_includePerdu24m=checked;_buildChalandiseOverview();}
   function _buildOverviewFilterChips(){
@@ -1462,7 +1464,7 @@
     // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
-    if(metInput&&metList){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier&&(!_filterStrategiqueOnly||_isMetierStrategique(info.metier)))metiers.add(info.metier);}const sorted=[...metiers].sort();metList.innerHTML=sorted.map(m=>`<option value="${m.replace(/"/g,'&quot;')}">`).join('');metInput.value=_selectedMetier||'';}
+    if(metInput&&metList){const metiers=new Set();for(const info of chalandiseData.values()){if(info.metier&&(!_filterStrategiqueOnly||_isMetierStrategique(info.metier)))metiers.add(info.metier);}const sorted=[...metiers].sort();metList.innerHTML=sorted.map(m=>`<option value="${m.replace(/"/g,'&quot;')}">`).join('');metInput.value=_selectedMetier||'';metInput.classList.toggle('border-rose-400',!!_selectedMetier);metInput.classList.toggle('ring-1',!!_selectedMetier);metInput.classList.toggle('ring-rose-300',!!_selectedMetier);}
     // Populate commercial filter datalist
     const comInput=document.getElementById('terrCommercialFilter');
     const comList=document.getElementById('terrCommercialList');
