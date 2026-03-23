@@ -135,12 +135,12 @@
     .cmd-empty{padding:24px 16px;text-align:center;color:#94a3b8;font-size:.8rem}
     /* 2-column layout */
     html,body{height:100%}
-    body{display:flex;flex-direction:column;overflow-x:hidden}
+    body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:80px;height:calc(100vh - 80px);overflow-y:auto}
-    #tabsContainer{position:sticky;top:80px;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:0.25rem 1rem}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
+    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:0 0.75rem}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex}#filterDrawerBtn{display:none!important}}
-    #mainContent{flex:1;min-width:0;background:#f1f5f9}
+    #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f1f5f9}
     /* Mobile drawer */
     #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
