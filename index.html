@@ -138,7 +138,7 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:#f1f5f9;border-right:1px solid #e2e8f0;position:sticky;top:0;height:100vh;overflow-y:auto}
-    #tabsContainer{position:sticky;top:0;z-index:40;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:none;align-items:stretch}
+    #tabsContainer{position:sticky;top:0;z-index:50;background:#f1f5f9;border-bottom:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:none;align-items:stretch}
     body.pilot-loaded #tabsContainer{display:flex}
     /* First launch — hide everything except onboarding + import */
     body:not(.pilot-loaded) .tab-content{display:none!important}
@@ -190,7 +190,7 @@
     }
 
     /* ═══ Premium navbar ══════════════════════════════════════ */
-    nav#mainNav{background:#0a0a0f;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;position:sticky;top:0;z-index:40;flex-shrink:0;display:flex;align-items:center}
+    nav#mainNav{background:#0a0a0f;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
     #mainNav .nav-logo{font-size:15px;letter-spacing:.15em;color:#fff;font-weight:300;user-select:none;cursor:default;line-height:1}
     #mainNav .nav-logo-pro{font-weight:600;color:#10b981;letter-spacing:.05em}
