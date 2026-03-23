@@ -743,6 +743,7 @@
           </div>
         </div>
         <p id="eqSource" class="text-[10px] text-gray-400 text-center mt-1"></p>
+        <p id="eqExtra" class="text-[11px] text-gray-500 text-center mt-0.5 hidden"></p>
       </div>
 
       <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
@@ -1090,6 +1091,7 @@
                 <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Tx marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA. Colonnes VMB du consommé.">ℹ</em></th>
                 <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
                 <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement par Nb ventes (BL prélevé) décroissant. #1 = agence la plus active du bassin.">ℹ</em></th>
               </tr>
@@ -1823,7 +1825,8 @@
     const freqPDV=nbClientsPDV>0?parseFloat((nbBLPDV/nbClientsPDV).toFixed(1)):null;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
-    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):null;
+    const _nbPassagesExec=ventesAnalysis?ventesAnalysis.nbPassages:0;
+    const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of finalData){if(r.W>=3){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
@@ -2348,7 +2351,7 @@
       updatePipeline('stock','active');updatePipeline('consomme','active');
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
       const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();clientLastOrder=new Map();clientNomLookup={};ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
-      let minDateVente=Infinity,maxDateVente=0;
+      let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
@@ -2361,7 +2364,7 @@
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(periodFilterStart&&dateV&&dateV<periodFilterStart)continue;
       if(periodFilterEnd&&dateV&&dateV>periodFilterEnd)continue;
-      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;}
+      if(storesIntersection.has(sk)||!storesIntersection.size){if(!ventesParMagasin[sk])ventesParMagasin[sk]={};if(!ventesParMagasin[sk][code])ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)ventesParMagasin[sk][code].sumEnleve+=qteE;ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)ventesParMagasin[sk][code].countBL++;ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
       // V2 Phase 1: ventesClientArticle (myStore only) + ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!ventesClientsPerStore[sk])ventesClientsPerStore[sk]=new Set();ventesClientsPerStore[sk].add(cc2);}
@@ -2370,6 +2373,7 @@
       // clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
       if(cc2&&!clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
       if(cc2&&code&&(!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(!ventesClientArticle.has(cc2))ventesClientArticle.set(cc2,new Map());const artMap=ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.sumCA+=caP+caE;e.countBL++;}
+      if((!selectedMyStore||sk===selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV)passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
       if(cc2&&dateV&&(!selectedMyStore||sk===selectedMyStore)){const prev=clientLastOrder.get(cc2);if(!prev||dateV>prev)clientLastOrder.set(cc2,dateV);}
       // V2 Phase 2: articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
@@ -2406,7 +2410,8 @@
       }
       const totalBLs=Object.keys(blData).length;let sumRefParBL=0,sumFamParBL=0;const famBLcount={};
       for(const bl of Object.values(blData)){sumRefParBL+=bl.codes.size;sumFamParBL+=bl.familles.size;for(const fam of bl.familles)famBLcount[fam]=(famBLcount[fam]||0)+1;}
-      ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount};
+      const _sd0=ventesParMagasin[selectedMyStore]||{};const _caCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumCA||0),0);const _vmbCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumVMB||0),0);
+      ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
       updatePipeline('stock','active');
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
@@ -3781,7 +3786,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const sorted=Object.entries(storePerf).sort((a,b)=>b[1].freq-a[1].freq);
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
-    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>=80?'text-emerald-700':data.serv>=60?'text-amber-700':'text-red-600';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${data.clientsZone>0?'text-rose-700':'text-gray-400'}">${data.clientsZone>0?data.clientsZone:'—'}</td>`:'';p.push(`<tr class="border-b ${isMe?'bg-cyan-50 font-bold':'hover:bg-gray-50'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
+    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>=80?'text-emerald-700':data.serv>=60?'text-amber-700':'text-red-600';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'text-emerald-700':data.txMarge>=25?'text-amber-700':'text-red-600'):'text-gray-400';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${data.clientsZone>0?'text-rose-700':'text-gray-400'}">${data.clientsZone>0?data.clientsZone:'—'}</td>`:'';p.push(`<tr class="border-b ${isMe?'bg-cyan-50 font-bold':'hover:bg-gray-50'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
     rT('benchStoreTable',p.join(''));
     const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=obsFilterUnivers?`🏆 Classement agences — Univers : ${obsFilterUnivers}`:'🏆 Classement agences';
   }
@@ -3836,12 +3841,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(el('obsWinTh1'))el('obsWinTh1').textContent=isMedian?'Avance vs médiane':`Avance sur ${obsLabel}`;
     // KPI CARDS
     const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,pdm:0},compared:{ca:0,ref:0,serv:0,freq:0,pdm:0}};
-    const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct'?v+'%':v.toLocaleString('fr');
+    const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct2'?(v!==null&&v>0?parseFloat(v).toFixed(2)+'%':'—'):fmt==='pct'?v+'%':v.toLocaleString('fr');
     const kpiDefs=[
       {label:'💰 CA vendu',key:'ca',fmt:'euro',tip:'CA canal MAGASIN (Prélevé + Enlevé) sur la période du consommé. Avoirs déduits.'},
       {label:'📦 Réf actives',key:'ref',fmt:'num',tip:'Nombre d\'articles différents vendus au moins 1 fois en prélevé comptoir sur la période.'},
       {label:'🔄 Fréquence',key:'freq',fmt:'num',tip:'Nombre total de lignes de vente (BL) sur la période. Mesure l\'activité comptoir.'},
-      {label:'🎯 PDM bassin',key:'pdm',fmt:'pct',tip:'Part de marché dans le bassin de comparaison. Mon CA total ÷ CA total bassin × 100. Indique votre poids relatif dans le réseau sélectionné.'}
+      {label:'🎯 PDM bassin',key:'pdm',fmt:'pct',tip:'Part de marché dans le bassin de comparaison. Mon CA total ÷ CA total bassin × 100. Indique votre poids relatif dans le réseau sélectionné.'},
+      {label:'📈 Tx marge',key:'txMarge',fmt:'pct2',tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.'}
     ];
     const cardsHtml=kpiDefs.map(r=>{
       const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
@@ -4037,13 +4043,17 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const freqPDV=nbClientsPDV>0?(nbBLPDV/nbClientsPDV).toFixed(1):0;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
-    const panierMoyen=nbBLPDV>0?Math.round(caPDVTotal/nbBLPDV):0;
+    const nbPassages=ventesAnalysis?ventesAnalysis.nbPassages:0;
+    const panierMoyen=nbPassages>0?Math.round(caPDVTotal/nbPassages):0;
     if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
     document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
     document.getElementById('eqFreq').textContent=freqPDV;
     document.getElementById('eqPanier').textContent=panierMoyen>0?panierMoyen.toLocaleString('fr')+' €':'—';
     document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
+    const txMarge=ventesAnalysis?ventesAnalysis.txMarge:null;const vmc=ventesAnalysis?ventesAnalysis.vmc:null;
+    const extraEl=document.getElementById('eqExtra');
+    if(extraEl){const parts=[];if(txMarge>0)parts.push('Tx\u00a0marge\u00a0: <strong>'+txMarge.toFixed(2)+'%</strong>');if(vmc>0)parts.push('VMC\u00a0: <strong>'+Math.round(vmc).toLocaleString('fr')+'\u00a0€</strong>');extraEl.innerHTML=parts.length?parts.join('\u00a0\u00a0·\u00a0\u00a0'):'';extraEl.classList.toggle('hidden',!parts.length);}
     const src=document.getElementById('eqSource');
     if(src)src.textContent=`Source : Consommé canal MAGASIN · ${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`;
   }
