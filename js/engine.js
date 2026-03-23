@@ -206,6 +206,11 @@ function _clientStatusText(cc, info) {
   return 'Inactif';
 }
 
+function _unikLink(code) {
+  if (!code || !/^\d{6}$/.test(String(code))) return '';
+  return `<a href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Voir commandes Unik" style="text-decoration:none;font-size:10px;line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
+}
+
 function _crossBadge(cc) {
   if (!crossingStats) return '';
   if (crossingStats.captes.has(cc)) return '<span class="ml-0.5 text-[10px]" title="Capté — dans la zone chalandise et venu en agence">🟢</span>';
