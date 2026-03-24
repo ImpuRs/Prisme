@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — cache.js
+// PRISME — cache.js
 // Persistance :
 //   - localStorage : préférences utilisateur seulement (< 1 Ko)
 //   - IndexedDB    : session complète parsée (10-30 Mo)
@@ -7,12 +7,34 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-const CACHE_KEY      = 'PILOT_PREFS';
-const CACHE_KEY_OLD  = 'PILOT_CACHE';   // ancienne clé volumineuse — purgée au démarrage
-const EXCL_KEY       = 'PILOT_EXCLUSIONS';
+const CACHE_KEY      = 'PRISME_PREFS';
+const CACHE_KEY_OLD  = 'PRISME_CACHE_OLD'; // ancienne clé volumineuse — purgée au démarrage
+const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
-// Purger l'ancien cache volumineux (pouvait atteindre 15 Mo)
-try { localStorage.removeItem(CACHE_KEY_OLD); } catch (_) {}
+// Purger les anciennes clés volumineuses / migration PILOT → PRISME
+(function _migrateLS() {
+  // Purge ancienne clé volumineuse
+  try { localStorage.removeItem('PILOT_CACHE'); } catch (_) {}
+  try { localStorage.removeItem(CACHE_KEY_OLD); } catch (_) {}
+  // Migrer PILOT_PREFS → PRISME_PREFS
+  try {
+    const old = localStorage.getItem('PILOT_PREFS');
+    if (old !== null && localStorage.getItem(CACHE_KEY) === null) {
+      localStorage.setItem(CACHE_KEY, old);
+      console.log('[PRISME] Migration localStorage : PILOT_PREFS → PRISME_PREFS');
+    }
+    localStorage.removeItem('PILOT_PREFS');
+  } catch (_) {}
+  // Migrer PILOT_EXCLUSIONS → PRISME_EXCLUSIONS
+  try {
+    const old = localStorage.getItem('PILOT_EXCLUSIONS');
+    if (old !== null && localStorage.getItem(EXCL_KEY) === null) {
+      localStorage.setItem(EXCL_KEY, old);
+      console.log('[PRISME] Migration localStorage : PILOT_EXCLUSIONS → PRISME_EXCLUSIONS');
+    }
+    localStorage.removeItem('PILOT_EXCLUSIONS');
+  } catch (_) {}
+})();
 
 // ── localStorage : préférences (< 1 Ko) ───────────────────────
 function _saveToCache() {
@@ -28,7 +50,7 @@ function _saveToCache() {
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(prefs));
   } catch (e) {
-    console.warn('PILOT: sauvegarde préférences échouée :', e.message);
+    console.warn('[PRISME] sauvegarde préférences échouée :', e.message);
   }
 }
 
@@ -49,9 +71,9 @@ function _restoreFromCache() {
     if (prefs.obsFilterUnivers)   obsFilterUnivers   = prefs.obsFilterUnivers;
     if (prefs.periodFilterStart)  periodFilterStart  = new Date(prefs.periodFilterStart);
     if (prefs.periodFilterEnd)    periodFilterEnd    = new Date(prefs.periodFilterEnd);
-    console.log('PILOT: préférences restaurées (agence :', prefs.selectedMyStore || '—', ')');
+    console.log('[PRISME] préférences restaurées (agence :', prefs.selectedMyStore || '—', ')');
   } catch (e) {
-    console.warn('PILOT: restauration préférences échouée :', e);
+    console.warn('[PRISME] restauration préférences échouée :', e);
     localStorage.removeItem(CACHE_KEY);
   }
   return false;
@@ -76,7 +98,7 @@ function _clearCache() {
     document.getElementById('globalFilters')?.classList.add('hidden');
     document.getElementById('navReportingBtn')?.classList.add('hidden');
     document.getElementById('navStore')?.classList.add('hidden');
-    document.body.classList.remove('pilot-loaded');
+    document.body.classList.remove('pilot-loaded'); // classe CSS interne, non renommée
     document.getElementById('insightsBanner')?.classList.add('hidden');
   }
 }
@@ -153,7 +175,7 @@ function _restoreExclusions() {
 // IndexedDB — session complète parsée
 // ═══════════════════════════════════════════════════════════════
 
-const IDB_NAME    = 'PILOT_PRO';
+const IDB_NAME    = 'PRISME';
 const IDB_VERSION = 1;
 const IDB_STORE   = 'session';
 
@@ -229,9 +251,9 @@ async function _saveSessionToIDB() {
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
-    console.log('PILOT: session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
+    console.log('[PRISME] session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
   } catch (e) {
-    console.warn('PILOT: sauvegarde IndexedDB échouée :', e.message);
+    console.warn('[PRISME] sauvegarde IndexedDB échouée :', e.message);
   }
 }
 
@@ -247,7 +269,7 @@ async function _restoreSessionFromIDB() {
     // TTL 30 jours : session trop ancienne → purge silencieuse
     if (data.timestamp && Date.now() - data.timestamp > 30 * 24 * 3600 * 1000) {
       db.close(); await _clearIDB();
-      console.log('PILOT: session IndexedDB expirée (> 30 j) — purgée');
+      console.log('[PRISME] session IndexedDB expirée (> 30 j) — purgée');
       return false;
     }
 
@@ -298,10 +320,10 @@ async function _restoreSessionFromIDB() {
     benchLists = _deserializeBenchLists(data.benchLists || {});
 
     _idbTimestamp = data.timestamp;
-    console.log('PILOT: session restaurée depuis IndexedDB (' + finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
+    console.log('[PRISME] session restaurée depuis IndexedDB (' + finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
     return true;
   } catch (e) {
-    console.warn('PILOT: restauration IndexedDB échouée :', e);
+    console.warn('[PRISME] restauration IndexedDB échouée :', e);
     return false;
   }
 }
@@ -315,6 +337,44 @@ async function _clearIDB() {
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
   } catch (_) {}
+}
+
+// Migration transparente : PILOT_PRO (ancienne base) → PRISME
+async function _migrateIDB() {
+  try {
+    const req = indexedDB.open('PILOT_PRO', 1);
+    let oldDb = null;
+    try {
+      oldDb = await new Promise((res, rej) => {
+        req.onsuccess = () => res(req.result);
+        req.onerror  = () => res(null);
+        // Si la base n'existe pas, onupgradeneeded se déclenche (version 0→1) → on ferme et ignore
+        req.onupgradeneeded = () => { req.result.close(); res(null); };
+      });
+    } catch (_) {}
+    if (!oldDb) return;
+    let data = null;
+    try {
+      if (oldDb.objectStoreNames.contains('session')) {
+        const tx  = oldDb.transaction('session', 'readonly');
+        const rq  = tx.objectStore('session').get('current');
+        data = await new Promise((res) => { rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); });
+      }
+    } catch (_) {}
+    oldDb.close();
+    if (data) {
+      const newDb = await _openDB();
+      const tx2   = newDb.transaction(IDB_STORE, 'readwrite');
+      tx2.objectStore(IDB_STORE).put(data, 'current');
+      await new Promise((res, rej) => { tx2.oncomplete = res; tx2.onerror = () => rej(tx2.error); });
+      newDb.close();
+      console.log('[PRISME] Migration IndexedDB PILOT_PRO → PRISME effectuée');
+    }
+    // Supprimer l'ancienne base
+    try { indexedDB.deleteDatabase('PILOT_PRO'); } catch (_) {}
+  } catch (e) {
+    console.warn('[PRISME] Migration IndexedDB non bloquante :', e.message || e);
+  }
 }
 
 // ── Helpers sérialisation Set / Map ───────────────────────────

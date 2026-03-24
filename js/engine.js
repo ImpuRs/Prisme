@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — engine.js
+// PRISME — engine.js
 // Moteur de calcul métier
 // Dépend de : constants.js, utils.js, state.js
 // ═══════════════════════════════════════════════════════════════
