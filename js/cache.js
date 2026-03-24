@@ -244,6 +244,12 @@ async function _restoreSessionFromIDB() {
     const data = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
     db.close();
     if (!data || data.version !== '3.0') return false;
+    // TTL 30 jours : session trop ancienne → purge silencieuse
+    if (data.timestamp && Date.now() - data.timestamp > 30 * 24 * 3600 * 1000) {
+      db.close(); await _clearIDB();
+      console.log('PILOT: session IndexedDB expirée (> 30 j) — purgée');
+      return false;
+    }
 
     finalData            = data.finalData            || [];
     ventesParMagasin     = data.ventesParMagasin     || {};
