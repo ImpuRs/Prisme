@@ -1,4 +1,6 @@
-# 🛩️ PILOT PRO
+# ◆ PRISME
+
+> *Voir juste, piloter vite.*
 
 **Outil d'analyse et d'optimisation des stocks** pour magasins de distribution B2B.
 
@@ -8,7 +10,7 @@ Anciennement Optistock PRO (V22→V24). Fichier HTML unique, zéro dépendance s
 
 ## 🎯 À quoi ça sert ?
 
-PILOT PRO analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik), la **Zone de Chalandise** (clients Qlik) pour :
+PRISME analyse les **ventes** (consommé 12 mois), l'**état du stock** (photo du jour) et optionnellement les **BL territoire** (omnicanal Qlik), la **Zone de Chalandise** (clients Qlik) pour :
 
 - **Recalculer les MIN/MAX** de chaque article selon un algorithme éprouvé (écrêtage des commandes exceptionnelles + stock de sécurité 48h)
 - **Identifier les actions prioritaires** : ruptures, fantômes, dormants, SASO, anomalies, fins de série
@@ -20,7 +22,7 @@ PILOT PRO analyse les **ventes** (consommé 12 mois), l'**état du stock** (phot
 ## 🏗️ Architecture
 
 ```
-PILOT PRO 1.0
+PRISME 1.0
 ├── index.html          ← Application complète (HTML + CSS + JS)
 ├── README.md           ← Ce fichier
 ├── CLAUDE.md           ← Contexte pour Claude Code
@@ -80,8 +82,8 @@ Voir `docs/DOCUMENTATION.md` pour le détail complet des règles de calcul.
 
 **Plan d'action** : 1 à 3 actions générées automatiquement, classées par impact (⭐ immédiat → ⭐⭐⭐ moyen terme), chacune cliquable pour naviguer directement vers le bon onglet avec filtres pré-remplis. Export CSV.
 
-### 1.0 (Mars 2026) — PILOT PRO
-Première version sous le nom PILOT PRO. Récapitulatif de toutes les fonctionnalités héritées d'Optistock (V22→V24) :
+### 1.0 (Mars 2026) — PRISME
+Première version sous le nom PRISME. Récapitulatif de toutes les fonctionnalités héritées d'Optistock (V22→V24) :
 
 **Moteur de calcul**
 - Algorithme MIN/MAX avec écrêtage (`dl = min(3×U, T)` puis `dl = min(dl, U×5)`)
