@@ -4281,3 +4281,6 @@ window.collapseImportZone = collapseImportZone;
 window.downloadCSV = downloadCSV;
 window.exportKPIhistory = exportKPIhistory;
 window.importKPIhistory = importKPIhistory;
+window.renderObsArticleSearch = renderObsArticleSearch;
+window.copyPepitesOtherList = copyPepitesOtherList;
+window.exportPromoImportCSV = exportPromoImportCSV;
