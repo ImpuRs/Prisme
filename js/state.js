@@ -1,177 +1,182 @@
 // ═══════════════════════════════════════════════════════════════
 // PRISME — state.js
-// Variables globales centralisées
+// Variables globales centralisées dans un objet mutable
+// En ESM, les autres modules importent { _S } et mutent _S.varName
 // Dépend de : rien
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
+// Objet mutable unique : tous les modules partagent la même référence
+// Les propriétés sont librement mutables depuis n'importe quel module.
+export const _S = {};
+
 // ── Core data ──
-let finalData = [];
-let filteredData = [];
-let sortCol = 'V';
-let sortAsc = false;
-let currentPage = 0;
-let debounceTimer = null;
+_S.finalData = [];
+_S.filteredData = [];
+_S.sortCol = 'V';
+_S.sortAsc = false;
+_S.currentPage = 0;
+_S.debounceTimer = null;
 
 // ── Store / ventes ──
-let ventesParMagasin = {};
-let stockParMagasin = {};
-let storesIntersection = new Set();
-let selectedMyStore = '';
-let libelleLookup = {};
-let articleFamille = {};
-let articleUnivers = {};
+_S.ventesParMagasin = {};
+_S.stockParMagasin = {};
+_S.storesIntersection = new Set();
+_S.selectedMyStore = '';
+_S.libelleLookup = {};
+_S.articleFamille = {};
+_S.articleUnivers = {};
 
 // ── Benchmark ──
-let benchLists = {
+_S.benchLists = {
   missed: [], under: [], over: [], storePerf: {}, familyPerf: [],
   obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: []
 };
 
 // ── Cockpit ──
-let cockpitLists = {};
-let ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
-let blData = {};
-let parentRefsExcluded = 0;
-let globalJoursOuvres = 250;
+_S.cockpitLists = {};
+_S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
+_S.blData = {};
+_S.parentRefsExcluded = 0;
+_S.globalJoursOuvres = 250;
 
 // ── ABC/FMR ──
-let abcMatrixData = {};
+_S.abcMatrixData = {};
 
 // ── Territoire ──
-let canalAgence = {};
-let blConsommeSet = new Set();
-let clientsMagasin = new Set();
-let territoireLines = [];
-let territoireReady = false;
-let terrDirectionData = {};
-let terrContribBySecteur = new Map();
-let terrContribByDirection = new Map();
+_S.canalAgence = {};
+_S.blConsommeSet = new Set();
+_S.clientsMagasin = new Set();
+_S.territoireLines = [];
+_S.territoireReady = false;
+_S.terrDirectionData = {};
+_S.terrContribBySecteur = new Map();
+_S.terrContribByDirection = new Map();
 
 // ── Agences par fichier (pour alerte stock mono-agence) ──
-let storeCountConsomme = 0; // nb agences détectées dans le consommé
-let storeCountStock = 0;    // nb agences détectées dans le stock
+_S.storeCountConsomme = 0; // nb agences détectées dans le consommé
+_S.storeCountStock = 0;    // nb agences détectées dans le stock
 
 // ── Période consommé ──
-let consommePeriodMin = null;
-let consommePeriodMax = null;
-let consommeMoisCouverts = 0;
-let consommePeriodMinFull = null; // plage totale avant tout filtre période
-let consommePeriodMaxFull = null;
+_S.consommePeriodMin = null;
+_S.consommePeriodMax = null;
+_S.consommeMoisCouverts = 0;
+_S.consommePeriodMinFull = null; // plage totale avant tout filtre période
+_S.consommePeriodMaxFull = null;
 
 // ── Filtre période global ──
-let periodFilterStart = null; // null = pas de filtre (toute la période)
-let periodFilterEnd = null;
+_S.periodFilterStart = null; // null = pas de filtre (toute la période)
+_S.periodFilterEnd = null;
 
 // ── Insights banner ──
-let _insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
+_S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
 // ── Zone de Chalandise ──
-let chalandiseData = new Map();
-let chalandiseReady = false;
-let chalandiseMetiers = [];
+_S.chalandiseData = new Map();
+_S.chalandiseReady = false;
+_S.chalandiseMetiers = [];
 
 // ── Filtres territoire / chalandise ──
-let _selectedDepts = new Set();
-let _selectedClassifs = new Set();
-let _selectedStatuts = new Set();
-let _selectedActivitesPDV = new Set();
-let _selectedCommercial = '';
-let _selectedMetier = '';
-let _filterStrategiqueOnly = false;
+_S._selectedDepts = new Set();
+_S._selectedClassifs = new Set();
+_S._selectedStatuts = new Set();
+_S._selectedActivitesPDV = new Set();
+_S._selectedCommercial = '';
+_S._selectedMetier = '';
+_S._filterStrategiqueOnly = false;
 
 // ── Client data ──
-let ventesClientArticle = new Map();
-let clientLastOrder = new Map(); // Map<clientCode, Date> — dernière commande PDV
-let clientNomLookup = {};
-let ventesClientsPerStore = {};
-let articleClients = new Map();
-let clientArticles = new Map();
+_S.ventesClientArticle = new Map();
+_S.clientLastOrder = new Map(); // Map<clientCode, Date> — dernière commande PDV
+_S.clientNomLookup = {};
+_S.ventesClientsPerStore = {};
+_S.articleClients = new Map();
+_S.clientArticles = new Map();
 
 // ── Observatoire ──
-let selectedObsCompare = 'median';
-let obsFilterUnivers = '';
-let obsFilterMinCA = 0;
+_S.selectedObsCompare = 'median';
+_S.obsFilterUnivers = '';
+_S.obsFilterMinCA = 0;
 
 // ── Croisement consommé × chalandise ──
-let crossingStats = null;
-let _selectedCrossStatus = '';
-let _cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
-let excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
-let _includePerdu24m = false;
+_S.crossingStats = null;
+_S._selectedCrossStatus = '';
+_S._cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
+_S.excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
+_S._includePerdu24m = false;
 
 // ── KPI history ──
-let kpiHistory = [];
+_S.kpiHistory = [];
 
 // ── Overview navigation state ──
-let _overviewOpenL2 = null;
-let _overviewOpenL3 = null;
+_S._overviewOpenL2 = null;
+_S._overviewOpenL3 = null;
 
 // ── Diagnostic cascade ──
-let _diagLevels = {};
-let _diagActions = [];
-let _diagPlanCopyText = '';
-let _diagMetierFilter = '';
-let _diagCurrentFamille = '';
-let _diagCurrentSource = '';
+_S._diagLevels = {};
+_S._diagActions = [];
+_S._diagPlanCopyText = '';
+_S._diagMetierFilter = '';
+_S._diagCurrentFamille = '';
+_S._diagCurrentSource = '';
 
 // ── Active territoire worker (pour annulation au re-upload) ──
-let _activeTerrWorker = null;
+_S._activeTerrWorker = null;
 
 // ── Reset session — appeler en début de processData() ──────────
-function resetAppState() {
+export function resetAppState() {
   // Annuler le worker territoire en cours si présent
-  if (_activeTerrWorker) { try { _activeTerrWorker.terminate(); } catch (_) {} _activeTerrWorker = null; }
+  if (_S._activeTerrWorker) { try { _S._activeTerrWorker.terminate(); } catch (_) {} _S._activeTerrWorker = null; }
 
   // Core data
-  finalData = []; filteredData = []; currentPage = 0;
+  _S.finalData = []; _S.filteredData = []; _S.currentPage = 0;
 
   // Store / ventes
-  ventesParMagasin = {}; stockParMagasin = {}; storesIntersection = new Set();
-  selectedMyStore = ''; libelleLookup = {}; articleFamille = {}; articleUnivers = {};
+  _S.ventesParMagasin = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
+  _S.selectedMyStore = ''; _S.libelleLookup = {}; _S.articleFamille = {}; _S.articleUnivers = {};
 
   // Benchmark
-  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
+  _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
 
   // Cockpit
-  cockpitLists = {}; ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
-  blData = {}; parentRefsExcluded = 0; globalJoursOuvres = 250;
+  _S.cockpitLists = {}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
+  _S.blData = {}; _S.parentRefsExcluded = 0; _S.globalJoursOuvres = 250;
 
   // ABC/FMR
-  abcMatrixData = {};
+  _S.abcMatrixData = {};
 
   // Territoire
-  canalAgence = {}; blConsommeSet = new Set(); clientsMagasin = new Set();
-  territoireLines = []; territoireReady = false; terrDirectionData = {};
-  terrContribBySecteur = new Map(); terrContribByDirection = new Map();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.clientsMagasin = new Set();
+  _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
+  _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
   // Compteurs agences
-  storeCountConsomme = 0; storeCountStock = 0;
+  _S.storeCountConsomme = 0; _S.storeCountStock = 0;
 
   // Période
-  consommePeriodMin = null; consommePeriodMax = null; consommeMoisCouverts = 0;
-  consommePeriodMinFull = null; consommePeriodMaxFull = null;
+  _S.consommePeriodMin = null; _S.consommePeriodMax = null; _S.consommeMoisCouverts = 0;
+  _S.consommePeriodMinFull = null; _S.consommePeriodMaxFull = null;
 
   // Insights
-  _insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
+  _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  ventesClientArticle = new Map(); clientLastOrder = new Map();
-  clientNomLookup = {}; ventesClientsPerStore = {}; articleClients = new Map(); clientArticles = new Map();
+  _S.ventesClientArticle = new Map(); _S.clientLastOrder = new Map();
+  _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
-  chalandiseData = new Map(); chalandiseReady = false; chalandiseMetiers = [];
+  _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
 
   // Croisement / cockpit export
-  crossingStats = null; _cockpitExportData = null;
+  _S.crossingStats = null; _S._cockpitExportData = null;
 
   // KPI history
-  kpiHistory = [];
+  _S.kpiHistory = [];
 
   // Navigation overview
-  _overviewOpenL2 = null; _overviewOpenL3 = null;
+  _S._overviewOpenL2 = null; _S._overviewOpenL3 = null;
 
   // Diagnostic cascade
-  _diagLevels = {}; _diagActions = []; _diagPlanCopyText = '';
-  _diagMetierFilter = ''; _diagCurrentFamille = ''; _diagCurrentSource = '';
+  _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';
+  _S._diagMetierFilter = ''; _S._diagCurrentFamille = ''; _S._diagCurrentSource = '';
 }
