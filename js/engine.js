@@ -319,7 +319,7 @@ export function generateDecisionQueue() {
   const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
-  const REAPPRO_DAYS = 8; // délai réappro 5j + sécurité 3j
+  const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
   const alerteItems = _S.finalData
     .filter(r => r.couvertureJours != null && r.couvertureJours <= REAPPRO_DAYS
                && r.stockActuel > 0 && r.W >= DQ_MIN_FREQ_ALERTE
@@ -336,8 +336,7 @@ export function generateDecisionQueue() {
       impact: r.W * r.prixUnitaire, action: 'commander', qteSugg,
       label: `Commander ${qteSugg}u réf.${r.code} — rupture dans ${jours}j`,
       why: [
-        `Stock actuel : ${r.stockActuel} u. — couverture ~${jours}j. Le réappro prend 5j + 3j de marge (8j). Commander maintenant pour éviter la rupture.`,
-        `Le stock sera épuisé dans ~${jours} jour${jours > 1 ? 's' : ''}. En attendant, la rupture est probable avant l'arrivée du réassort.`,
+        `Stock actuel : ${r.stockActuel} u. — couverture ~${jours}j. Le réappro prend 48h + 1j de marge. Commander maintenant pour éviter la rupture.`,
         `Quantité suggérée : ${qteSugg} u. pour atteindre le MAX de ${r.nouveauMax || 1} u. en rayon.`,
       ],
     });
