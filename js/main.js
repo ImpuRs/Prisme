@@ -3019,12 +3019,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     list.innerHTML=decisions.map(d=>{
       const cls=d.impact>=5000?'dq-critical':d.impact>=500?'dq-warn':'dq-ok';
       const numColor=d.impact>=5000?'#ef4444':d.impact>=500?'#f97316':'#22c55e';
-      const srcHtml=d.source?`<div class="dq-src" title="${d.context||''}">${d.source}</div>`:'';
-      return`<div class="dq-item ${cls}" data-rang="${d.rang}" data-action="${d.action||''}" data-code="${d.code||''}">
+      return`<div class="dq-item ${cls}" data-rang="${d.rang}" data-action="${d.action||''}" data-code="${d.code||''}" title="${[d.label,d.context,d.source].filter(Boolean).join(' — ').replace(/"/g,'&quot;')}">
         <span class="dq-num" style="color:${numColor}">${d.rang}</span>
         <div class="flex-1 min-w-0">
           <div class="dq-label">${d.label}</div>
-          ${srcHtml}
         </div>
         <input type="checkbox" class="meeting-check mt-1 flex-shrink-0" style="width:16px;height:16px;cursor:pointer;accent-color:${numColor}" title="Marquer comme traité">
       </div>`;
@@ -3043,9 +3041,16 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Collect all weeks from ventesParFamilleWeek keys
     const weekSet=new Set();for(const k of Object.keys(_S.ventesParFamilleWeek)){const[,wk]=k.split('|');if(wk)weekSet.add(wk);}
     const semaines=[...weekSet].sort();if(semaines.length===0){wrapper.classList.add('hidden');return;}
-    // Compute average weekly sales per family
-    const famTotal={};const famWeekCount={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];famWeekCount[fam]=(famWeekCount[fam]||0)+1;}
-    const famAvg={};for(const f of familles)famAvg[f]=famWeekCount[f]>0?(famTotal[f]/famWeekCount[f]):0;
+    // Compute average weekly sales per family — dénominateur = toutes les semaines
+    // (incluant les 0) pour une baseline correcte : évite que famAvg→0 et ||1 rende tout rouge
+    const famTotal={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];}
+    const famAvg={};for(const f of familles)famAvg[f]=semaines.length>0?((famTotal[f]||0)/semaines.length):0;
+    // Color helper: blanc=moyenne, orange=−50%, rouge=−80%+
+    function _heatColor(deficit){
+      if(deficit<=0)return'#f8fafc';// ≥ moyenne → blanc
+      if(deficit<0.5){const t=deficit*2;return`hsl(${Math.round(35*t)},${Math.round(t*88)}%,${Math.round(97-t*40)}%)`;}
+      const t=(deficit-0.5)*2;return`hsl(${Math.round(35-t*35)},88%,${Math.round(57-t*17)}%)`;
+    }
     // Draw canvas
     const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const LABEL_W=120;const HEADER_H=20;
     canvas.width=LABEL_W+semaines.length*CELL_W;canvas.height=HEADER_H+familles.length*CELL_H;
@@ -3060,12 +3065,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         const yPos=HEADER_H+y*CELL_H;
         ctx.fillStyle='#1e293b';ctx.font='10px Inter,sans-serif';ctx.textAlign='right';
         ctx.fillText(fam.substring(0,18),LABEL_W-4,yPos+CELL_H/2+3);
-        const avg=famAvg[fam]||1;
+        const avg=famAvg[fam];// 0 = pas de données → toutes les cellules blanc-neutre
         semaines.forEach((wk,x)=>{
           const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;
-          const deficit=Math.max(0,(avg-actual)/avg);// 0=normal, 1=no sales
-          const sat=Math.round(deficit*80);const lig=Math.round(55-deficit*25);
-          ctx.fillStyle=`hsl(${Math.round(deficit*15)},${sat}%,${lig}%)`;
+          const deficit=avg>0?Math.max(0,Math.min(1,(avg-actual)/avg)):0;
+          ctx.fillStyle=_heatColor(deficit);
           ctx.fillRect(LABEL_W+x*CELL_W,yPos,CELL_W-1,CELL_H-1);
         });
       });
