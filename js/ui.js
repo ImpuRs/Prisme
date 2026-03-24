@@ -733,7 +733,7 @@ export function renderDecisionQueue() {
     // Fix: dormants/clients → ambre (dq-medium). Seules les ruptures actives → rouge (dq-high).
     const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
     const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
-    const whyHtml = d.why && d.why.length ? `<details class="dq-why"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
+    const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
     return `<div class="dq-item dq-item-click" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
