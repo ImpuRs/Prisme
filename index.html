@@ -260,9 +260,26 @@
     #tabsContainer .tab-btn{height:46px;font-size:13px;padding:0 16px}
     #tabsContainer .tab-btn.active{background:var(--tab-bg,#eff6ff);font-weight:700}
 
+
+    /* ═══ Couche 1 — Signal Ambiant ═══════════════════════════ */
+    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease;background:transparent;pointer-events:none}
+
+    /* ═══ Couche 4 — Tableaux Vivants ═════════════════════════ */
+    @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.008)}}
+    @media(prefers-reduced-motion:no-preference){tr.row-critical{animation:breathe 2.5s ease-in-out infinite;transform-origin:center}}
+    tr.row-critical{background:rgba(226,75,74,0.06)!important;border-left:2px solid rgba(226,75,74,0.4)}
+    tr.row-warning{background:rgba(239,159,39,0.04)!important;border-left:2px solid rgba(239,159,39,0.3)}
+    tr.row-dormant{opacity:0.55;filter:saturate(0.35)}
+    tr.row-surstock{background:rgba(55,138,221,0.04)!important}
+    tr.row-pepite{background:rgba(29,158,117,0.04)!important;border-left:2px solid rgba(29,158,117,0.3)}
+    #articles-table tbody tr{transition:opacity 0.2s ease,background 0.2s ease}
+
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 relative">
+
+  <!-- Couche 1 : Signal ambiant — barre 3px colorée selon santé stock -->
+  <div id="ambient-signal"></div>
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
