@@ -4250,10 +4250,25 @@ window.copyPepitesOtherList = copyPepitesOtherList;
 window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
-window._cockpitToggleSection = _cockpitToggleSection;
-window._cockpitToggleFullList = _cockpitToggleFullList;
-window.exportCockpitCSV = exportCockpitCSV;
-window.exportCockpitCSVAll = exportCockpitCSVAll;
-window.exportExclusionsJSON = exportExclusionsJSON;
+window._cockpitToggleSection    = _cockpitToggleSection;
+window._cockpitToggleFullList   = _cockpitToggleFullList;
+window.exportCockpitCSV         = exportCockpitCSV;
+window.exportCockpitCSVAll      = exportCockpitCSVAll;
+window.exportExclusionsJSON     = exportExclusionsJSON;
+// Territoire / Vue Terrain — toggles direction/métier/secteur/famille (onclick HTML généré)
+window._toggleOverviewL2        = _toggleOverviewL2;
+window._toggleOverviewL3        = _toggleOverviewL3;
+window._toggleOverviewL4        = _toggleOverviewL4;
+window.toggleTerrDir            = toggleTerrDir;
+window.toggleTerrDirStatus      = toggleTerrDirStatus;
+window.toggleTerrFam            = toggleTerrFam;
+window.toggleContribDirection   = toggleContribDirection;
+// Cockpit Client — exclusions & liste masquée
+window._toggleExcludedList      = _toggleExcludedList;
+window._unexcludeAll            = _unexcludeAll;
+// Benchmark Obs — expand famille
+window.toggleObsFamily          = toggleObsFamily;
+// Promo — articles client
+window._togglePromoClientArts   = _togglePromoClientArts;
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
