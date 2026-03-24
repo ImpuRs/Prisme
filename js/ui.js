@@ -158,6 +158,23 @@ export function getFilteredData() {
   return filtered;
 }
 
+// Couche 1 — Signal Ambiant : barre 3px colorée selon santé stock
+export function updateAmbientSignal() {
+  if (!_S.finalData || _S.finalData.length === 0) return;
+  const frequents = _S.finalData.filter(d => d.W >= 3);
+  const frequentsEnStock = frequents.filter(d => d.stockActuel > 0);
+  const tauxService = frequents.length > 0 ? (frequentsEnStock.length / frequents.length) * 100 : 100;
+  // Proxy ruptures critiques : fréquent, en rupture, PU * W assez élevé pour score > 5000
+  const rupturesCritiques = _S.finalData.filter(d => d.W >= 3 && d.stockActuel <= 0 && d.W * d.prixUnitaire >= 200).length;
+  let barColor;
+  if (rupturesCritiques > 5)  barColor = '#E24B4A'; // rouge — tension
+  else if (tauxService < 85)  barColor = '#EF9F27'; // orange — alerte
+  else if (tauxService < 95)  barColor = '#888780'; // gris  — neutre
+  else                        barColor = '#1D9E75'; // turquoise — calme
+  const bar = document.getElementById('ambient-signal');
+  if (bar) bar.style.background = barColor;
+}
+
 export function renderAll() {
   _S.filteredData = getFilteredData();
   _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
@@ -166,6 +183,7 @@ export function renderAll() {
   renderDashboardAndCockpit();
   renderABCTab();
   renderCanalAgence();
+  updateAmbientSignal();
 }
 
 export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }

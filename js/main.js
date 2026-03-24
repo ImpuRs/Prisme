@@ -2976,7 +2976,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
       const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
-      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
+      const _cockpitRowClass=i.prioScore>=5000?'row-critical':'row-warning';
+      p.push(`<tr class="border-b hover:bg-white/60 ${_cockpitRowClass}"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
     const ruptTotEl=document.getElementById('actionRupturesTotal');
@@ -3183,9 +3184,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const bg=r.isNouveaute?'bg-emerald-50':(r.nouveauMin>0?'bg-white':'bg-gray-50 text-gray-400');
       const sc=r.stockActuel<0?'text-red-600 font-extrabold':'text-orange-600 font-bold';
       const br=getAgeBracket(r.ageJours);
-      // Feature 3: row-critical / row-dormant
+      // Couche 4 — Tableaux Vivants : classe selon température de la ligne
       const _prioRow=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
-      const _rowClass=(r.stockActuel<=0&&_prioRow>=5000)?'row-critical':(!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&r.W<3?'row-dormant':'');
+      const _rowClass=(r.stockActuel<=0&&_prioRow>=5000)?'row-critical':(r.stockActuel<=0&&r.W>=3)?'row-warning':(!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&r.W<3)?'row-dormant':(r.abcClass==='A'&&r.fmrClass==='F')?'row-pepite':(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)?'row-surstock':'';
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMin>r.medMinReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMax>r.medMaxReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
     p.push(`<tr class="border-b hover:bg-blue-50 ${bg} ${_rowClass}">
@@ -4447,6 +4448,7 @@ window.switchTab = switchTab;
 window.processData = processData;
 window.showToast = showToast;
 window.renderAll = renderAll;
+window.updateAmbientSignal = updateAmbientSignal;
 window.onFilterChange = onFilterChange;
 window.debouncedRender = debouncedRender;
 window.resetFilters = resetFilters;
