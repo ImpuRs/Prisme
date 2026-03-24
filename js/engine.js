@@ -445,6 +445,7 @@ export function generateDecisionQueue() {
 
   // ── 5. Concentration Client — ICC (K1) ───────────────────────────────
   _S._iccData = null;
+  console.log('ICC Debug (entrée):', { ventesClientArticleSize: _S.ventesClientArticle?.size || 0 });
   if (_S.ventesClientArticle.size > 0) {
     const caParClient = [];
     for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
@@ -461,6 +462,13 @@ export function generateDecisionQueue() {
       const top3Pct = top3.reduce((s, c) => s + c.pct, 0);
       const alerte = icc <= 5 || top3Pct > 40;
       _S._iccData = { icc, top3Pct, top3, alerte, totalCA: Math.round(totalCA) };
+      console.log('ICC Debug:', {
+        nbClients: caParClient.length,
+        icc: _S._iccData?.icc,
+        top3Pct: _S._iccData?.top3Pct,
+        alerte: _S._iccData?.alerte,
+        ventesClientArticleSize: _S.ventesClientArticle?.size || 0
+      });
       if (alerte) {
         const top3Label = top3.map(c => `${c.nom.substring(0, 20)} (${c.pct}%)`).join(', ');
         decisions.push({
@@ -478,6 +486,7 @@ export function generateDecisionQueue() {
 
   // ── 6. Fragilité Produit — mono-client (K6) ──────────────────────────
   _S._fragiliteData = null;
+  console.log('Fragilité Debug (entrée):', { ventesClientArticleSize: _S.ventesClientArticle?.size || 0, articleClientsSize: _S.articleClients?.size || 0 });
   if (_S.ventesClientArticle.size > 0 && _S.articleClients.size > 0) {
     const fragiles = [];
     if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.clear();
@@ -495,6 +504,11 @@ export function generateDecisionQueue() {
     }
     fragiles.sort((a, b) => b.ca - a.ca);
     const caTotal = fragiles.reduce((s, f) => s + f.ca, 0);
+    console.log('Fragilité Debug:', {
+      nbFragiles: fragiles.length,
+      caTotal: caTotal,
+      articleClientsSize: _S.articleClients?.size || 0
+    });
     if (fragiles.length > 0) {
       _S._fragiliteData = { nbFragiles: fragiles.length, caFragileTotal: caTotal, topFragiles: fragiles.slice(0, 5) };
       if (fragiles.length >= 3) {
