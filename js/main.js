@@ -3019,7 +3019,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     list.innerHTML=decisions.map(d=>{
       const cls=d.impact>=5000?'dq-critical':d.impact>=500?'dq-warn':'dq-ok';
       const numColor=d.impact>=5000?'#ef4444':d.impact>=500?'#f97316':'#22c55e';
-      return`<div class="dq-item ${cls}" data-rang="${d.rang}" data-action="${d.action||''}" data-code="${d.code||''}" title="${[d.label,d.context,d.source].filter(Boolean).join(' — ').replace(/"/g,'&quot;')}">
+      return`<div class="dq-item ${cls}" data-rang="${d.rang}" data-action="${d.action||''}" data-code="${d.code||''}" data-source="${(d.source||'').replace(/"/g,'&quot;')}" title="${[d.label,d.context,d.source].filter(Boolean).join(' — ').replace(/"/g,'&quot;')}">
         <span class="dq-num" style="color:${numColor}">${d.rang}</span>
         <div class="flex-1 min-w-0">
           <div class="dq-label">${d.label}</div>
@@ -4355,7 +4355,7 @@ function toggleMeetingMode(){
     const dateEl=document.getElementById('meetingPanelDate');if(dateEl)dateEl.textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     // Copier les 3 premières décisions urgentes
     const decs=window._lastDecisionQueue||[];const mDec=document.getElementById('meetingDecisions');
-    if(mDec)mDec.innerHTML=decs.slice(0,3).map((d,i)=>`<label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg bg-slate-700/40 hover:bg-slate-700/60 transition-colors"><input type="checkbox" id="mcheck${i}" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:#3b82f6"><div><div style="font-size:.85rem;font-weight:600">${d.rang}. ${d.label}</div><div style="font-size:.65rem;color:#64748b;margin-top:2px">${d.source||''}</div></div></label>`).join('')||'<p style="color:#64748b;font-size:.8rem">Aucune décision disponible.</p>';
+    if(mDec)mDec.innerHTML=decs.slice(0,3).map((d,i)=>`<label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg bg-slate-700/40 hover:bg-slate-700/60 transition-colors" data-source="${(d.source||'').replace(/"/g,'&quot;')}" title="${[d.label,d.context,d.source].filter(Boolean).join(' — ').replace(/"/g,'&quot;')}"><input type="checkbox" id="mcheck${i}" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:#3b82f6"><div style="font-size:.85rem;font-weight:600">${d.rang}. ${d.label}</div></label>`).join('')||'<p style="color:#64748b;font-size:.8rem">Aucune décision disponible.</p>';
     // Copier résumé exécutif
     const src=document.getElementById('execSummaryText');const dst=document.getElementById('meetingExecSummary');if(src&&dst)dst.innerHTML=src.innerHTML;
   }
