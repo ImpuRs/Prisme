@@ -208,7 +208,7 @@ export function filterByAbcFmr(abc, fmr) {
 // ── Cockpit filter ────────────────────────────────────────────
 export function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
-  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif' }[type] || type;
+  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
   if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('text-gray-600', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
@@ -718,6 +718,18 @@ export function renderCockpitBriefing() {
     sentences.push({ icon: '🔗', color: 'c-muted', text: `Le Terrain\u00a0: ${n(pctCouv + '%', couvCls, 'Articles du Top 100 CA Terrain présents en rayon')} du Top\u00a0100 en rayon, ${n(absent, 'c-caution', 'Articles Top 100 absents du rayon (non référencés ou rupture)')} articles absents.` });
   }
 
+  // 6. Concentration Client (ICC)
+  if (_S._iccData && _S._iccData.alerte) {
+    sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA PDV`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA PDV sur les 3 premiers clients')} du CA PDV. Risque si l'un d'eux part.` });
+  }
+
+  // 7. Fragilité Produit (mono-client)
+  if (_S._fragiliteData && _S._fragiliteData.nbFragiles >= 5) {
+    const nf = _S._fragiliteData.nbFragiles;
+    const ca = _S._fragiliteData.caFragileTotal;
+    sentences.push({ icon: '🎯', color: 'c-caution', text: `${n(nf + ' articles', 'c-caution', 'Articles fréquents achetés par un seul client')} fréquents dépendent d'un seul client\u00a0— ${n(formatEuro(ca), 'c-caution', 'CA annuel à risque si le client unique part')} de CA à risque.` });
+  }
+
   textEl.innerHTML = sentences.map(s =>
     `<div class="briefing-line"><span class="briefing-icon">${s.icon}</span><span class="${s.color}">${s.text}</span></div>`
   ).join('');
@@ -739,7 +751,9 @@ export function renderDecisionQueue() {
     rupture:        { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'dq-high' },
     alerte_prev:    { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'dq-medium' },
     client:         { badgeClass: 'dq-action',  icon: '📞', impactClass: 'dq-medium' },
+    concentration:  { badgeClass: 'dq-caution', icon: '📊', impactClass: 'dq-medium' },
     dormants:       { badgeClass: 'dq-caution', icon: '💤', impactClass: 'dq-medium' },
+    fragilite:      { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
     anomalie_minmax:{ badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
     sain:           { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
@@ -804,6 +818,13 @@ export function dqFocus(idx) {
       break;
     case 'client':
       switchTab('territoire');
+      break;
+    case 'concentration':
+      switchTab('territoire');
+      break;
+    case 'fragilite':
+      showCockpitInTable('fragiles');
+      switchTab('table');
       break;
     default:
       break;

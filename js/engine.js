@@ -316,7 +316,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, concentration: 2.5, dormants: 3, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -443,7 +443,76 @@ export function generateDecisionQueue() {
     });
   }
 
-  // ── 5. Situation saine (aucune urgence trouvée) ──────────────────────
+  // ── 5. Concentration Client — ICC (K1) ───────────────────────────────
+  _S._iccData = null;
+  if (_S.ventesClientArticle.size > 0) {
+    const caParClient = [];
+    for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
+      let ca = 0;
+      for (const d of artMap.values()) ca += (d.sumCA || 0);
+      if (ca > 0) caParClient.push({ code: cc, ca, nom: _S.clientNomLookup[cc] || cc });
+    }
+    caParClient.sort((a, b) => b.ca - a.ca);
+    const totalCA = caParClient.reduce((s, c) => s + c.ca, 0);
+    if (caParClient.length >= 3 && totalCA > 0) {
+      let cumul = 0, icc = 0;
+      for (const c of caParClient) { cumul += c.ca; icc++; if (cumul >= totalCA * 0.5) break; }
+      const top3 = caParClient.slice(0, 3).map(c => ({ code: c.code, nom: c.nom, ca: Math.round(c.ca), pct: Math.round(c.ca / totalCA * 100) }));
+      const top3Pct = top3.reduce((s, c) => s + c.pct, 0);
+      const alerte = icc <= 5 || top3Pct > 40;
+      _S._iccData = { icc, top3Pct, top3, alerte, totalCA: Math.round(totalCA) };
+      if (alerte) {
+        const top3Label = top3.map(c => `${c.nom.substring(0, 20)} (${c.pct}%)`).join(', ');
+        decisions.push({
+          type: 'concentration', impact: top3.reduce((s, c) => s + c.ca, 0),
+          label: `Diversifier\u00a0— ${icc} client${icc > 1 ? 's' : ''} font 50% du CA. Top\u00a0: ${top3Label}.`,
+          why: [
+            `${icc} client${icc > 1 ? 's' : ''} concentrent 50% de votre CA PDV de ${Math.round(totalCA).toLocaleString('fr')} \u20ac`,
+            `Si ${top3[0].nom} part, vous perdez ${top3[0].ca.toLocaleString('fr')} \u20ac soit ${top3[0].pct}% du CA`,
+            `Objectif\u00a0: développer les clients moyens pour diluer le risque`,
+          ],
+        });
+      }
+    }
+  }
+
+  // ── 6. Fragilité Produit — mono-client (K6) ──────────────────────────
+  _S._fragiliteData = null;
+  if (_S.ventesClientArticle.size > 0 && _S.articleClients.size > 0) {
+    const fragiles = [];
+    if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.clear();
+    for (const r of _S.finalData) {
+      if (r.W < 3) continue;
+      const clients = _S.articleClients.get(r.code);
+      if (!clients || clients.size !== 1) continue;
+      const clientCode = clients.values().next().value;
+      const artMap = _S.ventesClientArticle.get(clientCode);
+      if (!artMap) continue;
+      const ca = (artMap.get(r.code)?.sumCA) || 0;
+      if (ca <= 500) continue;
+      fragiles.push({ code: r.code, libelle: r.libelle, client: _S.clientNomLookup[clientCode] || clientCode, clientCode, ca: Math.round(ca) });
+      if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.add(r.code);
+    }
+    fragiles.sort((a, b) => b.ca - a.ca);
+    const caTotal = fragiles.reduce((s, f) => s + f.ca, 0);
+    if (fragiles.length > 0) {
+      _S._fragiliteData = { nbFragiles: fragiles.length, caFragileTotal: caTotal, topFragiles: fragiles.slice(0, 5) };
+      if (fragiles.length >= 3) {
+        const top1 = fragiles[0];
+        decisions.push({
+          type: 'fragilite', impact: caTotal,
+          label: `${fragiles.length} articles mono-client\u00a0— ${caTotal.toLocaleString('fr')} \u20ac \u00e0 risque si un client part.`,
+          why: [
+            `${fragiles.length} articles fréquents (\u22653 cmd/an) n'ont qu'un seul acheteur`,
+            `Si ce client part, ces articles deviennent dormants`,
+            `Top risque\u00a0: ${top1.libelle.substring(0, 25)} (${top1.ca.toLocaleString('fr')} \u20ac)\u00a0\u2014 seul client\u00a0: ${top1.client}`,
+          ],
+        });
+      }
+    }
+  }
+
+  // ── 7. Situation saine (aucune urgence trouvée) ──────────────────────
   if (decisions.length === 0) {
     const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
     const sr = freq.length > 0 ? Math.round(freq.filter(r => r.stockActuel > 0).length / freq.length * 100) : 100;
