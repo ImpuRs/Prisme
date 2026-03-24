@@ -21,7 +21,16 @@
     .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:#f0f9ff}.contrib-client-row.open{background:#e0f2fe}
     .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
     .pct-bar-terr{height:6px;border-radius:3px;transition:width .4s ease}
-    body{font-family:'Inter',sans-serif}
+    /* ═══ Feature 1: Signal ambiant hue-rotate ══════════════════ */
+    body{font-family:'Inter',sans-serif;filter:hue-rotate(var(--health-hue,0deg));transition:filter 1.2s ease}
+    /* ═══ Feature 3: Tableaux vivants ═══════════════════════════ */
+    @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.008)}}
+    .row-critical{animation:breathe 2s ease-in-out infinite;transform-origin:center}
+    .row-dormant{opacity:.65;filter:saturate(.4)}
+    /* ═══ Feature 5: Insight badge pulse ════════════════════════ */
+    @keyframes insightPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.7}}
+    #insightPanel{display:none;position:fixed;top:52px;right:12px;z-index:9500;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;max-width:340px;width:calc(100vw - 24px);color:#e2e8f0;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+    #insightPanel.active{display:block}
     th{cursor:pointer;user-select:none}th:hover{background:#374151}
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
     .tab-content{animation:fadeIn .25s ease-in-out}
@@ -262,6 +271,15 @@
     <div id="reportingPanel"></div>
   </div>
 
+  <!-- Feature 5: Insight Panel -->
+  <div id="insightPanel" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2"><span>💡</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-orange-400">Insights automatiques</h3></div>
+      <button onclick="closeInsightPanel()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;line-height:1">×</button>
+    </div>
+    <div id="insightPanelContent" class="text-xs leading-relaxed space-y-2 text-slate-300"></div>
+    <p id="insightPanelSource" class="text-[10px] text-slate-500 mt-3 border-t border-slate-700 pt-2"></p>
+  </div>
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
   <!-- V24.4: Pipeline per-file status -->
@@ -288,6 +306,11 @@
           <button id="navPeriodBtn" onclick="togglePeriodDropdown()">—</button>
           <div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div>
         </div>
+        <!-- Feature 5: Pastille insights -->
+        <button id="insightBadgeBtn" class="hidden" onclick="openInsightPanel()" title="Insights automatiques détectés" style="position:relative;background:none;border:none;cursor:pointer;padding:2px 4px">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316"></span>
+          <span id="insightBadge" style="display:none;position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:#ef4444;animation:insightPulse 1.8s ease-in-out infinite"></span>
+        </button>
         <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
         <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
       </div>
@@ -756,7 +779,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
         <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
-        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 id="dashFamilyHeader" class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
       </div>
     </div>
 
@@ -792,10 +815,28 @@
         <p id="eqExtra" class="text-[11px] text-gray-500 text-center mt-0.5 hidden"></p>
       </div>
 
+      <!-- Feature 2: Briefing matinal 3 phrases -->
+      <div id="cockpitBriefing" class="hidden mb-6 rounded-xl p-4 border border-slate-700/60" style="background:linear-gradient(135deg,#0d1117 0%,#161b22 100%)">
+        <div class="flex items-center gap-2 mb-2"><span class="text-base">🌅</span><h3 class="font-extrabold text-xs uppercase tracking-widest text-slate-400">Briefing</h3></div>
+        <div id="cockpitBriefingText" class="text-sm leading-relaxed space-y-1.5 text-slate-200"></div>
+      </div>
+
       <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
       <div id="execSummary" class="exec-summary rounded-xl p-5 mb-8 text-white">
         <div class="flex items-center gap-2 mb-3"><span class="text-lg">⚡</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-blue-300">Résumé exécutif</h3></div>
         <div id="execSummaryText" class="text-sm leading-relaxed space-y-1"></div>
+      </div>
+
+      <!-- Feature 4: Heat Canvas Famille×Semaine -->
+      <div id="heatCanvasWrapper" class="hidden mb-8 rounded-xl overflow-hidden border border-slate-200 bg-white">
+        <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+          <div class="flex items-center gap-2"><span class="text-sm">🌡️</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-slate-600">Chaleur Ruptures — Famille × Semaine</h3></div>
+          <span class="text-[10px] text-slate-400">intensité = déficit de ventes · blanc = normal · rouge = rupture probable</span>
+        </div>
+        <div style="position:relative;overflow-x:auto">
+          <canvas id="heatCanvas" style="display:block;cursor:crosshair"></canvas>
+          <div id="heatTooltip" style="display:none;position:absolute;background:rgba(15,23,42,.92);color:#e2e8f0;font-size:11px;padding:6px 10px;border-radius:7px;pointer-events:none;white-space:nowrap;z-index:10"></div>
+        </div>
       </div>
 
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>

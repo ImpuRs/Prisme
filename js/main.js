@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, generateSemanticTitle } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 
@@ -1124,6 +1124,8 @@ import { initRouter } from './router.js';
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)_S.articleFamille[code]=famConso;const _uv2=(getVal(row,'Univers')||'').toString().trim();const _cf2=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
+      // Feature 4: agréger ventes par famille × semaine ISO (store courant uniquement)
+      if(dateV&&famConso&&qteP>0&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const _d=new Date(dateV);_d.setHours(0,0,0,0);const _day=_d.getDay()||7;_d.setDate(_d.getDate()+4-_day);const _y=_d.getFullYear();const _wn=Math.ceil(((_d-new Date(_y,0,1))/86400000+1)/7);const _wk=_y+'-W'+String(_wn).padStart(2,'0');const _fwk=famConso+'|'+_wk;_S.ventesParFamilleWeek[_fwk]=(_S.ventesParFamilleWeek[_fwk]||0)+qteP;}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
@@ -1253,6 +1255,7 @@ import { initRouter } from './router.js';
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      launchInsightWorker(); // Feature 5
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('bg-gray-800','bg-green-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -2879,6 +2882,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function renderDashboardAndCockpit(){
+    // Feature 7: Profil métier dominant (calcul lazy, gratuit)
+    computeMetierProfile();
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set()};
@@ -2928,10 +2933,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     document.getElementById('dashSurstock').textContent=formatEuro(activeSurstock);document.getElementById('dashSurstockPct').textContent=pct(activeSurstock,totalValue);
     document.getElementById('dashCapalin').textContent=formatEuro(capalinOverflow);document.getElementById('dashCapalinCount').textContent=capalinCount+' art.';
     const sr=serviceTotal>0?((serviceOk/serviceTotal)*100).toFixed(1):0;document.getElementById('dashServiceRate').textContent=sr+'%';document.getElementById('dashServiceDetail').textContent=`${serviceOk}/${serviceTotal} fréquentes en stock`;
+    // Feature 1: Signal ambiant hue-rotate — calcul subliminale de la santé du stock
+    {const srNum=parseFloat(sr);const critiques=lstR.filter(r=>r.prioScore>=5000).length;let hue=0;if(srNum>95)hue=-10;else if(srNum<85)hue=15;if(critiques>5)hue=Math.min(hue+10,25);document.documentElement.style.setProperty('--health-hue',hue+'deg');}
     document.getElementById('dashCAPerdu').textContent=formatEuro(totalCAPerdu);document.getElementById('dashCAPerduCount').textContent=lstR.length+' art. en rupture';
     renderComparison({date:new Date().toLocaleDateString('fr-FR'),totalValue,dormant:dormantStock,surstock:activeSurstock,ruptures:lstR.length,serviceRate:parseFloat(sr),capalin:capalinOverflow,caPerdu:totalCAPerdu});
     let p;p=[];Object.keys(byStatus).sort((a,b)=>byStatus[b]-byStatus[a]).forEach(s=>{p.push(`<tr class="hover:bg-gray-50"><td class="py-2">${s}</td><td class="py-2 text-right text-blue-600 font-bold">${formatEuro(byStatus[s])}</td></tr>`);});document.getElementById('dashStatusTable').innerHTML=p.join('');
-    p=[];Object.keys(byFamily).sort((a,b)=>byFamily[b]-byFamily[a]).slice(0,10).forEach(f=>{const fAttr=f.replace(/&/g,'&amp;').replace(/"/g,'&quot;');p.push(`<tr class="hover:bg-gray-50"><td class="py-2 truncate max-w-[160px]" title="${fAttr}">${fAttr}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td><td class="py-2 text-center"><button class="diag-btn bg-blue-100 text-blue-700" data-fam="${fAttr}" onclick="openDiagnostic(this.dataset.fam,'stock')">🔍</button></td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
+    // Feature 7: tri familles selon profil métier dominant + indicateur header
+    {const hdr=document.getElementById('dashFamilyHeader');if(hdr){const profEmoji={'électricien':'⚡','plombier':'🔧','maçon':'🧱','menuisier':'🪵','généraliste':'📦'}[_S.metierProfile]||'📦';const profBadge=_S.metierProfile&&_S.metierProfile!=='généraliste'?` <span class="text-[9px] font-normal text-indigo-500 ml-1">${profEmoji} ${_S.metierProfile}</span>`:'';hdr.innerHTML=`📦 Top 10 Familles${profBadge}`;}}
+    p=[];Object.keys(byFamily).sort((a,b)=>{const pk=(getProfileFamilySortKey(b)-getProfileFamilySortKey(a));return pk!==0?pk:byFamily[b]-byFamily[a];}).slice(0,10).forEach(f=>{const fAttr=f.replace(/&/g,'&amp;').replace(/"/g,'&quot;');const semTitle=generateSemanticTitle(f,dataSource);const semAttr=semTitle.replace(/&/g,'&amp;').replace(/"/g,'&quot;');const semClass=semTitle!==f?'text-slate-600 text-[10px] italic':'';p.push(`<tr class="hover:bg-gray-50"><td class="py-2 max-w-[180px]" title="${fAttr}"><div class="font-semibold text-xs truncate">${fAttr}</div>${semTitle!==f?`<div class="truncate ${semClass}" title="${semAttr}">${semAttr}</div>`:''}</td><td class="py-2 text-right text-orange-600 font-bold">${formatEuro(byFamily[f])}</td><td class="py-2 text-center"><button class="diag-btn bg-blue-100 text-blue-700" data-fam="${fAttr}" onclick="openDiagnostic(this.dataset.fam,'stock')">🔍</button></td></tr>`);});document.getElementById('dashFamilyTable').innerHTML=p.join('');
     p=[];for(const[k,br] of Object.entries(AGE_BRACKETS)){const d=ageBuckets[k];p.push(`<tr class="age-row-clickable ${k==='critical'?br.bg:'hover:bg-gray-50'}" onclick="filterByAge('${k}')"><td class="py-2.5 px-3 ${br.color} font-bold text-sm">${br.label}</td><td class="py-2.5 px-3 text-right font-bold">${formatEuro(d.val)}</td><td class="py-2.5 px-3 text-right text-gray-500 text-xs">${d.count}</td></tr>`);}document.getElementById('dashAgeTable').innerHTML=p.join('');
     // V24.4: Attractivité dans l'onglet Stock
     const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${fam}">${fam}</td><td class="py-2 px-3 text-center text-gray-600 text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 bg-gray-200 rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 text-gray-400 text-xs">Aucune donnée famille</td></tr>';}
@@ -2984,9 +2993,81 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     })();
 
     renderCockpitEquation();
+    // Feature 4: Heat Canvas
+    renderHeatCanvas();
+    // Feature 2: Briefing matinal
+    renderCockpitBriefing(lstR,sr,serviceTotal);
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===_S.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
+  }
+
+  // Feature 4: Heat Canvas Famille×Semaine
+  function renderHeatCanvas(){
+    const wrapper=document.getElementById('heatCanvasWrapper');const canvas=document.getElementById('heatCanvas');const tooltip=document.getElementById('heatTooltip');
+    if(!canvas||!wrapper)return;
+    // Collect families with CA perdu, sort desc
+    const famCAPerdu={};for(const r of _S.finalData){if(!r.famille)continue;if(r.stockActuel<=0&&r.W>=3){const ca=Math.round(r.W*r.prixUnitaire);if(ca>0)famCAPerdu[r.famille]=(famCAPerdu[r.famille]||0)+ca;}}
+    const familles=Object.keys(famCAPerdu).sort((a,b)=>famCAPerdu[b]-famCAPerdu[a]).slice(0,20);
+    if(familles.length===0||Object.keys(_S.ventesParFamilleWeek).length===0){wrapper.classList.add('hidden');return;}
+    // Collect all weeks from ventesParFamilleWeek keys
+    const weekSet=new Set();for(const k of Object.keys(_S.ventesParFamilleWeek)){const[,wk]=k.split('|');if(wk)weekSet.add(wk);}
+    const semaines=[...weekSet].sort();if(semaines.length===0){wrapper.classList.add('hidden');return;}
+    // Compute average weekly sales per family
+    const famTotal={};const famWeekCount={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];famWeekCount[fam]=(famWeekCount[fam]||0)+1;}
+    const famAvg={};for(const f of familles)famAvg[f]=famWeekCount[f]>0?(famTotal[f]/famWeekCount[f]):0;
+    // Draw canvas
+    const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const LABEL_W=120;const HEADER_H=20;
+    canvas.width=LABEL_W+semaines.length*CELL_W;canvas.height=HEADER_H+familles.length*CELL_H;
+    const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Header: week labels every N weeks
+    ctx.fillStyle='#94a3b8';ctx.font='9px Inter,sans-serif';ctx.textAlign='center';
+    const step=Math.max(1,Math.ceil(semaines.length/12));
+    semaines.forEach((wk,x)=>{if(x%step===0){const[,wn]=wk.split('-W');ctx.fillText('W'+wn,LABEL_W+x*CELL_W+CELL_W/2,14);}});
+    // Family labels + cells
+    requestAnimationFrame(()=>{
+      familles.forEach((fam,y)=>{
+        const yPos=HEADER_H+y*CELL_H;
+        ctx.fillStyle='#1e293b';ctx.font='10px Inter,sans-serif';ctx.textAlign='right';
+        ctx.fillText(fam.substring(0,18),LABEL_W-4,yPos+CELL_H/2+3);
+        const avg=famAvg[fam]||1;
+        semaines.forEach((wk,x)=>{
+          const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;
+          const deficit=Math.max(0,(avg-actual)/avg);// 0=normal, 1=no sales
+          const sat=Math.round(deficit*80);const lig=Math.round(55-deficit*25);
+          ctx.fillStyle=`hsl(${Math.round(deficit*15)},${sat}%,${lig}%)`;
+          ctx.fillRect(LABEL_W+x*CELL_W,yPos,CELL_W-1,CELL_H-1);
+        });
+      });
+      wrapper.classList.remove('hidden');
+    });
+    // Tooltip on mousemove
+    canvas.onmousemove=function(e){
+      const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left;const my=e.clientY-rect.top;
+      const xi=Math.floor((mx-LABEL_W)/CELL_W);const yi=Math.floor((my-HEADER_H)/CELL_H);
+      if(xi>=0&&xi<semaines.length&&yi>=0&&yi<familles.length){
+        const fam=familles[yi];const wk=semaines[xi];const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;const avg=famAvg[fam]||0;const pct2=avg>0?Math.round(actual/avg*100):0;
+        tooltip.textContent=`${fam} · ${wk} · ${actual} prélevé (${pct2}% moy.)`;
+        tooltip.style.display='block';tooltip.style.left=(LABEL_W+xi*CELL_W)+'px';tooltip.style.top=(HEADER_H+yi*CELL_H-28)+'px';
+      }else{tooltip.style.display='none';}
+    };
+    canvas.onmouseleave=()=>{tooltip.style.display='none';};
+  }
+
+  // Feature 2: Briefing matinal 3 phrases
+  function renderCockpitBriefing(lstR,sr,serviceTotal){
+    const el=document.getElementById('cockpitBriefing');const txt=document.getElementById('cockpitBriefingText');if(!el||!txt)return;
+    const phrases=[];
+    // Phrase 1: ruptures critiques + CA
+    const critiques=lstR.filter(r=>r.prioScore>=5000);
+    if(critiques.length>0){const caC=critiques.reduce((s,r)=>s+r.caPerdu,0);const caLabel=caC>=100?`~<strong class="text-rose-400 cursor-help" title="CA perdu estimé : somme (W×PU×joursRupture) pour les ${critiques.length} articles avec score ≥5000€">${formatEuro(caC)}</strong>€`:'CA non estimable';phrases.push(`<p>Ce matin : <strong class="text-rose-300">${critiques.length}</strong> rupture${critiques.length>1?'s':''} critiques menacent ${caLabel} de CA.</p>`);}
+    // Phrase 2: famille qui décroche vs bassin (bench)
+    if(_S.benchLists&&_S.benchLists.obsFamiliesLose&&_S.benchLists.obsFamiliesLose.length>0){const worst=_S.benchLists.obsFamiliesLose[0];if(worst&&worst.pctMedian<50){const pctDiff=Math.round(100-worst.pctMedian);phrases.push(`<p>Famille <strong class="text-amber-300 cursor-help" title="Source : benchmark réseau — ${worst.fam} à ${worst.pctMedian.toFixed(0)}% de la médiane bassin">${worst.fam}</strong> décroche de <strong class="text-amber-300">${pctDiff}%</strong> vs le bassin ce mois.</p>`);}}
+    // Phrase 3: clients stratégiques inactifs >45j
+    if(_S.chalandiseReady&&_S.clientLastOrder.size>0){const seuil=45;const now=Date.now();let inactifs=0;for(const[cc,lastDate] of _S.clientLastOrder){const info=_S.chalandiseData.get(cc);if(!info)continue;if(!_isMetierStrategique(info.metier))continue;const joursInactif=Math.round((now-lastDate.getTime())/86400000);if(joursInactif>seuil)inactifs++;}if(inactifs>0)phrases.push(`<p><strong class="text-violet-300 cursor-help" title="Clients stratégiques (métier clé) sans commande depuis >${seuil}j — source : Zone de Chalandise × Consommé">${inactifs}</strong> client${inactifs>1?'s':''} stratégique${inactifs>1?'s':''} inactif${inactifs>1?'s':''} depuis plus de ${seuil} jours.</p>`);}
+    // Si tout va bien
+    if(phrases.length===0){const srNum=parseFloat(sr);if(srNum>=95||serviceTotal===0){phrases.push(`<p class="text-emerald-400">Situation saine : taux de service à <strong>${srNum}%</strong>, aucune alerte critique détectée.</p>`);}}
+    if(phrases.length>0){txt.innerHTML=phrases.join('');el.classList.remove('hidden');}else{el.classList.add('hidden');}
   }
 
   // ★ V23/V24.2: Executive Summary
@@ -3056,9 +3137,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const bg=r.isNouveaute?'bg-emerald-50':(r.nouveauMin>0?'bg-white':'bg-gray-50 text-gray-400');
       const sc=r.stockActuel<0?'text-red-600 font-extrabold':'text-orange-600 font-bold';
       const br=getAgeBracket(r.ageJours);
+      // Feature 3: row-critical / row-dormant
+      const _prioRow=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
+      const _rowClass=(r.stockActuel<=0&&_prioRow>=5000)?'row-critical':(!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&r.W<3?'row-dormant':'');
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMin>r.medMinReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'text-orange-700 bg-orange-50 font-bold':r.nouveauMax>r.medMaxReseau?'text-amber-600 font-semibold':'text-gray-400'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs text-gray-300">—</td>'):'';
-    p.push(`<tr class="border-b hover:bg-blue-50 ${bg}">
+    p.push(`<tr class="border-b hover:bg-blue-50 ${bg} ${_rowClass}">
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${_copyCodeBtn(r.code)}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.V}</td>
@@ -4168,6 +4252,64 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     window.addEventListener('focus',_fixScroll,true);
   })();
 
+// ── Feature 7: Profils métier ─────────────────────────────────────────────
+// Correspondance métier → famille prioritaire pour le tri cockpit
+const _METIER_PROFILE_MAP = {
+  'électricien': ['Appareillage','Câble','Câbles','Luminaire','Tableau','Protection','Gaine','Conduit','Boîte'],
+  'plombier':    ['Raccord','Robinetterie','Sanitaire','PVC','Cuivre','Chauffe','Thermostats','Soudure'],
+  'maçon':       ['Maçonnerie','Béton','Armature','Ferraillage','Isolation','Enduit','Chaux'],
+  'menuisier':   ['Menuiserie','Serrure','Fermeture','Poignée','Charnière','Visserie menuiserie'],
+  'généraliste': [],
+};
+function computeMetierProfile(){
+  if(!_S.chalandiseReady||!_S.chalandiseData.size){_S.metierProfile='';return;}
+  const scores={};for(const info of _S.chalandiseData.values()){if(!info.metier)continue;const m=info.metier.toLowerCase();for(const profile of Object.keys(_METIER_PROFILE_MAP)){if(m.includes(profile)||profile.includes(m.split(' ')[0])){scores[profile]=(scores[profile]||0)+1;break;}}}
+  const top=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];_S.metierProfile=top?top[0]:'généraliste';
+}
+function getProfileFamilySortKey(famille){
+  if(!_S.metierProfile||_S.metierProfile==='généraliste')return 0;
+  const famLower=famille.toLowerCase();const keywords=_METIER_PROFILE_MAP[_S.metierProfile]||[];
+  const idx=keywords.findIndex(k=>famLower.includes(k.toLowerCase())||k.toLowerCase().includes(famLower.split(' ')[0]));
+  return idx>=0?(keywords.length-idx):0;// higher = more relevant
+}
+
+// ── Feature 5: Insight Worker ─────────────────────────────────────────────
+let _insightResults=[];
+function launchInsightWorker(){
+  if(!_S.finalData||_S.finalData.length===0)return;
+  // Inline "worker" via setTimeout — analyse corrélations non-évidentes
+  setTimeout(()=>{
+    const insights=[];
+    const nbBL=Object.keys(_S.blData).length;
+    const nbWeeks=Object.keys(_S.ventesParFamilleWeek).reduce((s,k)=>{s.add(k.split('|')[1]);return s;},new Set()).size||1;
+    // Insight 1: client inactif × famille en baisse
+    if(_S.chalandiseReady&&_S.clientLastOrder.size>0){
+      const now=Date.now();const inactifsStrat=[];
+      for(const[cc,lastDate] of _S.clientLastOrder){const info=_S.chalandiseData.get(cc);if(!info||!_isMetierStrategique(info.metier))continue;const j=Math.round((now-lastDate.getTime())/86400000);if(j>30)inactifsStrat.push({cc,nom:info.nom||cc,metier:info.metier,joursInactif:j});}
+      if(inactifsStrat.length>0){inactifsStrat.sort((a,b)=>b.joursInactif-a.joursInactif);const top=inactifsStrat[0];insights.push({text:`Client stratégique inactif : <strong>${top.nom}</strong> (${top.metier}) — ${top.joursInactif}j sans commande. ${inactifsStrat.length} au total.`,src:`Basé sur ${nbBL} BL · ${inactifsStrat.length} clients stratégiques inactifs détectés`});}
+    }
+    // Insight 2: famille avec forte rupture + décroissance des ventes semaines récentes
+    {const famRuptures={};for(const r of _S.finalData){if(r.stockActuel<=0&&r.W>=3&&r.famille)famRuptures[r.famille]=(famRuptures[r.famille]||0)+1;}const famTop=Object.entries(famRuptures).sort((a,b)=>b[1]-a[1])[0];
+    if(famTop&&famTop[1]>=2){const[fam,nb]=famTop;const famWeeks=Object.keys(_S.ventesParFamilleWeek).filter(k=>k.startsWith(fam+'|')).sort();const recent=famWeeks.slice(-4);const old=famWeeks.slice(-8,-4);if(recent.length>=2&&old.length>=2){const avgR=recent.reduce((s,k)=>s+_S.ventesParFamilleWeek[k],0)/recent.length;const avgO=old.reduce((s,k)=>s+_S.ventesParFamilleWeek[k],0)/old.length;if(avgO>0&&avgR<avgO*0.7){const drop=Math.round((1-avgR/avgO)*100);insights.push({text:`Famille <strong>${fam}</strong> : ${nb} articles en rupture + ventes en baisse de ${drop}% sur 4 semaines.`,src:`Basé sur ${nbWeeks} semaines de données · ${famWeeks.length} semaines famille analysées`});}}}}
+    // Insight 3: saisonnalité — comparer mois actuel vs mois-3
+    if(_S.consommePeriodMax){
+      const now2=_S.consommePeriodMax;const m=now2.getMonth();const mMinus3=(m-3+12)%12;
+      const weeksCurrent=[],weeksMinus3=[];for(const k of Object.keys(_S.ventesParFamilleWeek)){const[,wk]=k.split('|');if(!wk)continue;const yr=parseInt(wk.slice(0,4));const wd=new Date(yr,0,1+(parseInt(wk.slice(6))-1)*7);if(wd.getMonth()===m)weeksCurrent.push(k);else if(wd.getMonth()===mMinus3)weeksMinus3.push(k);}
+      if(weeksCurrent.length>0&&weeksMinus3.length>0){const sumC=weeksCurrent.reduce((s,k)=>s+_S.ventesParFamilleWeek[k],0);const sumM=weeksMinus3.reduce((s,k)=>s+_S.ventesParFamilleWeek[k],0);if(sumM>0&&sumC>sumM*1.3){const gain=Math.round((sumC/sumM-1)*100);insights.push({text:`Saisonnalité : ventes ce mois +${gain}% vs il y a 3 mois — stock suffisant ?`,src:`Basé sur ${weeksCurrent.length} semaines vs ${weeksMinus3.length} semaines (−3 mois)`});}}
+    }
+    if(insights.length>0){_insightResults=insights;const btn=document.getElementById('insightBadgeBtn');const badge=document.getElementById('insightBadge');if(btn)btn.classList.remove('hidden');if(badge)badge.style.display='inline-block';}
+  },800);
+}
+function openInsightPanel(){
+  const panel=document.getElementById('insightPanel');const content=document.getElementById('insightPanelContent');const src=document.getElementById('insightPanelSource');if(!panel||!content)return;
+  content.innerHTML=_insightResults.length>0?_insightResults.map(i=>`<div class="p-2 rounded-lg bg-slate-800/50 border border-slate-700">${i.text}</div>`).join(''):'<p class="text-slate-500 text-xs">Aucun insight disponible pour le moment.</p>';
+  if(src)src.textContent=_insightResults[0]?.src||'';
+  panel.classList.add('active');
+  document.addEventListener('click',_closeInsightPanelOutside,{once:true});
+}
+function _closeInsightPanelOutside(e){const panel=document.getElementById('insightPanel');if(panel&&!panel.contains(e.target))panel.classList.remove('active');}
+function closeInsightPanel(){const panel=document.getElementById('insightPanel');if(panel)panel.classList.remove('active');}
+
 // ── Exposition des fonctions globales pour les onclick="" du HTML ──────────
 // Phase 1 : les handlers inline dans le HTML appellent ces fonctions via window.
 // Phase 2 (Vite) : nettoyer progressivement au profit d'event listeners.
@@ -4284,3 +4426,6 @@ window.importKPIhistory = importKPIhistory;
 window.renderObsArticleSearch = renderObsArticleSearch;
 window.copyPepitesOtherList = copyPepitesOtherList;
 window.exportPromoImportCSV = exportPromoImportCSV;
+// Feature 5: Insight panel
+window.openInsightPanel = openInsightPanel;
+window.closeInsightPanel = closeInsightPanel;
