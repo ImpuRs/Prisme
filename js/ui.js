@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — ui.js
+// PRISME — ui.js
 // Fonctions UI transverses (toast, tabs, filtres, table, export)
 // Dépend de : constants.js, utils.js, state.js, engine.js
 // ═══════════════════════════════════════════════════════════════
@@ -85,17 +85,12 @@ function expandImportZone() {
 function switchTab(id) {
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-blue-500', 'border-red-500', 'border-cyan-500', 'border-indigo-500', 'border-violet-500', 'border-orange-500', 'active'); b.classList.add('border-transparent'); });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
-    btn.classList.remove('border-transparent');
-    if (id === 'action') btn.classList.add('border-red-500', 'active');
-    else if (id === 'bench') btn.classList.add('border-cyan-500', 'active');
-    else if (id === 'territoire') { btn.classList.add('border-violet-500', 'active'); if (chalandiseReady || territoireReady) renderTerritoireTab(); }
-    else if (id === 'abc') btn.classList.add('border-indigo-500', 'active');
-    else if (id === 'promo') btn.classList.add('border-orange-500', 'active');
-    else btn.classList.add('border-blue-500', 'active');
+    btn.classList.add('active');
+    if (id === 'territoire' && (chalandiseReady || territoireReady)) renderTerritoireTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -308,7 +303,7 @@ function exportKPIhistory() {
   if (!kpiHistory.length) { showToast('⚠️ Lancez d\'abord une analyse.', 'warning'); return; }
   const blob = new Blob([JSON.stringify({ magasin: selectedMyStore, exportDate: new Date().toISOString(), history: kpiHistory }, null, 2)], { type: 'application/json' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = 'PILOT_historique_' + (selectedMyStore || 'X') + '_' + new Date().toISOString().slice(0, 10) + '.json';
+  link.download = 'PRISME_historique_' + (selectedMyStore || 'X') + '_' + new Date().toISOString().slice(0, 10) + '.json';
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 Historique exporté', 'success');
 }
@@ -333,7 +328,7 @@ function downloadCSV() {
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = `PILOT_${selectedMyStore || 'X'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `PRISME_${selectedMyStore || 'X'}_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 CSV téléchargé', 'success');
 }
