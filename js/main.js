@@ -3041,18 +3041,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Collect all weeks from ventesParFamilleWeek keys
     const weekSet=new Set();for(const k of Object.keys(_S.ventesParFamilleWeek)){const[,wk]=k.split('|');if(wk)weekSet.add(wk);}
     const semaines=[...weekSet].sort();if(semaines.length===0){wrapper.classList.add('hidden');return;}
-    // Compute average weekly sales per family — dénominateur = toutes les semaines
-    // (incluant les 0) pour une baseline correcte : évite que famAvg→0 et ||1 rende tout rouge
-    const famTotal={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];}
-    const famAvg={};for(const f of familles)famAvg[f]=semaines.length>0?((famTotal[f]||0)/semaines.length):0;
-    // Color helper: blanc=moyenne, orange=−50%, rouge=−80%+
-    function _heatColor(deficit){
-      if(deficit<=0)return'#f8fafc';// ≥ moyenne → blanc
-      if(deficit<0.5){const t=deficit*2;return`hsl(${Math.round(35*t)},${Math.round(t*88)}%,${Math.round(97-t*40)}%)`;}
-      const t=(deficit-0.5)*2;return`hsl(${Math.round(35-t*35)},88%,${Math.round(57-t*17)}%)`;
-    }
-    // Draw canvas
-    const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const LABEL_W=120;const HEADER_H=20;
+    // Compute average weekly sales per family — moyenne des semaines avec ventes
+    // (dénominateur = semaines non-nulles uniquement → baseline correcte)
+    const famTotal={};const famWeekCount={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];famWeekCount[fam]=(famWeekCount[fam]||0)+1;}
+    const famAvg={};for(const f of familles)famAvg[f]=famWeekCount[f]>0?(famTotal[f]/famWeekCount[f]):0;
+    // Draw canvas — LABEL_W élargi pour libellés complets
+    const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const LABEL_W=190;const HEADER_H=20;
     canvas.width=LABEL_W+semaines.length*CELL_W;canvas.height=HEADER_H+familles.length*CELL_H;
     const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
     // Header: week labels every N weeks
@@ -3060,16 +3054,20 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const step=Math.max(1,Math.ceil(semaines.length/12));
     semaines.forEach((wk,x)=>{if(x%step===0){const[,wn]=wk.split('-W');ctx.fillText('W'+wn,LABEL_W+x*CELL_W+CELL_W/2,14);}});
     // Family labels + cells
+    // Couleur : intensité=1−(actual/avg), hsl(0, i×80%, 55%−i×25%)
+    // i=0 → hsl(0,0%,55%)=gris neutre · i=1 → hsl(0,80%,30%)=rouge foncé
+    // avg=0 → cellule grise neutre (famille absente de la période)
     requestAnimationFrame(()=>{
       familles.forEach((fam,y)=>{
         const yPos=HEADER_H+y*CELL_H;
-        ctx.fillStyle='#1e293b';ctx.font='10px Inter,sans-serif';ctx.textAlign='right';
-        ctx.fillText(fam.substring(0,18),LABEL_W-4,yPos+CELL_H/2+3);
-        const avg=famAvg[fam];// 0 = pas de données → toutes les cellules blanc-neutre
+        ctx.fillStyle='#1e293b';ctx.font='11px Inter,sans-serif';ctx.textAlign='right';
+        const label=fam.length>26?fam.substring(0,25)+'…':fam;
+        ctx.fillText(label,LABEL_W-6,yPos+CELL_H/2+4);
+        const avg=famAvg[fam];
         semaines.forEach((wk,x)=>{
           const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;
-          const deficit=avg>0?Math.max(0,Math.min(1,(avg-actual)/avg)):0;
-          ctx.fillStyle=_heatColor(deficit);
+          const intensity=avg>0?Math.max(0,Math.min(1,1-(actual/avg))):0;
+          ctx.fillStyle=`hsl(0,${Math.round(intensity*80)}%,${Math.round(55-intensity*25)}%)`;
           ctx.fillRect(LABEL_W+x*CELL_W,yPos,CELL_W-1,CELL_H-1);
         });
       });
@@ -3078,11 +3076,18 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Tooltip on mousemove
     canvas.onmousemove=function(e){
       const rect=canvas.getBoundingClientRect();const mx=e.clientX-rect.left;const my=e.clientY-rect.top;
-      const xi=Math.floor((mx-LABEL_W)/CELL_W);const yi=Math.floor((my-HEADER_H)/CELL_H);
-      if(xi>=0&&xi<semaines.length&&yi>=0&&yi<familles.length){
-        const fam=familles[yi];const wk=semaines[xi];const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;const avg=famAvg[fam]||0;const pct2=avg>0?Math.round(actual/avg*100):0;
-        tooltip.textContent=`${fam} · ${wk} · ${actual} prélevé (${pct2}% moy.)`;
-        tooltip.style.display='block';tooltip.style.left=(LABEL_W+xi*CELL_W)+'px';tooltip.style.top=(HEADER_H+yi*CELL_H-28)+'px';
+      const yi=Math.floor((my-HEADER_H)/CELL_H);const xi=Math.floor((mx-LABEL_W)/CELL_W);
+      if(yi>=0&&yi<familles.length){
+        const fam=familles[yi];
+        if(mx<LABEL_W){
+          // Survol label → libellé complet
+          tooltip.textContent=`${fam} · moy. hebdo ${famAvg[fam]>0?Math.round(famAvg[fam]+.5):0} u.`;
+          tooltip.style.display='block';tooltip.style.left='4px';tooltip.style.top=(HEADER_H+yi*CELL_H-28)+'px';
+        }else if(xi>=0&&xi<semaines.length){
+          const wk=semaines[xi];const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;const avg=famAvg[fam]||0;const pct2=avg>0?Math.round(actual/avg*100):0;
+          tooltip.textContent=`${fam} · ${wk} · ${actual} prélevé (${pct2}% moy.)`;
+          tooltip.style.display='block';tooltip.style.left=(LABEL_W+xi*CELL_W)+'px';tooltip.style.top=(HEADER_H+yi*CELL_H-28)+'px';
+        }else{tooltip.style.display='none';}
       }else{tooltip.style.display='none';}
     };
     canvas.onmouseleave=()=>{tooltip.style.display='none';};
