@@ -724,7 +724,7 @@ export function renderDecisionQueue() {
     sain:           { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
 
-  const items = _S.decisionQueueData.slice(0, 7);
+  const items = _S.decisionQueueData.slice(0, 9);
   if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''} · ruptures d'abord`;
 
   listEl.innerHTML = items.map((d, idx) => {

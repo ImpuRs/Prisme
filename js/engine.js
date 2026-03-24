@@ -332,7 +332,7 @@ export function generateDecisionQueue() {
     decisions.push({
       type: 'alerte_prev', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
       impact: r.W * r.prixUnitaire, action: 'commander', qteSugg,
-      label: `${r.libelle} réf.${r.code} — rupture dans ${jours}j, commander maintenant`,
+      label: `Commander ${qteSugg}u réf.${r.code} — rupture dans ${jours}j`,
       why: [
         `Stock actuel : ${r.stockActuel} u. — couverture ~${jours} jour${jours > 1 ? 's' : ''}`,
         `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
