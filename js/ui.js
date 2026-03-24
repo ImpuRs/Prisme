@@ -168,6 +168,8 @@ export function renderAll() {
   renderABCTab();
   renderCanalAgence();
   updateAmbientSignal();
+  // Wrap glossary terms in <th> headers (idempotent — skips already-processed elements)
+  requestAnimationFrame(() => wrapGlossaryTerms(document));
 }
 
 export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }
@@ -803,6 +805,48 @@ export function clipERP() {
   }).catch(() => {
     showToast('Erreur de copie dans le presse-papiers', 'error');
   });
+}
+
+// ── Feature 9: Lexique Ancré <abbr> ──────────────────────────
+// Wraps known métier terms in <abbr class="gls"> inside <th> elements.
+// Uses TreeWalker on text nodes only — never touches element attributes.
+// Idempotent: skips already-processed elements (data-gloss="1").
+export function wrapGlossaryTerms(root = document) {
+  const MAP = [
+    ['FMR',  'Fréquence : F≥12 cmd/an, M=3-11, R≤3'],
+    ['ABC',  'Valeur : A=80% du CA, B=15%, C=5%'],
+    ['MIN',  'Seuil de commande auto (plus gros panier écrêté + 3j sécurité)'],
+    ['MAX',  'Capacité rayon (MIN + 21j si forte rotation, 10j sinon)'],
+    ['Couv', 'Couverture en jours : Stock ÷ consommation/jour'],
+    ['Prél', 'Prélevé : sorti du stock rayon (comptoir)'],
+    ['Enl',  'Enlevé : colis commandé, ne touche pas le stock rayon'],
+  ];
+  const ths = root.querySelectorAll('th:not([data-gloss])');
+  for (const th of ths) {
+    th.dataset.gloss = '1';
+    const walker = document.createTreeWalker(th, NodeFilter.SHOW_TEXT, null, false);
+    const textNodes = [];
+    let n;
+    while ((n = walker.nextNode())) textNodes.push(n);
+    for (const tn of textNodes) {
+      const val = tn.nodeValue;
+      for (const [term, title] of MAP) {
+        const idx = val.indexOf(term);
+        if (idx === -1) continue;
+        const frag = document.createDocumentFragment();
+        if (idx > 0) frag.appendChild(document.createTextNode(val.slice(0, idx)));
+        const abbr = document.createElement('abbr');
+        abbr.className = 'gls';
+        abbr.title = title;
+        abbr.textContent = term;
+        frag.appendChild(abbr);
+        const rest = val.slice(idx + term.length);
+        if (rest) frag.appendChild(document.createTextNode(rest));
+        tn.parentNode.replaceChild(frag, tn);
+        break; // one substitution per text node to avoid iterator invalidation
+      }
+    }
+  }
 }
 
 // Keyboard listeners
