@@ -216,7 +216,7 @@
     }
 
     /* ═══ Signal Ambiant ════════════════════════════════════ */
-    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease;background:var(--health-color,transparent)}
+    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease,height .6s ease;background:transparent}
     /* ═══ Cockpit Briefing ══════════════════════════════════ */
     #cockpitBriefing{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#e2e8f0}
     #cockpitBriefing .briefing-line{display:flex;align-items:baseline;gap:8px;font-size:.8rem;line-height:1.5;padding:3px 0;border-bottom:1px solid #1e293b40}
@@ -241,6 +241,14 @@
     .dq-why summary{cursor:pointer;color:var(--c-action);list-style:none}
     .dq-why summary::-webkit-details-marker{display:none}
     .dq-why ul{margin:4px 0 0 12px;line-height:1.6}
+    /* A4 — Formes distinctes par type (daltonien : forme ≠ couleur) */
+    .dq-item[data-dqtype]::before{content:'';display:block;width:10px;height:10px;flex-shrink:0;margin-right:-2px}
+    .dq-item[data-dqtype="rupture"]::before{background:var(--c-danger)}
+    .dq-item[data-dqtype="alerte_prev"]::before{background:var(--c-caution);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%)}
+    .dq-item[data-dqtype="client"]::before{background:var(--c-action);clip-path:circle(50%)}
+    .dq-item[data-dqtype="dormants"]::before{background:var(--c-muted);clip-path:polygon(0% 0%,100% 0%,50% 100%)}
+    .dq-item[data-dqtype="anomalie_minmax"]::before{background:var(--c-caution);clip-path:polygon(50% 0%,0% 100%,100% 100%)}
+    .dq-item[data-dqtype="sain"]::before{background:var(--c-ok);clip-path:circle(50%)}
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
@@ -272,6 +280,8 @@
     /* Onglets spectraux — hauteur et taille de police */
     #tabsContainer .tab-btn{height:46px;font-size:13px;padding:0 16px}
     #tabsContainer .tab-btn.active{background:var(--tab-bg,#eff6ff);font-weight:700}
+    /* U4 — Anneau focus clavier */
+    :focus-visible{outline:2px solid var(--c-action);outline-offset:2px}
 
   </style>
 </head>

@@ -63,7 +63,15 @@ export function updateTerrProgress(cur, total) {
 }
 
 // ── Import zone collapse ──────────────────────────────────────
-export function onFileSelected(i, id) { document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0); }
+export function onFileSelected(i, id) {
+  if (i.files.length > 0 && _S.finalData.length > 0) {
+    if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau fichier remplacera toutes les données. Continuer ?')) {
+      i.value = '';
+      return;
+    }
+  }
+  document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0);
+}
 
 export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const iz = document.getElementById('importZone');
@@ -608,13 +616,23 @@ export function updateAmbientSignal() {
     calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
   ).length;
 
-  let color;
-  if (critRupt > 5)  color = 'var(--c-danger)';   // urgence : pertes actives
-  else if (sr < 85)  color = 'var(--c-caution)';  // dégradé : nombreuses ruptures
-  else if (sr < 95)  color = 'var(--c-muted)';    // attention : quelques lacunes
-  else               color = 'var(--c-ok)';        // sain : service > 95%
-
-  el.style.setProperty('--health-color', color);
+  let height, bg;
+  if (critRupt > 5) {
+    // Critique : épais + hachuré
+    height = '7px';
+    bg = 'repeating-linear-gradient(45deg,var(--c-danger),var(--c-danger) 4px,rgba(220,38,38,.3) 4px,rgba(220,38,38,.3) 8px)';
+  } else if (sr < 85) {
+    height = '7px';
+    bg = 'var(--c-danger)';
+  } else if (sr < 95) {
+    height = '5px';
+    bg = 'var(--c-caution)';
+  } else {
+    height = '3px';
+    bg = 'var(--c-ok)';
+  }
+  el.style.height = height;
+  el.style.background = bg;
 }
 
 // ── Feature 3: Briefing 3 Phrases ────────────────────────────
@@ -736,7 +754,7 @@ export function renderDecisionQueue() {
     const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
     const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
     const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
-    return `<div class="dq-item dq-item-click" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
+    return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
         <div class="dq-label">${cfg.icon} ${d.label}</div>
@@ -751,7 +769,7 @@ export function renderDecisionQueue() {
   if (footerEl) {
     const cmdItems = items.filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code);
     if (cmdItems.length > 0) {
-      footerEl.innerHTML = `<button onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal text-gray-400">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
+      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal text-gray-400">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
       footerEl.classList.remove('hidden');
     } else {
       footerEl.innerHTML = '';
@@ -800,8 +818,10 @@ export function clipERP() {
     .join('\n');
   if (!lines) { showToast('Aucune commande à copier', 'info'); return; }
   const count = lines.split('\n').length;
+  const btn = document.getElementById('erpCopyBtn');
   navigator.clipboard.writeText(lines).then(() => {
     showToast(`📋 ${count} article${count > 1 ? 's' : ''} copié${count > 1 ? 's' : ''} (CODE → QTÉ)`, 'success');
+    if (btn) { const orig = btn.innerHTML; btn.innerHTML = '✅ Copié !'; setTimeout(() => { btn.innerHTML = orig; }, 2000); }
   }).catch(() => {
     showToast('Erreur de copie dans le presse-papiers', 'error');
   });
