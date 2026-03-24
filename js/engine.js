@@ -314,9 +314,34 @@ export function generateDecisionQueue() {
   if (!_S.finalData.length) { _S.decisionQueueData = decisions; return; }
 
   // Priorité de catégorie : 0 = plus urgent
-  const TYPE_PRIORITY = { rupture: 0, alerte_prev: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
+  // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
+  const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
 
-  // ── 1. Ruptures (W≥3, stock≤0, top 3 par CA annuel W×PU) ──────────────
+  // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥3) — AVANT les ruptures ──
+  const REAPPRO_DAYS = 8; // délai réappro 5j + sécurité 3j
+  const alerteItems = _S.finalData
+    .filter(r => r.couvertureJours != null && r.couvertureJours <= REAPPRO_DAYS
+               && r.stockActuel > 0 && r.W >= 3
+               && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
+    .sort((a, b) => a.couvertureJours - b.couvertureJours)
+    .slice(0, 3);
+
+  for (const r of alerteItems) {
+    const jours = Math.round(r.couvertureJours);
+    const qteSugg = Math.max(1, (r.nouveauMax || 1) - r.stockActuel);
+    decisions.push({
+      type: 'alerte_prev', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
+      impact: r.W * r.prixUnitaire, action: 'commander', qteSugg,
+      label: `${r.libelle} réf.${r.code} — rupture dans ${jours}j, commander maintenant`,
+      why: [
+        `Stock actuel : ${r.stockActuel} u. — couverture ~${jours} jour${jours > 1 ? 's' : ''}`,
+        `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
+        `Quantité suggérée : ${qteSugg} u. (pour atteindre le MAX de ${r.nouveauMax || 1})`,
+      ],
+    });
+  }
+
+  // ── 1b. Ruptures (W≥3, stock≤0, top 3 par CA annuel W×PU) ──────────────
   // PAS de filtre par score — toute rupture d'article fréquent est urgente.
   const critRupt = _S.finalData
     .filter(r => r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
@@ -329,7 +354,7 @@ export function generateDecisionQueue() {
     const qteSugg = Math.max((r.nouveauMax || 1) - r.stockActuel, r.nouveauMax || 1);
     decisions.push({
       type: 'rupture', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
-      impact, qteSugg,
+      impact, qteSugg, action: 'commander',
       label: `Commander ${r.W} × réf. ${r.code} — rupture active, ~${semCA.toLocaleString('fr')} €/sem.`,
       why: [
         `Stock actuel : ${r.stockActuel} u. (sous le MIN de ${r.nouveauMin})`,
@@ -422,5 +447,5 @@ export function generateDecisionQueue() {
     return b.impact - a.impact;         // à catégorie égale : plus gros impact d'abord
   });
 
-  _S.decisionQueueData = decisions.slice(0, 7);
+  _S.decisionQueueData = decisions.slice(0, 9);
 }

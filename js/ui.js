@@ -730,9 +730,11 @@ export function renderDecisionQueue() {
   listEl.innerHTML = items.map((d, idx) => {
     const cfg = typeConfig[d.type] || { badgeClass: '', icon: '•', impactClass: '' };
     const impactStr = d.impact >= 1000 ? formatEuro(d.impact) : '';
-    const impactHtml = impactStr ? `<span class="dq-impact ${cfg.impactClass}">${impactStr}</span>` : '';
+    // Fix: dormants/clients → ambre (dq-medium). Seules les ruptures actives → rouge (dq-high).
+    const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
+    const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
     const whyHtml = d.why && d.why.length ? `<details class="dq-why"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
-    return `<div class="dq-item">
+    return `<div class="dq-item dq-item-click" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
         <div class="dq-label">${cfg.icon} ${d.label}</div>
@@ -742,7 +744,65 @@ export function renderDecisionQueue() {
     </div>`;
   }).join('');
 
+  // Footer : Clip ERP si au moins une commande à passer
+  const footerEl = document.getElementById('dqFooter');
+  if (footerEl) {
+    const cmdItems = items.filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code);
+    if (cmdItems.length > 0) {
+      footerEl.innerHTML = `<button onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal text-gray-400">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
+      footerEl.classList.remove('hidden');
+    } else {
+      footerEl.innerHTML = '';
+      footerEl.classList.add('hidden');
+    }
+  }
+
   el.classList.remove('hidden');
+}
+
+// ── Feature 6: Focus Mode — clic DQ → navigation ─────────────
+export function dqFocus(idx) {
+  const d = (_S.decisionQueueData || [])[idx];
+  if (!d) return;
+  switch (d.type) {
+    case 'rupture':
+    case 'alerte_prev': {
+      // Filtrer sur l'article spécifique dans le tableau
+      const si = document.getElementById('searchInput');
+      if (si && d.code) si.value = d.code;
+      clearCockpitFilter(true);
+      _S.currentPage = 0;
+      switchTab('table');
+      renderAll();
+      break;
+    }
+    case 'dormants':
+      showCockpitInTable('dormants');
+      break;
+    case 'anomalie_minmax':
+      showCockpitInTable('anomalies');
+      break;
+    case 'client':
+      switchTab('territoire');
+      break;
+    default:
+      break;
+  }
+}
+
+// ── Feature 7: Clip ERP — TSV CODE<tab>QTÉ ───────────────────
+export function clipERP() {
+  const lines = (_S.decisionQueueData || [])
+    .filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code)
+    .map(d => `${d.code}\t${d.qteSugg}`)
+    .join('\n');
+  if (!lines) { showToast('Aucune commande à copier', 'info'); return; }
+  const count = lines.split('\n').length;
+  navigator.clipboard.writeText(lines).then(() => {
+    showToast(`📋 ${count} article${count > 1 ? 's' : ''} copié${count > 1 ? 's' : ''} (CODE → QTÉ)`, 'success');
+  }).catch(() => {
+    showToast('Erreur de copie dans le presse-papiers', 'error');
+  });
 }
 
 // Keyboard listeners

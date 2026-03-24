@@ -226,6 +226,7 @@
     /* ═══ Decision Queue ════════════════════════════════════ */
     #decisionQueue{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
     .dq-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;margin-bottom:6px;transition:all .15s}
+    .dq-item-click{cursor:pointer}.dq-item-click:hover{background:#f1f5f9;border-color:#cbd5e1}
     .dq-item:last-child{margin-bottom:0}
     .dq-num-badge{min-width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .dq-num-badge.dq-danger{background:var(--c-danger);color:#fff}
@@ -857,6 +858,7 @@
           <span class="text-[10px] text-gray-400 font-mono" id="dqSubtitle"></span>
         </div>
         <div id="decisionQueueList"></div>
+        <div id="dqFooter" class="hidden"></div>
       </div>
 
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
