@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — parser.js
+// PRISME — parser.js
 // Pipeline de données : parsing fichiers + benchmark
 // Dépend de : constants.js, utils.js, state.js, engine.js
 // Note : utilise des fonctions DOM (showToast, updateProgress, etc.)

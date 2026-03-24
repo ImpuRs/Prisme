@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — utils.js
+// PRISME — utils.js
 // Fonctions utilitaires pures (aucun accès DOM ni état global)
 // Dépend de : constants.js
 // ═══════════════════════════════════════════════════════════════
