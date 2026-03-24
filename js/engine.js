@@ -467,7 +467,7 @@ export function generateDecisionQueue() {
           type: 'concentration', impact: top3.reduce((s, c) => s + c.ca, 0),
           label: `Diversifier\u00a0— ${icc} client${icc > 1 ? 's' : ''} font 50% du CA. Top\u00a0: ${top3Label}.`,
           why: [
-            `${icc} client${icc > 1 ? 's' : ''} concentrent 50% de votre CA PDV de ${Math.round(totalCA).toLocaleString('fr')} \u20ac`,
+            `${icc} client${icc > 1 ? 's' : ''} concentrent 50% de votre CA Comptoir de ${Math.round(totalCA).toLocaleString('fr')} \u20ac`,
             `Si ${top3[0].nom} part, vous perdez ${top3[0].ca.toLocaleString('fr')} \u20ac soit ${top3[0].pct}% du CA`,
             `Objectif\u00a0: développer les clients moyens pour diluer le risque`,
           ],

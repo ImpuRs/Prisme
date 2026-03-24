@@ -720,7 +720,7 @@ export function renderCockpitBriefing() {
 
   // 6. Concentration Client (ICC)
   if (_S._iccData && _S._iccData.alerte) {
-    sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA PDV`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA PDV sur les 3 premiers clients')} du CA PDV. Risque si l'un d'eux part.` });
+    sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA Comptoir`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA Comptoir sur les 3 premiers clients')} du CA Comptoir. Risque si l'un d'eux part.` });
   }
 
   // 7. Fragilité Produit (mono-client)
