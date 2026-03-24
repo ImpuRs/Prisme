@@ -4,9 +4,13 @@
 // Dépend de : constants.js, utils.js, state.js, engine.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
+import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
+import { fmtDate } from './utils.js';
+import { _S } from './state.js';
+
 
 // ── Toast notifications ───────────────────────────────────────
-function showToast(message, type = 'info') {
+export function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer'); if (!container) return;
   const toast = document.createElement('div');
   const colors = { success: 'bg-emerald-100 border-emerald-500 text-emerald-800', error: 'bg-red-100 border-red-500 text-red-800', warning: 'bg-amber-100 border-amber-500 text-amber-800', info: 'bg-blue-100 border-blue-500 text-blue-800' };
@@ -17,7 +21,7 @@ function showToast(message, type = 'info') {
 }
 
 // ── Loading overlay ───────────────────────────────────────────
-function updateProgress(c, t, txt, step) {
+export function updateProgress(c, t, txt, step) {
   const p = t > 0 ? Math.round(c / t * 100) : 0;
   document.getElementById('progressBar').style.width = p + '%';
   document.getElementById('progressPct').textContent = p + '%';
@@ -25,7 +29,7 @@ function updateProgress(c, t, txt, step) {
   if (step) document.getElementById('loadingStep').textContent = step;
 }
 
-function updatePipeline(step, status) {
+export function updatePipeline(step, status) {
   const idMap = { consomme: 'pipeConsomme', stock: 'pipeStock', territoire: 'pipeTerritoire' };
   const el = document.getElementById(idMap[step]); if (!el) return;
   const cls = { pending: 'text-gray-400', active: 'text-blue-300 font-bold animate-pulse', done: 'text-green-400 font-bold' };
@@ -35,15 +39,15 @@ function updatePipeline(step, status) {
   if (step === 'territoire') { const sep = document.getElementById('pipeSepTerr'); if (sep) sep.classList.remove('hidden'); el.classList.remove('hidden'); }
 }
 
-function showLoading(t, s) { document.getElementById('loadingOverlay').classList.add('active'); updateProgress(0, 100, t, s); }
-function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
+export function showLoading(t, s) { document.getElementById('loadingOverlay').classList.add('active'); updateProgress(0, 100, t, s); }
+export function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
 
-function showTerritoireLoading(show) {
+export function showTerritoireLoading(show) {
   const sp = document.getElementById('terrLoadingSpinner');
   if (sp) sp.classList.toggle('hidden', !show);
 }
 
-function updateTerrProgress(cur, total) {
+export function updateTerrProgress(cur, total) {
   const pct2 = total > 0 ? Math.round(cur / total * 100) : 0;
   const bar = document.getElementById('terrProgressBar');
   const txt = document.getElementById('terrProgressText');
@@ -54,9 +58,9 @@ function updateTerrProgress(cur, total) {
 }
 
 // ── Import zone collapse ──────────────────────────────────────
-function onFileSelected(i, id) { document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0); }
+export function onFileSelected(i, id) { document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0); }
 
-function collapseImportZone(nbFiles, store, nbArts, elapsed) {
+export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const iz = document.getElementById('importZone');
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
@@ -67,7 +71,7 @@ function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   banner.classList.remove('hidden');
 }
 
-function expandImportZone() {
+export function expandImportZone() {
   const iz = document.getElementById('importZone');
   const bannerRight = document.getElementById('insightsBannerRight');
   const bannerLeft = document.getElementById('insightsBannerLeft');
@@ -75,14 +79,14 @@ function expandImportZone() {
   if (iz) iz.classList.remove('hidden');
   if (bannerRight) bannerRight.innerHTML = '';
   if (banner && bannerLeft && !bannerLeft.innerHTML.trim()) banner.classList.add('hidden');
-  if (finalData.length > 0) {
+  if (_S.finalData.length > 0) {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
 }
 
 // ── Tab navigation ────────────────────────────────────────────
-function switchTab(id) {
+export function switchTab(id) {
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -90,7 +94,7 @@ function switchTab(id) {
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
     btn.classList.add('active');
-    if (id === 'territoire' && (chalandiseReady || territoireReady)) renderTerritoireTab();
+    if (id === 'territoire' && (_S.chalandiseReady || _S.territoireReady)) renderTerritoireTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -106,21 +110,21 @@ function switchTab(id) {
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
-function openFilterDrawer() {
+export function openFilterDrawer() {
   const panel = document.getElementById('filterPanel');
   const overlay = document.getElementById('filterOverlay');
   if (panel) panel.classList.add('drawer-open');
   if (overlay) overlay.classList.add('active');
 }
 
-function closeFilterDrawer() {
+export function closeFilterDrawer() {
   const panel = document.getElementById('filterPanel');
   const overlay = document.getElementById('filterOverlay');
   if (panel) panel.classList.remove('drawer-open');
   if (overlay) overlay.classList.remove('active');
 }
 
-function populateSelect(id, vals) {
+export function populateSelect(id, vals) {
   const s = document.getElementById(id); if (!s) return;
   if (s.tagName === 'INPUT') { const dl = document.getElementById(s.getAttribute('list')); if (dl) { dl.innerHTML = ''; [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); } return; }
   const f = s.options[0].textContent; s.innerHTML = `<option value="">${f}</option>`;
@@ -128,18 +132,18 @@ function populateSelect(id, vals) {
 }
 
 // ── Filters ───────────────────────────────────────────────────
-function getFilteredData() {
+export function getFilteredData() {
   const fam = (document.getElementById('filterFamille').value || '').trim(), sFam = (document.getElementById('filterSousFamille').value || '').trim(), emp = (document.getElementById('filterEmplacement').value || '').trim(), stat = document.getElementById('filterStatut').value, af = document.getElementById('filterAge').value;
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const terms = document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const filtered = finalData.filter(r => {
+  const filtered = _S.finalData.filter(r => {
     if (fam && !(r.famille || '').toLowerCase().includes(fam.toLowerCase())) return false;
     if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam.toLowerCase())) return false;
     if (emp && !(r.emplacement || '').toLowerCase().includes(emp.toLowerCase())) return false;
     if (stat && r.statut !== stat) return false;
     if (af) { const b = AGE_BRACKETS[af]; if (b && (r.ageJours < b.min || r.ageJours >= b.max)) return false; }
-    if (cockpitType && cockpitLists[cockpitType] && !cockpitLists[cockpitType].has(r.code)) return false;
+    if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
     if (terms.length > 0) { const h = (r.code + ' ' + r.libelle + ' ' + r.famille).toLowerCase(); return terms.every(t => h.includes(t)); }
@@ -150,9 +154,9 @@ function getFilteredData() {
   return filtered;
 }
 
-function renderAll() {
-  filteredData = getFilteredData();
-  filteredData.sort((a, b) => { let vA = a[sortCol], vB = b[sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return sortAsc ? -1 : 1; if (vA > vB) return sortAsc ? 1 : -1; return 0; });
+export function renderAll() {
+  _S.filteredData = getFilteredData();
+  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator();
   renderTable(true);
   renderDashboardAndCockpit();
@@ -160,69 +164,69 @@ function renderAll() {
   renderCanalAgence();
 }
 
-function onFilterChange() { currentPage = 0; clearCockpitFilter(true); renderAll(); }
-function debouncedRender() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { currentPage = 0; renderAll(); }, 250); }
+export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }
+export function debouncedRender() { clearTimeout(_S.debounceTimer); _S.debounceTimer = setTimeout(() => { _S.currentPage = 0; renderAll(); }, 250); }
 
-function resetFilters() {
+export function resetFilters() {
   document.getElementById('searchInput').value = '';
   ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  clearCockpitFilter(true); updateActiveAgeIndicator(); currentPage = 0; renderAll();
+  clearCockpitFilter(true); updateActiveAgeIndicator(); _S.currentPage = 0; renderAll();
 }
 
-function filterByAge(b) { document.getElementById('filterAge').value = b; updateActiveAgeIndicator(); currentPage = 0; switchTab('table'); renderAll(); }
-function clearAgeFilter() { document.getElementById('filterAge').value = ''; updateActiveAgeIndicator(); currentPage = 0; renderAll(); }
+export function filterByAge(b) { document.getElementById('filterAge').value = b; updateActiveAgeIndicator(); _S.currentPage = 0; switchTab('table'); renderAll(); }
+export function clearAgeFilter() { document.getElementById('filterAge').value = ''; updateActiveAgeIndicator(); _S.currentPage = 0; renderAll(); }
 
-function updateActiveAgeIndicator() {
+export function updateActiveAgeIndicator() {
   const v = document.getElementById('filterAge').value;
   const el = document.getElementById('activeAgeFilter');
   if (v && AGE_BRACKETS[v]) { const b = AGE_BRACKETS[v]; el.className = `text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 cursor-pointer ${b.badgeBg}`; document.getElementById('activeAgeLabel').textContent = '⏳ ' + b.label; el.classList.remove('hidden'); }
   else el.classList.add('hidden');
 }
 
-function filterByAbcFmr(abc, fmr) {
+export function filterByAbcFmr(abc, fmr) {
   document.getElementById('filterABC').value = abc;
   document.getElementById('filterFMR').value = fmr;
-  currentPage = 0; switchTab('table'); renderAll();
+  _S.currentPage = 0; switchTab('table'); renderAll();
 }
 
 // ── Cockpit filter ────────────────────────────────────────────
-function showCockpitInTable(type) {
+export function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
   document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
   if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('text-gray-600', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
-  currentPage = 0; switchTab('table');
-  filteredData = getFilteredData();
-  filteredData.sort((a, b) => { let vA = a[sortCol], vB = b[sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return sortAsc ? -1 : 1; if (vA > vB) return sortAsc ? 1 : -1; return 0; });
+  _S.currentPage = 0; switchTab('table');
+  _S.filteredData = getFilteredData();
+  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator(); renderTable(true);
 }
 
-function clearCockpitFilter(silent) {
+export function clearCockpitFilter(silent) {
   document.getElementById('filterCockpit').value = '';
   document.getElementById('activeCockpitFilter').classList.add('hidden');
   const nbtn = document.getElementById('btnNouveautesOnly');
   if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('bg-gray-200', 'text-gray-600'); }
-  if (!silent) { currentPage = 0; renderAll(); }
+  if (!silent) { _S.currentPage = 0; renderAll(); }
 }
 
-function _toggleNouveautesFilter() {
+export function _toggleNouveautesFilter() {
   const fc = document.getElementById('filterCockpit');
   if (fc && fc.value === 'nouveautes') { clearCockpitFilter(); } else { showCockpitInTable('nouveautes'); }
 }
 
 // ── Period alert ──────────────────────────────────────────────
-function updatePeriodAlert() {
-  if (!consommePeriodMin || !consommePeriodMax) return;
+export function updatePeriodAlert() {
+  if (!_S.consommePeriodMin || !_S.consommePeriodMax) return;
   const banner = document.getElementById('periodBanner');
-  if (consommeMoisCouverts < 10) {
-    if (banner) { banner.textContent = `⚠️ Attention : votre fichier Consommé couvre ${consommeMoisCouverts} mois (${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}). Pour un calcul MIN/MAX fiable, 12 mois minimum sont recommandés.`; banner.classList.add('active'); }
+  if (_S.consommeMoisCouverts < 10) {
+    if (banner) { banner.textContent = `⚠️ Attention : votre fichier Consommé couvre ${_S.consommeMoisCouverts} mois (${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}). Pour un calcul MIN/MAX fiable, 12 mois minimum sont recommandés.`; banner.classList.add('active'); }
   } else {
     if (banner) banner.classList.remove('active');
   }
   const stockBanner = document.getElementById('stockMonoBanner');
   if (stockBanner) {
-    if (storeCountConsomme > 1 && storeCountStock <= 1) {
+    if (_S.storeCountConsomme > 1 && _S.storeCountStock <= 1) {
       stockBanner.textContent = '⚠️ Fichier Stock mono-agence détecté — chargez un export Stock multi-agences pour activer le Réseau et le benchmark.';
       stockBanner.classList.add('active');
     } else {
@@ -231,15 +235,15 @@ function updatePeriodAlert() {
   }
   const btn = document.getElementById('navPeriodBtn');
   const navPeriod = document.getElementById('navPeriod');
-  if (btn) { btn.textContent = `${fmtDate(consommePeriodMin)} → ${fmtDate(consommePeriodMax)}`; }
+  if (btn) { btn.textContent = `${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`; }
   if (navPeriod) navPeriod.classList.remove('hidden');
 }
 
-function renderInsightsBanner() {
+export function renderInsightsBanner() {
   const el = document.getElementById('insightsBannerLeft');
   const banner = document.getElementById('insightsBanner');
   if (!el || !banner) return;
-  const { ruptures, dormants, absentsTerr, extClients, hasTerr } = _insights;
+  const { ruptures, dormants, absentsTerr, extClients, hasTerr } = _S._insights;
   if (!ruptures && !dormants && !absentsTerr && !extClients) {
     el.innerHTML = '';
     const right = document.getElementById('insightsBannerRight');
@@ -262,13 +266,13 @@ function renderInsightsBanner() {
 }
 
 // ── Reporting ────────────────────────────────────────────────
-function openReporting() {
+export function openReporting() {
   const overlay = document.getElementById('reportingOverlay');
   const panel = document.getElementById('reportingPanel');
   if (!overlay || !panel) return;
   const text = generateReportText();
   panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
-    <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${selectedMyStore || ''}</h2>
+    <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${_S.selectedMyStore || ''}</h2>
     <div class="flex items-center gap-2 shrink-0">
       <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
       <button onclick="closeReporting()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
@@ -279,12 +283,12 @@ function openReporting() {
   overlay.classList.add('active');
 }
 
-function closeReporting() {
+export function closeReporting() {
   const overlay = document.getElementById('reportingOverlay');
   if (overlay) overlay.classList.remove('active');
 }
 
-function copyReportText() {
+export function copyReportText() {
   const ta = document.getElementById('reportingTextarea');
   if (!ta) return;
   navigator.clipboard.writeText(ta.value)
@@ -293,34 +297,34 @@ function copyReportText() {
 }
 
 // ── Table sort / pagination ───────────────────────────────────
-function sortBy(c) { if (sortCol === c) sortAsc = !sortAsc; else { sortCol = c; sortAsc = false; } currentPage = 0; renderTable(); }
-function changePage(d) { const m = Math.ceil(filteredData.length / PAGE_SIZE) - 1; currentPage = Math.max(0, Math.min(currentPage + d, m)); renderTable(true); }
+export function sortBy(c) { if (_S.sortCol === c) _S.sortAsc = !_S.sortAsc; else { _S.sortCol = c; _S.sortAsc = false; } _S.currentPage = 0; renderTable(); }
+export function changePage(d) { const m = Math.ceil(_S.filteredData.length / PAGE_SIZE) - 1; _S.currentPage = Math.max(0, Math.min(_S.currentPage + d, m)); renderTable(true); }
 
 // ── KPI history ───────────────────────────────────────────────
-function clearSavedKPI() { kpiHistory = []; document.getElementById('compareBlock').classList.add('hidden'); showToast('🗑️ Historique effacé.', 'success'); }
+export function clearSavedKPI() { _S.kpiHistory = []; document.getElementById('compareBlock').classList.add('hidden'); showToast('🗑️ Historique effacé.', 'success'); }
 
-function exportKPIhistory() {
-  if (!kpiHistory.length) { showToast('⚠️ Lancez d\'abord une analyse.', 'warning'); return; }
-  const blob = new Blob([JSON.stringify({ magasin: selectedMyStore, exportDate: new Date().toISOString(), history: kpiHistory }, null, 2)], { type: 'application/json' });
+export function exportKPIhistory() {
+  if (!_S.kpiHistory.length) { showToast('⚠️ Lancez d\'abord une analyse.', 'warning'); return; }
+  const blob = new Blob([JSON.stringify({ magasin: _S.selectedMyStore, exportDate: new Date().toISOString(), history: _S.kpiHistory }, null, 2)], { type: 'application/json' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = 'PRISME_historique_' + (selectedMyStore || 'X') + '_' + new Date().toISOString().slice(0, 10) + '.json';
+  link.download = 'PRISME_historique_' + (_S.selectedMyStore || 'X') + '_' + new Date().toISOString().slice(0, 10) + '.json';
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 Historique exporté', 'success');
 }
 
-function importKPIhistory(input) {
+export function importKPIhistory(input) {
   if (!input.files.length) return;
   const reader = new FileReader();
-  reader.onload = function (e) { try { const data = JSON.parse(e.target.result); if (data.history && data.history.length) { kpiHistory = data.history; showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`, 'success'); renderAll(); } else { showToast('❌ Fichier invalide.', 'error'); } } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); } };
+  reader.onload = function (e) { try { const data = JSON.parse(e.target.result); if (data.history && data.history.length) { _S.kpiHistory = data.history; showToast(`✅ ${data.history.length} entrée(s) importée(s). Relancez l'analyse.`, 'success'); renderAll(); } else { showToast('❌ Fichier invalide.', 'error'); } } catch (err) { showToast('❌ Erreur : ' + err.message, 'error'); } };
   reader.readAsText(input.files[0]); input.value = '';
 }
 
 // ── CSV export ────────────────────────────────────────────────
-function downloadCSV() {
+export function downloadCSV() {
   const SEP = ';';
   const hd = ['Code', 'Libelle', 'Famille', 'S/Fam', 'Empl', 'Statut', 'Age', 'Tranche', 'Nouv', 'RefPere', 'Preleve', 'Enleve', 'Freq', 'Stock', 'Couverture(j)', 'PU', 'AncMin', 'AncMax', 'MIN', 'MAX', 'ABC', 'FMR', 'CAPerdu'];
   const lines = ['\uFEFF' + hd.join(SEP)];
-  const data = filteredData.length ? filteredData : finalData;
+  const data = _S.filteredData.length ? _S.filteredData : _S.finalData;
   for (const r of data) {
     const br = getAgeBracket(r.ageJours);
     const caPerduCSV = (r.W >= 3 && r.stockActuel <= 0 && !r.isParent && r.V > 0) ? estimerCAPerdu(r.V, r.prixUnitaire, Math.min(r.ageJours >= 999 ? 90 : r.ageJours, 90)) : 0;
@@ -328,7 +332,7 @@ function downloadCSV() {
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-  link.download = `PRISME_${selectedMyStore || 'X'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `PRISME_${_S.selectedMyStore || 'X'}_${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href);
   showToast('📥 CSV téléchargé', 'success');
 }
@@ -359,7 +363,7 @@ let _cmdTimer = null;
 let _cmdSelectedIdx = -1;
 let _cmdItems = []; // flat list of rendered clickable items for keyboard nav
 
-function openCmdPalette() {
+export function openCmdPalette() {
   const pal = document.getElementById('cmdPalette');
   const inp = document.getElementById('cmdInput');
   if (!pal || !inp) return;
@@ -370,14 +374,14 @@ function openCmdPalette() {
   setTimeout(() => inp.focus(), 30);
 }
 
-function closeCmdPalette() {
+export function closeCmdPalette() {
   const pal = document.getElementById('cmdPalette');
   if (pal) pal.classList.add('hidden');
   _cmdSelectedIdx = -1;
   _cmdItems = [];
 }
 
-function _cmdRender(q) {
+export function _cmdRender(q) {
   const res = document.getElementById('cmdResults');
   if (!res) return;
   const groups = _cmdBuildResults(q.trim());
@@ -408,7 +412,7 @@ function _cmdRender(q) {
   res.innerHTML = html;
 }
 
-function _cmdBuildResults(q) {
+export function _cmdBuildResults(q) {
   const groups = [];
   const ql = q.toLowerCase();
 
@@ -424,11 +428,11 @@ function _cmdBuildResults(q) {
 
   if (!q) return groups;
 
-  // 2. Articles (search finalData)
-  if (typeof finalData !== 'undefined' && finalData.length) {
+  // 2. Articles (search _S.finalData)
+  if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
     const terms = ql.split(/\s+/).filter(Boolean);
     const artResults = [];
-    for (const r of finalData) {
+    for (const r of _S.finalData) {
       if (artResults.length >= 5) break;
       const haystack = (r.code + ' ' + r.libelle + ' ' + (r.famille || '')).toLowerCase();
       if (terms.every(t => haystack.includes(t))) {
@@ -450,10 +454,10 @@ function _cmdBuildResults(q) {
     if (artResults.length) groups.push({ header: '📦 Articles', items: artResults });
   }
 
-  // 3. Clients (chalandiseData + clientNomLookup fallback)
+  // 3. Clients (_S.chalandiseData + _S.clientNomLookup fallback)
   const clientResults = [];
-  if (typeof chalandiseData !== 'undefined' && chalandiseData.size) {
-    for (const [code, info] of chalandiseData) {
+  if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.size) {
+    for (const [code, info] of _S.chalandiseData) {
       if (clientResults.length >= 5) break;
       if (code.toLowerCase().includes(ql) || (info.nom || '').toLowerCase().includes(ql)) {
         const ca = _cmdClientCA(code);
@@ -477,10 +481,10 @@ function _cmdBuildResults(q) {
       }
     }
   }
-  if (clientResults.length < 5 && typeof clientNomLookup !== 'undefined') {
-    for (const [code, nom] of Object.entries(clientNomLookup)) {
+  if (clientResults.length < 5 && typeof _S.clientNomLookup !== 'undefined') {
+    for (const [code, nom] of Object.entries(_S.clientNomLookup)) {
       if (clientResults.length >= 5) break;
-      if (typeof chalandiseData !== 'undefined' && chalandiseData.has(code)) continue;
+      if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.has(code)) continue;
       if (code.toLowerCase().includes(ql) || (nom || '').toLowerCase().includes(ql)) {
         clientResults.push({
           icon: '👤',
@@ -502,9 +506,9 @@ function _cmdBuildResults(q) {
   if (clientResults.length) groups.push({ header: '👥 Clients', items: clientResults });
 
   // 4. Familles
-  if (typeof finalData !== 'undefined' && finalData.length) {
+  if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
     const famSet = new Set();
-    finalData.forEach(r => { if (r.famille) famSet.add(r.famille); });
+    _S.finalData.forEach(r => { if (r.famille) famSet.add(r.famille); });
     const famResults = [];
     for (const f of famSet) {
       if (famResults.length >= 3) break;
@@ -524,17 +528,17 @@ function _cmdBuildResults(q) {
     if (famResults.length) groups.push({ header: '🏷️ Familles', items: famResults });
   }
 
-  // 5. Agences (storesIntersection)
-  if (typeof storesIntersection !== 'undefined' && storesIntersection.size > 1) {
+  // 5. Agences (_S.storesIntersection)
+  if (typeof _S.storesIntersection !== 'undefined' && _S.storesIntersection.size > 1) {
     const agResults = [];
-    for (const s of storesIntersection) {
+    for (const s of _S.storesIntersection) {
       if (agResults.length >= 3) break;
-      if (s !== selectedMyStore && s.toLowerCase().includes(ql)) {
+      if (s !== _S.selectedMyStore && s.toLowerCase().includes(ql)) {
         agResults.push({
           icon: '🏪',
           main: s,
           sub: 'Comparer dans Le Réseau',
-          badge: s === selectedMyStore ? 'Mon agence' : '',
+          badge: s === _S.selectedMyStore ? 'Mon agence' : '',
           fn: () => {
             switchTab('bench');
             const sel = document.getElementById('obsCompareSelect');
@@ -549,27 +553,27 @@ function _cmdBuildResults(q) {
   return groups;
 }
 
-function _cmdClientCA(code) {
-  if (typeof ventesClientArticle === 'undefined') return '';
-  const arts = ventesClientArticle.get(code);
+export function _cmdClientCA(code) {
+  if (typeof _S.ventesClientArticle === 'undefined') return '';
+  const arts = _S.ventesClientArticle.get(code);
   if (!arts) return '';
   let total = 0;
   for (const v of arts.values()) total += (v.sumCA || 0);
   return total > 0 ? formatEuro(total).replace('€','').trim() : '';
 }
 
-function _cmdEsc(s) {
+export function _cmdEsc(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function _cmdExec(idx) {
+export function _cmdExec(idx) {
   const item = _cmdItems[idx];
   if (!item) return;
   closeCmdPalette();
   if (item.fn) item.fn();
 }
 
-function _cmdMoveSelection(dir) {
+export function _cmdMoveSelection(dir) {
   const items = document.querySelectorAll('#cmdResults .cmd-item');
   if (!items.length) return;
   items.forEach(el => el.classList.remove('cmd-selected'));
