@@ -445,7 +445,6 @@ export function generateDecisionQueue() {
 
   // ── 5. Concentration Client — ICC (K1) ───────────────────────────────
   _S._iccData = null;
-  console.log('ICC Debug (entrée):', { ventesClientArticleSize: _S.ventesClientArticle?.size || 0 });
   if (_S.ventesClientArticle.size > 0) {
     const caParClient = [];
     for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
@@ -462,13 +461,6 @@ export function generateDecisionQueue() {
       const top3Pct = top3.reduce((s, c) => s + c.pct, 0);
       const alerte = icc <= 5 || top3Pct > 40;
       _S._iccData = { icc, top3Pct, top3, alerte, totalCA: Math.round(totalCA) };
-      console.log('ICC Debug:', {
-        nbClients: caParClient.length,
-        icc: _S._iccData?.icc,
-        top3Pct: _S._iccData?.top3Pct,
-        alerte: _S._iccData?.alerte,
-        ventesClientArticleSize: _S.ventesClientArticle?.size || 0
-      });
       if (alerte) {
         const top3Label = top3.map(c => `${c.nom.substring(0, 20)} (${c.pct}%)`).join(', ');
         decisions.push({
@@ -484,42 +476,47 @@ export function generateDecisionQueue() {
     }
   }
 
-  // ── 6. Fragilité Produit — mono-client (K6) ──────────────────────────
+  // ── 6. Fragilité Produit — 1-2 clients (K6) ─────────────────────────
   _S._fragiliteData = null;
-  console.log('Fragilité Debug (entrée):', { ventesClientArticleSize: _S.ventesClientArticle?.size || 0, articleClientsSize: _S.articleClients?.size || 0 });
   if (_S.ventesClientArticle.size > 0 && _S.articleClients.size > 0) {
     const fragiles = [];
     if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.clear();
+    let _diagLogged = false;
     for (const r of _S.finalData) {
       if (r.W < 3) continue;
       const clients = _S.articleClients.get(r.code);
-      if (!clients || clients.size !== 1) continue;
-      const clientCode = clients.values().next().value;
-      const artMap = _S.ventesClientArticle.get(clientCode);
-      if (!artMap) continue;
-      const ca = (artMap.get(r.code)?.sumCA) || 0;
-      if (ca <= 500) continue;
-      fragiles.push({ code: r.code, libelle: r.libelle, client: _S.clientNomLookup[clientCode] || clientCode, clientCode, ca: Math.round(ca) });
+      if (!_diagLogged) {
+        const firstArtMap = clients ? _S.ventesClientArticle.get(clients.values().next().value) : null;
+        console.log('Fragilité article-sample:', { code: r.code, nbClientsArticleClients: clients?.size ?? 'absent', caVentesClientArticle: firstArtMap?.get(r.code)?.sumCA ?? 'absent', W: r.W });
+        _diagLogged = true;
+      }
+      if (!clients || clients.size > 2) continue;
+      let caMax = 0, topClientCode = null;
+      for (const cc of clients) {
+        const artMap = _S.ventesClientArticle.get(cc);
+        if (!artMap) continue;
+        const ca = artMap.get(r.code)?.sumCA || 0;
+        if (ca > caMax) { caMax = ca; topClientCode = cc; }
+      }
+      if (caMax <= 200 || !topClientCode) continue;
+      const topNom = _S.clientNomLookup[topClientCode] || topClientCode;
+      fragiles.push({ code: r.code, libelle: r.libelle, client: topNom, clientCode: topClientCode, nbClients: clients.size, ca: Math.round(caMax) });
       if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.add(r.code);
     }
     fragiles.sort((a, b) => b.ca - a.ca);
     const caTotal = fragiles.reduce((s, f) => s + f.ca, 0);
-    console.log('Fragilité Debug:', {
-      nbFragiles: fragiles.length,
-      caTotal: caTotal,
-      articleClientsSize: _S.articleClients?.size || 0
-    });
     if (fragiles.length > 0) {
       _S._fragiliteData = { nbFragiles: fragiles.length, caFragileTotal: caTotal, topFragiles: fragiles.slice(0, 5) };
       if (fragiles.length >= 3) {
         const top1 = fragiles[0];
+        const label1 = top1.nbClients === 1 ? `seul client\u00a0: ${top1.client}` : `principal client\u00a0: ${top1.client}`;
         decisions.push({
           type: 'fragilite', impact: caTotal,
-          label: `${fragiles.length} articles mono-client\u00a0— ${caTotal.toLocaleString('fr')} \u20ac \u00e0 risque si un client part.`,
+          label: `${fragiles.length} articles fragilisés\u00a0— ${caTotal.toLocaleString('fr')} \u20ac à risque si un client clé part.`,
           why: [
-            `${fragiles.length} articles fréquents (\u22653 cmd/an) n'ont qu'un seul acheteur`,
+            `${fragiles.length} articles fréquents (≥3 cmd/an) n'ont que 1 ou 2 acheteurs`,
             `Si ce client part, ces articles deviennent dormants`,
-            `Top risque\u00a0: ${top1.libelle.substring(0, 25)} (${top1.ca.toLocaleString('fr')} \u20ac)\u00a0\u2014 seul client\u00a0: ${top1.client}`,
+            `Top risque\u00a0: ${top1.libelle.substring(0, 25)} (${top1.ca.toLocaleString('fr')} \u20ac)\u00a0\u2014 ${label1}`,
           ],
         });
       }

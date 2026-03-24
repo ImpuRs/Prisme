@@ -723,11 +723,11 @@ export function renderCockpitBriefing() {
     sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA Comptoir`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA Comptoir sur les 3 premiers clients')} du CA Comptoir. Risque si l'un d'eux part.` });
   }
 
-  // 7. Fragilité Produit (mono-client)
-  if (_S._fragiliteData && _S._fragiliteData.nbFragiles >= 5) {
+  // 7. Fragilité Produit (1-2 clients)
+  if (_S._fragiliteData && _S._fragiliteData.nbFragiles >= 3) {
     const nf = _S._fragiliteData.nbFragiles;
     const ca = _S._fragiliteData.caFragileTotal;
-    sentences.push({ icon: '🎯', color: 'c-caution', text: `${n(nf + ' articles', 'c-caution', 'Articles fréquents achetés par un seul client')} fréquents dépendent d'un seul client\u00a0— ${n(formatEuro(ca), 'c-caution', 'CA annuel à risque si le client unique part')} de CA à risque.` });
+    sentences.push({ icon: '🎯', color: 'c-caution', text: `${n(nf + ' articles', 'c-caution', 'Articles fréquents achetés par 1 ou 2 clients seulement')} fréquents n'ont que 1 ou 2 acheteurs\u00a0— ${n(formatEuro(ca), 'c-caution', 'CA annuel à risque si le client clé part')} de CA fragilisé.` });
   }
 
   textEl.innerHTML = sentences.map(s =>
