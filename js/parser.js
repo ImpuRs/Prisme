@@ -314,7 +314,7 @@ export function computeBenchmark() {
   // === OBSERVATOIRE DATA ===
   const prixLookup = {}; for (const r of _S.finalData) prixLookup[r.code] = r.prixUnitaire || 0;
   const finalDataByCode = {}; for (const r of _S.finalData) finalDataByCode[r.code] = r;
-  const allOtherStores = [...storesIntersection].filter(s => s !== _S.selectedMyStore);
+  const allOtherStores = [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
   const storeFamCA = {}, storeFamRef = {}, storeTotalCA = {};
   const artCA = data => data.sumCA || 0;
   for (const store of allOtherStores) { storeFamCA[store] = {}; storeFamRef[store] = {}; let ca = 0; const sv = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const lineCA = artCA(data); ca += lineCA; if (!data.sumPrelevee && !data.sumEnleve) continue; const fam = _normFam(_S.articleFamille[code]); if (!fam || !/^\d{6}$/.test(code)) continue; storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + lineCA; storeFamRef[store][fam] = (storeFamRef[store][fam] || 0) + 1; } storeTotalCA[store] = ca; }
