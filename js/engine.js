@@ -336,9 +336,9 @@ export function generateDecisionQueue() {
       impact: r.W * r.prixUnitaire, action: 'commander', qteSugg,
       label: `Commander ${qteSugg}u réf.${r.code} — rupture dans ${jours}j`,
       why: [
-        `Stock actuel : ${r.stockActuel} u. — couverture ~${jours} jour${jours > 1 ? 's' : ''}`,
-        `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
-        `Quantité suggérée : ${qteSugg} u. (pour atteindre le MAX de ${r.nouveauMax || 1})`,
+        `Stock actuel : ${r.stockActuel} u. — couverture ~${jours}j. Le réappro prend 5j + 3j de marge (8j). Commander maintenant pour éviter la rupture.`,
+        `Le stock sera épuisé dans ~${jours} jour${jours > 1 ? 's' : ''}. En attendant, la rupture est probable avant l'arrivée du réassort.`,
+        `Quantité suggérée : ${qteSugg} u. pour atteindre le MAX de ${r.nouveauMax || 1} u. en rayon.`,
       ],
     });
   }
@@ -355,14 +355,16 @@ export function generateDecisionQueue() {
 
   for (const { r, impact, semCA } of critRupt) {
     const qteSugg = Math.max((r.nouveauMax || 1) - r.stockActuel, r.nouveauMax || 1);
+    const ageText = (r.ageJours > 0 && r.ageJours < 999) ? ` depuis ${r.ageJours}j` : '';
+    const coverTarget = r.fmrClass === 'F' ? '21j' : '10j';
     decisions.push({
       type: 'rupture', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
       impact, qteSugg, action: 'commander',
       label: `Commander ${r.W} × réf. ${r.code} — rupture active, ~${semCA.toLocaleString('fr')} €/sem.`,
       why: [
-        `Stock actuel : ${r.stockActuel} u. (sous le MIN de ${r.nouveauMin})`,
-        `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
-        `CA annuel à risque : ${impact.toLocaleString('fr')} €`,
+        `Stock à 0${ageText}. Cet article se vend ${r.W} fois/an (article ${r.fmrClass || '?'}). Chaque semaine sans stock ≈ ${semCA.toLocaleString('fr')} € de CA perdu.`,
+        `Commander ${qteSugg} u. pour atteindre le MAX (${r.nouveauMax || 1} u. en rayon) — couverture cible ~${coverTarget}.`,
+        `MIN configuré : ${r.nouveauMin} u. — stock actuel : ${r.stockActuel} u. (sous le seuil de commande auto).`,
       ],
     });
   }
@@ -390,7 +392,7 @@ export function generateDecisionQueue() {
       const daysAgo = Math.round((now - lastDate) / 86400000);
       if (daysAgo < 30) continue;
       const caAnnuel = info.ca2025 || info.ca2026 || 0;
-      inactive.push({ cc, nom: info.nom || cc, daysAgo, weeksAgo: Math.round(daysAgo / 7), caAnnuel });
+      inactive.push({ cc, nom: info.nom || cc, daysAgo, weeksAgo: Math.round(daysAgo / 7), caAnnuel, metier: info.metier || '' });
     }
     inactive.sort((a, b) => b.caAnnuel - a.caAnnuel);
     for (const c of inactive.slice(0, 2)) {
@@ -398,9 +400,9 @@ export function generateDecisionQueue() {
         type: 'client', code: c.cc, impact: c.caAnnuel,
         label: `Appeler client ${c.nom} — disparu ${c.weeksAgo} sem., ${Math.round(c.caAnnuel).toLocaleString('fr')} € annuel.`,
         why: [
-          `Dernière commande PDV : il y a ${c.daysAgo} jours`,
-          `CA annuel Legallais : ${Math.round(c.caAnnuel).toLocaleString('fr')} €`,
-          `Métier stratégique — fort potentiel de reconquête`,
+          `Ce client${c.metier ? ` (${c.metier})` : ''} représente ~${Math.round(c.caAnnuel).toLocaleString('fr')} €/an chez Legallais.`,
+          `Dernière commande PDV il y a ${c.daysAgo} jours (${c.weeksAgo} sem.). Risque : départ silencieux vers un concurrent.`,
+          `Métier stratégique — contacter pour comprendre l'absence ou proposer une visite commerciale.`,
         ],
       });
     }
@@ -419,9 +421,9 @@ export function generateDecisionQueue() {
       type: 'dormants', impact: dormantVal,
       label: `Sortir ${dormants.length} réfs dormantes — immobilisent ${Math.round(dormantVal).toLocaleString('fr')} € depuis ~${avgMonths} mois.`,
       why: [
-        `${dormants.length} articles sans mouvement depuis plus de 12 mois`,
-        `Valeur stock immobilisée : ${Math.round(dormantVal).toLocaleString('fr')} €`,
-        `Âge moyen du stock dormant : ~${avgMonths} mois`,
+        `${dormants.length} articles sans mouvement depuis plus de 12 mois — capital immobilisé et gelé.`,
+        `Valeur stock : ${Math.round(dormantVal).toLocaleString('fr')} € d'argent qui ne tourne pas et se déprécie (âge moyen ~${avgMonths} mois).`,
+        `Action recommandée : retour dépôt Legallais ou vente soldée — libère de la trésorerie.`,
       ],
     });
   }
@@ -435,9 +437,9 @@ export function generateDecisionQueue() {
       type: 'anomalie_minmax', impact: 0,
       label: `Paramétrer MIN/MAX pour ${anomalies.length} articles actifs sans seuil ERP.`,
       why: [
-        `${anomalies.length} articles vendus mais sans MIN/MAX configuré`,
-        `Sans seuil, le réapprovisionnement est 100% manuel`,
-        `Action : exporter les codes, paramétrer dans l'ERP`,
+        `${anomalies.length} articles vendus régulièrement mais sans seuil de réappro automatique dans l'ERP.`,
+        `Sans MIN configuré, aucune alerte auto ne se déclenchera : risque de rupture invisible.`,
+        `Action : exporter les codes via l'onglet Articles, paramétrer les MIN/MAX calculés par PRISME.`,
       ],
     });
   }
