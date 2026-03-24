@@ -1,7 +1,7 @@
-# CLAUDE.md — Contexte PILOT PRO
+# CLAUDE.md — Contexte PRISME
 
 ## Qu'est-ce que ce projet ?
-PILOT PRO (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Le Terrain, Zone de Chalandise).
+PRISME (ex-Optistock PRO) est un outil d'analyse de stocks pour magasins de distribution B2B (Quincaillerie Legallais). C'est un fichier HTML unique qui tourne dans Google Apps Script ou en local, avec 2 fichiers Excel en entrée + 2 optionnels (Le Terrain, Zone de Chalandise).
 
 ## Architecture
 - **Point d'entrée** : `index.html` contient la structure HTML, le CSS et le `<script>` principal
