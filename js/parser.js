@@ -188,6 +188,7 @@ function launchTerritoireWorker(rows, progressCb) {
       workerUrl = URL.createObjectURL(blob);
     } catch (e) { reject(new Error('Worker indisponible: ' + e.message)); return; }
     const worker = new Worker(workerUrl);
+    _activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
     const stockArr = finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
     worker.postMessage({ rows, blConsommeArr: [...blConsommeSet], clientsMagasinArr: [...clientsMagasin], stockArr, libelleLookupObj: libelleLookup, articleFamilleObj: articleFamille });
     worker.onmessage = function (ev) {
@@ -199,12 +200,12 @@ function launchTerritoireWorker(rows, progressCb) {
         if (sel) { sel.innerHTML = '<option value="">Toutes Directions</option>'; d.dirsSorted.forEach(dir => { sel.innerHTML += `<option value="${dir}">${dir}</option>`; }); }
         buildSecteurCheckboxes(d.secteursSorted || []);
         territoireReady = true;
-        worker.terminate(); URL.revokeObjectURL(workerUrl); resolve();
+        _activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); resolve();
       } else if (d.type === 'error') {
-        worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(d.msg));
+        _activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(d.msg));
       }
     };
-    worker.onerror = function (e) { worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(e.message || 'Worker error')); };
+    worker.onerror = function (e) { _activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(e.message || 'Worker error')); };
   });
 }
 
