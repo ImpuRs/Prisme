@@ -478,29 +478,18 @@ export function generateDecisionQueue() {
 
   // ── 6. Fragilité Produit — 1-2 clients (K6) ─────────────────────────
   _S._fragiliteData = null;
-  if (_S.ventesClientArticle.size > 0 && _S.articleClients.size > 0) {
+  if (_S.articleClients.size > 0) {
     const fragiles = [];
     if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.clear();
-    let _diagLogged = false;
     for (const r of _S.finalData) {
       if (r.W < 3) continue;
       const clients = _S.articleClients.get(r.code);
-      if (!_diagLogged) {
-        const firstArtMap = clients ? _S.ventesClientArticle.get(clients.values().next().value) : null;
-        console.log('Fragilité article-sample:', { code: r.code, nbClientsArticleClients: clients?.size ?? 'absent', caVentesClientArticle: firstArtMap?.get(r.code)?.sumCA ?? 'absent', W: r.W });
-        _diagLogged = true;
-      }
       if (!clients || clients.size > 2) continue;
-      let caMax = 0, topClientCode = null;
-      for (const cc of clients) {
-        const artMap = _S.ventesClientArticle.get(cc);
-        if (!artMap) continue;
-        const ca = artMap.get(r.code)?.sumCA || 0;
-        if (ca > caMax) { caMax = ca; topClientCode = cc; }
-      }
-      if (caMax <= 200 || !topClientCode) continue;
+      const ca = Math.round(r.V * r.prixUnitaire);
+      if (ca <= 200) continue;
+      const topClientCode = clients.values().next().value;
       const topNom = _S.clientNomLookup[topClientCode] || topClientCode;
-      fragiles.push({ code: r.code, libelle: r.libelle, client: topNom, clientCode: topClientCode, nbClients: clients.size, ca: Math.round(caMax) });
+      fragiles.push({ code: r.code, libelle: r.libelle, client: topNom, clientCode: topClientCode, nbClients: clients.size, ca });
       if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.add(r.code);
     }
     fragiles.sort((a, b) => b.ca - a.ca);
