@@ -84,7 +84,7 @@ export async function parseChalandise(file) {
   // Show territoire tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on territoire tab
-  if (_S.finalData && _S.finalData.length > 0) { computeClientCrossing(); renderAll(); }
+  if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.renderAll?.(); }
   _saveSessionToIDB(); // Sauvegarder avec les données chalandise
 }
 
