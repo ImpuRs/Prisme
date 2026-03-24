@@ -8,9 +8,9 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 
@@ -98,12 +98,12 @@ import { initRouter } from './router.js';
     const availClassifList=CLASSIF_ORDER.filter(c=>availClassifs.has(c));
     if(cEl)cEl.innerHTML=availClassifList.map(c=>{const sel=allC||_S._selectedClassifs.has(c);return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewClassif('${c.replace(/'/g,"\\'")}',event)" class="rounded"><span class="font-semibold">${c}</span></label>`;}).join('');
     const classifLabelEl=document.getElementById('terrClassifLabel');
-    if(classifLabelEl){if(allC)classifLabelEl.textContent='Classif: toutes';else{const sel=[..._selectedClassifs];classifLabelEl.textContent=sel.length<=2?'Classif: '+sel.join(', '):'Classif: '+sel.length+'/'+availClassifList.length;}}
+    if(classifLabelEl){if(allC)classifLabelEl.textContent='Classif: toutes';else{const sel=[..._S._selectedClassifs];classifLabelEl.textContent=sel.length<=2?'Classif: '+sel.join(', '):'Classif: '+sel.length+'/'+availClassifList.length;}}
     const sortedActPDV=[...availActPDV].sort((a,b)=>{const la=a.toLowerCase(),lb=b.toLowerCase();if(!la.includes('inactif')&&lb.includes('inactif'))return -1;if(la.includes('inactif')&&!lb.includes('inactif'))return 1;return a.localeCompare(b);});
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_S._selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:bg-gray-50"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewActPDV('${aEsc}',event)" class="rounded"><span class="font-semibold">${a}</span></label>`;}).join('');
     const actLabelEl=document.getElementById('terrActPDVLabel');
-    if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
+    if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._S._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
     // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
@@ -540,7 +540,7 @@ import { initRouter } from './router.js';
     const _nbPassagesExec=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0&&_nbPassagesExec>0?parseFloat((_nbPassagesExec/nbClientsPDV).toFixed(1)):null;
-    const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
+    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):null;
     const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
@@ -595,7 +595,7 @@ import { initRouter } from './router.js';
           p+=`, porté par ${nbClientsPDV.toLocaleString('fr')} client${nbClientsPDV!==1?'s':''} actifs en magasin`;
           const details=[];
           if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
-          if(ok(panierMoyen))details.push(`panier moyen ${panierMoyen.toLocaleString('fr')} €`);
+          if(ok(caParClient))details.push(`CA/client ${caParClient.toLocaleString('fr')} €`);
           if(ok(txMarge)&&txMarge>0){const vmbStr=vmbPDV>0?` pour une VMB de ${formatEuro(Math.round(vmbPDV))}`:'';details.push(`taux de marge ${txMarge.toFixed(2)}%${vmbStr}`);}
           if(details.length)p+=` (${details.join(', ')})`;
         }
@@ -896,7 +896,7 @@ import { initRouter } from './router.js';
     }
     // Excluded clients bandeau for a block
     function _excludedBandeau(listId){
-      const excl=[...excludedClients.entries()].filter(([,v])=>v.category===listId);
+      const excl=[..._S.excludedClients.entries()].filter(([,v])=>v.category===listId);
       if(!excl.length)return'';
       const n=excl.length;
       const exclListId=`${listId}-excl-detail`;
@@ -969,7 +969,7 @@ import { initRouter } from './router.js';
     // Include excluded clients for this category
     for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}
     const date=new Date().toISOString().slice(0,10);
-    _downloadCockpitCSV(rows,`PILOT_${_S.selectedMyStore||'AGENCE'}_Clients_${catLabel}_${date}.csv`,catLabel);
+    _downloadCockpitCSV(rows,`PRISME_${_S.selectedMyStore||'AGENCE'}_Clients_${catLabel}_${date}.csv`,catLabel);
   }
   function exportCockpitCSVAll(){
     if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
@@ -977,7 +977,7 @@ import { initRouter } from './router.js';
     const rows=[];
     for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
     const date=new Date().toISOString().slice(0,10);
-    _downloadCockpitCSV(rows,`PILOT_${_S.selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
+    _downloadCockpitCSV(rows,`PRISME_${_S.selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
   }
 
   // ── Client exclusion (hide from cockpit) ──
@@ -1015,9 +1015,9 @@ import { initRouter } from './router.js';
   }
   function exportExclusionsJSON(){
     if(!_S.excludedClients.size){showToast('Aucune exclusion à exporter','info');return;}
-    const data={magasin:_S.selectedMyStore||'AGENCE',date:new Date().toISOString().slice(0,10),exclusions:[...excludedClients.entries()].map(([cc,v])=>({code:cc,nom:v.nom||cc,reason:v.reason,date:v.date,category:v.category}))};
+    const data={magasin:_S.selectedMyStore||'AGENCE',date:new Date().toISOString().slice(0,10),exclusions:[..._S.excludedClients.entries()].map(([cc,v])=>({code:cc,nom:v.nom||cc,reason:v.reason,date:v.date,category:v.category}))};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PILOT_${data.magasin}_exclusions.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PRISME_${data.magasin}_exclusions.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
     showToast(`📤 ${data.exclusions.length} exclusions exportées`,'success');
   }
   function importExclusionsJSON(input){
@@ -1047,7 +1047,7 @@ import { initRouter } from './router.js';
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
   function buildBenchCheckboxes(){
     const div=document.getElementById('benchPickCheckboxes');if(!div)return;
-    const stores=[...storesIntersection].sort().filter(s=>s!==_S.selectedMyStore);
+    const stores=[..._S.storesIntersection].sort().filter(s=>s!==_S.selectedMyStore);
     // Keep previous checked state if available
     const prevChecked=new Set();document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>prevChecked.add(cb.value));
     const allWasEmpty=prevChecked.size===0;
@@ -1058,7 +1058,7 @@ import { initRouter } from './router.js';
     // Always use checkboxes; fall back to all stores if none are checked yet (initial state)
     const checked=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>checked.push(cb.value));
     if(checked.length)return checked;
-    return[...storesIntersection].filter(s=>s!==_S.selectedMyStore);
+    return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   }
   function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
@@ -1093,8 +1093,8 @@ import { initRouter } from './router.js';
       _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
       _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=_S.storesIntersection.size>1;
-      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[...storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!_S.selectedMyStore&&_S.storesIntersection.has('AG22'))_S.selectedMyStore='AG22';if(!_S.selectedMyStore)_S.selectedMyStore=[...storesIntersection][0];sel.value=_S.selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;}
-      else{document.getElementById('storeSelector').classList.add('hidden');if(_S.storesIntersection.size===1)_S.selectedMyStore=[...storesIntersection][0];}
+      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[..._S.storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!_S.selectedMyStore&&_S.storesIntersection.has('AG22'))_S.selectedMyStore='AG22';if(!_S.selectedMyStore)_S.selectedMyStore=[..._S.storesIntersection][0];sel.value=_S.selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;}
+      else{document.getElementById('storeSelector').classList.add('hidden');if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
       const useMulti=hasMulti&&_S.selectedMyStore;
 
       const stockKeys=Object.keys(dataS[0]||{});
@@ -1221,7 +1221,7 @@ import { initRouter } from './router.js';
       updatePipeline('stock','done');
 
       // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
-      if(useMulti&&_S.finalData.length){const _otherS=[...storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of _S.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
+      if(useMulti&&_S.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of _S.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
 
@@ -1669,7 +1669,7 @@ import { initRouter } from './router.js';
     for(const l of _S.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
     if(tMin&&tMax)terrPeriodStr=`, ${fmtDate(new Date(tMin))}–${fmtDate(new Date(tMax))}`;
     else if(_S.consommePeriodMin)terrPeriodStr='';
-    el.innerHTML=`<p>🔗 PILOT a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
+    el.innerHTML=`<p>🔗 PRISME a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
   }
 
   // VOLET 2bis: Build secteur + direction contributeurs aggregate maps
@@ -1698,7 +1698,7 @@ import { initRouter } from './router.js';
     const el=document.getElementById('terrContribTable');if(!el)return;
     if(!_S.terrContribByDirection.size){el.innerHTML='<tr><td colspan="5" class="text-center py-4 text-gray-400 text-xs">Aucune donnée contributeurs trouvée dans le fichier territoire</td></tr>';return;}
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
-    let rows=[...terrContribByDirection.values()].map(d=>{
+    let rows=[..._S.terrContribByDirection.values()].map(d=>{
       const blT=d.blTerr.size,blA=d.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...d,blT,blA,pct};
     }).sort((a,b)=>b.ca-a.ca);
     if(filterDir)rows=rows.filter(r=>r.direction===filterDir);
@@ -1718,7 +1718,7 @@ import { initRouter } from './router.js';
     const sumEl=document.getElementById('terrContribSummary');
     if(sumEl){
       const nbDir=rows.length,nbSect=_S.terrContribBySecteur.size;
-      const oppo=[...terrContribBySecteur.values()].filter(s=>s.blTerr.size>0&&Math.round(s.blAgence.size/s.blTerr.size*100)<10).length;
+      const oppo=[..._S.terrContribBySecteur.values()].filter(s=>s.blTerr.size>0&&Math.round(s.blAgence.size/s.blTerr.size*100)<10).length;
       sumEl.textContent=`${nbDir} Direction${nbDir>1?'s':''}, ${nbSect} secteurs — ${oppo} opportunité${oppo>1?'s':''} (<10% BL agence). Cliquez une Direction pour voir ses secteurs.`;
     }
   }
@@ -1738,7 +1738,7 @@ import { initRouter } from './router.js';
   function renderContribSecteurs(rowId,direction){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const LIMIT=50;
-    const secteurs=[...terrContribBySecteur.values()]
+    const secteurs=[..._S.terrContribBySecteur.values()]
       .filter(s=>s.direction===direction)
       .map(s=>{const blT=s.blTerr.size,blA=s.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...s,blT,blA,pct};})
       .sort((a,b)=>a.pct-b.pct);
@@ -1769,7 +1769,7 @@ import { initRouter } from './router.js';
   function _loadMoreSecteurs(btn,parentRowId,offset,encDir){
     const direction=decodeURIComponent(encDir);
     const LIMIT=50,newOff=offset+LIMIT;
-    const secteurs=[...terrContribBySecteur.values()].filter(s=>s.direction===direction).map(s=>{const blT=s.blTerr.size,blA=s.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...s,blT,blA,pct};}).sort((a,b)=>a.pct-b.pct);
+    const secteurs=[..._S.terrContribBySecteur.values()].filter(s=>s.direction===direction).map(s=>{const blT=s.blTerr.size,blA=s.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...s,blT,blA,pct};}).sort((a,b)=>a.pct-b.pct);
     const tbody=document.getElementById(parentRowId+'-sectbody');
     if(tbody)tbody.insertAdjacentHTML('beforeend',_buildSecteurRows(secteurs.slice(offset,newOff)));
     const rem=secteurs.length-newOff;
@@ -1897,10 +1897,10 @@ import { initRouter } from './router.js';
     const SEP=';';
     const h=['Direction','Secteur','BL territoire','BL agence','% agence','CA Legallais'];
     const lines=['\uFEFF'+h.join(SEP)];
-    const rows=[...terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
+    const rows=[..._S.terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
     for(const r of rows)lines.push([r.dir,r.secteur,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
   }
 
   function exportTerritoireCSV(){
@@ -1921,7 +1921,7 @@ import { initRouter } from './router.js';
     const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
     for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
   }
 
   // ── 🎯 Ciblage Promo ──
@@ -2337,7 +2337,7 @@ import { initRouter } from './router.js';
     lines.push(['Code','Nom','Métier','CA Legallais','Classification','Commercial'].join(SEP));
     for(const c of r.sectionC)lines.push([c.cc,`"${c.nom}"`,`"${c.metier}"`,c.ca2025.toFixed(2).replace('.',','),`"${c.classification}"`,`"${c.commercial}"`].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Promo_${r.terms[0]||'ciblage'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Ciblage téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Promo_${r.terms[0]||'ciblage'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Ciblage téléchargé','success');
   }
 
   function copyPromoClipboard(){
@@ -2524,7 +2524,7 @@ import { initRouter } from './router.js';
     lines.push(['Code','Nom','Métier','CA famille','Raison','Commercial'].join(SEP));
     for(const x of r.sectionF)lines.push([x.cc,`"${x.nom}"`,`"${x.metier}"`,x.famCA.toFixed(2).replace('.',','),`"${x.raison}"`,`"${x.commercial}"`].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const nm=`PILOT_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
+    const nm=`PRISME_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=nm;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV opération téléchargé','success');
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -2733,7 +2733,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const sel=document.getElementById('obsCompareSelect');if(!sel)return;
     const current=_S.selectedObsCompare||'median';
     sel.innerHTML='<option value="median">📊 Médiane réseau</option>';
-    [...storesIntersection].sort().filter(s=>s!==_S.selectedMyStore).forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='🏪 '+s;if(s===current)o.selected=true;sel.appendChild(o);});
+    [..._S.storesIntersection].sort().filter(s=>s!==_S.selectedMyStore).forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='🏪 '+s;if(s===current)o.selected=true;sel.appendChild(o);});
     if(current==='median')sel.value='median';
     _updateObsCheckboxVisibility();
   }
@@ -2847,7 +2847,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepOther.length} pépite${pepOther.length>1?'s':''} réseau copiée${pepOther.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
   }
 
-  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
   function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
@@ -2860,12 +2860,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
-    const panierMoyen=nbPassages>0?Math.round(caPDVTotal/nbPassages):0;
+    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):0;
     if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
     document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
     document.getElementById('eqFreq').textContent=freqPDV;
-    document.getElementById('eqPanier').textContent=panierMoyen>0?panierMoyen.toLocaleString('fr')+' €':'—';
+    document.getElementById('eqPanier').textContent=caParClient>0?caParClient.toLocaleString('fr')+' €':'—';
     document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
     const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;const vmc=_S.ventesAnalysis?_S.ventesAnalysis.vmc:null;
     const extraEl=document.getElementById('eqExtra');
@@ -2883,7 +2883,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // CA perdu — contexte multi vs mono agence
     const hasMulti=_S.storesIntersection.size>1;
     const medianCAByCode={};
-    if(hasMulti&&_S.selectedMyStore){const cs=[...storesIntersection];const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>_S.ventesParMagasin[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
+    if(hasMulti&&_S.selectedMyStore){const cs=[..._S.storesIntersection];const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};for(const code of Object.keys(myV)){const cas=cs.map(s=>_S.ventesParMagasin[s]?.[code]?.sumCA||0).filter(v=>v>0);if(cas.length>0)medianCAByCode[code]=_median(cas);}}
 
     for(const r of dataSource){const lv=r.valeurStock!=null?r.valeurStock:r.stockActuel*(r.prixUnitaire||0);totalValue+=lv;
     if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}
@@ -3208,8 +3208,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const newMaxFmt=r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
     // MIN/MAX Réseau (multi-agences uniquement)
     let _reseauMinMaxRow='';
-    if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[...storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){const _mMin=_rMins.length?Math.round(_median(_rMins)):null;const _mMax=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-300">${_mMin??'—'} / ${_mMax??'—'}<span class="text-[10px] text-gray-500 ml-1">(méd. ${_nbAg} agence${_nbAg>1?'s':''})</span></span>`;}else{_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-600 text-[10px]">Pas de données réseau</span>`;}}
-    const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="text-gray-400">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="text-gray-400">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="text-gray-400">MIN / MAX PILOT</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="text-gray-400">Prix unitaire</span><span>${puFmt}</span><span class="text-gray-400">CA perdu estimé</span><span class="text-rose-300 font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
+    if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){const _mMin=_rMins.length?Math.round(_median(_rMins)):null;const _mMax=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-300">${_mMin??'—'} / ${_mMax??'—'}<span class="text-[10px] text-gray-500 ml-1">(méd. ${_nbAg} agence${_nbAg>1?'s':''})</span></span>`;}else{_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-600 text-[10px]">Pas de données réseau</span>`;}}
+    const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="text-gray-400">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="text-gray-400">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="text-gray-400">MIN / MAX PRISME</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="text-gray-400">Prix unitaire</span><span>${puFmt}</span><span class="text-gray-400">CA perdu estimé</span><span class="text-rose-300 font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
     // Buyers section — compute once, reuse for plan
     const buyers=_S.articleClients.get(code);
     let buyerList=[];
@@ -3234,7 +3234,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // Réseau section (multi only)
     let reseauHtml='';
     if(_S.storesIntersection.size>1&&_S.selectedMyStore){
-      const cs=[...storesIntersection];const myFreq=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;
+      const cs=[..._S.storesIntersection];const myFreq=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;
       const freqs=cs.map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);
       if(freqs.length>1){
         const med=_median(freqs);const nbAg=freqs.length;const rank=[...freqs].sort((a,b)=>b-a).findIndex(f=>f<=myFreq)+1;
@@ -3247,7 +3247,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(r.stockActuel<=0&&r.nouveauMin>0)acts.push(`<div class="diag-action-row"><span class="text-emerald-300 font-bold">1.</span><span class="flex-1 ml-2 text-sm">Commander — MIN recalculé : <strong>${r.nouveauMin}</strong></span><button onclick="navigator.clipboard.writeText('${code}').catch(()=>{})" class="diag-btn bg-violet-900 text-violet-200 border border-violet-500 text-[10px]">📋 Copier</button></div>`);
     const topBuyer=buyerList.find(b=>b.caArt>0);
     if(topBuyer&&topBuyer.daysSince!==null&&topBuyer.daysSince>30)acts.push(`<div class="diag-action-row"><span class="text-amber-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Appeler <strong>${topBuyer.nom}</strong> — plus gros acheteur, <strong class="text-rose-300">${topBuyer.daysSince}j</strong> sans commande</span></div>`);
-    if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[...storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="text-amber-300">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
+    if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[..._S.storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="text-amber-300">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
     const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
     // Render
     panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono text-gray-400 text-xs">${r.code}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="text-gray-400 hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${reseauHtml}${planHtml}`;
@@ -3617,7 +3617,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 3 : 🔭 LE RÉSEAU (multi-agences) ──
   function _diagVoyant3(famille,hasMulti){
     if(!hasMulti)return{status:'lock',reason:'Données multi-agences requises — chargez un fichier Consommé incluant plusieurs agences'};
-    const cs=[...storesIntersection].filter(s=>s!==_S.selectedMyStore);
+    const cs=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
     const nbOtherStores=cs.length;
     if(!nbOtherStores)return{status:'lock',reason:'Un seul magasin dans le fichier'};
     // Price lookup (my _S.finalData)
@@ -4015,7 +4015,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const a of((v3||l3)?.missing||[]))lines.push(['🔭 Le Réseau','Article manquant réseau',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||a.refFreq||''].join(SEP));
     for(const a of(v3?.inStockNotSold||[]))lines.push(['🔭 Le Réseau','En stock — 0 vente (vérifier visibilité rayon)',a.code,`"${a.lib}"`,`Stock:${a.stockActuel} ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||''].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
     showToast('📥 Plan de vol exporté','success');
   }
 
@@ -4035,13 +4035,13 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(!_S.storesIntersection.size&&Object.keys(_S.ventesParMagasin).length>0&&Object.keys(_S.stockParMagasin).length>0){
         const vKeys=new Set(Object.keys(_S.ventesParMagasin)),sKeys=new Set(Object.keys(_S.stockParMagasin));
         _S.storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
-        if(_S.storesIntersection.size)console.log('[PRISME] _S.storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
+        if(_S.storesIntersection.size)console.log('[PRISME] _S.storesIntersection reconstruite depuis IDB :',[..._S.storesIntersection]);
       }
       // Fallback compteurs : si non persistés dans l'ancien cache, recalculer depuis les maps
       if(!_S.storeCountConsomme)_S.storeCountConsomme=Object.keys(_S.ventesParMagasin).length;
       if(!_S.storeCountStock)_S.storeCountStock=Object.keys(_S.stockParMagasin).length;
       if(!_S.selectedMyStore&&_S.storesIntersection.size>0){
-        _S.selectedMyStore=_S.storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
+        _S.selectedMyStore=_S.storesIntersection.has('AG22')?'AG22':[..._S.storesIntersection][0];
         console.log('[PRISME] _S.selectedMyStore sélectionné automatiquement :', _S.selectedMyStore);
       }
       // ── Vérification de cohérence : _S.finalData contaminé ? ──
@@ -4087,7 +4087,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(useMulti){
         const _sel=document.getElementById('selectMyStore');
         _sel.innerHTML='<option value="">—</option>';
-        [...storesIntersection].sort().forEach(s=>{const _o=document.createElement('option');_o.value=s;_o.textContent=s;_sel.appendChild(_o);});
+        [..._S.storesIntersection].sort().forEach(s=>{const _o=document.createElement('option');_o.value=s;_o.textContent=s;_sel.appendChild(_o);});
         _sel.value=_S.selectedMyStore;
         document.getElementById('storeSelector').classList.remove('hidden');
         document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;
