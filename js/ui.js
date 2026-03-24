@@ -622,56 +622,80 @@ export function renderCockpitBriefing() {
   const textEl = document.getElementById('cockpitBriefingText');
   if (!el || !textEl || !_S.finalData.length) { if (el) el.classList.add('hidden'); return; }
 
+  const d = _S._briefingData || {};
+  const lstR = d.lstR || [];
+  const totalCAPerdu = d.totalCAPerdu || 0;
+  const dormantStock = d.dormantStock || 0;
+  const capalinOverflow = d.capalinOverflow || 0;
+  const sr = d.sr != null ? String(d.sr) : null;
+  const hasMulti = d.hasMulti || false;
+
+  const n = (val, cls, tip) => `<span class="briefing-num ${cls}" title="${tip}">${val}</span>`;
   const sentences = [];
 
-  // Condition 1 : ruptures critiques (W≥3, stock≤0, priorityScore≥5000)
-  const critRupt = _S.finalData.filter(r =>
-    r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0) &&
-    calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
-  );
-  if (critRupt.length > 0) {
-    const caPot = critRupt.reduce((s, r) => s + Math.round(r.W * r.prixUnitaire), 0);
-    const nFmt = `<span class="briefing-num c-danger" title="Basé sur ${critRupt.length} articles fréquents (W≥3) en rupture avec score≥5000€">${critRupt.length}</span>`;
-    const caFmt = `<span class="briefing-num c-danger" title="CA annuel potentiel des articles en rupture critique (W×PU)">${formatEuro(caPot)}</span>`;
-    sentences.push({ icon: '🚨', color: 'c-danger', text: `Ce matin : ${nFmt} rupture${critRupt.length > 1 ? 's' : ''} critiques menacent ~${caFmt} de CA.` });
+  // 1. Ruptures + CA perdu (toujours présent)
+  if (lstR.length > 0) {
+    const top3 = lstR.slice(0, 3).map(r => r.lib.substring(0, 22)).join(', ');
+    let caText;
+    if (hasMulti) {
+      caText = `~${n(formatEuro(totalCAPerdu), 'c-danger', 'CA perdu estimé vs médiane réseau')} de CA perdu`;
+    } else if (totalCAPerdu >= 100) {
+      caText = `~${n(formatEuro(totalCAPerdu), 'c-danger', 'CA historique des articles en rupture')} de CA en rupture`;
+    } else {
+      caText = `CA non estimable (historique insuffisant)`;
+    }
+    sentences.push({ icon: '🚨', color: 'c-danger', text: `${n(lstR.length, 'c-danger', `${lstR.length} articles fréquents (W≥3) en rupture`)} rupture${lstR.length > 1 ? 's' : ''}\u00a0— ${caText}. Top\u00a0: ${top3}.` });
+  } else {
+    sentences.push({ icon: '✅', color: 'c-ok', text: `Aucune rupture sur les articles fréquents.` });
   }
 
-  // Condition 2 : famille qui décroche vs bassin (<50% médiane, benchmark dispo)
-  if (_S.benchLists.familyPerf && _S.benchLists.familyPerf.length > 0) {
-    const underPerf = _S.benchLists.familyPerf
-      .filter(fp => fp.med > 0 && fp.my / fp.med < 0.5)
-      .sort((a, b) => (a.my / a.med) - (b.my / b.med));
-    if (underPerf.length > 0) {
-      const worst = underPerf[0];
-      const pctDecr = Math.round((1 - worst.my / worst.med) * 100);
-      const famFmt = `<strong>${worst.fam}</strong>`;
-      const pctFmt = `<span class="briefing-num c-caution" title="Basé sur ${worst.my} ventes vs médiane réseau ${worst.med}">${pctDecr}%</span>`;
-      sentences.push({ icon: '📉', color: 'c-caution', text: `Famille ${famFmt} décroche de ${pctFmt} vs le réseau ce mois.` });
+  // 2. Taux de service (toujours présent)
+  if (sr !== null) {
+    const srNum = parseFloat(sr);
+    const srCls = srNum >= 95 ? 'c-ok' : srNum >= 85 ? 'c-caution' : 'c-danger';
+    const srFmt = n(`${sr}%`, srCls, 'Taux de disponibilité des articles fréquents (W≥3)');
+    if (srNum >= 95) sentences.push({ icon: '💪', color: 'c-ok', text: `Taux de service\u00a0: ${srFmt} — excellent.` });
+    else if (srNum >= 85) sentences.push({ icon: '👍', color: 'c-caution', text: `Taux de service\u00a0: ${srFmt} — correct, marge de progression sur les ruptures.` });
+    else sentences.push({ icon: '⚠️', color: 'c-danger', text: `Taux de service\u00a0: ${srFmt} — priorité\u00a0: résoudre les ruptures pour remonter.` });
+  }
+
+  // 3. Stock à assainir (dormants + excédent ERP)
+  const assainTotal = dormantStock + capalinOverflow;
+  if (assainTotal > 500) {
+    const parts = [];
+    if (dormantStock > 500) parts.push(`${n(formatEuro(dormantStock), 'c-caution', 'Valeur du stock dormant (>1 an sans mouvement)')} dormants`);
+    if (capalinOverflow > 500) parts.push(`${n(formatEuro(capalinOverflow), 'c-caution', 'Stock dépassant le MAX ERP — à renvoyer au dépôt ou solder')} excédent ERP`);
+    sentences.push({ icon: '🧹', color: 'c-caution', text: `${n(formatEuro(assainTotal), 'c-caution', 'Total stock dormant + excédent ERP')} à assainir\u00a0: ${parts.join(' + ')}.` });
+  } else {
+    sentences.push({ icon: '✅', color: 'c-ok', text: `Stock propre — peu de dormants ni de débordements.` });
+  }
+
+  // 4. C-Rare si significatif
+  if (_S.finalData[0]?.abcClass !== undefined) {
+    const crItems = _S.finalData.filter(r => r.abcClass === 'C' && r.fmrClass === 'R' && r.stockActuel > 0);
+    const crVal = crItems.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0);
+    const totalFull = _S.finalData.reduce((s, r) => r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s, 0);
+    const crPct = totalFull > 0 ? (crVal / totalFull * 100).toFixed(1) : '0';
+    if (crVal > 100) {
+      sentences.push({ icon: '🗑️', color: 'c-muted', text: `${n(crPct + '%', 'c-muted', `${crItems.length} articles C-Rare en stock`)} du stock (${n(formatEuro(crVal), 'c-muted', 'Valeur stock C-Rare')}) en C-Rare — candidat au déréférencement.` });
     }
   }
 
-  // Condition 3 : clients stratégiques inactifs >45j (chalandise chargée)
-  if (_S.chalandiseReady && _S.clientLastOrder.size) {
-    const now = new Date();
-    let inactiveCount = 0;
-    for (const [cc, lastDate] of _S.clientLastOrder.entries()) {
-      const info = _S.chalandiseData.get(cc);
-      if (!info || !_isMetierStrategique(info.metier)) continue;
-      if (Math.round((now - lastDate) / 86400000) > 45) inactiveCount++;
+  // 5. Territoire si chargé
+  if (_S.territoireReady && _S.territoireLines.length > 0) {
+    const artMap = new Map();
+    for (const l of _S.territoireLines) {
+      if (l.isSpecial) continue;
+      let a = artMap.get(l.code);
+      if (!a) { a = { ca: 0, rayonStatus: l.rayonStatus }; artMap.set(l.code, a); }
+      a.ca += l.ca;
     }
-    if (inactiveCount > 0) {
-      const nFmt = `<span class="briefing-num c-caution" title="Clients avec métier stratégique dans votre zone, sans commande PDV depuis >45 jours">${inactiveCount}</span>`;
-      sentences.push({ icon: '👤', color: 'c-caution', text: `${nFmt} client${inactiveCount > 1 ? 's' : ''} stratégique${inactiveCount > 1 ? 's' : ''} sans commande depuis plus de 45 jours.` });
-    }
-  }
-
-  // Si tout va bien — phrase rassurante
-  if (sentences.length === 0) {
-    const freq2 = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-    const inStock2 = freq2.filter(r => r.stockActuel > 0).length;
-    const sr2 = freq2.length > 0 ? ((inStock2 / freq2.length) * 100).toFixed(1) : '100';
-    const srFmt = `<span class="briefing-num c-ok" title="Taux de disponibilité des articles fréquents (W≥3)">${sr2}%</span>`;
-    sentences.push({ icon: '✅', color: 'c-ok', text: `Situation saine : taux de service à ${srFmt}, aucune alerte critique détectée.` });
+    const top100 = [...artMap.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 100);
+    const inStock = top100.filter(([, a]) => a.rayonStatus === 'green').length;
+    const absent = top100.filter(([, a]) => a.rayonStatus === 'red').length;
+    const pctCouv = top100.length > 0 ? Math.round(inStock / top100.length * 100) : 0;
+    const couvCls = pctCouv >= 80 ? 'c-ok' : pctCouv >= 60 ? 'c-caution' : 'c-danger';
+    sentences.push({ icon: '🔗', color: 'c-muted', text: `Le Terrain\u00a0: ${n(pctCouv + '%', couvCls, 'Articles du Top 100 CA Terrain présents en rayon')} du Top\u00a0100 en rayon, ${n(absent, 'c-caution', 'Articles Top 100 absents du rayon (non référencés ou rupture)')} articles absents.` });
   }
 
   textEl.innerHTML = sentences.map(s =>

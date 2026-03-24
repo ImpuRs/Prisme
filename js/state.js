@@ -115,6 +115,9 @@ _S._overviewOpenL3 = null;
 // ── Decision Queue (Sprint 1) ──
 _S.decisionQueueData = [];
 
+// ── Briefing data (set by renderDashboardAndCockpit, read by renderCockpitBriefing) ──
+_S._briefingData = null;
+
 // ── Diagnostic cascade ──
 _S._diagLevels = {};
 _S._diagActions = [];
@@ -181,6 +184,9 @@ export function resetAppState() {
 
   // Decision Queue
   _S.decisionQueueData = [];
+
+  // Briefing data
+  _S._briefingData = null;
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';
