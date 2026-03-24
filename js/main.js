@@ -2987,63 +2987,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
     renderCockpitEquation();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
-    renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===_S.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
-    // ★ SPRINT 1: Decision Queue + Briefing ★
+    // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
+    _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti};
     generateDecisionQueue();
     renderCockpitBriefing();
     renderDecisionQueue();
-  }
-
-  // ★ V23/V24.2: Executive Summary
-  function renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti){
-    const lines=[];
-    // Line 1: Ruptures + CA perdu (adapté multi/mono)
-    if(lstR.length>0){
-      const top3=lstR.slice(0,3).map(r=>r.lib.substring(0,25)).join(', ');
-      let caPerduText;
-      if(hasMulti){caPerduText=`~<strong class="text-rose-400">${formatEuro(totalCAPerdu)}</strong> de CA perdu estimé (vs médiane réseau)`;}
-      else if(totalCAPerdu>=100){caPerduText=`~<strong class="text-rose-400">${formatEuro(totalCAPerdu)}</strong> de CA historique des articles en rupture`;}
-      else{caPerduText=`<span class="text-slate-400">CA perdu non estimable — historique insuffisant</span>`;}
-      lines.push(`<p>🚨 <strong>${lstR.length} rupture${lstR.length>1?'s':''}</strong> — ${caPerduText}. Top : ${top3}.</p>`);
-    } else {
-      lines.push(`<p>✅ <strong>Aucune rupture</strong> sur les articles fréquents — bravo !</p>`);
-    }
-    // Line 2: Stock à assainir
-    const assainTotal=dormantStock+capalinOverflow;
-    if(assainTotal>500){
-      const parts=[];
-      if(dormantStock>500)parts.push(`${formatEuro(dormantStock)} de dormants`);
-      if(capalinOverflow>500)parts.push(`${formatEuro(capalinOverflow)} d'excédent ERP à renvoyer <em class="info-tip" style="font-style:normal" data-tip="Stock dépassant le MAX défini dans l'ERP — à renvoyer au dépôt ou à solder.">ⓘ</em>`);
-      lines.push(`<p>🧹 <strong>${formatEuro(assainTotal)}</strong> à assainir : ${parts.join(' + ')}.</p>`);
-    } else {
-      lines.push(`<p>✅ Stock propre — peu de dormants ni de débordements.</p>`);
-    }
-    // Line 3: Service rate
-    const srNum=parseFloat(sr);
-    if(srNum>=95)lines.push(`<p>💪 Taux de disponibilité <strong class="text-emerald-400">${sr}%</strong> — excellent.</p>`);
-    else if(srNum>=85)lines.push(`<p>👍 Taux de disponibilité <strong class="text-yellow-400">${sr}%</strong> — correct, marge de progression sur les ruptures.</p>`);
-    else lines.push(`<p>⚠️ Taux de disponibilité <strong class="text-red-400">${sr}%</strong> — priorité : résoudre les ruptures pour remonter.</p>`);
-    // Line 4: C-Rare (V24)
-    if(_S.finalData.length>0&&_S.finalData[0].abcClass!==undefined){
-      const crItems=_S.finalData.filter(r=>r.abcClass==='C'&&r.fmrClass==='R'&&r.stockActuel>0);
-      const crVal=crItems.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0);
-      const totalFull=_S.finalData.reduce((s,r)=>r.stockActuel>0?s+r.stockActuel*r.prixUnitaire:s,0);
-      const crPct=totalFull>0?(crVal/totalFull*100).toFixed(1):'0';
-      if(crVal>100)lines.push(`<p>🗑️ <strong>${crPct}% de votre stock (${formatEuro(crVal)})</strong> est en C-Rare — candidat au déréférencement ou passage colis.</p>`);
-    }
-    // Line 5: Territoire (V24.4) — only if territoire file loaded
-    if(_S.territoireReady&&_S.territoireLines.length>0){
-      // Ligne 5 du résumé exécutif: couverture rayon sur Top 100 territoire (source unique, pas de croisement CA)
-      const artMapEx=new Map();
-      for(const l of _S.territoireLines){if(l.isSpecial)continue;let a=artMapEx.get(l.code);if(!a){a={ca:0,rayonStatus:l.rayonStatus};artMapEx.set(l.code,a);}a.ca+=l.ca;}
-      const top100Ex=[...artMapEx.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,100);
-      const top100InStock=top100Ex.filter(([,a])=>a.rayonStatus==='green').length;
-      const absentTop100=top100Ex.filter(([,a])=>a.rayonStatus==='red').length;
-      const pctCouv=top100Ex.length>0?Math.round(top100InStock/top100Ex.length*100):0;
-      lines.push(`<p>🔗 Le Terrain chargé — <strong class="text-violet-400">${pctCouv}%</strong> du Top 100 articles en rayon. <strong>${absentTop100}</strong> articles absents du rayon (❌).</p>`);
-    }
-    document.getElementById('execSummaryText').innerHTML=lines.join('');
   }
 
   // ★ TABLEAU
@@ -3438,6 +3387,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   // ── VOYANT 1 : 📦 MON RAYON (toujours actif) ──
   function _diagVoyant1(famille){
+    famille=_normFamGlobal(famille);
     const arts=_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille);
     if(!arts.length)return{status:'absent',arts:0,enStock:0,nonRef:0,ruptures:[],caPerduTotal:0,nbMM:0,dormants:[],mmDetail:[],nonCal:0,sousD:0,statusRup:'ok',statusMM:'ok'};
     // Stock / ruptures
@@ -3547,6 +3497,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 2 : 👥 MES CLIENTS (Chalandise) ──
   function _diagVoyant2(famille,hasChal,metierFilter){
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
+    famille=_normFamGlobal(famille);
     const famArts=new Set(_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille).map(r=>r.code));
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille',metiers:[]};
     const metierBuyers={};
@@ -3627,6 +3578,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 3 : 🔭 LE RÉSEAU (multi-agences) ──
   function _diagVoyant3(famille,hasMulti){
     if(!hasMulti)return{status:'lock',reason:'Données multi-agences requises — chargez un fichier Consommé incluant plusieurs agences'};
+    famille=_normFamGlobal(famille);
     const cs=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
     const nbOtherStores=cs.length;
     if(!nbOtherStores)return{status:'lock',reason:'Un seul magasin dans le fichier'};
@@ -4262,7 +4214,6 @@ window._showExcludePrompt = _showExcludePrompt;
 window._confirmExclude = _confirmExclude;
 window._unexcludeClient = _unexcludeClient;
 window.renderComparison = renderComparison;
-window.renderExecSummary = renderExecSummary;
 window.generateDecisionQueue = generateDecisionQueue;
 window.renderCockpitBriefing = renderCockpitBriefing;
 window.renderDecisionQueue = renderDecisionQueue;

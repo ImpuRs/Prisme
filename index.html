@@ -859,12 +859,6 @@
         <div id="decisionQueueList"></div>
       </div>
 
-      <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
-      <div id="execSummary" class="exec-summary rounded-xl p-5 mb-8 text-white">
-        <div class="flex items-center gap-2 mb-3"><span class="text-lg">⚡</span><h3 class="font-extrabold text-sm uppercase tracking-wide text-blue-300">Résumé exécutif</h3></div>
-        <div id="execSummaryText" class="text-sm leading-relaxed space-y-1"></div>
-      </div>
-
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
