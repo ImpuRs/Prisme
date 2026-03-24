@@ -10,7 +10,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 
@@ -4254,3 +4254,26 @@ window.renderExecSummary = renderExecSummary;
 window.applyPeriodFilter = applyPeriodFilter;
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 window.updateNavStore = function(){if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}};
+// Promo / Obs / Bench — fonctions HTML onclick non encore exposées
+window._clearPromoImport = _clearPromoImport;
+window._closePromoSuggest = _closePromoSuggest;
+window._onPromoImportFileChange = _onPromoImportFileChange;
+window._onPromoInput = _onPromoInput;
+window._promoSuggestKeydown = _promoSuggestKeydown;
+window._resetPromoFilters = _resetPromoFilters;
+window._togglePromoImportSection = _togglePromoImportSection;
+window._togglePromoSection = _togglePromoSection;
+window.copyObsActionPlan = copyObsActionPlan;
+window.copyObsSection = copyObsSection;
+window.copyPepitesList = copyPepitesList;
+window.copyPromoClipboard = copyPromoClipboard;
+window.exportPromoCSV = exportPromoCSV;
+window.getBenchCompareStores = getBenchCompareStores;
+window.runPromoImport = runPromoImport;
+window.runPromoSearch = runPromoSearch;
+// ui.js — fonctions HTML onclick non encore exposées
+window.clearSavedKPI = clearSavedKPI;
+window.collapseImportZone = collapseImportZone;
+window.downloadCSV = downloadCSV;
+window.exportKPIhistory = exportKPIhistory;
+window.importKPIhistory = importKPIhistory;
