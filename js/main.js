@@ -1125,7 +1125,8 @@ import { initRouter } from './router.js';
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)_S.articleFamille[code]=famConso;const _uv2=(getVal(row,'Univers')||'').toString().trim();const _cf2=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       // Feature 4: agréger ventes par famille × semaine ISO (store courant uniquement)
-      if(dateV&&famConso&&qteP>0&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const _d=new Date(dateV);_d.setHours(0,0,0,0);const _day=_d.getDay()||7;_d.setDate(_d.getDate()+4-_day);const _y=_d.getFullYear();const _wn=Math.ceil(((_d-new Date(_y,0,1))/86400000+1)/7);const _wk=_y+'-W'+String(_wn).padStart(2,'0');const _fwk=famConso+'|'+_wk;_S.ventesParFamilleWeek[_fwk]=(_S.ventesParFamilleWeek[_fwk]||0)+qteP;}
+      // Feature 4: stocker par article×semaine — regroupement par famille STOCK fait après le parse stock
+      if(dateV&&code&&qteP>0&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const _d=new Date(dateV);_d.setHours(0,0,0,0);const _day=_d.getDay()||7;_d.setDate(_d.getDate()+4-_day);const _y=_d.getFullYear();const _wn=Math.ceil(((_d-new Date(_y,0,1))/86400000+1)/7);const _wk=_y+'-W'+String(_wn).padStart(2,'0');const _awk=code+'|'+_wk;_S.ventesParArticleWeek[_awk]=(_S.ventesParArticleWeek[_awk]||0)+qteP;}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
@@ -1233,6 +1234,10 @@ import { initRouter } from './router.js';
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of _S.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
+      // Feature 4: rebuild ventesParFamilleWeek using stock famille (articleFamille now aligned)
+      // ventesParArticleWeek was populated during consommé parse with correct article codes
+      _S.ventesParFamilleWeek={};
+      for(const k of Object.keys(_S.ventesParArticleWeek)){const p=k.indexOf('|');if(p<0)continue;const code=k.slice(0,p);const wk=k.slice(p+1);const fam=_S.articleFamille[code];if(!fam||fam==='Non Classé')continue;const fwk=fam+'|'+wk;_S.ventesParFamilleWeek[fwk]=(_S.ventesParFamilleWeek[fwk]||0)+_S.ventesParArticleWeek[k];}
 
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
@@ -3045,8 +3050,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // (dénominateur = semaines non-nulles uniquement → baseline correcte)
     const famTotal={};const famWeekCount={};for(const k of Object.keys(_S.ventesParFamilleWeek)){const[fam,wk]=k.split('|');if(!fam||!wk||!familles.includes(fam))continue;famTotal[fam]=(famTotal[fam]||0)+_S.ventesParFamilleWeek[k];famWeekCount[fam]=(famWeekCount[fam]||0)+1;}
     const famAvg={};for(const f of familles)famAvg[f]=famWeekCount[f]>0?(famTotal[f]/famWeekCount[f]):0;
-    // Draw canvas — LABEL_W élargi pour libellés complets
-    const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const LABEL_W=190;const HEADER_H=20;
+    // Draw canvas — LABEL_W calculé dynamiquement pour afficher les libellés complets
+    const CELL_W=Math.max(10,Math.min(24,Math.floor(900/Math.max(semaines.length,1))));const CELL_H=22;const HEADER_H=20;
+    // Mesure la largeur réelle des libellés avant de fixer les dimensions du canvas
+    const _tmpCtx=canvas.getContext('2d');_tmpCtx.font='11px Inter,sans-serif';
+    const LABEL_W=Math.min(320,Math.max(120,...familles.map(f=>Math.ceil(_tmpCtx.measureText(f).width)+16)));
     canvas.width=LABEL_W+semaines.length*CELL_W;canvas.height=HEADER_H+familles.length*CELL_H;
     const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
     // Header: week labels every N weeks
@@ -3061,8 +3069,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       familles.forEach((fam,y)=>{
         const yPos=HEADER_H+y*CELL_H;
         ctx.fillStyle='#1e293b';ctx.font='11px Inter,sans-serif';ctx.textAlign='right';
-        const label=fam.length>26?fam.substring(0,25)+'…':fam;
-        ctx.fillText(label,LABEL_W-6,yPos+CELL_H/2+4);
+        ctx.fillText(fam,LABEL_W-6,yPos+CELL_H/2+4);
         const avg=famAvg[fam];
         semaines.forEach((wk,x)=>{
           const actual=_S.ventesParFamilleWeek[fam+'|'+wk]||0;
