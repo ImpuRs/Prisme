@@ -118,6 +118,10 @@ _S.decisionQueueData = [];
 // ── Briefing data (set by renderDashboardAndCockpit, read by renderCockpitBriefing) ──
 _S._briefingData = null;
 
+// ── KPIs dynamiques — Sprint V3.2 ──
+_S._iccData = null;      // Indice de Concentration Client
+_S._fragiliteData = null; // Fragilité Produit (mono-client)
+
 // ── Diagnostic cascade ──
 _S._diagLevels = {};
 _S._diagActions = [];
@@ -187,6 +191,7 @@ export function resetAppState() {
 
   // Briefing data
   _S._briefingData = null;
+  _S._iccData = null; _S._fragiliteData = null;
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';
