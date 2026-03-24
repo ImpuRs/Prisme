@@ -112,6 +112,9 @@ _S.kpiHistory = [];
 _S._overviewOpenL2 = null;
 _S._overviewOpenL3 = null;
 
+// ── Decision Queue (Sprint 1) ──
+_S.decisionQueueData = [];
+
 // ── Diagnostic cascade ──
 _S._diagLevels = {};
 _S._diagActions = [];
@@ -175,6 +178,9 @@ export function resetAppState() {
 
   // Navigation overview
   _S._overviewOpenL2 = null; _S._overviewOpenL3 = null;
+
+  // Decision Queue
+  _S.decisionQueueData = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

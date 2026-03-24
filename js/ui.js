@@ -9,8 +9,9 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
-import { fmtDate } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique } from './utils.js';
 import { _S } from './state.js';
+import { calcPriorityScore } from './engine.js';
 
 
 // ── Toast notifications ───────────────────────────────────────
@@ -166,6 +167,7 @@ export function renderAll() {
   renderDashboardAndCockpit();
   renderABCTab();
   renderCanalAgence();
+  updateAmbientSignal();
 }
 
 export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }
@@ -584,6 +586,137 @@ export function _cmdMoveSelection(dir) {
   _cmdSelectedIdx = Math.max(0, Math.min(_cmdSelectedIdx + dir, items.length - 1));
   const sel = items[_cmdSelectedIdx];
   if (sel) { sel.classList.add('cmd-selected'); sel.scrollIntoView({ block: 'nearest' }); }
+}
+
+// ── Feature 2: Signal Ambiant ─────────────────────────────────
+// Barre 3px en haut de l'écran reflétant l'état de santé du stock
+export function updateAmbientSignal() {
+  const el = document.getElementById('ambient-signal');
+  if (!el) return;
+  if (!_S.finalData.length) { el.style.setProperty('--health-color', 'transparent'); return; }
+
+  // Taux de service : articles fréquents (W≥3) en stock ÷ total fréquents
+  const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const inStock = freq.filter(r => r.stockActuel > 0).length;
+  const sr = freq.length > 0 ? (inStock / freq.length * 100) : 100;
+
+  // Ruptures critiques : W≥3, stock≤0, priorityScore≥5000
+  const critRupt = _S.finalData.filter(r =>
+    r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0) &&
+    calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
+  ).length;
+
+  let color;
+  if (critRupt > 5)  color = 'var(--c-danger)';   // urgence : pertes actives
+  else if (sr < 85)  color = 'var(--c-caution)';  // dégradé : nombreuses ruptures
+  else if (sr < 95)  color = 'var(--c-muted)';    // attention : quelques lacunes
+  else               color = 'var(--c-ok)';        // sain : service > 95%
+
+  el.style.setProperty('--health-color', color);
+}
+
+// ── Feature 3: Briefing 3 Phrases ────────────────────────────
+// Génère 1–3 phrases de contexte au-dessus du cockpit
+export function renderCockpitBriefing() {
+  const el = document.getElementById('cockpitBriefing');
+  const textEl = document.getElementById('cockpitBriefingText');
+  if (!el || !textEl || !_S.finalData.length) { if (el) el.classList.add('hidden'); return; }
+
+  const sentences = [];
+
+  // Condition 1 : ruptures critiques (W≥3, stock≤0, priorityScore≥5000)
+  const critRupt = _S.finalData.filter(r =>
+    r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0) &&
+    calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
+  );
+  if (critRupt.length > 0) {
+    const caPot = critRupt.reduce((s, r) => s + Math.round(r.W * r.prixUnitaire), 0);
+    const nFmt = `<span class="briefing-num c-danger" title="Basé sur ${critRupt.length} articles fréquents (W≥3) en rupture avec score≥5000€">${critRupt.length}</span>`;
+    const caFmt = `<span class="briefing-num c-danger" title="CA annuel potentiel des articles en rupture critique (W×PU)">${formatEuro(caPot)}</span>`;
+    sentences.push({ icon: '🚨', color: 'c-danger', text: `Ce matin : ${nFmt} rupture${critRupt.length > 1 ? 's' : ''} critiques menacent ~${caFmt} de CA.` });
+  }
+
+  // Condition 2 : famille qui décroche vs bassin (<50% médiane, benchmark dispo)
+  if (_S.benchLists.familyPerf && _S.benchLists.familyPerf.length > 0) {
+    const underPerf = _S.benchLists.familyPerf
+      .filter(fp => fp.med > 0 && fp.my / fp.med < 0.5)
+      .sort((a, b) => (a.my / a.med) - (b.my / b.med));
+    if (underPerf.length > 0) {
+      const worst = underPerf[0];
+      const pctDecr = Math.round((1 - worst.my / worst.med) * 100);
+      const famFmt = `<strong>${worst.fam}</strong>`;
+      const pctFmt = `<span class="briefing-num c-caution" title="Basé sur ${worst.my} ventes vs médiane réseau ${worst.med}">${pctDecr}%</span>`;
+      sentences.push({ icon: '📉', color: 'c-caution', text: `Famille ${famFmt} décroche de ${pctFmt} vs le réseau ce mois.` });
+    }
+  }
+
+  // Condition 3 : clients stratégiques inactifs >45j (chalandise chargée)
+  if (_S.chalandiseReady && _S.clientLastOrder.size) {
+    const now = new Date();
+    let inactiveCount = 0;
+    for (const [cc, lastDate] of _S.clientLastOrder.entries()) {
+      const info = _S.chalandiseData.get(cc);
+      if (!info || !_isMetierStrategique(info.metier)) continue;
+      if (Math.round((now - lastDate) / 86400000) > 45) inactiveCount++;
+    }
+    if (inactiveCount > 0) {
+      const nFmt = `<span class="briefing-num c-caution" title="Clients avec métier stratégique dans votre zone, sans commande PDV depuis >45 jours">${inactiveCount}</span>`;
+      sentences.push({ icon: '👤', color: 'c-caution', text: `${nFmt} client${inactiveCount > 1 ? 's' : ''} stratégique${inactiveCount > 1 ? 's' : ''} sans commande depuis plus de 45 jours.` });
+    }
+  }
+
+  // Si tout va bien — phrase rassurante
+  if (sentences.length === 0) {
+    const freq2 = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+    const inStock2 = freq2.filter(r => r.stockActuel > 0).length;
+    const sr2 = freq2.length > 0 ? ((inStock2 / freq2.length) * 100).toFixed(1) : '100';
+    const srFmt = `<span class="briefing-num c-ok" title="Taux de disponibilité des articles fréquents (W≥3)">${sr2}%</span>`;
+    sentences.push({ icon: '✅', color: 'c-ok', text: `Situation saine : taux de service à ${srFmt}, aucune alerte critique détectée.` });
+  }
+
+  textEl.innerHTML = sentences.map(s =>
+    `<div class="briefing-line"><span class="briefing-icon">${s.icon}</span><span class="${s.color}">${s.text}</span></div>`
+  ).join('');
+  el.classList.remove('hidden');
+}
+
+// ── Feature 4: Decision Queue (rendu) ────────────────────────
+// Rend la file de décision depuis _S.decisionQueueData
+export function renderDecisionQueue() {
+  const el = document.getElementById('decisionQueue');
+  const listEl = document.getElementById('decisionQueueList');
+  const subtitle = document.getElementById('dqSubtitle');
+  if (!el || !listEl) return;
+  if (!_S.decisionQueueData || !_S.decisionQueueData.length) { el.classList.add('hidden'); return; }
+
+  const typeConfig = {
+    rupture:       { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'high' },
+    alerte_prev:   { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'medium' },
+    client:        { badgeClass: 'dq-action',  icon: '📞', impactClass: 'medium' },
+    dormants:      { badgeClass: 'dq-caution', icon: '💤', impactClass: 'medium' },
+    anomalie_minmax:{ badgeClass: 'dq-action', icon: '⚠️', impactClass: '' },
+    sain:          { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
+  };
+
+  const items = _S.decisionQueueData.slice(0, 7);
+  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''} · trié par impact€`;
+
+  listEl.innerHTML = items.map((d, idx) => {
+    const cfg = typeConfig[d.type] || { badgeClass: '', icon: '•', impactClass: '' };
+    const impactStr = d.impact >= 1000 ? formatEuro(d.impact) : '';
+    const impactHtml = impactStr ? `<span class="dq-impact ${cfg.impactClass}">${impactStr}</span>` : '';
+    const whyHtml = d.why && d.why.length ? `<details class="dq-why"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
+    return `<div class="dq-item">
+      <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
+      <div style="flex:1;min-width:0">
+        <div class="dq-label">${cfg.icon} ${d.label}</div>
+        ${whyHtml}
+      </div>
+      ${impactHtml}
+    </div>`;
+  }).join('');
+
+  el.classList.remove('hidden');
 }
 
 // Keyboard listeners

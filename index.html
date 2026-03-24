@@ -8,6 +8,24 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
+    /* ═══ COLOR COVENANT — variables sémantiques ══════════════ */
+    :root {
+      --c-action:  #2563eb;  /* Bleu  — "fais quelque chose maintenant" */
+      --c-danger:  #dc2626;  /* Rouge — "perte d'argent en cours" */
+      --c-caution: #d97706;  /* Ambre — "surveille, pas encore urgent" */
+      --c-ok:      #16a34a;  /* Vert  — "sous contrôle, pas d'action" */
+      --c-muted:   #9ca3af;  /* Gris  — "information, pas de jugement" */
+    }
+    /* Helpers couleur sémantique (utilisés par JS via className) */
+    .c-action  { color: var(--c-action); }
+    .c-danger  { color: var(--c-danger); }
+    .c-caution { color: var(--c-caution); }
+    .c-ok      { color: var(--c-ok); }
+    .c-muted   { color: var(--c-muted); }
+    .bg-c-danger  { background-color: var(--c-danger); }
+    .bg-c-caution { background-color: var(--c-caution); }
+    .bg-c-ok      { background-color: var(--c-ok); }
+    .bg-c-action  { background-color: var(--c-action); }
     /* VOLET 4: sticky period warning banner */
     #periodBanner,#stockMonoBanner{display:none;background:#f97316;color:#fff;padding:8px 16px;font-size:.75rem;font-weight:700;text-align:center;border-bottom:2px solid #ea580c;}
     #periodBanner.active,#stockMonoBanner.active{display:block}
@@ -36,7 +54,7 @@
     .table-scroll{max-height:600px;overflow-y:auto;overflow-x:auto}.list-scroll{max-height:280px;overflow-y:auto}
     .age-row-clickable{cursor:pointer;transition:all .15s}.age-row-clickable:hover{transform:translateX(4px)}
     .age-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
-    .age-fresh{background:#22c55e}.age-warm{background:#eab308}.age-hot{background:#f97316}.age-critical{background:#ef4444}
+    .age-fresh{background:var(--c-ok)}.age-warm{background:#eab308}.age-hot{background:var(--c-caution)}.age-critical{background:var(--c-danger)}
     .bench-card{transition:all .2s}.bench-card:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.1)}
     .store-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:9999px;font-size:.6rem;font-weight:700}
     .store-mine{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd}.store-other{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
@@ -197,6 +215,31 @@
       #insightsBanner{flex-direction:column;gap:.25rem;padding:.5rem .75rem}
     }
 
+    /* ═══ Signal Ambiant ════════════════════════════════════ */
+    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease;background:var(--health-color,transparent)}
+    /* ═══ Cockpit Briefing ══════════════════════════════════ */
+    #cockpitBriefing{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#e2e8f0}
+    #cockpitBriefing .briefing-line{display:flex;align-items:baseline;gap:8px;font-size:.8rem;line-height:1.5;padding:3px 0;border-bottom:1px solid #1e293b40}
+    #cockpitBriefing .briefing-line:last-child{border-bottom:none}
+    .briefing-icon{flex-shrink:0;font-size:.85rem}
+    .briefing-num{font-weight:800;border-bottom:1px dotted var(--c-muted);cursor:help}
+    /* ═══ Decision Queue ════════════════════════════════════ */
+    #decisionQueue{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .dq-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;margin-bottom:6px;transition:all .15s}
+    .dq-item:last-child{margin-bottom:0}
+    .dq-num-badge{min-width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:.65rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .dq-num-badge.dq-danger{background:var(--c-danger);color:#fff}
+    .dq-num-badge.dq-caution{background:var(--c-caution);color:#fff}
+    .dq-num-badge.dq-ok{background:var(--c-ok);color:#fff}
+    .dq-num-badge.dq-action{background:var(--c-action);color:#fff}
+    .dq-label{flex:1;font-size:.78rem;font-weight:500;color:#1e293b;line-height:1.35}
+    .dq-impact{font-size:.7rem;font-weight:700;color:var(--c-muted);white-space:nowrap;flex-shrink:0}
+    .dq-impact.high{color:var(--c-danger)}
+    .dq-impact.medium{color:var(--c-caution)}
+    .dq-why{font-size:.72rem;color:var(--c-muted);margin-top:4px;padding-left:32px}
+    .dq-why summary{cursor:pointer;color:var(--c-action);list-style:none}
+    .dq-why summary::-webkit-details-marker{display:none}
+    .dq-why ul{margin:4px 0 0 12px;line-height:1.6}
     /* ═══ Premium navbar ══════════════════════════════════════ */
     nav#mainNav{background:#0a0a0f;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
@@ -230,6 +273,9 @@
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 relative">
+
+  <!-- Signal Ambiant — barre 3px santé stock (Color Covenant) -->
+  <div id="ambient-signal" aria-hidden="true"></div>
 
   <!-- VOLET 4: Period alert banner -->
   <div id="periodBanner"></div>
@@ -790,6 +836,27 @@
         </div>
         <p id="eqSource" class="text-[10px] text-gray-400 text-center mt-1"></p>
         <p id="eqExtra" class="text-[11px] text-gray-500 text-center mt-0.5 hidden"></p>
+      </div>
+
+      <!-- ★ SPRINT 1: Briefing 3 Phrases ★ -->
+      <div id="cockpitBriefing" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base">📋</span>
+          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">Briefing du matin</h3>
+        </div>
+        <div id="cockpitBriefingText"></div>
+      </div>
+
+      <!-- ★ SPRINT 1: Decision Queue ★ -->
+      <div id="decisionQueue" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-base">⚡</span>
+            <h3 class="font-extrabold text-sm text-slate-800">File de décision</h3>
+          </div>
+          <span class="text-[10px] text-gray-400 font-mono" id="dqSubtitle"></span>
+        </div>
+        <div id="decisionQueueList"></div>
       </div>
 
       <!-- ★★★ V23: RÉSUMÉ EXÉCUTIF ★★★ -->
