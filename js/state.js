@@ -114,3 +114,64 @@ let _diagPlanCopyText = '';
 let _diagMetierFilter = '';
 let _diagCurrentFamille = '';
 let _diagCurrentSource = '';
+
+// ── Active territoire worker (pour annulation au re-upload) ──
+let _activeTerrWorker = null;
+
+// ── Reset session — appeler en début de processData() ──────────
+function resetAppState() {
+  // Annuler le worker territoire en cours si présent
+  if (_activeTerrWorker) { try { _activeTerrWorker.terminate(); } catch (_) {} _activeTerrWorker = null; }
+
+  // Core data
+  finalData = []; filteredData = []; currentPage = 0;
+
+  // Store / ventes
+  ventesParMagasin = {}; stockParMagasin = {}; storesIntersection = new Set();
+  selectedMyStore = ''; libelleLookup = {}; articleFamille = {}; articleUnivers = {};
+
+  // Benchmark
+  benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
+
+  // Cockpit
+  cockpitLists = {}; ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
+  blData = {}; parentRefsExcluded = 0; globalJoursOuvres = 250;
+
+  // ABC/FMR
+  abcMatrixData = {};
+
+  // Territoire
+  canalAgence = {}; blConsommeSet = new Set(); clientsMagasin = new Set();
+  territoireLines = []; territoireReady = false; terrDirectionData = {};
+  terrContribBySecteur = new Map(); terrContribByDirection = new Map();
+
+  // Compteurs agences
+  storeCountConsomme = 0; storeCountStock = 0;
+
+  // Période
+  consommePeriodMin = null; consommePeriodMax = null; consommeMoisCouverts = 0;
+  consommePeriodMinFull = null; consommePeriodMaxFull = null;
+
+  // Insights
+  _insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
+
+  // Clients
+  ventesClientArticle = new Map(); clientLastOrder = new Map();
+  clientNomLookup = {}; ventesClientsPerStore = {}; articleClients = new Map(); clientArticles = new Map();
+
+  // Chalandise
+  chalandiseData = new Map(); chalandiseReady = false; chalandiseMetiers = [];
+
+  // Croisement / cockpit export
+  crossingStats = null; _cockpitExportData = null;
+
+  // KPI history
+  kpiHistory = [];
+
+  // Navigation overview
+  _overviewOpenL2 = null; _overviewOpenL3 = null;
+
+  // Diagnostic cascade
+  _diagLevels = {}; _diagActions = []; _diagPlanCopyText = '';
+  _diagMetierFilter = ''; _diagCurrentFamille = ''; _diagCurrentSource = '';
+}

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PILOT PRO 1.0</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
@@ -2424,6 +2424,8 @@
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
     if(!f1||!f2){showToast('⚠️ Chargez vos 2 fichiers !','warning');return;}
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    // H4: reset complet de tous les globals session avant chaque re-upload
+    resetAppState();
     // V24.4: Kick off territoire parse immediately — runs in parallel with consommé+stock processing
     const f3=document.getElementById('fileTerritoire').files[0];
     territoireReady=false;territoireLines=[];terrDirectionData={};
@@ -2462,6 +2464,9 @@
       const articleRaw={};ventesParMagasin={};blData={};articleFamille={};articleUnivers={};canalAgence={};clientsMagasin=new Set();ventesClientArticle=new Map();clientLastOrder=new Map();clientNomLookup={};ventesClientsPerStore={};articleClients=new Map();clientArticles=new Map();
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
+      // H2: détecter la colonne N° commande avant la boucle — éviter le collapse sur clé 'C'
+      const _hasCommandeCol=['numéro de commande','commande','n° commande','bl','numéro','n° bl'].some(c=>headersC.includes(c));
+      if(!_hasCommandeCol)showToast('⚠️ Colonne "N° commande" absente du fichier Consommé — le dédoublonnage BL est désactivé.','warning');
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for canalAgence)
@@ -2495,7 +2500,7 @@
         if(!clientArticles.has(codeClient))clientArticles.set(codeClient,new Set());
         clientArticles.get(codeClient).add(code);
       }
-      if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'C').toString().trim();if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
+      if(!useMulti||sk===selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(_hasCommandeCol?(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||''):('__r'+j)).toString().trim()||('__r'+j);if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!blData[blNum])blData[blNum]={codes:new Set(),familles:new Set()};blData[blNum].codes.add(code);if(famConso)blData[blNum].familles.add(famConso);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
       // V24.4: convert canalAgence bl sets to counts
       for(const c of Object.keys(canalAgence))canalAgence[c].bl=canalAgence[c].bl.size;
@@ -2529,6 +2534,8 @@
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
       {const _ks0=Object.keys(dataS[0]||{});_cSStk=_ks0.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});_cSValS=_ks0.find(k=>{const lk=k.toLowerCase().replace(/[\r\n]/g,' ');return lk.includes('valeur')&&lk.includes('stock');});}
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
+      // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
+      const _libelleFromConsomme = Object.assign({}, libelleLookup);
       finalData=[];libelleLookup={};stockParMagasin={};cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set()};
       parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
@@ -2561,10 +2568,13 @@
       else if(W<=1){nouveauMin=0;nouveauMax=0;}
       else if(W===2&&V>0){nouveauMin=1;nouveauMax=2;}
       else if(V===0){nouveauMin=0;nouveauMax=0;}
+      else if(Wp===0){nouveauMin=0;nouveauMax=0;} // H1: guard — Wp=0 ne doit jamais atteindre l'écretage
       else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);nouveauMin=Math.max(Math.min(Math.round(dl+(X*SECURITY_DAYS)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
       const couvertureJours=calcCouverture(stockActuel,V);
       finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
+      // C1: enrichir libelleLookup avec les libellés consommé pour les codes absents du stock
+      for(const k in _libelleFromConsomme){if(!libelleLookup[k])libelleLookup[k]=_libelleFromConsomme[k];}
       updatePipeline('stock','done');
 
       // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
