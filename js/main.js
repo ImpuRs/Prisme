@@ -540,7 +540,7 @@ import { initRouter } from './router.js';
     const _nbPassagesExec=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0&&_nbPassagesExec>0?parseFloat((_nbPassagesExec/nbClientsPDV).toFixed(1)):null;
-    const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
+    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):null;
     const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
@@ -595,7 +595,7 @@ import { initRouter } from './router.js';
           p+=`, porté par ${nbClientsPDV.toLocaleString('fr')} client${nbClientsPDV!==1?'s':''} actifs en magasin`;
           const details=[];
           if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
-          if(ok(panierMoyen))details.push(`panier moyen ${panierMoyen.toLocaleString('fr')} €`);
+          if(ok(caParClient))details.push(`CA/client ${caParClient.toLocaleString('fr')} €`);
           if(ok(txMarge)&&txMarge>0){const vmbStr=vmbPDV>0?` pour une VMB de ${formatEuro(Math.round(vmbPDV))}`:'';details.push(`taux de marge ${txMarge.toFixed(2)}%${vmbStr}`);}
           if(details.length)p+=` (${details.join(', ')})`;
         }
@@ -969,7 +969,7 @@ import { initRouter } from './router.js';
     // Include excluded clients for this category
     for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}
     const date=new Date().toISOString().slice(0,10);
-    _downloadCockpitCSV(rows,`PILOT_${_S.selectedMyStore||'AGENCE'}_Clients_${catLabel}_${date}.csv`,catLabel);
+    _downloadCockpitCSV(rows,`PRISME_${_S.selectedMyStore||'AGENCE'}_Clients_${catLabel}_${date}.csv`,catLabel);
   }
   function exportCockpitCSVAll(){
     if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
@@ -977,7 +977,7 @@ import { initRouter } from './router.js';
     const rows=[];
     for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
     const date=new Date().toISOString().slice(0,10);
-    _downloadCockpitCSV(rows,`PILOT_${_S.selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
+    _downloadCockpitCSV(rows,`PRISME_${_S.selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
   }
 
   // ── Client exclusion (hide from cockpit) ──
@@ -1017,7 +1017,7 @@ import { initRouter } from './router.js';
     if(!_S.excludedClients.size){showToast('Aucune exclusion à exporter','info');return;}
     const data={magasin:_S.selectedMyStore||'AGENCE',date:new Date().toISOString().slice(0,10),exclusions:[..._S.excludedClients.entries()].map(([cc,v])=>({code:cc,nom:v.nom||cc,reason:v.reason,date:v.date,category:v.category}))};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PILOT_${data.magasin}_exclusions.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`PRISME_${data.magasin}_exclusions.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
     showToast(`📤 ${data.exclusions.length} exclusions exportées`,'success');
   }
   function importExclusionsJSON(input){
@@ -1669,7 +1669,7 @@ import { initRouter } from './router.js';
     for(const l of _S.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
     if(tMin&&tMax)terrPeriodStr=`, ${fmtDate(new Date(tMin))}–${fmtDate(new Date(tMax))}`;
     else if(_S.consommePeriodMin)terrPeriodStr='';
-    el.innerHTML=`<p>🔗 PILOT a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
+    el.innerHTML=`<p>🔗 PRISME a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="text-blue-300">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="text-emerald-300">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
   }
 
   // VOLET 2bis: Build secteur + direction contributeurs aggregate maps
@@ -1900,7 +1900,7 @@ import { initRouter } from './router.js';
     const rows=[..._S.terrContribBySecteur.values()].map(s=>({dir:s.direction,secteur:s.secteur,blT:s.blTerr.size,blA:s.blAgence.size,pct:s.blTerr.size>0?Math.round(s.blAgence.size/s.blTerr.size*100):0,ca:s.ca})).sort((a,b)=>a.dir.localeCompare(b.dir)||a.pct-b.pct);
     for(const r of rows)lines.push([r.dir,r.secteur,r.blT,r.blA,r.pct+'%',r.ca.toFixed(2).replace('.',',')].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Contributeurs_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Contributeurs téléchargé','success');
   }
 
   function exportTerritoireCSV(){
@@ -1921,7 +1921,7 @@ import { initRouter } from './router.js';
     const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
     for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
   }
 
   // ── 🎯 Ciblage Promo ──
@@ -2337,7 +2337,7 @@ import { initRouter } from './router.js';
     lines.push(['Code','Nom','Métier','CA Legallais','Classification','Commercial'].join(SEP));
     for(const c of r.sectionC)lines.push([c.cc,`"${c.nom}"`,`"${c.metier}"`,c.ca2025.toFixed(2).replace('.',','),`"${c.classification}"`,`"${c.commercial}"`].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Promo_${r.terms[0]||'ciblage'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Ciblage téléchargé','success');
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Promo_${r.terms[0]||'ciblage'}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Ciblage téléchargé','success');
   }
 
   function copyPromoClipboard(){
@@ -2524,7 +2524,7 @@ import { initRouter } from './router.js';
     lines.push(['Code','Nom','Métier','CA famille','Raison','Commercial'].join(SEP));
     for(const x of r.sectionF)lines.push([x.cc,`"${x.nom}"`,`"${x.metier}"`,x.famCA.toFixed(2).replace('.',','),`"${x.raison}"`,`"${x.commercial}"`].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const nm=`PILOT_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
+    const nm=`PRISME_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
     const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=nm;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV opération téléchargé','success');
   }
   // ─────────────────────────────────────────────────────────────────────────
@@ -2847,7 +2847,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepOther.length} pépite${pepOther.length>1?'s':''} réseau copiée${pepOther.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
   }
 
-  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
   function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'text-gray-500':isGood?'text-emerald-600':'text-red-600';const bg=diff===0?'bg-gray-50':isGood?'bg-emerald-50':'bg-red-50';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold text-gray-600 mb-1">'+m.label+'</p><p class="text-sm font-extrabold text-gray-800">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
@@ -2860,12 +2860,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
-    const panierMoyen=nbPassages>0?Math.round(caPDVTotal/nbPassages):0;
+    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):0;
     if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
     document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
     document.getElementById('eqFreq').textContent=freqPDV;
-    document.getElementById('eqPanier').textContent=panierMoyen>0?panierMoyen.toLocaleString('fr')+' €':'—';
+    document.getElementById('eqPanier').textContent=caParClient>0?caParClient.toLocaleString('fr')+' €':'—';
     document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
     const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;const vmc=_S.ventesAnalysis?_S.ventesAnalysis.vmc:null;
     const extraEl=document.getElementById('eqExtra');
@@ -3209,7 +3209,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // MIN/MAX Réseau (multi-agences uniquement)
     let _reseauMinMaxRow='';
     if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){const _mMin=_rMins.length?Math.round(_median(_rMins)):null;const _mMax=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-300">${_mMin??'—'} / ${_mMax??'—'}<span class="text-[10px] text-gray-500 ml-1">(méd. ${_nbAg} agence${_nbAg>1?'s':''})</span></span>`;}else{_reseauMinMaxRow=`<span class="text-gray-400">MIN / MAX Réseau</span><span class="text-gray-600 text-[10px]">Pas de données réseau</span>`;}}
-    const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="text-gray-400">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="text-gray-400">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="text-gray-400">MIN / MAX PILOT</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="text-gray-400">Prix unitaire</span><span>${puFmt}</span><span class="text-gray-400">CA perdu estimé</span><span class="text-rose-300 font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
+    const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="text-gray-400">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="text-gray-400">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="text-gray-400">MIN / MAX PRISME</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="text-gray-400">Prix unitaire</span><span>${puFmt}</span><span class="text-gray-400">CA perdu estimé</span><span class="text-rose-300 font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
     // Buyers section — compute once, reuse for plan
     const buyers=_S.articleClients.get(code);
     let buyerList=[];
@@ -4015,7 +4015,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const a of((v3||l3)?.missing||[]))lines.push(['🔭 Le Réseau','Article manquant réseau',a.code,`"${a.lib}"`,`ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||a.refFreq||''].join(SEP));
     for(const a of(v3?.inStockNotSold||[]))lines.push(['🔭 Le Réseau','En stock — 0 vente (vérifier visibilité rayon)',a.code,`"${a.lib}"`,`Stock:${a.stockActuel} ABC:${a.abcClass} FMR:${a.fmrClass}`,a.medFreq||''].join(SEP));
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PILOT_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Diag_${famille.replace(/\W/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);
     showToast('📥 Plan de vol exporté','success');
   }
 
