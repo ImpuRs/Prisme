@@ -4249,5 +4249,11 @@ window.renderObsArticleSearch = renderObsArticleSearch;
 window.copyPepitesOtherList = copyPepitesOtherList;
 window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
+// Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
+window._cockpitToggleSection = _cockpitToggleSection;
+window._cockpitToggleFullList = _cockpitToggleFullList;
+window.exportCockpitCSV = exportCockpitCSV;
+window.exportCockpitCSVAll = exportCockpitCSVAll;
+window.exportExclusionsJSON = exportExclusionsJSON;
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
