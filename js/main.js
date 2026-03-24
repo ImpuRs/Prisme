@@ -1247,6 +1247,8 @@ import { initRouter } from './router.js';
       // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
       const _terrBtn=document.getElementById('btnTabTerritoire');
       if(_S.finalData.length>0){_terrBtn.classList.remove('hidden');}else{_terrBtn.classList.add('hidden');}
+      // Re-parse chalandise if file was selected before Analyser (resetAppState wipes it)
+      {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
@@ -4205,6 +4207,8 @@ window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
 window.openDiagnostic = openDiagnostic;
+window.openDiagnosticCell = openDiagnosticCell;
+window.openDiagnosticMetier = openDiagnosticMetier;
 window.closeDiagnostic = closeDiagnostic;
 window.executeDiagAction = executeDiagAction;
 window.exportDiagnosticCSV = exportDiagnosticCSV;
