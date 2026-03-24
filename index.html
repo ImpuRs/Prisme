@@ -754,7 +754,7 @@
           <span class="text-2xl text-gray-300 font-light">×</span>
           <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
             <div class="text-center">
-              <p class="text-[10px] font-bold text-gray-500 uppercase">📊 Fréquence</p>
+              <p class="text-[10px] font-bold text-gray-500 uppercase">📊 Passages/client</p>
               <p id="eqFreq" class="text-xl font-extrabold text-gray-800">—</p>
             </div>
             <span class="text-lg text-gray-300">×</span>
@@ -1891,12 +1891,12 @@
     const pct=v=>ok(v)?`${Math.round(v)}%`:null;
     // Équation commerciale
     const nbClientsPDV=clientsMagasin.size;
-    const nbBLPDV=ventesAnalysis?ventesAnalysis.totalBL:0;
-    const freqPDV=nbClientsPDV>0?parseFloat((nbBLPDV/nbClientsPDV).toFixed(1)):null;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
     const _nbPassagesExec=ventesAnalysis?ventesAnalysis.nbPassages:0;
+    // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
+    const freqPDV=nbClientsPDV>0&&_nbPassagesExec>0?parseFloat((_nbPassagesExec/nbClientsPDV).toFixed(1)):null;
     const panierMoyen=_nbPassagesExec>0?Math.round(caPDVTotal/_nbPassagesExec):null;
     const txMarge=ventesAnalysis?ventesAnalysis.txMarge:null;
     // Taux de disponibilité
@@ -4212,11 +4212,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
     const nbClientsPDV=clientsMagasin.size;
-    const nbBLPDV=ventesAnalysis?ventesAnalysis.totalBL:0;
-    const freqPDV=nbClientsPDV>0?(nbBLPDV/nbClientsPDV).toFixed(1):0;
     const storeData=ventesParMagasin[selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const nbPassages=ventesAnalysis?ventesAnalysis.nbPassages:0;
+    // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
+    const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
     const panierMoyen=nbPassages>0?Math.round(caPDVTotal/nbPassages):0;
     if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
