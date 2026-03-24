@@ -33,28 +33,6 @@
     .dq-num{font-size:1.1rem;font-weight:900;min-width:24px;text-align:center;flex-shrink:0;line-height:1.3}
     .dq-label{font-size:.82rem;font-weight:600;color:#1e293b;line-height:1.4}
     [data-source]:hover::after{content:attr(data-source);position:absolute;bottom:calc(100% + 4px);left:0;background:#1a1a2e;color:#aaa;font-size:11px;padding:4px 8px;border-radius:4px;white-space:nowrap;z-index:999;pointer-events:none;max-width:420px;overflow:hidden;text-overflow:ellipsis}
-    /* ═══ Feature 3: Tableaux vivants ═══════════════════════════ */
-    @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.008)}}
-    .row-critical{animation:breathe 2s ease-in-out infinite;transform-origin:center}
-    .row-dormant{opacity:.65;filter:saturate(.4)}
-    /* ═══ Feature 9: Mode Réunion Express ═══════════════════════ */
-    /* Touche R → .meeting-mode sur body — masque tout sauf l'essentiel */
-    body.meeting-mode #stickyHeader,body.meeting-mode #filterPanel,body.meeting-mode #tabsContainer,body.meeting-mode #insightsBanner,body.meeting-mode #cacheBanner{display:none!important}
-    body.meeting-mode #mainContent{padding:0!important;overflow-y:auto}
-    body.meeting-mode .tab-content{display:none!important}
-    body.meeting-mode #meetingPanel{display:flex!important}
-    #meetingPanel{display:none;flex-direction:column;min-height:100vh;background:#0f172a;color:#e2e8f0;padding:24px;gap:16px}
-    #meetingPanel .m-title{font-size:1.4rem;font-weight:900;letter-spacing:.05em;color:#f8fafc}
-    #meetingPanel .m-section{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px}
-    #meetingPanel .m-section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-bottom:10px}
-    #meetingPanel .m-exit{background:#334155;border:none;color:#94a3b8;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:.8rem;font-weight:700;transition:background .15s}
-    #meetingPanel .m-exit:hover{background:#475569}
-    #meetingBadge{display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:20px;padding:4px 14px;font-size:.7rem;font-weight:700;letter-spacing:.06em;pointer-events:none}
-    body.meeting-mode #meetingBadge{display:block}
-    /* ═══ Feature 5: Insight badge pulse ════════════════════════ */
-    @keyframes insightPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.7}}
-    #insightPanel{display:none;position:fixed;top:52px;right:12px;z-index:9500;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;max-width:340px;width:calc(100vw - 24px);color:#e2e8f0;box-shadow:0 8px 32px rgba(0,0,0,.5)}
-    #insightPanel.active{display:block}
     th{cursor:pointer;user-select:none}th:hover{background:#374151}
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#f1f5f9;border-radius:4px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
     .tab-content{animation:fadeIn .25s ease-in-out}
@@ -264,15 +242,7 @@
     /* ═══ Couche 1 — Signal Ambiant ═══════════════════════════ */
     #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease;background:transparent;pointer-events:none}
 
-    /* ═══ Couche 4 — Tableaux Vivants ═════════════════════════ */
-    @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.008)}}
-    @media(prefers-reduced-motion:no-preference){tr.row-critical{animation:breathe 2.5s ease-in-out infinite;transform-origin:center}}
-    tr.row-critical{background:rgba(226,75,74,0.06)!important;border-left:2px solid rgba(226,75,74,0.4)}
-    tr.row-warning{background:rgba(239,159,39,0.04)!important;border-left:2px solid rgba(239,159,39,0.3)}
-    tr.row-dormant{opacity:0.55;filter:saturate(0.35)}
-    tr.row-surstock{background:rgba(55,138,221,0.04)!important}
-    tr.row-pepite{background:rgba(29,158,117,0.04)!important;border-left:2px solid rgba(29,158,117,0.3)}
-    #articles-table tbody tr{transition:opacity 0.2s ease,background 0.2s ease}
+
 
   </style>
 </head>
@@ -312,51 +282,6 @@
     <div id="reportingPanel"></div>
   </div>
 
-  <!-- Feature 10: Pulse hebdomadaire — overlay diff -->
-  <div id="pulseOverlay" style="display:none;position:fixed;inset:0;z-index:10400;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center">
-    <div style="background:#0f172a;border:1px solid #3b82f6;border-radius:16px;padding:28px 32px;max-width:500px;width:calc(100vw - 32px);color:#e2e8f0;text-align:center">
-      <div style="font-size:2rem;margin-bottom:12px">📊</div>
-      <h2 style="font-size:1.1rem;font-weight:800;color:#60a5fa;margin-bottom:16px">Depuis votre dernière analyse</h2>
-      <div id="pulseOverlayContent" style="font-size:.9rem;line-height:1.7;color:#cbd5e1;text-align:left"></div>
-      <button onclick="closePulseOverlay()" style="margin-top:20px;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:8px 24px;font-weight:700;cursor:pointer;font-size:.8rem">Compris ✓</button>
-    </div>
-  </div>
-  <!-- Feature 9: Mode Réunion Express -->
-  <div id="meetingBadge">⚡ MODE RÉUNION — Esc pour quitter</div>
-  <div id="meetingPanel">
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="m-title">⚡ Réunion Express</div>
-        <div style="font-size:.75rem;color:#64748b;margin-top:2px" id="meetingPanelDate"></div>
-      </div>
-      <button class="m-exit" onclick="toggleMeetingMode()">✕ Quitter (R / Esc)</button>
-    </div>
-    <!-- 3 décisions urgentes avec checkboxes -->
-    <div class="m-section">
-      <div class="m-section-title">🎯 Décisions urgentes</div>
-      <div id="meetingDecisions" class="space-y-3"></div>
-    </div>
-    <!-- Résumé exécutif -->
-    <div class="m-section">
-      <div class="m-section-title">📊 Résumé exécutif</div>
-      <div id="meetingExecSummary" class="text-sm leading-relaxed space-y-1"></div>
-    </div>
-    <!-- Export CSV session -->
-    <div class="flex gap-3 mt-2">
-      <button onclick="exportMeetingCSV()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-weight:700;font-size:.8rem;cursor:pointer">📥 Export CSV session</button>
-      <button class="m-exit" onclick="toggleMeetingMode()">✕ Fermer le mode réunion</button>
-    </div>
-  </div>
-
-  <!-- Feature 5: Insight Panel -->
-  <div id="insightPanel" onclick="event.stopPropagation()">
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex items-center gap-2"><span>💡</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-orange-400">Insights automatiques</h3></div>
-      <button onclick="closeInsightPanel()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;line-height:1">×</button>
-    </div>
-    <div id="insightPanelContent" class="text-xs leading-relaxed space-y-2 text-slate-300"></div>
-    <p id="insightPanelSource" class="text-[10px] text-slate-500 mt-3 border-t border-slate-700 pt-2"></p>
-  </div>
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="text-white font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
   <!-- V24.4: Pipeline per-file status -->
@@ -383,11 +308,6 @@
           <button id="navPeriodBtn" onclick="togglePeriodDropdown()">—</button>
           <div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div>
         </div>
-        <!-- Feature 5: Pastille insights -->
-        <button id="insightBadgeBtn" class="hidden" onclick="openInsightPanel()" title="Insights automatiques détectés" style="position:relative;background:none;border:none;cursor:pointer;padding:2px 4px">
-          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f97316"></span>
-          <span id="insightBadge" style="display:none;position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:#ef4444;animation:insightPulse 1.8s ease-in-out infinite"></span>
-        </button>
         <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
         <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
       </div>
@@ -414,11 +334,7 @@
   <!-- Bandeau cache restauré — affiché uniquement quand les données viennent du localStorage -->
   <div id="cacheBanner" class="hidden"></div>
 
-  <!-- Feature 10: Bannière épinglée pulse diff -->
-  <div id="pulseBannerInline" style="display:none;background:linear-gradient(90deg,#1e3a5f,#1e3558);border-bottom:1px solid #3b82f650;color:#93c5fd;font-size:.72rem;font-weight:600;padding:5px 16px;flex-wrap:wrap;gap:4px;align-items:center">
-    <span>📊</span><span id="pulseBannerInlineText"></span>
-    <button onclick="document.getElementById('pulseBannerInline').style.display='none'" style="margin-left:auto;background:none;border:none;color:#60a5fa;cursor:pointer;font-size:.9rem;padding:0 4px">×</button>
-  </div>
+
 
   <!-- ONGLETS — barre unifiée (titre filtres à gauche + onglets à droite) -->
   <div id="tabsContainer">
@@ -898,12 +814,7 @@
         <p id="eqExtra" class="text-[11px] text-gray-500 text-center mt-0.5 hidden"></p>
       </div>
 
-      <!-- Feature 10: Bannière cockpit pulse diff épinglée -->
-      <div id="cockpitPulseBanner" class="hidden mb-4 rounded-lg px-4 py-3 flex items-start gap-2" style="background:#0d2240;border:1px solid #3b82f650;color:#93c5fd;font-size:.78rem;font-weight:600">
-        <span style="flex-shrink:0">📊</span>
-        <span>Depuis votre dernière analyse : <span id="cockpitPulseBannerText"></span></span>
-        <button onclick="this.parentElement.classList.add('hidden')" style="margin-left:auto;background:none;border:none;color:#60a5fa;cursor:pointer;flex-shrink:0">×</button>
-      </div>
+
 
       <!-- Feature 8: Decision Queue -->
       <div id="decisionQueue" class="hidden mb-6">
@@ -926,17 +837,7 @@
         <div id="execSummaryText" class="text-sm leading-relaxed space-y-1"></div>
       </div>
 
-      <!-- Feature 4: Heat Canvas Famille×Semaine -->
-      <div id="heatCanvasWrapper" class="hidden mb-8 rounded-xl overflow-hidden border border-slate-200 bg-white">
-        <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-          <div class="flex items-center gap-2"><span class="text-sm">🌡️</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-slate-600">Chaleur Ruptures — Famille × Semaine</h3></div>
-          <span class="text-[10px] text-slate-400">intensité = déficit de ventes · blanc = normal · rouge = rupture probable</span>
-        </div>
-        <div style="position:relative;overflow-x:auto">
-          <canvas id="heatCanvas" style="display:block;cursor:crosshair"></canvas>
-          <div id="heatTooltip" style="display:none;position:absolute;background:rgba(15,23,42,.92);color:#e2e8f0;font-size:11px;padding:6px 10px;border-radius:7px;pointer-events:none;white-space:nowrap;z-index:10"></div>
-        </div>
-      </div>
+
 
       <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

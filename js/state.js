@@ -68,13 +68,6 @@ _S.consommePeriodMaxFull = null;
 _S.periodFilterStart = null; // null = pas de filtre (toute la période)
 _S.periodFilterEnd = null;
 
-// ── Feature 4: Heat Canvas weekly data ──
-_S.ventesParFamilleWeek = {}; // Map<"familleStock|YYYY-Www", sumPrelevee> — rebuilt after stock parse
-_S.ventesParArticleWeek = {}; // Map<"code|YYYY-Www", sumPrelevee>  — populated during consommé parse
-
-// ── Feature 7: Profil métier dominant ──
-_S.metierProfile = ''; // Électricien | Plombier | Maçon | Menuisier | Généraliste
-
 // ── Insights banner ──
 _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
@@ -164,8 +157,6 @@ export function resetAppState() {
   _S.consommePeriodMin = null; _S.consommePeriodMax = null; _S.consommeMoisCouverts = 0;
   _S.consommePeriodMinFull = null; _S.consommePeriodMaxFull = null;
 
-  // Feature 4 & 7
-  _S.ventesParFamilleWeek = {}; _S.ventesParArticleWeek = {}; _S.metierProfile = '';
 
   // Insights
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };

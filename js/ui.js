@@ -449,41 +449,6 @@ export function generateDecisionQueue() {
   return decisions.slice(0, 7);
 }
 
-// ── Feature 6: Titres sémantiques dynamiques ────────────────
-// Génère un titre contextuel riche au lieu de "Famille — CA: X€ (-Y%)"
-export function generateSemanticTitle(famille, data) {
-  if (!famille || !data || !data.length) return famille;
-  const famData = data.filter(r => r.famille === famille);
-  if (!famData.length) return famille;
-  // Ruptures dans la famille
-  const ruptures = famData.filter(r => r.stockActuel <= 0 && r.W >= 3);
-  // Articles en sur-stock
-  const surstock = famData.filter(r => r.ancienMax > 0 && r.stockActuel > r.ancienMax);
-  // Articles dormants
-  const dormants = famData.filter(r => !r.isNouveaute && r.ageJours > 365 && r.W < 3 && r.stockActuel > 0);
-  // CA perdu estimé famille
-  const caPerduFam = ruptures.reduce((s, r) => s + Math.round(r.W * r.prixUnitaire), 0);
-  // Tendance bench si disponible (obsFamiliesLose)
-  const benchDrop = _S.benchLists?.obsFamiliesLose?.find(f => f.fam === famille);
-  // Générer titre selon contexte prioritaire
-  if (ruptures.length >= 3 && caPerduFam > 1000) {
-    return `${famille} : ${ruptures.length} ruptures · ~${Math.round(caPerduFam / 100) * 100}€ de CA menacé`;
-  }
-  if (benchDrop && benchDrop.pctMedian < 60) {
-    const pct = Math.round(100 - benchDrop.pctMedian);
-    return `${famille} : -${pct}% vs bassin · ${ruptures.length > 0 ? ruptures.length + ' rupture' + (ruptures.length > 1 ? 's' : '') : 'à surveiller'}`;
-  }
-  if (dormants.length > famData.length * 0.3 && dormants.length >= 5) {
-    return `${famille} : ${dormants.length} dormants (${Math.round(dormants.length / famData.length * 100)}% du rayon) à purger`;
-  }
-  if (surstock.length >= 2) {
-    return `${famille} : ${surstock.length} articles en excédent ERP`;
-  }
-  if (ruptures.length === 1) {
-    return `${famille} : 1 rupture critique — ${ruptures[0].libelle?.substring(0, 30)}`;
-  }
-  return famille;
-}
 
 // ── CSV export ────────────────────────────────────────────────
 export function downloadCSV() {
