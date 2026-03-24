@@ -8,6 +8,7 @@
 // Dépend de : constants.js, utils.js, state.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
+import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif } from './utils.js';
 
@@ -317,11 +318,12 @@ export function generateDecisionQueue() {
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
   const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
 
-  // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥3) — AVANT les ruptures ──
+  // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // délai réappro 5j + sécurité 3j
   const alerteItems = _S.finalData
     .filter(r => r.couvertureJours != null && r.couvertureJours <= REAPPRO_DAYS
-               && r.stockActuel > 0 && r.W >= 3
+               && r.stockActuel > 0 && r.W >= DQ_MIN_FREQ_ALERTE
+               && r.prixUnitaire >= DQ_MIN_PU_ALERTE
                && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
     .sort((a, b) => a.couvertureJours - b.couvertureJours)
     .slice(0, 3);
@@ -341,16 +343,17 @@ export function generateDecisionQueue() {
     });
   }
 
-  // ── 1b. Ruptures (W≥3, stock≤0, top 3 par CA annuel W×PU) ──────────────
-  // PAS de filtre par score — toute rupture d'article fréquent est urgente.
-  const critRupt = _S.finalData
+  // ── 1b. Ruptures significatives (W≥3, stock≤0, CA/sem≥DQ_MIN_CA_PERDU_SEM ou score≥DQ_MIN_PRIORITY_SCORE) ──
+  const allRupt = _S.finalData
     .filter(r => r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
-    .map(r => ({ r, impact: r.W * r.prixUnitaire }))
-    .sort((a, b) => b.impact - a.impact)
+    .map(r => ({ r, impact: r.W * r.prixUnitaire, semCA: Math.round(r.W * r.prixUnitaire / 52) }))
+    .sort((a, b) => b.impact - a.impact);
+
+  const critRupt = allRupt
+    .filter(({ r, semCA }) => semCA >= DQ_MIN_CA_PERDU_SEM || calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= DQ_MIN_PRIORITY_SCORE)
     .slice(0, 3);
 
-  for (const { r, impact } of critRupt) {
-    const semCA = Math.round(impact / 52);
+  for (const { r, impact, semCA } of critRupt) {
     const qteSugg = Math.max((r.nouveauMax || 1) - r.stockActuel, r.nouveauMax || 1);
     decisions.push({
       type: 'rupture', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
@@ -360,6 +363,19 @@ export function generateDecisionQueue() {
         `Stock actuel : ${r.stockActuel} u. (sous le MIN de ${r.nouveauMin})`,
         `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
         `CA annuel à risque : ${impact.toLocaleString('fr')} €`,
+      ],
+    });
+  }
+
+  // Si des ruptures existent mais aucune ne passe le seuil → notice de surveillance
+  if (allRupt.length > 0 && critRupt.length === 0) {
+    const n = allRupt.length;
+    decisions.push({
+      type: 'sain', impact: 0,
+      label: `Aucune rupture significative — ${n} rupture${n > 1 ? 's' : ''} mineure${n > 1 ? 's' : ''} en surveillance.`,
+      why: [
+        `${n} article${n > 1 ? 's' : ''} en rupture sous les seuils (CA/sem < ${DQ_MIN_CA_PERDU_SEM}€ et score < ${DQ_MIN_PRIORITY_SCORE})`,
+        `Seuils d'alerte : CA perdu ≥ ${DQ_MIN_CA_PERDU_SEM}€/sem OU score priorité ≥ ${DQ_MIN_PRIORITY_SCORE}`,
       ],
     });
   }
