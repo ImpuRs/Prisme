@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, generateSemanticTitle } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, generateSemanticTitle, generateDecisionQueue } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 
@@ -2993,6 +2993,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     })();
 
     renderCockpitEquation();
+    // Feature 8: Decision Queue
+    renderDecisionQueue();
     // Feature 4: Heat Canvas
     renderHeatCanvas();
     // Feature 2: Briefing matinal
@@ -3000,6 +3002,34 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===_S.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
+    // Feature 10: Pulse snapshot — comparer avec précédent et encoder dans l'URL
+    if(dataSource===_S.finalData)_applyPulseAfterRender(lstR,sr,dormantStock,totalCAPerdu);
+  }
+
+  // Feature 8: Decision Queue — rendu des décisions numérotées
+  function renderDecisionQueue(){
+    const el=document.getElementById('decisionQueue');const list=document.getElementById('decisionQueueList');const meta=document.getElementById('decisionQueueMeta');
+    if(!el||!list)return;
+    const decisions=generateDecisionQueue();
+    if(!decisions.length){el.classList.add('hidden');return;}
+    // Store globally for meeting mode export
+    window._lastDecisionQueue=decisions;
+    const urgentes=decisions.filter(d=>d.impact>=1000);
+    if(meta)meta.textContent=`${urgentes.length} urgente${urgentes.length!==1?'s':''} · triées par impact€`;
+    list.innerHTML=decisions.map(d=>{
+      const cls=d.impact>=5000?'dq-critical':d.impact>=500?'dq-warn':'dq-ok';
+      const numColor=d.impact>=5000?'#ef4444':d.impact>=500?'#f97316':'#22c55e';
+      const srcHtml=d.source?`<div class="dq-src" title="${d.context||''}">${d.source}</div>`:'';
+      return`<div class="dq-item ${cls}" data-rang="${d.rang}" data-action="${d.action||''}" data-code="${d.code||''}">
+        <span class="dq-num" style="color:${numColor}">${d.rang}</span>
+        <div class="flex-1 min-w-0">
+          <div class="dq-label">${d.label}</div>
+          ${srcHtml}
+        </div>
+        <input type="checkbox" class="meeting-check mt-1 flex-shrink-0" style="width:16px;height:16px;cursor:pointer;accent-color:${numColor}" title="Marquer comme traité">
+      </div>`;
+    }).join('');
+    el.classList.remove('hidden');
   }
 
   // Feature 4: Heat Canvas Famille×Semaine
@@ -4252,6 +4282,90 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     window.addEventListener('focus',_fixScroll,true);
   })();
 
+// ── Feature 10: Pulse hebdomadaire — snapshot diff URL ────────────────────
+let _pulseNewSnap=null;
+function _buildPulseSnapshot(lstR,sr,dormantStock,totalCAPerdu){
+  // Famille avec le plus de ruptures
+  const famR={};for(const r of lstR)if(r.lib)famR[r.lib]=(famR[r.lib]||0)+1;const topFamR=Object.entries(famR).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+  // Clients inactifs stratégiques
+  let clientsInactifs=0;
+  if(_S.chalandiseReady&&_S.clientLastOrder.size>0){const now=Date.now();for(const[cc,ld] of _S.clientLastOrder){const i=_S.chalandiseData.get(cc);if(i&&_isMetierStrategique(i.metier)&&(now-ld.getTime())/86400000>45)clientsInactifs++;}}
+  // Couverture territoire Top 100
+  let terrCov=null;
+  if(_S.territoireReady&&_S.territoireLines.length>0){const am=new Map();for(const l of _S.territoireLines){if(l.isSpecial)continue;if(!am.has(l.code))am.set(l.code,{ca:0,rs:l.rayonStatus});am.get(l.code).ca+=l.ca;}const t100=[...am.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,100);terrCov=t100.length>0?Math.round(t100.filter(([,a])=>a.rs==='green').length/t100.length*100):null;}
+  const wk=()=>{const d=new Date();d.setHours(0,0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()+4-day);const y=d.getFullYear();return y+'-W'+String(Math.ceil(((d-new Date(y,0,1))/86400000+1)/7)).padStart(2,'0');};
+  return{r:lstR.length,sr:parseFloat(sr),ca:Math.round(totalCAPerdu),dm:Math.round(dormantStock),fr:topFamR.substring(0,20),ci:clientsInactifs,tc:terrCov,ts:wk()};
+}
+function _encodePulseSnapshot(snap){try{return btoa(unescape(encodeURIComponent(JSON.stringify(snap)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}catch(_){return null;}}
+function _decodePulseSnapshot(str){try{const b=str.replace(/-/g,'+').replace(/_/g,'/');const pad=b.length%4?4-b.length%4:0;return JSON.parse(decodeURIComponent(escape(atob(b+'='.repeat(pad)))));}catch(_){return null;}}
+function _checkPulseDiff(prev,curr){
+  const diffs=[];
+  const rDiff=curr.r-prev.r;if(rDiff>0)diffs.push(`+${rDiff} nouvelle${rDiff>1?'s':''} rupture${rDiff>1?'s':''}${curr.fr?' ('+curr.fr+')':''}`);else if(rDiff<0)diffs.push(`${Math.abs(rDiff)} rupture${Math.abs(rDiff)>1?'s':''} résolue${Math.abs(rDiff)>1?'s':''}`);
+  if(prev.ci!==undefined&&curr.ci>prev.ci){const n=curr.ci-prev.ci;diffs.push(`${n} client${n>1?'s':''} stratégique${n>1?'s':''} disparu${n>1?'s':''}`);}
+  if(prev.tc!==null&&curr.tc!==null&&prev.tc!==undefined){const td=curr.tc-prev.tc;if(Math.abs(td)>=2)diffs.push(`couverture Top 100 ${td>0?'+':''}${td}pts`);}
+  const srDiff=parseFloat((curr.sr-prev.sr).toFixed(1));if(Math.abs(srDiff)>=1)diffs.push(`taux de service ${srDiff>0?'+':''}${srDiff}%`);
+  return diffs;
+}
+function _updateURLWithSnapshot(snap){
+  const enc=_encodePulseSnapshot(snap);if(!enc)return;
+  try{const u=new URL(window.location.href);u.searchParams.set('snap',enc);window.history.replaceState(null,'',u.toString());}catch(_){}
+}
+function _initPulseDiff(){
+  try{const u=new URL(window.location.href);const raw=u.searchParams.get('snap');if(raw)_pulseNewSnap=_decodePulseSnapshot(raw);}catch(_){}
+}
+function _triggerPulseOverlay(prev,curr){
+  const diffs=_checkPulseDiff(prev,curr);
+  if(!diffs.length)return;
+  const txt=diffs.join(', ');
+  // Banner
+  const bannerEl=document.getElementById('pulseBannerInline');const bannerTxt=document.getElementById('pulseBannerInlineText');
+  if(bannerEl&&bannerTxt){bannerTxt.textContent=' Depuis votre dernière analyse : '+txt+'.';bannerEl.style.display='flex';}
+  // Cockpit banner (inside cockpit tab)
+  const cb=document.getElementById('cockpitPulseBanner');const cbTxt=document.getElementById('cockpitPulseBannerText');if(cb&&cbTxt){cbTxt.textContent=txt;cb.classList.remove('hidden');}
+  // Overlay 4 secondes
+  const ov=document.getElementById('pulseOverlay');const ovc=document.getElementById('pulseOverlayContent');
+  if(ov&&ovc){ov.style.display='flex';ovc.innerHTML='<ul style="padding-left:18px;margin:0">'+diffs.map(d=>`<li>${d}</li>`).join('')+'</ul>';setTimeout(()=>{ov.style.display='none';},4000);}
+}
+function closePulseOverlay(){const ov=document.getElementById('pulseOverlay');if(ov)ov.style.display='none';}
+function _applyPulseAfterRender(lstR,sr,dormantStock,totalCAPerdu){
+  const curr=_buildPulseSnapshot(lstR,sr,dormantStock,totalCAPerdu);
+  if(_pulseNewSnap)_triggerPulseOverlay(_pulseNewSnap,curr);
+  _updateURLWithSnapshot(curr);
+  _pulseNewSnap=null;// ne comparer qu'une fois
+}
+// Initialiser la lecture du snap au chargement de la page
+_initPulseDiff();
+
+// ── Feature 9: Mode Réunion Express ───────────────────────────────────────
+let _meetingModeActive=false;
+function toggleMeetingMode(){
+  _meetingModeActive=!_meetingModeActive;
+  document.body.classList.toggle('meeting-mode',_meetingModeActive);
+  if(_meetingModeActive){
+    // Populate meeting panel
+    const dateEl=document.getElementById('meetingPanelDate');if(dateEl)dateEl.textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    // Copier les 3 premières décisions urgentes
+    const decs=window._lastDecisionQueue||[];const mDec=document.getElementById('meetingDecisions');
+    if(mDec)mDec.innerHTML=decs.slice(0,3).map((d,i)=>`<label class="flex items-start gap-3 cursor-pointer p-3 rounded-lg bg-slate-700/40 hover:bg-slate-700/60 transition-colors"><input type="checkbox" id="mcheck${i}" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:#3b82f6"><div><div style="font-size:.85rem;font-weight:600">${d.rang}. ${d.label}</div><div style="font-size:.65rem;color:#64748b;margin-top:2px">${d.source||''}</div></div></label>`).join('')||'<p style="color:#64748b;font-size:.8rem">Aucune décision disponible.</p>';
+    // Copier résumé exécutif
+    const src=document.getElementById('execSummaryText');const dst=document.getElementById('meetingExecSummary');if(src&&dst)dst.innerHTML=src.innerHTML;
+  }
+}
+function exportMeetingCSV(){
+  const decs=window._lastDecisionQueue||[];
+  const rows=[['Rang','Décision','Impact€','Source','Traité']];
+  const panel=document.getElementById('meetingDecisions');
+  decs.slice(0,3).forEach((d,i)=>{const cb=panel?.querySelector(`#mcheck${i}`);rows.push([d.rang,d.label,d.impact,d.source,cb?.checked?'Oui':'Non']);});
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8;\uFEFF'+encodeURIComponent(csv);a.download=`reunion-prisme-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+// Raccourci clavier R + Echap
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  if(e.key==='r'||e.key==='R'){if(!e.ctrlKey&&!e.metaKey&&!e.altKey)toggleMeetingMode();}
+  if(e.key==='Escape'&&_meetingModeActive)toggleMeetingMode();
+});
+
 // ── Feature 7: Profils métier ─────────────────────────────────────────────
 // Correspondance métier → famille prioritaire pour le tri cockpit
 const _METIER_PROFILE_MAP = {
@@ -4429,3 +4543,8 @@ window.exportPromoImportCSV = exportPromoImportCSV;
 // Feature 5: Insight panel
 window.openInsightPanel = openInsightPanel;
 window.closeInsightPanel = closeInsightPanel;
+// Feature 9: Meeting mode
+window.toggleMeetingMode = toggleMeetingMode;
+window.exportMeetingCSV = exportMeetingCSV;
+// Feature 10: Pulse
+window.closePulseOverlay = closePulseOverlay;
