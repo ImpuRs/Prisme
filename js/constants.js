@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// PILOT PRO — constants.js
+// PRISME — constants.js
 // Constantes métier et configuration
 // ═══════════════════════════════════════════════════════════════
 'use strict';

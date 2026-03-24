@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PILOT PRO 1.0</title>
+  <title>PRISME — Voir juste, piloter vite.</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -153,7 +153,15 @@
     body:not(.pilot-loaded) #navReportingBtn{display:none!important}
     #tabsFilterTitle{width:256px;flex-shrink:0;display:none;align-items:center;padding:0 0.75rem;border-right:1px solid #e2e8f0;background:#f8fafc}
     @media(min-width:1024px){body.pilot-loaded #tabsFilterTitle{display:flex}}
-    .tab-btn{white-space:nowrap;border-bottom-width:3px;transition:color .15s ease,background .15s ease}
+    /* ═══ PRISME : barre spectrale ══════════════════════════════ */
+    .prisme-spectrum{height:4px;display:flex;width:100%}
+    .prisme-spectrum>span{flex:1}
+    /* ═══ Onglets spectraux ══════════════════════════════════════ */
+    .tab-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:none;background:transparent;color:#6b7280;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s ease;white-space:nowrap}
+    .tab-btn:hover{color:var(--tab-text,#374151);background:var(--tab-bg,#f9fafb);border-radius:6px 6px 0 0}
+    .tab-btn.active{color:var(--tab-text,#1e40af);border-bottom-color:var(--tab-color,#3b82f6)}
+    .tab-btn.active svg{stroke:var(--tab-color,#3b82f6)!important}
+    .tab-btn svg{width:16px;height:16px;stroke:#9ca3af;transition:stroke .2s ease;flex-shrink:0}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;position:sticky;top:0;height:100vh}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:#f1f5f9}
     /* Mobile drawer */
@@ -176,7 +184,7 @@
       /* Tabs: horizontal scroll on mobile */
       #tabsContainer>div:last-child{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
       #tabsContainer>div:last-child::-webkit-scrollbar{display:none}
-      #tabsContainer .tab-btn{height:40px;padding:0 12px;font-size:.8rem;gap:.25rem}
+      #tabsContainer .tab-btn{height:40px;padding:0 10px;font-size:.75rem;gap:4px}
       /* Accordion headers: allow title to wrap, no truncation */
       details>summary>h3,details>summary>div>h3{white-space:normal;word-break:break-word;flex-shrink:1;min-width:0}
       details>summary>div{min-width:0;flex-shrink:1}
@@ -192,8 +200,8 @@
     /* ═══ Premium navbar ══════════════════════════════════════ */
     nav#mainNav{background:#0a0a0f;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
-    #mainNav .nav-logo{font-size:15px;letter-spacing:.15em;color:#fff;font-weight:300;user-select:none;cursor:default;line-height:1}
-    #mainNav .nav-logo-pro{font-weight:600;color:#10b981;letter-spacing:.05em}
+    #mainNav .nav-logo{font-size:15px;letter-spacing:.18em;color:#fff;font-weight:700;user-select:none;cursor:default;line-height:1}
+    #mainNav .nav-logo-tagline{font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:.08em;font-style:italic;line-height:1;margin-top:2px}
     #navStats{font-size:11px;color:rgba(255,255,255,0.4);font-family:monospace}
     #navStore{font-size:11px;color:#d1d5db;letter-spacing:.05em;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:2px 10px;background:transparent;font-weight:400}
     #navPerf{font-size:11px;color:rgba(255,255,255,0.4);font-family:monospace}
@@ -215,12 +223,9 @@
     #tabsContainer{background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
     #tabsFilterTitle{background:#fff;border-right:1px solid #e5e7eb}
     #filterPanelTitle{font-size:13px;font-weight:600;color:#374151}
-    /* Base : inactif = gris moyen, sans séparateur vertical */
-    #tabsContainer .tab-btn{font-size:13.5px;font-weight:500;height:46px;padding:0 18px;border-right:none;color:#6b7280;background:transparent;gap:6px}
-    /* Actif : bg bleu très pâle + bold ; la couleur de texte vient des classes Tailwind (text-blue-600 etc.) */
-    #tabsContainer .tab-btn.active{background:#eff6ff;font-weight:700}
-    /* Hover : gris doux + fond quasi-blanc */
-    #tabsContainer .tab-btn:not(.active):hover{color:#374151;background:#f9fafb}
+    /* Onglets spectraux — hauteur et taille de police */
+    #tabsContainer .tab-btn{height:46px;font-size:13px;padding:0 16px}
+    #tabsContainer .tab-btn.active{background:var(--tab-bg,#eff6ff);font-weight:700}
 
   </style>
 </head>
@@ -271,7 +276,10 @@
   <div id="stickyHeader">
   <nav id="mainNav">
     <div class="nav-inner">
-      <span class="nav-logo" title="PILOT PRO V1.0">PILOT&nbsp;<span class="nav-logo-pro">PRO</span></span>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <span class="nav-logo" title="PRISME">◆&nbsp;PRISME</span>
+        <span class="nav-logo-tagline">Voir juste, piloter vite.</span>
+      </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="navStats" class="hidden"></div>
         <div id="navStore" class="hidden"></div>
@@ -285,6 +293,17 @@
       </div>
     </div>
   </nav>
+
+  <!-- Barre spectrale PRISME -->
+  <div class="prisme-spectrum" aria-hidden="true">
+    <span style="background:#E24B4A"></span>
+    <span style="background:#EF9F27"></span>
+    <span style="background:#FAC775"></span>
+    <span style="background:#639922"></span>
+    <span style="background:#378ADD"></span>
+    <span style="background:#534AB7"></span>
+    <span style="background:#D4537E"></span>
+  </div>
 
   <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
   <div id="insightsBanner" class="hidden">
@@ -301,13 +320,13 @@
       <span id="filterPanelTitle" class="text-sm font-extrabold text-gray-700">Filtres</span>
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
-      <button data-tab="table" onclick="switchTab('table')" class="tab-btn active inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-blue-600 text-blue-600 font-semibold text-sm">📋 Articles</button>
-      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-gray-500 font-medium text-sm">📊 Mon Stock</button>
-      <button data-tab="action" onclick="switchTab('action')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-red-600 font-extrabold uppercase text-sm">⚙️ COCKPIT</button>
-      <button data-tab="abc" onclick="switchTab('abc')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-indigo-600 font-bold text-sm">📡 Radar</button>
-      <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-violet-600 font-bold text-sm hidden" id="btnTabTerritoire">🔗 Le Terrain</button>
-      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-cyan-600 font-extrabold text-sm hidden" id="btnTabBench">🔭 Le Réseau</button>
-      <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn inline-flex items-center gap-1.5 px-4 py-3 border-b-2 border-transparent text-orange-600 font-extrabold text-sm">🎯 Promo</button>
+      <button data-tab="table" onclick="switchTab('table')" class="tab-btn active" style="--tab-color:#E24B4A;--tab-bg:#E24B4A1F;--tab-text:#A32D2D"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg><span>Articles</span></button>
+      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn" style="--tab-color:#EF9F27;--tab-bg:#EF9F271F;--tab-text:#854F0B"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="13" y2="14"/><line x1="7" y1="18" x2="10" y2="18"/></svg><span>Mon Stock</span></button>
+      <button data-tab="action" onclick="switchTab('action')" class="tab-btn" style="--tab-color:#BA7517;--tab-bg:#FAC77526;--tab-text:#633806"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="12" x2="12" y2="6"/><line x1="12" y1="12" x2="16" y2="14"/><circle cx="12" cy="12" r="1.5" fill="#BA7517" stroke="none"/></svg><span>Cockpit</span></button>
+      <button data-tab="abc" onclick="switchTab('abc')" class="tab-btn" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Radar</span></button>
+      <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn hidden" id="btnTabTerritoire" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Le Terrain</span></button>
+      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn hidden" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span></button>
+      <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn" style="--tab-color:#D4537E;--tab-bg:#ED93B11F;--tab-text:#72243E"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l10 10-6 6L4 10V4z"/><circle cx="8.5" cy="8.5" r="1.5" fill="#D4537E" stroke="none"/></svg><span>Promo</span></button>
     </div>
   </div>
   </div><!-- /#stickyHeader -->
@@ -494,7 +513,7 @@
 
     <!-- GLOSSAIRE -->
     <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-      <h3 class="font-extrabold text-blue-900 mb-5 text-lg">🧠 Glossaire PILOT PRO</h3>
+      <h3 class="font-extrabold text-blue-900 mb-5 text-lg">🧠 Glossaire PRISME</h3>
 
       <!-- Section 1 — Stock & Réappro -->
       <p class="text-[11px] font-extrabold text-blue-700 uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
@@ -582,7 +601,7 @@
     <div id="onboardingBlock" class="mb-3">
       <div class="flex items-center justify-between mb-2 pt-1">
         <div>
-          <h1 class="text-base font-extrabold text-gray-800 leading-tight">PILOT PRO — Votre copilote agence</h1>
+          <h1 class="text-base font-extrabold text-gray-800 leading-tight">PRISME — Votre copilote agence</h1>
           <p class="text-[11px] text-gray-400">Chargez vos fichiers ci-dessous pour commencer</p>
         </div>
         <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] text-blue-600 hover:text-blue-800 font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
@@ -1356,7 +1375,7 @@
     </div>
 
   </div><!-- /container -->
-  <footer class="text-center text-xs text-gray-400 py-4">PILOT PRO 1.0</footer>
+  <footer class="text-center text-xs text-gray-400 py-4">PRISME</footer>
     </main><!-- /mainContent -->
   </div><!-- /appLayout -->
 
@@ -5381,7 +5400,9 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   (async function _initFromCache() {
     // 1. Toujours restaurer les exclusions (pas de TTL)
     _restoreExclusions();
-    // 2. Tenter la restauration complète depuis IndexedDB
+    // 2. Migration transparente PILOT_PRO → PRISME (si ancienne base présente)
+    await _migrateIDB();
+    // 3. Tenter la restauration complète depuis IndexedDB
     const restored = await _restoreSessionFromIDB();
     if (restored && finalData.length > 0) {
       // ── 0. Gardes-fous AVANT tout code UI — storesIntersection et selectedMyStore ──
@@ -5390,14 +5411,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(!storesIntersection.size&&Object.keys(ventesParMagasin).length>0&&Object.keys(stockParMagasin).length>0){
         const vKeys=new Set(Object.keys(ventesParMagasin)),sKeys=new Set(Object.keys(stockParMagasin));
         storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
-        if(storesIntersection.size)console.log('PILOT: storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
+        if(storesIntersection.size)console.log('[PRISME] storesIntersection reconstruite depuis IDB :',[...storesIntersection]);
       }
       // Fallback compteurs : si non persistés dans l'ancien cache, recalculer depuis les maps
       if(!storeCountConsomme)storeCountConsomme=Object.keys(ventesParMagasin).length;
       if(!storeCountStock)storeCountStock=Object.keys(stockParMagasin).length;
       if(!selectedMyStore&&storesIntersection.size>0){
         selectedMyStore=storesIntersection.has('AG22')?'AG22':[...storesIntersection][0];
-        console.log('PILOT: selectedMyStore sélectionné automatiquement :', selectedMyStore);
+        console.log('[PRISME] selectedMyStore sélectionné automatiquement :', selectedMyStore);
       }
       // ── Vérification de cohérence : finalData contaminé ? ──
       // Un finalData multi-agences sauvé par erreur (storesIntersection vide lors de la session
@@ -5407,7 +5428,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(storeCountConsomme>1&&selectedMyStore){
         const _myStockCount=Object.keys(stockParMagasin[selectedMyStore]||{}).length;
         if(_myStockCount>0&&finalData.length>_myStockCount*2.5){
-          console.warn('PILOT: cache contaminé — finalData='+finalData.length+' articles mais '+selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
+          console.warn('[PRISME] cache contaminé — finalData='+finalData.length+' articles mais '+selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
           await _clearIDB();
           showToast('⚠️ Cache obsolète détecté et purgé — rechargez vos fichiers.','warning');
           _restoreFromCache();
