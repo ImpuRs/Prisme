@@ -323,6 +323,114 @@ export function importKPIhistory(input) {
   reader.readAsText(input.files[0]); input.value = '';
 }
 
+// ── Feature 8: Decision Queue ────────────────────────────────
+// Génère 3-7 décisions numérotées, triées par impact€ décroissant
+// Branchée sur _S.finalData, _S.chalandiseData, _S.ventesClientArticle
+export function generateDecisionQueue() {
+  const decisions = [];
+  if (!_S.finalData || !_S.finalData.length) return decisions;
+
+  // ① Ruptures critiques — "Commander X unités réf.XXXXXX — rupture J+X, ~€/sem"
+  const ruptures = _S.finalData
+    .filter(r => r.stockActuel <= 0 && r.W >= 3 && !r.isParent)
+    .map(r => ({ ...r, _impact: Math.round(r.W * (r.prixUnitaire || 0)) }))
+    .sort((a, b) => b._impact - a._impact);
+  for (const r of ruptures.slice(0, 3)) {
+    if (r._impact < 100) break;
+    const impactSem = Math.round(r._impact / 52);
+    const qteSugg = Math.max(r.nouveauMax || r.nouveauMin || 1, Math.round(r.V / 52 * 3));
+    decisions.push({
+      rang: 0, impact: r._impact,
+      label: `Commander ${qteSugg}u réf.${r.code} — rupture active, ~${impactSem.toLocaleString('fr')}€/sem.`,
+      context: `${r.libelle?.substring(0, 40)} · W=${r.W} · PU=${r.prixUnitaire}€`,
+      action: 'rupture', code: r.code,
+      source: `finalData · fréq≥3 · stock≤0 · score=${r._impact}€`
+    });
+  }
+
+  // ② Clients stratégiques inactifs >30j — "Appeler [Nom] — disparu X sem, €/an"
+  if (_S.chalandiseReady && _S.clientLastOrder.size > 0) {
+    const now = Date.now();
+    const inactifsStrat = [];
+    for (const [cc, lastDate] of _S.clientLastOrder) {
+      const info = _S.chalandiseData.get(cc);
+      if (!info) continue;
+      const metierLower = (info.metier || '').toLowerCase();
+      const isStrat = ['électricien','plombier','maçon','menuisier','charpentier','couvreur','chauffagiste','installateur'].some(m => metierLower.includes(m));
+      if (!isStrat) continue;
+      const joursInactif = Math.round((now - lastDate.getTime()) / 86400000);
+      if (joursInactif < 30) continue;
+      // Estimer CA annuel depuis ventesClientArticle
+      const artMap = _S.ventesClientArticle.get(cc);
+      const caAnnuel = artMap ? [...artMap.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
+      inactifsStrat.push({ cc, nom: info.nom || cc, metier: info.metier, joursInactif, caAnnuel });
+    }
+    inactifsStrat.sort((a, b) => b.caAnnuel - a.caAnnuel);
+    for (const c of inactifsStrat.slice(0, 2)) {
+      const semaines = Math.round(c.joursInactif / 7);
+      const caLabel = c.caAnnuel > 0 ? `${Math.round(c.caAnnuel / 100) * 100}€ annuel` : 'CA estimé indisponible';
+      decisions.push({
+        rang: 0, impact: c.caAnnuel || 1,
+        label: `Appeler client ${c.nom} — disparu ${semaines} sem., ${caLabel}.`,
+        context: `${c.metier} · ${c.joursInactif}j d'inactivité`,
+        action: 'client', code: c.cc,
+        source: `chalandiseData × clientLastOrder × ventesClientArticle`
+      });
+    }
+  }
+
+  // ③ Dormants à sortir — "Sortir X réfs dormantes — immobilisent €, Y mois"
+  const dormants = _S.finalData.filter(r =>
+    !r.isNouveaute && r.ageJours > 365 && r.W < 3 && r.stockActuel > 0 && r.prixUnitaire > 0
+  );
+  if (dormants.length >= 3) {
+    const valDormant = dormants.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0);
+    const moisMoy = dormants.length > 0 ? Math.round(dormants.reduce((s, r) => s + r.ageJours, 0) / dormants.length / 30) : 0;
+    if (valDormant > 500) {
+      decisions.push({
+        rang: 0, impact: Math.round(valDormant),
+        label: `Sortir ${dormants.length} réfs dormantes — immobilisent ${Math.round(valDormant / 100) * 100}€ depuis ~${moisMoy} mois.`,
+        context: `Articles avec W<3 et ageJours>365`,
+        action: 'dormants', code: null,
+        source: `finalData · ${dormants.length} articles · ageJours>365 · W<3`
+      });
+    }
+  }
+
+  // ④ Anomalies MIN/MAX manquants — "Paramétrer MIN/MAX pour X articles actifs"
+  const anomalies = _S.finalData.filter(r =>
+    r.ancienMin === 0 && r.ancienMax === 0 && r.V > 0 && r.stockActuel > 0
+  );
+  if (anomalies.length >= 5) {
+    decisions.push({
+      rang: 0, impact: anomalies.length * 50,
+      label: `Paramétrer MIN/MAX pour ${anomalies.length} articles actifs sans seuil ERP.`,
+      context: `Articles avec stock>0, ventes>0, MIN=MAX=0`,
+      action: 'anomalies', code: null,
+      source: `finalData · ancienMin=ancienMax=0 · V>0`
+    });
+  }
+
+  // Trier par impact€ décroissant + renuméroter
+  decisions.sort((a, b) => b.impact - a.impact);
+  decisions.forEach((d, i) => { d.rang = i + 1; });
+
+  // Si rien d'urgent (ou seulement des petits items)
+  if (decisions.length === 0 || decisions.every(d => d.impact < 200)) {
+    const srNum = _S.finalData.length > 0 ? (
+      _S.finalData.filter(r => r.W >= 3 && r.stockActuel > 0).length /
+      Math.max(1, _S.finalData.filter(r => r.W >= 3).length) * 100
+    ).toFixed(1) : '—';
+    decisions.push({
+      rang: decisions.length + 1, impact: 0,
+      label: `Rien à faire sur le reste — stock calibré, taux de service ${srNum}%, aucune anomalie critique.`,
+      context: '', action: 'ok', code: null, source: 'finalData global'
+    });
+  }
+
+  return decisions.slice(0, 7);
+}
+
 // ── Feature 6: Titres sémantiques dynamiques ────────────────
 // Génère un titre contextuel riche au lieu de "Famille — CA: X€ (-Y%)"
 export function generateSemanticTitle(famille, data) {
