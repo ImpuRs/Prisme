@@ -12,9 +12,9 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 
@@ -2899,7 +2899,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         const joursRupture=Math.min(r.ageJours>=999?90:r.ageJours,90);
         const caPerdu=hasMulti?Math.round(medianCAByCode[r.code]||0):Math.round(r.V*r.prixUnitaire);
         if(caPerdu>0)totalCAPerdu+=caPerdu;
-        lstR.push({code:r.code,lib:r.libelle,i1:r.W,i2:r.stockActuel,sv:caPotentiel,caPot:caPotentiel,prioScore,joursRupture,caPerdu,condit:null});
+        lstR.push({code:r.code,lib:r.libelle,fmrClass:r.fmrClass,i1:r.W,i2:r.stockActuel,sv:caPotentiel,caPot:caPotentiel,prioScore,joursRupture,caPerdu,condit:null});
         _S.cockpitLists.ruptures.add(r.code);
       } else {
         _S.parentRefsExcluded++;
@@ -2959,8 +2959,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const maxScore=lstR.length>0?lstR[0].prioScore:1;
       const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
       const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
+      // Color Covenant: rouge pour F/M (perte active), ambre pour R (rare)
+      const caColor=(i.fmrClass==='R')?'c-caution':'c-danger';
       const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn bg-rose-100 text-rose-700" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
-      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs text-rose-700">${caPerduFmt}</td>${diagCell}</tr>`);
+      p.push(`<tr class="border-b hover:bg-white/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono text-gray-500 text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] text-gray-400 ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5"><span class="text-[9px] font-bold">${prioLabel(i.prioScore)}</span><div class="w-10 bg-gray-200 rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs ${caColor}">${caPerduFmt}</td>${diagCell}</tr>`);
     });
     document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">🎉 Aucune rupture</td></tr>';
     const ruptTotEl=document.getElementById('actionRupturesTotal');
@@ -2985,6 +2987,10 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     renderExecSummary(lstR,totalCAPotPerdu,totalCAPerdu,dormantStock,activeSurstock,capalinOverflow,sr,lstD,lstS,hasMulti);
     if(dataSource===_S.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
+    // ★ SPRINT 1: Decision Queue + Briefing ★
+    generateDecisionQueue();
+    renderCockpitBriefing();
+    renderDecisionQueue();
   }
 
   // ★ V23/V24.2: Executive Summary
@@ -4253,6 +4259,9 @@ window._confirmExclude = _confirmExclude;
 window._unexcludeClient = _unexcludeClient;
 window.renderComparison = renderComparison;
 window.renderExecSummary = renderExecSummary;
+window.generateDecisionQueue = generateDecisionQueue;
+window.renderCockpitBriefing = renderCockpitBriefing;
+window.renderDecisionQueue = renderDecisionQueue;
 window.applyPeriodFilter = applyPeriodFilter;
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 window.updateNavStore = function(){if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}};

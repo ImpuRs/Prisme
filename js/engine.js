@@ -131,11 +131,11 @@ export function calcCouverture(stock, V) {
 export function formatCouv(j) { if (j >= 999) return '—'; return j + 'j'; }
 
 export function couvColor(j) {
-  if (j >= 999) return 'text-gray-400';
-  if (j <= 7) return 'text-red-600 font-extrabold';
-  if (j <= 21) return 'text-orange-600 font-bold';
-  if (j <= 60) return 'text-green-600';
-  return 'text-blue-500';
+  if (j >= 999) return 'c-muted';
+  if (j <= 7) return 'c-danger font-extrabold';  // rupture imminente — perte d'argent
+  if (j <= 21) return 'c-caution font-bold';     // stock bas — à surveiller
+  if (j <= 60) return 'c-ok';                    // couverture saine
+  return 'c-muted';                              // surstock — informatif seulement
 }
 
 // ── Client classification helpers ─────────────────────────────
@@ -302,4 +302,117 @@ export function _diagClassifBadge(c) {
   if (u.includes('POT-')) return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">${c}</span>`;
   if (c && c !== '—') return `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${c}</span>`;
   return '<span class="text-slate-600 text-[9px]">—</span>';
+}
+
+// ── Decision Queue — génération (Sprint 1) ────────────────────
+// Produit 3–7 décisions triées par impact€ décroissant.
+// Stocke le résultat dans _S.decisionQueueData.
+export function generateDecisionQueue() {
+  const decisions = [];
+  if (!_S.finalData.length) { _S.decisionQueueData = decisions; return; }
+
+  // ── 1. Ruptures critiques : W≥3, stock≤0, priorityScore≥5000 (top 3) ──
+  const critRupt = _S.finalData
+    .filter(r => r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
+    .map(r => ({ r, score: calcPriorityScore(r.W, r.prixUnitaire, r.ageJours), impact: r.W * r.prixUnitaire }))
+    .filter(x => x.score >= 5000)
+    .sort((a, b) => b.impact - a.impact)
+    .slice(0, 3);
+
+  for (const { r, impact } of critRupt) {
+    const semCA = Math.round(impact / 52);
+    const qteSugg = Math.max((r.nouveauMax || 1) - r.stockActuel, r.nouveauMax || 1);
+    decisions.push({
+      type: 'rupture', code: r.code, lib: r.libelle, famille: r.famille, fmrClass: r.fmrClass,
+      impact, qteSugg,
+      label: `Commander ${r.W} × réf. ${r.code} — rupture active, ~${semCA.toLocaleString('fr')} €/sem.`,
+      why: [
+        `Stock actuel : ${r.stockActuel} u. (sous le MIN de ${r.nouveauMin})`,
+        `Fréquence : ${r.W} commandes/an — article ${r.fmrClass || '?'}`,
+        `CA annuel à risque : ${impact.toLocaleString('fr')} €`,
+      ],
+    });
+  }
+
+  // ── 2. Clients stratégiques inactifs >30j (si chalandise chargée, top 2) ──
+  if (_S.chalandiseReady && _S.clientLastOrder.size) {
+    const now = new Date();
+    const inactive = [];
+    for (const [cc, lastDate] of _S.clientLastOrder.entries()) {
+      const info = _S.chalandiseData.get(cc);
+      if (!info || !_isMetierStrategique(info.metier)) continue;
+      const daysAgo = Math.round((now - lastDate) / 86400000);
+      if (daysAgo < 30) continue;
+      const caAnnuel = info.ca2025 || info.ca2026 || 0;
+      inactive.push({ cc, nom: info.nom || cc, daysAgo, weeksAgo: Math.round(daysAgo / 7), caAnnuel });
+    }
+    inactive.sort((a, b) => b.caAnnuel - a.caAnnuel);
+    for (const c of inactive.slice(0, 2)) {
+      decisions.push({
+        type: 'client', code: c.cc, impact: c.caAnnuel,
+        label: `Appeler client ${c.nom} — disparu ${c.weeksAgo} sem., ${Math.round(c.caAnnuel).toLocaleString('fr')} € annuel.`,
+        why: [
+          `Dernière commande PDV : il y a ${c.daysAgo} jours`,
+          `CA annuel Legallais : ${Math.round(c.caAnnuel).toLocaleString('fr')} €`,
+          `Métier stratégique — fort potentiel de reconquête`,
+        ],
+      });
+    }
+  }
+
+  // ── 3. Dormants (≥3 articles, valeur >500€) ──
+  const DORMANT_THRESHOLD = 365; // jours sans mouvement
+  const dormants = _S.finalData.filter(r =>
+    r.stockActuel > 0 && r.prixUnitaire > 0 && !r.isNouveaute && r.ageJours > DORMANT_THRESHOLD
+  );
+  const dormantVal = dormants.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0);
+  if (dormants.length >= 3 && dormantVal > 500) {
+    const avgMonths = dormants.length > 0
+      ? Math.round(dormants.reduce((s, r) => s + r.ageJours, 0) / dormants.length / 30) : 0;
+    decisions.push({
+      type: 'dormants', impact: dormantVal,
+      label: `Sortir ${dormants.length} réfs dormantes — immobilisent ${Math.round(dormantVal).toLocaleString('fr')} € depuis ~${avgMonths} mois.`,
+      why: [
+        `${dormants.length} articles sans mouvement depuis plus de 12 mois`,
+        `Valeur stock immobilisée : ${Math.round(dormantVal).toLocaleString('fr')} €`,
+        `Âge moyen du stock dormant : ~${avgMonths} mois`,
+      ],
+    });
+  }
+
+  // ── 4. Anomalies MIN/MAX (≥5 articles actifs sans seuil ERP) ──
+  const anomalies = _S.finalData.filter(r =>
+    r.stockActuel > 0 && r.ancienMin === 0 && r.ancienMax === 0 && !r.isNouveaute && r.V > 0
+  );
+  if (anomalies.length >= 5) {
+    decisions.push({
+      type: 'anomalie_minmax', impact: 0,
+      label: `Paramétrer MIN/MAX pour ${anomalies.length} articles actifs sans seuil ERP.`,
+      why: [
+        `${anomalies.length} articles vendus mais sans MIN/MAX configuré`,
+        `Sans seuil, le réapprovisionnement est 100% manuel`,
+        `Action : exporter les codes, paramétrer dans l'ERP`,
+      ],
+    });
+  }
+
+  // ── 5. Situation saine (aucune urgence trouvée) ──
+  if (decisions.length === 0) {
+    const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+    const sr = freq.length > 0 ? Math.round(freq.filter(r => r.stockActuel > 0).length / freq.length * 100) : 100;
+    decisions.push({
+      type: 'sain', impact: 0,
+      label: `RAS — stock calibré, taux de service ${sr}%, aucune anomalie critique.`,
+      why: [],
+    });
+  }
+
+  // Tri par impact décroissant (sain toujours en dernier)
+  decisions.sort((a, b) => {
+    if (a.type === 'sain') return 1;
+    if (b.type === 'sain') return -1;
+    return b.impact - a.impact;
+  });
+
+  _S.decisionQueueData = decisions.slice(0, 7);
 }
