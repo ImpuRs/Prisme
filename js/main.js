@@ -1,3 +1,7 @@
+// © 2026 Jawad El Barkaoui — Tous droits réservés
+// PRISME — Outil d'analyse BI pour distribution B2B
+// Développé sur initiative et temps personnel
+// Contact : Jawad EL BARKAOUI
 // ═══════════════════════════════════════════════════════════════
 // PRISME — main.js
 // Point d'entrée ESM — orchestre tous les modules
