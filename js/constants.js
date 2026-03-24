@@ -42,6 +42,12 @@ export const RADAR_LABELS = {
   CF: 'Réguliers',CM: 'Réduire',   CR: 'Déréférencer'
 };
 
+// ── Decision Queue — seuils de significativité ───────────────
+export const DQ_MIN_CA_PERDU_SEM    = 50;    // €/sem minimum pour remonter une rupture
+export const DQ_MIN_PRIORITY_SCORE  = 1000;  // score alternatif (si PU élevé mais fréq faible)
+export const DQ_MIN_PU_ALERTE       = 10;    // PU minimum pour une alerte prévisionnelle
+export const DQ_MIN_FREQ_ALERTE     = 6;     // W minimum (article au moins M) pour alerte prévisionnelle
+
 // Mapping première lettre code secteur → Direction commerciale
 export const SECTEUR_DIR_MAP = {
   'M': 'Maintenance', 'B': 'Second Œuvre', 'L': 'DVP Plomberie', 'F': 'DVI Industrie'
