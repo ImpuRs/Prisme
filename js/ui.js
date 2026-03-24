@@ -689,17 +689,19 @@ export function renderDecisionQueue() {
   if (!el || !listEl) return;
   if (!_S.decisionQueueData || !_S.decisionQueueData.length) { el.classList.add('hidden'); return; }
 
+  // impactClass : 'dq-high' = rouge (--c-danger), 'dq-medium' = ambre (--c-caution)
+  // Noms prefixés 'dq-' pour éviter tout conflit avec les utilitaires Tailwind
   const typeConfig = {
-    rupture:       { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'high' },
-    alerte_prev:   { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'medium' },
-    client:        { badgeClass: 'dq-action',  icon: '📞', impactClass: 'medium' },
-    dormants:      { badgeClass: 'dq-caution', icon: '💤', impactClass: 'medium' },
-    anomalie_minmax:{ badgeClass: 'dq-action', icon: '⚠️', impactClass: '' },
-    sain:          { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
+    rupture:        { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'dq-high' },
+    alerte_prev:    { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'dq-medium' },
+    client:         { badgeClass: 'dq-action',  icon: '📞', impactClass: 'dq-medium' },
+    dormants:       { badgeClass: 'dq-caution', icon: '💤', impactClass: 'dq-medium' },
+    anomalie_minmax:{ badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
+    sain:           { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
 
   const items = _S.decisionQueueData.slice(0, 7);
-  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''} · trié par impact€`;
+  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''} · ruptures d'abord`;
 
   listEl.innerHTML = items.map((d, idx) => {
     const cfg = typeConfig[d.type] || { badgeClass: '', icon: '•', impactClass: '' };

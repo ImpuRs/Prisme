@@ -305,17 +305,22 @@ export function _diagClassifBadge(c) {
 }
 
 // ── Decision Queue — génération (Sprint 1) ────────────────────
-// Produit 3–7 décisions triées par impact€ décroissant.
+// Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
+// L'ordre de catégorie est FIXE (rupture > client > dormants > anomalie).
+// Le tri par €  ne s'applique QU'À L'INTÉRIEUR d'une même catégorie.
 // Stocke le résultat dans _S.decisionQueueData.
 export function generateDecisionQueue() {
   const decisions = [];
   if (!_S.finalData.length) { _S.decisionQueueData = decisions; return; }
 
-  // ── 1. Ruptures critiques : W≥3, stock≤0, priorityScore≥5000 (top 3) ──
+  // Priorité de catégorie : 0 = plus urgent
+  const TYPE_PRIORITY = { rupture: 0, alerte_prev: 1, client: 2, dormants: 3, anomalie_minmax: 4, sain: 99 };
+
+  // ── 1. Ruptures (W≥3, stock≤0, top 3 par CA annuel W×PU) ──────────────
+  // PAS de filtre par score — toute rupture d'article fréquent est urgente.
   const critRupt = _S.finalData
     .filter(r => r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
-    .map(r => ({ r, score: calcPriorityScore(r.W, r.prixUnitaire, r.ageJours), impact: r.W * r.prixUnitaire }))
-    .filter(x => x.score >= 5000)
+    .map(r => ({ r, impact: r.W * r.prixUnitaire }))
     .sort((a, b) => b.impact - a.impact)
     .slice(0, 3);
 
@@ -360,7 +365,7 @@ export function generateDecisionQueue() {
     }
   }
 
-  // ── 3. Dormants (≥3 articles, valeur >500€) ──
+  // ── 3. Dormants (≥3 articles, valeur >500€) — capital immobilisé ──────
   const DORMANT_THRESHOLD = 365; // jours sans mouvement
   const dormants = _S.finalData.filter(r =>
     r.stockActuel > 0 && r.prixUnitaire > 0 && !r.isNouveaute && r.ageJours > DORMANT_THRESHOLD
@@ -380,7 +385,7 @@ export function generateDecisionQueue() {
     });
   }
 
-  // ── 4. Anomalies MIN/MAX (≥5 articles actifs sans seuil ERP) ──
+  // ── 4. Anomalies MIN/MAX (≥5 articles actifs sans seuil ERP) ──────────
   const anomalies = _S.finalData.filter(r =>
     r.stockActuel > 0 && r.ancienMin === 0 && r.ancienMax === 0 && !r.isNouveaute && r.V > 0
   );
@@ -396,7 +401,7 @@ export function generateDecisionQueue() {
     });
   }
 
-  // ── 5. Situation saine (aucune urgence trouvée) ──
+  // ── 5. Situation saine (aucune urgence trouvée) ──────────────────────
   if (decisions.length === 0) {
     const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
     const sr = freq.length > 0 ? Math.round(freq.filter(r => r.stockActuel > 0).length / freq.length * 100) : 100;
@@ -407,11 +412,14 @@ export function generateDecisionQueue() {
     });
   }
 
-  // Tri par impact décroissant (sain toujours en dernier)
+  // ── Tri : catégorie d'abord (rupture avant dormants), puis impact€ ────
+  // Une rupture à 100€ est PLUS urgente qu'un dormant à 68 000€ :
+  // la rupture perd de l'argent chaque jour, le dormant est stable.
   decisions.sort((a, b) => {
-    if (a.type === 'sain') return 1;
-    if (b.type === 'sain') return -1;
-    return b.impact - a.impact;
+    const pa = TYPE_PRIORITY[a.type] ?? 50;
+    const pb = TYPE_PRIORITY[b.type] ?? 50;
+    if (pa !== pb) return pa - pb;      // catégorie plus urgente d'abord
+    return b.impact - a.impact;         // à catégorie égale : plus gros impact d'abord
   });
 
   _S.decisionQueueData = decisions.slice(0, 7);
