@@ -3387,6 +3387,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   // ── VOYANT 1 : 📦 MON RAYON (toujours actif) ──
   function _diagVoyant1(famille){
+    famille=_normFamGlobal(famille);
     const arts=_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille);
     if(!arts.length)return{status:'absent',arts:0,enStock:0,nonRef:0,ruptures:[],caPerduTotal:0,nbMM:0,dormants:[],mmDetail:[],nonCal:0,sousD:0,statusRup:'ok',statusMM:'ok'};
     // Stock / ruptures
@@ -3496,6 +3497,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 2 : 👥 MES CLIENTS (Chalandise) ──
   function _diagVoyant2(famille,hasChal,metierFilter){
     if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
+    famille=_normFamGlobal(famille);
     const famArts=new Set(_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille).map(r=>r.code));
     if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille',metiers:[]};
     const metierBuyers={};
@@ -3576,6 +3578,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   // ── VOYANT 3 : 🔭 LE RÉSEAU (multi-agences) ──
   function _diagVoyant3(famille,hasMulti){
     if(!hasMulti)return{status:'lock',reason:'Données multi-agences requises — chargez un fichier Consommé incluant plusieurs agences'};
+    famille=_normFamGlobal(famille);
     const cs=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
     const nbOtherStores=cs.length;
     if(!nbOtherStores)return{status:'lock',reason:'Un seul magasin dans le fichier'};
