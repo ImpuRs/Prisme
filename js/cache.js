@@ -6,6 +6,8 @@
 // Dépend de : state.js (variables globales)
 // ═══════════════════════════════════════════════════════════════
 'use strict';
+import { _S } from './state.js';
+
 
 const CACHE_KEY      = 'PRISME_PREFS';
 const CACHE_KEY_OLD  = 'PRISME_CACHE_OLD'; // ancienne clé volumineuse — purgée au démarrage
@@ -37,16 +39,16 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 })();
 
 // ── localStorage : préférences (< 1 Ko) ───────────────────────
-function _saveToCache() {
+export function _saveToCache() {
   try {
     const prefs = {
       version: '2.0',
       timestamp: Date.now(),
-      selectedMyStore,
-      selectedObsCompare,
-      obsFilterUnivers,
-      periodFilterStart: periodFilterStart ? periodFilterStart.getTime() : null,
-      periodFilterEnd:   periodFilterEnd   ? periodFilterEnd.getTime()   : null,
+      _S.selectedMyStore,
+      _S.selectedObsCompare,
+      _S.obsFilterUnivers,
+      _S.periodFilterStart: _S.periodFilterStart ? _S.periodFilterStart.getTime() : null,
+      _S.periodFilterEnd:   _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(prefs));
   } catch (e) {
@@ -57,7 +59,7 @@ function _saveToCache() {
 // ── Restauration des préférences ──────────────────────────────
 // Toujours retourne false : aucune donnée volumineuse stockée.
 // Utilisé en fallback si IndexedDB n'est pas disponible.
-function _restoreFromCache() {
+export function _restoreFromCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return false;
@@ -66,11 +68,11 @@ function _restoreFromCache() {
       localStorage.removeItem(CACHE_KEY);
       return false;
     }
-    if (prefs.selectedMyStore)    selectedMyStore    = prefs.selectedMyStore;
-    if (prefs.selectedObsCompare) selectedObsCompare = prefs.selectedObsCompare;
-    if (prefs.obsFilterUnivers)   obsFilterUnivers   = prefs.obsFilterUnivers;
-    if (prefs.periodFilterStart)  periodFilterStart  = new Date(prefs.periodFilterStart);
-    if (prefs.periodFilterEnd)    periodFilterEnd    = new Date(prefs.periodFilterEnd);
+    if (prefs.selectedMyStore)    _S.selectedMyStore    = prefs.selectedMyStore;
+    if (prefs.selectedObsCompare) _S.selectedObsCompare = prefs.selectedObsCompare;
+    if (prefs.obsFilterUnivers)   _S.obsFilterUnivers   = prefs.obsFilterUnivers;
+    if (prefs.periodFilterStart)  _S.periodFilterStart  = new Date(prefs.periodFilterStart);
+    if (prefs.periodFilterEnd)    _S.periodFilterEnd    = new Date(prefs.periodFilterEnd);
     console.log('[PRISME] préférences restaurées (agence :', prefs.selectedMyStore || '—', ')');
   } catch (e) {
     console.warn('[PRISME] restauration préférences échouée :', e);
@@ -80,20 +82,20 @@ function _restoreFromCache() {
 }
 
 // ── Effacer les préférences localStorage ──────────────────────
-function _clearCache() {
+export function _clearCache() {
   localStorage.removeItem(CACHE_KEY);
-  selectedMyStore    = '';
-  selectedObsCompare = 'median';
-  obsFilterUnivers   = '';
-  periodFilterStart  = null;
-  periodFilterEnd    = null;
+  _S.selectedMyStore    = '';
+  _S.selectedObsCompare = 'median';
+  _S.obsFilterUnivers   = '';
+  _S.periodFilterStart  = null;
+  _S.periodFilterEnd    = null;
   const b = document.getElementById('cacheBanner');
   if (b) b.classList.add('hidden');
   const iz = document.getElementById('importZone');
   if (iz) iz.classList.remove('hidden');
   const ob = document.getElementById('onboardingBlock');
   if (ob) ob.classList.remove('hidden');
-  if (!finalData.length) {
+  if (!_S.finalData.length) {
     document.getElementById('tabsContainer')?.classList.add('hidden');
     document.getElementById('globalFilters')?.classList.add('hidden');
     document.getElementById('navReportingBtn')?.classList.add('hidden');
@@ -106,14 +108,14 @@ function _clearCache() {
 // ── Bandeau "données restaurées depuis IndexedDB" ─────────────
 let _idbTimestamp = null; // renseigné par _restoreSessionFromIDB()
 
-function _showCacheBanner() {
+export function _showCacheBanner() {
   const banner = document.getElementById('cacheBanner');
   if (!banner) return;
   const dateStr = _idbTimestamp
     ? new Date(_idbTimestamp).toLocaleString('fr', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
-  const nArt = finalData.length.toLocaleString('fr');
-  const store = selectedMyStore || '—';
+  const nArt = _S.finalData.length.toLocaleString('fr');
+  const store = _S.selectedMyStore || '—';
   const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
   const btnDanger = 'padding:2px 10px;border-radius:4px;background:#7f1d1d;color:#fca5a5;font-size:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)';
   banner.innerHTML =
@@ -127,28 +129,28 @@ function _showCacheBanner() {
 }
 
 // Afficher la zone d'import sans purger les données (l'utilisateur veut re-uploader)
-function _onReloadFiles() {
+export function _onReloadFiles() {
   document.getElementById('cacheBanner').classList.add('hidden');
   document.getElementById('importZone')?.classList.remove('hidden');
   document.getElementById('onboardingBlock')?.classList.remove('hidden');
-  if (finalData.length > 0) {
+  if (_S.finalData.length > 0) {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
 }
 
 // Purger IndexedDB + préférences localStorage + reload
-async function _onPurgeCache() {
+export async function _onPurgeCache() {
   await _clearIDB();
   _clearCache();
   location.reload();
 }
 
 // ── Exclusions clients (persistance permanente, sans TTL) ─────
-function _saveExclusions() {
+export function _saveExclusions() {
   try {
     const data = {};
-    for (const [k, v] of excludedClients.entries()) {
+    for (const [k, v] of _S.excludedClients.entries()) {
       const { clientData, ...rest } = v;
       data[k] = rest;
     }
@@ -158,13 +160,13 @@ function _saveExclusions() {
   }
 }
 
-function _restoreExclusions() {
+export function _restoreExclusions() {
   try {
     const raw = localStorage.getItem(EXCL_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
     for (const [k, v] of Object.entries(data)) {
-      if (k && v) excludedClients.set(k, v);
+      if (k && v) _S.excludedClients.set(k, v);
     }
   } catch (e) {
     console.warn('Exclusions restore failed :', e);
@@ -179,7 +181,7 @@ const IDB_NAME    = 'PRISME';
 const IDB_VERSION = 1;
 const IDB_STORE   = 'session';
 
-function _openDB() {
+export function _openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
     req.onupgradeneeded = () => {
@@ -192,7 +194,7 @@ function _openDB() {
 }
 
 // Sauvegarde complète — appelé de façon non bloquante (sans await dans le flux principal)
-async function _saveSessionToIDB() {
+export async function _saveSessionToIDB() {
   try {
     const db = await _openDB();
     const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -201,52 +203,52 @@ async function _saveSessionToIDB() {
       version: '3.0',
       timestamp: Date.now(),
       // ── Core ──
-      finalData,
-      ventesParMagasin,
-      stockParMagasin,
-      storesIntersection: [...storesIntersection],
-      libelleLookup,
-      articleFamille,
-      articleUnivers,
-      ventesAnalysis,
+      _S.finalData,
+      _S.ventesParMagasin,
+      _S.stockParMagasin,
+      _S.storesIntersection: [...storesIntersection],
+      _S.libelleLookup,
+      _S.articleFamille,
+      _S.articleUnivers,
+      _S.ventesAnalysis,
       blConsommeKeys:  [...blConsommeSet],
-      cockpitLists:    _serializeCockpitLists(cockpitLists),
-      abcMatrixData,
-      canalAgence,
-      clientsMagasin:  [...clientsMagasin],
+      _S.cockpitLists:    _serializeCockpitLists(_S.cockpitLists),
+      _S.abcMatrixData,
+      _S.canalAgence,
+      _S.clientsMagasin:  [...clientsMagasin],
       // ── Client data ──
-      ventesClientArticle:  _serializeNestedMap(ventesClientArticle),
-      clientLastOrder:      [...clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
-      clientNomLookup,
-      ventesClientsPerStore: _serializeSetsObj(ventesClientsPerStore),
-      articleClients:       [...articleClients].map(([k, v]) => [k, [...v]]),
-      clientArticles:       [...clientArticles].map(([k, v]) => [k, [...v]]),
+      _S.ventesClientArticle:  _serializeNestedMap(_S.ventesClientArticle),
+      _S.clientLastOrder:      [...clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
+      _S.clientNomLookup,
+      _S.ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
+      _S.articleClients:       [...articleClients].map(([k, v]) => [k, [...v]]),
+      _S.clientArticles:       [...clientArticles].map(([k, v]) => [k, [...v]]),
       // ── Territoire ──
-      territoireReady,
-      territoireLines,
-      terrDirectionData,
+      _S.territoireReady,
+      _S.territoireLines,
+      _S.terrDirectionData,
       // ── Chalandise ──
-      chalandiseData:    [...chalandiseData],
-      chalandiseReady,
-      chalandiseMetiers,
+      _S.chalandiseData:    [...chalandiseData],
+      _S.chalandiseReady,
+      _S.chalandiseMetiers,
       // ── Périodes ──
-      consommePeriodMin:     consommePeriodMin     ? consommePeriodMin.getTime()     : null,
-      consommePeriodMax:     consommePeriodMax     ? consommePeriodMax.getTime()     : null,
-      consommeMoisCouverts,
-      consommePeriodMinFull: consommePeriodMinFull ? consommePeriodMinFull.getTime() : null,
-      consommePeriodMaxFull: consommePeriodMaxFull ? consommePeriodMaxFull.getTime() : null,
-      globalJoursOuvres,
+      _S.consommePeriodMin:     _S.consommePeriodMin     ? _S.consommePeriodMin.getTime()     : null,
+      _S.consommePeriodMax:     _S.consommePeriodMax     ? _S.consommePeriodMax.getTime()     : null,
+      _S.consommeMoisCouverts,
+      _S.consommePeriodMinFull: _S.consommePeriodMinFull ? _S.consommePeriodMinFull.getTime() : null,
+      _S.consommePeriodMaxFull: _S.consommePeriodMaxFull ? _S.consommePeriodMaxFull.getTime() : null,
+      _S.globalJoursOuvres,
       // ── Compteurs agences (non dérivables fiablement post-restore) ──
-      storeCountConsomme,
-      storeCountStock,
+      _S.storeCountConsomme,
+      _S.storeCountStock,
       // ── Préférences ──
-      selectedMyStore,
-      selectedObsCompare,
-      obsFilterUnivers,
-      periodFilterStart: periodFilterStart ? periodFilterStart.getTime() : null,
-      periodFilterEnd:   periodFilterEnd   ? periodFilterEnd.getTime()   : null,
+      _S.selectedMyStore,
+      _S.selectedObsCompare,
+      _S.obsFilterUnivers,
+      _S.periodFilterStart: _S.periodFilterStart ? _S.periodFilterStart.getTime() : null,
+      _S.periodFilterEnd:   _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
       // ── Benchmark (cache rendu) ──
-      benchLists: _serializeBenchLists(benchLists),
+      _S.benchLists: _serializeBenchLists(_S.benchLists),
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -258,7 +260,7 @@ async function _saveSessionToIDB() {
 }
 
 // Restauration — retourne true si succès, false sinon
-async function _restoreSessionFromIDB() {
+export async function _restoreSessionFromIDB() {
   try {
     const db  = await _openDB();
     const tx  = db.transaction(IDB_STORE, 'readonly');
@@ -273,54 +275,54 @@ async function _restoreSessionFromIDB() {
       return false;
     }
 
-    finalData            = data.finalData            || [];
-    ventesParMagasin     = data.ventesParMagasin     || {};
-    stockParMagasin      = data.stockParMagasin      || {};
-    storesIntersection   = new Set(data.storesIntersection || []);
-    libelleLookup        = data.libelleLookup        || {};
-    articleFamille       = data.articleFamille       || {};
-    articleUnivers       = data.articleUnivers       || {};
-    ventesAnalysis       = data.ventesAnalysis       || {};
-    blConsommeSet        = new Set(data.blConsommeKeys || []);
-    cockpitLists         = _deserializeCockpitLists(data.cockpitLists || {});
-    abcMatrixData        = data.abcMatrixData        || {};
-    canalAgence          = data.canalAgence          || {};
-    clientsMagasin       = new Set(data.clientsMagasin || []);
+    _S.finalData            = data.finalData            || [];
+    _S.ventesParMagasin     = data.ventesParMagasin     || {};
+    _S.stockParMagasin      = data.stockParMagasin      || {};
+    _S.storesIntersection   = new Set(data.storesIntersection || []);
+    _S.libelleLookup        = data.libelleLookup        || {};
+    _S.articleFamille       = data.articleFamille       || {};
+    _S.articleUnivers       = data.articleUnivers       || {};
+    _S.ventesAnalysis       = data.ventesAnalysis       || {};
+    _S.blConsommeSet        = new Set(data.blConsommeKeys || []);
+    _S.cockpitLists         = _deserializeCockpitLists(data.cockpitLists || {});
+    _S.abcMatrixData        = data.abcMatrixData        || {};
+    _S.canalAgence          = data.canalAgence          || {};
+    _S.clientsMagasin       = new Set(data.clientsMagasin || []);
 
-    ventesClientArticle   = _deserializeNestedMap(data.ventesClientArticle || []);
-    clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
-    clientNomLookup       = data.clientNomLookup       || {};
-    ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
-    articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
-    clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
+    _S.ventesClientArticle   = _deserializeNestedMap(data.ventesClientArticle || []);
+    _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
+    _S.clientNomLookup       = data.clientNomLookup       || {};
+    _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
+    _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
+    _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
-    territoireReady   = data.territoireReady   || false;
-    territoireLines   = data.territoireLines   || [];
-    terrDirectionData = data.terrDirectionData || {};
+    _S.territoireReady   = data.territoireReady   || false;
+    _S.territoireLines   = data.territoireLines   || [];
+    _S.terrDirectionData = data.terrDirectionData || {};
 
-    chalandiseData    = new Map(data.chalandiseData || []);
-    chalandiseReady   = data.chalandiseReady   || false;
-    chalandiseMetiers = data.chalandiseMetiers || [];
+    _S.chalandiseData    = new Map(data.chalandiseData || []);
+    _S.chalandiseReady   = data.chalandiseReady   || false;
+    _S.chalandiseMetiers = data.chalandiseMetiers || [];
 
-    consommePeriodMin     = data.consommePeriodMin     ? new Date(data.consommePeriodMin)     : null;
-    consommePeriodMax     = data.consommePeriodMax     ? new Date(data.consommePeriodMax)     : null;
-    consommeMoisCouverts  = data.consommeMoisCouverts  || 0;
-    consommePeriodMinFull = data.consommePeriodMinFull ? new Date(data.consommePeriodMinFull) : null;
-    consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : null;
-    globalJoursOuvres     = data.globalJoursOuvres     || 250;
+    _S.consommePeriodMin     = data.consommePeriodMin     ? new Date(data.consommePeriodMin)     : null;
+    _S.consommePeriodMax     = data.consommePeriodMax     ? new Date(data.consommePeriodMax)     : null;
+    _S.consommeMoisCouverts  = data.consommeMoisCouverts  || 0;
+    _S.consommePeriodMinFull = data.consommePeriodMinFull ? new Date(data.consommePeriodMinFull) : null;
+    _S.consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : null;
+    _S.globalJoursOuvres     = data.globalJoursOuvres     || 250;
 
-    storeCountConsomme = data.storeCountConsomme || 0;
-    storeCountStock    = data.storeCountStock    || 0;
-    selectedMyStore    = data.selectedMyStore    || '';
-    selectedObsCompare = data.selectedObsCompare || 'median';
-    obsFilterUnivers   = data.obsFilterUnivers   || '';
-    periodFilterStart  = data.periodFilterStart  ? new Date(data.periodFilterStart)  : null;
-    periodFilterEnd    = data.periodFilterEnd    ? new Date(data.periodFilterEnd)    : null;
+    _S.storeCountConsomme = data.storeCountConsomme || 0;
+    _S.storeCountStock    = data.storeCountStock    || 0;
+    _S.selectedMyStore    = data.selectedMyStore    || '';
+    _S.selectedObsCompare = data.selectedObsCompare || 'median';
+    _S.obsFilterUnivers   = data.obsFilterUnivers   || '';
+    _S.periodFilterStart  = data.periodFilterStart  ? new Date(data.periodFilterStart)  : null;
+    _S.periodFilterEnd    = data.periodFilterEnd    ? new Date(data.periodFilterEnd)    : null;
 
-    benchLists = _deserializeBenchLists(data.benchLists || {});
+    _S.benchLists = _deserializeBenchLists(data.benchLists || {});
 
     _idbTimestamp = data.timestamp;
-    console.log('[PRISME] session restaurée depuis IndexedDB (' + finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
+    console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
     return true;
   } catch (e) {
     console.warn('[PRISME] restauration IndexedDB échouée :', e);
@@ -329,7 +331,7 @@ async function _restoreSessionFromIDB() {
 }
 
 // Vider le store IndexedDB
-async function _clearIDB() {
+export async function _clearIDB() {
   try {
     const db = await _openDB();
     const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -340,7 +342,7 @@ async function _clearIDB() {
 }
 
 // Migration transparente : PILOT_PRO (ancienne base) → PRISME
-async function _migrateIDB() {
+export async function _migrateIDB() {
   try {
     const req = indexedDB.open('PILOT_PRO', 1);
     let oldDb = null;
@@ -379,13 +381,13 @@ async function _migrateIDB() {
 
 // ── Helpers sérialisation Set / Map ───────────────────────────
 
-function _serializeCockpitLists(cl) {
+export function _serializeCockpitLists(cl) {
   const out = {};
   for (const [k, v] of Object.entries(cl)) out[k] = v instanceof Set ? [...v] : v;
   return out;
 }
 
-function _deserializeCockpitLists(cl) {
+export function _deserializeCockpitLists(cl) {
   const setKeys = new Set(['ruptures', 'fantomes', 'anomalies', 'saso', 'dormants', 'fins', 'top20', 'nouveautes', 'colisrayon']);
   const out = {};
   for (const [k, v] of Object.entries(cl)) out[k] = (setKeys.has(k) && Array.isArray(v)) ? new Set(v) : v;
@@ -393,25 +395,25 @@ function _deserializeCockpitLists(cl) {
 }
 
 // Map<string, Map<string, obj>> ↔ array de [key, array de [key, obj]]
-function _serializeNestedMap(m) {
+export function _serializeNestedMap(m) {
   return [...m].map(([k, inner]) => [k, [...inner]]);
 }
-function _deserializeNestedMap(arr) {
+export function _deserializeNestedMap(arr) {
   return new Map(arr.map(([k, inner]) => [k, new Map(inner)]));
 }
 
 // { store: Set<code> } ↔ { store: [...codes] }
-function _serializeSetsObj(obj) {
+export function _serializeSetsObj(obj) {
   const out = {};
   for (const [k, v] of Object.entries(obj)) out[k] = v instanceof Set ? [...v] : v;
   return out;
 }
-function _deserializeSetsObj(obj) {
+export function _deserializeSetsObj(obj) {
   const out = {};
   for (const [k, v] of Object.entries(obj)) out[k] = Array.isArray(v) ? new Set(v) : v;
   return out;
 }
 
-// benchLists ne contient pas de Sets actuellement
-function _serializeBenchLists(bl) { return { ...bl }; }
-function _deserializeBenchLists(bl) { return bl || { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] }; }
+// _S.benchLists ne contient pas de Sets actuellement
+export function _serializeBenchLists(bl) { return { ...bl }; }
+export function _deserializeBenchLists(bl) { return bl || { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] }; }
