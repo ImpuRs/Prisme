@@ -75,22 +75,32 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   function _onMetierFilter(val){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_S._selectedMetier=(!val||metiers.has(val))?val:'';if(_S._selectedMetier===val)_buildChalandiseOverview();}
   function _navigateToOverviewMetier(metier){
     closeDiagnostic();
-    // Set métier filter
     _S._selectedMetier=metier;
-    // Uncheck perdus >24m
     _S._includePerdu24m=false;
     const cb=document.querySelector('#togglePerdu24m input');
     if(cb)cb.checked=false;
+    // Reset les deux scroll containers avant switchTab
+    window.scrollTo(0,0);
+    const _mcNav=document.getElementById('mainContent');
+    if(_mcNav){_mcNav.style.overflow='';_mcNav.scrollTop=0;}
     switchTab('territoire');
-    setTimeout(()=>{
-      // Force-set input AFTER rendering — datalist update in _buildOverviewFilterChips can
-      // reset the value in some browsers before the assignment executes
-      const metInput=document.getElementById('terrMetierFilter');
-      if(metInput){metInput.value=metier;metInput.classList.add('border-rose-400','ring-1','ring-rose-300');}
-      _onMetierFilter(metier);
+    // Poll position cumulative stable puis scroll + filtre métier
+    let _ltNav=-1,_trNav=0;
+    const _pvNav=setInterval(()=>{
+      const mc=document.getElementById('mainContent');
       const cockpit=document.getElementById('terrCockpitClient');
-      if(cockpit)cockpit.scrollIntoView({behavior:'smooth'});
-    },200);
+      if(!mc||!cockpit){if(++_trNav>40)clearInterval(_pvNav);return;}
+      // Force-set input métier à chaque poll jusqu'à stabilisation
+      const metInput=document.getElementById('terrMetierFilter');
+      if(metInput&&metInput.value!==metier){metInput.value=metier;metInput.classList.add('border-rose-400','ring-1','ring-rose-300');_onMetierFilter(metier);}
+      // Position cumulative réelle relative au scroll container
+      let e=cockpit,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}
+      if((t===_ltNav&&t>0)||_trNav++>40){
+        clearInterval(_pvNav);
+        window.scrollTo(0,0);
+        mc.scrollTo({top:t-16,behavior:'smooth'});
+      }else _ltNav=t;
+    },100);
   }
   function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
   function _buildOverviewFilterChips(){
@@ -2705,7 +2715,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
           <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
           ${diagBtn}
-          <div class="cell-reco">${key} — ${RECOS[key]}</div>
         </div></td>`;
       }
       html+='</tr>';
