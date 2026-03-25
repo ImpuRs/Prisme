@@ -146,6 +146,9 @@ _S.metierFamBench = {};    // metier → {fam → {nbClients, totalCA}}
 _S.seasonalIndex = {};         // famille → [12 coefficients]
 _S.articleMonthlySales = {};   // code → [12 mois qtés]
 
+// ── Opportunité nette Client×Famille (C1) ──
+_S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
+
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
@@ -221,6 +224,9 @@ export function resetAppState() {
 
   // Moteur saisonnier
   _S.seasonalIndex = {}; _S.articleMonthlySales = {};
+
+  // Opportunité nette
+  _S.opportuniteNette = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

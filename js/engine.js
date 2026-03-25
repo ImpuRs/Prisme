@@ -562,6 +562,40 @@ export function computeReconquestCohort() {
   _S.reconquestCohort = cohort;
 }
 
+// ── C1: Opportunité nette Client×Famille ──────────────────────
+export function computeOpportuniteNette() {
+  if (!_S.metierFamBench || !Object.keys(_S.metierFamBench).length) {
+    _S.opportuniteNette = [];
+    return;
+  }
+  const results = [];
+  for (const [cc, info] of _S.chalandiseData.entries()) {
+    if (!info.metier) continue;
+    const bench = _S.metierFamBench[info.metier];
+    if (!bench) continue;
+    const clientFams = _S.clientFamCA ? (_S.clientFamCA[cc] || {}) : {};
+    const totalMetierClients = _S.clientsByMetier.get(info.metier)?.size || 1;
+    const missing = [];
+    for (const [fam, data] of Object.entries(bench)) {
+      if (clientFams[fam]) continue;
+      const pct = Math.round((data.nbClients / totalMetierClients) * 100);
+      if (pct < 30) continue;
+      missing.push({ fam, metierPct: pct, metierCA: Math.round(data.totalCA / data.nbClients) });
+    }
+    if (missing.length === 0) continue;
+    missing.sort((a, b) => b.metierPct - a.metierPct);
+    const totalPotentiel = missing.reduce((s, m) => s + m.metierCA, 0);
+    results.push({
+      cc, nom: info.nom || _S.clientNomLookup[cc] || cc,
+      metier: info.metier, commercial: info.commercial || '',
+      missingFams: missing.slice(0, 5),
+      totalPotentiel, nbMissing: missing.length
+    });
+  }
+  results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
+  _S.opportuniteNette = results;
+}
+
 // ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
 export function computeSPC(cc, info) {
   let score = 0;
