@@ -4228,6 +4228,7 @@ window._closePromoSuggest = _closePromoSuggest;
 window._onPromoImportFileChange = _onPromoImportFileChange;
 window._onPromoInput = _onPromoInput;
 window._promoSuggestKeydown = _promoSuggestKeydown;
+window._selectPromoSuggestion = _selectPromoSuggestion;
 window._resetPromoFilters = _resetPromoFilters;
 window._togglePromoImportSection = _togglePromoImportSection;
 window._togglePromoSection = _togglePromoSection;
