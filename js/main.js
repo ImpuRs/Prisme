@@ -2917,7 +2917,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       computeClientCrossing();
       _S.currentPage=0;
       renderAll();
-      if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();}
+      if(useMulti){
+        _buildObsUniversDropdown();
+        buildBenchBassinSelect();
+        renderBenchmark();
+        launchReseauWorker().then(()=>{
+          renderNomadesMissedArts();
+        }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
+      }
       if(_S.territoireReady){renderTerritoireTab();}
 
       // 5. Activer Cockpit + replier l'import (L2487-2488)
