@@ -331,7 +331,7 @@ function _renderDiagnosticCellPanel(key,cellArts){
         // Perdus pertinents (reconquête) vs Prospects métier (conquête)
         let pertinentPerdus=0,prospectMetier=0,potentiel=0;
         for(const[cc,info] of _S.chalandiseData.entries()){if(info.metier!==metier||buyerSet.has(cc))continue;const clientData=_S.ventesClientArticle.get(cc);const hasHistory=clientData&&[...clientData.keys()].some(artCode=>{const artFam=_S.articleFamille[artCode];return artFam&&cellFamSet.has(artFam);});if(hasHistory){pertinentPerdus++;potentiel+=clientData?[...clientData.entries()].filter(([c])=>{const f=_S.articleFamille[c];return f&&cellFamSet.has(f);}).reduce((s,[,d])=>s+d.sumPrelevee,0):Math.round((info.ca2025||0)*0.05);}else{prospectMetier++;}}
-        return{metier,pct,total:buyerSet.size,actifs:actifClients.length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
+        return{metier,pct,total:buyerSet.size,actifs:actifClients.filter(c=>c.famCA>0).length,caActifs,perdus:pertinentPerdus,prospects:prospectMetier,potentiel,clients:actifClients};
       });
       const totalPerdus=metiers.reduce((s,m)=>s+m.perdus,0);
       const totalProspects=metiers.reduce((s,m)=>s+(m.prospects||0),0);
