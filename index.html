@@ -1388,7 +1388,7 @@
       <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 class="text-2xl font-extrabold">🔭 Le Réseau — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span></h2>
+            <h2 class="text-2xl font-extrabold">🔭 Le Réseau — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span><span id="obsMyRankInline" class="hidden ml-3 text-sm font-bold bg-white/20 px-3 py-1 rounded-full"></span></h2>
             <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Analyse réseau</p>
           </div>
           <span id="benchRecalcTime" class="text-xs c-ok font-mono"></span>
@@ -1413,6 +1413,28 @@
         <span id="obsKpiMyLabel" class="hidden"></span>
         <tbody id="obsKpiBody" class="hidden"></tbody>
       </div>
+      <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
+      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead class="s-panel-inner t-inverse font-bold sticky top-0">
+              <tr>
+                <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Tx marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA. Colonnes VMB du consommé.">ℹ</em></th>
+                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement par Nb ventes (BL prélevé) décroissant. #1 = agence la plus active du bassin.">ℹ</em></th>
+              </tr>
+            </thead>
+            <tbody id="benchStoreTable"></tbody>
+          </table>
+        </div>
+      </details>
       <!-- 3. PLAN D'ACTION — ouvert par défaut -->
       <details open class="s-card rounded-xl shadow-md border-2 border-blue-300 mb-6">
         <summary class="px-5 py-3 i-info-bg border-b b-light select-none flex items-center justify-between hover:i-info-bg">
@@ -1489,6 +1511,7 @@
                 <th id="pepitesOtherMeLabel" class="py-2 px-3 text-center whitespace-nowrap">Fréq Moi</th>
                 <th id="pepitesOtherCompLabel" class="py-2 px-3 text-center whitespace-nowrap">Fréq réseau</th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Écart %<em class="info-tip" data-tip="(Fréq réseau / Fréq Moi - 1) × 100. +200% = le réseau vend 3× plus souvent. 'Absent' = vous ne vendez pas cet article du tout.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de votre zone de chalandise susceptibles d'acheter cet article (estimé par famille). Nécessite la Zone de Chalandise.">ℹ</em></th>
                 <th id="pepitesOtherCALabel" class="py-2 px-3 text-right whitespace-nowrap">CA médiane</th>
               </tr>
             </thead>
@@ -1508,29 +1531,6 @@
         <div id="reseauHeatmapContainer" class="p-3"></div>
       </details>
 
-      <!-- CLASSEMENT AGENCES — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
-          <span class="acc-arrow t-tertiary">▶</span>
-        </summary>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-              <tr>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Tx marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA. Colonnes VMB du consommé.">ℹ</em></th>
-                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement par Nb ventes (BL prélevé) décroissant. #1 = agence la plus active du bassin.">ℹ</em></th>
-              </tr>
-            </thead>
-            <tbody id="benchStoreTable"></tbody>
-          </table>
-        </div>
-      </details>
       <!-- 5. FAMILLES AU-DESSUS DE LA MÉDIANE — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
         <summary class="px-5 py-3 i-ok-bg border-b b-light select-none flex items-center justify-between hover:i-ok-bg">
