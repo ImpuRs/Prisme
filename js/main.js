@@ -2715,7 +2715,6 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
           <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
           <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
           ${diagBtn}
-          <div class="cell-reco">${key} — ${RECOS[key]}</div>
         </div></td>`;
       }
       html+='</tr>';
