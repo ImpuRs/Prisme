@@ -940,29 +940,37 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   if(l4&&l4.perdus>0){
     const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
     acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{
-      // Fermeture overlay inline
+      // --- FIX SCROLL TERRITOIRE (Radar→Territoire + Diagnostic→Territoire) ---
+      // 1. Fermer overlay inline
       const overlay=document.getElementById('diagnosticOverlay');
       overlay.classList.remove('active');
       document.body.style.overflow='';
-      const mainContent=document.getElementById('mainContent');
-      if(mainContent){mainContent.style.overflow='';mainContent.style.overflowY='';}
-      const filterFamille=document.getElementById('filterFamille');
-      if(filterFamille)filterFamille.value='';
-      // Force reflow synchrone
-      void overlay.offsetHeight;
-      // Navigation
-      switchTab('territoire');
-      // Poll stabilisation scrollHeight (remplace setTimeout + poll DOM)
       const _mc=document.getElementById('mainContent');
-      let _lastH=0,_tries=0;
-      const _stabilize=setInterval(()=>{
-        const _h=_mc?_mc.scrollHeight:0;
-        if((_h===_lastH&&_h>0)||_tries++>40){
-          clearInterval(_stabilize);
-          const _el=document.getElementById('terrChalandiseOverview');
-          if(_el)_el.scrollIntoView({behavior:'smooth',block:'start'});
-        }else{_lastH=_h;}
+      if(_mc){_mc.style.overflow='';_mc.style.overflowY='';}
+      const _ff=document.getElementById('filterFamille');
+      if(_ff)_ff.value='';
+      void overlay.offsetHeight; // reflow synchrone
+      // 2. Reset les DEUX scroll containers (window scrolle aussi selon onglet source)
+      window.scrollTo(0,0);
+      if(_mc)_mc.scrollTop=0;
+      // 3. Naviguer
+      switchTab('territoire');
+      // 4. Poll position cumulative stable, puis scroll
+      let _lastTop=-1,_tries=0;
+      const _poll=setInterval(()=>{
+        const mc=document.getElementById('mainContent');
+        const terr=document.getElementById('terrChalandiseOverview');
+        if(!mc||!terr){if(++_tries>40)clearInterval(_poll);return;}
+        // Position réelle relative au scroll container (pas juste offsetTop direct)
+        let el=terr,top=0;
+        while(el&&el!==mc){top+=el.offsetTop;el=el.offsetParent;}
+        if((top===_lastTop&&top>0)||_tries++>40){
+          clearInterval(_poll);
+          window.scrollTo(0,0); // sécurité si window a re-scrollé
+          mc.scrollTo({top:top-16,behavior:'smooth'});
+        }else{_lastTop=top;}
       },100);
+      // --- FIN FIX ---
     }});
   }
   return acts.sort((a,b)=>a.priority-b.priority);
