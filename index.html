@@ -1377,6 +1377,17 @@
             </table>
           </div>
         </details>
+        <!-- Heatmap Famille × Commercial -->
+        <details class="s-card rounded-xl shadow-md border b-light mb-6">
+          <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+            <div class="flex items-center gap-2">
+              <h3 class="font-extrabold t-primary text-sm">🗺️ Carte de chaleur — Famille × Commercial</h3>
+              <span class="text-[10px] t-disabled">CA comptoir par commercial et famille (top 20) · nécessite la chalandise</span>
+            </div>
+            <span class="acc-arrow t-tertiary">▶</span>
+          </summary>
+          <div id="heatmapContainer" class="s-card rounded-xl border shadow-sm p-3"></div>
+        </details>
         <!-- Cockpit Client -->
         <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
@@ -1519,17 +1530,6 @@
           </table>
         </div>
       </details>
-      <!-- HEATMAP RÉSEAU — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border mb-6" id="reseauHeatmapDetails">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-          <div class="flex items-center gap-2">
-            <h3 class="font-extrabold t-primary text-sm">🗺️ Heatmap réseau — Top 20 familles</h3>
-            <span class="text-[10px] t-disabled">Ratio vs médiane réseau par agence · vert ≥ 100% · orange 50–99% · rouge &lt; 50%</span>
-          </div>
-          <span class="acc-arrow t-tertiary">▶</span>
-        </summary>
-        <div id="reseauHeatmapContainer" class="p-3"></div>
-      </details>
 
       <!-- 5. FAMILLES AU-DESSUS DE LA MÉDIANE — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
@@ -1538,15 +1538,6 @@
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] i-ok-bg c-ok py-1 px-2 rounded font-bold hover:i-ok-bg b-light">📋 Copier</button><span class="acc-arrow c-ok">▶</span></div>
         </summary>
         <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
-      </details>
-      <!-- C4: Heatmap Famille × Commercial -->
-      <details class="mt-6">
-        <summary class="cursor-pointer flex items-center gap-2 mb-2">
-          <span class="acc-arrow t-disabled">▶</span>
-          <h3 class="font-extrabold text-sm t-primary">🗺️ Carte de chaleur — Famille × Commercial</h3>
-          <span class="text-[10px] t-disabled">CA comptoir par commercial et famille (top 20)</span>
-        </summary>
-        <div id="heatmapContainer" class="s-card rounded-xl border shadow-sm p-3"></div>
       </details>
 
       <!-- NOMADES RÉSEAU — clients actifs dans ≥2 agences -->
