@@ -1181,7 +1181,7 @@ import { initRouter } from './router.js';
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
-      _S.finalData=[];_S.libelleLookup={};_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set()};
+      _S.finalData=[];_S.libelleLookup={};_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
       _S.parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
@@ -1268,6 +1268,7 @@ import { initRouter } from './router.js';
         if(terrRaw&&terrRaw.length){
           await launchTerritoireWorker(terrRaw,updateTerrProgress);
           updatePipeline('territoire','done');
+          computePhantomArticles();
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
           _saveToCache(); _saveSessionToIDB(); // Resauvegarder avec les données territoire
@@ -1308,6 +1309,15 @@ import { initRouter } from './router.js';
     const dd=document.getElementById('terrSecteurDropdown');
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
   });
+
+  // A4: Fantômes de rayon — en stock mais absents du territoire
+  function computePhantomArticles(){
+    _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
+    if(!_S.territoireReady||!_S.finalData.length)return;
+    const terrCodes=new Set(_S.territoireLines.map(l=>l.code));
+    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!terrCodes.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
+    _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
+  }
 
   function renderTerritoireTab(){
     const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
@@ -2881,7 +2891,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function renderDashboardAndCockpit(){
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
-    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set()};
+    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
     _S.parentRefsExcluded=0;
     const dataSource=(_S.filteredData.length>0&&_S.filteredData.length<_S.finalData.length)?_S.filteredData:_S.finalData;
     // CA perdu — contexte multi vs mono agence
@@ -2949,6 +2959,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     setSc('scDormantsCount',lstD.length);setSc('scDormantsVal',scDVal>0?formatEuro(scDVal):'—');
     setSc('scFinsCount',lstFi.length);setSc('scFinsVal',scFiVal>0?formatEuro(scFiVal):'—');
     const scSnVal=Math.abs(lstStockNeg.reduce((s,i)=>s+i.sv,0));setSc('scStocknegCount',lstStockNeg.length);setSc('scStocknegVal',scSnVal>0?formatEuro(scSnVal):'—');
+    // A4: update phantom shortcut counter
+    {const phantomEl=document.getElementById('shortcutPhantomCount');if(phantomEl&&_S.phantomArticles.length>0){phantomEl.textContent=_S.phantomArticles.length+' art. · '+formatEuro(_S.phantomArticles.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));}}
 
     // V23: Show excluded parent refs count
     const exclEl=document.getElementById('rupturesExcluded');
@@ -4153,6 +4165,7 @@ window.onSecteurChange = onSecteurChange;
 window.onChalandiseSelected = onChalandiseSelected;
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
+window.computePhantomArticles = computePhantomArticles;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;

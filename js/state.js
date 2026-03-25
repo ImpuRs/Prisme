@@ -132,6 +132,9 @@ _S._diagMetierFilter = '';
 _S._diagCurrentFamille = '';
 _S._diagCurrentSource = '';
 
+// ── Fantômes de rayon ──
+_S.phantomArticles = [];
+
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
@@ -195,6 +198,9 @@ export function resetAppState() {
   // Briefing data
   _S._briefingData = null;
   _S._iccData = null; _S._fragiliteData = null;
+
+  // Fantômes de rayon
+  _S.phantomArticles = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

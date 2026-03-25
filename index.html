@@ -1041,7 +1041,7 @@
       <!-- V24.3: Quick Access shortcuts -->
       <div class="mb-8">
         <h3 class="font-bold t-primary mb-3 flex items-center gap-2">🔗 Accès rapide <span class="text-[10px] font-normal t-disabled">— cliquez pour filtrer les Articles</span></h3>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes')" style="border-left-color:#f87171">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
             <div class="font-semibold text-xs t-primary">Sans emplacement</div>
@@ -1067,6 +1067,11 @@
             <div class="flex items-center justify-between mb-2"><span class="text-lg">🏆</span><span class="badge i-ok-bg c-ok">20</span></div>
             <div class="font-semibold text-xs t-primary">Top 20 fréquence</div>
             <div class="text-[10px] c-ok mt-1">par nb commandes</div>
+          </div>
+          <div class="shortcut-card" onclick="showCockpitInTable('phantom')" style="border-left-color:#a78bfa">
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scPhantomCount" class="badge" style="background:rgba(167,139,250,.2);color:#a78bfa">0</span></div>
+            <div class="font-semibold text-xs t-primary">Fantômes de rayon</div>
+            <p id="shortcutPhantomCount" class="text-[10px] font-bold mt-1" style="color:#a78bfa">—</p>
           </div>
         </div>
       </div>
