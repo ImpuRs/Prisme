@@ -230,6 +230,65 @@ export function launchTerritoireWorker(rows, progressCb) {
   });
 }
 
+// ── B1: Client aggregation Worker ────────────────────────────
+export function _clientWorker() {
+  self.onmessage = function(e) {
+    const { ventesCA, chalandise, articleFamille } = e.data;
+    const clientFamCA = {};
+    for (const [cc, articles] of ventesCA) {
+      clientFamCA[cc] = {};
+      for (const [code, data] of articles) {
+        const fam = articleFamille[code] || '';
+        if (fam) clientFamCA[cc][fam] = (clientFamCA[cc][fam] || 0) + (data.sumCA || 0);
+      }
+    }
+    const metierFamBench = {};
+    for (const [cc, info] of chalandise) {
+      if (!info.metier) continue;
+      const fams = clientFamCA[cc];
+      if (!fams) continue;
+      if (!metierFamBench[info.metier]) metierFamBench[info.metier] = {};
+      for (const [fam, ca] of Object.entries(fams)) {
+        if (!metierFamBench[info.metier][fam]) metierFamBench[info.metier][fam] = { nbClients: 0, totalCA: 0 };
+        metierFamBench[info.metier][fam].nbClients++;
+        metierFamBench[info.metier][fam].totalCA += ca;
+      }
+    }
+    self.postMessage({ clientFamCA, metierFamBench });
+  };
+}
+
+export function launchClientWorker(progressCb) {
+  return new Promise((resolve, reject) => {
+    try {
+      const code = `(${_clientWorker.toString()})()`;
+      const blob = new Blob([code], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const worker = new Worker(url);
+      const ventesCA = [];
+      for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
+        const arts = [];
+        for (const [code2, data] of artMap.entries()) arts.push([code2, data]);
+        ventesCA.push([cc, arts]);
+      }
+      const chalandise = [];
+      for (const [cc, info] of _S.chalandiseData.entries()) {
+        chalandise.push([cc, { metier: info.metier, statut: info.statut, classification: info.classification, ca2025: info.ca2025 }]);
+      }
+      worker.onmessage = (e) => {
+        _S.clientFamCA = e.data.clientFamCA;
+        _S.metierFamBench = e.data.metierFamBench;
+        worker.terminate(); URL.revokeObjectURL(url);
+        if (progressCb) progressCb(100);
+        resolve();
+      };
+      worker.onerror = (err) => { worker.terminate(); URL.revokeObjectURL(url); reject(err); };
+      worker.postMessage({ ventesCA, chalandise, articleFamille: _S.articleFamille });
+      if (progressCb) progressCb(10);
+    } catch (err) { reject(err); }
+  });
+}
+
 // ── Secteur multi-select helpers ──────────────────────────────
 export function buildSecteurCheckboxes(secteurs) {
   const div = document.getElementById('terrSecteurCheckboxes'); if (!div) return;

@@ -12,8 +12,8 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC } from './engine.js';
+import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
@@ -879,6 +879,8 @@ import { initRouter } from './router.js';
     developper.forEach(c=>c._reason=_devRaison(c));
     fideliser.forEach(c=>c._reason=_fidRaison(c));
     _S._cockpitExportData={silencieux,urgences,developper,fideliser};
+    // B2: SPC badge
+    function _spcBadge(spc){if(spc==null)return'';const color=spc>=70?'c-danger font-extrabold':spc>=40?'c-caution font-bold':'t-disabled';return`<span class="text-[10px] ${color} ml-1" title="Score Potentiel Client (SPC)">${spc}</span>`;}
     // A5: Badges alertes inline client (inactif / rupture / reconquête)
     function _clientBadges(cc){
       let badges='';
@@ -896,7 +898,8 @@ import { initRouter } from './router.js';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      const _spc=_S.chalandiseReady?computeSPC(c.code,_S.chalandiseData.get(c.code)||{}):null;
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${_spcBadge(_spc)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1117,6 +1120,7 @@ import { initRouter } from './router.js';
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
       const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.clientNomLookup={};_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2: détecter la colonne N° commande avant la boucle — éviter le collapse sur clé 'C'
@@ -1134,6 +1138,8 @@ import { initRouter } from './router.js';
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
+      // B3: monthly sales accumulation
+      if(dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
       // V2 Phase 1: _S.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
@@ -1162,6 +1168,10 @@ import { initRouter } from './router.js';
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
       updatePipeline('consomme','done');
+      // B3: Moteur saisonnier — agrégation par famille
+      {const familyMonthly={};for(const[code,months] of Object.entries(monthlySales)){const fam=_S.articleFamille[code];if(!fam)continue;if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];}
+      _S.seasonalIndex={};for(const[fam,months] of Object.entries(familyMonthly)){const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;_S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);}
+      _S.articleMonthlySales=monthlySales;}
 
       const synth={};
       for(const[code,art] of Object.entries(articleRaw)){const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);let maxP=0,cntP=0,sumP=0;if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
@@ -1262,7 +1272,9 @@ import { initRouter } from './router.js';
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
-      computeClientCrossing();computeReconquestCohort();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      computeClientCrossing();computeReconquestCohort();
+      if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
+      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -2168,6 +2180,15 @@ import { initRouter } from './router.js';
       }
     }
 
+    // B2: enrich sections with SPC and sort
+    if(_S.chalandiseReady){
+      for(const c of sectionA){const info=_S.chalandiseData.get(c.cc)||{};c.spc=computeSPC(c.cc,info);}
+      sectionA.sort((a,b)=>(b.spc||0)-(a.spc||0));
+      for(const c of sectionB){const info=_S.chalandiseData.get(c.cc)||{};c.spc=computeSPC(c.cc,info);}
+      sectionB.sort((a,b)=>(b.spc||0)-(a.spc||0));
+      for(const c of sectionC){const info=_S.chalandiseData.get(c.cc)||{};c.spc=computeSPC(c.cc,info);}
+      sectionC.sort((a,b)=>(b.spc||0)-(a.spc||0));
+    }
     _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
     _populatePromoFilterDropdowns();
     _renderPromoResults();
@@ -2235,6 +2256,49 @@ import { initRouter } from './router.js';
 
   function _applyPromoFilters(){_renderPromoResults();}
 
+  // B4: Mode Action Promo
+  let _promoMode='analyse';
+  function _setPromoMode(mode){
+    _promoMode=mode;
+    const aBtn=document.getElementById('promoModeAnalyse');
+    const xBtn=document.getElementById('promoModeAction');
+    const actionView=document.getElementById('promoActionView');
+    if(aBtn)aBtn.className=mode==='analyse'?'text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
+    if(aBtn&&mode==='analyse')aBtn.style.background='rgba(59,130,246,.1)';else if(aBtn)aBtn.style.background='';
+    if(xBtn)xBtn.className=mode==='action'?'text-xs font-bold py-1 px-3 rounded-full border c-danger border-red-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
+    if(xBtn&&mode==='action')xBtn.style.background='rgba(239,68,68,.1)';else if(xBtn)xBtn.style.background='';
+    if(actionView)actionView.classList.toggle('hidden',mode!=='action');
+    document.querySelectorAll('#tabPromo .tab-content-section').forEach(el=>el.classList.toggle('hidden',mode==='action'));
+    if(mode==='action')_renderPromoActionView();
+  }
+  function _renderPromoActionView(){
+    const r=_promoLastResult;
+    if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML='<p class="t-tertiary text-sm">Lancez d\'abord une recherche Promo.</p>';return;}
+    const allClients=new Map();
+    for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
+    const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
+    const clientsEl=document.getElementById('promoActionClients');
+    if(clientsEl)clientsEl.innerHTML=ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
+    if(ranked.length>0)_showActionArticles(ranked[0].cc);
+  }
+  function _showActionArticles(cc){
+    const el=document.getElementById('promoActionArticles');if(!el)return;
+    const r=_promoLastResult;if(!r){el.innerHTML='<p class="t-tertiary text-sm">Aucune recherche active.</p>';return;}
+    const info=_S.chalandiseData.get(cc)||{};
+    const artMap=_S.ventesClientArticle.get(cc)||new Map();
+    const toPitch=[];
+    for(const code of r.matchedCodes){
+      if(artMap.has(code))continue;
+      const ref=_S.finalData.find(d=>d.code===code);
+      const lib=_S.libelleLookup[code]||(ref?ref.libelle:code);
+      const stock=ref?ref.stockActuel:null;
+      toPitch.push({code,lib,stock});
+    }
+    toPitch.sort((a,b)=>{if((a.stock>0)!==(b.stock>0))return(b.stock>0)-(a.stock>0);return a.lib.localeCompare(b.lib);});
+    const nom=info.nom||_S.clientNomLookup[cc]||cc;
+    el.innerHTML=`<p class="text-[10px] t-tertiary mb-2">Articles pour <strong>${nom}</strong> :</p>`+(toPitch.length===0?'<p class="t-disabled text-sm">Client achète déjà tous les articles promo au PDV.</p>':`<div class="space-y-1">${toPitch.slice(0,15).map(a=>{const sb=a.stock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':a.stock>0?`<span class="c-ok text-[9px] font-bold">${a.stock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';return`<div class="flex items-center gap-2 py-1 px-2 s-card-alt rounded text-[11px]"><span class="font-mono t-disabled">${a.code}</span><span class="flex-1 truncate">${a.lib}</span>${sb}</div>`;}).join('')}${toPitch.length>15?`<p class="text-[10px] t-disabled mt-1">+ ${toPitch.length-15} articles</p>`:''}</div>`);
+  }
+
   function _resetPromoFilters(){
     ['promoFilterFamille','promoFilterSousFamille','promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
@@ -2300,17 +2364,18 @@ import { initRouter } from './router.js';
       const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] s-hover t-disabled border b-default rounded px-1 py-0.5 font-normal">hors zone</span>':'';
       const metierCell=c.metier||(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
       const commCell=c.commercial||(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
-      return`<tr class="border-t b-light hover:i-ok-bg cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono t-disabled text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}</td><td class="py-1 px-2 t-tertiary">${metierCell}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary">${fmtD(c.lastDate)}</td><td class="py-1 px-2 t-tertiary">${commCell}</td></tr>`;
+      return`<tr class="border-t b-light hover:i-ok-bg cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono t-disabled text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${metierCell}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary">${fmtD(c.lastDate)}</td><td class="py-1 px-2 t-tertiary">${commCell}</td></tr>`;
     }).join('');
     // Section B
     document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
-    document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-danger">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center t-disabled">'+(_S.territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-danger">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center t-disabled">'+(_S.territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
     // Section C
     document.getElementById('promoCountC').textContent=sC.length+(sC.length<r.sectionC.length?' / '+r.sectionC.length:'');
-    document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.classification||'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
+    document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.classification||'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
     document.getElementById('promoResults').classList.remove('hidden');
     document.getElementById('promoExportBtn').classList.remove('hidden');
     document.getElementById('promoCopyBtn').classList.remove('hidden');
+    _setPromoMode(_promoMode);
   }
 
   function _togglePromoSection(sec){
@@ -3235,6 +3300,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     overlay.classList.add('active');
   }
 
+  // B3: Season ribbon helper
+  function _seasonRibbon(famille){
+    const idx=_S.seasonalIndex[famille];if(!idx)return'';
+    const MONTHS=['J','F','M','A','M','J','J','A','S','O','N','D'];
+    const cells=idx.map((coeff,i)=>{const bg=coeff>=1.5?'bg-emerald-500':coeff>=1.0?'bg-emerald-300':coeff>=0.5?'bg-amber-300':'bg-red-300';return`<div class="text-center" title="${MONTHS[i]}: ×${coeff}"><div class="text-[8px] t-disabled">${MONTHS[i]}</div><div class="w-5 h-3 rounded-sm ${bg}" style="opacity:${Math.max(0.3,Math.min(1,coeff))}"></div></div>`;}).join('');
+    return`<div class="flex gap-0.5 items-end mt-1" title="Saisonnalité famille">${cells}</div>`;
+  }
+
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
     const isMetierMode=famille.startsWith('@metier:');
@@ -3291,6 +3364,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         <div>
           <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+          ${_seasonRibbon(famille)}
           ${agenceCtxHtml}
           <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
@@ -4177,6 +4251,9 @@ window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
+window.computeSPC = computeSPC;
+window._setPromoMode = _setPromoMode;
+window._showActionArticles = _showActionArticles;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
