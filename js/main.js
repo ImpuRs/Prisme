@@ -12,8 +12,8 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker } from './parser.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap } from './engine.js';
+import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
@@ -1288,7 +1288,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderReseauNomades();renderReseauOrphelins();renderReseauFuites();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -2009,6 +2009,143 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     rT('benchStoreTable',p.join(''));
     const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
     renderHeatmapFamilleCommercial();
+    renderReseauHeatmap();
+  }
+
+  // ── Bassin select : peuple <select multiple id="benchBassinSelect"> ───────
+  function buildBenchBassinSelect() {
+    const sel = document.getElementById('benchBassinSelect');
+    if (!sel) return;
+    const stores = [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore).sort();
+    if (!stores.length) { sel.innerHTML = '<option disabled>Aucune autre agence</option>'; return; }
+    let html = '';
+    for (const s of stores) {
+      const selected = _S.selectedBenchBassin.size === 0 || _S.selectedBenchBassin.has(s) ? 'selected' : '';
+      html += `<option value="${s}" ${selected}>${s}</option>`;
+    }
+    sel.innerHTML = html;
+  }
+
+  // Appelé quand la sélection change
+  function onBenchBassinChange() {
+    const sel = document.getElementById('benchBassinSelect');
+    if (!sel) return;
+    _S.selectedBenchBassin = new Set([...sel.selectedOptions].map(o => o.value));
+    // Si tout est sélectionné = équivalent "vide" (fallback getBenchCompareStores)
+    const all = [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
+    if (_S.selectedBenchBassin.size === all.length) _S.selectedBenchBassin = new Set();
+    recalcBenchmarkInstant();
+  }
+  window.onBenchBassinChange = onBenchBassinChange;
+
+  // ── Badge divergence navbar ────────────────────────────────────────────────
+  function _updateNavBenchBadge() {
+    const badge = document.getElementById('navBenchBadge');
+    if (!badge) return;
+    const fe = _S.benchFamEcarts || {};
+    let count = 0;
+    for (const [, v] of Object.entries(fe)) {
+      if (v.sigma > 0 && v.my < v.mean - 2 * v.sigma) count++;
+    }
+    if (count > 0) {
+      badge.textContent = count;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  // ── Heatmap réseau : CSS Grid 20 familles × N agences ─────────────────────
+  function renderReseauHeatmap() {
+    const container = document.getElementById('reseauHeatmapContainer');
+    if (!container) return;
+    computeReseauHeatmap();
+    _updateNavBenchBadge();
+    const d = _S.reseauHeatmapData;
+    if (!d || !d.familles.length) {
+      container.innerHTML = '<p class="t-disabled text-sm p-4">Pas assez de données réseau pour la heatmap (nécessite ≥ 2 agences).</p>';
+      return;
+    }
+    const { familles, agences, matrix } = d;
+    const myStore = _S.selectedMyStore;
+    // Ratio → classe CSS couleur
+    const ratioClass = r => r >= 1 ? 'rayon-green' : r >= 0.5 ? 'rayon-yellow' : 'rayon-red';
+    const ratioLabel = r => r === 0 ? '—' : (r * 100).toFixed(0) + '%';
+
+    let html = '<div class="overflow-x-auto"><table class="min-w-full text-[10px]">';
+    // Header : familles en colonnes, agences en lignes
+    html += '<thead class="sticky top-0 s-panel-inner"><tr>';
+    html += '<th class="py-1 px-2 text-left t-inverse font-bold sticky left-0 s-panel-inner z-10">Agence</th>';
+    for (const fam of familles) {
+      html += `<th class="py-1 px-1 t-inverse-muted font-semibold text-center" style="writing-mode:vertical-rl;white-space:nowrap;max-height:100px;padding:6px 3px" title="${fam}">${fam.length > 18 ? fam.slice(0,16)+'…' : fam}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (const store of agences) {
+      const isMe = store === myStore;
+      const rowCls = isMe ? 'i-info-bg font-bold ring-2 ring-cyan-400' : 'hover:s-card-alt';
+      html += `<tr class="border-b b-light ${rowCls}">`;
+      html += `<td class="py-1 px-2 font-semibold sticky left-0 s-card z-10 whitespace-nowrap">${isMe ? '⭐ ' : ''}${store}</td>`;
+      for (const fam of familles) {
+        const r = (matrix[fam] || {})[store] || 0;
+        const cls = ratioClass(r);
+        html += `<td class="py-1 px-1 text-center font-bold ${cls}" title="${store} · ${fam} : ${ratioLabel(r)}">${ratioLabel(r)}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  // ── Sprint 2 — Réseau : Nomades, Orphelins, Fuites ────────────────────────
+  function renderReseauNomades() {
+    const el = document.getElementById('reseauNomadesContainer');
+    if (!el) return;
+    const list = _S.reseauNomades || [];
+    if (!list.length) { el.innerHTML = '<p class="t-disabled text-sm p-4">Aucun nomade détecté (clients actifs dans ≥ 2 agences).</p>'; return; }
+    let html = `<p class="text-[11px] t-tertiary mb-2">${list.length} client${list.length > 1 ? 's' : ''} actif${list.length > 1 ? 's' : ''} dans cette agence <strong>et dans ≥ 1 autre agence du réseau</strong>.</p>`;
+    html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-center">Statut</th></tr></thead><tbody>';
+    for (const cc of list.slice(0, 100)) {
+      const nom = _S.clientNomLookup[cc] || '—';
+      const info = _S.chalandiseData.get(cc) || {};
+      html += `<tr class="border-b b-light hover:i-info-bg"><td class="py-1 px-2 font-mono text-[10px]">${cc}</td><td class="py-1 px-2 font-semibold">${nom}${_unikLink(cc)}</td><td class="py-1 px-2 text-center">${_clientStatusBadge(cc, info)}</td></tr>`;
+    }
+    if (list.length > 100) html += `<tr><td colspan="3" class="py-2 px-2 text-center t-disabled text-[10px]">… et ${list.length - 100} autres</td></tr>`;
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  }
+
+  function renderReseauOrphelins() {
+    const el = document.getElementById('reseauOrphelinsContainer');
+    if (!el) return;
+    const list = _S.reseauOrphelins || [];
+    if (!list.length) { el.innerHTML = '<p class="t-disabled text-sm p-4">Aucun orphelin réseau (articles vendus par ≥ 50% des agences, absents chez moi).</p>'; return; }
+    let html = `<p class="text-[11px] t-tertiary mb-2">Top <strong>${list.length}</strong> articles vendus par ≥ 50% des agences du réseau, absents dans cette agence.</p>`;
+    html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-center">Nb agences</th><th class="py-1 px-2 text-center">Fréq. réseau</th></tr></thead><tbody>';
+    for (const art of list) {
+      const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
+      html += `<tr class="border-b b-light hover:i-caution-bg"><td class="py-1 px-2 font-mono text-[10px]">${art.code}</td><td class="py-1 px-2 font-semibold max-w-[200px] truncate" title="${lib}">${lib}</td><td class="py-1 px-2 text-[10px] t-tertiary">${art.fam || '—'}</td><td class="py-1 px-2 text-center font-bold c-danger">${art.nbStores}</td><td class="py-1 px-2 text-center t-secondary">${art.totalFreq}</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  }
+
+  function renderReseauFuites() {
+    const el = document.getElementById('reseauFuitesContainer');
+    if (!el) return;
+    const list = _S.reseauFuitesMetier || [];
+    if (!list.length) {
+      if (!_S.chalandiseReady) { el.innerHTML = '<p class="t-disabled text-sm p-4">Chargez la Zone de Chalandise pour analyser les fuites par métier.</p>'; }
+      else { el.innerHTML = '<p class="t-disabled text-sm p-4">Aucune fuite détectée (données insuffisantes).</p>'; }
+      return;
+    }
+    let html = `<p class="text-[11px] t-tertiary mb-2">Indice de fuite = 1 − (clients actifs PDV / clients zone). Plus l'indice est élevé, plus le métier achète ailleurs.</p>`;
+    html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Métier</th><th class="py-1 px-2 text-center">Clients zone</th><th class="py-1 px-2 text-center">Actifs PDV</th><th class="py-1 px-2 text-center">Indice fuite</th></tr></thead><tbody>';
+    for (const f of list) {
+      const cls = f.indiceFuite >= 70 ? 'c-danger font-extrabold' : f.indiceFuite >= 40 ? 'c-caution font-bold' : 'c-ok';
+      html += `<tr class="border-b b-light hover:i-danger-bg"><td class="py-1 px-2 font-semibold">${f.metier}</td><td class="py-1 px-2 text-center">${f.total}</td><td class="py-1 px-2 text-center">${f.actifs}</td><td class="py-1 px-2 text-center ${cls}">${f.indiceFuite}%</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
   }
 
   // C4: Heatmap Famille × Commercial
@@ -2717,7 +2854,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       computeClientCrossing();
       _S.currentPage=0;
       renderAll();
-      if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();}
       if(_S.territoireReady){renderTerritoireTab();}
 
       // 5. Activer Cockpit + replier l'import (L2487-2488)
@@ -2813,6 +2950,11 @@ window._setPromoMode = _setPromoMode;
 window._showActionArticles = _showActionArticles;
 window.exportTourneeCSV = exportTourneeCSV;
 window.renderBenchmark = renderBenchmark;
+window.buildBenchBassinSelect = buildBenchBassinSelect;
+window.renderReseauHeatmap = renderReseauHeatmap;
+window.renderReseauNomades = renderReseauNomades;
+window.renderReseauOrphelins = renderReseauOrphelins;
+window.renderReseauFuites = renderReseauFuites;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
@@ -2939,3 +3081,16 @@ wrapGlossaryTerms(document);
 // D2 — Theme Switch
 initTheme();
 window.cycleTheme = cycleTheme;
+
+// ── P0 — Event delegation pour les liens Unik (data-unik-client) ──────────
+// Remplace les onclick inline générés par _unikLink() qui cassaient
+// après les innerHTML batch (event handlers non persistés).
+function initBenchListeners() {
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('[data-unik-client]');
+    if (!a) return;
+    e.stopPropagation();
+    // Le lien est déjà un <a href> — laisser le comportement natif se produire
+  }, true);
+}
+initBenchListeners();

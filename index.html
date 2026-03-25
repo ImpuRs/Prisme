@@ -621,7 +621,7 @@
       <button data-tab="action" onclick="switchTab('action')" class="tab-btn" style="--tab-color:#BA7517;--tab-bg:#FAC77526;--tab-text:#633806"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="12" x2="12" y2="6"/><line x1="12" y1="12" x2="16" y2="14"/><circle cx="12" cy="12" r="1.5" fill="#BA7517" stroke="none"/></svg><span>Cockpit</span></button>
       <button data-tab="abc" onclick="switchTab('abc')" class="tab-btn" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Radar</span></button>
       <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn hidden" id="btnTabTerritoire" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Le Terrain</span></button>
-      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn hidden" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span></button>
+      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn hidden" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span><span id="navBenchBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full bg-rose-500 text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px">0</span></button>
       <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn" style="--tab-color:#D4537E;--tab-bg:#ED93B11F;--tab-text:#72243E"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l10 10-6 6L4 10V4z"/><circle cx="8.5" cy="8.5" r="1.5" fill="#D4537E" stroke="none"/></svg><span>Promo</span></button>
     </div>
   </div>
@@ -761,6 +761,12 @@
             <div id="benchPickDiv" class="flex flex-col gap-0.5">
               <p class="text-[10px] font-semibold text-cyan-800">📋 Agences dans la médiane :</p>
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
+            </div>
+            <!-- Filtre bassin (multi-select) -->
+            <div class="flex flex-col gap-0.5">
+              <p class="text-[10px] font-semibold text-cyan-800">🗺️ Bassin (agences comparées) :</p>
+              <select id="benchBassinSelect" multiple onchange="onBenchBassinChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs s-card w-full h-24 font-semibold" title="Ctrl+clic pour sélection multiple. Tout sélectionné = médiane complète."><option disabled>Chargez un fichier multi-agences</option></select>
+              <p class="text-[9px] t-disabled">Ctrl+clic pour sélection multiple</p>
             </div>
             <hr class="b-default my-0.5">
             <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
@@ -1490,6 +1496,18 @@
           </table>
         </div>
       </details>
+      <!-- HEATMAP RÉSEAU — fermé par défaut -->
+      <details class="s-card rounded-xl shadow-md border mb-6" id="reseauHeatmapDetails">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold t-primary text-sm">🗺️ Heatmap réseau — Top 20 familles</h3>
+            <span class="text-[10px] t-disabled">Ratio vs médiane réseau par agence · vert ≥ 100% · orange 50–99% · rouge &lt; 50%</span>
+          </div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+        <div id="reseauHeatmapContainer" class="p-3"></div>
+      </details>
+
       <!-- CLASSEMENT AGENCES — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border mb-6">
         <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
@@ -1530,6 +1548,49 @@
         </summary>
         <div id="heatmapContainer" class="s-card rounded-xl border shadow-sm p-3"></div>
       </details>
+
+      <!-- NOMADES RÉSEAU — clients actifs dans ≥2 agences -->
+      <details class="s-card rounded-xl shadow-md border b-light mb-6">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold t-primary text-sm">🧳 Nomades réseau</h3>
+            <span class="text-[10px] t-disabled">Clients actifs chez moi <strong>et</strong> dans ≥ 1 autre agence du réseau</span>
+          </div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+        <div id="reseauNomadesContainer" class="p-3">
+          <p class="t-disabled text-sm">Chargement en arrière-plan après analyse…</p>
+        </div>
+      </details>
+
+      <!-- ORPHELINS RÉSEAU — articles vendus dans ≥50% stores, absents chez moi -->
+      <details class="s-card rounded-xl shadow-md border b-light mb-6">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold t-primary text-sm">📦 Orphelins réseau</h3>
+            <span class="text-[10px] t-disabled">Articles vendus par ≥ 50% des agences du réseau, absents dans cette agence (top 50)</span>
+          </div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+        <div id="reseauOrphelinsContainer" class="p-3">
+          <p class="t-disabled text-sm">Chargement en arrière-plan après analyse…</p>
+        </div>
+      </details>
+
+      <!-- FUITES PAR MÉTIER — si chalandise chargée -->
+      <details class="s-card rounded-xl shadow-md border b-light mb-6">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold t-primary text-sm">🚨 Fuites par métier</h3>
+            <span class="text-[10px] t-disabled">Indice de fuite = 1 − clients actifs PDV / clients zone · nécessite la Zone de Chalandise</span>
+          </div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+        <div id="reseauFuitesContainer" class="p-3">
+          <p class="t-disabled text-sm">Chargez la Zone de Chalandise pour débloquer cette analyse.</p>
+        </div>
+      </details>
+
     </div>
 
     <!-- TAB 7 : PROMO -->

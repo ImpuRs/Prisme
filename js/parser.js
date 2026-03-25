@@ -339,7 +339,8 @@ export function getSelectedSecteurs() {
 
 // ── Benchmark multi-agences ───────────────────────────────────
 export function computeBenchmark() {
-  const cs = getBenchCompareStores().filter(s => _S.storesIntersection.has(s));
+  const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
+  const cs = bassinStores.filter(s => _S.storesIntersection.has(s));
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) return;
   // Normalize famille names: strip prefix code "O05 - " etc. to avoid duplicates
@@ -377,6 +378,16 @@ export function computeBenchmark() {
   const familyPerf = []; let familyPerfMasked = 0;
   for (const fam of allFamsSet) { const my = myFamFreq[fam] || 0; const med = bassinFamMedian[fam] || 0; if (med < 2) { if (my > 0) familyPerfMasked++; continue; } const ecart = med > 0 ? ((my - med) / med * 100) : (my > 0 ? 100 : 0); familyPerf.push({ fam, my, med: Math.round(med), ecart }); }
   familyPerf.sort((a, b) => a.ecart - b.ecart); _S.benchLists.familyPerf = familyPerf; _S.benchLists.familyPerfMasked = familyPerfMasked;
+  // Calcul benchFamEcarts : mean ± 2σ par famille (pour badge divergence navbar)
+  { const fe = {};
+    for (const fp of familyPerf) {
+      const vals = cs.map(s => (storesFamFreq[s] || {})[fp.fam] || 0);
+      const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+      const sigma = vals.length > 1 ? Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length) : 0;
+      fe[fp.fam] = { mean, sigma, my: fp.my };
+    }
+    _S.benchFamEcarts = fe;
+  }
   for (const [a, b] of Object.entries(bv)) {
     if (b.tb < 3) continue; const md = myV[a], mq = md ? md.sumPrelevee : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
     if (mq === 0 && b.sc >= Math.min(2, n)) { let diagnostic = mst > 0 ? '🟢 En stock — visibilité?' : '🔴 Stock 0 — référencer?'; _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myStock: mst, sv: b.tb, diagnostic }); }
@@ -475,4 +486,137 @@ export function computeBenchmark() {
   }
   pepitesOther.sort((a, b) => (b.compFreq - b.myFreq) - (a.compFreq - a.myFreq));
   _S.benchLists.pepitesOther = pepitesOther.slice(0, 50);
+}
+
+// ── Worker réseau inline ────────────────────────────────────────────────────
+// Calcule : nomades, orphelins réseau, fuites par métier
+export function _reseauWorker() {
+  self.onmessage = function(e) {
+    const { myStore, ventesParMagasin, storesIntersection, articleFamille,
+            chalandiseData, chalandiseReady } = e.data;
+
+    // ── 1. Nomades : clients actifs dans ≥2 agences dont myStore ──────────
+    const clientStores = {}; // cc → Set<store>
+    for (const store of storesIntersection) {
+      const sv = ventesParMagasin[store] || {};
+      // ventesParMagasin est indexé par article dans le worker, on a besoin d'une map client→store
+      // Transmis via clientsPerStore (Set<cc> par store)
+    }
+    const nomades = [];
+    const myClients = new Set(e.data.clientsPerStore[myStore] || []);
+    for (const cc of myClients) {
+      let count = 0;
+      for (const store of storesIntersection) {
+        if ((e.data.clientsPerStore[store] || []).includes(cc)) count++;
+      }
+      if (count >= 2) nomades.push(cc);
+    }
+
+    // ── 2. Orphelins réseau : articles ≥50% stores sans moi (top 50) ───────
+    const artStoreCount = {}; // code → nb stores avec ventes
+    const artTotalFreq = {};  // code → fréquence totale réseau
+    for (const store of storesIntersection) {
+      if (store === myStore) continue;
+      const sv = ventesParMagasin[store] || {};
+      for (const [code, data] of Object.entries(sv)) {
+        if (!/^\d{6}$/.test(code)) continue;
+        if ((data.countBL || 0) > 0) {
+          artStoreCount[code] = (artStoreCount[code] || 0) + 1;
+          artTotalFreq[code] = (artTotalFreq[code] || 0) + (data.countBL || 0);
+        }
+      }
+    }
+    const otherStoresCount = storesIntersection.filter(s => s !== myStore).length || 1;
+    const myV = ventesParMagasin[myStore] || {};
+    const orphelins = [];
+    for (const [code, cnt] of Object.entries(artStoreCount)) {
+      if (cnt < otherStoresCount * 0.5) continue; // présent dans <50% des autres stores
+      if ((myV[code]?.countBL || 0) > 0) continue; // déjà vendu chez moi
+      const fam = (articleFamille[code] || '').replace(/^[A-Z]\d{2,3} - /, '');
+      orphelins.push({ code, fam, nbStores: cnt, totalFreq: artTotalFreq[code] || 0 });
+    }
+    orphelins.sort((a, b) => b.nbStores - a.nbStores || b.totalFreq - a.totalFreq);
+
+    // ── 3. Fuites par métier (si chalandise) ────────────────────────────────
+    const fuitesParMetier = [];
+    if (chalandiseReady && chalandiseData) {
+      const metierTotal = {}, metierActifs = {};
+      for (const [cc, info] of chalandiseData) {
+        if (!info.metier) continue;
+        metierTotal[info.metier] = (metierTotal[info.metier] || 0) + 1;
+      }
+      for (const cc of (e.data.clientsPerStore[myStore] || [])) {
+        const info = chalandiseData.find ? null : (chalandiseData[cc] || null);
+        // chalandiseData transmis comme tableau de paires [cc, info]
+        // on reconstruit depuis le tableau passé
+        const metier = (e.data.chalandiseMetierMap || {})[cc];
+        if (!metier) continue;
+        metierActifs[metier] = (metierActifs[metier] || 0) + 1;
+      }
+      for (const [metier, total] of Object.entries(metierTotal)) {
+        if (total < 3) continue;
+        const actifs = metierActifs[metier] || 0;
+        const indiceFuite = 1 - actifs / total;
+        fuitesParMetier.push({ metier, total, actifs, indiceFuite: Math.round(indiceFuite * 100) });
+      }
+      fuitesParMetier.sort((a, b) => b.indiceFuite - a.indiceFuite);
+    }
+
+    self.postMessage({
+      nomades: nomades.slice(0, 200),
+      orphelins: orphelins.slice(0, 50),
+      fuitesParMetier: fuitesParMetier.slice(0, 30)
+    });
+  };
+}
+
+export function launchReseauWorker() {
+  if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} }
+  return new Promise((resolve, reject) => {
+    try {
+      const code = `(${_reseauWorker.toString()})()`;
+      const blob = new Blob([code], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const worker = new Worker(url);
+      _S._activeReseauWorker = worker;
+
+      // Préparer clientsPerStore : store → [cc, ...]
+      const clientsPerStore = {};
+      for (const store of _S.storesIntersection) {
+        clientsPerStore[store] = [...(_S.ventesClientsPerStore[store] || new Set())];
+      }
+
+      // chalandiseMetierMap : cc → metier
+      const chalandiseMetierMap = {};
+      if (_S.chalandiseReady) {
+        for (const [cc, info] of _S.chalandiseData.entries()) {
+          if (info.metier) chalandiseMetierMap[cc] = info.metier;
+        }
+      }
+
+      worker.onmessage = (ev) => {
+        _S.reseauNomades = ev.data.nomades || [];
+        _S.reseauOrphelins = ev.data.orphelins || [];
+        _S.reseauFuitesMetier = ev.data.fuitesParMetier || [];
+        worker.terminate(); URL.revokeObjectURL(url);
+        _S._activeReseauWorker = null;
+        resolve();
+      };
+      worker.onerror = (err) => {
+        worker.terminate(); URL.revokeObjectURL(url);
+        _S._activeReseauWorker = null;
+        reject(err);
+      };
+      worker.postMessage({
+        myStore: _S.selectedMyStore,
+        ventesParMagasin: _S.ventesParMagasin,
+        storesIntersection: [..._S.storesIntersection],
+        articleFamille: _S.articleFamille,
+        chalandiseReady: _S.chalandiseReady,
+        chalandiseData: null, // non transmis (lourd) — on passe chalandiseMetierMap
+        chalandiseMetierMap,
+        clientsPerStore
+      });
+    } catch (err) { reject(err); }
+  });
 }
