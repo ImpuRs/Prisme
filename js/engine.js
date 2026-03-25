@@ -10,7 +10,7 @@
 'use strict';
 import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median } from './utils.js';
 
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
@@ -216,7 +216,7 @@ export function _clientStatusText(cc, info) {
 
 export function _unikLink(code) {
   if (!code || !/^\d{6}$/.test(String(code))) return '';
-  return `<a href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Voir commandes Unik" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
+  return `<a data-unik-client="${code}" href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" title="Voir commandes Unik" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
 }
 
 export function _crossBadge(cc) {
@@ -634,4 +634,62 @@ export function computeSPC(cc, info) {
   else if (classif === 'FID Pot=') score += 8;
   if (_isMetierStrategique(info.metier)) score += 5;
   return Math.min(Math.round(score), 100);
+}
+
+// ── Heatmap réseau : top 20 familles × N agences, ratio vs médiane ────────
+// Peuple _S.reseauHeatmapData depuis ventesParMagasin et articleFamille.
+// Résultat : { familles: string[], agences: string[], matrix: {fam:{store: ratio}} }
+export function computeReseauHeatmap() {
+  const _normFam = f => f ? f.replace(/^[A-Z]\d{2,3} - /, '') : f;
+  const myStore = _S.selectedMyStore;
+  const allStores = [..._S.storesIntersection];
+  if (allStores.length < 2) { _S.reseauHeatmapData = null; return; }
+
+  // Agréger CA par (store, famille)
+  const storeFamCA = {};
+  const famTotalCA = {};
+  for (const store of allStores) {
+    storeFamCA[store] = {};
+    const sv = _S.ventesParMagasin[store] || {};
+    for (const [code, data] of Object.entries(sv)) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const fam = _normFam(_S.articleFamille[code]);
+      if (!fam) continue;
+      const ca = data.sumCA || 0;
+      storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + ca;
+      famTotalCA[fam] = (famTotalCA[fam] || 0) + ca;
+    }
+  }
+
+  // Top 20 familles par CA réseau total
+  const familles = Object.entries(famTotalCA)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([fam]) => fam);
+
+  if (!familles.length) { _S.reseauHeatmapData = null; return; }
+
+  // Médiane réseau par famille (sur toutes les agences ayant du CA)
+  const famMedian = {};
+  for (const fam of familles) {
+    const vals = allStores.map(s => storeFamCA[s]?.[fam] || 0).filter(v => v > 0);
+    famMedian[fam] = vals.length ? _median(vals) : 1;
+  }
+
+  // Matrix : ratio = caStore / médiane (1 = médiane, >1 = surperf, <1 = sous-perf)
+  const matrix = {};
+  for (const fam of familles) {
+    matrix[fam] = {};
+    for (const store of allStores) {
+      const ca = storeFamCA[store]?.[fam] || 0;
+      matrix[fam][store] = famMedian[fam] > 0 ? ca / famMedian[fam] : 0;
+    }
+  }
+
+  // Agences : mon agence en premier, puis les autres triées par CA total décroissant
+  const storeCA = {};
+  for (const store of allStores) storeCA[store] = Object.values(storeFamCA[store] || {}).reduce((s,v)=>s+v,0);
+  const agences = [myStore, ...allStores.filter(s => s !== myStore).sort((a,b) => storeCA[b]-storeCA[a])];
+
+  _S.reseauHeatmapData = { familles, agences, matrix };
 }
