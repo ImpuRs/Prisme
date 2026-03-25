@@ -3350,6 +3350,28 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   // B3: Season ribbon helper
+  // C3: Sparklines SVG inline
+  function _sparkline(values,opts={}){
+    const w=opts.width||80,h=opts.height||20;
+    const max=Math.max(...values,1);
+    const points=values.map((v,i)=>{const x=(i/(values.length-1))*w;const y=h-(v/max)*(h-2);return`${x.toFixed(1)},${y.toFixed(1)}`;}).join(' ');
+    const lastVal=values[values.length-1]||0;
+    const avgVal=values.reduce((s,v)=>s+v,0)/values.length;
+    const trend=lastVal>avgVal*1.2?'c-ok':lastVal<avgVal*0.5?'c-danger':'c-caution';
+    const arrow=lastVal>avgVal*1.2?'↗':lastVal<avgVal*0.5?'↘':'→';
+    return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="inline-block align-middle" style="overflow:visible"><polyline points="${points}" fill="none" stroke="var(--c-action)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${w}" cy="${(h-(lastVal/max)*(h-2)).toFixed(1)}" r="2" fill="var(--c-action)"/></svg><span class="text-[9px] ${trend} ml-1">${arrow}</span>`;
+  }
+  function _articleSparkline(code){
+    const months=_S.articleMonthlySales[code];
+    if(!months||months.every(v=>v===0))return'';
+    return`<span class="inline-flex items-center gap-1 ml-2" title="Ventes mensuelles (J→D)">${_sparkline(months)}</span>`;
+  }
+  function _familySparkline(famille){
+    const idx=_S.seasonalIndex[famille];
+    if(!idx)return'';
+    return`<span class="inline-flex items-center gap-1 ml-2" title="Saisonnalité famille">${_sparkline(idx.map(c=>Math.round(c*100)))}</span>`;
+  }
+
   function _seasonRibbon(famille){
     const idx=_S.seasonalIndex[famille];if(!idx)return'';
     const MONTHS=['J','F','M','A','M','J','J','A','S','O','N','D'];
@@ -3413,7 +3435,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         <div>
           <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
-          ${_seasonRibbon(famille)}
+          <div class="flex items-center gap-3 mt-1">${_seasonRibbon(famille)}${_familySparkline(famille)}</div>
           ${agenceCtxHtml}
           <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
@@ -3605,7 +3627,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     return`<div class="diag-level">
       <div class="diag-level-hdr"><span class="font-bold text-sm c-action">📦 Niveau 1 — Stock</span>${_diagBadge(l.status)}</div>
       <p class="text-xs ${verdictClass} font-bold mb-2">${verdictIcon} ${verdictText}</p>
-      ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — <span class="t-inverse">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
+      ${top5.length?`<div class="mb-2"><p class="text-[10px] t-inverse-muted font-bold uppercase tracking-wide mb-1.5">🚨 Actions immédiates :</p>${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted shrink-0">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span>${_articleSparkline(r.code)} — <span class="t-inverse">Fréq ${r.W}, rupture depuis ${r.jours}j</span> → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+' perdu)</span>':''}</span></div>`).join('')}${l.ruptures.length>5?`<p class="text-[10px] t-inverse-muted mt-1 ml-4">… et ${l.ruptures.length-5} autre${l.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
       ${l.nonRef>0?`<p class="text-[11px] t-inverse-muted mt-1">💡 <strong class="t-inverse">${l.nonRef}</strong> article${l.nonRef>1?'s':''} ni en stock ni en rupture = non référencés en agence</p>`:''}
     </div>`;
   }
