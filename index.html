@@ -1458,7 +1458,7 @@
           <h3 class="font-extrabold c-danger flex items-center gap-2"><span id="obsLoseTitle">📉 Familles sous la médiane réseau</span> <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" class="text-[10px] i-danger-bg c-danger py-1 px-2 rounded font-bold hover:i-danger-bg b-light">📋 Copier</button><span class="acc-arrow c-danger">▶</span></div>
         </summary>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA</th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA (bassin)</th><th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché sur cette famille dans le bassin. Un petit magasin à 18% PDM qui perd 6k€ n'a pas le même problème qu'un grand magasin à 3% PDM.">ℹ</em></th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
       </details>
       <!-- FORCES & FAIBLESSES — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border mb-6">
@@ -1473,6 +1473,7 @@
               <tr>
                 <th class="py-2 px-3 text-left">Famille</th>
                 <th class="py-2 px-3 text-right">% médiane</th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché dans le bassin : mon CA famille ÷ CA total bassin sur cette famille. Normalise la taille des agences.">ℹ</em></th>
                 <th class="py-2 px-3 text-center">Statut</th>
               </tr>
             </thead>
@@ -1531,7 +1532,7 @@
           <h3 class="font-extrabold c-ok flex items-center gap-2"><span id="obsWinTitle">💪 Familles au-dessus de la médiane</span> <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] i-ok-bg c-ok py-1 px-2 rounded font-bold hover:i-ok-bg b-light">📋 Copier</button><span class="acc-arrow c-ok">▶</span></div>
         </summary>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA (bassin)</th><th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché sur cette famille dans le bassin. Confirme si la surperformance est réelle ou trop facile à obtenir.">ℹ</em></th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
       </details>
 
 
