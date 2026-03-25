@@ -1483,6 +1483,26 @@
         </div>
         <p id="benchFamilyNote" class="hidden text-[10px] t-disabled italic px-4 py-2 border-t"></p>
       </details>
+      <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
+      <details class="s-card rounded-xl shadow-md border-2 border-orange-300 mb-6">
+        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
+          <div>
+            <h3 class="font-extrabold c-caution text-sm flex items-center gap-2">
+              🎯 Ce que mes clients achètent ailleurs
+              <span id="nomadesMissedBadge" class="hidden badge bg-orange-500 text-white"></span>
+              <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
+            </h3>
+            <p class="text-[10px] c-caution mt-0.5">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="event.preventDefault();copyNomadesMissedArts()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button>
+            <span class="acc-arrow c-caution">▶</span>
+          </div>
+        </summary>
+        <div id="nomadesMissedArtsContainer" class="p-3">
+          <p class="t-disabled text-sm">Chargement après analyse réseau…</p>
+        </div>
+      </details>
       <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
         <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
@@ -1504,26 +1524,6 @@
             </thead>
             <tbody id="pepitesTable"></tbody>
           </table>
-        </div>
-      </details>
-      <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
-      <details class="s-card rounded-xl shadow-md border-2 border-orange-300 mb-6">
-        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
-          <div>
-            <h3 class="font-extrabold c-caution text-sm flex items-center gap-2">
-              🎯 Ce que mes clients achètent ailleurs
-              <span id="nomadesMissedBadge" class="hidden badge bg-orange-500 text-white"></span>
-              <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
-            </h3>
-            <p class="text-[10px] c-caution mt-0.5">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="event.preventDefault();copyNomadesMissedArts()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button>
-            <span class="acc-arrow c-caution">▶</span>
-          </div>
-        </summary>
-        <div id="nomadesMissedArtsContainer" class="p-3">
-          <p class="t-disabled text-sm">Chargement après analyse réseau…</p>
         </div>
       </details>
 

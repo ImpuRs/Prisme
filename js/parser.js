@@ -495,6 +495,12 @@ export function _reseauWorker() {
     const { myStore, ventesParMagasin, storesIntersection, articleFamille,
             chalandiseData, chalandiseReady } = e.data;
 
+    // Convertir articleClientsMap en Map de Sets pour lookup rapide
+    const artClientsMap = {};
+    for (const [code, arr] of Object.entries(e.data.articleClientsMap || {})) {
+      artClientsMap[code] = new Set(arr);
+    }
+
     // ── 1. Nomades : clients actifs dans ≥2 agences dont myStore ──────────
     const clientStores = {}; // cc → Set<store>
     for (const store of storesIntersection) {
@@ -577,12 +583,14 @@ export function _reseauWorker() {
         if ((data.countBL || 0) === 0) continue;
         // article déjà vendu chez moi → pas une opportunité
         if ((myVentes[code]?.countBL || 0) > 0) continue;
-        // filtrer les clients de ce store qui sont aussi des nomades de mon agence
-        for (const cc of storeClients) {
+        // filtrer les clients de cet article précis qui sont aussi des nomades de mon agence
+        const artBuyers = artClientsMap[code];
+        const buyersToCheck = artBuyers ? [...artBuyers].filter(cc => storeClients.has(cc)) : [...storeClients];
+        for (const cc of buyersToCheck) {
           if (!nomadeSet.has(cc)) continue;
           if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caSum: 0 };
           missedByArt[code].clients.add(cc);
-          missedByArt[code].caSum += (data.sumCA || 0) / Math.max(storeClients.size, 1);
+          missedByArt[code].caSum += (data.sumCA || 0);
         }
       }
     }
@@ -645,6 +653,12 @@ export function launchReseauWorker() {
         _S._activeReseauWorker = null;
         reject(err);
       };
+      // Convertir _S.articleClients (Map) en objet sérialisable pour le worker
+      const articleClientsMap = {};
+      for (const [code, clients] of _S.articleClients.entries()) {
+        articleClientsMap[code] = [...clients];
+      }
+
       worker.postMessage({
         myStore: _S.selectedMyStore,
         ventesParMagasin: _S.ventesParMagasin,
@@ -653,7 +667,8 @@ export function launchReseauWorker() {
         chalandiseReady: _S.chalandiseReady,
         chalandiseData: null, // non transmis (lourd) — on passe chalandiseMetierMap
         chalandiseMetierMap,
-        clientsPerStore
+        clientsPerStore,
+        articleClientsMap
       });
     } catch (err) { reject(err); }
   });
