@@ -139,6 +139,80 @@ function _seasonRibbon(famille){
   return`<div class="flex gap-0.5 items-end mt-1" title="Saisonnalité famille">${cells}</div>`;
 }
 
+// ── BANDEAU SYNTHÈSE "3 CHIFFRES" (Action 1 — Codex P1) ──
+function _diagRenderSummaryBar(v1,v2,v3){
+  const cards=[];
+  // Card 1 : CA perdu ruptures (toujours, sauf absent)
+  if(v1&&v1.status!=='absent'){
+    const ca=v1.caPerduTotal||0;const nbRup=v1.ruptures?.length||0;
+    const col=ca>=1000?'c-danger':ca>0?'c-caution':'c-ok';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
+      <p class="text-lg font-extrabold ${col}">${ca>0?formatEuro(ca):'—'}</p>
+      <p class="text-[10px] t-inverse-muted">${nbRup>0?nbRup+' article'+(nbRup>1?'s':'')+' en rupture':'Pas de rupture active'}</p>
+    </div>`);
+  }
+  // Card 2 : Clients perdus (chalandise chargée)
+  if(v2&&v2.status!=='lock'){
+    const nb=v2.perdus||0;const pot=v2.potentiel||0;
+    const col=nb>0?'c-caution':'c-ok';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
+      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
+      <p class="text-[10px] t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
+    </div>`);
+  }
+  // Card 3 : Absents réseau (multi-agences)
+  if(v3&&v3.status!=='lock'){
+    const nb=v3.missing?.length||0;const strong=v3.strongMissing||0;
+    const col=nb>5?'c-danger':nb>0?'c-caution':'c-ok';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Absents réseau</p>
+      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
+      <p class="text-[10px] t-inverse-muted">${strong>0?'dont '+strong+' forte rotation':nb===0?'Gamme complète':'à référencer'}</p>
+    </div>`);
+  }
+  if(!cards.length)return'';
+  const v1ok=!v1||v1.status==='absent'||(v1.caPerduTotal===0&&v1.nbMM===0);
+  const v2ok=!v2||v2.status==='lock'||(v2.perdus||0)===0;
+  const v3ok=!v3||v3.status==='lock'||(v3.missing?.length||0)===0;
+  if(v1ok&&v2ok&&v3ok)return`<div class="flex gap-2 mb-4 p-3 rounded-xl s-panel-inner border border-emerald-700/50 items-center"><span>✅</span><p class="text-xs c-ok font-semibold">Famille bien pilotée — aucune action urgente.</p></div>`;
+  return`<div class="flex gap-3 mb-4">${cards.join('')}</div>`;
+}
+function _diagRenderSummaryBarMetier(l1,l4,l3){
+  const cards=[];
+  if(l1&&l1.arts>0){
+    const ca=l1.caPerduTotal||0;const nbRup=l1.ruptures?.length||0;
+    const col=ca>=1000?'c-danger':ca>0?'c-caution':'c-ok';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">CA perdu ruptures</p>
+      <p class="text-lg font-extrabold ${col}">${ca>0?formatEuro(ca):'—'}</p>
+      <p class="text-[10px] t-inverse-muted">${nbRup>0?nbRup+' rupture'+(nbRup>1?'s':''):'Pas de rupture'}</p>
+    </div>`);
+  }
+  if(l4&&l4.status!=='lock'){
+    const nb=l4.perdus||0;const pot=l4.potentiel||0;
+    const col=nb>0?'c-caution':'c-ok';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Clients perdus</p>
+      <p class="text-lg font-extrabold ${col}">${nb>0?nb:'—'}</p>
+      <p class="text-[10px] t-inverse-muted">${pot>0?'potentiel '+formatEuro(pot):nb===0?'Base client saine':'à reconquérir'}</p>
+    </div>`);
+  }
+  if(l3&&l3.status!=='lock'&&l3.pct!=null){
+    const pct=l3.pct;const col=pct>=70?'c-ok':pct>=40?'c-caution':'c-danger';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0">
+      <p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">Couverture rayon</p>
+      <p class="text-lg font-extrabold ${col}">${pct}%</p>
+      <p class="text-[10px] t-inverse-muted">${l3.totalEnStock||0}/${l3.totalArts||0} articles en stock</p>
+    </div>`);
+  }
+  if(!cards.length)return'';
+  const allOk=(!l1||(l1.caPerduTotal||0)===0)&&(!l4||l4.status==='lock'||(l4.perdus||0)===0)&&(!l3||l3.status==='lock'||(l3.pct||0)>=70);
+  if(allOk)return`<div class="flex gap-2 mb-4 p-3 rounded-xl s-panel-inner border border-emerald-700/50 items-center"><span>✅</span><p class="text-xs c-ok font-semibold">Métier bien couvert — aucune action urgente.</p></div>`;
+  return`<div class="flex gap-3 mb-4">${cards.join('')}</div>`;
+}
+
 function renderDiagnosticPanel(famille,source){
   const panel=document.getElementById('diagnosticPanel');if(!panel)return;
   const isMetierMode=famille.startsWith('@metier:');
@@ -176,11 +250,12 @@ function renderDiagnosticPanel(famille,source){
         </div>
         <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
       </div>
+      ${_diagRenderSummaryBarMetier(l1m,l4m,l3m)}
+      <div id="_diagPlan">${_diagRenderPlan(metier,actions)}</div>
       ${_diagRenderL1Metier(l1m)}
       ${_diagRenderL2(l2m,false,'')}
       <div id="_diagL4">${_diagRenderL4(l4m,hasChal)}</div>
-      ${_diagRenderL3Metier(l3m)}
-      <div id="_diagPlan">${_diagRenderPlan(metier,actions)}</div>`;
+      ${_diagRenderL3Metier(l3m)}`;
     return;
   }
   // ── 3-voyant mode ──
@@ -201,10 +276,11 @@ function renderDiagnosticPanel(famille,source){
       </div>
       <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
     </div>
+    ${_diagRenderSummaryBar(v1,v2,v3)}
+    <div id="_diagPlan">${_diagRenderPlan(famille,actions)}</div>
     ${_diagRenderV1(v1,hasMulti&&v3&&v3.status!=='lock'&&(v3.medCA>0||v3.missing?.length>0))}
     ${_diagRenderV2(v2,hasChal)}
-    ${_diagRenderV3(v3,hasMulti)}
-    <div id="_diagPlan">${_diagRenderPlan(famille,actions)}</div>`;
+    ${_diagRenderV3(v3,hasMulti)}`;
 }
 
 function _renderDiagnosticCellPanel(key,cellArts){
@@ -285,10 +361,10 @@ function _renderDiagnosticCellPanel(key,cellArts){
   }else{v3={status:'lock',reason:'Données multi-agences requises',missing:[],exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian:0};}
   _S._diagLevels={v1,v2,v3};
   const acts=[];
-  if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});}
+  if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',codes:ruptures.map(r=>r.code),label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});}
   if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});}
   if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrCockpitClient');if(!el||el.classList.contains('hidden'))return;const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);el.scrollIntoView({behavior:'smooth',block:'start'});},300);}});}
-  if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
+  if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
   _S._diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
   const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="c-caution">${LABELS[key]||key}</span> <span class="t-inverse-muted font-normal text-sm">(${cellArts.length} articles)</span>`;
   panel.innerHTML=`
@@ -301,10 +377,11 @@ function _renderDiagnosticCellPanel(key,cellArts){
       </div>
       <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
     </div>
+    ${_diagRenderSummaryBar(v1,v2,v3)}
+    <div id="_diagPlan">${_diagRenderPlan(key,_S._diagActions)}</div>
     ${_diagRenderV1(v1,hasMulti&&v3&&v3.status!=='lock'&&(v3.medCA>0||v3.missing?.length>0))}
     ${_diagRenderV2(v2,hasChal)}
-    ${_diagRenderV3(v3,hasMulti)}
-    <div id="_diagPlan">${_diagRenderPlan(key,_S._diagActions)}</div>`;
+    ${_diagRenderV3(v3,hasMulti)}`;
 }
 
 function _diagBadge(s){
@@ -341,7 +418,7 @@ function _diagVoyant1(famille){
   return{status:worstStatus,arts:arts.length,enStock,nonRef,ruptures,caPerduTotal,nonCal:nonCal.length,sousD:sousD.length,mmDetail,nbMM,dormants,statusRup,statusMM};
 }
 function _diagRenderV1(v,hasNetworkData){
-  if(v.status==='absent')return`<div class="diag-voyant diag-v1"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs t-inverse-muted mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] c-ok mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
+  if(v.status==='absent')return`<div class="diag-voyant diag-v1 diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs t-inverse-muted mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] c-ok mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
   const rupIcon=v.ruptures.length===0?'✅':v.ruptures.length<=3?'⚠️':'🚨';
   const rupClass=v.ruptures.length===0?'c-ok':v.ruptures.length<=3?'c-caution':'c-danger';
   const _gap347=v.arts-v.enStock;
@@ -353,13 +430,13 @@ function _diagRenderV1(v,hasNetworkData){
   const mmText=v.nbMM===0?'Calibrage correct — tous les articles actifs ont un MIN/MAX bien dimensionné':`${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''}${v.nonCal>0?' (dont '+v.nonCal+' sans MIN/MAX)':''}`;
   const top5MM=v.mmDetail.slice(0,5);
   const dormHtml=v.dormants.length>0?`<p class="text-[11px] c-caution mt-1">💤 <strong>${v.dormants.length}</strong> article${v.dormants.length>1?'s':''} en stock sans vente récente (dormants) → envisager déstockage</p>`:'';
-  return`<div class="diag-voyant diag-v1">
+  return`<div class="diag-voyant diag-v1 diag-border-${v.status}">
     <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge(v.status)}</div>
     <p class="text-[10px] t-inverse-muted mb-3"><strong class="text-white">${v.arts}</strong> articles · <strong class="text-white">${v.enStock}</strong> en stock${v.nonRef>0?' · <span class="t-inverse-muted">'+v.nonRef+' non référencés</span>':''}</p>
     <p class="text-xs ${rupClass} font-bold mb-1">${rupIcon} ${rupText}</p>
-    ${top5.length?`<div class="mb-2">${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — Fréq ${r.W}, rupture ${r.jours}j → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+')</span>':''}</span></div>`).join('')}${v.ruptures.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.ruptures.length-5} autre${v.ruptures.length-5>1?'s':''}</p>`:''}</div>`:''}
+    ${top5.length?`<details${v.statusRup==='error'?' open':''}><summary class="text-[10px] ${rupClass} font-bold cursor-pointer mb-1 list-none">🚨 ${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — détails ▾</summary><div class="mb-2">${top5.map(r=>`<div class="flex items-start gap-2 py-1 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> <span class="text-white font-semibold">${r.lib}</span> — Fréq ${r.W}, rupture ${r.jours}j → <span class="font-bold ${r.jours>=25?'c-caution':'text-cyan-400'}">${actionLabel(r)}</span>${r.ca>0?' <span class="c-danger text-[10px]">('+formatEuro(r.ca)+')</span>':''}</span></div>`).join('')}${v.ruptures.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.ruptures.length-5} autre${v.ruptures.length-5>1?'s':''}</p>`:''}</div></details>`:''}
     <p class="text-xs ${mmClass} font-bold mb-1 mt-2">${mmIcon} ${mmText}</p>
-    ${top5MM.length?`<div class="mb-1">${top5MM.map(r=>`<div class="flex items-start gap-2 py-0.5 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} — MIN <span class="c-caution">${r.ancienMin}</span> → <span class="c-ok font-bold">${r.nouveauMin}</span> <span class="c-danger text-[10px]">(+${r.ecart})</span></span></div>`).join('')}${v.mmDetail.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.mmDetail.length-5} autre${v.mmDetail.length-5>1?'s':''}</p>`:''}</div>`:''}
+    ${top5MM.length?`<details><summary class="text-[10px] ${mmClass} font-bold cursor-pointer mb-1 list-none">⚠️ ${v.nbMM} article${v.nbMM>1?'s':''} mal calibré${v.nbMM>1?'s':''} — détails ▾</summary><div class="mb-1">${top5MM.map(r=>`<div class="flex items-start gap-2 py-0.5 px-2 mb-0.5 rounded s-panel-inner/60 text-[11px]"><span class="t-inverse-muted">·</span><span class="flex-1"><span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} — MIN <span class="c-caution">${r.ancienMin}</span> → <span class="c-ok font-bold">${r.nouveauMin}</span> <span class="c-danger text-[10px]">(+${r.ecart})</span></span></div>`).join('')}${v.mmDetail.length>5?`<p class="text-[10px] t-inverse-muted ml-4">… et ${v.mmDetail.length-5} autre${v.mmDetail.length-5>1?'s':''}</p>`:''}</div></details>`:''}
     ${dormHtml}
   </div>`;
 }
@@ -457,8 +534,8 @@ function _diagVoyant2(famille,hasChal,metierFilter){
   return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
 }
 function _diagRenderV2(v,hasChal){
-  if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-[10px] text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
-  if(!v.metiers?.length){const msg=v.cellMode?'Aucun client identifié dans la chalandise pour ces articles.':(v.reason||'Aucun métier identifié dans la chalandise pour cette famille');return`<div class="diag-voyant diag-v2"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${msg}</p></div>`;}
+  if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-[10px] text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
+  if(!v.metiers?.length){const msg=v.cellMode?'Aucun client identifié dans la chalandise pour ces articles.':(v.reason||'Aucun métier identifié dans la chalandise pour cette famille');return`<div class="diag-voyant diag-v2 diag-border-warn"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${msg}</p></div>`;}
   // Cell mode (depuis Radar case ABC/FMR) : croisement articles de la case → acheteurs → chalandise
   if(v.cellMode){
     const metiersHtml=v.metiers.map((m,mIdx)=>{
@@ -477,7 +554,7 @@ function _diagRenderV2(v,hasChal){
     }).join('');
     const totalProspects=v.metiers.reduce((s,m)=>s+(m.prospects||0),0);
     const perdusTxt=[v.perdus>0?`<span class="c-danger">${v.perdus} perdu${v.perdus>1?'s':''} avec historique (reconquête)</span>`:'',totalProspects>0?`<span class="c-caution">${totalProspects} prospect${totalProspects>1?'s':''} métier (conquête)</span>`:''].filter(Boolean).join(' · ');
-    return`<div class="diag-voyant diag-v2">
+    return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
       <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
       <p class="text-[10px] t-inverse-muted mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt?' · '+perdusTxt:''} :</p>
       ${metiersHtml}
@@ -497,7 +574,7 @@ function _diagRenderV2(v,hasChal){
       <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
     </div>`;
   }).join('');
-  return`<div class="diag-voyant diag-v2">
+  return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
     <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
     <p class="text-[10px] t-inverse-muted mb-3">Top ${v.metiers.length} métier${v.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${v.totalBuyers}</strong> identifié${v.totalBuyers>1?'s':''} dans la chalandise${v.perdus>0?' · <span class="c-danger">'+v.perdus+' perdus</span>':''}</p>
     ${metiersHtml}
@@ -565,38 +642,78 @@ function _diagVoyant3(famille,hasMulti){
   const strongMissing=missing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;
   return{status,myCA:Math.round(myCA),medCA:Math.round(medCA),caEcart,nbOtherStores,missing:isFamilyAbsent?missing:missing.slice(0,25),inStockNotSold:inStockNotSold.slice(0,15),strongMissing,exclusives:exclusives.slice(0,15),myCount:myArts.size,isFamilyAbsent};
 }
+function _diagV3FilterCategory(containerId,cat){
+  const container=document.getElementById(containerId);if(!container)return;
+  const kpisBar=container.previousElementSibling;
+  if(kpisBar)kpisBar.querySelectorAll('.diag-kpi-pill[data-cat]').forEach(btn=>{btn.classList.toggle('active',btn.dataset.cat===cat);});
+  container.querySelectorAll('[data-v3cat]').forEach(sec=>{sec.style.display=sec.dataset.v3cat===cat?'':'none';});
+}
 function _diagRenderV3(v,hasMulti){
-  if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] c-ok mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
-  const missingRows=(v.missing||[]).map(a=>{const abcColor=a.abcClass==='A'?'c-ok':a.abcClass==='B'?'c-action':'t-inverse-muted';const medCACell=v.isFamilyAbsent?`<td class="py-1 px-2 text-right c-ok">${a.medCA>0?formatEuro(a.medCA):'—'}</td>`:'';const classCell=v.isCellMode?'':`<td class="py-1 px-2 text-center font-bold ${abcColor}">${a.abcClass}</td>`;const minMaxCell=v.isCellMode?(a.precoMin?`<td class="py-1 px-2 text-center text-[10px] text-cyan-300" title="Basé sur la médiane réseau (${a.precoStores} agences)">${a.precoMin}/${a.precoMax}</td>`:'<td class="py-1 px-2 text-center t-inverse-muted">—</td>'):'';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td>${medCACell}${classCell}${minMaxCell}</tr>`;}).join('');
-  const displayedMissing=v.missing||[];const displayedStrong=v.isCellMode?displayedMissing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length:displayedMissing.filter(a=>a.abcClass==='A'||a.abcClass==='B').length;const strongMissing=v.isCellMode?displayedMissing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M'):[];const rareMissing=v.isCellMode?displayedMissing.filter(a=>a.networkFmr!=='F'&&a.networkFmr!=='M'):[];
-  const missingIntro=v.isCellMode?(displayedStrong>0?`dont <strong>${displayedStrong}</strong> en forte rotation réseau (F/M) :`:''):v.isFamilyAbsent?`📋 <strong>${displayedMissing.length}</strong> article${displayedMissing.length>1?'s':''} vendus par le réseau dans cette famille — triés par CA médiane :`:`⚠️ ${displayedMissing.length} article${displayedMissing.length>1?'s':''} vendus par ≥50% du réseau (${v.nbOtherStores} agences) absents chez vous${displayedStrong>0?' — dont <strong>'+displayedStrong+'</strong> forte rotation (A/B)':''}:`;
-  const caThCell=v.isFamilyAbsent?'<th class="py-1.5 px-2 text-right">CA méd.</th>':'';const abcThCell=v.isCellMode?'':'<th class="py-1.5 px-2 text-center">ABC</th>';const minMaxThCell=v.isCellMode?'<th class="py-1.5 px-2 text-center">Stock préco.</th>':'';
-  const _cellRowFn=(a,nbOther,mxTh)=>{const mc=a.precoMin?`<td class="py-1 px-2 text-center text-[10px] text-cyan-300" title="Basé sur la médiane réseau (${a.precoStores} agences)">${a.precoMin}/${a.precoMax}</td>`:'<td class="py-1 px-2 text-center t-inverse-muted">—</td>';return`<tr class="border-t border-emerald-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center">${a.nbStores}/${nbOther}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td>${mxTh?mc:''}</tr>`;};const _cellThead=(mxTh)=>`<thead class="c-ok border-b border-emerald-900/50 sticky top-0" style="background:var(--p-diag-green-bg)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${mxTh?'<th class="py-1.5 px-2 text-center">Stock préco.</th>':''}</tr></thead>`;const missingSection=(()=>{if(!displayedMissing.length)return v.isFamilyAbsent?'<p class="text-[10px] t-inverse-muted mb-2">Aucun article vendu par au moins 2 agences dans cette famille.</p>':'<p class="text-[10px] c-ok mb-2">✅ Aucun article vendu par ≥50% du réseau qui vous manque.</p>';if(v.isCellMode){const hasMx=!!minMaxThCell;let h='';if(strongMissing.length)h+=`<p class="text-[10px] c-caution font-bold mb-1">⚡ ${strongMissing.length} en forte rotation réseau (F/M) :</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]">${_cellThead(hasMx)}<tbody>${strongMissing.map(a=>_cellRowFn(a,v.nbOtherStores,hasMx)).join('')}</tbody></table></div>`;if(rareMissing.length)h+=`<p class="text-[10px] t-inverse-muted font-bold mb-1 mt-2">📦 ${rareMissing.length} autre${rareMissing.length>1?'s':''} article${rareMissing.length>1?'s':''} vendus par le réseau :</p><div class="overflow-x-auto" style="max-height:160px;overflow-y:auto"><table class="min-w-full text-[11px]">${_cellThead(hasMx)}<tbody>${rareMissing.map(a=>_cellRowFn(a,v.nbOtherStores,hasMx)).join('')}</tbody></table></div>`;return h;}return`<p class="text-[10px] ${v.isFamilyAbsent?'c-action':'c-caution'} font-bold mb-1">${missingIntro}</p><div class="overflow-x-auto" style="max-height:200px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="c-ok border-b border-emerald-900/50 sticky top-0" style="background:var(--p-diag-green-bg)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th>${caThCell}${abcThCell}${minMaxThCell}</tr></thead><tbody>${missingRows}</tbody></table></div>`;})();
-  const insnsRows=(v.inStockNotSold||[]).map(a=>`<tr class="border-t border-amber-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[140px] truncate">${a.lib}</td><td class="py-1 px-2 text-center c-caution font-bold">${a.stockActuel}</td><td class="py-1 px-2 text-center">${a.nbStores}/${v.nbOtherStores}</td><td class="py-1 px-2 text-center font-bold">${a.medFreq}</td></tr>`).join('');
-  const inStockNotSoldSection=(v.inStockNotSold||[]).length?`<p class="text-[10px] c-caution font-bold mb-1 mt-2">⚠️ ${v.inStockNotSold.length} article${v.inStockNotSold.length>1?'s':''} en stock mais jamais vendus — vérifier visibilité rayon (emplacement, mise en avant ?) :</p><div class="overflow-x-auto" style="max-height:160px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="c-caution border-b border-amber-900/50 sticky top-0" style="background:var(--p-diag-amber-bg)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Stock</th><th class="py-1.5 px-2 text-center">Agences</th><th class="py-1.5 px-2 text-center">Fréq. méd.</th></tr></thead><tbody>${insnsRows}</tbody></table></div>`:'';
-  // Mode case ABC/FMR (depuis Radar) : comparer nb réf dans la case, pas le CA famille
-  if(v.isCellMode){
-    const insnsCount=(v.inStockNotSold||[]).length;
-    const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;const refLine=`${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${v.missing.length>0?`<span class="c-caution">${v.missing.length} absent${v.missing.length>1?'s':''} du réseau chez vous</span>`:'<span class="c-ok">gamme complète</span>'}${insnsCount>0?` · <span class="c-caution">${insnsCount} en stock, 0 vente</span>`:''}`;
-    return`<div class="diag-voyant diag-v3">
-      <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-ok">🔭 Le Réseau</span>${_diagBadge(v.status)}</div>
-      <p class="text-xs mb-3">${refLine}</p>
-      ${missingSection}
-      ${inStockNotSoldSection}
-    </div>`;
+  if(!hasMulti||v.status==='lock')return`<div class="diag-voyant diag-v3 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">🔭 Le Réseau</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Données multi-agences non disponibles'}</p><p class="text-[10px] c-ok mt-1">→ Chargez un Consommé multi-agences pour comparer votre gamme au réseau</p></div>`;
+  // ── Catégorisation des articles pour KPI bar
+  const isCellMode=v.isCellMode;
+  const commander=[];const verifier=[];const exclusivites=v.exclusives||[];
+  for(const a of(v.missing||[])){
+    const isStrong=isCellMode?(a.networkFmr==='F'||a.networkFmr==='M'):(a.abcClass==='A'||a.abcClass==='B');
+    if(isStrong)commander.push(a);else verifier.push({...a,_vtype:'missing'});
   }
-  // Mode famille (depuis Bench / Cockpit / Stock)
-  const caIcon=v.caEcart>=0?'🟢':v.caEcart>=-50?'🟠':'🔴';
-  const ecartStr=(v.caEcart>=0?'+':'')+v.caEcart+'%';
-  const ecartColor=v.caEcart>=0?'c-ok':v.caEcart>=-50?'c-caution':'c-danger';
-  const caLine=v.medCA>0?`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> vs médiane réseau <strong class="text-white">${formatEuro(v.medCA)}</strong> <span class="${ecartColor}">(${ecartStr})</span>`:`Votre CA sur cette famille : <strong class="text-white">${formatEuro(v.myCA)}</strong> <span class="t-inverse-muted">(médiane non calculable — réseau insuffisant)</span>`;
-  const exclRows=(v.exclusives||[]).map(a=>`<tr class="border-t border-blue-900/30"><td class="py-1 px-2 font-mono t-inverse-muted">${a.code}</td><td class="py-1 px-2 max-w-[160px] truncate">${a.lib}</td><td class="py-1 px-2 text-center c-action font-bold">${a.myFreq}</td></tr>`).join('');
-  return`<div class="diag-voyant diag-v3">
-    <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-ok">🔭 Le Réseau</span>${_diagBadge(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error')}</div>
-    <p class="text-xs mb-3">${caIcon} ${caLine}</p>
-    ${missingSection}
-    ${inStockNotSoldSection}
-    ${(v.exclusives||[]).length?`<p class="text-[10px] c-action font-bold mt-2 mb-1">⭐ ${v.exclusives.length} exclusivité${v.exclusives.length>1?'s':''} — articles que <2 autres agences vendent :</p><div class="overflow-x-auto" style="max-height:120px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="c-action border-b border-blue-900/50 sticky top-0" style="background:var(--p-diag-green-bg)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Fréq. moi</th></tr></thead><tbody>${exclRows}</tbody></table></div>`:''}
+  for(const a of(v.inStockNotSold||[]))verifier.push({...a,_vtype:'instock'});
+  const nbCmd=commander.length,nbVerif=verifier.length,nbExcl=exclusivites.length;
+  const defaultCat=nbCmd>0?'commander':nbVerif>0?'verifier':'exclusivites';
+  // ── Pill helper
+  const _pill=(a,type)=>{
+    const agStr=v.nbOtherStores?`${a.nbStores}/${v.nbOtherStores} ag.`:'';
+    const freqVal=a.medFreq??a.myFreq??0;
+    const precoStr=(isCellMode&&a.precoMin)?`<span class="text-[10px] text-cyan-300 flex-shrink-0">MIN:${a.precoMin}/MAX:${a.precoMax}</span>`:'';
+    const stockStr=type==='instock'?`<span class="text-[10px] c-caution flex-shrink-0">Stock:${a.stockActuel}</span>`:'';
+    const medCAStr=v.isFamilyAbsent&&a.medCA?`<span class="text-[10px] c-ok flex-shrink-0">${formatEuro(a.medCA)}</span>`:'';
+    return`<div class="flex items-center gap-2 py-1.5 px-3 mb-1 rounded-lg s-panel-inner border b-dark"><span class="font-mono text-[10px] t-inverse-muted flex-shrink-0">${a.code}</span><span class="text-[11px] text-white font-semibold flex-1 truncate">${a.lib}</span>${precoStr}${stockStr}${medCAStr}<span class="text-[10px] c-ok font-bold flex-shrink-0">${agStr}</span><span class="text-[10px] t-inverse-muted flex-shrink-0">Fréq.${freqVal}</span></div>`;
+  };
+  const _exclPill=a=>`<div class="flex items-center gap-2 py-1.5 px-3 mb-1 rounded-lg s-panel-inner border b-dark"><span class="font-mono text-[10px] t-inverse-muted flex-shrink-0">${a.code}</span><span class="text-[11px] text-white font-semibold flex-1 truncate">${a.lib}</span><span class="text-[10px] c-action font-bold flex-shrink-0">Excl.</span><span class="text-[10px] t-inverse-muted flex-shrink-0">Fréq.${a.myFreq||0}</span></div>`;
+  const _pillsSection=(items,pillFn,emptyMsg)=>{
+    if(!items.length)return`<p class="text-[10px] t-inverse-muted">${emptyMsg}</p>`;
+    const first5=items.slice(0,5).map(a=>pillFn(a)).join('');
+    const rest=items.slice(5);
+    if(!rest.length)return first5;
+    return`${first5}<details><summary class="text-[10px] t-inverse-muted hover:text-white mt-1">▶ Voir ${rest.length} autre${rest.length>1?'s':''}</summary><div class="mt-1">${rest.map(a=>pillFn(a)).join('')}</div></details>`;
+  };
+  // ── Ligne CA (mode famille) ou référence (mode cellule)
+  let introLine='';
+  if(!isCellMode){
+    const caIcon=v.caEcart>=0?'🟢':v.caEcart>=-50?'🟠':'🔴';
+    const ecartStr=(v.caEcart>=0?'+':'')+v.caEcart+'%';
+    const ecartColor=v.caEcart>=0?'c-ok':v.caEcart>=-50?'c-caution':'c-danger';
+    introLine=v.medCA>0
+      ?`<p class="text-xs mb-3">${caIcon} Votre CA : <strong class="text-white">${formatEuro(v.myCA)}</strong> vs médiane réseau <strong class="text-white">${formatEuro(v.medCA)}</strong> <span class="${ecartColor}">(${ecartStr})</span></p>`
+      :`<p class="text-xs mb-3">Votre CA : <strong class="text-white">${formatEuro(v.myCA)}</strong> <span class="t-inverse-muted">(médiane non calculable)</span></p>`;
+  }else{
+    const cellLabel=v.cellKey?(v.cellKey+(RADAR_LABELS[v.cellKey]?' — '+RADAR_LABELS[v.cellKey]:'')):'' ;
+    introLine=`<p class="text-xs mb-3">${cellLabel} : <strong class="text-white">${v.myCount}</strong> articles · ${(v.missing||[]).length>0?`<span class="c-caution">${v.missing.length} absent${v.missing.length>1?'s':''} chez vous</span>`:'<span class="c-ok">gamme complète</span>'}${nbVerif>0?` · <span class="c-caution">${nbVerif} à vérifier</span>`:''}</p>`;
+  }
+  // ── Badge status
+  const badgeStatus=isCellMode?v.status:(v.caEcart>=0?'ok':v.caEcart>=-50?'warn':'error');
+  const borderStatus=badgeStatus==='error'?'error':badgeStatus==='warn'?'warn':'ok';
+  // ── Container ID unique
+  const v3cId='diagV3Container';
+  return`<div class="diag-voyant diag-v3 diag-border-${borderStatus}">
+    <div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-ok">🔭 Le Réseau</span>${_diagBadge(badgeStatus)}</div>
+    ${introLine}
+    <div class="flex gap-2 mb-3 flex-wrap" id="diagV3Kpis">
+      <button class="diag-kpi-pill${defaultCat==='commander'?' active':''}" data-cat="commander" onclick="_diagV3FilterCategory('${v3cId}','commander')"${nbCmd===0?' disabled':''}>🔴 <strong>${nbCmd}</strong> à commander</button>
+      <button class="diag-kpi-pill${defaultCat==='verifier'?' active':''}" data-cat="verifier" onclick="_diagV3FilterCategory('${v3cId}','verifier')"${nbVerif===0?' disabled':''}>🟠 <strong>${nbVerif}</strong> à vérifier</button>
+      <button class="diag-kpi-pill${defaultCat==='exclusivites'?' active':''}" data-cat="exclusivites" onclick="_diagV3FilterCategory('${v3cId}','exclusivites')"${nbExcl===0?' disabled':''}>⭐ <strong>${nbExcl}</strong> exclusivité${nbExcl>1?'s':''}</button>
+    </div>
+    <div id="${v3cId}">
+      <div data-v3cat="commander"${defaultCat!=='commander'?' style="display:none"':''}>
+        ${nbCmd>0?`<p class="text-[10px] c-danger font-bold mb-1.5">Articles absents en forte rotation réseau — à commander :</p>${_pillsSection(commander,a=>_pill(a,'missing'),'')}`:`<p class="text-[10px] c-ok">✅ Tous les articles forte rotation réseau sont dans votre rayon.</p>`}
+      </div>
+      <div data-v3cat="verifier"${defaultCat!=='verifier'?' style="display:none"':''}>
+        ${nbVerif>0?`<p class="text-[10px] c-caution font-bold mb-1.5">${verifier.some(a=>a._vtype==='instock')?'En stock sans vente · ':''}Articles à vérifier (gamme, visibilité rayon) :</p>${_pillsSection(verifier,a=>_pill(a,a._vtype||'missing'),'')}`:`<p class="text-[10px] c-ok">✅ Aucun article à vérifier.</p>`}
+      </div>
+      <div data-v3cat="exclusivites"${defaultCat!=='exclusivites'?' style="display:none"':''}>
+        ${nbExcl>0?`<p class="text-[10px] c-action font-bold mb-1.5">Articles que vous vendez et &lt;2 autres agences vendent :</p>${_pillsSection(exclusivites,_exclPill,'')}`:`<p class="text-[10px] t-inverse-muted">Aucune exclusivité dans cette famille.</p>`}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -743,7 +860,7 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   if(l1&&l1.ruptures&&l1.ruptures.length>0){
     const caVal=l1.caPerduTotal||0;
     const caLabel=caVal>0?formatEuro(caVal):formatEuro(l1.ruptures.reduce((s,r)=>s+Math.round(r.W*(r.prixUnitaire||0)),0))+' potentiel annuel';
-    acts.push({priority:1,star:'⭐',label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});
+    acts.push({priority:1,star:'⭐',codes:l1.ruptures.map(r=>r.code),label:`Réassort ${l1.ruptures.length} article${l1.ruptures.length>1?'s':''} en rupture clés pour les ${metier}s — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});
   }
   const nbMM=(l2?(l2.nonCal||0)+(l2.sousD||0):0);
   if(nbMM>0){
@@ -839,7 +956,7 @@ function _diagGenActions(famille,v1,v2,v3){
   // 📦 MON RAYON actions
   if(v1.ruptures&&v1.ruptures.length>0){
     const caLabel=v1.caPerduTotal>0?formatEuro(v1.caPerduTotal):formatEuro(v1.ruptures.reduce((s,r)=>s+Math.round(r.W*(_S.finalData.find(d=>d.code===r.code)?.prixUnitaire||0)),0))+' potentiel annuel';
-    acts.push({priority:1,src:'📦',label:`Réassort ${v1.ruptures.length} article${v1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
+    acts.push({priority:1,src:'📦',codes:v1.ruptures.map(r=>r.code),label:`Réassort ${v1.ruptures.length} article${v1.ruptures.length>1?'s':''} en rupture — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterFamille').value=famille;document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});
   }
   if(v1.nbMM>0&&v1.statusMM!=='ok'){
     const top5=(v1.mmDetail||[]).slice(0,5);
@@ -854,7 +971,7 @@ function _diagGenActions(famille,v1,v2,v3){
   // 🔭 LE RÉSEAU actions
   if(v3&&v3.status!=='lock'){
     if(v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
     }
     // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
     if(v3.medCA>0&&v3.medCA<1000){
@@ -890,7 +1007,7 @@ function _diagRenderPlan(famille,actions){
         <button onclick="exportDiagnosticCSV('${famille.replace(/'/g,"\\'")}')" class="text-[10px] s-panel-inner hover:s-panel-inner t-inverse py-1 px-3 rounded font-bold">📥 CSV</button>
       </div>
     </div>
-    ${actions.map((a,i)=>a.isInfo?`<div class="px-3 py-2 rounded-lg s-panel-inner/50 border b-dark flex items-center gap-2 text-xs t-inverse mt-1"><span class="flex-shrink-0">${a.src||'ℹ️'}</span><span>${a.label}</span></div>`:`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><span class="t-inverse-muted text-[10px] ml-3 flex-shrink-0">→ Voir</span></div>`).join('')}
+    ${actions.map((a,i)=>a.isInfo?`<div class="px-3 py-2 rounded-lg s-panel-inner/50 border b-dark flex items-center gap-2 text-xs t-inverse mt-1"><span class="flex-shrink-0">${a.src||'ℹ️'}</span><span>${a.label}</span></div>`:`<div class="diag-action-row" onclick="executeDiagAction(${i})"><div class="flex items-center gap-2 min-w-0"><span class="diag-src-tag flex-shrink-0">${a.src||'📦'}</span><span class="text-xs font-semibold truncate">${i+1}. ${a.label}</span></div><div class="flex items-center gap-1 ml-3 flex-shrink-0">${(a.codes&&a.codes.length>0)?`<button onclick="event.stopPropagation();navigator.clipboard.writeText('${a.codes.join('\\n').replace(/'/g,"\\'")}').then(()=>{this.textContent='✅';setTimeout(()=>{this.textContent='📋'},1500)})" class="text-[10px] s-panel-inner py-0.5 px-2 rounded font-bold border b-dark" title="Copier ${a.codes.length} code${a.codes.length>1?'s':''}">📋</button>`:''}<span class="t-inverse-muted text-[10px]">→ Voir</span></div></div>`).join('')}
   </div>`;
 }
 function exportDiagnosticCSV(famille){
@@ -912,4 +1029,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV };
+export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory };
