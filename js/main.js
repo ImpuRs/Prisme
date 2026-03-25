@@ -2282,6 +2282,44 @@ import { initRouter } from './router.js';
     document.querySelectorAll('#tabPromo .tab-content-section').forEach(el=>el.classList.toggle('hidden',mode==='action'));
     if(mode==='action')_renderPromoActionView();
   }
+  function exportTourneeCSV(){
+    const r=_promoLastResult;
+    if(!r){showToast('⚠️ Lancez une recherche Promo d\'abord','warning');return;}
+    const allClients=new Map();
+    for(const c of[...(r.sectionA||[]),...(r.sectionB||[]),...(r.sectionC||[])]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
+    const ranked=[...allClients.values()].map(c=>{
+      const info=_S.chalandiseData.get(c.cc)||{};
+      const spc=c.spc||computeSPC(c.cc,info);
+      const lastOrder=_S.clientLastOrder.get(c.cc);
+      const lastOrderStr=lastOrder?lastOrder.toISOString().slice(0,10):'—';
+      const cp=(info.cp||'').replace(/\s/g,'');
+      const ville=info.ville||'';
+      const artMap=_S.ventesClientArticle.get(c.cc)||new Map();
+      const toPitch=[];
+      for(const code of r.matchedCodes){
+        if(artMap.has(code))continue;
+        const ref=_S.finalData.find(d=>d.code===code);
+        if(ref&&ref.stockActuel>0)toPitch.push({code,lib:ref.libelle||code});
+        if(toPitch.length>=3)break;
+      }
+      return{cc:c.cc,nom:c.nom||info.nom||c.cc,spc,cp,ville,metier:info.metier||'',commercial:info.commercial||'',lastOrderStr,toPitch,ca:c.ca||0};
+    }).filter(c=>c.spc>=20).sort((a,b)=>a.cp.localeCompare(b.cp)||b.spc-a.spc);
+    if(!ranked.length){showToast('Aucun client qualifié pour la tournée','warning');return;}
+    const SEP=';';
+    const header=['Code','Nom','SPC','CP','Ville','Métier','Commercial','Dernière cde','Article 1','Article 2','Article 3','CA'].join(SEP);
+    const rows=ranked.map(c=>{
+      const arts=c.toPitch.map(a=>`${a.code} ${a.lib}`);
+      return[c.cc,`"${c.nom}"`,c.spc,c.cp,`"${c.ville}"`,`"${c.metier}"`,`"${c.commercial}"`,c.lastOrderStr,`"${arts[0]||''}"`,`"${arts[1]||''}"`,`"${arts[2]||''}"`,c.ca>0?Math.round(c.ca):''].join(SEP);
+    });
+    const content='\uFEFF'+header+'\n'+rows.join('\n');
+    const blob=new Blob([content],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download=`PRISME_Tournee_${(r.terms||['promo'])[0]}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);link.click();document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    showToast(`📄 Fiche tournée : ${ranked.length} clients exportés`,'success');
+  }
   function _renderPromoActionView(){
     const r=_promoLastResult;
     if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML='<p class="t-tertiary text-sm">Lancez d\'abord une recherche Promo.</p>';return;}
@@ -2289,7 +2327,7 @@ import { initRouter } from './router.js';
     for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
     const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
     const clientsEl=document.getElementById('promoActionClients');
-    if(clientsEl)clientsEl.innerHTML=ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
+    if(clientsEl)clientsEl.innerHTML=`<div class="flex items-center justify-between mb-2"><span class="text-[10px] font-bold t-tertiary uppercase">Top 10 — Qui appeler</span><button onclick="exportTourneeCSV()" class="text-[10px] font-bold py-1 px-2 rounded c-action i-info-bg border">📄 Fiche tournée CSV</button></div>`+ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
     if(ranked.length>0)_showActionArticles(ranked[0].cc);
   }
   function _showActionArticles(cc){
@@ -4266,6 +4304,7 @@ window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window._setPromoMode = _setPromoMode;
 window._showActionArticles = _showActionArticles;
+window.exportTourneeCSV = exportTourneeCSV;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
