@@ -2015,9 +2015,11 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const container=document.getElementById('heatmapContainer');if(!container)return;
     if(!_S.chalandiseReady||!_S.ventesClientArticle.size){container.innerHTML='<p class="t-disabled text-sm p-4">Chargez la chalandise pour voir la heatmap.</p>';return;}
     const matrix={},famTotals={},comTotals={};const commercials=new Set();
+    const clientComLookup={};
+    for(const[cc,info]of _S.chalandiseData.entries()){if(info.commercial)clientComLookup[cc]=info.commercial;}
+    if(_S.territoireReady){for(const l of _S.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=l.secteur;}}
     for(const[cc,artMap]of _S.ventesClientArticle.entries()){
-      const info=_S.chalandiseData.get(cc);
-      const com=(info&&info.commercial)||'⚠️ Non affecté';
+      const com=clientComLookup[cc]||'⚠️ Non affecté';
       commercials.add(com);if(!matrix[com])matrix[com]={};
       for(const[code,data]of artMap.entries()){
         const fam=_S.articleFamille[code]||'Non classé';const ca=data.sumCA||0;
