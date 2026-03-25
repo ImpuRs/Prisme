@@ -2155,7 +2155,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const matrix={},famTotals={},comTotals={};const commercials=new Set();
     const clientComLookup={};
     for(const[cc,info]of _S.chalandiseData.entries()){if(info.commercial)clientComLookup[cc]=info.commercial;}
-    if(_S.territoireReady){for(const l of _S.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=l.secteur;}}
+    if(_S.territoireReady){for(const l of _S.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=SECTEUR_DIR_MAP[l.secteur]||l.secteur;}}
     for(const[cc,artMap]of _S.ventesClientArticle.entries()){
       const com=clientComLookup[cc]||'⚠️ Non affecté';
       commercials.add(com);if(!matrix[com])matrix[com]={};
