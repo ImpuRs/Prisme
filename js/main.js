@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -879,6 +879,16 @@ import { initRouter } from './router.js';
     developper.forEach(c=>c._reason=_devRaison(c));
     fideliser.forEach(c=>c._reason=_fidRaison(c));
     _S._cockpitExportData={silencieux,urgences,developper,fideliser};
+    // A5: Badges alertes inline client (inactif / rupture / reconquête)
+    function _clientBadges(cc){
+      let badges='';
+      const lastOrder=_S.clientLastOrder.get(cc);
+      if(lastOrder){const daysAgo=Math.round((new Date()-lastOrder)/86400000);if(daysAgo>60)badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-caution-bg c-caution">⏰ ${daysAgo}j</span> `;}
+      const artMap=_S.ventesClientArticle.get(cc);
+      if(artMap&&_S.cockpitLists.ruptures&&_S.cockpitLists.ruptures.size>0){for(const code of artMap.keys()){if(_S.cockpitLists.ruptures.has(code)){badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span> `;break;}}}
+      if(_S.reconquestCohort.some(r=>r.cc===cc))badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span> `;
+      return badges;
+    }
     // Card renderer
     function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
@@ -886,7 +896,7 @@ import { initRouter } from './router.js';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1252,7 +1262,7 @@ import { initRouter } from './router.js';
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
-      computeClientCrossing();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      computeClientCrossing();computeReconquestCohort();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -4166,6 +4176,7 @@ window.onChalandiseSelected = onChalandiseSelected;
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window.computePhantomArticles = computePhantomArticles;
+window.computeReconquestCohort = computeReconquestCohort;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
