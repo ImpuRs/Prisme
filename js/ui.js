@@ -208,7 +208,7 @@ export function filterByAbcFmr(abc, fmr) {
 // ── Cockpit filter ────────────────────────────────────────────
 export function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
-  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client' }[type] || type;
+  document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client', phantom: '👻 Fantômes de rayon' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
   if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('s-hover', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');

@@ -75,6 +75,8 @@ _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTer
 _S.chalandiseData = new Map();
 _S.chalandiseReady = false;
 _S.chalandiseMetiers = [];
+_S.clientsByMetier = new Map();
+_S.clientsByCommercial = new Map();
 
 // ── Filtres territoire / chalandise ──
 _S._selectedDepts = new Set();
@@ -130,6 +132,12 @@ _S._diagMetierFilter = '';
 _S._diagCurrentFamille = '';
 _S._diagCurrentSource = '';
 
+// ── Fantômes de rayon ──
+_S.phantomArticles = [];
+
+// ── Cohorte reconquête ──
+_S.reconquestCohort = [];
+
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
@@ -176,6 +184,7 @@ export function resetAppState() {
 
   // Chalandise
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
+  _S.clientsByMetier = new Map(); _S.clientsByCommercial = new Map();
 
   // Croisement / cockpit export
   _S.crossingStats = null; _S._cockpitExportData = null;
@@ -192,6 +201,12 @@ export function resetAppState() {
   // Briefing data
   _S._briefingData = null;
   _S._iccData = null; _S._fragiliteData = null;
+
+  // Fantômes de rayon
+  _S.phantomArticles = [];
+
+  // Cohorte reconquête
+  _S.reconquestCohort = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

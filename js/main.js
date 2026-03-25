@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache } from './utils.js';
 import { _S, resetAppState } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -879,6 +879,16 @@ import { initRouter } from './router.js';
     developper.forEach(c=>c._reason=_devRaison(c));
     fideliser.forEach(c=>c._reason=_fidRaison(c));
     _S._cockpitExportData={silencieux,urgences,developper,fideliser};
+    // A5: Badges alertes inline client (inactif / rupture / reconquête)
+    function _clientBadges(cc){
+      let badges='';
+      const lastOrder=_S.clientLastOrder.get(cc);
+      if(lastOrder){const daysAgo=Math.round((new Date()-lastOrder)/86400000);if(daysAgo>60)badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-caution-bg c-caution">⏰ ${daysAgo}j</span> `;}
+      const artMap=_S.ventesClientArticle.get(cc);
+      if(artMap&&_S.cockpitLists.ruptures&&_S.cockpitLists.ruptures.size>0){for(const code of artMap.keys()){if(_S.cockpitLists.ruptures.has(code)){badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span> `;break;}}}
+      if(_S.reconquestCohort.some(r=>r.cc===cc))badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span> `;
+      return badges;
+    }
     // Card renderer
     function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
@@ -886,7 +896,7 @@ import { initRouter } from './router.js';
       const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
       const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1181,7 +1191,7 @@ import { initRouter } from './router.js';
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
-      _S.finalData=[];_S.libelleLookup={};_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set()};
+      _S.finalData=[];_S.libelleLookup={};_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
       _S.parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
@@ -1214,7 +1224,7 @@ import { initRouter } from './router.js';
       else if(W===2&&V>0){nouveauMin=1;nouveauMax=2;}
       else if(V===0){nouveauMin=0;nouveauMax=0;}
       else if(Wp===0){nouveauMin=0;nouveauMax=0;} // H1: guard — Wp=0 ne doit jamais atteindre l'écretage
-      else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);nouveauMin=Math.max(Math.min(Math.round(dl+(X*SECURITY_DAYS)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
+      else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);const secDays=Wp>=12?4:Wp>=4?3:(prixUnitaire>HIGH_PRICE?1:2);nouveauMin=Math.max(Math.min(Math.round(dl+(X*secDays)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
       const couvertureJours=calcCouverture(stockActuel,V);
       _S.finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
@@ -1252,7 +1262,7 @@ import { initRouter } from './router.js';
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
-      computeClientCrossing();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
+      computeClientCrossing();computeReconquestCohort();_S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();renderBenchmark();}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -1268,6 +1278,7 @@ import { initRouter } from './router.js';
         if(terrRaw&&terrRaw.length){
           await launchTerritoireWorker(terrRaw,updateTerrProgress);
           updatePipeline('territoire','done');
+          computePhantomArticles();
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
           _saveToCache(); _saveSessionToIDB(); // Resauvegarder avec les données territoire
@@ -1308,6 +1319,15 @@ import { initRouter } from './router.js';
     const dd=document.getElementById('terrSecteurDropdown');
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
   });
+
+  // A4: Fantômes de rayon — en stock mais absents du territoire
+  function computePhantomArticles(){
+    _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
+    if(!_S.territoireReady||!_S.finalData.length)return;
+    const terrCodes=new Set(_S.territoireLines.map(l=>l.code));
+    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!terrCodes.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
+    _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
+  }
 
   function renderTerritoireTab(){
     const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
@@ -2881,7 +2901,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   function renderDashboardAndCockpit(){
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
-    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set()};
+    _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
     _S.parentRefsExcluded=0;
     const dataSource=(_S.filteredData.length>0&&_S.filteredData.length<_S.finalData.length)?_S.filteredData:_S.finalData;
     // CA perdu — contexte multi vs mono agence
@@ -2949,6 +2969,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     setSc('scDormantsCount',lstD.length);setSc('scDormantsVal',scDVal>0?formatEuro(scDVal):'—');
     setSc('scFinsCount',lstFi.length);setSc('scFinsVal',scFiVal>0?formatEuro(scFiVal):'—');
     const scSnVal=Math.abs(lstStockNeg.reduce((s,i)=>s+i.sv,0));setSc('scStocknegCount',lstStockNeg.length);setSc('scStocknegVal',scSnVal>0?formatEuro(scSnVal):'—');
+    // A4: update phantom shortcut counter
+    {const phantomEl=document.getElementById('shortcutPhantomCount');if(phantomEl&&_S.phantomArticles.length>0){phantomEl.textContent=_S.phantomArticles.length+' art. · '+formatEuro(_S.phantomArticles.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));}}
 
     // V23: Show excluded parent refs count
     const exclEl=document.getElementById('rupturesExcluded');
@@ -3351,7 +3373,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       }
       const refMedian=storeRefCounts.length?Math.round(_median(storeRefCounts)):0;
       const missing=[],inStockNotSold=[];
-      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=_S.libelleLookup[code]||code;const d=_S.finalData.find(r=>r.code===code);const networkFmr=medFreq>=12?'F':medFreq>=4?'M':'R';const spa=artStorePrelevee[code]||[];let precoMin=0,precoMax=0,precoStores=0;if(spa.length>0){const mp=_median(spa.map(s=>s.sumPrelevee));const mf=_median(spa.map(s=>s.countBL));const U=mf>0?mp/mf:0;const X=mp/_S.globalJoursOuvres;const maxCmd=Math.max(...spa.filter(s=>s.countBL>0).map(s=>s.sumPrelevee/s.countBL),0);const dlR=maxCmd>3*U?3*U:maxCmd;const dl=Math.min(dlR,U*5);precoMin=Math.max(Math.round(dl+X*SECURITY_DAYS),1);precoMax=Math.max(Math.round(precoMin+X*(mf>12?21:10)),precoMin+1);precoStores=spa.length;}const entry={code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?',networkFmr,precoMin,precoMax,precoStores};if((d?.stockActuel??0)>0)inStockNotSold.push({...entry,stockActuel:d.stockActuel});else missing.push(entry);}
+      for(const[code,freqs] of Object.entries(artStoreFreqs)){if(myArtSet.has(code))continue;const medFreq=_median(freqs);if(medFreq<2)continue;const lib=_S.libelleLookup[code]||code;const d=_S.finalData.find(r=>r.code===code);const networkFmr=medFreq>=12?'F':medFreq>=4?'M':'R';const spa=artStorePrelevee[code]||[];let precoMin=0,precoMax=0,precoStores=0;if(spa.length>0){const mp=_median(spa.map(s=>s.sumPrelevee));const mf=_median(spa.map(s=>s.countBL));const U=mf>0?mp/mf:0;const X=mp/_S.globalJoursOuvres;const maxCmd=Math.max(...spa.filter(s=>s.countBL>0).map(s=>s.sumPrelevee/s.countBL),0);const dlR=maxCmd>3*U?3*U:maxCmd;const dl=Math.min(dlR,U*5);const secDays=mf>=12?4:mf>=4?3:2;precoMin=Math.max(Math.round(dl+X*secDays),1);precoMax=Math.max(Math.round(precoMin+X*(mf>12?21:10)),precoMin+1);precoStores=spa.length;}const entry={code,lib,medFreq:Math.round(medFreq*10)/10,nbStores:freqs.length,abcClass:d?.abcClass||'?',fmrClass:d?.fmrClass||'?',networkFmr,precoMin,precoMax,precoStores};if((d?.stockActuel??0)>0)inStockNotSold.push({...entry,stockActuel:d.stockActuel});else missing.push(entry);}
       missing.sort((a,b)=>b.nbStores-a.nbStores||b.medFreq-a.medFreq);
       const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
       v3={status:missing.length===0?'ok':strong>2?'error':'warn',myCount:cellArts.length,reseauCount:cellArts.length+missing.length,missing:missing.slice(0,25),inStockNotSold:inStockNotSold.slice(0,15),strongMissing:strong,nbOtherStores,exclusives:[],myCA:0,medCA:0,caEcart:0,isCellMode:true,refMedian,cellKey:key};
@@ -4153,6 +4175,8 @@ window.onSecteurChange = onSecteurChange;
 window.onChalandiseSelected = onChalandiseSelected;
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
+window.computePhantomArticles = computePhantomArticles;
+window.computeReconquestCohort = computeReconquestCohort;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;

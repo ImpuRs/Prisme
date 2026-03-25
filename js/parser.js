@@ -77,6 +77,19 @@ export async function parseChalandise(file) {
     });
   }
   _S.chalandiseMetiers = [...metiersSet].sort();
+  // Build metier and commercial indexes
+  _S.clientsByMetier.clear();
+  _S.clientsByCommercial.clear();
+  for (const [cc, info] of _S.chalandiseData.entries()) {
+    if (info.metier) {
+      if (!_S.clientsByMetier.has(info.metier)) _S.clientsByMetier.set(info.metier, new Set());
+      _S.clientsByMetier.get(info.metier).add(cc);
+    }
+    if (info.commercial) {
+      if (!_S.clientsByCommercial.has(info.commercial)) _S.clientsByCommercial.set(info.commercial, new Set());
+      _S.clientsByCommercial.get(info.commercial).add(cc);
+    }
+  }
   _S.chalandiseReady = true;
   const nbActifs = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('actif') && !s.includes('inactif'); }).length;
   const nbPerdus = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('perdu') || s.includes('inactif'); }).length;
