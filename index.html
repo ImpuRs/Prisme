@@ -16,6 +16,139 @@
       --c-ok:      #16a34a;  /* Vert  — "sous contrôle, pas d'action" */
       --c-muted:   #9ca3af;  /* Gris  — "information, pas de jugement" */
     }
+    /* ═══ NIVEAU 1 — PRIMITIVES (palette brute) ════════════════ */
+    :root {
+      /* Gris / Slate */
+      --p-slate-950: #0a0a0f;
+      --p-slate-900: #0f172a;
+      --p-slate-800: #1e293b;
+      --p-slate-700: #334155;
+      --p-slate-600: #475569;
+      --p-slate-500: #64748b;
+      --p-slate-400: #94a3b8;
+      --p-slate-300: #cbd5e1;
+      --p-slate-200: #e2e8f0;
+      --p-slate-100: #f1f5f9;
+      --p-slate-50:  #f8fafc;
+      --p-white:     #ffffff;
+      /* Fonctionnelles */
+      --p-blue-600:  #2563eb;
+      --p-blue-500:  #3b82f6;
+      --p-blue-400:  #60a5fa;
+      --p-blue-50:   #eff6ff;
+      --p-red-600:   #dc2626;
+      --p-red-500:   #ef4444;
+      --p-red-50:    #fef2f2;
+      --p-amber-600: #d97706;
+      --p-amber-500: #f59e0b;
+      --p-amber-400: #fbbf24;
+      --p-amber-50:  #fffbeb;
+      --p-green-600: #16a34a;
+      --p-green-500: #22c55e;
+      --p-green-400: #4ade80;
+      --p-green-50:  #f0fdf4;
+      --p-orange-500:#f97316;
+      --p-orange-600:#ea580c;
+      /* Spectre PRISME (identité visuelle) */
+      --p-prisme-red:    #E24B4A;
+      --p-prisme-amber:  #EF9F27;
+      --p-prisme-gold:   #FAC775;
+      --p-prisme-green:  #639922;
+      --p-prisme-blue:   #378ADD;
+      --p-prisme-rose:   #D4537E;
+      --p-prisme-violet: #534AB7;
+      /* Diagnostic voyants */
+      --p-diag-blue-bg:   #0f2744;
+      --p-diag-violet-bg: #1a0e1e;
+      --p-diag-green-bg:  #061a10;
+      --p-diag-amber-bg:  #1a1000;
+    }
+
+    /* ═══ NIVEAU 2 — TOKENS SÉMANTIQUES ════════════════════════ */
+    :root {
+      /* Surfaces */
+      --s-page:          var(--p-slate-100);
+      --s-card:          var(--p-white);
+      --s-card-alt:      var(--p-slate-50);
+      --s-panel:         var(--p-slate-900);
+      --s-panel-inner:   var(--p-slate-800);
+      --s-overlay:       rgba(0,0,0,0.82);
+      --s-overlay-light: rgba(15,23,42,0.7);
+      --s-hover:         var(--p-slate-100);
+      --s-hover-blue:    var(--p-blue-50);
+      --s-selected:      #e0f2fe;
+      --s-active:        #dbeafe;
+      /* Texte */
+      --t-primary:       var(--p-slate-800);
+      --t-secondary:     var(--p-slate-600);
+      --t-tertiary:      var(--p-slate-500);
+      --t-disabled:      var(--p-slate-400);
+      --t-inverse:       var(--p-slate-200);
+      --t-inverse-muted: var(--p-slate-400);
+      --t-link:          var(--p-blue-600);
+      /* Bordures */
+      --b-default: var(--p-slate-200);
+      --b-light:   var(--p-slate-100);
+      --b-dark:    var(--p-slate-700);
+      --b-darker:  #2d3f55;
+      --b-focus:   var(--c-action);
+      /* Indicateurs fond léger */
+      --i-danger-bg:    var(--p-red-50);
+      --i-danger-text:  #991b1b;
+      --i-caution-bg:   #fffbeb;
+      --i-caution-text: #92400e;
+      --i-ok-bg:        var(--p-green-50);
+      --i-ok-text:      #166534;
+      --i-info-bg:      var(--p-blue-50);
+      --i-info-text:    #1e40af;
+      --i-neutral-bg:   var(--p-slate-100);
+      --i-neutral-text: var(--p-slate-600);
+      /* Indicateurs sombres (diag badges) */
+      --i-ok-dark-bg:      #14532d;
+      --i-ok-dark-text:    #4ade80;
+      --i-warn-dark-bg:    #713f12;
+      --i-warn-dark-text:  #fbbf24;
+      --i-error-dark-bg:   #7f1d1d;
+      --i-error-dark-text: #f87171;
+      --i-lock-dark-bg:    var(--p-slate-800);
+      --i-lock-dark-text:  var(--p-slate-500);
+      /* Graphiques */
+      --g-progress-track: rgba(255,255,255,0.15);
+      --g-progress-fill:  linear-gradient(90deg,var(--p-blue-500),#06b6d4);
+      --g-bar-critical:   linear-gradient(90deg,var(--p-red-500),var(--p-red-600));
+      --g-bar-high:       linear-gradient(90deg,var(--p-orange-500),var(--p-orange-600));
+      --g-bar-medium:     linear-gradient(90deg,#eab308,#ca8a04);
+      --g-bar-low:        var(--p-slate-400);
+      --g-shimmer:        linear-gradient(90deg,transparent,var(--p-blue-500),#06b6d4,transparent);
+    }
+
+    /* ═══ TOKEN BRIDGE — classes sémantiques PRISME ════════════ */
+    /* Texte */
+    .t-primary        { color: var(--t-primary); }
+    .t-secondary      { color: var(--t-secondary); }
+    .t-tertiary       { color: var(--t-tertiary); }
+    .t-disabled       { color: var(--t-disabled); }
+    .t-inverse        { color: var(--t-inverse); }
+    .t-inverse-muted  { color: var(--t-inverse-muted); }
+    .t-link           { color: var(--t-link); }
+    /* Surfaces */
+    .s-page        { background-color: var(--s-page); }
+    .s-card        { background-color: var(--s-card); }
+    .s-card-alt    { background-color: var(--s-card-alt); }
+    .s-panel       { background-color: var(--s-panel); }
+    .s-panel-inner { background-color: var(--s-panel-inner); }
+    .s-hover       { background-color: var(--s-hover); }
+    /* Indicateurs fond */
+    .i-danger-bg  { background-color: var(--i-danger-bg); }
+    .i-caution-bg { background-color: var(--i-caution-bg); }
+    .i-ok-bg      { background-color: var(--i-ok-bg); }
+    .i-info-bg    { background-color: var(--i-info-bg); }
+    .i-neutral-bg { background-color: var(--i-neutral-bg); }
+    /* Bordures */
+    .b-default { border-color: var(--b-default); }
+    .b-light   { border-color: var(--b-light); }
+    .b-dark    { border-color: var(--b-dark); }
+
     /* Helpers couleur sémantique (utilisés par JS via className) */
     .c-action  { color: var(--c-action); }
     .c-danger  { color: var(--c-danger); }
