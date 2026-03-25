@@ -570,7 +570,7 @@ function _diagRenderV2(v,hasChal){
       </div>
       ${jaugeHtml}
       ${potentielHtml}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
+      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
     </div>`;
   };
   // Mode cellMode (m a actifs/perdus/prospects/potentiel mais pas p1-p5)
@@ -579,7 +579,7 @@ function _diagRenderV2(v,hasChal){
     const penActifs=m.total>0?Math.round(m.actifs/m.total*100):0;
     const jCol=penActifs>=60?'#22c55e':penActifs>=40?'#f59e0b':'#ef4444';
     const jTxt=penActifs>=60?'c-ok':penActifs>=40?'c-caution':'c-danger';
-    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Actifs / zone</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penActifs}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penActifs}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.actifs} actifs / ${m.total} dans votre zone</p></div>`;
+    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Actifs / zone</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penActifs}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penActifs}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.actifs} actifs sur ces articles / ${m.total} dans votre zone (métier)</p></div>`;
     const nbPerdus=m.perdus||0;
     const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
     const caHtml=m.caActifs>0?` · CA : <strong class="c-ok">${formatEuro(m.caActifs)}</strong>`:'';
@@ -596,7 +596,7 @@ function _diagRenderV2(v,hasChal){
       ${jaugeHtml}
       ${potentielHtml}
       ${perduLine}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
+      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans Le Terrain → (périmètre global métier)</button>
     </div>`;
   };
 
