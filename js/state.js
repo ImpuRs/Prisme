@@ -114,6 +114,9 @@ _S.kpiHistory = [];
 _S._overviewOpenL2 = null;
 _S._overviewOpenL3 = null;
 
+// ── Lazy tab render cache ──
+_S._tabRendered = {}; // tabId → true once rendered; reset on filter change
+
 // ── Decision Queue (Sprint 1) ──
 _S.decisionQueueData = [];
 
@@ -205,6 +208,9 @@ export function resetAppState() {
 
   // Navigation overview
   _S._overviewOpenL2 = null; _S._overviewOpenL3 = null;
+
+  // Lazy tab render cache
+  _S._tabRendered = {};
 
   // Decision Queue
   _S.decisionQueueData = [];

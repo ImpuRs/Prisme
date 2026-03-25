@@ -2585,6 +2585,33 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
+  // ── Lazy tab renderer — renders only the currently active tab ──
+  function renderCurrentTab(){
+    const activeBtn=document.querySelector('.tab-btn.active');
+    const id=activeBtn?activeBtn.getAttribute('data-tab'):'table';
+    switch(id){
+      case 'table':
+        renderTable(true); // articles always re-renders; no cache flag
+        return;
+      case 'dash':
+      case 'action':
+        renderDashboardAndCockpit();
+        break;
+      case 'abc':
+        renderABCTab();
+        break;
+      case 'territoire':
+        renderCanalAgence();
+        renderTerritoireTab();
+        break;
+      case 'bench':
+        renderBenchmark();
+        break;
+      // 'promo' needs no render call
+    }
+    _S._tabRendered[id]=true;
+  }
+
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
 
   // Strip "O05 - " style prefix from family names for consistent matching across data sources
@@ -2785,6 +2812,7 @@ window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
+window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
 window.openDiagnosticMetier = openDiagnosticMetier;
