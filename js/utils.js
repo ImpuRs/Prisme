@@ -188,7 +188,7 @@ export function _doCopyCode(btn, code) {
 }
 
 export function _copyCodeBtn(code) {
-  return `<button onclick="event.stopPropagation();_doCopyCode(this,'${code}')" title="Copier le code article" style="font-size:10px;line-height:1;vertical-align:middle;background:none;border:none;cursor:pointer;padding:0 2px;opacity:.55" class="hover:opacity-100 ml-0.5 inline-block align-middle">📋</button>`;
+  return `<button onclick="event.stopPropagation();_doCopyCode(this,'${code}')" title="Copier le code article" style="font-size:var(--fs-xs);line-height:1;vertical-align:middle;background:none;border:none;cursor:pointer;padding:0 2px;opacity:.55" class="hover:opacity-100 ml-0.5 inline-block align-middle">📋</button>`;
 }
 
 export function _copyAllCodesDirect(btn, codesCSV) {
