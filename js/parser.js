@@ -562,10 +562,47 @@ export function _reseauWorker() {
       fuitesParMetier.sort((a, b) => b.indiceFuite - a.indiceFuite);
     }
 
+    // ── 4. Nomades × Articles : ce que mes nomades achètent ailleurs mais pas chez moi
+    const nomadeSet = new Set(nomades);
+    const myVentes = ventesParMagasin[myStore] || {};
+    // article → { clients: Set<cc>, caSum: number }
+    const missedByArt = {};
+
+    for (const store of storesIntersection) {
+      if (store === myStore) continue;
+      const sv = ventesParMagasin[store] || {};
+      const storeClients = new Set(e.data.clientsPerStore[store] || []);
+      for (const [code, data] of Object.entries(sv)) {
+        if (!/^\d{6}$/.test(code)) continue;
+        if ((data.countBL || 0) === 0) continue;
+        // article déjà vendu chez moi → pas une opportunité
+        if ((myVentes[code]?.countBL || 0) > 0) continue;
+        // filtrer les clients de ce store qui sont aussi des nomades de mon agence
+        for (const cc of storeClients) {
+          if (!nomadeSet.has(cc)) continue;
+          if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caSum: 0 };
+          missedByArt[code].clients.add(cc);
+          missedByArt[code].caSum += (data.sumCA || 0) / Math.max(storeClients.size, 1);
+        }
+      }
+    }
+
+    const nomadesMissedArts = Object.entries(missedByArt)
+      .map(([code, d]) => ({
+        code,
+        fam: (articleFamille[code] || '').replace(/^[A-Z]\d{2,3} - /, ''),
+        nbClients: d.clients.size,
+        clientCodes: [...d.clients].slice(0, 10),
+        caReseau: Math.round(d.caSum)
+      }))
+      .sort((a, b) => b.nbClients - a.nbClients || b.caReseau - a.caReseau)
+      .slice(0, 50);
+
     self.postMessage({
       nomades: nomades.slice(0, 200),
       orphelins: orphelins.slice(0, 50),
-      fuitesParMetier: fuitesParMetier.slice(0, 30)
+      fuitesParMetier: fuitesParMetier.slice(0, 30),
+      nomadesMissedArts: nomadesMissedArts
     });
   };
 }
@@ -596,6 +633,7 @@ export function launchReseauWorker() {
 
       worker.onmessage = (ev) => {
         _S.reseauNomades = ev.data.nomades || [];
+        _S.nomadesMissedArts = ev.data.nomadesMissedArts || [];
         _S.reseauOrphelins = ev.data.orphelins || [];
         _S.reseauFuitesMetier = ev.data.fuitesParMetier || [];
         worker.terminate(); URL.revokeObjectURL(url);
