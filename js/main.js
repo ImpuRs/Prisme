@@ -1298,7 +1298,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderReseauNomades();renderReseauOrphelins();renderReseauFuites();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
@@ -2159,6 +2159,41 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     el.innerHTML = html;
   }
 
+  function renderNomadesMissedArts() {
+    const el = document.getElementById('nomadesMissedArtsContainer');
+    if (!el) return;
+    const list = _S.nomadesMissedArts || [];
+    const badge = document.getElementById('nomadesMissedBadge');
+    if (badge) {
+      if (list.length) { badge.textContent = list.length; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+    if (!list.length) {
+      el.innerHTML = '<p class="t-disabled text-sm p-4">Aucune donnée — nécessite un fichier multi-agences avec clients communs.</p>';
+      return;
+    }
+    let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par vos clients <strong>dans d'autres agences</strong> mais jamais chez vous — triés par nombre de clients concernés.</p>`;
+    html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold sticky top-0"><tr>';
+    html += '<th class="py-2 px-3 text-left">Code</th>';
+    html += '<th class="py-2 px-3 text-left">Libellé</th>';
+    html += '<th class="py-2 px-3 text-left">Famille</th>';
+    html += '<th class="py-2 px-3 text-center">Clients concernés</th>';
+    html += '<th class="py-2 px-3 text-right">CA réseau estimé</th>';
+    html += '</tr></thead><tbody>';
+    for (const art of list) {
+      const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
+      html += `<tr class="border-b hover:i-caution-bg/40 cursor-pointer">`;
+      html += `<td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${art.code}</td>`;
+      html += `<td class="py-1.5 px-3 font-semibold t-primary">${lib}</td>`;
+      html += `<td class="py-1.5 px-3 t-tertiary text-[11px]">${art.fam || '—'}</td>`;
+      html += `<td class="py-1.5 px-3 text-center font-extrabold c-danger">${art.nbClients}</td>`;
+      html += `<td class="py-1.5 px-3 text-right t-secondary">${art.caReseau > 0 ? formatEuro(art.caReseau) : '—'}</td>`;
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    el.innerHTML = html;
+  }
+
   // C4: Heatmap Famille × Commercial
   function renderHeatmapFamilleCommercial(){
     const container=document.getElementById('heatmapContainer');if(!container)return;
@@ -2486,6 +2521,19 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const lines=[`Code\tLibellé\tFamille\tFréq Moi\t${compLabel}\tÉcart %\t${caLabel}`];
     for(const p of pepOther)lines.push(`${p.code}\t${p.lib}\t${p.fam}\t${p.myFreq}\t${p.compFreq}\t${p.ecartPct!==null?'+'+p.ecartPct+'%':'Absent'}\t${p.caComp}`);
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepOther.length} pépite${pepOther.length>1?'s':''} réseau copiée${pepOther.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
+  }
+
+  function copyNomadesMissedArts() {
+    const list = _S.nomadesMissedArts || [];
+    if (!list.length) { showToast('Aucune donnée à copier', 'warning'); return; }
+    const lines = ['Code\tLibellé\tFamille\tClients concernés\tCA réseau estimé'];
+    for (const art of list) {
+      const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
+      lines.push(`${art.code}\t${lib}\t${art.fam}\t${art.nbClients}\t${art.caReseau}`);
+    }
+    navigator.clipboard?.writeText(lines.join('\n'))
+      .then(() => showToast(`📋 ${list.length} articles copiés`, 'success'))
+      .catch(() => showToast('❌ Erreur copie', 'error'));
   }
 
   function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
@@ -2970,6 +3018,7 @@ window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;
 window.renderReseauOrphelins = renderReseauOrphelins;
 window.renderReseauFuites = renderReseauFuites;
+window.renderNomadesMissedArts = renderNomadesMissedArts;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
@@ -3068,6 +3117,7 @@ window.exportKPIhistory = exportKPIhistory;
 window.importKPIhistory = importKPIhistory;
 window.renderObsArticleSearch = renderObsArticleSearch;
 window.copyPepitesOtherList = copyPepitesOtherList;
+window.copyNomadesMissedArts = copyNomadesMissedArts;
 window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)

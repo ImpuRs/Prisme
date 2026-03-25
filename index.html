@@ -1506,28 +1506,24 @@
           </table>
         </div>
       </details>
-      <!-- 🔥 PÉPITES RÉSEAU — articles où le réseau me surpasse — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
+      <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
+      <details class="s-card rounded-xl shadow-md border-2 border-orange-300 mb-6">
         <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
-          <h3 class="font-extrabold c-caution flex items-center gap-2"><span id="pepitesOtherTitle">🔥 Pépites réseau — articles que le réseau vend mieux</span> <span id="pepitesOtherBadge" class="hidden badge bg-orange-500 text-white"></span><em class="info-tip" data-tip="Articles vendus 30% plus souvent par la comparaison que par vous. À investiguer : absence de référencement ? problème de visibilité ? stock insuffisant ?">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesOtherList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
+          <div>
+            <h3 class="font-extrabold c-caution text-sm flex items-center gap-2">
+              🎯 Ce que mes clients achètent ailleurs
+              <span id="nomadesMissedBadge" class="hidden badge bg-orange-500 text-white"></span>
+              <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
+            </h3>
+            <p class="text-[10px] c-caution mt-0.5">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="event.preventDefault();copyNomadesMissedArts()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button>
+            <span class="acc-arrow c-caution">▶</span>
+          </div>
         </summary>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead class="i-caution-bg c-caution sticky top-0 font-bold">
-              <tr>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Code</th>
-                <th class="py-2 px-3 text-left">Libellé</th>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Famille</th>
-                <th id="pepitesOtherMeLabel" class="py-2 px-3 text-center whitespace-nowrap">Fréq Moi</th>
-                <th id="pepitesOtherCompLabel" class="py-2 px-3 text-center whitespace-nowrap">Fréq réseau</th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Écart %<em class="info-tip" data-tip="(Fréq réseau / Fréq Moi - 1) × 100. +200% = le réseau vend 3× plus souvent. 'Absent' = vous ne vendez pas cet article du tout.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de votre zone de chalandise susceptibles d'acheter cet article (estimé par famille). Nécessite la Zone de Chalandise.">ℹ</em></th>
-                <th id="pepitesOtherCALabel" class="py-2 px-3 text-right whitespace-nowrap">CA médiane</th>
-              </tr>
-            </thead>
-            <tbody id="pepitesOtherTable"></tbody>
-          </table>
+        <div id="nomadesMissedArtsContainer" class="p-3">
+          <p class="t-disabled text-sm">Chargement après analyse réseau…</p>
         </div>
       </details>
 
