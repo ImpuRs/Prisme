@@ -160,6 +160,7 @@ _S._activeTerrWorker = null;
 
 // ── Réseau worker (Sprint 2) ──────────────────────────────────
 _S.reseauNomades = [];        // clients actifs dans ≥2 agences dont myStore
+_S.nomadesMissedArts = [];    // { code, lib, fam, clientCodes, nbClients, caReseau }
 _S.reseauOrphelins = [];      // articles ≥50% stores absents chez moi (top 50)
 _S.reseauFuitesMetier = [];   // {metier, total, actifs, indiceFuite%} — si chalandise
 _S._activeReseauWorker = null;
@@ -250,5 +251,5 @@ export function resetAppState() {
 
   // Réseau worker
   if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} _S._activeReseauWorker = null; }
-  _S.reseauNomades = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
+  _S.reseauNomades = []; _S.nomadesMissedArts = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
 }
