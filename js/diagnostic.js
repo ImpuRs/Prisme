@@ -34,6 +34,8 @@ function openDiagnosticMetier(metier){
 function closeDiagnostic(){
   const overlay=document.getElementById('diagnosticOverlay');
   if(overlay)overlay.classList.remove('active');
+  document.body.style.overflow='';
+  const mc=document.getElementById('mainContent');if(mc)mc.style.overflow='';
   // Reset famille filter — diagnostic is a temporary view, not a persistent filter
   const ff=document.getElementById('filterFamille');if(ff)ff.value='';
   window.scrollTo(0,0);
