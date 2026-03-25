@@ -1212,10 +1212,35 @@
       <!-- Cockpit Client — visible dès chalandise chargée -->
       <div id="terrCockpitClient" class="hidden mb-2"></div>
 
-      <!-- 2b. V2 teaser — analyse avancée territoire -->
-      <div id="terrNeedTerrBlock" class="hidden mb-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
-        <span class="text-lg flex-shrink-0">📊</span>
-        <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — disponible en V2</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
+      <!-- Summary KPI bar — visible dès chalandise chargée -->
+      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3">
+        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px]">
+          <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
+          <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
+        </div>
+        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
+        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px]">
+          <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
+          <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
+          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
+        </div>
+        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
+        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px]">
+          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
+          <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
+          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
+        </div>
+        <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
+          <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
+          <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
+        </div>
+        <!-- Croisement KPI — shown when crossingStats available -->
+        <div id="terrSumCroisement" class="hidden ml-2 pl-3 border-l-2 b-light flex flex-col justify-center gap-0.5">
+          <p class="text-[9px] font-bold t-disabled uppercase tracking-wide">🔀 Croisement</p>
+          <p class="text-[11px] font-bold text-violet-600">🟣 <span id="terrSumFideles">0</span> fidèles hors zone</p>
+          <p class="text-[11px] font-bold c-danger">🔴 <span id="terrSumPotentiels">0</span> potentiels non captés</p>
+          <p class="text-[11px] font-bold c-ok">🟢 <span id="terrSumCaptes">0</span> captés</p>
+        </div>
       </div>
 
       <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
@@ -1223,8 +1248,8 @@
 
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
-      <!-- Analyse territoire — réunion DR (nécessite le BL Territoire) -->
-      <details class="s-card rounded-xl shadow-md border mb-3">
+      <!-- Analyse territoire — accordion fermé par défaut (nécessite le BL Territoire) -->
+      <details id="terrAnalyseAccordion" class="s-card rounded-xl shadow-md border mb-3">
         <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
           <div class="flex items-center gap-2">
             <h3 class="font-extrabold t-primary text-sm">📋 Analyse territoire</h3>
@@ -1232,6 +1257,12 @@
           </div>
           <span class="acc-arrow t-tertiary">▶</span>
         </summary>
+
+        <!-- 2b. V2 teaser — affiché quand chalandise chargée mais pas de BL Territoire -->
+        <div id="terrNeedTerrBlock" class="hidden mb-2 mt-2 mx-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
+          <span class="text-lg flex-shrink-0">📊</span>
+          <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — fichier BL requis</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
+        </div>
 
         <!-- 1. Résumé exécutif du croisement — V2 (nécessite BL Territoire) -->
         <div id="terrCroisementBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
@@ -1338,37 +1369,6 @@
           </div>
         </div>
       </details>
-
-      <!-- Summary KPI bar — shown when chalandise loaded -->
-      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3">
-        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px]">
-          <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
-          <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
-        </div>
-        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px]">
-          <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
-          <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
-          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
-        </div>
-        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px]">
-          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
-          <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
-          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
-        </div>
-        <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
-          <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
-          <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
-        </div>
-        <!-- Croisement KPI — shown when crossingStats available -->
-        <div id="terrSumCroisement" class="hidden ml-2 pl-3 border-l-2 b-light flex flex-col justify-center gap-0.5">
-          <p class="text-[9px] font-bold t-disabled uppercase tracking-wide">🔀 Croisement</p>
-          <p class="text-[11px] font-bold text-violet-600">🟣 <span id="terrSumFideles">0</span> fidèles hors zone</p>
-          <p class="text-[11px] font-bold c-danger">🔴 <span id="terrSumPotentiels">0</span> potentiels non captés</p>
-          <p class="text-[11px] font-bold c-ok">🟢 <span id="terrSumCaptes">0</span> captés</p>
-        </div>
-      </div>
 
       <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
       <div id="terrChalandiseOverview" class="hidden mt-2">
