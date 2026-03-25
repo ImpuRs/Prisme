@@ -570,39 +570,55 @@ export function _reseauWorker() {
 
     // ── 4. Nomades × Articles : ce que mes nomades achètent ailleurs mais pas chez moi
     const nomadeSet = new Set(nomades);
-    const myVentes = ventesParMagasin[myStore] || {};
-    // article → { clients: Set<cc>, caSum: number }
+    const myV = ventesParMagasin[myStore] || {};
+    // article → { clients: Set<cc>, caByStore: { store: avgCA } }
     const missedByArt = {};
 
     for (const store of storesIntersection) {
       if (store === myStore) continue;
       const sv = ventesParMagasin[store] || {};
-      const storeClients = new Set(e.data.clientsPerStore[store] || []);
+      const storeClientsSet = new Set(e.data.clientsPerStore[store] || []);
+
       for (const [code, data] of Object.entries(sv)) {
         if (!/^\d{6}$/.test(code)) continue;
         if ((data.countBL || 0) === 0) continue;
-        // article déjà vendu chez moi → pas une opportunité
-        if ((myVentes[code]?.countBL || 0) > 0) continue;
-        // filtrer les clients de cet article précis qui sont aussi des nomades de mon agence
-        const artBuyers = artClientsMap[code];
-        const buyersToCheck = artBuyers ? [...artBuyers].filter(cc => storeClients.has(cc)) : [...storeClients];
-        for (const cc of buyersToCheck) {
+        if ((myV[code]?.countBL || 0) > 0) continue; // déjà vendu chez moi
+
+        // Trouver les clients nomades qui ont acheté cet article dans ce store
+        const artBuyers = artClientsMap[code]; // Set des clients qui ont acheté cet article
+        if (!artBuyers) continue;
+
+        let foundNomade = false;
+        for (const cc of artBuyers) {
           if (!nomadeSet.has(cc)) continue;
-          if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caSum: 0 };
+          if (!storeClientsSet.has(cc)) continue; // ce client a-t-il acheté dans ce store ?
+          if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caByStore: {} };
           missedByArt[code].clients.add(cc);
-          missedByArt[code].caSum += (data.sumCA || 0);
+          foundNomade = true;
+        }
+        // CA : valeur unitaire moyenne dans ce store — ajouté UNE seule fois par store
+        if (foundNomade && !missedByArt[code].caByStore[store]) {
+          const avgCA = data.countBL > 0 ? Math.round((data.sumCA || 0) / data.countBL) : 0;
+          missedByArt[code].caByStore[store] = avgCA;
         }
       }
     }
 
+    // Finaliser : CA affiché = médiane des CA unitaires par store
     const nomadesMissedArts = Object.entries(missedByArt)
-      .map(([code, d]) => ({
-        code,
-        fam: (articleFamille[code] || '').replace(/^[A-Z]\d{2,3} - /, ''),
-        nbClients: d.clients.size,
-        clientCodes: [...d.clients].slice(0, 10),
-        caReseau: Math.round(d.caSum)
-      }))
+      .map(([code, d]) => {
+        const caValues = Object.values(d.caByStore);
+        const caMedian = caValues.length
+          ? Math.round(caValues.sort((a, b) => a - b)[Math.floor(caValues.length / 2)])
+          : 0;
+        return {
+          code,
+          fam: (articleFamille[code] || '').replace(/^[A-Z]\d{2,3} - /, ''),
+          nbClients: d.clients.size,
+          clientCodes: [...d.clients].slice(0, 10),
+          caReseau: caMedian
+        };
+      })
       .sort((a, b) => b.nbClients - a.nbClients || b.caReseau - a.caReseau)
       .slice(0, 50);
 
