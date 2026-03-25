@@ -2256,6 +2256,49 @@ import { initRouter } from './router.js';
 
   function _applyPromoFilters(){_renderPromoResults();}
 
+  // B4: Mode Action Promo
+  let _promoMode='analyse';
+  function _setPromoMode(mode){
+    _promoMode=mode;
+    const aBtn=document.getElementById('promoModeAnalyse');
+    const xBtn=document.getElementById('promoModeAction');
+    const actionView=document.getElementById('promoActionView');
+    if(aBtn)aBtn.className=mode==='analyse'?'text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
+    if(aBtn&&mode==='analyse')aBtn.style.background='rgba(59,130,246,.1)';else if(aBtn)aBtn.style.background='';
+    if(xBtn)xBtn.className=mode==='action'?'text-xs font-bold py-1 px-3 rounded-full border c-danger border-red-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
+    if(xBtn&&mode==='action')xBtn.style.background='rgba(239,68,68,.1)';else if(xBtn)xBtn.style.background='';
+    if(actionView)actionView.classList.toggle('hidden',mode!=='action');
+    document.querySelectorAll('#tabPromo .tab-content-section').forEach(el=>el.classList.toggle('hidden',mode==='action'));
+    if(mode==='action')_renderPromoActionView();
+  }
+  function _renderPromoActionView(){
+    const r=_promoLastResult;
+    if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML='<p class="t-tertiary text-sm">Lancez d\'abord une recherche Promo.</p>';return;}
+    const allClients=new Map();
+    for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
+    const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
+    const clientsEl=document.getElementById('promoActionClients');
+    if(clientsEl)clientsEl.innerHTML=ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
+    if(ranked.length>0)_showActionArticles(ranked[0].cc);
+  }
+  function _showActionArticles(cc){
+    const el=document.getElementById('promoActionArticles');if(!el)return;
+    const r=_promoLastResult;if(!r){el.innerHTML='<p class="t-tertiary text-sm">Aucune recherche active.</p>';return;}
+    const info=_S.chalandiseData.get(cc)||{};
+    const artMap=_S.ventesClientArticle.get(cc)||new Map();
+    const toPitch=[];
+    for(const code of r.matchedCodes){
+      if(artMap.has(code))continue;
+      const ref=_S.finalData.find(d=>d.code===code);
+      const lib=_S.libelleLookup[code]||(ref?ref.libelle:code);
+      const stock=ref?ref.stockActuel:null;
+      toPitch.push({code,lib,stock});
+    }
+    toPitch.sort((a,b)=>{if((a.stock>0)!==(b.stock>0))return(b.stock>0)-(a.stock>0);return a.lib.localeCompare(b.lib);});
+    const nom=info.nom||_S.clientNomLookup[cc]||cc;
+    el.innerHTML=`<p class="text-[10px] t-tertiary mb-2">Articles pour <strong>${nom}</strong> :</p>`+(toPitch.length===0?'<p class="t-disabled text-sm">Client achète déjà tous les articles promo au PDV.</p>':`<div class="space-y-1">${toPitch.slice(0,15).map(a=>{const sb=a.stock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':a.stock>0?`<span class="c-ok text-[9px] font-bold">${a.stock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';return`<div class="flex items-center gap-2 py-1 px-2 s-card-alt rounded text-[11px]"><span class="font-mono t-disabled">${a.code}</span><span class="flex-1 truncate">${a.lib}</span>${sb}</div>`;}).join('')}${toPitch.length>15?`<p class="text-[10px] t-disabled mt-1">+ ${toPitch.length-15} articles</p>`:''}</div>`);
+  }
+
   function _resetPromoFilters(){
     ['promoFilterFamille','promoFilterSousFamille','promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
@@ -2332,6 +2375,7 @@ import { initRouter } from './router.js';
     document.getElementById('promoResults').classList.remove('hidden');
     document.getElementById('promoExportBtn').classList.remove('hidden');
     document.getElementById('promoCopyBtn').classList.remove('hidden');
+    _setPromoMode(_promoMode);
   }
 
   function _togglePromoSection(sec){
@@ -4208,6 +4252,8 @@ window.renderTerritoireTab = renderTerritoireTab;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
+window._setPromoMode = _setPromoMode;
+window._showActionArticles = _showActionArticles;
 window.renderBenchmark = renderBenchmark;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
