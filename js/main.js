@@ -2017,7 +2017,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const matrix={},famTotals={},comTotals={};const commercials=new Set();
     for(const[cc,artMap]of _S.ventesClientArticle.entries()){
       const info=_S.chalandiseData.get(cc);
-      const com=(info&&info.commercial)||'Sans commercial';
+      const com=(info&&info.commercial)||'⚠️ Non affecté';
       commercials.add(com);if(!matrix[com])matrix[com]={};
       for(const[code,data]of artMap.entries()){
         const fam=_S.articleFamille[code]||'Non classé';const ca=data.sumCA||0;
@@ -2027,12 +2027,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       }
     }
     const topFams=Object.entries(famTotals).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([fam])=>fam);
-    const comList=[...commercials].sort((a,b)=>(comTotals[b]||0)-(comTotals[a]||0));
+    const comList=[...commercials].sort((a,b)=>{if(a==='⚠️ Non affecté')return 1;if(b==='⚠️ Non affecté')return -1;return(comTotals[b]||0)-(comTotals[a]||0);});
     if(!comList.length||!topFams.length){container.innerHTML='<p class="t-disabled text-sm p-4">Pas assez de données pour la heatmap.</p>';return;}
     let maxCell=0;for(const com of comList)for(const fam of topFams){const v=(matrix[com]||{})[fam]||0;if(v>maxCell)maxCell=v;}
     let html='<div class="overflow-x-auto"><table class="min-w-full text-[10px]">';
     html+='<thead class="sticky top-0 s-panel-inner"><tr><th class="py-1 px-2 text-left t-inverse font-bold sticky left-0 s-panel-inner z-10">Famille</th>';
-    for(const com of comList){const short=com.length>12?com.slice(0,12)+'…':com;html+=`<th class="py-1 px-2 text-center t-inverse-muted font-semibold" title="${com}">${short}</th>`;}
+    for(const com of comList){html+=`<th class="py-1 px-2 text-center t-inverse-muted font-semibold" title="${com}" style="writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;max-height:120px;overflow:hidden;padding:8px 4px">${com}</th>`;}
     html+='<th class="py-1 px-2 text-right t-inverse font-bold">Total</th></tr></thead><tbody>';
     for(const fam of topFams){
       html+=`<tr class="border-t b-dark"><td class="py-1 px-2 font-semibold t-primary sticky left-0 s-card z-10 truncate max-w-[160px]" title="${fam}">${fam}</td>`;
