@@ -34,6 +34,8 @@ function openDiagnosticMetier(metier){
 function closeDiagnostic(){
   const overlay=document.getElementById('diagnosticOverlay');
   if(overlay)overlay.classList.remove('active');
+  document.body.style.overflow='';
+  const mc=document.getElementById('mainContent');if(mc)mc.style.overflow='';
   // Reset famille filter — diagnostic is a temporary view, not a persistent filter
   const ff=document.getElementById('filterFamille');if(ff)ff.value='';
   window.scrollTo(0,0);
@@ -379,7 +381,8 @@ function _diagLevel1(famille){
 function _diagRenderL1(l){
   const verdictClass=l.ruptures.length===0?'c-ok':l.ruptures.length<=3?'c-caution':'c-danger';
   const verdictIcon=l.ruptures.length===0?'✅':l.ruptures.length<=3?'⚠️':'🚨';
-  const verdictText=l.ruptures.length===0?'Pas de rupture sur cette famille':`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
+  const _gap=l.arts-l.enStock;
+  const verdictText=l.ruptures.length===0?(_gap>0?`Pas de rupture active · ${_gap} article${_gap>1?'s':''} sans stock exclu${_gap>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${l.ruptures.length} rupture${l.ruptures.length>1?'s':''} sur cette famille${l.caPerduTotal>0?' — CA perdu estimé : <strong>'+formatEuro(l.caPerduTotal)+'</strong>':''}`;
   const top5=l.ruptures.slice(0,5);
   const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
   return`<div class="diag-level">

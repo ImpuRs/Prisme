@@ -86,7 +86,8 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // Force-set input AFTER rendering — datalist update in _buildOverviewFilterChips can
       // reset the value in some browsers before the assignment executes
       const metInput=document.getElementById('terrMetierFilter');
-      if(metInput&&metInput.value!==metier){metInput.value=metier;metInput.classList.add('border-rose-400','ring-1','ring-rose-300');}
+      if(metInput){metInput.value=metier;metInput.classList.add('border-rose-400','ring-1','ring-rose-300');}
+      _onMetierFilter(metier);
       const cockpit=document.getElementById('terrCockpitClient');
       if(cockpit)cockpit.scrollIntoView({behavior:'smooth'});
     },200);
