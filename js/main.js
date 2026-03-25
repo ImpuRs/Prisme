@@ -915,6 +915,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       const _legAilleurs=c.ca2025>0&&!c._pdvActif?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50" title="Actif chez Legallais (${formatEuro(c.ca2025)}) mais pas en agence">🏪 Legallais ailleurs</span> `:'';
       // Badge canaux hors MAGASIN
       const _horsMag = _S.ventesClientHorsMagasin.get(c.code);
+      console.log('[HorsMagasin] client', c.code, '→', _horsMag);
       const _horsMagBadge = _horsMag && _horsMag.size > 0
         ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 border border-violet-700/50 cursor-pointer" onclick="event.stopPropagation();_toggleHorsMagasin(this,'${c.code}')" title="Commandes hors agence détectées">🌐 ${_horsMag.size} art. hors agence</span> `
         : '';
@@ -1219,19 +1220,25 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0};_S.canalAgence[canal].bl.add(nc2);}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Capture canaux hors MAGASIN pour la vue Terrain multi-canaux
+      // Fix: en mono-agence ou quand les lignes hors-MAGASIN n'ont pas de Code PDV,
+      // extractStoreCode(row) retourne '' → 'INCONNU' ≠ selectedMyStore → rejet injustifié.
+      // On n'applique le filtre store que si la ligne porte un code agence explicite.
       const _canaux_hors = ['INTERNET','REPRESENTANT','DCS'];
-      if(_canaux_hors.includes(canal) && (!_S.selectedMyStore || (extractStoreCode(row)||'INCONNU') === _S.selectedMyStore)) {
-        const _cc3 = extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
-        const _code3 = cleanCode((getVal(row,'Article','Code')||'').toString());
-        const _ca3 = (getCaColumn(row,'prél')||0) + (getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
-        if(_cc3 && _code3) {
-          _S.cannauxHorsMagasin.add(canal);
-          if(!_S.ventesClientHorsMagasin.has(_cc3)) _S.ventesClientHorsMagasin.set(_cc3, new Map());
-          const _artMap3 = _S.ventesClientHorsMagasin.get(_cc3);
-          if(!_artMap3.has(_code3)) _artMap3.set(_code3, { canal, ca: 0, count: 0 });
-          const _e3 = _artMap3.get(_code3);
-          _e3.ca += _ca3;
-          _e3.count++;
+      if(_canaux_hors.includes(canal)) {
+        const _sk3 = extractStoreCode(row) || 'INCONNU';
+        if(!(_S.selectedMyStore && _sk3 !== 'INCONNU' && _sk3 !== _S.selectedMyStore)) {
+          const _cc3 = extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
+          const _code3 = cleanCode((getVal(row,'Article','Code')||'').toString());
+          const _ca3 = (getCaColumn(row,'prél')||0) + (getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
+          if(_cc3 && _code3) {
+            _S.cannauxHorsMagasin.add(canal);
+            if(!_S.ventesClientHorsMagasin.has(_cc3)) _S.ventesClientHorsMagasin.set(_cc3, new Map());
+            const _artMap3 = _S.ventesClientHorsMagasin.get(_cc3);
+            if(!_artMap3.has(_code3)) _artMap3.set(_code3, { canal, ca: 0, count: 0 });
+            const _e3 = _artMap3.get(_code3);
+            _e3.ca += _ca3;
+            _e3.count++;
+          }
         }
       }
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
@@ -1270,6 +1277,10 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       for(const c of Object.keys(_S.canalAgence))_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
+      // Debug — canaux hors MAGASIN
+      console.log('[HorsMagasin] ventesClientHorsMagasin size:', _S.ventesClientHorsMagasin.size);
+      console.log('[HorsMagasin] exemple clés:', [..._S.ventesClientHorsMagasin.keys()].slice(0, 5));
+      console.log('[HorsMagasin] canaux:', [..._S.cannauxHorsMagasin]);
       // Garde-fou canaux hors MAGASIN
       if(_S.cannauxHorsMagasin.size > 0) {
         const _labelsCanaux = {INTERNET:'🌐 Internet', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS'};
