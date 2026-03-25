@@ -107,7 +107,8 @@ export function switchTab(id) {
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
     btn.classList.add('active');
-    if (id === 'territoire' && (_S.chalandiseReady || _S.territoireReady)) renderTerritoireTab();
+    // Lazy render: first visit to this tab triggers render if data is loaded
+    if (!_S._tabRendered[id] && _S.finalData.length > 0) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -171,10 +172,9 @@ export function renderAll() {
   _S.filteredData = getFilteredData();
   _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator();
-  renderTable(true);
-  renderDashboardAndCockpit();
-  renderABCTab();
-  renderCanalAgence();
+  renderTable(true); // articles always re-renders (exception: not behind lazy flag)
+  _S._tabRendered = {}; // invalidate all tab caches (filter or data changed)
+  renderCurrentTab(); // render only the currently active non-articles tab
   updateAmbientSignal();
   // Wrap glossary terms in <th> headers (idempotent — skips already-processed elements)
   requestAnimationFrame(() => wrapGlossaryTerms(document));
