@@ -292,7 +292,7 @@ import { initRouter } from './router.js';
     if(!sectsArr.length){el.innerHTML='<div class="px-4 py-3 t-disabled text-xs">Aucun secteur identifié.</div>';return;}
     const dirEnc=encodeURIComponent(direction),mEnc=encodeURIComponent(metier);
     const headCols='<th class="py-1.5 px-2 text-left">Secteur</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[90px]">% capté PDV</th>';
-    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800 font-bold"><tr>${headCols}</tr></thead><tbody>`;
+    let html=`<div class="px-2 py-2"><table class="min-w-full text-[11px]"><thead class="s-hover t-primary font-bold"><tr>${headCols}</tr></thead><tbody>`;
     sectsArr.forEach((s,sIdx)=>{
       const base=s.total-s.prospects;
       const pctC=base>0?Math.round(s.actifsPDV/base*100):0;
@@ -399,7 +399,7 @@ import { initRouter } from './router.js';
     }
     const hasComptoir=comptoirArts.length>0;
     const hasTerrArts=terrArts.length>0;
-    let panelHtml=`<td colspan="9" class="p-0"><div class="bg-sky-50 border-t-2 border-sky-300 px-4 py-2">`;
+    let panelHtml=`<td colspan="9" class="p-0"><div class="s-card-alt border-t-2 border-sky-300 px-4 py-2">`;
     if(!hasComptoir&&!hasTerrArts){
       const _cInfo=_S.chalandiseData.get(clientCode);const _ca25=(_cInfo&&_cInfo.ca2025)||0;
       panelHtml+=_ca25>0?`<p class="text-[10px] c-action font-semibold">Ce client achète chez Legallais (${formatEuro(_ca25)}) via d'autres canaux (Internet, DCS, Commercial) — opportunité de captation PDV</p>`:`<p class="t-disabled text-[10px]">Prospect — aucun historique d'achat.</p>`;
@@ -407,23 +407,23 @@ import { initRouter } from './router.js';
       if(hasComptoir){
         const nbInRayon=comptoirArts.filter(a=>a.rayonStatus==='green').length;
         const nbAbsent=comptoirArts.filter(a=>a.rayonStatus==='red').length;
-        panelHtml+=`<p class="text-[10px] font-bold text-sky-800 mb-1">🏪 Achats comptoir : ${comptoirArts.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — référencez ces '+nbAbsent+' articles pour le capter':''}</p>`;
-        panelHtml+=`<table class="min-w-full text-[10px]${hasTerrArts?' mb-3':''}"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
+        panelHtml+=`<p class="text-[10px] font-bold t-primary mb-1">🏪 Achats comptoir : ${comptoirArts.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — référencez ces '+nbAbsent+' articles pour le capter':''}</p>`;
+        panelHtml+=`<table class="min-w-full text-[10px]${hasTerrArts?' mb-3':''}"><thead class="s-hover t-primary"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
         for(const a of comptoirArts){
           const si=stockMap.get(a.code);const st=si?si.stockActuel:'—';
           const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-          const bg=a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'bg-yellow-50':'';
-          panelHtml+=`<tr class="border-t border-sky-100 ${bg}"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-center">${a.qty}</td><td class="py-0.5 px-2 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center">${ri}</td><td class="py-0.5 px-2 text-right">${st}</td></tr>`;
+          const bg=a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'i-caution-bg':'';
+          panelHtml+=`<tr class="border-t b-light ${bg}"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 text-center">${a.qty}</td><td class="py-0.5 px-2 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center">${ri}</td><td class="py-0.5 px-2 text-right">${st}</td></tr>`;
         }
         panelHtml+=`</tbody></table>`;
       }
       if(hasTerrArts){
         const totalCA=terrArts.reduce((s,a)=>s+a.ca,0);
-        panelHtml+=`<p class="text-[10px] font-bold text-violet-800 mb-1${hasComptoir?' mt-2':''}">📦 Ce client achète chez Legallais (hors votre comptoir) — ${terrArts.length} réf. · ${formatEuro(totalCA)} CA</p>`;
-        panelHtml+=`<table class="min-w-full text-[10px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Canal</th></tr></thead><tbody>`;
+        panelHtml+=`<p class="text-[10px] font-bold t-primary mb-1${hasComptoir?' mt-2':''}">📦 Ce client achète chez Legallais (hors votre comptoir) — ${terrArts.length} réf. · ${formatEuro(totalCA)} CA</p>`;
+        panelHtml+=`<table class="min-w-full text-[10px]"><thead class="s-hover t-primary"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Canal</th></tr></thead><tbody>`;
         for(const a of terrArts){
           const canalStr=[...a.canals].join(' / ')||'—';
-          panelHtml+=`<tr class="border-t border-violet-100"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 t-tertiary max-w-[120px] truncate">${a.famille}</td><td class="py-0.5 px-2 text-right font-bold text-violet-700">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center t-tertiary">${canalStr}</td></tr>`;
+          panelHtml+=`<tr class="border-t b-light"><td class="py-0.5 px-2 font-mono">${a.code}</td><td class="py-0.5 px-2 max-w-[180px] truncate">${a.libelle}</td><td class="py-0.5 px-2 t-tertiary max-w-[120px] truncate">${a.famille}</td><td class="py-0.5 px-2 text-right font-bold c-action">${formatEuro(a.ca)}</td><td class="py-0.5 px-2 text-center t-tertiary">${canalStr}</td></tr>`;
         }
         panelHtml+=`</tbody></table>`;
       }
@@ -777,7 +777,7 @@ import { initRouter } from './router.js';
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
       const rows=show.map(c=>`<tr class="border-t b-light hover:i-info-bg cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><td class="py-1 px-2 font-mono text-[10px] t-tertiary">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.code)}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'t-disabled'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-violet-50 to-purple-50"><h3 class="font-extrabold t-primary">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] t-tertiary mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="t-disabled">(CA = CA Comptoir uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Comptoir</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] t-disabled p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
+      el.innerHTML=`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><h3 class="font-extrabold t-primary">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] t-tertiary mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="t-disabled">(CA = CA Comptoir uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Comptoir</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] t-disabled p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
       return;
     }
     const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
@@ -930,7 +930,7 @@ import { initRouter } from './router.js';
     // Summary banner
     const silBit=silencieux.length>0?`<span class="c-danger">🚨 ${silencieux.length} silencieux</span> · `:'';
     const banner=`<div class="mb-3 px-4 py-2 s-card-alt border rounded-lg text-[11px] font-semibold t-primary">Sur votre sélection : ${silBit}<span class="c-danger">🔴 ${urgences.length} à capter</span> · <span class="c-caution">🟠 ${developper.length} à développer</span> · <span class="c-ok">🟢 ${fideliser.length} à fidéliser</span></div>`;
-    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b bg-gradient-to-r from-rose-50 via-red-50 via-orange-50 to-green-50"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="t-disabled">CA Legallais = CA global tous canaux · CA Comptoir Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV','Clients qui achètent chez Legallais mais ne viennent pas en agence · {total} clients','🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Comptoir · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="t-disabled">CA Legallais = CA global tous canaux · CA Comptoir Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV','Clients qui achètent chez Legallais mais ne viennent pas en agence · {total} clients','🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Comptoir · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
   }
   function _setCrossFilter(status){
     _S._selectedCrossStatus=status;
@@ -1512,7 +1512,7 @@ import { initRouter } from './router.js';
         `<td class="py-1.5 px-4">${famLabel} <span class="t-disabled text-[9px]">▼</span></td>`+
         `<td class="py-1.5 px-3 text-center">${fd.nb.size}</td>`+
         `<td class="py-1.5 px-3 text-right">${formatEuro(fd.caTotal)}</td></tr>`+
-        `<tr id="${famRowId}" style="display:none"><td colspan="3" class="p-0 bg-sky-50"><div id="${famRowId}-inner" class="p-3 text-xs t-disabled">Chargement…</div></td></tr>`;
+        `<tr id="${famRowId}" style="display:none"><td colspan="3" class="p-0 s-card-alt"><div id="${famRowId}-inner" class="p-3 text-xs t-disabled">Chargement…</div></td></tr>`;
     });
     html+=`</tbody></table>`;
     inner.innerHTML=html;inner.dataset.mode='familles';
@@ -1618,10 +1618,10 @@ import { initRouter } from './router.js';
       `<span class="terr-status-badge c-caution${statusFilter==='yellow'?' underline':''}" title="Filtrer Rupture" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgYellow})">⚠️ ${nbYellow}</span> · `+
       `<span class="terr-status-badge c-danger${statusFilter==='red'?' underline':''}" title="Filtrer Absent" onclick="renderTerrFamArticles('${rowId}','${encDir}','${encFam}',${tgRed})">❌ ${nbRed}</span>${resetBtn}</div>`;
     if(!arts.length){inner.innerHTML=html+'<p class="t-disabled text-[11px] px-2 pb-2">Aucun article pour ce filtre.</p>';return;}
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-sky-100 text-sky-800"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="s-hover t-primary"><tr><th class="py-1.5 px-3 text-left">Code</th><th class="py-1.5 px-3 text-left">Libellé</th><th class="py-1.5 px-3 text-right">CA Legallais</th><th class="py-1.5 px-3 text-center">Qté BL</th><th class="py-1.5 px-3 text-center">En rayon</th><th class="py-1.5 px-3 text-right">Stock actuel</th></tr></thead><tbody id="${rowId}-artbody">`;
     html+=_buildTerrFamArtRows(arts.slice(0,LIMIT),stockMap);
     html+=`</tbody></table>`;
-    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs text-sky-700 font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encDir}','${encFam}','${statusFilter}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
+    if(arts.length>LIMIT)html+=`<button class="mt-2 mb-2 ml-2 text-xs c-action font-bold hover:underline" onclick="_loadMoreTerrFamArt(this,'${rowId}',${LIMIT},'${encDir}','${encFam}','${statusFilter}')">▼ Voir plus (${arts.length-LIMIT} restants…)</button>`;
     inner.innerHTML=html;
   }
   function _buildTerrFamArtRows(arts,stockMap){
@@ -1630,7 +1630,7 @@ import { initRouter } from './router.js';
     for(const a of arts){
       const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
       const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-      const rowBg=a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+      const rowBg=a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'i-caution-bg':'';
       const speTag=!isStd(a.code)?'<span class="ml-1 text-[9px] s-hover t-tertiary font-bold px-1 rounded">SPÉ</span>':'';
       html+=`<tr class="border-t border-sky-100 ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}${speTag}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${ri}</td><td class="py-1 px-3 text-right">${st}</td></tr>`;
     }
@@ -1749,10 +1749,10 @@ import { initRouter } from './router.js';
     if(!secteurs.length){inner.innerHTML='<p class="t-disabled text-[11px]">Aucun secteur pour cette direction.</p>';return;}
     const oppo=secteurs.filter(s=>s.pct<10).length;
     let html=`<div class="text-[11px] font-bold t-primary mb-2">${secteurs.length} secteur${secteurs.length>1?'s':''} · ${oppo} opportunité${oppo>1?'s':''} (&lt;10% agence) — trié par % BL agence croissant</div>`;
-    html+=`<table class="min-w-full text-[11px]"><thead class="bg-violet-100 text-violet-800"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA Legallais</th></tr></thead><tbody id="${rowId}-sectbody">`;
+    html+=`<table class="min-w-full text-[11px]"><thead class="s-hover t-primary"><tr><th class="py-1.5 px-3 text-left">Secteur</th><th class="py-1.5 px-3 text-center">BL territoire</th><th class="py-1.5 px-3 text-center">BL agence</th><th class="py-1.5 px-3 text-center min-w-[130px]">% agence</th><th class="py-1.5 px-3 text-right">CA Legallais</th></tr></thead><tbody id="${rowId}-sectbody">`;
     html+=_buildSecteurRows(secteurs.slice(0,LIMIT));
     html+=`</tbody></table>`;
-    if(secteurs.length>LIMIT)html+=`<button class="mt-2 text-xs text-violet-700 font-bold hover:underline" onclick="_loadMoreSecteurs(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}')">▼ Voir plus (${secteurs.length-LIMIT} restants…)</button>`;
+    if(secteurs.length>LIMIT)html+=`<button class="mt-2 text-xs c-action font-bold hover:underline" onclick="_loadMoreSecteurs(this,'${rowId}',${LIMIT},'${encodeURIComponent(direction)}')">▼ Voir plus (${secteurs.length-LIMIT} restants…)</button>`;
     inner.innerHTML=html;
   }
   function _buildSecteurRows(secteurs){
@@ -1865,7 +1865,7 @@ import { initRouter } from './router.js';
     for(const a of arts.slice(0,LIMIT)){
       const si=stockMap.get(a.code),st=si?si.stockActuel:'—';
       const ri=a.rayonStatus==='green'?'✅ En rayon':a.rayonStatus==='yellow'?'⚠️ Rupture':'❌ Absent';
-      const rowBg=a.isSpecial?'s-card-alt':a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'bg-yellow-50':'';
+      const rowBg=a.isSpecial?'s-card-alt':a.rayonStatus==='red'?'i-danger-bg':a.rayonStatus==='yellow'?'i-caution-bg':'';
       const speTag=a.isSpecial?'<span class="ml-1 text-[9px] s-hover t-tertiary font-bold px-1 rounded">SPÉ</span>':'';
       html+=`<tr class="border-t b-light ${rowBg}"><td class="py-1 px-3 font-mono text-[10px]">${a.code}${speTag}</td><td class="py-1 px-3 max-w-[200px] truncate">${a.libelle}</td><td class="py-1 px-3 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-1 px-3 text-center">${a.qty}</td><td class="py-1 px-3 text-center">${a.isSpecial?'<span class="t-disabled text-[10px]">— spécial</span>':ri}</td><td class="py-1 px-3 text-right">${a.isSpecial?'—':st}</td></tr>`;
     }
@@ -2587,7 +2587,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     if(caUp&&refUp&&freqUp) return{icon:'🏆',title:'Surperformance — consolidez vos forces',border:'border-emerald-400',bg:'i-ok-bg',
       message:`Votre agence dépasse la médiane sur tous les indicateurs. Surveillez les familles en baisse et fidélisez vos top clients.`,
       actions:[{label:'Voir les familles sous la médiane',nav:'lose'},{label:'Voir les clients à fidéliser',nav:'terrain'}]};
-    if(caUp&&!freqUp) return{icon:'💰',title:'Bon CA mais fréquence en baisse',border:'border-yellow-400',bg:'bg-yellow-50/60',
+    if(caUp&&!freqUp) return{icon:'💰',title:'Bon CA mais fréquence en baisse',border:'border-yellow-400',bg:'i-caution-bg',
       message:`Votre CA est ${Math.abs(caE)}% au-dessus de la médiane mais la fréquence est en retrait de ${Math.abs(freqE)}%. Risque : dépendance à quelques gros clients. Levier : diversifier la base clients.`,
       actions:[{label:'Voir les clients silencieux',nav:'terrain'}]};
     if(!caUp&&freqUp&&refUp) return{icon:'📊',title:'Bonne dynamique, CA à développer',border:'border-blue-400',bg:'i-info-bg/60',
@@ -2629,7 +2629,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-30?'🟠':'🔴';
       const ecartColor=pct>=0?'c-ok font-extrabold':pct>=-10?'c-caution font-bold':pct>=-30?'c-caution font-bold':'c-danger font-extrabold';
       const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'b-light':'border-red-300';
-      const cardBg=pct>=0?'i-ok-bg/40':pct>=-10?'bg-yellow-50/40':pct>=-30?'i-caution-bg/40':'i-danger-bg/40';
+      const cardBg=pct>=0?'i-ok-bg/40':pct>=-10?'i-caution-bg/40':pct>=-30?'i-caution-bg/40':'i-danger-bg/40';
       return `<div class="s-card rounded-xl border-2 ${cardBorder} ${cardBg} p-3 flex flex-col gap-1 shadow-sm">
         <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
         <div class="flex items-end justify-between gap-1">
@@ -3782,7 +3782,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       const barColor=pctCov>=70?'bg-emerald-500':pctCov>=40?'bg-amber-500':'bg-red-500';
       const textColor=pctCov>=70?'c-ok':pctCov>=40?'c-caution':'c-danger';
       const famAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-      const diagBtn=`<button class="diag-btn ml-1 bg-violet-100 text-violet-700 text-[9px]" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'territoire')">🔍</button>`;
+      const diagBtn=`<button class="diag-btn ml-1 s-card-alt t-secondary text-[9px]" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'territoire')">🔍</button>`;
       return`<tr class="border-t b-dark"><td class="py-1 px-2 max-w-[160px] truncate text-[11px]">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center c-ok">${f.enStock}</td><td class="py-1 px-2 text-center c-caution">${f.rupture}</td><td class="py-1 px-2 text-center c-danger">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 s-panel-inner rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-[10px] ${textColor}">${pctCov}%</span></div></td></tr>`;
     }).join('');
     return`<div class="diag-level">
