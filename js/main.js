@@ -2697,6 +2697,43 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTri=data.serv>=80?'<span class="c-ok" aria-label="au-dessus">▲</span>':data.serv>=60?'<span class="c-caution" aria-label="neutre">—</span>':'<span class="c-danger" aria-label="en-dessous">▼</span>';const servTxt=servTri+' '+data.serv+'%';const servColor=data.serv>=80?'c-ok':data.serv>=60?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${data.clientsZone>0?'c-danger':'t-disabled'}">${data.clientsZone>0?data.clientsZone:'—'}</td>`:'';p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
     rT('benchStoreTable',p.join(''));
     const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
+    renderHeatmapFamilleCommercial();
+  }
+
+  // C4: Heatmap Famille × Commercial
+  function renderHeatmapFamilleCommercial(){
+    const container=document.getElementById('heatmapContainer');if(!container)return;
+    if(!_S.chalandiseReady||!_S.ventesClientArticle.size){container.innerHTML='<p class="t-disabled text-sm p-4">Chargez la chalandise pour voir la heatmap.</p>';return;}
+    const matrix={},famTotals={},comTotals={};const commercials=new Set();
+    for(const[cc,artMap]of _S.ventesClientArticle.entries()){
+      const info=_S.chalandiseData.get(cc);
+      const com=(info&&info.commercial)||'Sans commercial';
+      commercials.add(com);if(!matrix[com])matrix[com]={};
+      for(const[code,data]of artMap.entries()){
+        const fam=_S.articleFamille[code]||'Non classé';const ca=data.sumCA||0;
+        matrix[com][fam]=(matrix[com][fam]||0)+ca;
+        famTotals[fam]=(famTotals[fam]||0)+ca;
+        comTotals[com]=(comTotals[com]||0)+ca;
+      }
+    }
+    const topFams=Object.entries(famTotals).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([fam])=>fam);
+    const comList=[...commercials].sort((a,b)=>(comTotals[b]||0)-(comTotals[a]||0));
+    if(!comList.length||!topFams.length){container.innerHTML='<p class="t-disabled text-sm p-4">Pas assez de données pour la heatmap.</p>';return;}
+    let maxCell=0;for(const com of comList)for(const fam of topFams){const v=(matrix[com]||{})[fam]||0;if(v>maxCell)maxCell=v;}
+    let html='<div class="overflow-x-auto"><table class="min-w-full text-[10px]">';
+    html+='<thead class="sticky top-0 s-panel-inner"><tr><th class="py-1 px-2 text-left t-inverse font-bold sticky left-0 s-panel-inner z-10">Famille</th>';
+    for(const com of comList){const short=com.length>12?com.slice(0,12)+'…':com;html+=`<th class="py-1 px-2 text-center t-inverse-muted font-semibold" title="${com}">${short}</th>`;}
+    html+='<th class="py-1 px-2 text-right t-inverse font-bold">Total</th></tr></thead><tbody>';
+    for(const fam of topFams){
+      html+=`<tr class="border-t b-dark"><td class="py-1 px-2 font-semibold t-primary sticky left-0 s-card z-10 truncate max-w-[160px]" title="${fam}">${fam}</td>`;
+      for(const com of comList){const val=(matrix[com]||{})[fam]||0;const intensity=maxCell>0?val/maxCell:0;const bg=val===0?'transparent':`rgba(22,163,74,${(0.1+intensity*0.8).toFixed(2)})`;const textColor=intensity>0.5?'color:#fff':'';html+=`<td class="py-1 px-2 text-center font-bold" style="background:${bg};${textColor}" title="${com}: ${fam} = ${formatEuro(val)}">${val>0?formatEuro(val):'—'}</td>`;}
+      html+=`<td class="py-1 px-2 text-right font-bold t-primary">${formatEuro(famTotals[fam])}</td></tr>`;
+    }
+    html+='<tr class="border-t-2 b-dark font-extrabold"><td class="py-1 px-2 sticky left-0 s-card z-10 t-primary">TOTAL</td>';
+    for(const com of comList)html+=`<td class="py-1 px-2 text-center c-action">${formatEuro(comTotals[com]||0)}</td>`;
+    html+=`<td class="py-1 px-2 text-right c-action">${formatEuro(Object.values(famTotals).reduce((s,v)=>s+v,0))}</td>`;
+    html+='</tr></tbody></table></div>';
+    container.innerHTML=html;
   }
 
   // === OBSERVATOIRE HELPERS ===
@@ -4324,6 +4361,7 @@ window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
+window.renderHeatmapFamilleCommercial = renderHeatmapFamilleCommercial;
 window._setPromoMode = _setPromoMode;
 window._showActionArticles = _showActionArticles;
 window.exportTourneeCSV = exportTourneeCSV;
