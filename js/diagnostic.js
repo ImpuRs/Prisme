@@ -533,51 +533,119 @@ function _diagVoyant2(famille,hasChal,metierFilter){
   const totalPotentiel=metiers.reduce((s,m)=>s+m.potentiel,0);
   return{status:totalPerdus>2?'warn':'ok',totalBuyers,metiers,perdus:totalPerdus,potentiel:totalPotentiel};
 }
+// ── Toggle badge reconquête (Action 3 Sprint 2) ──
+function toggleReconquestFilter(metier,btn){
+  const isActive=btn.classList.contains('diag-reconquest-active');
+  document.querySelectorAll('.diag-reconquest-badge').forEach(b=>b.classList.remove('diag-reconquest-active'));
+  const block=btn.closest('.diag-metier-block');if(!block)return;
+  const rows=block.querySelectorAll('.diag-client-row');
+  if(isActive){rows.forEach(r=>r.classList.remove('hidden'));}
+  else{rows.forEach(r=>{const p=parseInt(r.dataset.prio||'0');r.classList.toggle('hidden',p!==2&&p!==3);});btn.classList.add('diag-reconquest-active');}
+}
 function _diagRenderV2(v,hasChal){
   if(!hasChal||v.status==='lock')return`<div class="diag-voyant diag-v2 diag-voyant-locked diag-border-lock"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm t-inverse-muted">👥 Mes Clients</span>${_diagBadge('lock')}</div><p class="text-xs t-inverse-muted">🔒 ${v.reason||'Chargez la Zone de Chalandise pour activer l\'analyse clients'}</p><p class="text-[10px] text-purple-400 mt-1">→ Ajoutez le fichier Chalandise (export Qlik) pour débloquer ce voyant</p></div>`;
   if(!v.metiers?.length){const msg=v.cellMode?'Aucun client identifié dans la chalandise pour ces articles.':(v.reason||'Aucun métier identifié dans la chalandise pour cette famille');return`<div class="diag-voyant diag-v2 diag-border-warn"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge('warn')}</div><p class="text-xs t-inverse-muted">⚠️ ${msg}</p></div>`;}
-  // Cell mode (depuis Radar case ABC/FMR) : croisement articles de la case → acheteurs → chalandise
+
+  // ── Helper : carte métier enrichie (Actions 1-4) ──
+  // Mode famille (m a p1/p2/p3/p4/p5/total/potentiel)
+  const _cardFamille=(m,isFirst)=>{
+    const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    // Action 2 — Jauge pénétration PDV
+    const penPDV=m.total>0?Math.round(m.p5/m.total*100):0;
+    const jCol=penPDV>=60?'#22c55e':penPDV>=40?'#f59e0b':'#ef4444';
+    const jTxt=penPDV>=60?'c-ok':penPDV>=40?'c-caution':'c-danger';
+    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Pénétration PDV</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penPDV}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penPDV}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.p5} actifs / ${m.total} dans votre zone</p></div>`;
+    // Action 3 — Badge reconquête
+    const nbPerdus=m.p2+m.p3;
+    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
+    // Action 4 — Montant potentiel en tête
+    const potentielHtml=m.potentiel>0
+      ?`<p class="text-base font-extrabold c-caution mb-1">💶 ${formatEuro(m.potentiel)} potentiel récupérable</p><p class="text-[10px] t-inverse-muted mb-1">${m.total} clients zone · ${m.p5} actifs PDV · ${m.p1} sans achat · ${nbPerdus} perdu${nbPerdus>1?'s':''}</p>`
+      :`<p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients · <span class="c-ok">${m.p5} actifs PDV (${penPDV}%)</span>${m.p1?` · <span class="c-caution">${m.p1} sans achat PDV</span>`:''}</p>`;
+    return`<div class="diag-metier-block${isFirst?'':' mt-3 pt-3 border-t b-dark'} s-panel-inner/50 rounded-lg p-3">
+      <div class="flex flex-wrap items-center gap-2 mb-1.5">
+        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
+        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+        ${reconBadge}
+      </div>
+      ${jaugeHtml}
+      ${potentielHtml}
+      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
+    </div>`;
+  };
+  // Mode cellMode (m a actifs/perdus/prospects/potentiel mais pas p1-p5)
+  const _cardCell=(m,isFirst)=>{
+    const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const penActifs=m.total>0?Math.round(m.actifs/m.total*100):0;
+    const jCol=penActifs>=60?'#22c55e':penActifs>=40?'#f59e0b':'#ef4444';
+    const jTxt=penActifs>=60?'c-ok':penActifs>=40?'c-caution':'c-danger';
+    const jaugeHtml=`<div class="mt-1.5 mb-2"><div class="flex items-center gap-2"><span class="text-[10px] t-inverse-muted w-24 shrink-0">Actifs / zone</span><div class="flex-1 h-2 rounded-full bg-slate-700/50 overflow-hidden"><div class="h-full rounded-full" style="width:${penActifs}%;background:${jCol}"></div></div><span class="text-[10px] font-bold ${jTxt} w-10 text-right">${penActifs}%</span></div><p class="text-[10px] t-inverse-muted mt-0.5">${m.actifs} actifs / ${m.total} dans votre zone</p></div>`;
+    const nbPerdus=m.perdus||0;
+    const reconBadge=nbPerdus>0?`<button onclick="toggleReconquestFilter('${metierEsc}',this)" class="diag-reconquest-badge text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-900/40 text-red-400 border border-red-800/50 hover:bg-red-900/60 transition-colors cursor-pointer" title="Filtrer les ${nbPerdus} client${nbPerdus>1?'s':''} perdus">⚠️ ${nbPerdus} perdu${nbPerdus>1?'s':''}${m.potentiel>500?' · '+formatEuro(m.potentiel):''}</button>`:'';
+    const caHtml=m.caActifs>0?` · CA : <strong class="c-ok">${formatEuro(m.caActifs)}</strong>`:'';
+    const potentielHtml=m.potentiel>0
+      ?`<p class="text-base font-extrabold c-caution mb-1">💶 ${formatEuro(m.potentiel)} potentiel récupérable</p>`
+      :`<p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>`;
+    const perduLine=(nbPerdus>0||m.prospects>0)?`<p class="text-[11px] mb-1">${nbPerdus>0?`<span class="c-danger">→ <strong>${nbPerdus}</strong> perdu${nbPerdus>1?'s':''} (reconquête)</span>`:'' }${nbPerdus>0&&m.prospects>0?' · ':''}${m.prospects>0?`<span class="c-caution">${m.prospects} prospect${m.prospects>1?'s':''} (conquête)</span>`:''}</p>`:'';
+    return`<div class="diag-metier-block${isFirst?'':' mt-3 pt-3 border-t b-dark'} s-panel-inner/50 rounded-lg p-3">
+      <div class="flex flex-wrap items-center gap-2 mb-1.5">
+        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
+        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
+        ${reconBadge}
+      </div>
+      ${jaugeHtml}
+      ${potentielHtml}
+      ${perduLine}
+      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
+    </div>`;
+  };
+
+  // ── Mode cellPanel (case Radar ABC/FMR) ──
   if(v.cellMode){
-    const metiersHtml=v.metiers.map((m,mIdx)=>{
-      const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-      const caHtml=m.caActifs>0?` · CA : <strong class="c-ok">${formatEuro(m.caActifs)}</strong>`:'';
-      return`<div class="${mIdx>0?'mt-3 pt-3 border-t b-dark':''} s-panel-inner/50 rounded-lg p-3">
-        <div class="flex flex-wrap items-center gap-2 mb-1.5">
-          <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
-          <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
-        </div>
-        <p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.actifs}</strong> client${m.actifs>1?'s':''} actif${m.actifs>1?'s':''}${caHtml}</p>
-        ${(m.perdus>0||m.prospects>0)?`<p class="text-[11px] mb-1">${m.perdus>0?`<span class="c-danger">→ <strong>${m.perdus}</strong> perdu${m.perdus>1?'s':''} avec historique d'achat (reconquête)</span>`:''}${m.perdus>0&&m.prospects>0?' · ':''}${m.prospects>0?`<span class="c-caution">${m.prospects} prospect${m.prospects>1?'s':''} métier (conquête)</span>`:''}</p>`:''}
-        ${m.potentiel>0?`<p class="text-[11px] c-caution font-bold mb-1.5">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-        <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded transition-colors" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
-      </div>`;
-    }).join('');
+    // Action 1 — split urgents/secondaires (cell mode : pen < 40% ou perdus ≥ 3)
+    const sorted=[...v.metiers].sort((a,b)=>{const pa=a.total>0?a.actifs/a.total:1;const pb=b.total>0?b.actifs/b.total:1;return pa-pb;});
+    const urgents=sorted.filter(m=>{const pen=m.total>0?m.actifs/m.total:0;return pen<0.4||(m.perdus||0)>=3;});
+    const secondaires=sorted.filter(m=>!urgents.includes(m));
+    const urgentsHtml=urgents.map((m,i)=>_cardCell(m,i===0)).join('');
+    const secondairesHtml=secondaires.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardCell(m,i===0)).join('')}</details>`:'';
+    const allUrgents=urgents.length===sorted.length;
     const totalProspects=v.metiers.reduce((s,m)=>s+(m.prospects||0),0);
     const perdusTxt=[v.perdus>0?`<span class="c-danger">${v.perdus} perdu${v.perdus>1?'s':''} avec historique (reconquête)</span>`:'',totalProspects>0?`<span class="c-caution">${totalProspects} prospect${totalProspects>1?'s':''} métier (conquête)</span>`:''].filter(Boolean).join(' · ');
     return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
       <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
       <p class="text-[10px] t-inverse-muted mb-3">Sur vos <strong class="text-white">${v.nbArts}</strong> articles <strong class="text-cyan-300">${v.cellKey}</strong>, <strong class="text-white">${v.totalBuyers}</strong> client${v.totalBuyers>1?'s':''} identifié${v.totalBuyers>1?'s':''} dans la chalandise${perdusTxt?' · '+perdusTxt:''} :</p>
-      ${metiersHtml}
+      ${urgentsHtml||sorted.map((m,i)=>_cardCell(m,i===0)).join('')}
+      ${allUrgents?'':secondairesHtml}
     </div>`;
   }
-  const metiersHtml=v.metiers.map((m,mIdx)=>{
-    const pctActifPDV=m.total>0?Math.round(m.p5/m.total*100):0;
-    const counters=[m.p5?`<span class="c-ok">${m.p5} actifs PDV (${pctActifPDV}%)</span>`:'',m.p1?`<span class="c-caution">${m.p1} actifs sans achat PDV</span>`:'`',(m.p2+m.p3)?`<span class="c-danger">${m.p2+m.p3} perdus</span>`:''].filter(s=>s&&s!=='`').join(' · ');
-    const metierEsc=m.metier.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    return`<div class="${mIdx>0?'mt-3 pt-3 border-t b-dark':''} s-panel-inner/50 rounded-lg p-3">
-      <div class="flex flex-wrap items-center gap-2 mb-1.5">
-        <span class="text-xs font-extrabold c-danger">${m.metier}${_isMetierStrategique(m.metier)?' <span class="c-caution text-[10px]">⭐</span>':''}</span>
-        <span class="text-[10px] font-bold c-caution bg-amber-900/30 px-2 py-0.5 rounded-full">${m.pct}% des acheteurs</span>
-      </div>
-      <p class="text-[11px] t-inverse mb-1">→ <strong class="text-white">${m.total}</strong> clients dans votre zone · ${counters}</p>
-      ${m.potentiel>0?`<p class="text-[11px] c-caution font-bold mb-1">→ Potentiel récupérable : ${formatEuro(m.potentiel)}</p>`:''}
-      <button class="mt-1 text-[10px] text-cyan-400 hover:text-cyan-300 border border-cyan-800 hover:border-cyan-600 px-3 py-1 rounded" onclick="_navigateToOverviewMetier('${metierEsc}')">🔗 Voir dans l'onglet Le Terrain →</button>
-    </div>`;
-  }).join('');
+
+  // ── Mode famille (normal) ──
+  // Action 2 — Tri pénétration croissante
+  const sorted=[...v.metiers].sort((a,b)=>{const pa=a.total>0?a.p5/a.total:1;const pb=b.total>0?b.p5/b.total:1;return pa-pb;});
+  // Action 1 — Split urgents/secondaires
+  const urgents=sorted.filter(m=>{const pen=m.total>0?m.p5/m.total:0;return pen<0.4||(m.p2+m.p3)>=3;});
+  const secondaires=sorted.filter(m=>!urgents.includes(m));
+  const allUrgents=urgents.length===sorted.length;
+  const noneUrgent=urgents.length===0;
+  let urgentsHtml,secondairesHtml;
+  if(noneUrgent){
+    // Aucun urgent → afficher le premier métier + replier le reste
+    urgentsHtml=_cardFamille(sorted[0],true);
+    const rest=sorted.slice(1);
+    secondairesHtml=rest.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${rest.length} autre${rest.length>1?'s':''} métier${rest.length>1?'s':''} — situation saine</summary>${rest.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
+  }else if(allUrgents){
+    // Tous urgents → tout afficher
+    urgentsHtml=sorted.map((m,i)=>_cardFamille(m,i===0)).join('');
+    secondairesHtml='';
+  }else{
+    urgentsHtml=urgents.map((m,i)=>_cardFamille(m,i===0)).join('');
+    secondairesHtml=secondaires.length?`<details><summary class="text-[10px] t-inverse-muted cursor-pointer mt-3 list-none">▸ ${secondaires.length} autre${secondaires.length>1?'s':''} métier${secondaires.length>1?'s':''} — situation saine</summary>${secondaires.map((m,i)=>_cardFamille(m,i===0)).join('')}</details>`:'';
+  }
   return`<div class="diag-voyant diag-v2 diag-border-${v.status}">
     <div class="diag-voyant-hdr"><span class="font-extrabold text-sm text-purple-300">👥 Mes Clients</span>${_diagBadge(v.status)}</div>
     <p class="text-[10px] t-inverse-muted mb-3">Top ${v.metiers.length} métier${v.metiers.length>1?'s':''} acheteurs · <strong class="text-white">${v.totalBuyers}</strong> identifié${v.totalBuyers>1?'s':''} dans la chalandise${v.perdus>0?' · <span class="c-danger">'+v.perdus+' perdus</span>':''}</p>
-    ${metiersHtml}
+    ${urgentsHtml}
+    ${allUrgents?'':secondairesHtml}
   </div>`;
 }
 
@@ -1029,4 +1097,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory };
+export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter };
