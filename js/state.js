@@ -135,6 +135,9 @@ _S._diagCurrentSource = '';
 // ── Fantômes de rayon ──
 _S.phantomArticles = [];
 
+// ── Cohorte reconquête ──
+_S.reconquestCohort = [];
+
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
@@ -201,6 +204,9 @@ export function resetAppState() {
 
   // Fantômes de rayon
   _S.phantomArticles = [];
+
+  // Cohorte reconquête
+  _S.reconquestCohort = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

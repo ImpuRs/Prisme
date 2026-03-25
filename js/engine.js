@@ -535,3 +535,29 @@ export function generateDecisionQueue() {
 
   _S.decisionQueueData = decisions.slice(0, 9);
 }
+
+
+// ── A5: Cohorte reconquête (P3.5+P4.6) ────────────────────────
+// Clients perdus (>6 mois sans commande) avec historique CA significatif
+export function computeReconquestCohort() {
+  _S.reconquestCohort = [];
+  if (!_S.chalandiseReady || !_S.clientLastOrder.size) return;
+  const now = new Date();
+  const SIX_MONTHS = 180 * 86400000;
+  const cohort = [];
+  for (const [cc, lastDate] of _S.clientLastOrder.entries()) {
+    if ((now - lastDate) < SIX_MONTHS) continue;
+    const info = _S.chalandiseData.get(cc);
+    if (!info) continue;
+    const artMap = _S.ventesClientArticle.get(cc);
+    if (!artMap || artMap.size === 0) continue;
+    const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0);
+    if (totalCA < 500) continue;
+    const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
+    const daysAgo = Math.round((now - lastDate) / 86400000);
+    const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
+    cohort.push({ cc, nom: info.nom || cc, metier: info.metier || '', commercial: info.commercial || '', totalCA, nbFamilles, daysAgo, score });
+  }
+  cohort.sort((a, b) => b.score - a.score);
+  _S.reconquestCohort = cohort;
+}
