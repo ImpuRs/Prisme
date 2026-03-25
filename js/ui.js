@@ -18,7 +18,7 @@ import { calcPriorityScore } from './engine.js';
 export function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer'); if (!container) return;
   const toast = document.createElement('div');
-  const colors = { success: 'bg-emerald-100 border-emerald-500 text-emerald-800', error: 'bg-red-100 border-red-500 text-red-800', warning: 'bg-amber-100 border-amber-500 text-amber-800', info: 'bg-blue-100 border-blue-500 text-blue-800' };
+  const colors = { success: 'i-ok-bg border-emerald-500 c-ok', error: 'i-danger-bg border-red-500 c-danger', warning: 'i-caution-bg border-amber-500 c-caution', info: 'i-info-bg border-blue-500 c-action' };
   toast.className = `p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type] || colors.info}`;
   toast.innerHTML = message;
   container.appendChild(toast);
@@ -37,7 +37,7 @@ export function updateProgress(c, t, txt, step) {
 export function updatePipeline(step, status) {
   const idMap = { consomme: 'pipeConsomme', stock: 'pipeStock', territoire: 'pipeTerritoire' };
   const el = document.getElementById(idMap[step]); if (!el) return;
-  const cls = { pending: 't-disabled', active: 'text-blue-300 font-bold animate-pulse', done: 'text-green-400 font-bold' };
+  const cls = { pending: 't-disabled', active: 'c-action font-bold animate-pulse', done: 'c-ok font-bold' };
   el.className = cls[status] || 't-disabled';
   if (status === 'done') el.textContent = { consomme: '✅ Consommé', stock: '✅ Stock', territoire: '✅ Territoire' }[step] || '✅';
   if (status !== 'pending') { const pl = document.getElementById('loadingPipeline'); if (pl) pl.classList.remove('hidden'); }
@@ -210,7 +210,7 @@ export function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
   document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
-  if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
+  if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('s-hover', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
   _S.currentPage = 0; switchTab('table');
   _S.filteredData = getFilteredData();
@@ -222,7 +222,7 @@ export function clearCockpitFilter(silent) {
   document.getElementById('filterCockpit').value = '';
   document.getElementById('activeCockpitFilter').classList.add('hidden');
   const nbtn = document.getElementById('btnNouveautesOnly');
-  if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('bg-gray-200', 't-secondary'); }
+  if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('s-hover', 't-secondary'); }
   if (!silent) { _S.currentPage = 0; renderAll(); }
 }
 
@@ -291,10 +291,10 @@ export function openReporting() {
     <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${_S.selectedMyStore || ''}</h2>
     <div class="flex items-center gap-2 shrink-0">
       <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
-      <button onclick="closeReporting()" class="text-xs bg-slate-700 hover:bg-slate-600 t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
+      <button onclick="closeReporting()" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
     </div>
   </div>
-  <textarea id="reportingTextarea" class="w-full bg-slate-900 text-slate-200 text-xs font-mono p-4 rounded-xl border border-slate-700 resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+  <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
   <p class="text-[10px] t-inverse-muted mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
 }
@@ -421,7 +421,7 @@ export function _cmdRender(q) {
           ${item.sub ? `<div class="cmd-item-sub">${item.sub}</div>` : ''}
         </div>
         ${item.badge ? `<span class="cmd-item-badge ${item.badgeCls || 's-hover t-secondary'}">${item.badge}</span>` : ''}
-        <span class="text-gray-300 text-xs ml-1">↵</span>
+        <span class="t-disabled text-xs ml-1">↵</span>
       </div>`;
     }
   }
@@ -452,7 +452,7 @@ export function _cmdBuildResults(q) {
       if (artResults.length >= 5) break;
       const haystack = (r.code + ' ' + r.libelle + ' ' + (r.famille || '')).toLowerCase();
       if (terms.every(t => haystack.includes(t))) {
-        const stockColor = r.stockActuel <= 0 ? 'bg-red-100 c-danger' : 'bg-green-100 text-green-700';
+        const stockColor = r.stockActuel <= 0 ? 'i-danger-bg c-danger' : 'i-ok-bg c-ok';
         artResults.push({
           icon: '📦',
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${r.code}</span>${_cmdEsc(r.libelle)}`,
@@ -483,7 +483,7 @@ export function _cmdBuildResults(q) {
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(info.nom || code)}`,
           sub: [info.metier, ca ? ca + '€ CA' : ''].filter(Boolean).join(' · '),
           badge: isActif ? 'Actif' : (info.statut || ''),
-          badgeCls: isActif ? 'bg-emerald-100 c-ok' : 's-hover t-tertiary',
+          badgeCls: isActif ? 'i-ok-bg c-ok' : 's-hover t-tertiary',
           fn: () => {
             switchTab('territoire');
             setTimeout(() => {
@@ -783,7 +783,7 @@ export function renderDecisionQueue() {
   if (footerEl) {
     const cmdItems = items.filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code);
     if (cmdItems.length > 0) {
-      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal t-disabled">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
+      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold s-hover b-light hover:s-hover transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal t-disabled">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
       footerEl.classList.remove('hidden');
     } else {
       footerEl.innerHTML = '';

@@ -560,8 +560,8 @@
     <div class="s-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden mx-4">
       <div class="flex items-center border-b b-default">
         <span class="pl-4 t-disabled text-base">🔍</span>
-        <input id="cmdInput" type="text" placeholder="Rechercher un article, client, action…" class="w-full p-4 text-base outline-none bg-white" autocomplete="off" spellcheck="false">
-        <kbd class="mr-3 text-[10px] t-disabled bg-gray-100 px-2 py-0.5 rounded border b-default shrink-0 font-mono">Esc</kbd>
+        <input id="cmdInput" type="text" placeholder="Rechercher un article, client, action…" class="w-full p-4 text-base outline-none s-card" autocomplete="off" spellcheck="false">
+        <kbd class="mr-3 text-[10px] t-disabled s-hover px-2 py-0.5 rounded border b-default shrink-0 font-mono">Esc</kbd>
       </div>
       <div id="cmdResults" class="max-h-[400px] overflow-y-auto"></div>
     </div>
@@ -582,7 +582,7 @@
   </div>
 
   <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
-  <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="t-inverse font-bold text-lg"></p><p id="loadingStep" class="text-blue-300 text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
+  <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="t-inverse font-bold text-lg"></p><p id="loadingStep" class="c-action text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
   <!-- V24.4: Pipeline per-file status -->
   <div id="loadingPipeline" class="hidden flex items-center gap-2 text-xs mt-3 font-mono flex-wrap justify-center">
     <span id="pipeConsomme" class="t-disabled">📊 Consommé</span>
@@ -657,7 +657,7 @@
   <div id="appLayout">
     <!-- LEFT: sticky filter panel -->
     <aside id="filterPanel">
-      <div class="p-3 border-b b-default bg-gray-100 flex items-center justify-between flex-shrink-0 lg:hidden">
+      <div class="p-3 border-b b-default s-hover flex items-center justify-between flex-shrink-0 lg:hidden">
         <span class="text-sm font-extrabold t-primary">Filtres</span>
         <button class="t-disabled hover:t-primary text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
@@ -671,23 +671,23 @@
             <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut</option></select>
             <div class="flex gap-1">
               <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-              <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+              <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
             </div>
             <div id="globalAdvancedFilters" class="flex flex-col gap-1.5 pt-1.5 border-t b-default">
               <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
               <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
-              <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50 w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+              <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
             </div>
-            <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] bg-gray-200 t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
+            <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
             <input type="hidden" id="filterCockpit" value="">
             <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
             <div class="flex flex-wrap gap-1 mt-0.5">
               <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
-              <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer bg-red-100 text-red-800" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
+              <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer i-danger-bg c-danger" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
             </div>
             <div class="flex items-center justify-between mt-0.5">
               <span id="filterActiveCount" class="text-[10px] t-disabled font-semibold"></span>
-              <button onclick="resetFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
+              <button onclick="resetFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
             </div>
           </div>
         </div>
@@ -702,7 +702,7 @@
                 <span id="terrSecteurLabel">Tous Secteurs</span><span class="t-disabled text-[10px]">▼</span>
               </button>
               <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 s-card border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[240px]" style="left:0">
-                <label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
+                <label class="flex items-center gap-2 p-1.5 rounded hover:i-info-bg cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
                   <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
                 </label>
                 <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
@@ -711,37 +711,37 @@
             <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
             <div class="flex gap-1">
               <button onclick="exportTerritoireCSV()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <button onclick="resetTerrFilters()" class="text-xs bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
+              <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
             </div>
           </div>
 
           <!-- Client search + famille filter (degraded mode) — always shown when Le Terrain is active -->
           <div id="terrClientSearchBlock" class="flex flex-col gap-1">
             <hr class="b-default my-0.5">
-            <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white">
-            <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><option value="">Toutes familles</option></select>
+            <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+            <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><option value="">Toutes familles</option></select>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
             <hr class="b-default my-0.5">
-            <p class="text-[10px] font-bold text-rose-500 uppercase tracking-wide">🔗 Chalandise</p>
+            <p class="text-[10px] font-bold c-danger uppercase tracking-wide">🔗 Chalandise</p>
             <!-- Cross filter buttons -->
             <div id="terrCrossFilterRow" class="hidden flex flex-col gap-0.5">
               <span class="text-[10px] font-bold t-secondary">🔀 Filtrer :</span>
               <div class="flex flex-wrap gap-1">
-                <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold bg-slate-700 t-inverse border-slate-600">Tous</button>
-                <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:bg-violet-50">🟣 Fidèles</button>
-                <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:bg-rose-50">🔴 Potentiels</button>
-                <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:bg-emerald-50">🟢 Captés</button>
+                <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-panel-inner t-inverse b-dark">Tous</button>
+                <button id="btnCrossFideles" onclick="_setCrossFilter('fidele')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-info-bg">🟣 Fidèles</button>
+                <button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-danger-bg">🔴 Potentiels</button>
+                <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-ok-bg">🟢 Captés</button>
               </div>
             </div>
             <!-- Métier -->
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><datalist id="terrMetierList"></datalist>
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
             <!-- Commercial -->
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><datalist id="terrCommercialList"></datalist>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
             <!-- Stratégique -->
-            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] bg-gray-200 t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
             <!-- Advanced filters -->
             <div id="terrAdvancedFilters" class="flex flex-col gap-1">
               <div id="terrDeptDropdownWrap">
@@ -774,7 +774,7 @@
               </label>
             </div>
             <!-- Reset -->
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
+            <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
         </div>
 
@@ -782,20 +782,20 @@
         <div id="filterGroupBench" class="hidden">
           <div class="flex flex-col gap-1.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
-            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold bg-white w-full"><option value="median">📊 Médiane réseau</option></select>
+            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
             <!-- Checkboxes multi-agences -->
             <div id="benchPickDiv" class="flex flex-col gap-0.5">
               <p class="text-[10px] font-semibold text-cyan-800">📋 Agences dans la médiane :</p>
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
             </div>
             <hr class="b-default my-0.5">
-            <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
+            <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
-              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white flex-1">
+              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card flex-1">
               <span class="text-[10px] t-tertiary">€</span>
             </div>
-            <button onclick="resetObsFilters()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
+            <button onclick="resetObsFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
           </div>
         </div>
 
@@ -806,7 +806,7 @@
             <p class="text-[11px] t-disabled italic leading-relaxed">Lancez une recherche<br>pour activer les filtres</p>
           </div>
           <div id="promoRefinementFilters" class="hidden flex flex-col gap-1.5">
-            <p class="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-0.5">Affiner les résultats</p>
+            <p class="text-[10px] font-bold c-caution uppercase tracking-wide mb-0.5">Affiner les résultats</p>
             <select id="promoFilterFamille" onchange="_onPromoFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes les familles</option></select>
             <select id="promoFilterSousFamille" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
             <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
@@ -834,8 +834,8 @@
   <div class="container mx-auto mt-3 p-4 md:p-5 s-card rounded-xl shadow-lg mb-10">
 
     <!-- GLOSSAIRE -->
-    <div id="glossaire" class="hidden mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-      <h3 class="font-extrabold text-blue-900 mb-5 text-lg">🧠 Glossaire PRISME</h3>
+    <div id="glossaire" class="hidden mb-8 p-6 i-info-bg b-light rounded-xl">
+      <h3 class="font-extrabold c-action mb-5 text-lg">🧠 Glossaire PRISME</h3>
 
       <!-- Section 1 — Stock & Réappro -->
       <p class="text-[11px] font-extrabold c-action uppercase tracking-widest mb-2 mt-1">📦 Stock &amp; Réappro</p>
@@ -846,12 +846,12 @@
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📊 Surstock PRISME vs 👁️ Excédent ERP</h4><p class="text-xs t-secondary mt-1"><strong>Surstock PRISME</strong> = stock &gt; nouveau MAX recalculé. Optimisation à faire.<br><strong>Excédent ERP</strong> = stock &gt; ancien MAX ERP. Déborde physiquement — à renvoyer au dépôt.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">☠️ Dormant / ✨ Nouveauté</h4><p class="text-xs t-secondary mt-1"><strong>Dormant</strong> = 0 sortie depuis &gt;1 an → MIN/MAX = 0.<br><strong>Nouveauté</strong> = référencé depuis &lt;35 jours → conserve l'ancien MIN/MAX.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">✅ Taux de disponibilité</h4><p class="text-xs t-secondary mt-1">Articles fréquents (≥3 cmd/an) en stock ÷ total articles fréquents. Mesure la disponibilité rayon, <strong>pas</strong> le service client.</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs t-secondary mt-1">Stock ÷ conso/jour. <span class="text-red-600 font-bold">&lt;7j</span> critique · <span class="text-green-600 font-bold">21–60j</span> optimal · <span class="text-blue-600 font-bold">&gt;60j</span> surstock.</p></div>
+        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">📅 Couverture (jours)</h4><p class="text-xs t-secondary mt-1">Stock ÷ conso/jour. <span class="c-danger font-bold">&lt;7j</span> critique · <span class="c-ok font-bold">21–60j</span> optimal · <span class="c-action font-bold">&gt;60j</span> surstock.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-blue-500"><h4 class="font-bold text-sm">⚡ Score priorité</h4><p class="text-xs t-secondary mt-1">Fréquence × Prix unitaire × coefficient ancienneté. Trie les actions par <strong>impact réel</strong>.</p></div>
       </div>
 
       <!-- Section 2 — Clients & Terrain -->
-      <p class="text-[11px] font-extrabold text-rose-700 uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
+      <p class="text-[11px] font-extrabold c-danger uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA Comptoir</h4><p class="text-xs t-secondary mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé au comptoir de l'agence).</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs t-secondary mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
@@ -865,7 +865,7 @@
       </div>
 
       <!-- Section 3 — Tableau Territoire -->
-      <p class="text-[11px] font-extrabold text-emerald-700 uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
+      <p class="text-[11px] font-extrabold c-ok uppercase tracking-widest mb-2">🗺️ Tableau Territoire — colonnes</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🔢 Total</h4><p class="text-xs t-secondary mt-1">Nombre total de clients dans la zone de chalandise pour cette direction ou ce métier. Base de référence pour tous les ratios.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-emerald-500"><h4 class="font-bold text-sm">🌐 Actifs Leg.</h4><p class="text-xs t-secondary mt-1">Clients ayant acheté chez Legallais <strong>tous canaux confondus</strong> dans les 12 derniers mois. Source : fichier Zone de Chalandise (CA N &gt; 0).</p></div>
@@ -899,7 +899,7 @@
       </div>
 
       <!-- Section 5 — Équation commerciale -->
-      <p class="text-[11px] font-extrabold text-amber-700 uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
+      <p class="text-[11px] font-extrabold c-caution uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs t-secondary mt-1"><strong>Clients PDV × Fréquence × CA / client = CA Comptoir.</strong> Les 3 leviers du chef d'agence.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs t-secondary mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
@@ -908,10 +908,10 @@
       </div>
 
       <!-- Section cache -->
-      <div class="mt-5 pt-4 border-t border-blue-200 flex items-center gap-3 flex-wrap">
+      <div class="mt-5 pt-4 border-t b-light flex items-center gap-3 flex-wrap">
         <span class="text-[11px] c-action font-semibold">💾 Cache local :</span>
         <button onclick="_clearCache();expandImportZone();document.getElementById('glossaire').classList.add('hidden')"
-          class="text-[11px] bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 font-semibold py-1 px-3 rounded-lg transition-colors">
+          class="text-[11px] i-danger-bg hover:i-danger-bg c-danger border border-red-300 font-semibold py-1 px-3 rounded-lg transition-colors">
           🗑️ Effacer le cache (forcer le rechargement des fichiers)
         </button>
         <span class="text-[10px] c-action">Les exclusions clients sont conservées même après effacement du cache.</span>
@@ -926,27 +926,27 @@
           <h1 class="text-base font-extrabold t-primary leading-tight">PRISME — Votre copilote agence</h1>
           <p class="text-[11px] t-disabled">Chargez vos fichiers ci-dessous pour commencer</p>
         </div>
-        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] text-blue-600 hover:text-blue-800 font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
+        <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] c-action hover:c-action font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
       </div>
       <!-- 3 niveaux en ligne horizontale -->
       <div class="grid grid-cols-3 gap-2 mb-3">
-        <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-start gap-2">
+        <div class="i-info-bg b-light rounded-lg px-3 py-2 flex items-start gap-2">
           <span class="w-5 h-5 rounded-full bg-blue-600 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">1</span>
           <div class="min-w-0">
-            <p class="text-[9px] font-extrabold text-blue-400 uppercase tracking-widest leading-none mb-0.5">Obligatoire</p>
-            <p class="text-[11px] font-extrabold text-blue-900 leading-tight">📊 Consommé + Stock</p>
-            <p class="text-[10px] text-blue-600 mt-0.5 leading-tight">Stock · Cockpit · Radar ABC/FMR · MIN/MAX</p>
+            <p class="text-[9px] font-extrabold c-action uppercase tracking-widest leading-none mb-0.5">Obligatoire</p>
+            <p class="text-[11px] font-extrabold c-action leading-tight">📊 Consommé + Stock</p>
+            <p class="text-[10px] c-action mt-0.5 leading-tight">Stock · Cockpit · Radar ABC/FMR · MIN/MAX</p>
           </div>
         </div>
-        <div class="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 flex items-start gap-2">
+        <div class="i-danger-bg b-light rounded-lg px-3 py-2 flex items-start gap-2">
           <span class="w-5 h-5 rounded-full bg-rose-500 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">2</span>
           <div class="min-w-0">
-            <p class="text-[9px] font-extrabold text-rose-400 uppercase tracking-widest leading-none mb-0.5">Optionnel</p>
-            <p class="text-[11px] font-extrabold text-rose-900 leading-tight">📋 Zone de Chalandise</p>
-            <p class="text-[10px] text-rose-600 mt-0.5 leading-tight">Clients · Le Terrain · Cockpit client</p>
+            <p class="text-[9px] font-extrabold c-danger uppercase tracking-widest leading-none mb-0.5">Optionnel</p>
+            <p class="text-[11px] font-extrabold c-danger leading-tight">📋 Zone de Chalandise</p>
+            <p class="text-[10px] c-danger mt-0.5 leading-tight">Clients · Le Terrain · Cockpit client</p>
           </div>
         </div>
-        <div class="bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2 flex items-start gap-2">
+        <div class="i-info-bg b-light rounded-lg px-3 py-2 flex items-start gap-2">
           <span class="w-5 h-5 rounded-full bg-cyan-600 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">3</span>
           <div class="min-w-0">
             <p class="text-[9px] font-extrabold text-cyan-500 uppercase tracking-widest leading-none mb-0.5">Multi-agences</p>
@@ -963,18 +963,18 @@
       <button onclick="collapseImportZone()" style="font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--t-tertiary);background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);cursor:pointer" onmouseover="this.style.background='var(--s-hover)'" onmouseout="this.style.background='var(--s-card-alt)'">✕ Annuler</button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-      <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-sm text-blue-900 mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] c-action mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
-      <div id="dropStock" class="p-3 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50"><h2 class="font-bold text-sm text-emerald-900 mb-0.5">2. État du Stock</h2><p class="text-[10px] text-emerald-500 mb-1.5">Statuts, Valeurs, Dates — obligatoire</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
+      <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl i-info-bg"><h2 class="font-bold text-sm c-action mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] c-action mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
+      <div id="dropStock" class="p-3 border-2 border-dashed border-emerald-300 rounded-xl i-ok-bg"><h2 class="font-bold text-sm text-emerald-900 mb-0.5">2. État du Stock</h2><p class="text-[10px] text-emerald-500 mb-1.5">Statuts, Valeurs, Dates — obligatoire</p><input type="file" id="fileStock" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropStock')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-emerald-600 file:text-white cursor-pointer"/></div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-      <div id="dropChalandise" class="p-3 border-2 border-dashed border-rose-300 rounded-xl bg-rose-50"><h2 class="font-bold text-sm text-rose-900 mb-0.5">3. Zone de Chalandise <span class="text-[10px] font-normal text-rose-400">(optionnel)</span></h2><p class="text-[10px] text-rose-500 mb-1.5">Export Qlik clients — active Le Terrain &amp; enrichit le Benchmark</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
+      <div id="dropChalandise" class="p-3 border-2 border-dashed border-rose-300 rounded-xl i-danger-bg"><h2 class="font-bold text-sm c-danger mb-0.5">3. Zone de Chalandise <span class="text-[10px] font-normal c-danger">(optionnel)</span></h2><p class="text-[10px] c-danger mb-1.5">Export Qlik clients — active Le Terrain &amp; enrichit le Benchmark</p><input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-rose-600 file:text-white cursor-pointer"/></div>
       <!-- V2 : Ventes Territoire (BL Qlik) — masqué en V1, à réactiver pour Vue Direction / Top 100 / Contributeurs -->
-      <div id="dropTerritoire" style="display:none" class="p-3 border-2 border-dashed border-violet-300 rounded-xl bg-violet-50"><h2 class="font-bold text-sm text-violet-900 mb-0.5">4. Ventes Le Terrain <span class="text-[10px] font-normal text-violet-400">(optionnel)</span></h2><p class="text-[10px] text-violet-500 mb-1.5">BL tous canaux — filtré depuis Qlik</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
+      <div id="dropTerritoire" style="display:none" class="p-3 border-2 border-dashed border-violet-300 rounded-xl i-info-bg"><h2 class="font-bold text-sm text-violet-900 mb-0.5">4. Ventes Le Terrain <span class="text-[10px] font-normal text-violet-400">(optionnel)</span></h2><p class="text-[10px] text-violet-500 mb-1.5">BL tous canaux — filtré depuis Qlik</p><input type="file" id="fileTerritoire" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropTerritoire')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-violet-600 file:text-white cursor-pointer"/></div>
     </div>
 
     <!-- SÉLECTEUR MAGASIN -->
-    <div id="storeSelector" class="hidden mb-3 p-3 bg-cyan-50 border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-2 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 bg-white"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
-    <div id="storeWarnings" class="hidden mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
+    <div id="storeSelector" class="hidden mb-3 p-3 i-info-bg border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-2 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 s-card"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
+    <div id="storeWarnings" class="hidden mb-3 p-3 i-caution-bg border b-light rounded-xl text-xs c-caution"></div>
 
     <div class="text-center mb-3"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 s-panel-inner hover:bg-black t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
@@ -994,15 +994,15 @@
               <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-20" onclick="sortBy('libelle')">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('V')" data-tooltip="Prélevé comptoir 12 mois">Prél ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-cyan-300" onclick="sortBy('enleveTotal')" data-tooltip="Enlevé (colis) 12 mois">Enl ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center text-blue-300" onclick="sortBy('W')">Fréq ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center text-orange-300" onclick="sortBy('stockActuel')">Stock ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-action" onclick="sortBy('W')">Fréq ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-caution" onclick="sortBy('stockActuel')">Stock ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-teal-300" onclick="sortBy('couvertureJours')" data-tooltip="Jours de stock restant">Couv ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center text-amber-300" onclick="sortBy('ageJours')">Âge ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-caution" onclick="sortBy('ageJours')">Âge ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled">Anc.</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 s-panel" onclick="sortBy('nouveauMin')">MIN ↕</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 s-panel" onclick="sortBy('nouveauMax')">MAX ↕</th>
-              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 s-panel" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
-              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 s-panel" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')">MIN ↕</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')">MAX ↕</th>
+              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center c-caution s-panel" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
+              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center c-caution s-panel" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 s-panel" onclick="sortBy('abcClass')">ABC ↕</th>
               <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 s-panel" onclick="sortBy('fmrClass')">FMR ↕</th>
             </tr>
@@ -1010,7 +1010,7 @@
           <tbody id="tableBody" class="text-sm divide-y divide-gray-100"></tbody>
         </table>
       </div>
-      <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 bg-gray-200 rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 bg-gray-200 rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
+      <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
     </div>
 
     <!-- TAB 2 : DASHBOARD -->
@@ -1018,21 +1018,21 @@
       <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
         <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-blue-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">Valeur stock<em class="info-tip" data-tip="Somme des PRMP × quantité en stock pour tous les articles en rayon.">ℹ</em></h4><p id="dashTotalValue" class="text-xl font-extrabold">0€</p><p id="dashTotalCount" class="text-blue-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-red-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">☠️ Dormants<em class="info-tip" data-tip="Articles en stock sans aucune vente sur la période du consommé (&gt;1 an). Candidats au renvoi dépôt.">ℹ</em></h4><p id="dashDeadStock" class="text-xl font-extrabold">0€</p><p id="dashDeadPct" class="text-red-200 text-[10px] mt-1"></p></div>
-        <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="text-orange-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">📊 Surstock PRISME<em class="info-tip" data-tip="Stock dépassant le MAX recalculé par PRISME — articles bien gérés ERP mais au-dessus de la nouvelle préconisation. Optimisation à faire.">ℹ</em></h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
+        <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white shadow-lg"><h4 class="t-inverse-muted text-[10px] font-bold uppercase mb-1 flex items-center gap-1">📊 Surstock PRISME<em class="info-tip" data-tip="Stock dépassant le MAX recalculé par PRISME — articles bien gérés ERP mais au-dessus de la nouvelle préconisation. Optimisation à faire.">ℹ</em></h4><p id="dashSurstock" class="text-xl font-extrabold">0€</p><p id="dashSurstockPct" class="text-orange-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-purple-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">👁️ Excédent ERP<em class="info-tip" data-tip="Stock dépassant le MAX défini dans l\'ERP — à renvoyer au dépôt ou à solder.">ℹ</em></h4><p id="dashCapalin" class="text-xl font-extrabold">0€</p><p id="dashCapalinCount" class="text-purple-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">✅ Taux de dispo.<em class="info-tip" data-tip="Réf fréquentes (≥3 commandes/an) en stock ÷ total réf fréquentes. Cible : &gt;95%.">ℹ</em></h4><p id="dashServiceRate" class="text-xl font-extrabold">—</p><p id="dashServiceDetail" class="text-emerald-200 text-[10px] mt-1"></p></div>
         <div class="bg-gradient-to-br from-rose-500 to-pink-700 rounded-xl p-4 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-1 flex items-center gap-1">💸 CA Perdu<em class="info-tip" data-tip="Estimation du CA manqué sur les ruptures : jours rupture × conso/jour × prix unitaire.">ℹ</em></h4><p id="dashCAPerdu" class="text-xl font-extrabold">0€</p><p id="dashCAPerduCount" class="text-rose-200 text-[10px] mt-1"></p></div>
       </div>
       <!-- Évolution historique (moved before shortcuts per V24.4 reorder) -->
       <div class="mb-4 flex justify-end gap-2">
-        <label class="text-[10px] bg-blue-100 hover:bg-blue-200 py-1.5 px-3 rounded font-semibold c-action cursor-pointer">📤 Importer un historique<input type="file" accept=".json" onchange="importKPIhistory(this)" class="hidden"></label>
+        <label class="text-[10px] i-info-bg hover:i-info-bg py-1.5 px-3 rounded font-semibold c-action cursor-pointer">📤 Importer un historique<input type="file" accept=".json" onchange="importKPIhistory(this)" class="hidden"></label>
       </div>
-      <div id="compareBlock" class="hidden mb-8 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-5 border border-blue-200">
+      <div id="compareBlock" class="hidden mb-8 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-5 border b-light">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-extrabold text-blue-900 flex items-center gap-2">📈 Évolution vs dernière analyse <span id="compareDate" class="text-xs font-normal t-tertiary"></span></h3>
+          <h3 class="font-extrabold c-action flex items-center gap-2">📈 Évolution vs dernière analyse <span id="compareDate" class="text-xs font-normal t-tertiary"></span></h3>
           <div class="flex gap-2">
-            <button onclick="exportKPIhistory()" class="text-[10px] bg-blue-100 hover:bg-blue-200 py-1 px-2 rounded font-semibold c-action">📥 Exporter</button>
-            <button onclick="clearSavedKPI()" class="text-[10px] bg-gray-200 hover:bg-gray-300 py-1 px-2 rounded font-semibold t-secondary">🗑️ Reset</button>
+            <button onclick="exportKPIhistory()" class="text-[10px] i-info-bg hover:i-info-bg py-1 px-2 rounded font-semibold c-action">📥 Exporter</button>
+            <button onclick="clearSavedKPI()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded font-semibold t-secondary">🗑️ Reset</button>
           </div>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3" id="compareCards"></div>
@@ -1042,9 +1042,9 @@
         <h3 class="font-bold t-primary mb-3 flex items-center gap-2">🔗 Accès rapide <span class="text-[10px] font-normal t-disabled">— cliquez pour filtrer les Articles</span></h3>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes')" style="border-left-color:#f87171">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scFantomesCount" class="badge bg-red-100 text-red-700">0</span></div>
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
             <div class="font-semibold text-xs t-primary">Sans emplacement</div>
-            <div id="scFantomesVal" class="text-[10px] text-red-600 font-bold mt-1">—</div>
+            <div id="scFantomesVal" class="text-[10px] c-danger font-bold mt-1">—</div>
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('stockneg')" style="border-left-color:#818cf8">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scStocknegCount" class="badge bg-indigo-100 text-indigo-700">0</span></div>
@@ -1052,9 +1052,9 @@
             <div id="scStocknegVal" class="text-[10px] text-indigo-600 font-bold mt-1">—</div>
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('dormants')" style="border-left-color:#fb923c">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">💤</span><span id="scDormantsCount" class="badge bg-orange-100 text-orange-700">0</span></div>
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">💤</span><span id="scDormantsCount" class="badge i-caution-bg c-caution">0</span></div>
             <div class="font-semibold text-xs t-primary">Dormants à traiter</div>
-            <div id="scDormantsVal" class="text-[10px] text-orange-600 font-bold mt-1">—</div>
+            <div id="scDormantsVal" class="text-[10px] c-caution font-bold mt-1">—</div>
             <div class="text-[9px] t-disabled mt-0.5">&gt; 50€ unitaire</div>
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('fins')" style="border-left-color:#facc15">
@@ -1063,9 +1063,9 @@
             <div id="scFinsVal" class="text-[10px] text-yellow-600 font-bold mt-1">—</div>
           </div>
           <div class="shortcut-card" onclick="showCockpitInTable('top20')" style="border-left-color:#4ade80">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">🏆</span><span class="badge bg-green-100 text-green-700">20</span></div>
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">🏆</span><span class="badge i-ok-bg c-ok">20</span></div>
             <div class="font-semibold text-xs t-primary">Top 20 fréquence</div>
-            <div class="text-[10px] text-green-600 mt-1">par nb commandes</div>
+            <div class="text-[10px] c-ok mt-1">par nb commandes</div>
           </div>
         </div>
       </div>
@@ -1076,7 +1076,7 @@
         <div class="table-scroll max-h-[280px]"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attractivité</th></tr></thead><tbody id="dashAttractTable" class="divide-y"></tbody></table></div>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="s-card p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
+        <div class="s-card p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] c-action font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
         <div class="s-card p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
         <div class="s-card p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
       </div>
@@ -1105,7 +1105,7 @@
             </div>
           </div>
           <span class="text-2xl t-disabled font-light">=</span>
-          <div class="text-center px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+          <div class="text-center px-4 py-2 i-info-bg rounded-lg b-light">
             <p class="text-[10px] font-bold c-action uppercase">💰 CA Comptoir</p>
             <p id="eqCA" class="text-xl font-extrabold c-action">—</p>
           </div>
@@ -1136,16 +1136,16 @@
         <div id="dqFooter" class="hidden"></div>
       </div>
 
-      <div class="mb-10"><h2 class="text-xl font-extrabold text-red-700 mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
+      <div class="mb-10"><h2 class="text-xl font-extrabold c-danger mb-4 uppercase flex items-center gap-2">🔴 Urgences <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] text-red-700 mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] text-red-500 mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
-          <div class="bg-red-50 p-5 rounded-xl border-t-4 border-red-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-red-900 flex items-center">⚠️ Anomalies<em class="info-tip" data-tip="Articles vendus avec du stock mais aucun MIN/MAX paramétré dans l'ERP">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeAnomalies" class="badge bg-red-300 text-red-900"></span><span class="cockpit-link bg-red-200 text-red-800" onclick="showCockpitInTable('anomalies')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-red-100 text-red-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionAnomalies" class="divide-y divide-red-100"></tbody></table></div></div>
+          <div class="i-danger-bg p-5 rounded-xl border-t-4 border-red-600"><div class="flex items-center justify-between mb-1"><h3 class="font-bold c-danger flex items-center">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span class="cockpit-link bg-red-200 c-danger" onclick="showCockpitInTable('ruptures')">📋 Voir</span></div></div><p class="text-[11px] c-danger mb-1">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] c-danger mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 z-10"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center" data-tooltip="Score de priorité composite">⚡</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
+          <div class="i-danger-bg p-5 rounded-xl border-t-4 border-red-400"><div class="flex items-center justify-between mb-1"><h3 class="font-bold c-danger flex items-center">⚠️ Anomalies<em class="info-tip" data-tip="Articles vendus avec du stock mais aucun MIN/MAX paramétré dans l'ERP">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeAnomalies" class="badge bg-red-300 c-danger"></span><span class="cockpit-link bg-red-200 c-danger" onclick="showCockpitInTable('anomalies')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 z-10"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Qté</th><th class="py-2 px-2 text-right">Val</th></tr></thead><tbody id="actionAnomalies" class="divide-y divide-red-100"></tbody></table></div></div>
         </div>
       </div>
       <div class="mb-10"><h2 class="text-xl font-extrabold text-purple-700 mb-4 uppercase flex items-center gap-2">📦 Préconisation de stock <span id="badgeAssainTotal" class="badge bg-purple-600 text-white"></span></h2>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-purple-50 p-5 rounded-xl border-t-4 border-purple-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-purple-900 flex items-center">📦 Excédent ERP<em class="info-tip" data-tip="Stock dépassant le MAX défini dans l'ERP — à renvoyer au dépôt ou à solder.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeSaso" class="badge bg-purple-500 text-white"></span><span class="cockpit-link bg-purple-200 text-purple-800" onclick="showCockpitInTable('saso')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-purple-100 text-purple-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Excès</th><th class="py-2 px-2 text-right">€</th></tr></thead><tbody id="actionSaso" class="divide-y divide-purple-100"></tbody></table></div></div>
-          <div class="bg-cyan-50 p-5 rounded-xl border-t-4 border-cyan-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-cyan-900 flex items-center">📦→🏪 Colis à stocker<em class="info-tip" data-tip="≥5 enlevés/an, 0 prélevé. Stock=0 → mettre en rayon. Stock>0 → vérifier visibilité (colis caché en réserve ?)">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeColisRayon" class="badge bg-cyan-500 text-white"></span><span class="cockpit-link bg-cyan-200 text-cyan-800" onclick="showCockpitInTable('colisrayon')">📋</span></div></div><p class="text-[11px] text-cyan-700 mb-3">≥5 enlevés, 0 prélevé — 📦 stock=0 à mettre en rayon · 👁️ stock>0 à rendre visible.</p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-100 text-cyan-800 sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">Action</th></tr></thead><tbody id="actionColisRayon" class="divide-y divide-cyan-100"></tbody></table></div></div>
+          <div class="bg-purple-50 p-5 rounded-xl border-t-4 border-purple-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-purple-900 flex items-center">📦 Excédent ERP<em class="info-tip" data-tip="Stock dépassant le MAX défini dans l'ERP — à renvoyer au dépôt ou à solder.">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeSaso" class="badge bg-purple-500 text-white"></span><span class="cockpit-link bg-purple-200 text-purple-800" onclick="showCockpitInTable('saso')">📋</span></div></div><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-purple-100 text-purple-800 sticky top-0 z-10"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Excès</th><th class="py-2 px-2 text-right">€</th></tr></thead><tbody id="actionSaso" class="divide-y divide-purple-100"></tbody></table></div></div>
+          <div class="i-info-bg p-5 rounded-xl border-t-4 border-cyan-500"><div class="flex items-center justify-between mb-1"><h3 class="font-bold text-cyan-900 flex items-center">📦→🏪 Colis à stocker<em class="info-tip" data-tip="≥5 enlevés/an, 0 prélevé. Stock=0 → mettre en rayon. Stock>0 → vérifier visibilité (colis caché en réserve ?)">ℹ</em></h3><div class="flex items-center gap-2"><span id="badgeColisRayon" class="badge bg-cyan-500 text-white"></span><span class="cockpit-link bg-cyan-200 text-cyan-800" onclick="showCockpitInTable('colisrayon')">📋</span></div></div><p class="text-[11px] text-cyan-700 mb-3">≥5 enlevés, 0 prélevé — 📦 stock=0 à mettre en rayon · 👁️ stock>0 à rendre visible.</p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-cyan-100 text-cyan-800 sticky top-0 z-10"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">Action</th></tr></thead><tbody id="actionColisRayon" class="divide-y divide-cyan-100"></tbody></table></div></div>
         </div>
       </div>
       <!-- Hidden elements kept for JS compatibility (cockpitLists sets still populated for filter) -->
@@ -1177,11 +1177,11 @@
       <div class="mt-6 p-5 i-info-bg border b-default rounded-xl">
         <h4 class="font-extrabold c-action mb-3 text-sm">📋 Par où commencer ?</h4>
         <ol class="space-y-2 text-xs t-primary">
-          <li class="flex items-start gap-2"><span class="font-extrabold text-red-600 w-5 flex-shrink-0">1.</span><span><strong class="text-red-700">🔴 AF — Vos pépites.</strong> Vérifiez qu'aucune n'est en rupture. Chaque jour sans stock = CA perdu.</span></li>
-          <li class="flex items-start gap-2"><span class="font-extrabold text-orange-600 w-5 flex-shrink-0">2.</span><span><strong class="text-orange-700">🟠 AM — Surveillez le stock,</strong> réassort manuel si besoin.</span></li>
+          <li class="flex items-start gap-2"><span class="font-extrabold c-danger w-5 flex-shrink-0">1.</span><span><strong class="c-danger">🔴 AF — Vos pépites.</strong> Vérifiez qu'aucune n'est en rupture. Chaque jour sans stock = CA perdu.</span></li>
+          <li class="flex items-start gap-2"><span class="font-extrabold c-caution w-5 flex-shrink-0">2.</span><span><strong class="c-caution">🟠 AM — Surveillez le stock,</strong> réassort manuel si besoin.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold text-yellow-600 w-5 flex-shrink-0">3.</span><span><strong class="text-yellow-700">🟡 BF — Normalement bien géré,</strong> contrôle rapide.</span></li>
           <li class="flex items-start gap-2"><span class="font-extrabold t-secondary w-5 flex-shrink-0">4.</span><span><strong>⚠️ CR — Candidats au déréférencement.</strong> CA libéré → réinvestir en AF/AM.</span></li>
-          <li class="flex items-start gap-2"><span class="font-extrabold text-blue-600 w-5 flex-shrink-0">5.</span><span><strong class="c-action">💡 CF/CM — Consommables fréquents.</strong> Petit prix mais indispensables au comptoir. Vérifiez que le MIN est suffisant pour ne jamais rompre.</span></li>
+          <li class="flex items-start gap-2"><span class="font-extrabold c-action w-5 flex-shrink-0">5.</span><span><strong class="c-action">💡 CF/CM — Consommables fréquents.</strong> Petit prix mais indispensables au comptoir. Vérifiez que le MIN est suffisant pour ne jamais rompre.</span></li>
         </ol>
       </div>
       <div class="mt-4 p-5 i-ok-bg border b-default rounded-xl">
@@ -1226,14 +1226,14 @@
       </div>
 
       <!-- 2a. Placeholder — chalandise not loaded yet -->
-      <div id="terrNoChalandise" class="hidden mb-2 p-2 bg-rose-50 border-2 border-dashed border-rose-300 rounded-xl text-center">
+      <div id="terrNoChalandise" class="hidden mb-2 p-2 i-danger-bg border-2 border-dashed border-rose-300 rounded-xl text-center">
         <p class="text-xl mb-1">🗺️</p>
-        <p class="text-rose-700 font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
-        <p class="text-rose-500 text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
+        <p class="c-danger font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
+        <p class="c-danger text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
       </div>
 
       <!-- 2b. V2 teaser — analyse avancée territoire -->
-      <div id="terrNeedTerrBlock" class="hidden mb-2 p-2.5 bg-violet-50 border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
+      <div id="terrNeedTerrBlock" class="hidden mb-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
         <span class="text-lg flex-shrink-0">📊</span>
         <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — disponible en V2</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
       </div>
@@ -1257,9 +1257,9 @@
 
 
       <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
-      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 px-2 py-1.5 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2">
+      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 px-2 py-1.5 i-caution-bg border b-light rounded-xl flex items-center gap-2">
         <span class="text-base flex-shrink-0">📌</span>
-        <div><p id="terrSpecialKPIText" class="text-xs font-bold text-amber-800 inline"></p><span class="text-[10px] text-amber-600 ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
+        <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
       </div>
 
 
@@ -1350,27 +1350,27 @@
           <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
         </div>
         <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 bg-blue-50 rounded-lg min-w-[90px]">
+        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px]">
           <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
           <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
-          <p id="terrSumCapteLegCount" class="text-[9px] text-blue-400 mt-0.5 hidden"></p>
+          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
         </div>
         <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 bg-green-50 rounded-lg border border-green-200 min-w-[90px]">
-          <p class="text-[10px] font-bold text-green-500 uppercase tracking-wide">🏪 Captés PDV</p>
-          <p id="terrSumCaptePDV" class="text-xl font-extrabold text-green-700">—</p>
-          <p id="terrSumCaptePDVCount" class="text-[9px] text-green-500 mt-0.5 hidden"></p>
+        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px]">
+          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
+          <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
+          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
         </div>
         <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
           <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
           <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
         </div>
         <!-- Croisement KPI — shown when crossingStats available -->
-        <div id="terrSumCroisement" class="hidden ml-2 pl-3 border-l-2 border-slate-200 flex flex-col justify-center gap-0.5">
+        <div id="terrSumCroisement" class="hidden ml-2 pl-3 border-l-2 b-light flex flex-col justify-center gap-0.5">
           <p class="text-[9px] font-bold t-disabled uppercase tracking-wide">🔀 Croisement</p>
           <p class="text-[11px] font-bold text-violet-600">🟣 <span id="terrSumFideles">0</span> fidèles hors zone</p>
-          <p class="text-[11px] font-bold text-rose-600">🔴 <span id="terrSumPotentiels">0</span> potentiels non captés</p>
-          <p class="text-[11px] font-bold text-emerald-600">🟢 <span id="terrSumCaptes">0</span> captés</p>
+          <p class="text-[11px] font-bold c-danger">🔴 <span id="terrSumPotentiels">0</span> potentiels non captés</p>
+          <p class="text-[11px] font-bold c-ok">🟢 <span id="terrSumCaptes">0</span> captés</p>
         </div>
       </div>
 
@@ -1406,7 +1406,7 @@
             <h2 class="text-2xl font-extrabold">🔭 Le Réseau — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span></h2>
             <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Analyse réseau</p>
           </div>
-          <span id="benchRecalcTime" class="text-xs text-green-300 font-mono"></span>
+          <span id="benchRecalcTime" class="text-xs c-ok font-mono"></span>
         </div>
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
@@ -1430,30 +1430,30 @@
       </div>
       <!-- 3. PLAN D'ACTION — ouvert par défaut -->
       <details open class="s-card rounded-xl shadow-md border-2 border-blue-300 mb-6">
-        <summary class="px-5 py-3 bg-blue-50 border-b border-blue-200 select-none flex items-center justify-between hover:bg-blue-100">
-          <div><h3 class="font-extrabold text-blue-800 text-sm flex items-center gap-1">🎯 Plan d'action prioritaire<em class="info-tip" data-tip="Top 3 familles où l'agence comparée vous dépasse, triées par écart CA absolu. Cliquer sur un article pour voir les détails.">ℹ</em></h3><p class="text-[10px] text-blue-600 mt-0.5">Top 3 familles à traiter · Prescriptif · Trié par écart CA</p></div>
-          <div class="flex items-center gap-2"><span id="obsActionBadge" class="hidden badge bg-blue-500 text-white"></span><button onclick="event.preventDefault();copyObsActionPlan()" class="text-[10px] bg-blue-100 c-action py-1 px-2 rounded font-bold hover:bg-blue-200 border border-blue-300">📋 Copier</button><span class="acc-arrow text-blue-600">▶</span></div>
+        <summary class="px-5 py-3 i-info-bg border-b b-light select-none flex items-center justify-between hover:i-info-bg">
+          <div><h3 class="font-extrabold c-action text-sm flex items-center gap-1">🎯 Plan d'action prioritaire<em class="info-tip" data-tip="Top 3 familles où l'agence comparée vous dépasse, triées par écart CA absolu. Cliquer sur un article pour voir les détails.">ℹ</em></h3><p class="text-[10px] c-action mt-0.5">Top 3 familles à traiter · Prescriptif · Trié par écart CA</p></div>
+          <div class="flex items-center gap-2"><span id="obsActionBadge" class="hidden badge bg-blue-500 text-white"></span><button onclick="event.preventDefault();copyObsActionPlan()" class="text-[10px] i-info-bg c-action py-1 px-2 rounded font-bold hover:i-info-bg b-light">📋 Copier</button><span class="acc-arrow c-action">▶</span></div>
         </summary>
         <div id="obsActionPlanDiv" class="p-4 space-y-2"></div>
       </details>
       <!-- 4. FAMILLES SOUS LA MÉDIANE — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 border-red-200 mb-6">
-        <summary class="px-5 py-3 bg-red-50 border-b border-red-200 select-none flex items-center justify-between hover:bg-red-100">
-          <h3 class="font-extrabold text-red-800 flex items-center gap-2"><span id="obsLoseTitle">📉 Familles sous la médiane réseau</span> <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" class="text-[10px] bg-red-100 text-red-700 py-1 px-2 rounded font-bold hover:bg-red-200 border border-red-300">📋 Copier</button><span class="acc-arrow text-red-600">▶</span></div>
+      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
+        <summary class="px-5 py-3 i-danger-bg border-b b-light select-none flex items-center justify-between hover:i-danger-bg">
+          <h3 class="font-extrabold c-danger flex items-center gap-2"><span id="obsLoseTitle">📉 Familles sous la médiane réseau</span> <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" class="text-[10px] i-danger-bg c-danger py-1 px-2 rounded font-bold hover:i-danger-bg b-light">📋 Copier</button><span class="acc-arrow c-danger">▶</span></div>
         </summary>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-red-50 text-red-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA</th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA</th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
       </details>
       <!-- FORCES & FAIBLESSES — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:bg-gray-100">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
           <h3 class="font-extrabold t-primary text-sm flex items-center gap-2">📊 Forces &amp; Faiblesses par Famille<em class="info-tip" data-tip="Comparaison de votre fréquence de vente par famille vs la médiane du réseau. Vert = ≥100% médiane · Orange = 50–99% · Rouge = &lt;50%.">ℹ</em><span id="obsFamilyBadge" class="hidden badge bg-red-500 text-white"></span></h3>
           <span class="acc-arrow t-tertiary">▶</span>
         </summary>
-        <div id="benchUnderperformBanner" class="hidden px-5 py-2 bg-red-50 text-red-700 text-xs font-bold border-b"></div>
+        <div id="benchUnderperformBanner" class="hidden px-5 py-2 i-danger-bg c-danger text-xs font-bold border-b"></div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
-            <thead class="bg-gray-100 t-primary font-bold sticky top-0">
+            <thead class="s-hover t-primary font-bold sticky top-0">
               <tr>
                 <th class="py-2 px-3 text-left">Famille</th>
                 <th class="py-2 px-3 text-right">% médiane</th>
@@ -1466,14 +1466,14 @@
         <p id="benchFamilyNote" class="hidden text-[10px] t-disabled italic px-4 py-2 border-t"></p>
       </details>
       <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 border-amber-200 mb-6">
-        <summary class="px-5 py-3 bg-amber-50 border-b border-amber-200 select-none flex items-center justify-between hover:bg-amber-100">
-          <h3 class="font-extrabold text-amber-800 flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-amber-500 text-white"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] bg-amber-100 text-amber-700 py-1 px-2 rounded font-bold hover:bg-amber-200 border border-amber-300">📋 Copier</button><span class="acc-arrow text-amber-600">▶</span></div>
+      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
+        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
+          <h3 class="font-extrabold c-caution flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-amber-500 text-white"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
         </summary>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
-            <thead class="bg-amber-50 text-amber-900 sticky top-0 font-bold">
+            <thead class="i-caution-bg c-caution sticky top-0 font-bold">
               <tr>
                 <th class="py-2 px-3 text-left whitespace-nowrap">Code</th>
                 <th class="py-2 px-3 text-left">Libellé</th>
@@ -1489,14 +1489,14 @@
         </div>
       </details>
       <!-- 🔥 PÉPITES RÉSEAU — articles où le réseau me surpasse — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 border-orange-200 mb-6">
-        <summary class="px-5 py-3 bg-orange-50 border-b border-orange-200 select-none flex items-center justify-between hover:bg-orange-100">
-          <h3 class="font-extrabold text-orange-800 flex items-center gap-2"><span id="pepitesOtherTitle">🔥 Pépites réseau — articles que le réseau vend mieux</span> <span id="pepitesOtherBadge" class="hidden badge bg-orange-500 text-white"></span><em class="info-tip" data-tip="Articles vendus 30% plus souvent par la comparaison que par vous. À investiguer : absence de référencement ? problème de visibilité ? stock insuffisant ?">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesOtherList()" class="text-[10px] bg-orange-100 text-orange-700 py-1 px-2 rounded font-bold hover:bg-orange-200 border border-orange-300">📋 Copier</button><span class="acc-arrow text-orange-600">▶</span></div>
+      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
+        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
+          <h3 class="font-extrabold c-caution flex items-center gap-2"><span id="pepitesOtherTitle">🔥 Pépites réseau — articles que le réseau vend mieux</span> <span id="pepitesOtherBadge" class="hidden badge bg-orange-500 text-white"></span><em class="info-tip" data-tip="Articles vendus 30% plus souvent par la comparaison que par vous. À investiguer : absence de référencement ? problème de visibilité ? stock insuffisant ?">ℹ</em></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesOtherList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
         </summary>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
-            <thead class="bg-orange-50 text-orange-900 sticky top-0 font-bold">
+            <thead class="i-caution-bg c-caution sticky top-0 font-bold">
               <tr>
                 <th class="py-2 px-3 text-left whitespace-nowrap">Code</th>
                 <th class="py-2 px-3 text-left">Libellé</th>
@@ -1513,8 +1513,8 @@
       </details>
       <!-- CLASSEMENT AGENCES — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:bg-gray-100">
-          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200"></span></div>
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
           <span class="acc-arrow t-tertiary">▶</span>
         </summary>
         <div class="overflow-x-auto">
@@ -1535,12 +1535,12 @@
         </div>
       </details>
       <!-- 5. FAMILLES AU-DESSUS DE LA MÉDIANE — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 border-emerald-200 mb-6">
-        <summary class="px-5 py-3 bg-emerald-50 border-b border-emerald-200 select-none flex items-center justify-between hover:bg-emerald-100">
-          <h3 class="font-extrabold text-emerald-800 flex items-center gap-2"><span id="obsWinTitle">💪 Familles au-dessus de la médiane</span> <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] bg-emerald-100 text-emerald-700 py-1 px-2 rounded font-bold hover:bg-emerald-200 border border-emerald-300">📋 Copier</button><span class="acc-arrow text-emerald-600">▶</span></div>
+      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
+        <summary class="px-5 py-3 i-ok-bg border-b b-light select-none flex items-center justify-between hover:i-ok-bg">
+          <h3 class="font-extrabold c-ok flex items-center gap-2"><span id="obsWinTitle">💪 Familles au-dessus de la médiane</span> <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] i-ok-bg c-ok py-1 px-2 rounded font-bold hover:i-ok-bg b-light">📋 Copier</button><span class="acc-arrow c-ok">▶</span></div>
         </summary>
-        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="bg-emerald-50 text-emerald-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
+        <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA</th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
       </details>
     </div>
 
@@ -1549,13 +1549,13 @@
       <!-- Header -->
       <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-lg mb-4">
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
-        <p class="text-orange-100 text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
+        <p class="t-inverse-muted text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
       <!-- Import opération promo -->
-      <details id="promoImportZone" class="s-card rounded-xl border border-orange-200 shadow-sm mb-4 overflow-hidden">
-        <summary class="flex items-center justify-between px-4 py-3 bg-orange-50 border-b border-orange-100 cursor-pointer select-none hover:bg-orange-100">
-          <span class="font-extrabold text-orange-800 text-sm flex items-center gap-2">📥 Importer une opération promo <span id="promoImportOpName" class="text-orange-500 font-normal text-xs"></span></span>
-          <span class="acc-arrow text-orange-400">▶</span>
+      <details id="promoImportZone" class="s-card rounded-xl border b-light shadow-sm mb-4 overflow-hidden">
+        <summary class="flex items-center justify-between px-4 py-3 i-caution-bg border-b b-light cursor-pointer select-none hover:i-caution-bg">
+          <span class="font-extrabold c-caution text-sm flex items-center gap-2">📥 Importer une opération promo <span id="promoImportOpName" class="c-caution font-normal text-xs"></span></span>
+          <span class="acc-arrow c-caution">▶</span>
         </summary>
         <div class="p-4">
           <p class="text-xs t-tertiary mb-3">Collez des codes articles (un par ligne) <strong>ou</strong> importez un fichier XLSX Qlik (colonnes : Code Article, Article, Operation, CA commandé Promo)</p>
@@ -1566,9 +1566,9 @@
             </div>
             <div class="flex flex-col gap-2">
               <label class="block text-xs font-bold t-primary">Ou fichier XLSX Qlik</label>
-              <label class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-orange-300 rounded-lg p-4 cursor-pointer hover:bg-orange-50 text-center gap-1">
+              <label class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-orange-300 rounded-lg p-4 cursor-pointer hover:i-caution-bg text-center gap-1">
                 <span class="text-2xl">📂</span>
-                <span class="text-xs text-orange-600 font-semibold">Cliquer ou glisser le fichier</span>
+                <span class="text-xs c-caution font-semibold">Cliquer ou glisser le fichier</span>
                 <span id="promoImportFileName" class="text-[10px] t-disabled">Aucun fichier sélectionné</span>
                 <input type="file" id="promoImportFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="_onPromoImportFileChange(this)">
               </label>
@@ -1576,7 +1576,7 @@
           </div>
           <div class="flex gap-2 flex-wrap">
             <button onclick="runPromoImport()" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-5 rounded-lg text-sm transition-colors">🎯 Analyser l'opération</button>
-            <button id="promoImportExportBtn" onclick="exportPromoImportCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 t-primary font-semibold py-2 px-3 rounded-lg">📥 Exporter CSV</button>
+            <button id="promoImportExportBtn" onclick="exportPromoImportCSV()" class="hidden text-sm s-hover hover:s-hover t-primary font-semibold py-2 px-3 rounded-lg">📥 Exporter CSV</button>
             <button onclick="_clearPromoImport()" class="text-sm t-disabled hover:t-secondary py-2 px-3">✕ Effacer</button>
           </div>
         </div>
@@ -1584,16 +1584,16 @@
       <!-- Import results -->
       <div id="promoImportBlock" class="hidden mb-4 space-y-2">
         <!-- Summary banner -->
-        <div id="promoImportSummary" class="bg-orange-50 border border-orange-200 rounded-lg px-4 py-2 text-xs font-semibold text-orange-800"></div>
+        <div id="promoImportSummary" class="i-caution-bg border b-light rounded-lg px-4 py-2 text-xs font-semibold c-caution"></div>
         <!-- Section D: vendus -->
-        <div class="rounded-lg border border-emerald-200 overflow-hidden">
-          <button onclick="_togglePromoImportSection('D')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
-            <span class="text-[11px] font-bold text-emerald-800">🟢 Articles promo vendus au comptoir — <span id="promoImportCountD">0</span> articles</span>
-            <span id="promoImportArrowD" class="text-emerald-600 text-xs">▼</span>
+        <div class="rounded-lg border b-light overflow-hidden">
+          <button onclick="_togglePromoImportSection('D')" class="w-full flex items-center justify-between px-3 py-2 i-ok-bg hover:i-ok-bg text-left">
+            <span class="text-[11px] font-bold c-ok">🟢 Articles promo vendus au comptoir — <span id="promoImportCountD">0</span> articles</span>
+            <span id="promoImportArrowD" class="c-ok text-xs">▼</span>
           </button>
           <div id="promoImportBodyD" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
             <table class="min-w-full text-[10px]">
-              <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
+              <thead class="sticky top-0 i-ok-bg c-ok font-bold"><tr>
                 <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
                 <th class="py-1 px-2 text-center">Qté vendus</th><th class="py-1 px-2 text-right">CA Comptoir</th>
                 <th class="py-1 px-2 text-center">Nb clients</th><th class="py-1 px-2 text-center">Stock</th>
@@ -1603,14 +1603,14 @@
           </div>
         </div>
         <!-- Section E: non vendus -->
-        <div class="rounded-lg border border-red-200 overflow-hidden">
-          <button onclick="_togglePromoImportSection('E')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
-            <span class="text-[11px] font-bold text-red-800">🔴 Articles promo PAS vendus — <span id="promoImportCountE">0</span> articles</span>
-            <span id="promoImportArrowE" class="text-red-600 text-xs">▼</span>
+        <div class="rounded-lg border b-light overflow-hidden">
+          <button onclick="_togglePromoImportSection('E')" class="w-full flex items-center justify-between px-3 py-2 i-danger-bg hover:i-danger-bg text-left">
+            <span class="text-[11px] font-bold c-danger">🔴 Articles promo PAS vendus — <span id="promoImportCountE">0</span> articles</span>
+            <span id="promoImportArrowE" class="c-danger text-xs">▼</span>
           </button>
           <div id="promoImportBodyE" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
             <table class="min-w-full text-[10px]">
-              <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
+              <thead class="sticky top-0 i-danger-bg c-danger font-bold"><tr>
                 <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
                 <th class="py-1 px-2 text-center">Rayon</th><th class="py-1 px-2 text-center">Stock</th>
                 <th class="py-1 px-2 text-left">Famille</th>
@@ -1620,14 +1620,14 @@
           </div>
         </div>
         <!-- Section F: à relancer -->
-        <div class="rounded-lg border border-orange-200 overflow-hidden">
-          <button onclick="_togglePromoImportSection('F')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
-            <span class="text-[11px] font-bold text-orange-800">👥 Clients à relancer — <span id="promoImportCountF">0</span> clients (achètent la famille mais pas la promo)</span>
-            <span id="promoImportArrowF" class="text-orange-600 text-xs">▼</span>
+        <div class="rounded-lg border b-light overflow-hidden">
+          <button onclick="_togglePromoImportSection('F')" class="w-full flex items-center justify-between px-3 py-2 i-caution-bg hover:i-caution-bg text-left">
+            <span class="text-[11px] font-bold c-caution">👥 Clients à relancer — <span id="promoImportCountF">0</span> clients (achètent la famille mais pas la promo)</span>
+            <span id="promoImportArrowF" class="c-caution text-xs">▼</span>
           </button>
           <div id="promoImportBodyF" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
             <table class="min-w-full text-[10px]">
-              <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
+              <thead class="sticky top-0 i-caution-bg c-caution font-bold"><tr>
                 <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th>
                 <th class="py-1 px-2 text-left">Métier</th><th class="py-1 px-2 text-right">CA famille</th>
                 <th class="py-1 px-2 text-left">Raison</th><th class="py-1 px-2 text-left">Commercial</th>
@@ -1638,36 +1638,36 @@
         </div>
       </div>
       <!-- Search bar — main entry point -->
-      <div class="s-card rounded-xl border border-orange-100 shadow-sm p-4 mb-4">
-        <p class="text-xs font-bold text-orange-600 mb-2">Qui achète cet article / famille / marque ?</p>
+      <div class="s-card rounded-xl border b-light shadow-sm p-4 mb-4">
+        <p class="text-xs font-bold c-caution mb-2">Qui achète cet article / famille / marque ?</p>
         <div class="flex gap-2 flex-wrap items-start">
           <div class="flex-1 min-w-[200px] relative">
             <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-sm py-2 px-3 border border-orange-300 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-500" oninput="_onPromoInput()" onkeydown="_promoSuggestKeydown(event)" autocomplete="off">
             <div id="promoSuggestBox" class="hidden absolute left-0 right-0 top-full mt-1 s-card border b-default z-50 overflow-hidden" style="max-height:360px;overflow-y:auto"></div>
           </div>
           <button onclick="_closePromoSuggest();runPromoSearch()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
-          <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 t-primary font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
-          <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 t-primary font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
+          <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm s-hover hover:s-hover t-primary font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
+          <button id="promoCopyBtn" onclick="copyPromoClipboard()" class="hidden text-sm s-hover hover:s-hover t-primary font-semibold py-2 px-3 rounded-lg">📋 Copier</button>
         </div>
       </div>
       <!-- Results block -->
-      <div id="promoTargetingBlock" class="s-card rounded-xl border border-orange-100 shadow-sm overflow-hidden">
-        <div class="px-4 py-3 border-b border-orange-100 bg-gradient-to-r from-orange-50 to-red-50 flex items-center justify-between gap-2 flex-wrap">
-          <h3 class="font-extrabold text-orange-700 text-sm">Résultats de ciblage</h3>
+      <div id="promoTargetingBlock" class="s-card rounded-xl border b-light shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b b-light bg-gradient-to-r from-orange-50 to-red-50 flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-extrabold c-caution text-sm">Résultats de ciblage</h3>
         </div>
         <div class="p-3">
           <div id="promoMatchInfo" class="hidden mt-2 text-xs t-tertiary"></div>
           <!-- Results -->
           <div id="promoResults" class="hidden mt-3 space-y-2">
             <!-- Section A -->
-            <div class="rounded-lg border border-emerald-200 overflow-hidden">
-              <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-left">
-                <span class="text-[11px] font-bold text-emerald-800">🟢 Déjà acheteurs PDV — <span id="promoCountA">0</span> clients</span>
-                <span id="promoArrowA" class="text-emerald-600 text-xs">▼</span>
+            <div class="rounded-lg border b-light overflow-hidden">
+              <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 i-ok-bg hover:i-ok-bg text-left">
+                <span class="text-[11px] font-bold c-ok">🟢 Déjà acheteurs PDV — <span id="promoCountA">0</span> clients</span>
+                <span id="promoArrowA" class="c-ok text-xs">▼</span>
               </button>
               <div id="promoBodyA" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
                 <table class="min-w-full text-[10px]">
-                  <thead class="sticky top-0 bg-emerald-50 text-emerald-800 font-bold"><tr>
+                  <thead class="sticky top-0 i-ok-bg c-ok font-bold"><tr>
                     <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
                     <th class="py-1 px-2 text-right">CA sur sélection</th><th class="py-1 px-2 text-center">Dernier achat</th><th class="py-1 px-2 text-left">Commercial</th>
                   </tr></thead>
@@ -1676,14 +1676,14 @@
               </div>
             </div>
             <!-- Section B -->
-            <div class="rounded-lg border border-red-200 overflow-hidden">
-              <button onclick="_togglePromoSection('B')" class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 text-left">
-                <span class="text-[11px] font-bold text-red-800">🔴 Achètent ailleurs — <span id="promoCountB">0</span> clients Legallais hors PDV</span>
-                <span id="promoArrowB" class="text-red-600 text-xs">▼</span>
+            <div class="rounded-lg border b-light overflow-hidden">
+              <button onclick="_togglePromoSection('B')" class="w-full flex items-center justify-between px-3 py-2 i-danger-bg hover:i-danger-bg text-left">
+                <span class="text-[11px] font-bold c-danger">🔴 Achètent ailleurs — <span id="promoCountB">0</span> clients Legallais hors PDV</span>
+                <span id="promoArrowB" class="c-danger text-xs">▼</span>
               </button>
               <div id="promoBodyB" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
                 <table class="min-w-full text-[10px]">
-                  <thead class="sticky top-0 bg-red-50 text-red-800 font-bold"><tr>
+                  <thead class="sticky top-0 i-danger-bg c-danger font-bold"><tr>
                     <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
                     <th class="py-1 px-2 text-right">CA Legallais global</th><th class="py-1 px-2 text-left">Commercial</th>
                   </tr></thead>
@@ -1692,14 +1692,14 @@
               </div>
             </div>
             <!-- Section C -->
-            <div class="rounded-lg border border-orange-200 overflow-hidden">
-              <button onclick="_togglePromoSection('C')" class="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 text-left">
-                <span class="text-[11px] font-bold text-orange-800">🟠 Prospects métier — <span id="promoCountC">0</span> non-acheteurs dans les métiers cibles</span>
-                <span id="promoArrowC" class="text-orange-600 text-xs">▼</span>
+            <div class="rounded-lg border b-light overflow-hidden">
+              <button onclick="_togglePromoSection('C')" class="w-full flex items-center justify-between px-3 py-2 i-caution-bg hover:i-caution-bg text-left">
+                <span class="text-[11px] font-bold c-caution">🟠 Prospects métier — <span id="promoCountC">0</span> non-acheteurs dans les métiers cibles</span>
+                <span id="promoArrowC" class="c-caution text-xs">▼</span>
               </button>
               <div id="promoBodyC" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
                 <table class="min-w-full text-[10px]">
-                  <thead class="sticky top-0 bg-orange-50 text-orange-800 font-bold"><tr>
+                  <thead class="sticky top-0 i-caution-bg c-caution font-bold"><tr>
                     <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-left">Métier</th>
                     <th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Classif.</th><th class="py-1 px-2 text-left">Commercial</th>
                   </tr></thead>
