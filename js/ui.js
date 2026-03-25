@@ -919,3 +919,33 @@ document.addEventListener('input', function(e) {
   clearTimeout(_cmdTimer);
   _cmdTimer = setTimeout(() => _cmdRender(e.target.value), 150);
 });
+
+// ═══ D2 — THEME SWITCH ═══
+export function initTheme() {
+  const hash = location.hash.replace('#','');
+  const theme = ['dark','light'].includes(hash) ? hash : '';
+  if (theme) document.documentElement.setAttribute('data-theme', theme);
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.replace('#','');
+    if (['dark','light'].includes(h)) {
+      document.documentElement.setAttribute('data-theme', h);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  });
+}
+
+export function cycleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : current === 'light' ? '' : 'dark';
+  if (next) {
+    document.documentElement.setAttribute('data-theme', next);
+    location.hash = next;
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  // Update button icon
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = next === 'dark' ? '🌙' : next === 'light' ? '☀️' : '🌗';
+}

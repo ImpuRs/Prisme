@@ -203,6 +203,87 @@
     .bg-c-caution { background-color: var(--c-caution); }
     .bg-c-ok      { background-color: var(--c-ok); }
     .bg-c-action  { background-color: var(--c-action); }
+
+    /* ═══ THEME: DARK ═══════════════════════════════════ */
+    :root[data-theme="dark"] {
+      --s-page:        var(--p-slate-950);
+      --s-card:        var(--p-slate-900);
+      --s-card-alt:    var(--p-slate-800);
+      --s-panel:       var(--p-slate-900);
+      --s-panel-inner: var(--p-slate-800);
+      --s-hover:       var(--p-slate-800);
+      --s-hover-blue:  rgba(37,99,235,0.15);
+      --s-selected:    rgba(37,99,235,0.2);
+      --s-active:      rgba(37,99,235,0.25);
+      --t-primary:       var(--p-slate-200);
+      --t-secondary:     var(--p-slate-400);
+      --t-tertiary:      var(--p-slate-500);
+      --t-disabled:      var(--p-slate-600);
+      --t-inverse:       var(--p-slate-200);
+      --t-inverse-muted: var(--p-slate-400);
+      --t-link:          var(--p-blue-400);
+      --b-default: var(--p-slate-700);
+      --b-light:   var(--p-slate-800);
+      --b-dark:    var(--p-slate-700);
+      --b-darker:  var(--p-slate-600);
+      --i-danger-bg:    rgba(220,38,38,0.15);
+      --i-danger-text:  #fca5a5;
+      --i-caution-bg:   rgba(217,119,6,0.15);
+      --i-caution-text: #fbbf24;
+      --i-ok-bg:        rgba(22,163,74,0.15);
+      --i-ok-text:      #4ade80;
+      --i-info-bg:      rgba(37,99,235,0.15);
+      --i-info-text:    #60a5fa;
+      --i-neutral-bg:   var(--p-slate-800);
+      --i-neutral-text: var(--p-slate-400);
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.3);
+      --shadow-md:  0 4px 15px rgba(0,0,0,0.3);
+      --shadow-lg:  0 8px 25px rgba(0,0,0,0.4);
+      --shadow-xl:  0 8px 28px rgba(0,0,0,0.5);
+      --g-progress-track: rgba(255,255,255,0.1);
+    }
+
+    /* ═══ THEME: LIGHT ══════════════════════════════════ */
+    :root[data-theme="light"] {
+      --s-page:        #f8fafc;
+      --s-card:        #ffffff;
+      --s-card-alt:    #f1f5f9;
+      --s-panel:       #ffffff;
+      --s-panel-inner: var(--p-slate-50);
+      --s-hover:       var(--p-slate-100);
+      --s-hover-blue:  var(--p-blue-50);
+      --s-selected:    #dbeafe;
+      --s-active:      #bfdbfe;
+      --t-primary:       var(--p-slate-900);
+      --t-secondary:     var(--p-slate-600);
+      --t-tertiary:      var(--p-slate-500);
+      --t-disabled:      var(--p-slate-400);
+      --t-inverse:       var(--p-slate-900);
+      --t-inverse-muted: var(--p-slate-500);
+      --t-link:          var(--p-blue-600);
+      --b-default: var(--p-slate-200);
+      --b-light:   var(--p-slate-100);
+      --b-dark:    var(--p-slate-300);
+      --b-darker:  var(--p-slate-400);
+      --i-danger-bg:    #fef2f2;
+      --i-danger-text:  #991b1b;
+      --i-caution-bg:   #fffbeb;
+      --i-caution-text: #92400e;
+      --i-ok-bg:        #f0fdf4;
+      --i-ok-text:      #166534;
+      --i-info-bg:      #eff6ff;
+      --i-info-text:    #1e40af;
+      --i-neutral-bg:   var(--p-slate-100);
+      --i-neutral-text: var(--p-slate-600);
+      --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md:  0 4px 12px rgba(0,0,0,0.06);
+      --shadow-lg:  0 8px 20px rgba(0,0,0,0.08);
+      --shadow-xl:  0 12px 28px rgba(0,0,0,0.12);
+      --s-overlay:       rgba(0,0,0,0.5);
+      --s-overlay-light: rgba(0,0,0,0.3);
+      --g-progress-track: rgba(0,0,0,0.08);
+    }
+
     /* VOLET 4: sticky period warning banner */
     #periodBanner,#stockMonoBanner{display:none;background:var(--p-orange-500);color:#fff;padding:var(--sp-2) var(--sp-4);font-size:var(--fs-sm);font-weight:var(--fw-bold);text-align:center;border-bottom:2px solid var(--p-orange-600);}
     #periodBanner.active,#stockMonoBanner.active{display:block}
@@ -477,10 +558,10 @@
   <!-- Command Palette -->
   <div id="cmdPalette" class="hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh]" onclick="if(event.target===this)closeCmdPalette()">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden mx-4">
-      <div class="flex items-center border-b border-gray-200">
+      <div class="flex items-center border-b b-default">
         <span class="pl-4 text-gray-400 text-base">🔍</span>
         <input id="cmdInput" type="text" placeholder="Rechercher un article, client, action…" class="w-full p-4 text-base outline-none bg-white" autocomplete="off" spellcheck="false">
-        <kbd class="mr-3 text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 shrink-0 font-mono">Esc</kbd>
+        <kbd class="mr-3 text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded border b-default shrink-0 font-mono">Esc</kbd>
       </div>
       <div id="cmdResults" class="max-h-[400px] overflow-y-auto"></div>
     </div>
@@ -524,10 +605,13 @@
         <div id="navPerf" class="hidden"></div>
         <div id="navPeriod" class="hidden" style="position:relative">
           <button id="navPeriodBtn" onclick="togglePeriodDropdown()">—</button>
-          <div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div>
+          <div id="periodDropdown" class="hidden absolute right-0 top-full mt-2 bg-white border b-default rounded-xl shadow-xl p-3 z-[200]" style="min-width:420px" onclick="event.stopPropagation()"></div>
         </div>
         <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
         <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
+        <button id="themeToggle" onclick="cycleTheme()" title="Thème : mixte → sombre → clair"
+          style="font-size:var(--fs-xs);padding:var(--sp-1) var(--sp-2);border-radius:var(--r-full);border:1px solid var(--b-dark);background:transparent;color:var(--t-inverse);cursor:pointer;transition:opacity .15s"
+          onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🌗</button>
       </div>
     </div>
   </nav>
@@ -573,7 +657,7 @@
   <div id="appLayout">
     <!-- LEFT: sticky filter panel -->
     <aside id="filterPanel">
-      <div class="p-3 border-b border-gray-200 bg-gray-100 flex items-center justify-between flex-shrink-0 lg:hidden">
+      <div class="p-3 border-b b-default bg-gray-100 flex items-center justify-between flex-shrink-0 lg:hidden">
         <span class="text-sm font-extrabold text-gray-700">Filtres</span>
         <button class="text-gray-400 hover:text-gray-700 text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
@@ -589,7 +673,7 @@
               <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
               <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 bg-violet-50"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
             </div>
-            <div id="globalAdvancedFilters" class="flex flex-col gap-1.5 pt-1.5 border-t border-gray-200">
+            <div id="globalAdvancedFilters" class="flex flex-col gap-1.5 pt-1.5 border-t b-default">
               <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
               <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
               <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 bg-amber-50 w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
@@ -633,14 +717,14 @@
 
           <!-- Client search + famille filter (degraded mode) — always shown when Le Terrain is active -->
           <div id="terrClientSearchBlock" class="flex flex-col gap-1">
-            <hr class="border-gray-200 my-0.5">
+            <hr class="b-default my-0.5">
             <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white">
             <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold bg-white"><option value="">Toutes familles</option></select>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
-            <hr class="border-gray-200 my-0.5">
+            <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-rose-500 uppercase tracking-wide">🔗 Chalandise</p>
             <!-- Cross filter buttons -->
             <div id="terrCrossFilterRow" class="hidden flex flex-col gap-0.5">
@@ -704,7 +788,7 @@
               <p class="text-[10px] font-semibold text-cyan-800">📋 Agences dans la médiane :</p>
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
             </div>
-            <hr class="border-gray-200 my-0.5">
+            <hr class="b-default my-0.5">
             <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold bg-white w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
@@ -892,7 +976,7 @@
     <div id="storeSelector" class="hidden mb-3 p-3 bg-cyan-50 border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value)processData()" class="w-full p-2 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 bg-white"><option value="">—</option></select></div><div><button onclick="processData()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
     <div id="storeWarnings" class="hidden mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-700"></div>
 
-    <div class="text-center mb-3"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 bg-gray-800 hover:bg-black text-white font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
+    <div class="text-center mb-3"><button id="btnCalculer" onclick="processData()" class="w-full md:w-2/3 s-panel-inner hover:bg-black t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button></div>
     </div><!-- /importZone -->
 
 
@@ -904,10 +988,10 @@
       </div>
       <div class="table-scroll bg-white rounded-xl shadow-lg border">
         <table class="min-w-full table-auto text-left">
-          <thead class="bg-gray-800 text-white sticky top-0 z-10">
+          <thead class="s-panel-inner t-inverse sticky top-0 z-10">
             <tr>
-              <th class="px-2 py-3 text-xs uppercase sticky left-0 bg-gray-800 z-20" onclick="sortBy('code')">Code ↕</th>
-              <th class="px-2 py-3 text-xs uppercase sticky left-[80px] bg-gray-800 z-20" onclick="sortBy('libelle')">Libellé ↕</th>
+              <th class="px-2 py-3 text-xs uppercase sticky left-0 s-panel-inner z-20" onclick="sortBy('code')">Code ↕</th>
+              <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-20" onclick="sortBy('libelle')">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('V')" data-tooltip="Prélevé comptoir 12 mois">Prél ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-cyan-300" onclick="sortBy('enleveTotal')" data-tooltip="Enlevé (colis) 12 mois">Enl ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-blue-300" onclick="sortBy('W')">Fréq ↕</th>
@@ -915,12 +999,12 @@
               <th class="px-2 py-3 text-xs uppercase text-center text-teal-300" onclick="sortBy('couvertureJours')" data-tooltip="Jours de stock restant">Couv ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-amber-300" onclick="sortBy('ageJours')">Âge ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-gray-400">Anc.</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMin')">MIN ↕</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 bg-gray-900" onclick="sortBy('nouveauMax')">MAX ↕</th>
-              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
-              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 bg-gray-900" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 bg-gray-900" onclick="sortBy('abcClass')">ABC ↕</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 bg-gray-900" onclick="sortBy('fmrClass')">FMR ↕</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 s-panel" onclick="sortBy('nouveauMin')">MIN ↕</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center text-green-400 s-panel" onclick="sortBy('nouveauMax')">MAX ↕</th>
+              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 s-panel" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
+              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center text-orange-300 s-panel" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 s-panel" onclick="sortBy('abcClass')">ABC ↕</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 s-panel" onclick="sortBy('fmrClass')">FMR ↕</th>
             </tr>
           </thead>
           <tbody id="tableBody" class="text-sm divide-y divide-gray-100"></tbody>
@@ -992,9 +1076,9 @@
         <div class="table-scroll max-h-[280px]"><table class="min-w-full text-xs"><thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attractivité</th></tr></thead><tbody id="dashAttractTable" class="divide-y"></tbody></table></div>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
-        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
-        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="bg-gray-50 text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-2 border-b pb-2">⏳ Ancienneté</h3><p class="text-[10px] text-blue-600 font-semibold mb-3">💡 Cliquez → filtre</p><table class="min-w-full text-sm"><thead class="s-card-alt text-gray-500 uppercase"><tr><th class="py-2 px-3 text-left text-xs">Période</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="s-card-alt text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table></div></div>
+        <div class="bg-white p-5 rounded-xl shadow-md border"><h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3><div class="list-scroll"><table class="min-w-full text-sm"><thead class="s-card-alt text-gray-500 uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table></div></div>
       </div>
     </div>
 
@@ -1004,12 +1088,12 @@
       <!-- ★ ÉQUATION COMMERCIALE ★ -->
       <div id="cockpitEquation" class="hidden mb-4">
         <div class="flex items-center justify-center gap-3 py-3 bg-white rounded-xl border shadow-sm flex-wrap">
-          <div class="text-center px-4 py-2 bg-gray-50 rounded-lg">
+          <div class="text-center px-4 py-2 s-card-alt rounded-lg">
             <p class="text-[10px] font-bold text-gray-500 uppercase">👥 Clients PDV</p>
             <p id="eqClients" class="text-xl font-extrabold text-gray-800">—</p>
           </div>
           <span class="text-2xl text-gray-300 font-light">×</span>
-          <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+          <div class="flex items-center gap-2 px-4 py-2 s-card-alt rounded-lg">
             <div class="text-center">
               <p class="text-[10px] font-bold text-gray-500 uppercase">📊 Passages/client</p>
               <p id="eqFreq" class="text-xl font-extrabold text-gray-800">—</p>
@@ -1183,7 +1267,7 @@
       <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 bg-white rounded-xl shadow-md border overflow-x-auto">
         <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal text-gray-400">— trié par CA décroissant · cliquez pour détailler</span></h3>
         <table class="min-w-full text-xs">
-          <thead class="bg-gray-800 text-white">
+          <thead class="s-panel-inner t-inverse">
             <tr>
               <th class="py-1.5 px-2 text-left">Direction</th>
               <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
@@ -1204,9 +1288,9 @@
           <h3 class="font-extrabold text-gray-800 text-xs flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal text-gray-400">— Direction → Secteur → Client → Articles</span></h3>
           <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
         </div>
-        <div id="terrContribSummary" class="px-3 py-1.5 text-xs text-gray-500 border-b bg-gray-50"></div>
+        <div id="terrContribSummary" class="px-3 py-1.5 text-xs text-gray-500 border-b s-card-alt"></div>
         <table class="min-w-full text-xs">
-          <thead class="bg-gray-800 text-white">
+          <thead class="s-panel-inner t-inverse">
             <tr>
               <th class="py-1.5 px-2 text-left">Direction</th>
               <th class="py-1.5 px-2 text-center">BL territoire</th>
@@ -1224,7 +1308,7 @@
         <h3 class="font-extrabold text-gray-800 text-xs px-2 py-1.5 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
-            <thead class="bg-gray-800 text-white sticky top-0">
+            <thead class="s-panel-inner t-inverse sticky top-0">
               <tr>
                 <th class="py-1.5 px-2 text-left">Code</th>
                 <th class="py-1.5 px-2 text-left">Libellé</th>
@@ -1245,7 +1329,7 @@
         <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold text-gray-800 text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3></div>
         <div class="table-scroll">
           <table class="min-w-full text-xs">
-            <thead class="bg-gray-800 text-white sticky top-0">
+            <thead class="s-panel-inner t-inverse sticky top-0">
               <tr>
                 <th class="py-1.5 px-2 text-left">Code</th>
                 <th class="py-1.5 px-2 text-left">Nom</th>
@@ -1261,7 +1345,7 @@
 
       <!-- Summary KPI bar — shown when chalandise loaded -->
       <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 bg-white rounded-xl border shadow-sm mb-3">
-        <div class="text-center px-4 py-2 bg-gray-50 rounded-lg min-w-[90px]">
+        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px]">
           <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">👥 Clients zone</p>
           <p id="terrSumClients" class="text-xl font-extrabold text-gray-800">—</p>
         </div>
@@ -1277,7 +1361,7 @@
           <p id="terrSumCaptePDV" class="text-xl font-extrabold text-green-700">—</p>
           <p id="terrSumCaptePDVCount" class="text-[9px] text-green-500 mt-0.5 hidden"></p>
         </div>
-        <div id="terrSumExclusWrap" class="text-center px-4 py-2 bg-gray-50 rounded-lg min-w-[90px] hidden">
+        <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
           <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">🚫 Exclus >24m</p>
           <p id="terrSumExclus" class="text-xl font-extrabold text-gray-400">—</p>
         </div>
@@ -1303,7 +1387,7 @@
           <!-- Level 1: Direction commerciale -->
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">
-              <thead id="terrOverviewL1Head" class="bg-gray-800 text-white"></thead>
+              <thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead>
               <tbody id="terrOverviewL1Table"></tbody>
             </table>
           </div>
@@ -1328,7 +1412,7 @@
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
       <!-- BARRE DE RECHERCHE ARTICLE -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 p-4">
+      <div class="bg-white rounded-xl shadow-sm border b-default mb-6 p-4">
         <input type="text" id="obsArtSearch" oninput="renderObsArticleSearch()" class="w-full p-3 text-sm border-2 border-cyan-200 rounded-lg font-semibold focus:ring-2 focus:ring-cyan-400 outline-none" placeholder="🔍 Rechercher un article (code ou libellé) — Manqué, Sous-perf ou Sur-perf">
         <div id="obsArtSearchResult" class="mt-2"></div>
       </div>
@@ -1362,7 +1446,7 @@
       </details>
       <!-- FORCES & FAIBLESSES — fermé par défaut -->
       <details class="bg-white rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 bg-gray-50 border-b select-none flex items-center justify-between hover:bg-gray-100">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:bg-gray-100">
           <h3 class="font-extrabold text-gray-800 text-sm flex items-center gap-2">📊 Forces &amp; Faiblesses par Famille<em class="info-tip" data-tip="Comparaison de votre fréquence de vente par famille vs la médiane du réseau. Vert = ≥100% médiane · Orange = 50–99% · Rouge = &lt;50%.">ℹ</em><span id="obsFamilyBadge" class="hidden badge bg-red-500 text-white"></span></h3>
           <span class="acc-arrow text-gray-500">▶</span>
         </summary>
@@ -1429,13 +1513,13 @@
       </details>
       <!-- CLASSEMENT AGENCES — fermé par défaut -->
       <details class="bg-white rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 bg-gray-50 border-b select-none flex items-center justify-between hover:bg-gray-100">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:bg-gray-100">
           <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold text-gray-800 text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200"></span></div>
           <span class="acc-arrow text-gray-500">▶</span>
         </summary>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
-            <thead class="bg-gray-800 text-white font-bold sticky top-0">
+            <thead class="s-panel-inner t-inverse font-bold sticky top-0">
               <tr>
                 <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
@@ -1559,7 +1643,7 @@
         <div class="flex gap-2 flex-wrap items-start">
           <div class="flex-1 min-w-[200px] relative">
             <input id="promoSearchInput" type="text" placeholder="Code article, famille, mot-clé…" class="w-full text-sm py-2 px-3 border border-orange-300 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-500" oninput="_onPromoInput()" onkeydown="_promoSuggestKeydown(event)" autocomplete="off">
-            <div id="promoSuggestBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 z-50 overflow-hidden" style="max-height:360px;overflow-y:auto"></div>
+            <div id="promoSuggestBox" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border b-default z-50 overflow-hidden" style="max-height:360px;overflow-y:auto"></div>
           </div>
           <button onclick="_closePromoSuggest();runPromoSearch()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">🎯 Cibler</button>
           <button id="promoExportBtn" onclick="exportPromoCSV()" class="hidden text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg">📥 CSV</button>
