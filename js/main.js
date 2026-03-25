@@ -4232,6 +4232,7 @@ window._selectPromoSuggestion = _selectPromoSuggestion;
 window._resetPromoFilters = _resetPromoFilters;
 window._togglePromoImportSection = _togglePromoImportSection;
 window._togglePromoSection = _togglePromoSection;
+window._obsNav = _obsNav;
 window.copyObsActionPlan = copyObsActionPlan;
 window.copyObsSection = copyObsSection;
 window.copyPepitesList = copyPepitesList;
