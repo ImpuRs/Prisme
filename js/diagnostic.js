@@ -344,7 +344,8 @@ function _diagRenderV1(v,hasNetworkData){
   if(v.status==='absent')return`<div class="diag-voyant diag-v1"><div class="diag-voyant-hdr"><span class="font-extrabold text-sm c-action">📦 Mon Agence</span>${_diagBadge('absent')}</div><p class="text-xs t-inverse-muted mt-1">Vous ne stockez aucun article dans cette famille.</p>${hasNetworkData?'<p class="text-[10px] c-ok mt-1">→ Consultez Le Réseau ci-dessous — d\'autres agences vendent dans cette famille.</p>':''}</div>`;
   const rupIcon=v.ruptures.length===0?'✅':v.ruptures.length<=3?'⚠️':'🚨';
   const rupClass=v.ruptures.length===0?'c-ok':v.ruptures.length<=3?'c-caution':'c-danger';
-  const rupText=v.ruptures.length===0?'Pas de rupture sur cette famille':`${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — CA perdu estimé : <strong>${v.caPerduTotal>0?formatEuro(v.caPerduTotal):'<1€'}</strong>`;
+  const _gap347=v.arts-v.enStock;
+  const rupText=v.ruptures.length===0?(_gap347>0?`Pas de rupture active · ${_gap347} article${_gap347>1?'s':''} sans stock exclu${_gap347>1?'s':''} du comptage (référence père, colis-only, ou fréquence < 3)`:'Pas de rupture sur cette famille'):`${v.ruptures.length} rupture${v.ruptures.length>1?'s':''} — CA perdu estimé : <strong>${v.caPerduTotal>0?formatEuro(v.caPerduTotal):'<1€'}</strong>`;
   const top5=v.ruptures.slice(0,5);
   const actionLabel=r=>r.jours>=25?'vérifier si déréférencé':'commander';
   const mmIcon=v.nbMM===0?'✅':v.nbMM<=5?'⚠️':'🚨';
