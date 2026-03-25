@@ -38,7 +38,7 @@ function closeDiagnostic(){
   const mc=document.getElementById('mainContent');if(mc)mc.style.overflow='';
   // Reset famille filter — diagnostic is a temporary view, not a persistent filter
   const ff=document.getElementById('filterFamille');if(ff)ff.value='';
-  window.scrollTo(0,0);
+  if(mc)mc.scrollTo(0,0);else window.scrollTo(0,0);
 }
 function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn)_S._diagActions[idx].fn();}
 
