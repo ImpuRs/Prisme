@@ -37,8 +37,8 @@ export function updateProgress(c, t, txt, step) {
 export function updatePipeline(step, status) {
   const idMap = { consomme: 'pipeConsomme', stock: 'pipeStock', territoire: 'pipeTerritoire' };
   const el = document.getElementById(idMap[step]); if (!el) return;
-  const cls = { pending: 'text-gray-400', active: 'text-blue-300 font-bold animate-pulse', done: 'text-green-400 font-bold' };
-  el.className = cls[status] || 'text-gray-400';
+  const cls = { pending: 't-disabled', active: 'text-blue-300 font-bold animate-pulse', done: 'text-green-400 font-bold' };
+  el.className = cls[status] || 't-disabled';
   if (status === 'done') el.textContent = { consomme: '✅ Consommé', stock: '✅ Stock', territoire: '✅ Territoire' }[step] || '✅';
   if (status !== 'pending') { const pl = document.getElementById('loadingPipeline'); if (pl) pl.classList.remove('hidden'); }
   if (step === 'territoire') { const sep = document.getElementById('pipeSepTerr'); if (sep) sep.classList.remove('hidden'); el.classList.remove('hidden'); }
@@ -210,7 +210,7 @@ export function showCockpitInTable(type) {
   document.getElementById('filterCockpit').value = type;
   document.getElementById('activeCockpitLabel').textContent = { ruptures: '🚨 Ruptures', fantomes: '👻 Articles sans emplacement', anomalies: '⚠️ Anomalies', saso: '📦 SASO', dormants: '💤 Dormants', fins: '📉 Fins de série', top20: '🏆 Top 20 fréquence', nouveautes: '✨ Nouveautés', colisrayon: '📦→🏪 Colis à stocker', stockneg: '📉 Stock négatif', fragiles: '🎯 Articles mono-client' }[type] || type;
   const nbtn = document.getElementById('btnNouveautesOnly');
-  if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('text-gray-600', !isNouv); }
+  if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('bg-gray-200', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
   _S.currentPage = 0; switchTab('table');
   _S.filteredData = getFilteredData();
@@ -222,7 +222,7 @@ export function clearCockpitFilter(silent) {
   document.getElementById('filterCockpit').value = '';
   document.getElementById('activeCockpitFilter').classList.add('hidden');
   const nbtn = document.getElementById('btnNouveautesOnly');
-  if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('bg-gray-200', 'text-gray-600'); }
+  if (nbtn) { nbtn.classList.remove('bg-emerald-500', 'text-white'); nbtn.classList.add('bg-gray-200', 't-secondary'); }
   if (!silent) { _S.currentPage = 0; renderAll(); }
 }
 
@@ -270,12 +270,12 @@ export function renderInsightsBanner() {
   const mkAction = (num, txt, fn, col) => `<span style="cursor:pointer;color:rgba(255,255,255,0.55);white-space:nowrap;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.color='rgba(255,255,255,0.55)'" onclick="${fn}"><span style="color:${col};font-weight:600">${num}</span> ${txt}</span>`;
   const sep = `<span style="color:rgba(255,255,255,0.18);margin:0 6px">·</span>`;
   const parts = [];
-  parts.push(mkAction(ruptures, `rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')", '#f87171'));
+  parts.push(mkAction(ruptures, `rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')", 'var(--i-error-dark-text)'));
   if (hasTerr) {
-    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `territoire`, '#fbbf24'));
-    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `territoire`, '#fbbf24'));
+    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `territoire`, 'var(--i-warn-dark-text)'));
+    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `territoire`, 'var(--i-warn-dark-text)'));
   } else {
-    parts.push(mkAction(dormants, `dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')", '#fbbf24'));
+    parts.push(mkAction(dormants, `dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')", 'var(--i-warn-dark-text)'));
   }
   el.innerHTML = `<span style="color:rgba(255,255,255,0.25);margin-right:8px;font-size:10px;letter-spacing:.05em;text-transform:uppercase">Détecté</span>` + parts.join(sep);
   banner.classList.remove('hidden');
@@ -291,11 +291,11 @@ export function openReporting() {
     <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${_S.selectedMyStore || ''}</h2>
     <div class="flex items-center gap-2 shrink-0">
       <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
-      <button onclick="closeReporting()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
+      <button onclick="closeReporting()" class="text-xs bg-slate-700 hover:bg-slate-600 t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
     </div>
   </div>
   <textarea id="reportingTextarea" class="w-full bg-slate-900 text-slate-200 text-xs font-mono p-4 rounded-xl border border-slate-700 resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
-  <p class="text-[10px] text-slate-500 mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
+  <p class="text-[10px] t-inverse-muted mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
 }
 
@@ -420,7 +420,7 @@ export function _cmdRender(q) {
           <div class="cmd-item-main">${item.main}</div>
           ${item.sub ? `<div class="cmd-item-sub">${item.sub}</div>` : ''}
         </div>
-        ${item.badge ? `<span class="cmd-item-badge ${item.badgeCls || 'bg-gray-100 text-gray-600'}">${item.badge}</span>` : ''}
+        ${item.badge ? `<span class="cmd-item-badge ${item.badgeCls || 's-hover t-secondary'}">${item.badge}</span>` : ''}
         <span class="text-gray-300 text-xs ml-1">↵</span>
       </div>`;
     }
@@ -452,10 +452,10 @@ export function _cmdBuildResults(q) {
       if (artResults.length >= 5) break;
       const haystack = (r.code + ' ' + r.libelle + ' ' + (r.famille || '')).toLowerCase();
       if (terms.every(t => haystack.includes(t))) {
-        const stockColor = r.stockActuel <= 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+        const stockColor = r.stockActuel <= 0 ? 'bg-red-100 c-danger' : 'bg-green-100 text-green-700';
         artResults.push({
           icon: '📦',
-          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${r.code}</span>${_cmdEsc(r.libelle)}`,
+          main: `<span class="font-mono text-[10px] t-disabled mr-1">${r.code}</span>${_cmdEsc(r.libelle)}`,
           sub: `${r.famille || '—'} · Stock: ${r.stockActuel}`,
           badge: [r.abcClass, r.fmrClass].filter(Boolean).join(''),
           badgeCls: 'bg-indigo-100 text-indigo-700',
@@ -480,10 +480,10 @@ export function _cmdBuildResults(q) {
         const isActif = (info.statut || '').toLowerCase().includes('actif');
         clientResults.push({
           icon: '👤',
-          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${code}</span>${_cmdEsc(info.nom || code)}`,
+          main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(info.nom || code)}`,
           sub: [info.metier, ca ? ca + '€ CA' : ''].filter(Boolean).join(' · '),
           badge: isActif ? 'Actif' : (info.statut || ''),
-          badgeCls: isActif ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500',
+          badgeCls: isActif ? 'bg-emerald-100 c-ok' : 's-hover t-tertiary',
           fn: () => {
             switchTab('territoire');
             setTimeout(() => {
@@ -504,7 +504,7 @@ export function _cmdBuildResults(q) {
       if (code.toLowerCase().includes(ql) || (nom || '').toLowerCase().includes(ql)) {
         clientResults.push({
           icon: '👤',
-          main: `<span class="font-mono text-[10px] text-gray-400 mr-1">${code}</span>${_cmdEsc(nom || code)}`,
+          main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(nom || code)}`,
           sub: '',
           fn: () => {
             switchTab('territoire');
@@ -783,7 +783,7 @@ export function renderDecisionQueue() {
   if (footerEl) {
     const cmdItems = items.filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code);
     if (cmdItems.length > 0) {
-      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal text-gray-400">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
+      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal t-disabled">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
       footerEl.classList.remove('hidden');
     } else {
       footerEl.innerHTML = '';
