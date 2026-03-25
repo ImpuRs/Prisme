@@ -100,7 +100,9 @@ export function expandImportZone() {
 
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
-  window.scrollTo(0, 0);
+  const mc = document.getElementById('mainContent');
+  if (mc) mc.scrollTo(0, 0);
+  else window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
