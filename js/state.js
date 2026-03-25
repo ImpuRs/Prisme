@@ -138,6 +138,14 @@ _S.phantomArticles = [];
 // ── Cohorte reconquête ──
 _S.reconquestCohort = [];
 
+// ── Client aggregation (Worker B1) ──
+_S.clientFamCA = {};       // cc → {fam → caTotal}
+_S.metierFamBench = {};    // metier → {fam → {nbClients, totalCA}}
+
+// ── Moteur saisonnier (B3) ──
+_S.seasonalIndex = {};         // famille → [12 coefficients]
+_S.articleMonthlySales = {};   // code → [12 mois qtés]
+
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
@@ -207,6 +215,12 @@ export function resetAppState() {
 
   // Cohorte reconquête
   _S.reconquestCohort = [];
+
+  // Client aggregation Worker
+  _S.clientFamCA = {}; _S.metierFamBench = {};
+
+  // Moteur saisonnier
+  _S.seasonalIndex = {}; _S.articleMonthlySales = {};
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';
