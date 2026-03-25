@@ -483,7 +483,7 @@ export function _cmdBuildResults(q) {
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(info.nom || code)}`,
           sub: [info.metier, ca ? ca + '€ CA' : ''].filter(Boolean).join(' · '),
           badge: isActif ? 'Actif' : (info.statut || ''),
-          badgeCls: isActif ? 'bg-emerald-100 c-ok' : 's-hover t-tertiary',
+          badgeCls: isActif ? 'i-ok-bg c-ok' : 's-hover t-tertiary',
           fn: () => {
             switchTab('territoire');
             setTimeout(() => {
