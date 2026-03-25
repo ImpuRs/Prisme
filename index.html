@@ -1552,13 +1552,31 @@
 
     <!-- TAB 7 : PROMO -->
     <div id="tabPromo" class="tab-content hidden">
+      <!-- B4: Mode toggle -->
+      <div class="flex items-center gap-3 mb-3">
+        <button id="promoModeAnalyse" onclick="_setPromoMode('analyse')" class="text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300" style="background:rgba(59,130,246,.1)">📊 Analyse</button>
+        <button id="promoModeAction" onclick="_setPromoMode('action')" class="text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default">⚡ Action</button>
+      </div>
+      <!-- B4: Action view (hidden by default) -->
+      <div id="promoActionView" class="hidden mb-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <h4 class="font-bold text-sm t-primary mb-2">📞 Top 10 — Qui appeler</h4>
+            <div id="promoActionClients" class="space-y-2"><p class="t-tertiary text-sm">Lancez d'abord une recherche Promo.</p></div>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm t-primary mb-2">🎯 Ce que j'emmène</h4>
+            <div id="promoActionArticles" class="space-y-2"><p class="t-tertiary text-sm">Sélectionnez un client.</p></div>
+          </div>
+        </div>
+      </div>
       <!-- Header -->
-      <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-lg mb-4">
+      <div class="tab-content-section bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-lg mb-4">
         <h2 class="text-2xl font-extrabold">🎯 Promo — Ciblage et animation commerciale</h2>
         <p class="t-inverse-muted text-sm mt-0.5">Identifiez vos acheteurs, ceux qui achètent ailleurs et vos prospects métier</p>
       </div>
       <!-- Import opération promo -->
-      <details id="promoImportZone" class="s-card rounded-xl border b-light shadow-sm mb-4 overflow-hidden">
+      <details id="promoImportZone" class="tab-content-section s-card rounded-xl border b-light shadow-sm mb-4 overflow-hidden">
         <summary class="flex items-center justify-between px-4 py-3 i-caution-bg border-b b-light cursor-pointer select-none hover:i-caution-bg">
           <span class="font-extrabold c-caution text-sm flex items-center gap-2">📥 Importer une opération promo <span id="promoImportOpName" class="c-caution font-normal text-xs"></span></span>
           <span class="acc-arrow c-caution">▶</span>
@@ -1644,7 +1662,7 @@
         </div>
       </div>
       <!-- Search bar — main entry point -->
-      <div class="s-card rounded-xl border b-light shadow-sm p-4 mb-4">
+      <div class="tab-content-section s-card rounded-xl border b-light shadow-sm p-4 mb-4">
         <p class="text-xs font-bold c-caution mb-2">Qui achète cet article / famille / marque ?</p>
         <div class="flex gap-2 flex-wrap items-start">
           <div class="flex-1 min-w-[200px] relative">
@@ -1664,7 +1682,7 @@
         <div class="p-3">
           <div id="promoMatchInfo" class="hidden mt-2 text-xs t-tertiary"></div>
           <!-- Results -->
-          <div id="promoResults" class="hidden mt-3 space-y-2">
+          <div id="promoResults" class="tab-content-section hidden mt-3 space-y-2">
             <!-- Section A -->
             <div class="rounded-lg border b-light overflow-hidden">
               <button onclick="_togglePromoSection('A')" class="w-full flex items-center justify-between px-3 py-2 i-ok-bg hover:i-ok-bg text-left">
