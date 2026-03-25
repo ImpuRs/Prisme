@@ -440,7 +440,9 @@
     .tab-btn.active svg{stroke:var(--tab-color,#3b82f6)!important}
     .tab-btn svg{width:16px;height:16px;stroke:var(--c-muted);transition:stroke .2s ease;flex-shrink:0}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;position:sticky;top:0;height:100vh}#filterDrawerBtn{display:none!important}}
-    #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page)}
+    #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
+    /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
+    details>summary{position:relative}
     /* Mobile drawer */
     #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100vh;z-index:70;transform:translateX(0)}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
