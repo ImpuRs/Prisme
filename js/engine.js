@@ -561,3 +561,42 @@ export function computeReconquestCohort() {
   cohort.sort((a, b) => b.score - a.score);
   _S.reconquestCohort = cohort;
 }
+
+// ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
+export function computeSPC(cc, info) {
+  let score = 0;
+  // 1. Récence (30 pts)
+  const lastOrder = _S.clientLastOrder.get(cc);
+  if (lastOrder) {
+    const daysAgo = Math.round((new Date() - lastOrder) / 86400000);
+    if (daysAgo <= 30) score += 30;
+    else if (daysAgo <= 90) score += 20;
+    else if (daysAgo <= 180) score += 10;
+  }
+  // 2. CA rapatriable (30 pts)
+  const caLeg = info.ca2025 || info.ca2026 || 0;
+  const artMap = _S.ventesClientArticle.get(cc);
+  const caPDV = artMap ? [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0) : 0;
+  const caHorsPDV = Math.max(caLeg - caPDV, 0);
+  if (caHorsPDV > 10000) score += 30;
+  else if (caHorsPDV > 5000) score += 25;
+  else if (caHorsPDV > 2000) score += 20;
+  else if (caHorsPDV > 500) score += 15;
+  else if (caHorsPDV > 0) score += 5;
+  // 3. Familles manquantes vs benchmark métier (20 pts)
+  if (_S.metierFamBench && info.metier && _S.metierFamBench[info.metier]) {
+    const metierFams = _S.metierFamBench[info.metier];
+    const clientFams = _S.clientFamCA ? _S.clientFamCA[cc] || {} : {};
+    const totalMetierFams = Object.keys(metierFams).length;
+    const missingFams = Object.keys(metierFams).filter(f => !clientFams[f]).length;
+    const missingRatio = totalMetierFams > 0 ? missingFams / totalMetierFams : 0;
+    score += Math.round(missingRatio * 20);
+  }
+  // 4. Profil chalandise (20 pts)
+  const classif = _normalizeClassif(info.classification);
+  if (classif === 'FID Pot+') score += 15;
+  else if (classif === 'OCC Pot+') score += 10;
+  else if (classif === 'FID Pot=') score += 8;
+  if (_isMetierStrategique(info.metier)) score += 5;
+  return Math.min(Math.round(score), 100);
+}
