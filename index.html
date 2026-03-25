@@ -354,6 +354,16 @@
     .diag-v2{background:var(--p-diag-violet-bg);border-color:#7c3aed50}
     .diag-v3{background:var(--p-diag-green-bg);border-color:#15803d50}
     .diag-src-tag{display:inline-flex;align-items:center;font-size:var(--fs-2xs);font-weight:var(--fw-bold);padding:1px var(--sp-2);border-radius:var(--r-full);margin-left:var(--sp-2);background:var(--s-panel-inner);color:var(--t-disabled)}
+    .diag-border-ok{border-left-width:4px!important;border-left-color:#22c55e!important}
+    .diag-border-warn{border-left-width:4px!important;border-left-color:#f59e0b!important}
+    .diag-border-error{border-left-width:4px!important;border-left-color:#ef4444!important}
+    .diag-border-lock{border-left-width:4px!important;border-left-color:var(--b-darker)!important}
+    .diag-kpi-pill{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-2xs);font-weight:var(--fw-bold);padding:var(--sp-1) var(--sp-3);border-radius:var(--r-full);border:1px solid var(--b-dark);background:var(--s-panel-inner);color:var(--t-secondary);cursor:pointer;transition:all .15s}
+    .diag-kpi-pill:hover:not(:disabled){border-color:var(--c-action);color:var(--t-primary)}
+    .diag-kpi-pill.active{border-color:var(--c-action);background:rgba(37,99,235,0.15);color:var(--c-action)}
+    .diag-kpi-pill:disabled{opacity:.4;cursor:not-allowed}
+    details>summary{list-style:none;cursor:pointer}
+    details>summary::-webkit-details-marker{display:none}
     /* Promo auto-suggest */
     #promoSuggestBox{border-radius:var(--r-lg);box-shadow:var(--shadow-lg)}
     .promo-sug-group{padding:var(--sp-1) var(--sp-3) 2px;font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:var(--t-disabled);background:var(--s-card-alt);text-transform:uppercase;letter-spacing:.05em}
