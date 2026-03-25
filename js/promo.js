@@ -21,6 +21,7 @@ let _promoLastResult=null;
 let _promoSuggestTimer=null;
 let _promoSuggestIdx=-1;
 let _promoSuggestItems=[];
+let _suggestClicking=false; // flag mousedown→blur pour éviter fermeture prématurée
 
 function _onPromoInput(){
   clearTimeout(_promoSuggestTimer);
@@ -117,11 +118,18 @@ function _promoSuggestHighlight(){
   });
 }
 
-// Close suggest on outside click
-document.addEventListener('click',e=>{
+// ── Pattern standard autocomplete : mousedown flag + blur handler ──────────
+// mousedown sur la suggestbox → armer le flag AVANT que blur ne se déclenche
+document.addEventListener('mousedown',e=>{
   const box=document.getElementById('promoSuggestBox');
-  if(box&&!box.contains(e.target)&&e.target.id!=='promoSearchInput')box.classList.add('hidden');
+  if(box&&!box.classList.contains('hidden')&&box.contains(e.target))_suggestClicking=true;
 });
+// blur sur l'input : ferme la box sauf si un item de la suggestbox est cliqué
+document.addEventListener('blur',e=>{
+  if(e.target.id!=='promoSearchInput')return;
+  if(_suggestClicking){_suggestClicking=false;return;}
+  _closePromoSuggest();
+},true); // capture=true : blur ne bulle pas
 
 function runPromoSearch(){
   const raw=(document.getElementById('promoSearchInput')||{}).value||'';
