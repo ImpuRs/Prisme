@@ -913,7 +913,12 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
       const _spc=_S.chalandiseReady?computeSPC(c.code,_S.chalandiseData.get(c.code)||{}):null;
       const _legAilleurs=c.ca2025>0&&!c._pdvActif?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50" title="Actif chez Legallais (${formatEuro(c.ca2025)}) mais pas en agence">🏪 Legallais ailleurs</span> `:'';
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${_legAilleurs}${_spcBadge(_spc)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      // Badge canaux hors MAGASIN
+      const _horsMag = _S.ventesClientHorsMagasin.get(c.code);
+      const _horsMagBadge = _horsMag && _horsMag.size > 0
+        ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 border border-violet-700/50 cursor-pointer" onclick="event.stopPropagation();_toggleHorsMagasin(this,'${c.code}')" title="Commandes hors agence détectées">🌐 ${_horsMag.size} art. hors agence</span> `
+        : '';
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="_toggleClientArticles(this,'${c.code}')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${_horsMagBadge}${_legAilleurs}${_spcBadge(_spc)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -1087,6 +1092,60 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     reader.readAsText(file);
   }
 
+  function _toggleHorsMagasin(btn, cc) {
+    const existingId = `hors-mag-${cc}`;
+    const existing = document.getElementById(existingId);
+    if (existing) { existing.remove(); return; }
+
+    const artMap = _S.ventesClientHorsMagasin.get(cc);
+    if (!artMap || !artMap.size) return;
+
+    const CANAL_LABELS = { INTERNET:'🌐 Web', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS' };
+
+    // Filtrer articles déjà vendus en MAGASIN à ce client
+    const magasinArts = _S.ventesClientArticle.get(cc) || new Map();
+
+    let rows = '';
+    for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].ca - a[1].ca)) {
+      const lib = (_S.libelleLookup[code] || code).replace(/^\d{6} - /, '');
+      const dejaVendu = magasinArts.has(code);
+      const canalLabel = CANAL_LABELS[data.canal] || data.canal;
+      rows += `<tr class="border-b b-light ${dejaVendu ? 'opacity-50' : 'hover:i-info-bg'}">
+        <td class="py-1 px-2 font-mono text-[10px] t-tertiary">${code}</td>
+        <td class="py-1 px-2 text-[11px] font-semibold">${lib}</td>
+        <td class="py-1 px-2 text-[10px]">${canalLabel}</td>
+        <td class="py-1 px-2 text-right text-[11px] font-bold ${data.ca > 0 ? 'c-action' : 't-disabled'}">${data.ca > 0 ? formatEuro(data.ca) : '—'}</td>
+        <td class="py-1 px-2 text-center text-[10px] ${dejaVendu ? 'c-ok' : 'c-caution'}">${dejaVendu ? '✅ En agence' : '⚠️ Pas en agence'}</td>
+      </tr>`;
+    }
+
+    const panel = document.createElement('div');
+    panel.id = existingId;
+    panel.className = 'mt-2 s-card-alt rounded-lg border overflow-hidden';
+    panel.innerHTML = `
+      <div class="px-3 py-2 border-b flex items-center justify-between">
+        <p class="text-[11px] font-bold t-primary">🌐 Commandes hors agence — ${artMap.size} article${artMap.size > 1 ? 's' : ''}</p>
+        <span class="text-[10px] t-disabled">⚠️ = jamais vendu en comptoir · ✅ = aussi en agence</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="s-panel-inner t-inverse font-bold">
+            <tr>
+              <th class="py-1 px-2 text-left">Code</th>
+              <th class="py-1 px-2 text-left">Article</th>
+              <th class="py-1 px-2 text-left">Canal</th>
+              <th class="py-1 px-2 text-right">CA</th>
+              <th class="py-1 px-2 text-center">Statut agence</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+
+    btn.closest('.relative').appendChild(panel);
+  }
+  window._toggleHorsMagasin = _toggleHorsMagasin;
+
   function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
   function buildBenchCheckboxes(){
     const div=document.getElementById('benchPickCheckboxes');if(!div)return;
@@ -1159,6 +1218,22 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // V24.4: capture canal data BEFORE filtering (for _S.canalAgence)
       if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0};_S.canalAgence[canal].bl.add(nc2);}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
+      // Capture canaux hors MAGASIN pour la vue Terrain multi-canaux
+      const _canaux_hors = ['INTERNET','REPRESENTANT','DCS'];
+      if(_canaux_hors.includes(canal) && (!_S.selectedMyStore || (extractStoreCode(row)||'INCONNU') === _S.selectedMyStore)) {
+        const _cc3 = extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
+        const _code3 = cleanCode((getVal(row,'Article','Code')||'').toString());
+        const _ca3 = (getCaColumn(row,'prél')||0) + (getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
+        if(_cc3 && _code3) {
+          _S.cannauxHorsMagasin.add(canal);
+          if(!_S.ventesClientHorsMagasin.has(_cc3)) _S.ventesClientHorsMagasin.set(_cc3, new Map());
+          const _artMap3 = _S.ventesClientHorsMagasin.get(_cc3);
+          if(!_artMap3.has(_code3)) _artMap3.set(_code3, { canal, ca: 0, count: 0 });
+          const _e3 = _artMap3.get(_code3);
+          _e3.ca += _ca3;
+          _e3.count++;
+        }
+      }
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
@@ -1195,6 +1270,12 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       for(const c of Object.keys(_S.canalAgence))_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
+      // Garde-fou canaux hors MAGASIN
+      if(_S.cannauxHorsMagasin.size > 0) {
+        const _labelsCanaux = {INTERNET:'🌐 Internet', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS'};
+        const _listeCanaux = [..._S.cannauxHorsMagasin].map(c => _labelsCanaux[c]||c).join(', ');
+        showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`, 'success', 6000);
+      }
       updatePipeline('consomme','done');
       // B3: Moteur saisonnier — agrégation par famille
       {const familyMonthly={};for(const[code,months] of Object.entries(monthlySales)){const fam=_S.articleFamille[code];if(!fam)continue;if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];}
