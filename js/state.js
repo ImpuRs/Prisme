@@ -32,6 +32,9 @@ _S.benchLists = {
   missed: [], under: [], over: [], storePerf: {}, familyPerf: [],
   obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: []
 };
+_S.selectedBenchBassin = new Set(); // stores sélectionnés pour le bassin (vide = tous)
+_S.benchFamEcarts = {};             // fam → {mean, sigma, my} — pour badge divergence
+_S.reseauHeatmapData = null;        // {familles[], agences[], matrix{}} — heatmap réseau
 
 // ── Cockpit ──
 _S.cockpitLists = {};
@@ -155,6 +158,12 @@ _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, to
 // ── Active territoire worker (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 
+// ── Réseau worker (Sprint 2) ──────────────────────────────────
+_S.reseauNomades = [];        // clients actifs dans ≥2 agences dont myStore
+_S.reseauOrphelins = [];      // articles ≥50% stores absents chez moi (top 50)
+_S.reseauFuitesMetier = [];   // {metier, total, actifs, indiceFuite%} — si chalandise
+_S._activeReseauWorker = null;
+
 // ── Reset session — appeler en début de processData() ──────────
 export function resetAppState() {
   // Annuler le worker territoire en cours si présent
@@ -169,6 +178,7 @@ export function resetAppState() {
 
   // Benchmark
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], obsKpis: null, obsFamiliesLose: [], obsFamiliesWin: [], obsActionPlan: [], pepites: [], pepitesOther: [] };
+  _S.selectedBenchBassin = new Set(); _S.benchFamEcarts = {}; _S.reseauHeatmapData = null;
 
   // Cockpit
   _S.cockpitLists = {}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
@@ -237,4 +247,8 @@ export function resetAppState() {
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';
   _S._diagMetierFilter = ''; _S._diagCurrentFamille = ''; _S._diagCurrentSource = '';
+
+  // Réseau worker
+  if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} _S._activeReseauWorker = null; }
+  _S.reseauNomades = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
 }
