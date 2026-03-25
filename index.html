@@ -290,9 +290,9 @@
     /* ═══ Sticky header wrapper ═══════════════════════════════ */
     #stickyHeader{position:sticky;top:0;z-index:9000;will-change:transform}
     /* VOLET 2bis: contributeurs agence — 4 niveaux */
-    .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:#f5f3ff}.contrib-dir-row.open{background:#ede9fe}
+    .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:var(--s-hover)}.contrib-dir-row.open{background:var(--s-active)}
     .contrib-dir-detail{display:none}.contrib-dir-detail.open{display:table-row-group}
-    .contrib-sect-row{cursor:pointer;transition:background .15s}.contrib-sect-row:hover{background:var(--i-ok-bg)}.contrib-sect-row.open{background:#dcfce7}
+    .contrib-sect-row{cursor:pointer;transition:background .15s}.contrib-sect-row:hover{background:var(--i-ok-bg)}.contrib-sect-row.open{background:var(--i-ok-bg)}
     .contrib-sect-detail{display:none}.contrib-sect-detail.open{display:table-row-group}
     .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:var(--s-hover-blue)}.contrib-client-row.open{background:var(--s-selected)}
     .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
@@ -355,10 +355,10 @@
     .terr-row.expanded{background:var(--s-selected)}
     .terr-detail{display:none}
     .terr-detail.open{display:table-row-group}
-    .rayon-green{background:#dcfce7}.rayon-yellow{background:#fef9c3}.rayon-red{background:#fee2e2}
+    .rayon-green{background:var(--i-ok-bg)}.rayon-yellow{background:var(--i-caution-bg)}.rayon-red{background:var(--i-danger-bg)}
     .cap-bar{height:8px;border-radius:var(--r-sm);transition:width .4s ease}
     /* Territoire famille drill-down */
-    .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:var(--s-active)}.terr-fam-row.open{background:#bfdbfe}
+    .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:var(--s-active)}.terr-fam-row.open{background:var(--s-active)}
     /* Territoire status badge — compteurs cliquables ✅/⚠️/❌ */
     .terr-status-badge{cursor:pointer;font-weight:700;border-radius:var(--r-md);padding:1px var(--sp-1);transition:opacity .15s;display:inline-block}.terr-status-badge:hover{opacity:.7;text-decoration:underline}
     /* V2 Phase 2: Diagnostic Cascade */
@@ -379,7 +379,7 @@
     .diag-ok{background:var(--i-ok-dark-bg);color:var(--i-ok-dark-text)}.diag-warn{background:var(--i-warn-dark-bg);color:var(--i-warn-dark-text)}
     .diag-error{background:var(--i-error-dark-bg);color:var(--i-error-dark-text)}.diag-lock{background:var(--i-lock-dark-bg);color:var(--i-lock-dark-text);border:1px solid var(--b-dark)}
     .diag-action-row{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-4);background:var(--s-panel-inner);border:1px solid var(--b-dark);border-radius:var(--r-md);cursor:pointer;transition:all .15s;margin-bottom:var(--sp-2)}
-    .diag-action-row:hover{background:#273548;border-color:var(--t-secondary);transform:translateX(2px)}
+    .diag-action-row:hover{background:var(--s-hover);border-color:var(--t-secondary);transform:translateX(2px)}
     .diag-btn{font-size:var(--fs-2xs);font-weight:var(--fw-bold);padding:2px var(--sp-2);border-radius:var(--r-md);cursor:pointer;border:none;display:inline-flex;align-items:center;gap:var(--sp-1);transition:opacity .15s}
     .diag-btn:hover{opacity:.8}
     details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
@@ -397,7 +397,7 @@
     #promoSuggestBox{border-radius:var(--r-lg);box-shadow:var(--shadow-lg)}
     .promo-sug-group{padding:var(--sp-1) var(--sp-3) 2px;font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:var(--t-disabled);background:var(--s-card-alt);text-transform:uppercase;letter-spacing:.05em}
     .promo-sug-item{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);cursor:pointer;border-top:1px solid var(--b-light);transition:background .08s}
-    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:#fff7ed}
+    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:var(--i-caution-bg)}
     .promo-sug-icon{font-size:var(--fs-base);flex-shrink:0;line-height:1.4}
     .promo-sug-label{font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--t-primary);line-height:1.3}
     .promo-sug-sub{font-size:var(--fs-xs);color:var(--t-disabled);margin-top:1px}
@@ -527,10 +527,10 @@
     #navReportingBtn:hover{color:var(--s-card);border-color:rgba(255,255,255,0.4)}
 
     /* ═══ Premium insights / cache banners ════════════════════ */
-    #insightsBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#111118;border-bottom:1px solid rgba(255,255,255,0.05);min-height:28px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.6);font-weight:var(--fw-normal);gap:0 12px}
+    #insightsBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:28px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.6);font-weight:var(--fw-normal);gap:0 12px}
     #insightsBannerLeft{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;flex:1;min-width:0}
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
-    #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#111118;border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
+    #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
     #cacheBanner.hidden{display:none!important}
 
     /* ═══ Tab bar premium ════════════════════════════════════ */
@@ -618,13 +618,13 @@
 
   <!-- Barre spectrale PRISME -->
   <div class="prisme-spectrum" aria-hidden="true">
-    <span style="background:#E24B4A"></span>
-    <span style="background:#EF9F27"></span>
-    <span style="background:#FAC775"></span>
-    <span style="background:#639922"></span>
-    <span style="background:#378ADD"></span>
-    <span style="background:#534AB7"></span>
-    <span style="background:#D4537E"></span>
+    <span style="background:var(--p-prisme-red)"></span>
+    <span style="background:var(--p-prisme-amber)"></span>
+    <span style="background:var(--p-prisme-gold)"></span>
+    <span style="background:var(--p-prisme-green)"></span>
+    <span style="background:var(--p-prisme-blue)"></span>
+    <span style="background:var(--p-prisme-violet)"></span>
+    <span style="background:var(--p-prisme-rose)"></span>
   </div>
 
   <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
@@ -960,7 +960,7 @@
     <!-- UPLOAD -->
     <div id="importZone">
     <div id="importZoneCancelBtn" class="hidden" style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-2)">
-      <button onclick="collapseImportZone()" style="font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:#6b7280;background:#f3f4f6;border:1px solid #d1d5db;border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);cursor:pointer" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">✕ Annuler</button>
+      <button onclick="collapseImportZone()" style="font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--t-tertiary);background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);cursor:pointer" onmouseover="this.style.background='var(--s-hover)'" onmouseout="this.style.background='var(--s-card-alt)'">✕ Annuler</button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div id="dropConsomme" class="p-3 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"><h2 class="font-bold text-sm text-blue-900 mb-0.5">1. Ventes (Consommé)</h2><p class="text-[10px] text-blue-500 mb-1.5">Fichier consommé (ventes magasin) — obligatoire</p><input type="file" id="fileConsomme" accept=".xlsx,.xls,.csv" onchange="onFileSelected(this,'dropConsomme')" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white cursor-pointer"/></div>
