@@ -940,32 +940,37 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   if(l4&&l4.perdus>0){
     const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
     acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{
-      // Fermer overlay
-      const _diag=document.getElementById('diagnosticOverlay')||document.querySelector('.diagnostic-overlay');
-      if(_diag)_diag.classList.remove('active');
+      // --- FIX SCROLL TERRITOIRE (Radar→Territoire + Diagnostic→Territoire) ---
+      // 1. Fermer overlay inline
+      const overlay=document.getElementById('diagnosticOverlay');
+      overlay.classList.remove('active');
       document.body.style.overflow='';
       const _mc=document.getElementById('mainContent');
       if(_mc){_mc.style.overflow='';_mc.style.overflowY='';}
-      void(_diag&&_diag.offsetHeight); // reflow synchrone
-      // Reset les DEUX scroll containers avant switchTab
+      const _ff=document.getElementById('filterFamille');
+      if(_ff)_ff.value='';
+      void overlay.offsetHeight; // reflow synchrone
+      // 2. Reset les DEUX scroll containers (window scrolle aussi selon onglet source)
       window.scrollTo(0,0);
       if(_mc)_mc.scrollTop=0;
+      // 3. Naviguer
       switchTab('territoire');
-      // Poll position stable puis scroll
+      // 4. Poll position cumulative stable, puis scroll
       let _lastTop=-1,_tries=0;
       const _poll=setInterval(()=>{
         const mc=document.getElementById('mainContent');
         const terr=document.getElementById('terrChalandiseOverview');
         if(!mc||!terr){if(++_tries>40)clearInterval(_poll);return;}
-        // Position cumulative réelle relative au scroll container
+        // Position réelle relative au scroll container (pas juste offsetTop direct)
         let el=terr,top=0;
         while(el&&el!==mc){top+=el.offsetTop;el=el.offsetParent;}
         if((top===_lastTop&&top>0)||_tries++>40){
           clearInterval(_poll);
-          window.scrollTo(0,0); // sécurité
+          window.scrollTo(0,0); // sécurité si window a re-scrollé
           mc.scrollTo({top:top-16,behavior:'smooth'});
         }else{_lastTop=top;}
       },100);
+      // --- FIN FIX ---
     }});
   }
   return acts.sort((a,b)=>a.priority-b.priority);
