@@ -1202,20 +1202,15 @@
         <p id="terrProgressText" class="text-violet-500 text-xs font-mono mt-1">0%</p>
       </div>
 
-      <!-- 1. Résumé exécutif du croisement — V2 (nécessite BL Territoire) -->
-      <div id="terrCroisementBlock" style="display:none" class="hidden mb-2">
-        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-3 t-inverse">
-          <div class="flex items-center gap-2 mb-1"><span class="text-sm">🔗</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
-          <div id="terrCroisementText" class="text-xs leading-snug space-y-0.5"></div>
-        </div>
-      </div>
-
       <!-- 2a. Placeholder — chalandise not loaded yet -->
       <div id="terrNoChalandise" class="hidden mb-2 p-2 i-danger-bg border-2 border-dashed border-rose-300 rounded-xl text-center">
         <p class="text-xl mb-1">🗺️</p>
         <p class="c-danger font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
         <p class="c-danger text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
       </div>
+
+      <!-- Cockpit Client — visible dès chalandise chargée -->
+      <div id="terrCockpitClient" class="hidden mb-2"></div>
 
       <!-- 2b. V2 teaser — analyse avancée territoire -->
       <div id="terrNeedTerrBlock" class="hidden mb-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
@@ -1228,105 +1223,121 @@
 
       <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
-      <!-- 3. KPI territoire — V2 (nécessite BL Territoire) -->
-      <div id="terrKPIBlock" style="display:none" class="hidden mb-2">
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
-          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
-          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
-          <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p></div>
-          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
-          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
+      <!-- Analyse territoire — réunion DR (nécessite le BL Territoire) -->
+      <details class="s-card rounded-xl shadow-md border mb-3">
+        <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold t-primary text-sm">📋 Analyse territoire</h3>
+            <span class="text-[10px] t-disabled">Vue Direction · Top 100 · Contributeurs · nécessite le BL Territoire</span>
+          </div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+
+        <!-- 1. Résumé exécutif du croisement — V2 (nécessite BL Territoire) -->
+        <div id="terrCroisementBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
+          <div id="terrCroisementSummary" class="exec-summary rounded-xl p-3 t-inverse">
+            <div class="flex items-center gap-2 mb-1"><span class="text-sm">🔗</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
+            <div id="terrCroisementText" class="text-xs leading-snug space-y-0.5"></div>
+          </div>
         </div>
-      </div>
 
-
-
-      <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
-      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 px-2 py-1.5 i-caution-bg border b-light rounded-xl flex items-center gap-2">
-        <span class="text-base flex-shrink-0">📌</span>
-        <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
-      </div>
-
-
-      <!-- 6. Vue par Direction — V2 (nécessite BL Territoire) -->
-      <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 s-card rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold t-primary text-xs px-2 py-1.5 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal t-disabled">— trié par CA décroissant · cliquez pour détailler</span></h3>
-        <table class="min-w-full text-xs">
-          <thead class="s-panel-inner t-inverse">
-            <tr>
-              <th class="py-1.5 px-2 text-left">Direction</th>
-              <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-              <th class="py-1.5 px-2 text-center">Nb articles</th>
-              <th class="py-1.5 px-2 text-center">✅ En rayon</th>
-              <th class="py-1.5 px-2 text-center">⚠️ Rupture</th>
-              <th class="py-1.5 px-2 text-center">❌ Absent</th>
-              <th class="py-1.5 px-2 text-center min-w-[110px]">% couverture</th>
-            </tr>
-          </thead>
-          <tbody id="terrDirectionTable"></tbody>
-        </table>
-      </div>
-
-      <!-- 7. Contributeurs agence — V2 (nécessite BL Territoire) -->
-      <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 s-card rounded-xl shadow-md border overflow-x-auto">
-        <div class="flex items-center justify-between px-2 py-1.5 border-b">
-          <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal t-disabled">— Direction → Secteur → Client → Articles</span></h3>
-          <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+        <!-- 3. KPI territoire — V2 (nécessite BL Territoire) -->
+        <div id="terrKPIBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
+            <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
+            <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
+            <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p></div>
+            <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
+            <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
+          </div>
         </div>
-        <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
-        <table class="min-w-full text-xs">
-          <thead class="s-panel-inner t-inverse">
-            <tr>
-              <th class="py-1.5 px-2 text-left">Direction</th>
-              <th class="py-1.5 px-2 text-center">BL territoire</th>
-              <th class="py-1.5 px-2 text-center">BL agence</th>
-              <th class="py-1.5 px-2 text-center min-w-[130px]">% agence</th>
-              <th class="py-1.5 px-2 text-right">CA Legallais</th>
-            </tr>
-          </thead>
-          <tbody id="terrContribTable"></tbody>
-        </table>
-      </div>
 
-      <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
-      <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 s-card rounded-xl shadow-md border overflow-x-auto">
-        <h3 class="font-extrabold t-primary text-xs px-2 py-1.5 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
-        <div class="table-scroll">
+        <!-- 4. Special articles banner — V2 (nécessite BL Territoire) -->
+        <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 mx-2 px-2 py-1.5 i-caution-bg border b-light rounded-xl flex items-center gap-2">
+          <span class="text-base flex-shrink-0">📌</span>
+          <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
+        </div>
+
+        <!-- 6. Vue par Direction — V2 (nécessite BL Territoire) -->
+        <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
+          <h3 class="font-extrabold t-primary text-xs px-2 py-1.5 border-b flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal t-disabled">— trié par CA décroissant · cliquez pour détailler</span></h3>
           <table class="min-w-full text-xs">
-            <thead class="s-panel-inner t-inverse sticky top-0">
+            <thead class="s-panel-inner t-inverse">
               <tr>
-                <th class="py-1.5 px-2 text-left">Code</th>
-                <th class="py-1.5 px-2 text-left">Libellé</th>
                 <th class="py-1.5 px-2 text-left">Direction</th>
-                <th class="py-1.5 px-2 text-center">BL</th>
                 <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-                <th class="py-1.5 px-2 text-center">Rayon</th>
-                <th class="py-1.5 px-2 text-right">Stock actuel</th>
+                <th class="py-1.5 px-2 text-center">Nb articles</th>
+                <th class="py-1.5 px-2 text-center">✅ En rayon</th>
+                <th class="py-1.5 px-2 text-center">⚠️ Rupture</th>
+                <th class="py-1.5 px-2 text-center">❌ Absent</th>
+                <th class="py-1.5 px-2 text-center min-w-[110px]">% couverture</th>
               </tr>
             </thead>
-            <tbody id="terrTop100Table"></tbody>
+            <tbody id="terrDirectionTable"></tbody>
           </table>
         </div>
-      </div>
 
-      <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
-      <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 s-card rounded-xl shadow-md border overflow-x-auto">
-        <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold t-primary text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3></div>
-        <div class="table-scroll">
+        <!-- 7. Contributeurs agence — V2 (nécessite BL Territoire) -->
+        <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
+          <div class="flex items-center justify-between px-2 py-1.5 border-b">
+            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal t-disabled">— Direction → Secteur → Client → Articles</span></h3>
+            <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+          </div>
+          <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
           <table class="min-w-full text-xs">
-            <thead class="s-panel-inner t-inverse sticky top-0">
+            <thead class="s-panel-inner t-inverse">
               <tr>
-                <th class="py-1.5 px-2 text-left">Code</th>
-                <th class="py-1.5 px-2 text-left">Nom</th>
-                <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-                <th class="py-1.5 px-2 text-center">Nb Réf</th>
-                <th class="py-1.5 px-2 text-center">Type</th>
+                <th class="py-1.5 px-2 text-left">Direction</th>
+                <th class="py-1.5 px-2 text-center">BL territoire</th>
+                <th class="py-1.5 px-2 text-center">BL agence</th>
+                <th class="py-1.5 px-2 text-center min-w-[130px]">% agence</th>
+                <th class="py-1.5 px-2 text-right">CA Legallais</th>
               </tr>
             </thead>
-            <tbody id="terrClientsTable"></tbody>
+            <tbody id="terrContribTable"></tbody>
           </table>
         </div>
-      </div>
+
+        <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
+        <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
+          <h3 class="font-extrabold t-primary text-xs px-2 py-1.5 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
+          <div class="table-scroll">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse sticky top-0">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Code</th>
+                  <th class="py-1.5 px-2 text-left">Libellé</th>
+                  <th class="py-1.5 px-2 text-left">Direction</th>
+                  <th class="py-1.5 px-2 text-center">BL</th>
+                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th class="py-1.5 px-2 text-center">Rayon</th>
+                  <th class="py-1.5 px-2 text-right">Stock actuel</th>
+                </tr>
+              </thead>
+              <tbody id="terrTop100Table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
+        <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
+          <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold t-primary text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3></div>
+          <div class="table-scroll">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse sticky top-0">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Code</th>
+                  <th class="py-1.5 px-2 text-left">Nom</th>
+                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th class="py-1.5 px-2 text-center">Nb Réf</th>
+                  <th class="py-1.5 px-2 text-center">Type</th>
+                </tr>
+              </thead>
+              <tbody id="terrClientsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
 
       <!-- Summary KPI bar — shown when chalandise loaded -->
       <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3">
@@ -1377,19 +1388,6 @@
             </table>
           </div>
         </details>
-        <!-- Heatmap Famille × Commercial -->
-        <details class="s-card rounded-xl shadow-md border b-light mb-6">
-          <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-            <div class="flex items-center gap-2">
-              <h3 class="font-extrabold t-primary text-sm">🗺️ Carte de chaleur — Famille × Commercial</h3>
-              <span class="text-[10px] t-disabled">CA comptoir par commercial et famille (top 20) · nécessite la chalandise</span>
-            </div>
-            <span class="acc-arrow t-tertiary">▶</span>
-          </summary>
-          <div id="heatmapContainer" class="s-card rounded-xl border shadow-sm p-3"></div>
-        </details>
-        <!-- Cockpit Client -->
-        <div id="terrCockpitClient" class="hidden mb-2"></div>
       </div>
     </div>
 
