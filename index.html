@@ -243,47 +243,6 @@
       --g-progress-track: rgba(255,255,255,0.1);
     }
 
-    /* ═══ THEME: LIGHT ══════════════════════════════════ */
-    :root[data-theme="light"] {
-      --s-page:        #f8fafc;
-      --s-card:        #ffffff;
-      --s-card-alt:    #f1f5f9;
-      --s-panel:       #ffffff;
-      --s-panel-inner: var(--p-slate-50);
-      --s-hover:       var(--p-slate-100);
-      --s-hover-blue:  var(--p-blue-50);
-      --s-selected:    #dbeafe;
-      --s-active:      #bfdbfe;
-      --t-primary:       var(--p-slate-900);
-      --t-secondary:     var(--p-slate-600);
-      --t-tertiary:      var(--p-slate-500);
-      --t-disabled:      var(--p-slate-400);
-      --t-inverse:       var(--p-slate-900);
-      --t-inverse-muted: var(--p-slate-500);
-      --t-link:          var(--p-blue-600);
-      --b-default: var(--p-slate-200);
-      --b-light:   var(--p-slate-100);
-      --b-dark:    var(--p-slate-300);
-      --b-darker:  var(--p-slate-400);
-      --i-danger-bg:    #fef2f2;
-      --i-danger-text:  #991b1b;
-      --i-caution-bg:   #fffbeb;
-      --i-caution-text: #92400e;
-      --i-ok-bg:        #f0fdf4;
-      --i-ok-text:      #166534;
-      --i-info-bg:      #eff6ff;
-      --i-info-text:    #1e40af;
-      --i-neutral-bg:   var(--p-slate-100);
-      --i-neutral-text: var(--p-slate-600);
-      --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
-      --shadow-md:  0 4px 12px rgba(0,0,0,0.06);
-      --shadow-lg:  0 8px 20px rgba(0,0,0,0.08);
-      --shadow-xl:  0 12px 28px rgba(0,0,0,0.12);
-      --s-overlay:       rgba(0,0,0,0.5);
-      --s-overlay-light: rgba(0,0,0,0.3);
-      --g-progress-track: rgba(0,0,0,0.08);
-    }
-
     /* VOLET 4: sticky period warning banner */
     #periodBanner,#stockMonoBanner{display:none;background:var(--p-orange-500);color:#fff;padding:var(--sp-2) var(--sp-4);font-size:var(--fs-sm);font-weight:var(--fw-bold);text-align:center;border-bottom:2px solid var(--p-orange-600);}
     #periodBanner.active,#stockMonoBanner.active{display:block}
@@ -311,6 +270,7 @@
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 var(--sp-1);border-radius:var(--r-full);font-size:var(--fs-xs);font-weight:var(--fw-extrabold)}
     .table-scroll{max-height:600px;overflow-y:auto;overflow-x:auto}.list-scroll{max-height:280px;overflow-y:auto}
     .list-scroll thead th,.table-scroll thead th{position:sticky;top:0;z-index:20}
+    thead.sticky{z-index:20}
     .age-row-clickable{cursor:pointer;transition:all .15s}.age-row-clickable:hover{transform:translateX(4px)}
     .age-dot{display:inline-block;width:8px;height:8px;border-radius:var(--r-full);margin-right:3px;vertical-align:middle}
     .age-fresh{background:var(--c-ok)}.age-warm{background:var(--p-amber-500)}.age-hot{background:var(--c-caution)}.age-critical{background:var(--c-danger)}
@@ -612,7 +572,7 @@
         </div>
         <button id="navCmdBtn" onclick="openCmdPalette()" title="Recherche universelle (Ctrl+K / Cmd+K)">⌘K</button>
         <button id="navReportingBtn" class="hidden" onclick="openReporting()">Reporting</button>
-        <button id="themeToggle" onclick="cycleTheme()" title="Thème : mixte → sombre → clair"
+        <button id="themeToggle" onclick="cycleTheme()" title="Thème : mixte ↔ sombre"
           style="font-size:var(--fs-xs);padding:var(--sp-1) var(--sp-2);border-radius:var(--r-full);border:1px solid var(--b-dark);background:transparent;color:var(--t-inverse);cursor:pointer;transition:opacity .15s"
           onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🌗</button>
       </div>

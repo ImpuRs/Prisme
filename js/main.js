@@ -1345,12 +1345,14 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
   });
 
-  // A4: Fantômes de rayon — en stock mais absents du territoire
+  // A4: Fantômes de rayon — en stock mais que personne n'achète au comptoir
   function computePhantomArticles(){
     _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
-    if(!_S.territoireReady||!_S.finalData.length)return;
-    const terrCodes=new Set(_S.territoireLines.map(l=>l.code));
-    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!terrCodes.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
+    if(!_S.finalData.length)return;
+    // Articles ayant au moins un achat PDV (comptoir) dans articleClients
+    const soldAtPDV=new Set();
+    for(const[code,clients]of _S.articleClients.entries()){if(clients.size>0)soldAtPDV.add(code);}
+    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
 
