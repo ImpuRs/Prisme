@@ -75,6 +75,8 @@ _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTer
 _S.chalandiseData = new Map();
 _S.chalandiseReady = false;
 _S.chalandiseMetiers = [];
+_S.clientsByMetier = new Map();
+_S.clientsByCommercial = new Map();
 
 // ── Filtres territoire / chalandise ──
 _S._selectedDepts = new Set();
@@ -176,6 +178,7 @@ export function resetAppState() {
 
   // Chalandise
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
+  _S.clientsByMetier = new Map(); _S.clientsByCommercial = new Map();
 
   // Croisement / cockpit export
   _S.crossingStats = null; _S._cockpitExportData = null;
