@@ -570,7 +570,6 @@ export function _reseauWorker() {
 
     // ── 4. Nomades × Articles : ce que mes nomades achètent ailleurs mais pas chez moi
     const nomadeSet = new Set(nomades);
-    const myV = ventesParMagasin[myStore] || {};
     // article → { clients: Set<cc>, caByStore: { store: avgCA } }
     const missedByArt = {};
 
