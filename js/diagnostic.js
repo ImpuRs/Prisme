@@ -951,18 +951,18 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
       if(_ov)void _ov.offsetHeight;
       // 3. Switcher sur l'onglet Territoire
       switchTab('territoire');
-      // 4. Poll 50ms × 20 : attendre le lazy render de l'onglet
-      let _att=0;
-      const _poll=setInterval(()=>{
-        _att++;
-        const _el=document.getElementById('terrChalandiseOverview');
-        if(_el||_att>=20){
-          clearInterval(_poll);
+      // 4. Attendre que scrollHeight soit stable (layout settling après lazy render)
+      let _lastH=0,_tries=0;
+      const _stabilize=setInterval(()=>{
+        const _h=_mc?_mc.scrollHeight:0;
+        if(_h===_lastH||_tries++>40){
+          clearInterval(_stabilize);
           // 5. Scroll : reset mainContent puis scrollIntoView smooth
+          const _el=document.getElementById('terrChalandiseOverview');
           if(_mc)_mc.scrollTop=0;
-          if(_el)_el.scrollIntoView({behavior:'smooth'});
-        }
-      },50);
+          if(_el)_el.scrollIntoView({behavior:'smooth',block:'start'});
+        }else{_lastH=_h;}
+      },100);
     }});
   }
   return acts.sort((a,b)=>a.priority-b.priority);
