@@ -216,7 +216,7 @@ export function _clientStatusText(cc, info) {
 
 export function _unikLink(code) {
   if (!code || !/^\d{6}$/.test(String(code))) return '';
-  return `<a href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Voir commandes Unik" style="text-decoration:none;font-size:10px;line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
+  return `<a href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Voir commandes Unik" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
 }
 
 export function _crossBadge(cc) {

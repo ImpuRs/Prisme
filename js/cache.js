@@ -120,8 +120,8 @@ export function _showCacheBanner() {
     : '—';
   const nArt = _S.finalData.length.toLocaleString('fr');
   const store = _S.selectedMyStore || '—';
-  const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
-  const btnDanger = 'padding:2px 10px;border-radius:4px;background:#7f1d1d;color:#fca5a5;font-size:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)';
+  const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
+  const btnDanger = 'padding:2px 10px;border-radius:4px;background:#7f1d1d;color:#fca5a5;font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.1)';
   banner.innerHTML =
     `<span>📂 Données restaurées du ${dateStr} · ${nArt} articles · Agence ${store}</span>` +
     `<div style="display:flex;gap:6px">` +
