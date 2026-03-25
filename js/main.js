@@ -1120,6 +1120,7 @@ import { initRouter } from './router.js';
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
       const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.clientNomLookup={};_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2: détecter la colonne N° commande avant la boucle — éviter le collapse sur clé 'C'
@@ -1137,6 +1138,8 @@ import { initRouter } from './router.js';
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
+      // B3: monthly sales accumulation
+      if(dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
       // V2 Phase 1: _S.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
@@ -1165,6 +1168,10 @@ import { initRouter } from './router.js';
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
       updatePipeline('consomme','done');
+      // B3: Moteur saisonnier — agrégation par famille
+      {const familyMonthly={};for(const[code,months] of Object.entries(monthlySales)){const fam=_S.articleFamille[code];if(!fam)continue;if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];}
+      _S.seasonalIndex={};for(const[fam,months] of Object.entries(familyMonthly)){const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;_S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);}
+      _S.articleMonthlySales=monthlySales;}
 
       const synth={};
       for(const[code,art] of Object.entries(articleRaw)){const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);let maxP=0,cntP=0,sumP=0;if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
@@ -3249,6 +3256,14 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     overlay.classList.add('active');
   }
 
+  // B3: Season ribbon helper
+  function _seasonRibbon(famille){
+    const idx=_S.seasonalIndex[famille];if(!idx)return'';
+    const MONTHS=['J','F','M','A','M','J','J','A','S','O','N','D'];
+    const cells=idx.map((coeff,i)=>{const bg=coeff>=1.5?'bg-emerald-500':coeff>=1.0?'bg-emerald-300':coeff>=0.5?'bg-amber-300':'bg-red-300';return`<div class="text-center" title="${MONTHS[i]}: ×${coeff}"><div class="text-[8px] t-disabled">${MONTHS[i]}</div><div class="w-5 h-3 rounded-sm ${bg}" style="opacity:${Math.max(0.3,Math.min(1,coeff))}"></div></div>`;}).join('');
+    return`<div class="flex gap-0.5 items-end mt-1" title="Saisonnalité famille">${cells}</div>`;
+  }
+
   function renderDiagnosticPanel(famille,source){
     const panel=document.getElementById('diagnosticPanel');if(!panel)return;
     const isMetierMode=famille.startsWith('@metier:');
@@ -3305,6 +3320,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
         <div>
           <button onclick="switchTab('${srcTab}');closeDiagnostic()" class="text-[11px] t-inverse-muted hover:text-white mb-2 flex items-center gap-1">← ${srcLabel}</button>
           <h2 class="text-xl font-extrabold text-white">${titleHtml}</h2>
+          ${_seasonRibbon(famille)}
           ${agenceCtxHtml}
           <p class="text-[10px] t-inverse-muted mt-1 flex flex-wrap gap-1">Fichiers disponibles : ${filesHtml}</p>
         </div>
