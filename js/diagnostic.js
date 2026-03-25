@@ -939,7 +939,31 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
   if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(_S.territoireReady)switchTab('territoire');}});
   if(l4&&l4.perdus>0){
     const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
-    acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();switchTab('territoire');setTimeout(()=>{const el=document.getElementById('terrChalandiseOverview');if(el)el.scrollIntoView({behavior:'smooth'});},200);}});
+    acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{
+      // 1. Fermer overlay proprement (localisé — ne pas modifier closeDiagnostic)
+      const _ov=document.getElementById('diagnosticOverlay');
+      if(_ov)_ov.classList.remove('active');
+      document.body.style.overflow='';
+      const _mc=document.getElementById('mainContent');
+      if(_mc)_mc.style.overflow='';
+      const _ff=document.getElementById('filterFamille');if(_ff)_ff.value='';
+      // 2. Force reflow synchrone pour que l'overflow soit pris en compte
+      if(_ov)void _ov.offsetHeight;
+      // 3. Switcher sur l'onglet Territoire
+      switchTab('territoire');
+      // 4. Poll 50ms × 20 : attendre le lazy render de l'onglet
+      let _att=0;
+      const _poll=setInterval(()=>{
+        _att++;
+        const _el=document.getElementById('terrChalandiseOverview');
+        if(_el||_att>=20){
+          clearInterval(_poll);
+          // 5. Scroll : reset mainContent puis scrollIntoView smooth
+          if(_mc)_mc.scrollTop=0;
+          if(_el)_el.scrollIntoView({behavior:'smooth'});
+        }
+      },50);
+    }});
   }
   return acts.sort((a,b)=>a.priority-b.priority);
 }
