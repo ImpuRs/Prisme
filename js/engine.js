@@ -575,11 +575,12 @@ export function computeOpportuniteNette() {
     if (!bench) continue;
     const clientFams = _S.clientFamCA ? (_S.clientFamCA[cc] || {}) : {};
     const totalMetierClients = _S.clientsByMetier.get(info.metier)?.size || 1;
+    if (totalMetierClients < 5) continue;
     const missing = [];
     for (const [fam, data] of Object.entries(bench)) {
       if (clientFams[fam]) continue;
       const pct = Math.round((data.nbClients / totalMetierClients) * 100);
-      if (pct < 30) continue;
+      if (pct < 50) continue;
       missing.push({ fam, metierPct: pct, metierCA: Math.round(data.totalCA / data.nbClients) });
     }
     if (missing.length === 0) continue;
