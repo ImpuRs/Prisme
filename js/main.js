@@ -3095,7 +3095,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     leg+='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">';
     for(const key of['AF','AM','AR','BF','BM','BR','CF','CM','CR']){
       const d=mx[key]||{count:0,stockVal:0};const bg=CELL_BG[key];
-      leg+=`<div class="flex items-start gap-2 p-3 rounded-lg bg-white border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="filterByAbcFmr('${key[0]}','${key[1]}')">
+      leg+=`<div class="flex items-start gap-2 p-3 rounded-lg s-card border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="filterByAbcFmr('${key[0]}','${key[1]}')">
         <div class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-extrabold text-[11px] text-white" style="background:${bg}">${key}</div>
         <div class="min-w-0"><div class="text-xs font-bold t-primary">${LABELS[key]}</div><div class="text-[10px] t-tertiary mt-0.5">${RECOS[key]}</div><div class="text-[10px] text-indigo-600 font-bold mt-1">${d.count} art. · ${formatEuro(d.stockVal)}</div></div>
       </div>`;
