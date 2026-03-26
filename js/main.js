@@ -915,7 +915,6 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       const _legAilleurs=c.ca2025>0&&!c._pdvActif?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50" title="Actif chez Legallais (${formatEuro(c.ca2025)}) mais pas en agence">🏪 Legallais ailleurs</span> `:'';
       // Badge canaux hors MAGASIN
       const _horsMag = _S.ventesClientHorsMagasin.get(c.code);
-      console.log('[HorsMagasin] client', c.code, '→', _horsMag);
       const _horsMagBadge = _horsMag && _horsMag.size > 0
         ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 border border-violet-700/50 cursor-pointer" onclick="event.stopPropagation();_toggleHorsMagasin(this,'${c.code}')" title="Commandes hors agence détectées">🌐 ${_horsMag.size} art. hors agence</span> `
         : '';
