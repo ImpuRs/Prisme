@@ -745,6 +745,28 @@ async function runPromoImport(){
 function _activatePromoImportAction(){
   const r=_promoImportResult;
   if(!r||!r.promoCodes.size){showToast('⚠️ Chargez d\'abord une opération promo','warning');return;}
+
+  // Guard : recherche libre active → toast undo
+  if(_promoLastResult&&!_promoLastResult._fromImport){
+    const prevTerms=(_promoLastResult.terms||[]).join(', ')||'précédente';
+    const snapshot=_promoLastResult;
+    let undone=false;
+    const toastId='promoUndoToast';
+    document.getElementById(toastId)?.remove();
+    const toast=document.createElement('div');
+    toast.id=toastId;
+    toast.className='fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg s-card border b-default text-sm font-semibold';
+    toast.innerHTML=`<span>🔄 Recherche <em>${prevTerms}</em> remplacée</span><button id="promoUndoBtn" class="text-xs font-bold c-action underline">Annuler</button>`;
+    document.body.appendChild(toast);
+    const cleanup=()=>{toast.remove();};
+    const timer=setTimeout(()=>{if(!undone)cleanup();},4000);
+    document.getElementById('promoUndoBtn')?.addEventListener('click',()=>{
+      undone=true;clearTimeout(timer);cleanup();
+      _promoLastResult=snapshot;
+      showToast('↩️ Recherche restaurée','success');
+    });
+  }
+
   const allTargets=new Map();
   for(const c of r.sectionF){
     allTargets.set(c.cc,{cc:c.cc,nom:c.nom,metier:c.metier,commercial:c.commercial,ca2025:_S.chalandiseData.get(c.cc)?.ca2025||0,terrCA:0});
