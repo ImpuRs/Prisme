@@ -385,8 +385,9 @@ function _renderPromoActionView(){
   const allClients=new Map();
   for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
   const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
+  const titre=r._fromImport?`📋 ${r._opName||'Opération promo'} — Clients à relancer`:'Top 10 — Qui appeler';
   const clientsEl=document.getElementById('promoActionClients');
-  if(clientsEl)clientsEl.innerHTML=`<div class="flex items-center justify-between mb-2"><span class="text-[10px] font-bold t-tertiary uppercase">Top 10 — Qui appeler</span><button onclick="exportTourneeCSV()" class="text-[10px] font-bold py-1 px-2 rounded c-action i-info-bg border">📄 Fiche tournée CSV</button></div>`+ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
+  if(clientsEl)clientsEl.innerHTML=`<div class="flex items-center justify-between mb-2"><span class="text-[10px] font-bold t-tertiary uppercase">${titre}</span><button onclick="exportTourneeCSV()" class="text-[10px] font-bold py-1 px-2 rounded c-action i-info-bg border">📄 Fiche tournée CSV</button></div>`+ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${c.cc}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${c.nom||c.cc}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${info.metier||''} ${info.commercial?'· '+info.commercial:''}</div></div></div></div>`;}).join('');
   if(ranked.length>0)_showActionArticles(ranked[0].cc);
 }
 function _showActionArticles(cc){
@@ -675,6 +676,20 @@ async function runPromoImport(){
   showToast(`📥 Opération analysée : ${sectionD.length} vendus · ${sectionE.length} non vendus · ${sectionF.length} à relancer`,'success');
 }
 
+function _activatePromoImportAction(){
+  const r=_promoImportResult;
+  if(!r||!r.promoCodes.size){showToast('⚠️ Chargez d\'abord une opération promo','warning');return;}
+  const allTargets=new Map();
+  for(const c of r.sectionF){
+    allTargets.set(c.cc,{cc:c.cc,nom:c.nom,metier:c.metier,commercial:c.commercial,ca2025:_S.chalandiseData.get(c.cc)?.ca2025||0,terrCA:0});
+  }
+  _promoLastResult={terms:[r.opName||'Opération promo'],matchedCodes:r.promoCodes,sectionA:[],sectionB:[...allTargets.values()],sectionC:[],_fromImport:true,_opName:r.opName};
+  _setPromoMode('action');
+  _renderPromoActionView();
+  showToast(`⚡ ${r.sectionF.length} clients chargés pour l'opération "${r.opName||'Promo'}"`, 'success');
+}
+window._activatePromoImportAction=_activatePromoImportAction;
+
 function _renderPromoImportResults(){
   const r=_promoImportResult;if(!r)return;
   const block=document.getElementById('promoImportBlock');if(block)block.classList.remove('hidden');
@@ -703,6 +718,13 @@ function _renderPromoImportResults(){
   }).join('')||'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.ventesClientArticle.size?'Aucun client à relancer identifié':'Données comptoir non disponibles')+'</td></tr>';
   // Show export button
   document.getElementById('promoImportExportBtn').classList.remove('hidden');
+  // Bouton "Préparer les appels"
+  const btnContainer=document.getElementById('promoImportActionBtn');
+  if(btnContainer){
+    const btnHtml=`<div class="mt-3 pt-3 border-t b-light flex items-center justify-between"><p class="text-[11px] t-tertiary">Section F : ${r.sectionF.length} clients à relancer</p><button onclick="_activatePromoImportAction()" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">⚡ Préparer les appels →</button></div>`;
+    btnContainer.innerHTML=btnHtml;
+    btnContainer.classList.remove('hidden');
+  }
 }
 
 function _togglePromoImportSection(sec){
@@ -732,4 +754,4 @@ function exportPromoImportCSV(){
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction };
