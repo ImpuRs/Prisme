@@ -134,20 +134,13 @@ function _renderClient360(clientCode,source){
 
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];
-  const mois=_S.consommeMoisCouverts||3;
-  const caPDVAnnualisé=mois>0?caPDV*12/mois:caPDV;
-  const taux=ca2025>0?Math.round(caPDVAnnualisé/ca2025*100):null;
-  const tauxLabel=mois<3?null:taux;
-  if(hasChal&&ca2025>0){
-    const col=taux!=null?(taux>=50?'c-ok':taux>=20?'c-caution':'c-danger'):'t-disabled';
-    const tauxDisplay=tauxLabel!=null?`~${tauxLabel}%`:'—';
-    const tauxTooltip=tauxLabel!=null?`title="Estimé sur ${mois} mois, annualisé — n'inclut pas la saisonnalité"`:`title="Données insuffisantes (< 3 mois)"`;
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold ${tauxLabel!=null?col:'t-disabled'}" ${tauxTooltip}>${tauxDisplay}</p><p class="text-[10px] t-inverse-muted">Comptoir ${mois}m : ${formatEuro(caPDV)} · Legallais 2025 : ${formatEuro(ca2025)}</p></div>`);
-  }else if(hasChal){
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0 opacity-40"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold t-disabled">—</p><p class="text-[10px] t-inverse-muted">CA Legallais inconnu</p></div>`);
+  if(caPDV>0||artMap){
+    const mois=_S.consommeMoisCouverts||3;
+    const periode=_S.consommePeriodMin&&_S.consommePeriodMax?`${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`:`${mois} mois`;
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Comptoir</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
   }
-  if(caPDV>0){
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Comptoir</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${artMap?artMap.size:0} réf. achetées</p></div>`);
+  if(hasChal&&ca2025>0){
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
   }
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
@@ -249,13 +242,12 @@ function _c360CopyResume(clientCode){
   const artMap=_S.ventesClientArticle?.get(clientCode);
   const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
   const ca2025=info.ca2025||0;
-  const taux=ca2025>0?Math.round(caPDV/ca2025*100):null;
   const lastOrder=_S.clientLastOrder?.get(clientCode);
   const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
   const lines=[
     `CLIENT 360° — ${nom} (${clientCode})`,
     `Métier : ${info.metier||'—'} · Commercial : ${info.commercial||'—'} · ${info.ville||''}`,
-    `CA Comptoir : ${formatEuro(caPDV)}${ca2025>0?` / CA Legallais : ${formatEuro(ca2025)}`:''}${taux!==null?` (${taux}% capté)`:''}`,
+    `CA Comptoir : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
     daysSince!==null?`Dernière commande : il y a ${daysSince}j`:'',
   ].filter(Boolean);
   navigator.clipboard?.writeText(lines.join('\n'))
