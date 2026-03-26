@@ -3315,6 +3315,7 @@ wrapGlossaryTerms(document);
 // D2 — Theme Switch
 initTheme();
 window.cycleTheme = cycleTheme;
+window._preDetectStores = _preDetectStores;
 
 // ── P0 — Event delegation pour les liens Unik (data-unik-client) ──────────
 // Remplace les onclick inline générés par _unikLink() qui cassaient
