@@ -762,12 +762,6 @@
               <p class="text-[10px] font-semibold text-cyan-800">📋 Agences dans la médiane :</p>
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
             </div>
-            <!-- Filtre bassin (multi-select) -->
-            <div class="flex flex-col gap-0.5">
-              <p class="text-[10px] font-semibold text-cyan-800">🗺️ Bassin (agences comparées) :</p>
-              <select id="benchBassinSelect" multiple onchange="onBenchBassinChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs s-card w-full h-24 font-semibold" title="Ctrl+clic pour sélection multiple. Tout sélectionné = médiane complète."><option disabled>Chargez un fichier multi-agences</option></select>
-              <p class="text-[9px] t-disabled">Ctrl+clic pour sélection multiple</p>
-            </div>
             <hr class="b-default my-0.5">
             <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
             <div class="flex items-center gap-1">
