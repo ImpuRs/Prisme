@@ -18,6 +18,7 @@ function _spcBadge(spc){if(spc==null)return'';const color=spc>=70?'c-danger font
 
 // ── 🎯 Ciblage Promo ──
 let _promoLastResult=null;
+function resetPromo(){_promoLastResult=null;}
 let _promoSuggestTimer=null;
 let _promoSuggestIdx=-1;
 let _promoSuggestItems=[];
@@ -253,7 +254,12 @@ function runPromoSearch(){
     for(const c of sectionC){const info=_S.chalandiseData.get(c.cc)||{};c.spc=computeSPC(c.cc,info);}
     sectionC.sort((a,b)=>(b.spc||0)-(a.spc||0));
   }
-  _promoLastResult={matchedCodes,sectionA,sectionB,sectionC,terms,matchedFamilles};
+  // Section C : exclure Inactif/Perdu, trier par ca2025, plafonner à 50
+  {
+    const sC=sectionC.filter(c=>{const info=_S.chalandiseData.get(c.cc)||{};const statut=(info.statut||'').toLowerCase();return!statut.includes('inactif')&&!statut.includes('perdu');});
+    sC.sort((a,b)=>(b.ca2025||0)-(a.ca2025||0));
+    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC:sC.slice(0,50),sectionCTotal:sC.length,terms,matchedFamilles};
+  }
   _populatePromoFilterDropdowns();
   _renderPromoResults();
 }
@@ -388,17 +394,18 @@ function _showActionArticles(cc){
   const r=_promoLastResult;if(!r){el.innerHTML='<p class="t-tertiary text-sm">Aucune recherche active.</p>';return;}
   const info=_S.chalandiseData.get(cc)||{};
   const artMap=_S.ventesClientArticle.get(cc)||new Map();
-  const toPitch=[];
-  for(const code of r.matchedCodes){
-    if(artMap.has(code))continue;
-    const ref=_S.finalData.find(d=>d.code===code);
-    const lib=_S.libelleLookup[code]||(ref?ref.libelle:code);
-    const stock=ref?ref.stockActuel:null;
-    toPitch.push({code,lib,stock});
-  }
-  toPitch.sort((a,b)=>{if((a.stock>0)!==(b.stock>0))return(b.stock>0)-(a.stock>0);return a.lib.localeCompare(b.lib);});
+  const terrCodes=new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+  const horsMagCodes=new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
+  const candidates=[...r.matchedCodes].filter(code=>!artMap.has(code)&&!terrCodes.has(code)&&!horsMagCodes.has(code));
+  const myStore=_S.ventesParMagasin[_S.selectedMyStore]||{};
+  const isPepite=new Set((_S.benchLists?.pepitesOther||[]).map(a=>a.code));
+  candidates.sort((a,b)=>{const pa=isPepite.has(a)?1:0,pb=isPepite.has(b)?1:0;if(pa!==pb)return pb-pa;return(myStore[b]?.countBL||0)-(myStore[a]?.countBL||0);});
+  const enStock=candidates.filter(c=>{const ref=_S.finalData.find(d=>d.code===c);return ref?ref.stockActuel>0:false;});
+  const enRupture=candidates.filter(c=>{const ref=_S.finalData.find(d=>d.code===c);return ref?ref.stockActuel<=0:false;});
+  const pitchCodes=[...enStock.slice(0,5),...enRupture.slice(0,2)];
+  const toPitch=pitchCodes.map(code=>{const ref=_S.finalData.find(d=>d.code===code);const lib=_S.libelleLookup[code]||(ref?ref.libelle:code);const stock=ref?ref.stockActuel:null;return{code,lib,stock};});
   const nom=info.nom||_S.clientNomLookup[cc]||cc;
-  el.innerHTML=`<p class="text-[10px] t-tertiary mb-2">Articles pour <strong>${nom}</strong> :</p>`+(toPitch.length===0?'<p class="t-disabled text-sm">Client achète déjà tous les articles promo au PDV.</p>':`<div class="space-y-1">${toPitch.slice(0,15).map(a=>{const sb=a.stock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':a.stock>0?`<span class="c-ok text-[9px] font-bold">${a.stock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';return`<div class="flex items-center gap-2 py-1 px-2 s-card-alt rounded text-[11px]"><span class="font-mono t-disabled">${a.code}</span><span class="flex-1 truncate">${a.lib}</span>${sb}</div>`;}).join('')}${toPitch.length>15?`<p class="text-[10px] t-disabled mt-1">+ ${toPitch.length-15} articles</p>`:''}</div>`);
+  el.innerHTML=`<p class="text-[10px] t-tertiary mb-2">Articles pour <strong>${nom}</strong> :</p>`+(toPitch.length===0?'<p class="t-disabled text-sm">Client achète déjà tous les articles promo au PDV.</p>':`<div class="space-y-1">${toPitch.slice(0,15).map(a=>{const sb=a.stock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':a.stock>0?`<span class="c-ok text-[9px] font-bold">${a.stock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">⚠️ Rupture — à commander</span>';return`<div class="flex items-center gap-2 py-1 px-2 s-card-alt rounded text-[11px]"><span class="font-mono t-disabled">${a.code}</span><span class="flex-1 truncate">${a.lib}</span>${sb}</div>`;}).join('')}${toPitch.length>15?`<p class="text-[10px] t-disabled mt-1">+ ${toPitch.length-15} articles</p>`:''}</div>`);
 }
 
 function _resetPromoFilters(){
@@ -472,8 +479,9 @@ function _renderPromoResults(){
   document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
   document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-danger">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center t-disabled">'+(_S.territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
   // Section C
-  document.getElementById('promoCountC').textContent=sC.length+(sC.length<r.sectionC.length?' / '+r.sectionC.length:'');
-  document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.classification||'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join(''):'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';
+  document.getElementById('promoCountC').textContent=sC.length+(r.sectionCTotal>sC.length?' / '+r.sectionCTotal:'');
+  {const extraNote=(r.sectionCTotal||0)>50?`<tr><td colspan="6" class="py-2 text-center text-[10px] t-tertiary italic">${(r.sectionCTotal)-50} autres prospects — filtrer par métier ou secteur pour les voir</td></tr>`:'';
+  document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-tertiary">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.classification||'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial||'—'}</td></tr>`).join('')+extraNote:'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';}
   document.getElementById('promoResults').classList.remove('hidden');
   document.getElementById('promoExportBtn').classList.remove('hidden');
   document.getElementById('promoCopyBtn').classList.remove('hidden');
@@ -634,13 +642,17 @@ async function runPromoImport(){
   // Families covered by the promo
   const promoFams=new Set();
   for(const code of promoCodes){const f=_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'';if(f)promoFams.add(f);}
-  // Buyers of the promo articles specifically
-  const promoBuyers=new Set();
-  for(const[cc,artMap] of _S.ventesClientArticle.entries()){for(const code of promoCodes){if(artMap.has(code)){promoBuyers.add(cc);break;}}}
-  // Clients who buy the family but not the promo articles
+  // Helper: true si cc a déjà acheté un article promo (comptoir + territoire + hors magasin)
+  const _dejaAcheteur=(cc,promoCodes)=>{
+    const comptoir=_S.ventesClientArticle.get(cc)||new Map();
+    const terr=new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+    const hors=new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
+    return[...promoCodes].some(code=>comptoir.has(code)||terr.has(code)||hors.has(code));
+  };
+  // Clients who buy the family but not the promo articles (any channel)
   const sectionF=[];
   for(const[cc,artMap] of _S.ventesClientArticle.entries()){
-    if(promoBuyers.has(cc))continue;
+    if(_dejaAcheteur(cc,promoCodes))continue;
     // Check if client buys any article in the promo families
     let famCA=0;let famStr='';
     for(const[code,d] of artMap.entries()){
@@ -720,4 +732,4 @@ function exportPromoImportCSV(){
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo };
