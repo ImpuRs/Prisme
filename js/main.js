@@ -462,7 +462,15 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     const dd=document.getElementById('periodDropdown');if(dd)dd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
-    processData();
+    if(_S._rawDataC&&_S._rawDataS){
+      // Préserver territoire + chalandise + bornes full-période à travers le reset
+      const _terr={territoireReady:_S.territoireReady,territoireLines:_S.territoireLines,terrDirectionData:_S.terrDirectionData,terrContribBySecteur:_S.terrContribBySecteur,terrContribByDirection:_S.terrContribByDirection};
+      const _chal={chalandiseData:_S.chalandiseData,chalandiseReady:_S.chalandiseReady,chalandiseMetiers:_S.chalandiseMetiers,clientsByMetier:_S.clientsByMetier,clientsByCommercial:_S.clientsByCommercial};
+      const _misc={periodFilterStart:_S.periodFilterStart,periodFilterEnd:_S.periodFilterEnd,consommePeriodMinFull:_S.consommePeriodMinFull,consommePeriodMaxFull:_S.consommePeriodMaxFull,_rawDataC:_S._rawDataC,_rawDataS:_S._rawDataS};
+      resetAppState();resetPromo();
+      Object.assign(_S,_terr,_chal,_misc);
+      processDataFromRaw(_S._rawDataC,_S._rawDataS,{isRefilter:true});
+    }else{processData();}
   }
   function buildPeriodFilter(){
     const dd=document.getElementById('periodDropdown');
@@ -1188,7 +1196,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   async function processData(){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
     if(!f1||!f2){showToast('⚠️ Chargez vos 2 fichiers !','warning');return;}
-    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
     resetPromo();
@@ -1198,11 +1206,23 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     const terrParsePromise=f3?parseTerritoireFile(f3).catch(e=>{showToast('⚠️ Lecture territoire: '+e.message,'warning');return null;}):null;
     if(f3){updatePipeline('territoire','pending');}
     showLoading('Lecture…','');await yieldToMain();
+    let dataC,dataS;
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers (parallèle)…');
-      const [dataC,dataS]=await Promise.all([readExcel(f1),readExcel(f2)]);
+      [dataC,dataS]=await Promise.all([readExcel(f1),readExcel(f2)]);
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
+    }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
+    _S._rawDataC=dataC;_S._rawDataS=dataS;
+    await processDataFromRaw(dataC,dataS,{f3,terrParsePromise});
+  }
+
+  // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
+  async function processDataFromRaw(dataC,dataS,opts={}){
+    const{f3=null,terrParsePromise=null,isRefilter=false}=opts;
+    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
+    try{
       const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
       const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();
       if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
@@ -1428,14 +1448,13 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
-      switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
-      const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
+      if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
       if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
-    // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
-    if(f3&&terrParsePromise){
+    // Territoire — parse en background (premier chargement) ou re-rendu (refiltre période)
+    if(!isRefilter&&f3&&terrParsePromise){
       showTerritoireLoading(true);
       updatePipeline('territoire','active');
       try{
@@ -1451,7 +1470,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
         }else{showToast('⚠️ Fichier territoire vide ou non lisible','warning');}
       }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');updatePipeline('territoire','pending');}
       finally{showTerritoireLoading(false);}
-    }
+    }else if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
   }
 
 
