@@ -1388,7 +1388,16 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       if(useMulti&&_S.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of _S.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
-      for(const r of _S.finalData){r.caAnnuel=Math.round(r.V*(r.prixUnitaire||0));}
+      // CA réel depuis sumCA consommé (source : ventesClientArticle)
+      const _caByCode = new Map();
+      for (const [, artMap] of _S.ventesClientArticle.entries()) {
+        for (const [code, data] of artMap.entries()) {
+          _caByCode.set(code, (_caByCode.get(code) || 0) + (data.sumCA || 0));
+        }
+      }
+      for (const r of _S.finalData) {
+        r.caAnnuel = Math.round(_caByCode.get(r.code) || 0);
+      }
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of _S.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
