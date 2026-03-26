@@ -176,6 +176,7 @@ export function resetAppState() {
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0;
+  _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
   _S.ventesParMagasin = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
