@@ -147,6 +147,7 @@ export function _onReloadFiles() {
 export async function _onPurgeCache() {
   await _clearIDB();
   _clearCache();
+  localStorage.removeItem('prisme_selectedStore');
   location.reload();
 }
 
