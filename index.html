@@ -517,7 +517,8 @@
     /* U4 — Anneau focus clavier */
     :focus-visible{outline:2px solid var(--c-action);outline-offset:2px}
 
-  #promoModeToggle{position:sticky;top:var(--navbar-height,48px);z-index:20;background:var(--s-card);backdrop-filter:blur(8px);padding:6px 0;border-bottom:1px solid var(--border-light,rgba(0,0,0,0.08))}
+  #tabPromo{display:flex;flex-direction:column}
+  #promoScrollZone{overflow-y:auto;max-height:calc(100vh - 220px)}
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -1580,11 +1581,13 @@
           </button>
         </div>
       </div>
-      <!-- B4: Mode toggle -->
-      <div id="promoModeToggle" class="flex items-center gap-3 mb-3">
+      <!-- B4: Mode toggle — zone fixe, hors scroll -->
+      <div id="promoModeToggle" class="flex items-center gap-3 mb-0 pb-2 border-b b-default flex-shrink-0">
         <button id="promoModeAnalyse" onclick="_setPromoMode('analyse')" class="text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300" style="background:rgba(59,130,246,.1)">📊 Analyse</button>
         <button id="promoModeAction" onclick="_setPromoMode('action')" class="text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default">⚡ Action</button>
       </div>
+      <!-- ZONE SCROLLABLE — contient import + recherche + résultats -->
+      <div id="promoScrollZone">
       <!-- B4: Action view (hidden by default) -->
       <div id="promoActionView" class="hidden mb-4">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1765,6 +1768,7 @@
           </div>
         </div>
       </div>
+      </div><!-- /promoScrollZone -->
     </div>
 
   </div><!-- /container -->
