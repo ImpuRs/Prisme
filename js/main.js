@@ -907,18 +907,21 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     // Card renderer
     function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
-      const caPDV=c.caPDVN>0?formatEuro(c.caPDVN):'—';
-      const lastOrderFmt=c._lastOrderDate?`<span>Dernière commande : <strong>${fmtDate(c._lastOrderDate)}</strong></span>`:'';
-      const encNom=encodeURIComponent(c.nom||c.code);
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      const _spc=_S.chalandiseReady?computeSPC(c.code,_S.chalandiseData.get(c.code)||{}):null;
-      const _legAilleurs=c.ca2025>0&&!c._pdvActif?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-900/40 text-orange-300 border border-orange-700/50" title="Actif chez Legallais (${formatEuro(c.ca2025)}) mais pas en agence">🏪 Legallais ailleurs</span> `:'';
-      // Badge canaux hors MAGASIN
-      const _horsMag = _S.ventesClientHorsMagasin.get(c.code);
-      const _horsMagBadge = _horsMag && _horsMag.size > 0
-        ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-900/40 text-violet-300 border border-violet-700/50 cursor-pointer" onclick="event.stopPropagation();_toggleHorsMagasin(this,'${c.code}')" title="Commandes hors agence détectées">🌐 ${_horsMag.size} art. hors agence</span> `
-        : '';
-      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="openClient360('${c.code}','cockpit')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1"><span class="font-mono t-disabled text-[10px]">${c.code}</span>${_crossBadge(c.code)}<span class="font-bold text-sm">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}${_clientBadges(c.code)}${_horsMagBadge}${_legAilleurs}${_spcBadge(_spc)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raisonFn(c)}</p><div class="flex flex-wrap gap-3 text-[10px] t-tertiary mt-1"><span>CA Legallais : <strong>${caLeg}</strong></span><span>CA Comptoir : <strong>${caPDV}</strong></span><span>Classif : ${_classifShort(c.classification)}</span>${c.commercial?`<span>Commercial : ${c.commercial}</span>`:''} ${c.ville?`<span>${c.ville}</span>`:''}${lastOrderFmt}</div></div></div>`;
+      const encNom=encodeURIComponent(c.nom||c.code);
+      const artMap=_S.ventesClientArticle.get(c.code);
+      const _rupture=artMap&&_S.cockpitLists.ruptures?.size>0&&[...artMap.keys()].some(code=>_S.cockpitLists.ruptures.has(code));
+      const _reconquete=_S.reconquestCohort.some(r=>r.cc===c.code);
+      const horsMag=_S.ventesClientHorsMagasin.get(c.code);
+      const _badgePrincipal=c._daysSince>30
+        ?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">⏰ ${c._daysSince}j</span>`
+        :_rupture?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span>`
+        :_reconquete?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span>`
+        :'';
+      const _icones=[horsMag?.size>0?'🌐':'',c._strat?'⭐':''].filter(Boolean).join(' ');
+      const raison=(raisonFn(c)||'').slice(0,60);
+      const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';
+      return`<div id="cockpit-card-${c.code}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" onclick="openClient360('${c.code}','cockpit')"><button onclick="event.stopPropagation();_showExcludePrompt('${c.code}','${encNom}','${catKey}')" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1.5"><span class="font-bold text-sm">${c.nom}</span><span class="font-bold text-[11px] t-inverse-muted">${caLeg}</span>${_badgePrincipal}${_icones?`<span class="text-[11px]">${_icones}</span>`:''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${raison}</p><p class="text-[10px] t-tertiary mt-1">${[lastOrderFmt,c.commercial?`Commercial : ${c.commercial}`:''].filter(Boolean).join(' · ')}</p></div></div>`;
     }
     // Full table renderer (revealed by "Voir tous")
     function _fullTable(clients,sortField,listId){
@@ -938,8 +941,8 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       return`<div class="mt-3 pt-2 border-t b-default"><div class="flex items-center gap-2 text-[10px] t-tertiary flex-wrap">👁️ <span>${n} client${n>1?'s':''} masqué${n>1?'s':''}</span><button onclick="_toggleExcludedList('${exclListId}')" class="c-action hover:underline">Voir</button><span>·</span><button onclick="_unexcludeAll('${listId}')" class="c-action hover:underline">Tout réafficher</button></div><div id="${exclListId}" style="display:none" class="mt-1.5 space-y-1 text-[10px]">${rows}</div></div>`;
     }
     // Block renderer: Top 10 cards + optional full list — collapsible accordion
-    function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId){
-      const top10=clients.slice(0,10);
+    function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId,topN=10){
+      const top10=clients.slice(0,topN);
       const total=clients.length;
       const isOpen=listId==='cockpit-sil-full';
       const arrow=isOpen?'▼':'▶';
@@ -954,7 +957,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       html+=`<div class="space-y-2 px-4">`;
       for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg,listId);
       html+=`</div>`;
-      if(total>10){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold c-action hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,sortField,listId);}
+      if(total>topN){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold c-action hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,sortField,listId);}
       html+=_excludedBandeau(listId);
       html+=`</div></div>`;
       return html;
@@ -976,8 +979,26 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     const nbLegAilleurs=urgences.filter(c=>c.ca2025>0).length;
     const nbProspectsPurs=urgences.length-nbLegAilleurs;
     const urgSubtitle=`${nbLegAilleurs>0?`🏪 ${nbLegAilleurs} actifs Legallais hors PDV`:''}${nbLegAilleurs>0&&nbProspectsPurs>0?' · ':''}${nbProspectsPurs>0?`🔍 ${nbProspectsPurs} prospects à qualifier`:''} · {total} clients au total`;
-    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="t-disabled">CA Legallais = CA global tous canaux · CA Comptoir Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${banner}${_opNetBlock}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV',urgSubtitle,'🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Comptoir · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}</div></div></div>`;
+    // ── Top 5 priorités de la semaine ────────────────────────────────
+    const top5=[];const seen=new Set();
+    for(const c of silencieux){if(top5.length>=5)break;if(c._daysSince>60&&c.ca2025>500&&!seen.has(c.code)){top5.push({...c,_top5reason:`Silence ${c._daysSince}j — CA ${formatEuro(c.ca2025)}/an`});seen.add(c.code);}}
+    for(const r of(_S.reconquestCohort||[])){if(top5.length>=5)break;const c=[...silencieux,...developper].find(x=>x.code===r.cc);if(c&&!seen.has(c.code)){top5.push({...c,_top5reason:`Reconquête — historique récent`});seen.add(c.code);}}
+    for(const c of urgences){if(top5.length>=5)break;if(c.ca2025>5000&&!seen.has(c.code)){top5.push({...c,_top5reason:`À capter — ${formatEuro(c.ca2025)} chez Legallais`});seen.add(c.code);}}
+    for(const c of silencieux){if(top5.length>=5)break;const hm=_S.ventesClientHorsMagasin.get(c.code);if(hm?.size>0&&c._daysSince>30&&!seen.has(c.code)){top5.push({...c,_top5reason:`${hm.size} articles hors agence — ${c._daysSince}j silence`});seen.add(c.code);}}
+    _S._top5Semaine=top5;
+    const top5Html=top5.length?`<div class="mb-4 s-card rounded-xl border-2 border-cyan-300 overflow-hidden"><div class="flex items-center justify-between px-4 py-2 i-info-bg border-b"><h4 class="font-extrabold c-action text-sm">⚡ 5 clients à contacter en priorité cette semaine</h4><button onclick="exportTop5CSV()" class="text-[10px] c-action border border-cyan-300 px-2 py-1 rounded font-bold">📥 CSV</button></div><div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2 hover:i-info-bg cursor-pointer" onclick="openClient360('${c.code}','cockpit')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary">${c._top5reason}</span><span class="text-[10px] c-action font-bold">${c.commercial||'—'}</span></div>`).join('')}</div></div>`:'';
+    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires basées sur la zone de chalandise${hasTerr?' et le territoire':''}. <span class="t-disabled">CA Legallais = CA global tous canaux · CA Comptoir Zone = achats dans votre PDV (source chalandise)</span></p></div><div class="p-4">${top5Html}${banner}${_opNetBlock}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Comptoir · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV',urgSubtitle,'🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full',20)}</div></div></div>`;
   }
+  function exportTop5CSV(){
+    const top5=_S._top5Semaine||[];
+    if(!top5.length){showToast('Aucun client dans le top 5','warning');return;}
+    const SEP=';';
+    const lines=['\uFEFFNom;CA Legallais;Dernière commande;Action;Commercial'];
+    for(const c of top5){const lastFmt=c._lastOrderDate?fmtDate(c._lastOrderDate):'—';lines.push([c.nom,c.ca2025>0?c.ca2025:'—',lastFmt,c._top5reason,c.commercial||'—'].join(SEP));}
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_MaSemaine_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);
+  }
+  window.exportTop5CSV=exportTop5CSV;
   function _setCrossFilter(status){
     _S._selectedCrossStatus=status;
     const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
