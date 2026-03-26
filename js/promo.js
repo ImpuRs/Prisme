@@ -263,6 +263,8 @@ function runPromoSearch(){
   }
   _populatePromoFilterDropdowns();
   _renderPromoResults();
+  const btnAction=document.getElementById('promoModeAction');
+  if(btnAction){btnAction.classList.remove('t-disabled','b-default');btnAction.classList.add('c-action','border-orange-300');btnAction.style.background='rgba(249,115,22,.1)';}
 }
 
 let _promoSfMap={}; // code → {famille, sousFamille}
