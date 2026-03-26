@@ -161,8 +161,9 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 // ── Opportunité nette Client×Famille (C1) ──
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 
-// ── Active territoire worker (pour annulation au re-upload) ──
+// ── Active workers (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
+_S._activeClientWorker = null;
 
 // ── Réseau worker (Sprint 2) ──────────────────────────────────
 _S.reseauNomades = [];        // clients actifs dans ≥2 agences dont myStore
@@ -173,8 +174,9 @@ _S._activeReseauWorker = null;
 
 // ── Reset session — appeler en début de processData() ──────────
 export function resetAppState() {
-  // Annuler le worker territoire en cours si présent
+  // Annuler les workers en cours si présents
   if (_S._activeTerrWorker) { try { _S._activeTerrWorker.terminate(); } catch (_) {} _S._activeTerrWorker = null; }
+  if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0;
@@ -206,6 +208,7 @@ export function resetAppState() {
   // Période
   _S.consommePeriodMin = null; _S.consommePeriodMax = null; _S.consommeMoisCouverts = 0;
   _S.consommePeriodMinFull = null; _S.consommePeriodMaxFull = null;
+  _S.periodFilterStart = null; _S.periodFilterEnd = null;
 
   // Insights
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
@@ -218,8 +221,12 @@ export function resetAppState() {
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
   _S.clientsByMetier = new Map(); _S.clientsByCommercial = new Map();
 
-  // Croisement / cockpit export
+  // Croisement / cockpit export / exclusions
   _S.crossingStats = null; _S._cockpitExportData = null;
+  _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
+  // Filtres chalandise
+  _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
+  _S._selectedActivitesPDV = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false;
 
   // KPI history
   _S.kpiHistory = [];
