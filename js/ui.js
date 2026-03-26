@@ -720,7 +720,7 @@ export function renderCockpitBriefing() {
 
   // 6. Concentration Client (ICC)
   if (_S._iccData && _S._iccData.alerte) {
-    sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA Comptoir`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA Comptoir sur les 3 premiers clients')} du CA Comptoir. Risque si l'un d'eux part.` });
+    sentences.push({ icon: '⚠️', color: 'c-caution', text: `Concentration client\u00a0: ${n(_S._iccData.top3.length + ' clients', 'c-caution', `Top 3 clients = ${_S._iccData.top3Pct}% du CA Magasin`)} représentent ${n(_S._iccData.top3Pct + '%', 'c-caution', 'Part du CA Magasin sur les 3 premiers clients')} du CA Magasin. Risque si l'un d'eux part.` });
   }
 
   // 7. Fragilité Produit (1-2 clients)
@@ -959,7 +959,7 @@ export function cycleTheme() {
 export function exportCockpitResume() {
   const lines = [];
   lines.push(`COCKPIT ${_S.selectedMyStore} — ${new Date().toLocaleDateString('fr-FR')}`);
-  lines.push(`CA Comptoir : ${formatEuro(_S._briefingData?.caComptoir || 0)}`);
+  lines.push(`CA Magasin : ${formatEuro(_S._briefingData?.caComptoir || 0)}`);
   lines.push(`Taux de service : ${_S._briefingData?.sr ?? '—'}%`);
   lines.push(`Ruptures : ${_S.cockpitLists.ruptures?.size ?? 0} · Dormants : ${_S.cockpitLists.dormants?.size ?? 0}`);
   lines.push('');
