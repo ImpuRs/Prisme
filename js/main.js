@@ -2585,7 +2585,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function onObsFilterChange(){
-    _S.obsFilterUnivers=document.getElementById('_S.obsFilterUnivers')?.value||'';
+    _S.obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
     _S.obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
     const t0=performance.now();computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
@@ -2593,7 +2593,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   function resetObsFilters(){
     _S.obsFilterUnivers='';_S.obsFilterMinCA=0;
-    const u=document.getElementById('_S.obsFilterUnivers');if(u)u.value='';
+    const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
     const t0=performance.now();computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
