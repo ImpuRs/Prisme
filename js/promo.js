@@ -382,7 +382,7 @@ function exportTourneeCSV(){
 }
 function _renderPromoActionView(){
   const r=_promoLastResult;
-  if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML=`<div class="text-center py-8"><p class="text-sm t-tertiary mb-3">Chargez d'abord une opération promo pour préparer vos appels.</p><button onclick="document.getElementById('promoImportZone').open=true;document.getElementById('promoImportZone').scrollIntoView({behavior:'smooth'})" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">📋 Charger une opération promo</button></div>`;return;}
+  if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML=`<div class="text-center py-8"><p class="text-sm t-tertiary mb-3">Chargez d'abord une opération promo pour préparer vos appels.</p><button onclick="_setPromoMode('analyse');setTimeout(()=>{const z=document.getElementById('promoImportZone');if(z){z.open=true;z.scrollIntoView({behavior:'smooth'});}},100)" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">📋 Charger une opération promo</button></div>`;return;}
   const allClients=new Map();
   for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
   const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
