@@ -43,6 +43,8 @@ export function parseExcelDate(v) {
     if (p.length === 3) {
       let [a, b, d] = p.map(x => parseInt(x, 10));
       if (isNaN(a) || isNaN(b) || isNaN(d)) return null;
+      // ISO YYYY-MM-DD : premier segment est déjà l'année 4 chiffres
+      if (a >= 100) return new Date(a, b - 1, d);
       if (d < 100) d += 2000;
       if (a > 12) return new Date(d, b - 1, a);
       if (b > 12) return new Date(d, a - 1, b);
