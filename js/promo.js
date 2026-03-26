@@ -167,6 +167,7 @@ function runPromoSearch(){
   }
 
   // 2. Matched families
+  const tb=document.getElementById('promoTargetingBlock');if(tb)tb.classList.remove('hidden');
   const matchedFamilles=new Set();
   for(const c of matchedCodes){
     const f=_S.articleFamille[c]||(_S.finalData.find(r=>r.code===c)||{}).famille;
@@ -724,7 +725,7 @@ function _renderPromoImportResults(){
   // Bouton "Préparer les appels"
   const btnContainer=document.getElementById('promoImportActionBtn');
   if(btnContainer){
-    const btnHtml=`<div class="mt-3 pt-3 border-t b-light flex items-center justify-between"><p class="text-[11px] t-tertiary">Section F : ${r.sectionF.length} clients à relancer</p><button onclick="_activatePromoImportAction()" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">⚡ Préparer les appels →</button></div>`;
+    const btnHtml=r.sectionF.length>0?`<div class="mt-3 pt-3 border-t b-light flex items-center justify-between"><p class="text-[11px] t-tertiary">Section F : ${r.sectionF.length} clients à relancer</p><button onclick="_activatePromoImportAction()" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">⚡ Préparer les appels →</button></div>`:`<div class="mt-3 pt-3 border-t b-light"><p class="text-[11px] t-disabled">Aucun client à relancer pour cette opération.</p></div>`;
     btnContainer.innerHTML=btnHtml;
     btnContainer.classList.remove('hidden');
   }
