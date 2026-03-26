@@ -768,10 +768,16 @@ export function renderDecisionQueue() {
     const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
     const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
     const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
-    return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
+    const score = d.score || 0;
+    const priorityLabel = score >= 70 ? '<span class="text-[9px] font-bold c-danger">🔥 Critique</span>'
+                        : score >= 40 ? '<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>'
+                        : '<span class="text-[9px] t-disabled">📌 À surveiller</span>';
+    const itemOpacity = score < 40 ? 'opacity-60' : '';
+    return `<div class="dq-item dq-item-click ${itemOpacity}" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
         <div class="dq-label">${cfg.icon} ${d.label}</div>
+        <div class="mt-0.5">${priorityLabel}</div>
         ${whyHtml}
       </div>
       ${impactHtml}
@@ -948,4 +954,22 @@ export function cycleTheme() {
   // Update button icon
   const btn = document.getElementById('themeToggle');
   if (btn) btn.textContent = next === 'dark' ? '🌙' : '🌗';
+}
+
+// ── P6: Export résumé Cockpit vers le presse-papier ──────────
+export function exportCockpitResume() {
+  const lines = [];
+  lines.push(`COCKPIT ${_S.selectedMyStore} — ${new Date().toLocaleDateString('fr-FR')}`);
+  lines.push(`CA Comptoir : ${formatEuro(_S._briefingData?.caComptoir || 0)}`);
+  lines.push(`Taux de service : ${_S._briefingData?.sr ?? '—'}%`);
+  lines.push(`Ruptures : ${_S.cockpitLists.ruptures?.size ?? 0} · Dormants : ${_S.cockpitLists.dormants?.size ?? 0}`);
+  lines.push('');
+  lines.push('ACTIONS PRIORITAIRES :');
+  for (const d of (_S.decisionQueueData || []).slice(0, 5)) {
+    const score = d.score || 0;
+    const icon = score >= 70 ? '🔥' : score >= 40 ? '⚡' : '📌';
+    lines.push(`${icon} ${d.label}`);
+  }
+  navigator.clipboard.writeText(lines.join('\n'));
+  showToast('Résumé Cockpit copié ✅', 'success');
 }
