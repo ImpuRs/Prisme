@@ -98,7 +98,7 @@ function _renderClient360(clientCode,source){
     <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">${backLabel}</button>
     <div class="flex-1 mx-2">
       <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-        <span class="font-mono t-disabled text-xs">${clientCode}</span>
+        <span class="font-mono t-disabled text-xs">${escapeHtml(clientCode)}</span>
         ${statusBadge}
         ${classifBadge}
       </div>
