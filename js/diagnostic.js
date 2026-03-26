@@ -44,6 +44,212 @@ function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn
 
 function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
 
+function openClient360(clientCode,source){
+  const overlay=document.getElementById('articlePanelOverlay');
+  const panel=document.getElementById('articlePanel');
+  if(!overlay||!panel)return;
+  overlay.classList.add('active');
+  panel.style.maxWidth='780px';
+  panel.innerHTML=_renderClient360(clientCode,source);
+}
+
+function _renderClient360(clientCode,source){
+  // ── Données client ──────────────────────────────────────────────
+  const info=_S.chalandiseData?.get(clientCode)||{};
+  const nom=_S.clientNomLookup[clientCode]||info.nom||clientCode;
+  const artMap=_S.ventesClientArticle?.get(clientCode);
+  const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
+  const lastOrder=_S.clientLastOrder?.get(clientCode);
+  const today=new Date();
+  const daysSince=lastOrder?Math.round((today-lastOrder)/86400000):null;
+  const ca2025=info.ca2025||0;
+  const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+  const hasChal=_S.chalandiseReady;
+  const hasTerr=_S.territoireReady&&_S.territoireLines?.length>0;
+
+  // ── Classification + badge statut ───────────────────────────────
+  const classif=_normalizeClassif?.(info.classification)||'';
+  const classifColors={'FID Pot+':'bg-emerald-700 text-emerald-100','FID Pot-':'bg-gray-600 text-gray-200','OCC Pot+':'bg-blue-700 text-blue-100','OCC Pot-':'bg-blue-900 text-blue-300','NC':'bg-slate-700 text-slate-300'};
+  const classifBadge=classif?`<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${classifColors[classif]||'bg-slate-700 text-slate-300'}">${classif}</span>`:'';
+
+  // ── Statut client ────────────────────────────────────────────────
+  let statusBadge='',statusBg='';
+  if(!artMap&&ca2025===0){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-600 text-slate-200">PROSPECT</span>';
+    statusBg='';
+  }else if(!artMap&&ca2025>0){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-orange-100">HORS AGENCE</span>';
+    statusBg='border-l-4 border-orange-500';
+  }else if(daysSince!==null&&daysSince>=30){
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-red-100">SILENCIEUX</span>';
+    statusBg='border-l-4 border-red-500';
+  }else{
+    statusBadge='<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-700 text-emerald-100">ACTIF</span>';
+    statusBg='border-l-4 border-emerald-500';
+  }
+
+  // ── Retour contextuel ────────────────────────────────────────────
+  const sourceLabels={terrain:'← Le Terrain',cockpit:'← Cockpit',radar:'← Radar',reseau:'← Le Réseau',default:'← Retour'};
+  const backLabel=sourceLabels[source]||sourceLabels.default;
+
+  // ── HEADER ───────────────────────────────────────────────────────
+  const header=`<div class="flex items-center gap-2 mb-3">
+    <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">${backLabel}</button>
+    <div class="flex-1 mx-2">
+      <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+        <span class="font-mono t-disabled text-xs">${clientCode}</span>
+        ${statusBadge}
+        ${classifBadge}
+      </div>
+      <h2 class="font-extrabold text-base leading-tight text-white">${nom}</h2>
+      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville,info.metier,info.commercial?`Commercial : ${info.commercial}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
+    </div>
+    <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
+  </div>`;
+
+  // ── ACTION (ligne 2) ─────────────────────────────────────────────
+  let actionText='',actionBg='';
+  if(!artMap&&ca2025===0){
+    actionText='Prospect — aucun historique d\'achat connu. À qualifier.';
+    actionBg='bg-slate-700/50 border-slate-600';
+  }else if(!artMap&&ca2025>0){
+    actionText=`Actif chez Legallais (${formatEuro(ca2025)}) mais jamais venu en agence — opportunité de captation directe.`;
+    actionBg='bg-orange-900/40 border-orange-700';
+  }else if(daysSince!==null&&daysSince>=60){
+    actionText=`Client silencieux depuis ${daysSince}j — à risque de perte définitive. Appeler cette semaine.`;
+    actionBg='bg-red-900/40 border-red-700';
+  }else if(daysSince!==null&&daysSince>=30){
+    actionText=`${daysSince}j sans commande — à relancer avant que ça devienne critique.`;
+    actionBg='bg-orange-900/40 border-orange-700';
+  }else if(horsMag&&horsMag.size>0){
+    const nbOpp=[...horsMag.keys()].filter(c=>!artMap?.has(c)).length;
+    actionText=nbOpp>0?`Client actif · ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence que vous ne lui vendez pas — voir onglet Opportunités.`:'Client actif — aucune action urgente.';
+    actionBg=nbOpp>0?'bg-blue-900/40 border-blue-700':'bg-emerald-900/40 border-emerald-700';
+  }else{
+    actionText='Client actif — aucune action urgente.';
+    actionBg='bg-emerald-900/40 border-emerald-700';
+  }
+  const actionBar=`<div class="mb-3 px-3 py-2 rounded-lg border ${actionBg}"><p class="text-xs font-bold t-inverse">⚡ ${actionText}</p></div>`;
+
+  // ── SUMMARY BAR ──────────────────────────────────────────────────
+  const cards=[];
+  if(hasChal&&ca2025>0){
+    const taux=Math.round(caPDV/ca2025*100);
+    const col=taux>=50?'c-ok':taux>=20?'c-caution':'c-danger';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold ${col}">${taux}%</p><p class="text-[10px] t-inverse-muted">${formatEuro(caPDV)} / ${formatEuro(ca2025)}</p></div>`);
+  }else if(hasChal){
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0 opacity-40"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold t-disabled">—</p><p class="text-[10px] t-inverse-muted">CA Legallais inconnu</p></div>`);
+  }
+  if(caPDV>0){
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Comptoir</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${artMap?artMap.size:0} réf. achetées</p></div>`);
+  }
+  if(daysSince!==null){
+    const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
+    const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j</p><p class="text-[10px] t-inverse-muted">${silLabel}</p></div>`);
+  }
+  const summaryBar=cards.length?`<div class="flex gap-3 mb-4">${cards.join('')}</div>`:'';
+
+  // ── ONGLETS Ici / Ailleurs / Opportunités ────────────────────────
+  const iciArts=artMap?[...artMap.entries()].sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,20):[];
+
+  const ailleursMap=new Map();
+  if(horsMag)for(const[code,d]of horsMag.entries()){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=d.ca;}
+  if(hasTerr)for(const l of _S.territoireLines){if(l.clientCode!==clientCode)continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
+  const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
+
+  const oppArts=ailleursArts.filter(([code])=>{
+    if(artMap?.has(code))return false;
+    const r=_S.finalData?.find(f=>f.code===code);
+    return!r||r.stockActuel===0||(r.ancienMin||0)===0;
+  }).slice(0,20);
+
+  const tabs=[];
+  if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
+  if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
+  if(oppArts.length)tabs.push({id:'opport',label:`💡 Opportunités — ${oppArts.length}`});
+
+  const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Comptoir'};
+
+  let tabsHtml='';
+  if(tabs.length){
+    const firstTab=tabs[0].id;
+    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" onclick="_c360SwitchTab('${clientCode}','${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+
+    const iciRows=iciArts.map(([code,d])=>{
+      const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
+      const r=_S.finalData?.find(f=>f.code===code);
+      const stock=r?(r.stockActuel>0?`✅ ${r.stockActuel}`:'⚠️ 0'):'❌';
+      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td><td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
+    }).join('');
+
+    const ailleursRows=ailleursArts.map(([code,d])=>{
+      const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
+      const canalLabel=CANAL_LABELS[d.canal]||d.canal||'—';
+      const alreadyHere=artMap?.has(code);
+      return`<tr class="border-b b-dark hover:s-panel-inner ${alreadyHere?'opacity-50':''}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${canalLabel}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${alreadyHere?'✅ aussi ici':'⚠️ pas ici'}</td></tr>`;
+    }).join('');
+
+    const oppRows=oppArts.map(([code,d])=>{
+      const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
+      const r=_S.finalData?.find(f=>f.code===code);
+      const statut=!r?'❌ Non référencé':r.ancienMin===0?'📦 MIN = 0':'⚠️ Rupture';
+      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-right font-bold c-caution">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-[10px] c-danger">${statut}</td></tr>`;
+    }).join('');
+
+    const tabContents={
+      ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${iciRows}</tbody></table>`,
+      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Statut</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      opport:`<p class="text-[10px] t-inverse-muted mb-2">Articles que ce client achète hors agence, absents ou non référencés dans votre stock.</p><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA hors agence</th><th class="py-1 px-2 text-left">Statut stock</th></tr></thead><tbody>${oppRows}</tbody></table>`
+    };
+
+    tabsHtml=`<div class="flex gap-1 mb-0 border-b b-dark">${tabBtns}</div>
+      <div class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
+        ${tabs.map(t=>`<div id="c360content-${t.id}" class="${t.id===firstTab?'':'hidden'}">${tabContents[t.id]||''}</div>`).join('')}
+      </div>`;
+  }else{
+    tabsHtml=`<p class="t-disabled text-sm text-center py-4">Aucun historique d'achat disponible pour ce client.</p>`;
+  }
+
+  // ── COPIER RÉSUMÉ ────────────────────────────────────────────────
+  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button onclick="_c360CopyResume('${clientCode}')" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
+
+  return header+actionBar+summaryBar+tabsHtml+copyBtn;
+}
+
+function _c360SwitchTab(clientCode,tabId){
+  ['ici','ailleurs','opport'].forEach(id=>{
+    const el=document.getElementById(`c360content-${id}`);
+    const btn=document.getElementById(`c360tab-${id}`);
+    if(el)el.classList.add('hidden');
+    if(btn){btn.classList.remove('border-cyan-400','text-cyan-300');btn.classList.add('border-transparent','t-disabled');}
+  });
+  const active=document.getElementById(`c360content-${tabId}`);
+  const activeBtn=document.getElementById(`c360tab-${tabId}`);
+  if(active)active.classList.remove('hidden');
+  if(activeBtn){activeBtn.classList.remove('border-transparent','t-disabled');activeBtn.classList.add('border-cyan-400','text-cyan-300');}
+}
+
+function _c360CopyResume(clientCode){
+  const info=_S.chalandiseData?.get(clientCode)||{};
+  const nom=_S.clientNomLookup?.[clientCode]||info.nom||clientCode;
+  const artMap=_S.ventesClientArticle?.get(clientCode);
+  const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+  const ca2025=info.ca2025||0;
+  const taux=ca2025>0?Math.round(caPDV/ca2025*100):null;
+  const lastOrder=_S.clientLastOrder?.get(clientCode);
+  const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
+  const lines=[
+    `CLIENT 360° — ${nom} (${clientCode})`,
+    `Métier : ${info.metier||'—'} · Commercial : ${info.commercial||'—'} · ${info.ville||''}`,
+    `CA Comptoir : ${formatEuro(caPDV)}${ca2025>0?` / CA Legallais : ${formatEuro(ca2025)}`:''}${taux!==null?` (${taux}% capté)`:''}`,
+    daysSince!==null?`Dernière commande : il y a ${daysSince}j`:'',
+  ].filter(Boolean);
+  navigator.clipboard?.writeText(lines.join('\n'))
+    .then(()=>showToast('📋 Résumé copié','success'))
+    .catch(()=>showToast('❌ Erreur copie','error'));
+}
+
 function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
@@ -1129,4 +1335,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter };
+export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume };
