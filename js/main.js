@@ -1456,9 +1456,10 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   function computePhantomArticles(){
     _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
     if(!_S.finalData.length)return;
-    // Articles ayant au moins un achat PDV (comptoir) dans articleClients
+    // soldAtPDV = articles vendus en MAGASIN uniquement (ventesClientArticle = canal MAGASIN)
+    // _S.articleClients agrège tous canaux — utiliser ventesClientArticle (filtré MAGASIN) à la place
     const soldAtPDV=new Set();
-    for(const[code,clients]of _S.articleClients.entries()){if(clients.size>0)soldAtPDV.add(code);}
+    for(const[,artMap]of _S.ventesClientArticle.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
     _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
