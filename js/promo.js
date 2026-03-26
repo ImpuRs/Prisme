@@ -735,7 +735,7 @@ function _renderPromoImportResults(){
   const sold=r.sectionD.length,unsold=r.sectionE.length,retarget=r.sectionF.length;
   const totalCA=r.sectionD.reduce((s,x)=>s+x.caTotal,0);
   const sumEl=document.getElementById('promoImportSummary');
-  if(sumEl)sumEl.innerHTML=`<strong>${r.promoCodes.size}</strong> articles opération · <span class="c-ok">${sold} vendus (${formatEuro(totalCA)} CA Comptoir)</span> · <span class="c-danger">${unsold} non vendus</span> · <span class="c-caution">${retarget} clients à relancer</span>${r.opName?` · <em>${r.opName}</em>`:''}`;
+  if(sumEl)sumEl.innerHTML=`<strong>${r.promoCodes.size}</strong> articles opération · <span class="c-ok">${sold} vendus (${formatEuro(totalCA)} CA Magasin)</span> · <span class="c-danger">${unsold} non vendus</span> · <span class="c-caution">${retarget} clients à relancer</span>${r.opName?` · <em>${r.opName}</em>`:''}`;
   // Section D
   document.getElementById('promoImportCountD').textContent=sold;
   document.getElementById('promoImportTableD').innerHTML=r.sectionD.slice(0,200).map(x=>{
@@ -778,7 +778,7 @@ function exportPromoImportCSV(){
   const r=_promoImportResult;if(!r){showToast('Lancez d\'abord l\'analyse','warning');return;}
   const SEP=';';const lines=[`ANALYSE OPÉRATION PROMO${r.opName?' — '+r.opName:''} — ${r.promoCodes.size} articles`,''];
   lines.push('=== D. ARTICLES VENDUS AU COMPTOIR ===');
-  lines.push(['Code','Libellé','Qté PDV','CA Comptoir','Nb clients','Stock'].join(SEP));
+  lines.push(['Code','Libellé','Qté PDV','CA Magasin','Nb clients','Stock'].join(SEP));
   for(const x of r.sectionD)lines.push([x.code,`"${x.lib}"`,Math.round(x.qtyTotal),x.caTotal.toFixed(2).replace('.',','),x.nbClients,x.stock===null?'non référencé':x.stock].join(SEP));
   lines.push('');lines.push('=== E. ARTICLES NON VENDUS ===');
   lines.push(['Code','Libellé','Rayon','Stock','Famille'].join(SEP));
