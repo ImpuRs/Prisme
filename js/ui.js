@@ -772,8 +772,7 @@ export function renderDecisionQueue() {
     const priorityLabel = score >= 70 ? '<span class="text-[9px] font-bold c-danger">🔥 Critique</span>'
                         : score >= 40 ? '<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>'
                         : '<span class="text-[9px] t-disabled">📌 À surveiller</span>';
-    const itemOpacity = score < 40 ? 'opacity-60' : '';
-    return `<div class="dq-item dq-item-click ${itemOpacity}" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
+    return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
         <div class="dq-label">${cfg.icon} ${d.label}</div>
