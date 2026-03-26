@@ -868,19 +868,18 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     function _silColor(c){return c._daysSince>90?'c-danger':c._daysSince>60?'c-caution':'c-caution';}
     function _urgRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
-      const classif=_normalizeClassif(c.classification);
-      if(c._globActif&&!c._pdvActif)return`${caFmt} chez Legallais, ne vient pas en agence — potentiel captation`;
-      if(c._perdu&&classif==='FID Pot+')return'Client fidèle perdu récemment — reconquête prioritaire';
-      if(c._perdu&&classif==='OCC Pot+')return`Client occasionnel perdu — ${caFmt} de CA à récupérer`;
-      return'En perte de vitesse — relancer avant perte définitive';
+      if(c._globActif&&!c._pdvActif)return`Jamais venu en agence — ${caFmt} chez Legallais à capter`;
+      if(c._perdu)return`Ancien client PDV perdu — ${caFmt} à récupérer`;
+      return`Actif Legallais hors agence — ${caFmt} de potentiel`;
     }
     function _devRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
       const classif=_normalizeClassif(c.classification);
-      if(c._prospect&&classif==='FID Pot+')return'Prospect FID+ à potentiel — à convaincre en priorité';
-      if(c._prospect)return`Prospect ${classif} — ${c.ca2025>0?caFmt+' CA Legallais estimé':'à qualifier'}`;
-      if(c._perdu&&classif==='FID Pot+')return`Client fidèle à reconquérir — ${caFmt} en jeu`;
-      return`${caFmt} de CA à récupérer`;
+      if(c._perdu&&classif==='FID Pot+')return`Ancien client fidèle à reconquérir — ${caFmt} en jeu`;
+      if(c._perdu)return`Client perdu à reconquérir — ${caFmt} de CA historique`;
+      if(c._prospect&&classif==='FID Pot+')return`Prospect FID+ à fort potentiel — ${caFmt} estimé`;
+      if(c._prospect)return`Prospect — ${caFmt} de CA Legallais estimé`;
+      return`Potentiel à développer — ${caFmt}`;
     }
     function _fidRaison(c){
       if(_normalizeClassif(c.classification)==='FID Pot+')return'Top client en agence — à fidéliser absolument';

@@ -113,8 +113,11 @@ function _renderClient360(clientCode,source){
   if(!artMap&&ca2025===0){
     actionText='Prospect — aucun historique d\'achat connu. À qualifier.';
     actionBg='bg-slate-700/50 border-slate-600';
+  }else if(!artMap&&ca2025>0&&_isPerdu(info)){
+    actionText=`Ancien client PDV — à reconquérir. ${formatEuro(ca2025)} de CA historique.`;
+    actionBg='bg-orange-900/40 border-orange-700';
   }else if(!artMap&&ca2025>0){
-    actionText=`Actif chez Legallais (${formatEuro(ca2025)}) mais jamais venu en agence — opportunité de captation directe.`;
+    actionText=`Jamais venu en agence — ${formatEuro(ca2025)} chez Legallais. Opportunité directe.`;
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(daysSince!==null&&daysSince>=60){
     actionText=`Client silencieux depuis ${daysSince}j — à risque de perte définitive. Appeler cette semaine.`;
