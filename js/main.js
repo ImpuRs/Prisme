@@ -1164,38 +1164,6 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   }
   function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
-  // Pré-détection des agences dès le chargement du fichier consommé
-  async function _preDetectStores(file) {
-    if (!file) return;
-    try {
-      const data = await readExcel(file);
-      const storesFound = new Set();
-      for (const row of data.slice(0, 500)) {
-        const s = extractStoreCode(row);
-        if (s) storesFound.add(s);
-      }
-      if (storesFound.size > 1) {
-        const savedStore = localStorage.getItem('prisme_selectedStore');
-        const sel = document.getElementById('selectMyStore');
-        const selector = document.getElementById('storeSelector');
-        sel.innerHTML = '<option value="">— Choisissez votre agence —</option>';
-        [...storesFound].sort().forEach(s => {
-          const o = document.createElement('option');
-          o.value = s; o.textContent = s;
-          if (s === savedStore) o.selected = true;
-          sel.appendChild(o);
-        });
-        selector.classList.remove('hidden');
-        const btn = document.getElementById('btnCalculer');
-        if (!savedStore || !storesFound.has(savedStore)) {
-          if (btn) { btn.disabled = true; btn.title = "Sélectionnez votre agence d'abord"; }
-        } else {
-          if (btn) { btn.disabled = false; btn.title = ''; }
-        }
-      }
-    } catch(e) { /* silencieux — la détection est optionnelle */ }
-  }
-
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
@@ -1227,7 +1195,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
       _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=_S.storesIntersection.size>1;
-      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">— Choisissez votre agence —</option>';[..._S.storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});const _savedStore=localStorage.getItem('prisme_selectedStore');const _defaultStore=_savedStore&&_S.storesIntersection.has(_savedStore)?_savedStore:'';_S.selectedMyStore=_defaultStore;sel.value=_defaultStore;const _btnCalc=document.getElementById('btnCalculer');if(!_defaultStore){if(_btnCalc){_btnCalc.disabled=true;_btnCalc.title="Sélectionnez votre agence d'abord";}}else{if(_btnCalc){_btnCalc.disabled=false;_btnCalc.title='';}}document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;}
+      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[..._S.storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});if(!_S.selectedMyStore&&_S.storesIntersection.has('AG22'))_S.selectedMyStore='AG22';if(!_S.selectedMyStore)_S.selectedMyStore=[..._S.storesIntersection][0];sel.value=_S.selectedMyStore;document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;}
       else{document.getElementById('storeSelector').classList.add('hidden');if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
       const useMulti=hasMulti&&_S.selectedMyStore;
 
@@ -3010,8 +2978,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       if(!_S.storeCountConsomme)_S.storeCountConsomme=Object.keys(_S.ventesParMagasin).length;
       if(!_S.storeCountStock)_S.storeCountStock=Object.keys(_S.stockParMagasin).length;
       if(!_S.selectedMyStore&&_S.storesIntersection.size>0){
-        const _savedStore2=localStorage.getItem('prisme_selectedStore');
-        _S.selectedMyStore=(_savedStore2&&_S.storesIntersection.has(_savedStore2))?_savedStore2:[..._S.storesIntersection][0];
+        _S.selectedMyStore=_S.storesIntersection.has('AG22')?'AG22':[..._S.storesIntersection][0];
         console.log('[PRISME] _S.selectedMyStore sélectionné automatiquement :', _S.selectedMyStore);
       }
       // ── Vérification de cohérence : _S.finalData contaminé ? ──
@@ -3147,8 +3114,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 window.switchTab = switchTab;
 window.processData = processData;
 window.showToast = showToast;
-function onStoreSelected(val){if(!val)return;_S.selectedMyStore=val;localStorage.setItem('prisme_selectedStore',val);const btn=document.getElementById('btnCalculer');if(btn){btn.disabled=false;btn.title='';}}
-window.onStoreSelected = onStoreSelected;
+
 window.renderAll = renderAll;
 window.onFilterChange = onFilterChange;
 window.debouncedRender = debouncedRender;
@@ -3315,7 +3281,6 @@ wrapGlossaryTerms(document);
 // D2 — Theme Switch
 initTheme();
 window.cycleTheme = cycleTheme;
-window._preDetectStores = _preDetectStores;
 
 // ── P0 — Event delegation pour les liens Unik (data-unik-client) ──────────
 // Remplace les onclick inline générés par _unikLink() qui cassaient
