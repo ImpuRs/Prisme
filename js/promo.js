@@ -777,6 +777,7 @@ function _activatePromoImportAction(){
   showToast(`⚡ ${r.sectionF.length} clients chargés pour l'opération "${r.opName||'Promo'}"`, 'success');
 }
 window._activatePromoImportAction=_activatePromoImportAction;
+window._renderPromoImportResults=_renderPromoImportResults;
 
 function _renderPromoImportResults(){
   const r=_promoImportResult;if(!r)return;
@@ -798,9 +799,18 @@ function _renderPromoImportResults(){
     const stockCell=x.stock===null?'—':`${x.stock}`;
     return`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-disabled">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center text-xs">${x.rayonStatus}</td><td class="py-1 px-2 text-center">${stockCell}</td><td class="py-1 px-2 t-tertiary text-[10px] truncate max-w-[120px]">${x.famille||'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="5" class="py-3 text-center c-ok font-semibold">✅ Tous les articles promo ont été vendus au comptoir</td></tr>';
-  // Section F
-  document.getElementById('promoImportCountF').textContent=retarget;
-  document.getElementById('promoImportTableF').innerHTML=r.sectionF.slice(0,200).map(x=>{
+  // Section F — filtre commercial
+  const commerciauxF=[...new Set(r.sectionF.map(x=>x.commercial).filter(Boolean))].sort();
+  const filterCommEl=document.getElementById('promoImportFilterCommercial');
+  if(filterCommEl){
+    const curVal=filterCommEl.value;
+    filterCommEl.innerHTML='<option value="">Tous les commerciaux</option>'+commerciauxF.map(c=>`<option value="${c}">${c}</option>`).join('');
+    if(commerciauxF.includes(curVal))filterCommEl.value=curVal;
+  }
+  const filtreComm=filterCommEl?.value||'';
+  const sectionFFiltered=filtreComm?r.sectionF.filter(x=>x.commercial===filtreComm):r.sectionF;
+  document.getElementById('promoImportCountF').textContent=sectionFFiltered.length+(sectionFFiltered.length<retarget?' / '+retarget:'');
+  document.getElementById('promoImportTableF').innerHTML=sectionFFiltered.slice(0,200).map(x=>{
     const statutBadge=x.statut?`<span class="text-[9px] s-hover t-disabled border b-default rounded px-1 font-normal ml-1">${x.statut}</span>`:'';
     return`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-disabled">${x.cc}</td><td class="py-1 px-2 font-semibold">${x.nom}${statutBadge}</td><td class="py-1 px-2 t-tertiary">${x.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${x.famCA>0?formatEuro(x.famCA):'—'}</td><td class="py-1 px-2 t-tertiary text-[10px]">${x.raison}</td><td class="py-1 px-2 t-tertiary">${x.commercial||'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.ventesClientArticle.size?'Aucun client à relancer identifié':'Données comptoir non disponibles')+'</td></tr>';

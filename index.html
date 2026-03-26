@@ -1671,7 +1671,12 @@
         <div class="rounded-lg border b-light overflow-hidden">
           <button onclick="_togglePromoImportSection('F')" class="w-full flex items-center justify-between px-3 py-2 i-caution-bg hover:i-caution-bg text-left">
             <span class="text-[11px] font-bold c-caution">👥 Clients à relancer — <span id="promoImportCountF">0</span> clients (achètent la famille mais pas la promo)</span>
-            <span id="promoImportArrowF" class="c-caution text-xs">▼</span>
+            <span class="flex items-center gap-2">
+              <select id="promoImportFilterCommercial" onchange="_renderPromoImportResults()" class="text-[10px] py-0.5 px-2 rounded border b-default s-card t-primary" onclick="event.stopPropagation()">
+                <option value="">Tous les commerciaux</option>
+              </select>
+              <span id="promoImportArrowF" class="c-caution text-xs">▼</span>
+            </span>
           </button>
           <div id="promoImportBodyF" class="overflow-x-auto" style="max-height:320px;overflow-y:auto">
             <table class="min-w-full text-[10px]">
