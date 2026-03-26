@@ -520,6 +520,9 @@
   #tabPromo{display:flex;flex-direction:column}
   #promoStickyHeader{position:sticky;top:0;z-index:25;background:var(--s-page);border-bottom:1px solid var(--b-default);padding-bottom:8px}
   #promoScrollZone{overflow-y:auto;max-height:calc(100vh - 220px)}
+  #promoActionView{display:flex;gap:16px;height:calc(100vh - 360px);overflow:hidden}
+  #promoActionClients{overflow-y:auto;flex:1;min-height:0}
+  #promoActionArticles{overflow-y:auto;flex:1;min-height:0}
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -1594,16 +1597,14 @@
       <div id="promoScrollZone">
       <!-- B4: Action view (hidden by default) -->
       <div id="promoActionView" class="hidden mb-4">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <h4 class="font-bold text-sm t-primary mb-2">📞 Top 10 — Qui appeler</h4>
+          <div class="flex flex-col flex-1 min-h-0">
+            <h4 class="font-bold text-sm t-primary mb-2 flex-shrink-0">📞 Top 10 — Qui appeler</h4>
             <div id="promoActionClients" class="space-y-2"><p class="t-tertiary text-sm">Lancez d'abord une recherche Promo.</p></div>
           </div>
-          <div>
-            <h4 class="font-bold text-sm t-primary mb-2">🎯 Ce que je propose</h4>
+          <div class="flex flex-col min-h-0 flex-shrink-0" style="width:360px">
+            <h4 class="font-bold text-sm t-primary mb-2 flex-shrink-0">🎯 Ce que je propose</h4>
             <div id="promoActionArticles" class="space-y-2"><p class="t-tertiary text-sm">Sélectionnez un client.</p></div>
           </div>
-        </div>
       </div>
       <!-- Header -->
       <!-- Import opération promo -->
