@@ -102,8 +102,8 @@ function _renderClient360(clientCode,source){
         ${statusBadge}
         ${classifBadge}
       </div>
-      <h2 class="font-extrabold text-base leading-tight text-white">${nom}${_unikLink(clientCode)}</h2>
-      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville,info.metier,info.commercial?`Commercial : ${info.commercial}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
+      <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
+      <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
     </div>
     <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;
@@ -183,27 +183,27 @@ function _renderClient360(clientCode,source){
   let tabsHtml='';
   if(tabs.length){
     const firstTab=tabs[0].id;
-    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" onclick="_c360SwitchTab('${clientCode}','${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" onclick="_c360SwitchTab('${escapeHtml(clientCode)}','${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
 
     const iciRows=iciArts.map(([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const r=_S.finalData?.find(f=>f.code===code);
       const stock=r?(r.stockActuel>0?`✅ ${r.stockActuel}`:'⚠️ 0'):'❌';
-      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td><td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td><td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
     }).join('');
 
     const ailleursRows=ailleursArts.map(([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const canalLabel=CANAL_LABELS[d.canal]||d.canal||'—';
       const alreadyHere=artMap?.has(code);
-      return`<tr class="border-b b-dark hover:s-panel-inner ${alreadyHere?'opacity-50':''}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${canalLabel}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${alreadyHere?'✅ aussi ici':'⚠️ pas ici'}</td></tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${alreadyHere?'opacity-50':''}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${alreadyHere?'✅ aussi ici':'⚠️ pas ici'}</td></tr>`;
     }).join('');
 
     const oppRows=oppArts.map(([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const r=_S.finalData?.find(f=>f.code===code);
       const statut=!r?'❌ Non référencé':r.ancienMin===0?'📦 MIN = 0':'⚠️ Rupture';
-      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${code}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${lib}</td><td class="py-1 px-2 text-right font-bold c-caution">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-[10px] c-danger">${statut}</td></tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-right font-bold c-caution">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-[10px] c-danger">${statut}</td></tr>`;
     }).join('');
 
     const tabContents={
@@ -221,7 +221,7 @@ function _renderClient360(clientCode,source){
   }
 
   // ── COPIER RÉSUMÉ ────────────────────────────────────────────────
-  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button onclick="_c360CopyResume('${clientCode}')" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
+  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button onclick="_c360CopyResume('${escapeHtml(clientCode)}')" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
 
   return header+actionBar+summaryBar+tabsHtml+copyBtn;
 }
@@ -267,7 +267,7 @@ function openArticlePanel(code,source){
   // Header badges
   const abcCls=r.abcClass==='A'?'diag-ok':r.abcClass==='B'?'diag-warn':'diag-lock';
   const fmrCls=r.fmrClass==='F'?'diag-ok':r.fmrClass==='M'?'diag-warn':'diag-lock';
-  const badges=[r.famille?`<span class="diag-badge diag-lock">${r.famille}</span>`:'',r.abcClass?`<span class="diag-badge ${abcCls}">ABC-${r.abcClass}</span>`:'',r.fmrClass?`<span class="diag-badge ${fmrCls}">FMR-${r.fmrClass}</span>`:''].filter(Boolean).join(' ');
+  const badges=[r.famille?`<span class="diag-badge diag-lock">${escapeHtml(r.famille)}</span>`:'',r.abcClass?`<span class="diag-badge ${abcCls}">ABC-${escapeHtml(r.abcClass)}</span>`:'',r.fmrClass?`<span class="diag-badge ${fmrCls}">FMR-${escapeHtml(r.fmrClass)}</span>`:''].filter(Boolean).join(' ');
   // Stock section
   const stockColor=r.stockActuel<=0?'c-danger font-extrabold':'c-ok';
   const joursRup=r.stockActuel<=0?Math.min(r.ageJours>=999?90:r.ageJours,90):0;
@@ -297,7 +297,7 @@ function openArticlePanel(code,source){
   let buyersHtml='';
   if(buyerList.length){
     const totalCA=buyerList.reduce((s,b)=>s+b.caArt,0);
-    const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${b.cc}</td><td class="py-1 px-2 text-xs">${b.nom}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'c-ok':'t-tertiary'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'c-danger':'t-disabled'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
+    const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(b.cc)}</td><td class="py-1 px-2 text-xs">${escapeHtml(b.nom)}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'c-ok':'t-tertiary'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'c-danger':'t-disabled'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
     buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="t-disabled text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-[10px] t-tertiary mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
   }
   // Réseau section (multi only)
@@ -348,7 +348,7 @@ function openArticlePanel(code,source){
   if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[..._S.storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="c-caution">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
   const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${r.code}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${planHtml}`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${planHtml}`;
   overlay.classList.add('active');
 }
 
