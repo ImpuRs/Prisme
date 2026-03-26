@@ -2348,17 +2348,17 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const[cc,info]of _S.chalandiseData.entries()){if(info.commercial)clientComLookup[cc]=info.commercial;}
     if(_S.territoireReady){for(const l of _S.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=SECTEUR_DIR_MAP[l.secteur]||l.secteur;}}
     for(const[cc,artMap]of _S.ventesClientArticle.entries()){
-      const com=clientComLookup[cc]||'⚠️ Non affecté';
+      const com=clientComLookup[cc]||(_S.territoireReady?(_S.territoireLines.find(l=>l.clientCode===cc)?.commercial||null):null)||'⚠️ Sans commercial';
       commercials.add(com);if(!matrix[com])matrix[com]={};
       for(const[code,data]of artMap.entries()){
-        const fam=_S.articleFamille[code]||'Non classé';const ca=data.sumCA||0;
+        const fam=_S.articleFamille[code]||(_S.finalData.find(d=>d.code===code)?.famille)||'Non classé';const ca=data.sumCA||0;
         matrix[com][fam]=(matrix[com][fam]||0)+ca;
         famTotals[fam]=(famTotals[fam]||0)+ca;
         comTotals[com]=(comTotals[com]||0)+ca;
       }
     }
-    const topFams=Object.entries(famTotals).sort((a,b)=>b[1]-a[1]).slice(0,20).map(([fam])=>fam);
-    const comList=[...commercials].sort((a,b)=>{if(a==='⚠️ Non affecté')return 1;if(b==='⚠️ Non affecté')return -1;return(comTotals[b]||0)-(comTotals[a]||0);});
+    const topFams=Object.entries(famTotals).filter(([fam])=>fam!=='Non classé').sort((a,b)=>b[1]-a[1]).slice(0,20).map(([fam])=>fam);
+    const comList=[...commercials].sort((a,b)=>{if(a==='⚠️ Sans commercial')return 1;if(b==='⚠️ Sans commercial')return -1;return(comTotals[b]||0)-(comTotals[a]||0);});
     if(!comList.length||!topFams.length){container.innerHTML='<p class="t-disabled text-sm p-4">Pas assez de données pour la heatmap.</p>';return;}
     let maxCell=0;for(const com of comList)for(const fam of topFams){const v=(matrix[com]||{})[fam]||0;if(v>maxCell)maxCell=v;}
     let html='<div class="overflow-x-auto"><table class="min-w-full text-[10px]">';
