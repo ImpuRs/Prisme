@@ -3351,7 +3351,7 @@ window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
-window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(th)th.classList.toggle('hidden');renderTable(true);};
+window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});};
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
