@@ -328,10 +328,11 @@ function _applyPromoFilters(){_renderPromoResults();}
 
 // B4: Mode Action Promo
 let _promoMode='analyse';
+function _lancerPhoning(){_setPromoMode('analyse');setTimeout(()=>{const z=document.getElementById('promoImportZone');if(z)z.open=true;},50);}
+function _lancerCiblage(){_setPromoMode('analyse');setTimeout(()=>{const inp=document.getElementById('promoSearchInput');if(inp)inp.focus();},50);}
+window._lancerPhoning=_lancerPhoning;window._lancerCiblage=_lancerCiblage;
 function _setPromoMode(mode){
   _promoMode=mode;
-  const content=document.getElementById('promoContent');if(content)content.classList.remove('hidden');
-  const accueil=document.getElementById('promoAccueil');if(accueil&&(_promoLastResult||_promoImportResult))accueil.classList.add('hidden');
   const aBtn=document.getElementById('promoModeAnalyse');
   const xBtn=document.getElementById('promoModeAction');
   const actionView=document.getElementById('promoActionView');
