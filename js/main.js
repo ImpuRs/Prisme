@@ -1164,6 +1164,38 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   }
   function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
+  // Pré-détection des agences dès le chargement du fichier consommé
+  async function _preDetectStores(file) {
+    if (!file) return;
+    try {
+      const data = await readExcel(file);
+      const storesFound = new Set();
+      for (const row of data.slice(0, 500)) {
+        const s = extractStoreCode(row);
+        if (s) storesFound.add(s);
+      }
+      if (storesFound.size > 1) {
+        const savedStore = localStorage.getItem('prisme_selectedStore');
+        const sel = document.getElementById('selectMyStore');
+        const selector = document.getElementById('storeSelector');
+        sel.innerHTML = '<option value="">— Choisissez votre agence —</option>';
+        [...storesFound].sort().forEach(s => {
+          const o = document.createElement('option');
+          o.value = s; o.textContent = s;
+          if (s === savedStore) o.selected = true;
+          sel.appendChild(o);
+        });
+        selector.classList.remove('hidden');
+        const btn = document.getElementById('btnCalculer');
+        if (!savedStore || !storesFound.has(savedStore)) {
+          if (btn) { btn.disabled = true; btn.title = "Sélectionnez votre agence d'abord"; }
+        } else {
+          if (btn) { btn.disabled = false; btn.title = ''; }
+        }
+      }
+    } catch(e) { /* silencieux — la détection est optionnelle */ }
+  }
+
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
