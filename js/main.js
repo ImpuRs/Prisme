@@ -1508,7 +1508,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     // _S.articleClients agrège tous canaux — utiliser ventesClientArticle (filtré MAGASIN) à la place
     const soldAtPDV=new Set();
     for(const[,artMap]of _S.ventesClientArticle.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
-    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&r.ancienMin>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
+    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
 
