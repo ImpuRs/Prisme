@@ -174,20 +174,49 @@ function runPromoSearch(){
     if(f)matchedFamilles.add(f);
   }
 
-  // SECTION A: Déjà acheteurs PDV
-  const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate}
-  for(const code of matchedCodes){
-    const buyers=_S.articleClients.get(code);if(!buyers)continue;
-    for(const cc of buyers){
-      const artData=_S.ventesClientArticle.get(cc);if(!artData)continue;
-      const d=artData.get(code);if(!d)continue;
+  // SECTION A: acheteurs tous canaux (MAGASIN + hors magasin + territoire)
+  const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate,canal}
+
+  // Source 1 : MAGASIN
+  for(const [cc,artMap] of _S.ventesClientArticle.entries()){
+    for(const code of artMap.keys()){
+      if(!matchedCodes.has(code))continue;
       if(!buyerMap.has(cc)){
-        const info=_S.chalandiseData.get(cc)||{};
-        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null});
+        const info=_S.chalandiseData?.get(cc)||{};
+        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'PDV'});
       }
-      buyerMap.get(cc).ca+=(d.sumCA||d.sumPrelevee||0);
+      buyerMap.get(cc).ca+=(artMap.get(code)?.sumCA||0);
     }
   }
+
+  // Source 2 : hors magasin (WEB/REP/DCS)
+  for(const [cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+    for(const [code,data] of artMap.entries()){
+      if(!matchedCodes.has(code))continue;
+      if(!buyerMap.has(cc)){
+        const info=_S.chalandiseData?.get(cc)||{};
+        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:data.canal});
+      }
+      buyerMap.get(cc).ca+=(data.ca||0);
+      // Marquer le canal si hors PDV
+      if(buyerMap.get(cc).canal==='PDV')buyerMap.get(cc).canal='MIXTE';
+      else buyerMap.get(cc).canal=data.canal;
+    }
+  }
+
+  // Source 3 : territoire (si chargé)
+  if(_S.territoireReady){
+    for(const l of _S.territoireLines){
+      if(!matchedCodes.has(l.code))continue;
+      const cc=l.clientCode;if(!cc)continue;
+      if(!buyerMap.has(cc)){
+        const info=_S.chalandiseData?.get(cc)||{};
+        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'TERR'});
+      }
+      buyerMap.get(cc).ca+=(l.ca||0);
+    }
+  }
+
   const sectionA=[...buyerMap.values()].sort((a,b)=>b.ca-a.ca);
 
   // SECTION B: Achètent ailleurs (actifs Legallais, dans métier pertinent, pas en PDV)
@@ -478,9 +507,12 @@ function _renderPromoResults(){
   document.getElementById('promoTableA').innerHTML=sA.slice(0,200).map(c=>{
     const inChal=_S.chalandiseReady&&_S.chalandiseData.has(c.cc);
     const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] s-hover t-disabled border b-default rounded px-1 py-0.5 font-normal">hors zone</span>':'';
+    const canalBadge=c.canal==='PDV'?''
+      :c.canal==='MIXTE'?'<span class="badge bg-purple-100 text-purple-700 text-[9px]">🌐 Multi-canal</span>'
+      :`<span class="badge bg-blue-100 text-blue-700 text-[9px]">🌐 ${c.canal}</span>`;
     const metierCell=c.metier||(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
     const commCell=c.commercial||(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
-    return`<tr class="border-t b-light hover:i-ok-bg cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono t-disabled text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${metierCell}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary">${fmtD(c.lastDate)}</td><td class="py-1 px-2 t-tertiary">${commCell}</td></tr>`;
+    return`<tr class="border-t b-light hover:i-ok-bg cursor-pointer" onclick="_togglePromoClientArts(this,'${c.cc}')"><td class="py-1 px-2 font-mono t-disabled text-[9px]">${c.cc}</td><td class="py-1 px-2 font-semibold">${c.nom}${horsZoneBadge}${canalBadge}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${metierCell}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary">${fmtD(c.lastDate)}</td><td class="py-1 px-2 t-tertiary">${commCell}</td></tr>`;
   }).join('');
   // Section B
   document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
