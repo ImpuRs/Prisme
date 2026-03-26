@@ -112,7 +112,7 @@ export function getVmbColumn(r, t) {
 // ──────────────────────────────────────────────────────────────────────────
 
 export function extractStoreCode(row) {
-  return (getVal(row, 'Code PDV', 'PDV', 'Code Agence', 'Agence', 'code pdv', 'code agence') || '').toString().trim().toUpperCase();
+  return (getVal(row, 'Code PDV', 'PDV', 'Code Agence', 'Agence', 'code pdv', 'code agence', 'Dépôt', 'Code dépôt', 'depot', 'code depot', 'Depot') || '').toString().trim().toUpperCase();
 }
 
 export function readExcel(f) {
