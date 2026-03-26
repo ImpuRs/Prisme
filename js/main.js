@@ -3027,6 +3027,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       <td class="px-2 py-2 text-center w-8"><button onclick="openArticlePanel('${r.code}','table')" class="text-gray-400 hover:text-blue-500 text-xs px-1 font-bold" title="Ouvrir la fiche article">↗</button></td>
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${15+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
+    if(document.getElementById('thCanalWeb')?.classList.contains('hidden')){document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>td.classList.add('hidden'));}
   }
 
   // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
