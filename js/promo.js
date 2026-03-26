@@ -291,6 +291,7 @@ function runPromoSearch(){
     _promoLastResult={matchedCodes,sectionA,sectionB,sectionC:sC.slice(0,50),sectionCTotal:sC.length,terms,matchedFamilles};
   }
   _populatePromoFilterDropdowns();
+  _checkOmnicanalWarning();
   _renderPromoResults();
   const btnAction=document.getElementById('promoModeAction');
   if(btnAction){btnAction.classList.remove('t-disabled','b-default');btnAction.classList.add('c-action','border-orange-300');btnAction.style.background='rgba(249,115,22,.1)';}
@@ -388,10 +389,9 @@ function exportTourneeCSV(){
     const lastOrderStr=lastOrder?lastOrder.toISOString().slice(0,10):'—';
     const cp=(info.cp||'').replace(/\s/g,'');
     const ville=info.ville||'';
-    const artMap=_S.ventesClientArticle.get(c.cc)||new Map();
     const toPitch=[];
     for(const code of r.matchedCodes){
-      if(artMap.has(code))continue;
+      if(_isArticleAlreadyBought(c.cc,code))continue;
       const ref=_S.finalData.find(d=>d.code===code);
       if(ref&&ref.stockActuel>0)toPitch.push({code,lib:ref.libelle||code});
       if(toPitch.length>=3)break;
@@ -600,6 +600,33 @@ function copyPromoClipboard(){
 // ─── PROMO V2 — Import opération ─────────────────────────────────────────
 let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, sectionF}
 
+/**
+ * Retourne true si le client cc a déjà acheté l'article code sur n'importe quel canal.
+ * Agrège : MAGASIN (ventesClientArticle) + WEB/REP/DCS (ventesClientHorsMagasin) + territoire.
+ * Usage : promo.js uniquement — accède à _S, ne pas déplacer dans utils.js.
+ */
+function _isArticleAlreadyBought(cc,code){
+  if((_S.ventesClientArticle.get(cc)||new Map()).has(code))return true;
+  if((_S.ventesClientHorsMagasin?.get(cc)||new Map()).has(code))return true;
+  if(_S.territoireReady){
+    for(const l of _S.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
+  }
+  return false;
+}
+
+function _checkOmnicanalWarning(){
+  const existing=document.getElementById('promoOmnicanalWarning');
+  if(existing)existing.remove();
+  if(!_S.cannauxHorsMagasin||_S.cannauxHorsMagasin.size===0){
+    const banner=document.createElement('div');
+    banner.id='promoOmnicanalWarning';
+    banner.className='text-[10px] t-tertiary border b-default rounded px-3 py-1.5 mb-2 flex items-center gap-2';
+    banner.innerHTML=`<span>ℹ️</span><span>Ciblage comptoir uniquement — aucun canal WEB/REP/DCS détecté dans le fichier Consommé. Pour un ciblage omnicanal, vérifiez que le fichier contient la colonne "Canal commande" avec des valeurs autres que MAGASIN.</span>`;
+    const searchZone=document.getElementById('promoSearchZone')||document.querySelector('#tabPromo .tab-content-section');
+    if(searchZone)searchZone.prepend(banner);
+  }
+}
+
 function _onPromoImportFileChange(input){
   const f=input.files[0];if(!f)return;
   document.getElementById('promoImportFileName').textContent=f.name;
@@ -708,6 +735,7 @@ async function runPromoImport(){
   sectionF.sort((a,b)=>b.famCA-a.famCA);
 
   _promoImportResult={opName,promoCodes,sectionD,sectionE,sectionF};
+  _checkOmnicanalWarning();
   _renderPromoImportResults();
   // Auto-open the details block
   const zone=document.getElementById('promoImportZone');if(zone)zone.open=true;
@@ -717,6 +745,28 @@ async function runPromoImport(){
 function _activatePromoImportAction(){
   const r=_promoImportResult;
   if(!r||!r.promoCodes.size){showToast('⚠️ Chargez d\'abord une opération promo','warning');return;}
+
+  // Guard : recherche libre active → toast undo
+  if(_promoLastResult&&!_promoLastResult._fromImport){
+    const prevTerms=(_promoLastResult.terms||[]).join(', ')||'précédente';
+    const snapshot=_promoLastResult;
+    let undone=false;
+    const toastId='promoUndoToast';
+    document.getElementById(toastId)?.remove();
+    const toast=document.createElement('div');
+    toast.id=toastId;
+    toast.className='fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg s-card border b-default text-sm font-semibold';
+    toast.innerHTML=`<span>🔄 Recherche <em>${prevTerms}</em> remplacée</span><button id="promoUndoBtn" class="text-xs font-bold c-action underline">Annuler</button>`;
+    document.body.appendChild(toast);
+    const cleanup=()=>{toast.remove();};
+    const timer=setTimeout(()=>{if(!undone)cleanup();},4000);
+    document.getElementById('promoUndoBtn')?.addEventListener('click',()=>{
+      undone=true;clearTimeout(timer);cleanup();
+      _promoLastResult=snapshot;
+      showToast('↩️ Recherche restaurée','success');
+    });
+  }
+
   const allTargets=new Map();
   for(const c of r.sectionF){
     allTargets.set(c.cc,{cc:c.cc,nom:c.nom,metier:c.metier,commercial:c.commercial,ca2025:_S.chalandiseData.get(c.cc)?.ca2025||0,terrCA:0});
@@ -727,6 +777,7 @@ function _activatePromoImportAction(){
   showToast(`⚡ ${r.sectionF.length} clients chargés pour l'opération "${r.opName||'Promo'}"`, 'success');
 }
 window._activatePromoImportAction=_activatePromoImportAction;
+window._renderPromoImportResults=_renderPromoImportResults;
 
 function _renderPromoImportResults(){
   const r=_promoImportResult;if(!r)return;
@@ -748,9 +799,18 @@ function _renderPromoImportResults(){
     const stockCell=x.stock===null?'—':`${x.stock}`;
     return`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-disabled">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center text-xs">${x.rayonStatus}</td><td class="py-1 px-2 text-center">${stockCell}</td><td class="py-1 px-2 t-tertiary text-[10px] truncate max-w-[120px]">${x.famille||'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="5" class="py-3 text-center c-ok font-semibold">✅ Tous les articles promo ont été vendus au comptoir</td></tr>';
-  // Section F
-  document.getElementById('promoImportCountF').textContent=retarget;
-  document.getElementById('promoImportTableF').innerHTML=r.sectionF.slice(0,200).map(x=>{
+  // Section F — filtre commercial
+  const commerciauxF=[...new Set(r.sectionF.map(x=>x.commercial).filter(Boolean))].sort();
+  const filterCommEl=document.getElementById('promoImportFilterCommercial');
+  if(filterCommEl){
+    const curVal=filterCommEl.value;
+    filterCommEl.innerHTML='<option value="">Tous les commerciaux</option>'+commerciauxF.map(c=>`<option value="${c}">${c}</option>`).join('');
+    if(commerciauxF.includes(curVal))filterCommEl.value=curVal;
+  }
+  const filtreComm=filterCommEl?.value||'';
+  const sectionFFiltered=filtreComm?r.sectionF.filter(x=>x.commercial===filtreComm):r.sectionF;
+  document.getElementById('promoImportCountF').textContent=sectionFFiltered.length+(sectionFFiltered.length<retarget?' / '+retarget:'');
+  document.getElementById('promoImportTableF').innerHTML=sectionFFiltered.slice(0,200).map(x=>{
     const statutBadge=x.statut?`<span class="text-[9px] s-hover t-disabled border b-default rounded px-1 font-normal ml-1">${x.statut}</span>`:'';
     return`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-disabled">${x.cc}</td><td class="py-1 px-2 font-semibold">${x.nom}${statutBadge}</td><td class="py-1 px-2 t-tertiary">${x.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${x.famCA>0?formatEuro(x.famCA):'—'}</td><td class="py-1 px-2 t-tertiary text-[10px]">${x.raison}</td><td class="py-1 px-2 t-tertiary">${x.commercial||'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.ventesClientArticle.size?'Aucun client à relancer identifié':'Données comptoir non disponibles')+'</td></tr>';
@@ -792,4 +852,4 @@ function exportPromoImportCSV(){
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _checkOmnicanalWarning };
