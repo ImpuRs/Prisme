@@ -2379,6 +2379,16 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   // === OBSERVATOIRE HELPERS ===
   function _obsNav(t){
+    if(t==='silencieux'){
+      switchTab('territoire');
+      setTimeout(()=>{
+        const sil=document.getElementById('cockpit-sil-full-body');
+        if(sil&&sil.style.display==='none')_cockpitToggleSection('cockpit-sil-full');
+        const el=document.getElementById('cockpit-sil-full');
+        if(el)el.scrollIntoView({behavior:'smooth'});
+      },300);
+      return;
+    }
     if(t==='terrain'){switchTab('territoire');return;}
     if(t==='plan'){const d=document.getElementById('obsActionPlanDiv');if(d){const det=d.closest('details');if(det)det.open=true;d.scrollIntoView({behavior:'smooth'});}return;}
     if(t==='lose'){const d=document.getElementById('obsLoseTable');if(d){const det=d.closest('details');if(det)det.open=true;d.scrollIntoView({behavior:'smooth'});}return;}
@@ -2389,7 +2399,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const caUp=caE>0,refUp=refE>0,freqUp=freqE>0;
     if(refUp&&!freqUp&&!caUp) return{icon:'🔍',title:'Assortiment large mais sous-exploité',border:'border-amber-400',bg:'i-caution-bg/60',
       message:`Vous avez ${Math.abs(refE)}% de références en plus que la médiane réseau, mais ${Math.abs(freqE)}% de fréquence en moins. Vos clients viennent moins souvent. Leviers : relancer les clients silencieux, animer le rayon, mettre en avant les articles peu vendus.`,
-      actions:[{label:'Voir les clients silencieux dans Le Terrain',nav:'terrain'},{label:'Vérifier les articles en stock jamais vendus',nav:'dormants'}]};
+      actions:[{label:'Voir les clients silencieux dans Le Terrain',nav:'silencieux'},{label:'Vérifier les articles en stock jamais vendus',nav:'dormants'}]};
     if(!refUp&&freqUp) return{icon:'🎯',title:'Clients fidèles, gamme à élargir',border:'border-blue-400',bg:'i-info-bg/60',
       message:`Vos clients achètent ${Math.abs(freqE)}% plus souvent que la médiane, mais vous avez ${Math.abs(refE)}% de références en moins. Levier : référencer les articles vendus par le réseau.`,
       actions:[{label:'Voir les articles manquants du réseau',nav:'plan'}]};
@@ -2401,7 +2411,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       actions:[{label:'Voir les familles sous la médiane',nav:'lose'},{label:'Voir les clients à fidéliser',nav:'terrain'}]};
     if(caUp&&!freqUp) return{icon:'💰',title:'Bon CA mais fréquence en baisse',border:'border-yellow-400',bg:'i-caution-bg',
       message:`Votre CA est ${Math.abs(caE)}% au-dessus de la médiane mais la fréquence est en retrait de ${Math.abs(freqE)}%. Risque : dépendance à quelques gros clients. Levier : diversifier la base clients.`,
-      actions:[{label:'Voir les clients silencieux',nav:'terrain'}]};
+      actions:[{label:'Voir les clients silencieux',nav:'silencieux'}]};
     if(!caUp&&freqUp&&refUp) return{icon:'📊',title:'Bonne dynamique, CA à développer',border:'border-blue-400',bg:'i-info-bg/60',
       message:`Fréquence et références sont au-dessus de la médiane — vos fondamentaux sont bons. Le CA suivra en développant le panier moyen et en ciblant les familles à fort écart.`,
       actions:[{label:"Voir le plan d'action prioritaire",nav:'plan'}]};
