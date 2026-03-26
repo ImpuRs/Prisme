@@ -2615,7 +2615,29 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     for(const m of(missed||[])){if((m.code+' '+m.lib).toLowerCase().includes(q)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
     for(const u of(under||[])){if((u.code+' '+u.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-caution-bg cursor-pointer" onclick="openArticlePanel('${u.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${u.code}</span><span class="flex-1 text-xs min-w-0">${u.lib}</span><span class="badge bg-amber-500 text-white text-[9px] shrink-0">📉 Sous-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${u.myQte} · Méd: ${u.avg} · ${(u.ratio*100).toFixed(0)}%</span></div>`);}}
     for(const o of(over||[])){if((o.code+' '+o.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
-    res.innerHTML=rows.length?`<div class="s-card border rounded-xl overflow-hidden shadow-sm mt-1">${rows.join('')}</div>`:'<p class="text-sm t-disabled mt-2 text-center py-2">Aucun article trouvé.</p>';
+    if(!rows.length){
+      const agenceData={};
+      for(const[store,arts]of Object.entries(_S.ventesParMagasin||{})){
+        for(const[code,data]of Object.entries(arts)){
+          if(!(code+' '+(_S.libelleLookup[code]||'')).toLowerCase().includes(q))continue;
+          if(!agenceData[code])agenceData[code]={lib:_S.libelleLookup[code]||code,agences:[]};
+          agenceData[code].agences.push({store,countBL:data.countBL||0});
+        }
+      }
+      for(const[code,d]of Object.entries(agenceData)){
+        const myData=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code];
+        const myBL=myData?.countBL||0;
+        const totalReseau=d.agences.reduce((s,a)=>s+a.countBL,0);
+        const nbAgences=d.agences.filter(a=>a.countBL>0).length;
+        const mediane=nbAgences>0?Math.round(totalReseau/nbAgences):0;
+        const myStock=_S.finalData.find(r=>r.code===code)?.stockActuel??null;
+        const stockBadge=myStock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':myStock>0?`<span class="c-ok text-[9px] font-bold">${myStock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';
+        const ratio=mediane>0?Math.round(myBL/mediane*100):null;
+        const perfBadge=ratio===null?'<span class="badge bg-slate-400 text-white text-[9px]">Médiane 0</span>':ratio>=100?'<span class="badge bg-emerald-500 text-white text-[9px]">🏆 Sur-perf</span>':ratio>=50?'<span class="badge bg-amber-500 text-white text-[9px]">📉 Sous-perf</span>':'<span class="badge bg-red-500 text-white text-[9px]">🚫 Faible</span>';
+        rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:s-card cursor-pointer" onclick="openArticlePanel('${code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${code}</span><span class="flex-1 text-xs min-w-0">${d.lib}</span>${perfBadge}<span class="text-[10px] t-tertiary shrink-0">Moi: ${myBL} · Méd: ${mediane} · ${nbAgences} agences · ${stockBadge}</span></div>`);
+      }
+    }
+    res.innerHTML=rows.length?`<div class="s-card border rounded-xl overflow-hidden shadow-sm mt-1">${rows.join('')}</div>`:'<p class="text-sm t-disabled mt-2 text-center py-2">Article inconnu du réseau — aucune vente dans les données chargées.</p>';
   }
 
   function copyObsActionPlan(){
