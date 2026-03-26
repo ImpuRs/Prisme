@@ -112,7 +112,13 @@ export function getVmbColumn(r, t) {
 // ──────────────────────────────────────────────────────────────────────────
 
 export function extractStoreCode(row) {
-  return (getVal(row, 'Code PDV', 'PDV', 'Code Agence', 'Agence', 'code pdv', 'code agence', 'Dépôt', 'Code dépôt', 'depot', 'code depot', 'Depot') || '').toString().trim().toUpperCase();
+  // Ne pas utiliser getVal ici — son cache _CC peut être contaminé entre consommé et stock
+  const keys = Object.keys(row);
+  const key = keys.find(k => {
+    const kl = k.toLowerCase().replace(/[\r\n]/g, ' ').trim();
+    return kl === 'code pdv' || kl === 'pdv' || kl === 'code agence' || kl === 'agence' || kl === 'code depot' || kl === 'dépôt' || kl === 'depot';
+  });
+  return key ? (row[key] || '').toString().trim().toUpperCase() : '';
 }
 
 export function readExcel(f) {
