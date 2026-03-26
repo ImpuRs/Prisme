@@ -1445,6 +1445,26 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
+      // Précalcul caByArticleCanal (conditionné à chalandise)
+      if (_S.chalandiseReady) {
+        _S.caByArticleCanal = new Map();
+        for (const [, artMap] of _S.ventesClientHorsMagasin.entries()) {
+          for (const [code, data] of artMap.entries()) {
+            if (!_S.caByArticleCanal.has(code)) _S.caByArticleCanal.set(code, {});
+            const entry = _S.caByArticleCanal.get(code);
+            entry[data.canal] = (entry[data.canal] || 0) + data.ca;
+          }
+        }
+        for (const r of _S.finalData) {
+          const c = _S.caByArticleCanal.get(r.code) || {};
+          r.caWeb = c.INTERNET || 0;
+          r.caRep = c.REPRESENTANT || 0;
+          r.caDcs = c.DCS || 0;
+          r.caHorsMagasin = r.caWeb + r.caRep + r.caDcs;
+          r.nbClientsWeb = [..._S.ventesClientHorsMagasin.entries()]
+            .filter(([, m]) => m.has(r.code)).length;
+        }
+      }
       if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
@@ -1523,6 +1543,71 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     el.innerHTML=html;
   }
 
+  function _renderFamilleCanal(){
+    const el=document.getElementById('terrFamilleCanal');if(!el)return;
+    const caMag=_S.canalAgence['MAGASIN']?.ca||0;
+    const caWeb=_S.canalAgence['INTERNET']?.ca||0;
+    const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
+    const caDcs=_S.canalAgence['DCS']?.ca||0;
+    const caHors=caWeb+caRep+caDcs;
+    const caTotal=caMag+caHors;
+    const tauxObs=caTotal>0?Math.round(caHors/caTotal*100):0;
+    let html=`<div class="mb-3 p-3 s-card rounded-xl border">
+      <p class="text-sm font-bold t-primary mb-1">📡 Omnicanalité zone
+        <span class="text-[10px] font-normal t-disabled ml-1" title="Calculé sur les clients identifiés dans votre chalandise. Le taux réel peut être inférieur si des clients importants sont hors zone.">ⓘ</span>
+      </p>
+      <p class="text-2xl font-extrabold c-action">${tauxObs}% <span class="text-sm font-normal t-tertiary">du CA identifié passe hors agence</span></p>
+      <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}</p>
+    </div>`;
+    if(_S.chalandiseReady&&_S.caByArticleCanal.size){
+      const famCanal={};
+      for(const r of _S.finalData){
+        if(!r.famille)continue;
+        if(!famCanal[r.famille])famCanal[r.famille]={mag:0,hors:0};
+        famCanal[r.famille].mag+=r.caAnnuel||0;
+        famCanal[r.famille].hors+=r.caHorsMagasin||0;
+      }
+      const rows=Object.entries(famCanal)
+        .filter(([,d])=>d.hors>=100)
+        .sort((a,b)=>{
+          const ta=a[1].mag+a[1].hors>0?a[1].hors/(a[1].mag+a[1].hors):0;
+          const tb=b[1].mag+b[1].hors>0?b[1].hors/(b[1].mag+b[1].hors):0;
+          return tb-ta;
+        })
+        .slice(0,5);
+      if(rows.length){
+        html+=`<div class="s-card rounded-xl border overflow-hidden">
+          <div class="px-3 py-2 border-b s-card-alt flex items-center gap-2">
+            <span class="font-bold text-sm t-primary">Familles à fort achat en ligne</span>
+            <span class="text-[10px] t-disabled" title="Source : clients de la zone de chalandise uniquement.">ⓘ</span>
+          </div>
+          <table class="min-w-full text-xs">
+            <thead class="s-panel-inner t-inverse">
+              <tr>
+                <th class="py-1.5 px-3 text-left">Famille</th>
+                <th class="py-1.5 px-3 text-right">CA Comptoir</th>
+                <th class="py-1.5 px-3 text-right">CA Hors agence</th>
+                <th class="py-1.5 px-3 text-right">Taux observé <span class="font-normal t-disabled" title="Part du CA hors agence sur le total identifié (zone chalandise)">ⓘ</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(([fam,d])=>{
+                const taux=d.mag+d.hors>0?Math.round(d.hors/(d.mag+d.hors)*100):0;
+                const col=taux>=50?'c-danger':taux>=30?'c-caution':'t-primary';
+                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }else{
+        html+=`<p class="text-xs t-disabled mt-2">Aucune famille avec achat hors agence significatif (min 100€).</p>`;
+      }
+    }else if(!_S.chalandiseReady){
+      html+=`<p class="text-[10px] t-disabled mt-2">Chargez la chalandise pour le détail par famille et par client.</p>`;
+    }
+    el.innerHTML=html;
+  }
+
   // Close secteur dropdown on outside click
   document.addEventListener('click',function(e){
     const dd=document.getElementById('terrSecteurDropdown');
@@ -1567,6 +1652,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
       ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+      _renderFamilleCanal();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -1706,6 +1792,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
     const extClients=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     _S._insights.absentsTerr=absentsTerr;_S._insights.extClients=extClients;_S._insights.hasTerr=true;
     renderInsightsBanner();
+    _renderFamilleCanal();
   }
 
   // Toggle direction row — shows famille breakdown (lazy)
@@ -2930,6 +3017,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       ${_medMinCell}${_medMaxCell}
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'c-ok i-ok-bg':r.abcClass==='B'?'c-action i-info-bg':r.abcClass==='C'?'c-caution i-caution-bg':'t-disabled'}">${r.abcClass||'—'}</td>
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'c-ok i-ok-bg':r.fmrClass==='M'?'c-action i-info-bg':r.fmrClass==='R'?'c-danger i-danger-bg':'t-disabled'}">${r.fmrClass||'—'}</td>
+      ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-[10px] text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':r.caHorsMagasin+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-[10px]">—</td>`}
       <td class="px-2 py-2 text-center w-8"><button onclick="openArticlePanel('${r.code}','table')" class="text-gray-400 hover:text-blue-500 text-xs px-1 font-bold" title="Ouvrir la fiche article">↗</button></td>
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${15+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
@@ -3260,6 +3348,7 @@ window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
+window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(th)th.classList.toggle('hidden');renderTable(true);};
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;

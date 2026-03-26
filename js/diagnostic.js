@@ -311,6 +311,35 @@ function openArticlePanel(code,source){
       reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔭 Réseau (${nbAg} agences)</span></div><div class="grid grid-cols-3 gap-3 text-xs text-center"><div><p class="t-disabled mb-0.5">Ma fréquence</p><p class="font-extrabold text-lg">${myFreq}</p></div><div><p class="t-disabled mb-0.5">Médiane réseau</p><p class="font-extrabold text-lg ${myFreq>=med?'c-ok':'c-caution'}">${med.toFixed(0)}</p></div><div><p class="t-disabled mb-0.5">Mon rang</p><p class="font-extrabold text-lg ${rankCls}">#${rank}/${nbAg}</p></div></div></div>`;
     }
   }
+  // Section Canaux
+  let canalHtml='';
+  if(_S.chalandiseReady&&(r.caHorsMagasin||0)>0){
+    const caTot=(r.caAnnuel||0)+r.caHorsMagasin;
+    const pctMag=caTot>0?Math.round((r.caAnnuel||0)/caTot*100):0;
+    const pctWeb=caTot>0?Math.round(r.caWeb/caTot*100):0;
+    const pctRep=caTot>0?Math.round(r.caRep/caTot*100):0;
+    const pctDcs=caTot>0?Math.round(r.caDcs/caTot*100):0;
+    const noteWeb=r.caWeb>(r.caAnnuel||0)
+      ?`<p class="text-[10px] c-caution mt-1">Cet article est principalement acheté en ligne par vos clients (zone chalandise).</p>`:'';
+    canalHtml=`<div class="mt-4 p-3 s-card-alt rounded-xl border">
+      <p class="text-xs font-bold t-primary mb-2">Répartition des achats
+        <span class="text-[10px] font-normal t-disabled ml-1" title="Source : clients de la zone de chalandise uniquement (${_S.chalandiseData?.size||0} clients analysés).">ⓘ</span>
+      </p>
+      <div class="space-y-1.5 text-[11px]">
+        ${[['MAGASIN',r.caAnnuel||0,pctMag,'bg-blue-500'],['INTERNET',r.caWeb,pctWeb,'bg-violet-500'],['REPRÉSENTANT',r.caRep,pctRep,'bg-green-500'],['DCS',r.caDcs,pctDcs,'bg-orange-400']]
+          .filter(([,ca])=>ca>0)
+          .map(([label,ca,pct,color])=>`<div class="flex items-center gap-2">
+            <span class="w-24 t-tertiary shrink-0">${label}</span>
+            <div class="flex-1 bg-gray-200 rounded" style="height:8px">
+              <div class="${color} rounded" style="width:${pct}%;height:8px"></div>
+            </div>
+            <span class="w-16 text-right font-bold">${formatEuro(ca)}</span>
+            <span class="w-8 text-right t-disabled">${pct}%</span>
+          </div>`).join('')}
+      </div>
+      ${noteWeb}
+    </div>`;
+  }
   // Plan d'action
   const acts=[];
   if(r.stockActuel<=0&&r.nouveauMin>0)acts.push(`<div class="diag-action-row"><span class="c-ok font-bold">1.</span><span class="flex-1 ml-2 text-sm">Commander — MIN recalculé : <strong>${r.nouveauMin}</strong></span><button onclick="navigator.clipboard.writeText('${code}').catch(()=>{})" class="diag-btn bg-violet-900 text-violet-200 border border-violet-500 text-[10px]">📋 Copier</button></div>`);
@@ -319,7 +348,7 @@ function openArticlePanel(code,source){
   if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[..._S.storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="c-caution">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
   const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${r.code}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${reseauHtml}${planHtml}`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${r.code}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${r.libelle}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${planHtml}`;
   overlay.classList.add('active');
 }
 
