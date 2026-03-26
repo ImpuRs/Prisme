@@ -102,7 +102,7 @@ function _renderClient360(clientCode,source){
         ${statusBadge}
         ${classifBadge}
       </div>
-      <h2 class="font-extrabold text-base leading-tight text-white">${nom}</h2>
+      <h2 class="font-extrabold text-base leading-tight text-white">${nom}${_unikLink(clientCode)}</h2>
       <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville,info.metier,info.commercial?`Commercial : ${info.commercial}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
     </div>
     <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
