@@ -161,8 +161,9 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 // ── Opportunité nette Client×Famille (C1) ──
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 
-// ── Active territoire worker (pour annulation au re-upload) ──
+// ── Active workers (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
+_S._activeClientWorker = null;
 
 // ── Réseau worker (Sprint 2) ──────────────────────────────────
 _S.reseauNomades = [];        // clients actifs dans ≥2 agences dont myStore
@@ -173,8 +174,9 @@ _S._activeReseauWorker = null;
 
 // ── Reset session — appeler en début de processData() ──────────
 export function resetAppState() {
-  // Annuler le worker territoire en cours si présent
+  // Annuler les workers en cours si présents
   if (_S._activeTerrWorker) { try { _S._activeTerrWorker.terminate(); } catch (_) {} _S._activeTerrWorker = null; }
+  if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
   // Core data
   _S.finalData = []; _S.filteredData = []; _S.currentPage = 0;

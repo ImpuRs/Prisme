@@ -266,6 +266,7 @@ export function launchClientWorker(progressCb) {
       const blob = new Blob([code], { type: 'application/javascript' });
       const url = URL.createObjectURL(blob);
       const worker = new Worker(url);
+      _S._activeClientWorker = worker;
       const ventesCA = [];
       for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
         const arts = [];
@@ -277,13 +278,14 @@ export function launchClientWorker(progressCb) {
         chalandise.push([cc, { metier: info.metier, statut: info.statut, classification: info.classification, ca2025: info.ca2025 }]);
       }
       worker.onmessage = (e) => {
+        _S._activeClientWorker = null;
         _S.clientFamCA = e.data.clientFamCA;
         _S.metierFamBench = e.data.metierFamBench;
         worker.terminate(); URL.revokeObjectURL(url);
         if (progressCb) progressCb(100);
         resolve();
       };
-      worker.onerror = (err) => { worker.terminate(); URL.revokeObjectURL(url); reject(err); };
+      worker.onerror = (err) => { _S._activeClientWorker = null; worker.terminate(); URL.revokeObjectURL(url); reject(err); };
       worker.postMessage({ ventesCA, chalandise, articleFamille: _S.articleFamille });
       if (progressCb) progressCb(10);
     } catch (err) { reject(err); }
