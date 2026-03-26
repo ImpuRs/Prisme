@@ -291,6 +291,7 @@ function runPromoSearch(){
     _promoLastResult={matchedCodes,sectionA,sectionB,sectionC:sC.slice(0,50),sectionCTotal:sC.length,terms,matchedFamilles};
   }
   _populatePromoFilterDropdowns();
+  _checkOmnicanalWarning();
   _renderPromoResults();
   const btnAction=document.getElementById('promoModeAction');
   if(btnAction){btnAction.classList.remove('t-disabled','b-default');btnAction.classList.add('c-action','border-orange-300');btnAction.style.background='rgba(249,115,22,.1)';}
@@ -600,6 +601,19 @@ function copyPromoClipboard(){
 // ─── PROMO V2 — Import opération ─────────────────────────────────────────
 let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, sectionF}
 
+function _checkOmnicanalWarning(){
+  const existing=document.getElementById('promoOmnicanalWarning');
+  if(existing)existing.remove();
+  if(!_S.cannauxHorsMagasin||_S.cannauxHorsMagasin.size===0){
+    const banner=document.createElement('div');
+    banner.id='promoOmnicanalWarning';
+    banner.className='text-[10px] t-tertiary border b-default rounded px-3 py-1.5 mb-2 flex items-center gap-2';
+    banner.innerHTML=`<span>ℹ️</span><span>Ciblage comptoir uniquement — aucun canal WEB/REP/DCS détecté dans le fichier Consommé. Pour un ciblage omnicanal, vérifiez que le fichier contient la colonne "Canal commande" avec des valeurs autres que MAGASIN.</span>`;
+    const searchZone=document.getElementById('promoSearchZone')||document.querySelector('#tabPromo .tab-content-section');
+    if(searchZone)searchZone.prepend(banner);
+  }
+}
+
 function _onPromoImportFileChange(input){
   const f=input.files[0];if(!f)return;
   document.getElementById('promoImportFileName').textContent=f.name;
@@ -708,6 +722,7 @@ async function runPromoImport(){
   sectionF.sort((a,b)=>b.famCA-a.famCA);
 
   _promoImportResult={opName,promoCodes,sectionD,sectionE,sectionF};
+  _checkOmnicanalWarning();
   _renderPromoImportResults();
   // Auto-open the details block
   const zone=document.getElementById('promoImportZone');if(zone)zone.open=true;
@@ -792,4 +807,4 @@ function exportPromoImportCSV(){
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _checkOmnicanalWarning };
