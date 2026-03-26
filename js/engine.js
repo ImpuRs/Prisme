@@ -395,13 +395,20 @@ export function generateDecisionQueue() {
     }
     inactive.sort((a, b) => b.caAnnuel - a.caAnnuel);
     for (const c of inactive.slice(0, 2)) {
+      const horsMag = _S.ventesClientHorsMagasin?.get(c.cc);
+      const nbArtsWeb = horsMag ? horsMag.size : 0;
+      const labelWeb = nbArtsWeb > 0
+        ? ` (${nbArtsWeb} art. hors agence détectés)`
+        : '';
       decisions.push({
         type: 'client', code: c.cc, impact: c.caAnnuel,
-        label: `Appeler client ${c.nom} — disparu ${c.weeksAgo} sem., ${Math.round(c.caAnnuel).toLocaleString('fr')} € annuel.`,
+        label: `Appeler client ${c.nom} — disparu ${c.weeksAgo} sem.${labelWeb}, ${Math.round(c.caAnnuel).toLocaleString('fr')} € annuel.`,
         why: [
-          `Ce client${c.metier ? ` (${c.metier})` : ''} représente ~${Math.round(c.caAnnuel).toLocaleString('fr')} €/an chez Legallais.`,
-          `Dernière commande PDV il y a ${c.daysAgo} jours (${c.weeksAgo} sem.). Risque : départ silencieux vers un concurrent.`,
-          `Métier stratégique — contacter pour comprendre l'absence ou proposer une visite commerciale.`,
+          `Ce client représente ~${Math.round(c.caAnnuel).toLocaleString('fr')} €/an chez Legallais.`,
+          nbArtsWeb > 0
+            ? `⚠️ ${nbArtsWeb} articles achetés hors agence (web/représentant/DCS) — vérifier si le silence PDV est lié à ces canaux.`
+            : `Dernière commande PDV il y a ${c.daysAgo} jours. Risque : départ silencieux vers un concurrent.`,
+          `Métier stratégique — contacter pour comprendre l'absence ou proposer une visite.`,
         ],
       });
     }
