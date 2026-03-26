@@ -134,10 +134,15 @@ function _renderClient360(clientCode,source){
 
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];
+  const mois=_S.consommeMoisCouverts||3;
+  const caPDVAnnualisé=mois>0?caPDV*12/mois:caPDV;
+  const taux=ca2025>0?Math.round(caPDVAnnualisé/ca2025*100):null;
+  const tauxLabel=mois<3?null:taux;
   if(hasChal&&ca2025>0){
-    const taux=Math.round(caPDV/ca2025*100);
-    const col=taux>=50?'c-ok':taux>=20?'c-caution':'c-danger';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold ${col}">${taux}%</p><p class="text-[10px] t-inverse-muted">${formatEuro(caPDV)} / ${formatEuro(ca2025)}</p></div>`);
+    const col=taux!=null?(taux>=50?'c-ok':taux>=20?'c-caution':'c-danger'):'t-disabled';
+    const tauxDisplay=tauxLabel!=null?`~${tauxLabel}%`:'—';
+    const tauxTooltip=tauxLabel!=null?`title="Estimé sur ${mois} mois, annualisé — n'inclut pas la saisonnalité"`:`title="Données insuffisantes (< 3 mois)"`;
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold ${tauxLabel!=null?col:'t-disabled'}" ${tauxTooltip}>${tauxDisplay}</p><p class="text-[10px] t-inverse-muted">Comptoir ${mois}m : ${formatEuro(caPDV)} · Legallais 2025 : ${formatEuro(ca2025)}</p></div>`);
   }else if(hasChal){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0 opacity-40"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Taux captation</p><p class="text-lg font-extrabold t-disabled">—</p><p class="text-[10px] t-inverse-muted">CA Legallais inconnu</p></div>`);
   }
@@ -148,6 +153,13 @@ function _renderClient360(clientCode,source){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
     const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j</p><p class="text-[10px] t-inverse-muted">${silLabel}</p></div>`);
+  }
+  const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
+  if(spc!==null){
+    const spcCol=spc>=70?'c-ok':spc>=40?'c-caution':'c-danger';
+    const spcLabel=spc>=70?'Potentiel élevé':spc>=40?'Potentiel moyen':'Potentiel faible';
+    const spcFactor=spc>=70?'CA élevé, achat régulier':spc>=40?'CA correct, silence récent':'Fréquence faible, CA modeste';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-lg font-extrabold ${spcCol}">${spcLabel}</p><p class="text-[10px] t-inverse-muted">${spcFactor}</p></div>`);
   }
   const summaryBar=cards.length?`<div class="flex gap-3 mb-4">${cards.join('')}</div>`:'';
 
