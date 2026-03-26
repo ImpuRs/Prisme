@@ -1551,6 +1551,23 @@
 
     <!-- TAB 7 : PROMO -->
     <div id="tabPromo" class="tab-content hidden">
+      <!-- Écran accueil Promo -->
+      <div id="promoAccueil" class="mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button onclick="_setPromoMode('action');document.getElementById('promoAccueil').classList.add('hidden')"
+            class="p-5 s-card rounded-xl border-2 border-orange-300 hover:border-orange-500 text-left transition-all hover:shadow-md">
+            <div class="text-2xl mb-2">🗺️</div>
+            <h3 class="font-extrabold t-primary text-sm mb-1">Préparer ma tournée</h3>
+            <p class="text-[11px] t-tertiary">Charger une opération promo · Voir qui appeler · Ce que j'emmène par client</p>
+          </button>
+          <button onclick="_setPromoMode('analyse');document.getElementById('promoAccueil').classList.add('hidden')"
+            class="p-5 s-card rounded-xl border-2 border-blue-300 hover:border-blue-500 text-left transition-all hover:shadow-md">
+            <div class="text-2xl mb-2">🔍</div>
+            <h3 class="font-extrabold t-primary text-sm mb-1">Cibler un article ou une famille</h3>
+            <p class="text-[11px] t-tertiary">Recherche libre · Acheteurs PDV · Prospects métier · Export ciblage</p>
+          </button>
+        </div>
+      </div>
       <!-- B4: Mode toggle -->
       <div class="flex items-center gap-3 mb-3">
         <button id="promoModeAnalyse" onclick="_setPromoMode('analyse')" class="text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300" style="background:rgba(59,130,246,.1)">📊 Analyse</button>

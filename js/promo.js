@@ -330,6 +330,7 @@ function _applyPromoFilters(){_renderPromoResults();}
 let _promoMode='analyse';
 function _setPromoMode(mode){
   _promoMode=mode;
+  const accueil=document.getElementById('promoAccueil');if(accueil)accueil.classList.add('hidden');
   const aBtn=document.getElementById('promoModeAnalyse');
   const xBtn=document.getElementById('promoModeAction');
   const actionView=document.getElementById('promoActionView');
