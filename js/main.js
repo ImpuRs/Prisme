@@ -1217,7 +1217,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: capture canal data BEFORE filtering (for _S.canalAgence)
-      if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0};_S.canalAgence[canal].bl.add(nc2);}}
+      if(canal){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0,caP:0,caE:0};_S.canalAgence[canal].bl.add(nc2);}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Capture canaux hors MAGASIN pour la vue Terrain multi-canaux
       // Fix: en mono-agence ou quand les lignes hors-MAGASIN n'ont pas de Code PDV,
@@ -1241,6 +1241,8 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
           }
         }
       }
+      // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
+      if(canal&&_S.canalAgence[canal]){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
@@ -1421,28 +1423,52 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
   }
 
 
-  // V24.4: Render canal distribution block (always shown in Territoire tab)
+  // V24.4+: Render canal distribution block — enriched with prélevé/enlevé CA
   function renderCanalAgence(){
     const el=document.getElementById('canalAgenceBlock');if(!el)return;
-    const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',DEFAULT:'#94a3b8'};
-    const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Internet',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant'};
-    const entries=Object.entries(_S.canalAgence).sort((a,b)=>b[1].bl-a[1].bl);
-    const totalBL=entries.reduce((s,[,v])=>s+v.bl,0)||1;
-    if(!entries.length){el.innerHTML='<p class="t-disabled text-sm">Aucune donnée canal dans le fichier Consommé (colonne "Canal commande" non trouvée ou vide).</p>';return;}
-    let html='';
+    const wrapper=document.getElementById('terrCanalBlock');
+    const CANAL_ORDER=['MAGASIN','REPRESENTANT','INTERNET','DCS','AUTRE'];
+    const CANAL_LABELS={MAGASIN:'🏪 Comptoir',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
+    const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
+    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([,v])=>v&&(v.ca||0)>0);
+    if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
+    if(wrapper)wrapper.classList.remove('hidden');
+    const totalCA=entries.reduce((s,[,v])=>s+(v.ca||0),0)||1;
+    let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
+    html+='<th class="py-2 px-3 text-left">Canal</th>';
+    html+='<th class="py-2 px-3 text-right">Prélevé</th>';
+    html+='<th class="py-2 px-3 text-right">Enlevé</th>';
+    html+='<th class="py-2 px-3 text-right">Total CA</th>';
+    html+='<th class="py-2 px-3 text-right">% du CA</th>';
+    html+='<th class="py-2 px-3 text-center">Répartition</th>';
+    html+='</tr></thead><tbody>';
     for(const[canal,data] of entries){
-      const pct2=(data.bl/totalBL*100).toFixed(1);
-      const barW=Math.max(parseFloat(pct2),2);
-      const color=CANAL_COLORS[canal]||CANAL_COLORS.DEFAULT;
       const label=CANAL_LABELS[canal]||canal;
-      html+=`<div class="flex items-center gap-3">
-        <div class="w-28 text-xs font-bold t-primary flex-shrink-0">${label}</div>
-        <div class="flex-1 s-hover rounded-full h-6 relative overflow-hidden">
-          <div class="canal-bar" style="width:${barW}%;background:${color}">${pct2}%</div>
-        </div>
-        <div class="text-xs t-tertiary w-20 text-right">${data.bl.toLocaleString('fr')} BL</div>
-      </div>`;
+      const color=CANAL_COLORS[canal]||CANAL_COLORS.AUTRE;
+      const pct=Math.round((data.ca||0)/totalCA*100);
+      const barW=Math.max(pct,2);
+      const isMag=canal==='MAGASIN';
+      const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      html+=`<tr class="border-b b-light hover:s-card-alt ${isMag?'font-semibold':''}">`;
+      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
+      html+=prevCell;
+      html+=enlevCell;
+      html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
+      html+=`<td class="py-2 px-3 text-right font-bold t-secondary">${pct}%</td>`;
+      html+=`<td class="py-2 px-3"><div class="w-32 s-hover rounded-full h-3 overflow-hidden"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div></td>`;
+      html+='</tr>';
     }
+    const totalP=entries.filter(([c])=>c==='MAGASIN').reduce((s,[,v])=>s+(v.caP||0),0);
+    const totalE=entries.reduce((s,[,v])=>s+(v.caE||0),0);
+    html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
+    html+=`<td class="py-2 px-3">TOTAL</td>`;
+    html+=`<td class="py-2 px-3 text-right">${formatEuro(totalP)}</td>`;
+    html+=`<td class="py-2 px-3 text-right">${formatEuro(totalE)}</td>`;
+    html+=`<td class="py-2 px-3 text-right c-action">${formatEuro(totalCA)}</td>`;
+    html+=`<td class="py-2 px-3 text-right">100%</td>`;
+    html+=`<td></td></tr>`;
+    html+='</tbody></table></div>';
     el.innerHTML=html;
   }
 
