@@ -140,7 +140,7 @@ function _renderClient360(clientCode,source){
   if(caPDV>0||artMap){
     const mois=_S.consommeMoisCouverts||3;
     const periode=_S.consommePeriodMin&&_S.consommePeriodMax?`${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`:`${mois} mois`;
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Comptoir</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
   }
   if(hasChal&&ca2025>0){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
@@ -250,7 +250,7 @@ function _c360CopyResume(clientCode){
   const lines=[
     `CLIENT 360° — ${nom} (${clientCode})`,
     `Métier : ${info.metier||'—'} · Commercial : ${info.commercial||'—'} · ${info.ville||''}`,
-    `CA Comptoir : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
+    `CA Magasin : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
     daysSince!==null?`Dernière commande : il y a ${daysSince}j`:'',
   ].filter(Boolean);
   navigator.clipboard?.writeText(lines.join('\n'))

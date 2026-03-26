@@ -827,7 +827,7 @@
       <!-- Section 2 — Clients & Terrain -->
       <p class="text-[11px] font-extrabold c-danger uppercase tracking-widest mb-2">👥 Clients &amp; Terrain</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA Comptoir</h4><p class="text-xs t-secondary mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé au comptoir de l'agence).</p></div>
+        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">💰 CA Magasin</h4><p class="text-xs t-secondary mt-1">Chiffre d'affaires canal MAGASIN uniquement (prélevé + enlevé au comptoir de l'agence).</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🌐 CA Legallais</h4><p class="text-xs t-secondary mt-1">CA global du client tous canaux confondus. Source : fichier Zone de Chalandise.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">🤫 Client silencieux</h4><p class="text-xs t-secondary mt-1">Client régulier du PDV sans commande depuis plus de <strong>30 jours</strong>. Alerte précoce avant perte définitive.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-rose-500"><h4 class="font-bold text-sm">📍 Captation PDV / Legallais</h4><p class="text-xs t-secondary mt-1"><strong>PDV</strong> = % clients de la zone qui achètent dans mon agence.<br><strong>Legallais</strong> = % qui achètent chez Legallais (tous canaux).</p></div>
@@ -858,7 +858,7 @@
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔢 FMR (fréquence)</h4><p class="text-xs t-secondary mt-1"><strong>F</strong> = fréquent ≥12/an · <strong>M</strong> = moyen 3–11/an · <strong>R</strong> = rare &lt;3/an.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🎯 Case Radar (ABC × FMR)</h4><p class="text-xs t-secondary mt-1"><strong>AF</strong> = pépites (fort CA + fréquent) · <strong>CR</strong> = candidats déréférencement · Les 9 cases croisent valeur et fréquence.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">🔬 Diagnostic cascade</h4><p class="text-xs t-secondary mt-1">3 voyants progressifs : <strong>📦 Mon Agence</strong> (stock/MIN-MAX) → <strong>👥 Mes Clients</strong> (chalandise) → <strong>🔭 Le Réseau</strong> (benchmark).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs t-secondary mt-1">CA Comptoir historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
+        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-indigo-500"><h4 class="font-bold text-sm">💡 Potentiel récupérable</h4><p class="text-xs t-secondary mt-1">CA Magasin historique des clients perdus sur les articles de la famille. Estimation prudente du CA récupérable.</p></div>
       </div>
 
       <!-- Section 4 — Réseau & Benchmark -->
@@ -875,7 +875,7 @@
       <!-- Section 5 — Équation commerciale -->
       <p class="text-[11px] font-extrabold c-caution uppercase tracking-widest mb-2">🎯 Équation commerciale</p>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs t-secondary mt-1"><strong>Clients PDV × Fréquence × CA / client = CA Comptoir.</strong> Les 3 leviers du chef d'agence.</p></div>
+        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">⚖️ Équation commerciale</h4><p class="text-xs t-secondary mt-1"><strong>Clients PDV × Fréquence × CA / client = CA Magasin.</strong> Les 3 leviers du chef d'agence.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">👤 Clients PDV</h4><p class="text-xs t-secondary mt-1">Nombre de clients distincts ayant acheté au comptoir sur la période analysée.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🔁 Fréquence</h4><p class="text-xs t-secondary mt-1">Nombre moyen de passages (BL) par client sur la période. Mesure la fidélité de venue.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-amber-500"><h4 class="font-bold text-sm">🛍️ CA / client</h4><p class="text-xs t-secondary mt-1">CA total ÷ nombre de clients uniques. Dépense moyenne par client sur la période — non disponible dans Qlik.</p></div>
@@ -1090,7 +1090,7 @@
           </div>
           <span class="text-2xl t-disabled font-light">=</span>
           <div class="text-center px-4 py-2 i-info-bg rounded-lg b-light">
-            <p class="text-[10px] font-bold c-action uppercase">💰 CA Comptoir</p>
+            <p class="text-[10px] font-bold c-action uppercase">💰 CA Magasin</p>
             <p id="eqCA" class="text-xl font-extrabold c-action">—</p>
           </div>
         </div>
@@ -1641,7 +1641,7 @@
             <table class="min-w-full text-[10px]">
               <thead class="sticky top-0 i-ok-bg c-ok font-bold"><tr>
                 <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
-                <th class="py-1 px-2 text-center">Qté vendus</th><th class="py-1 px-2 text-right">CA Comptoir</th>
+                <th class="py-1 px-2 text-center">Qté vendus</th><th class="py-1 px-2 text-right">CA Magasin</th>
                 <th class="py-1 px-2 text-center">Nb clients</th><th class="py-1 px-2 text-center">Stock</th>
               </tr></thead>
               <tbody id="promoImportTableD"></tbody>
