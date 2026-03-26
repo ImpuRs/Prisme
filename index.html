@@ -1033,30 +1033,7 @@
     <!-- TAB 3 : COCKPIT -->
     <div id="tabAction" class="tab-content hidden">
 
-      <!-- 1. ★ BRIEFING DU MATIN ★ -->
-      <div id="cockpitBriefing" class="hidden">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">📋</span>
-          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">Briefing du matin</h3>
-          <button onclick="exportCockpitResume()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Copier le résumé Cockpit">📋</button>
-        </div>
-        <div id="cockpitBriefingText"></div>
-      </div>
-
-      <!-- 2. ★ FILE DE DÉCISION ★ -->
-      <div id="decisionQueue" class="hidden">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-base">⚡</span>
-            <h3 class="font-extrabold text-sm t-primary">File de décision</h3>
-          </div>
-          <span class="text-[10px] t-disabled font-mono" id="dqSubtitle"></span>
-        </div>
-        <div id="decisionQueueList"></div>
-        <div id="dqFooter" class="hidden"></div>
-      </div>
-
-      <!-- 3. ★ ÉQUATION COMMERCIALE ★ -->
+      <!-- 1. ★ ÉQUATION COMMERCIALE ★ -->
       <div id="cockpitEquation" class="hidden mb-4">
         <div class="flex items-center justify-center gap-3 py-3 s-card rounded-xl border shadow-sm flex-wrap">
           <div class="text-center px-4 py-2 s-card-alt rounded-lg">
@@ -1085,12 +1062,22 @@
         <p id="eqExtra" class="text-[11px] t-tertiary text-center mt-0.5 hidden"></p>
       </div>
 
-      <!-- 4. 🗂️ EXPLORER MES ARTICLES (raccourcis) -->
+      <!-- 2. ★ BRIEFING DU MATIN ★ -->
+      <div id="cockpitBriefing" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base">📋</span>
+          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">Briefing du matin</h3>
+          <button onclick="exportCockpitResume()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Copier le résumé Cockpit">📋</button>
+        </div>
+        <div id="cockpitBriefingText"></div>
+      </div>
+
+      <!-- 3. ★ FILE DE DÉCISION ★ -->
       <div class="mb-8">
         <h3 class="font-bold t-primary mb-3 flex items-center gap-2">🗂️ Explorer mes articles <span class="text-[10px] font-normal t-disabled">— raccourcis vers l'onglet Articles avec filtre</span></h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes')" style="border-left-color:#f87171">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
+            <div class="flex items-center justify-between mb-2"><span class="text-lg">📍</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
             <div class="font-semibold text-xs t-primary">Sans emplacement</div>
             <div id="scFantomesVal" class="text-[10px] c-danger font-bold mt-1">—</div>
           </div>
