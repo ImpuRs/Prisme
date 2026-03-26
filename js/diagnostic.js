@@ -11,7 +11,7 @@ import { RADAR_LABELS } from './constants.js';
 import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate } from './utils.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
-import { estimerCAPerdu, computeSPC, _isPDVActif, _isGlobalActif, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeSPC, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 function _normFamGlobal(f){return f?f.replace(/^[A-Z]\d{2,3} - /,''):f;}
