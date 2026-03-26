@@ -958,6 +958,7 @@
     <div id="tabTable" class="tab-content hidden">
       <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
+        <button onclick="toggleWebColumn()" class="text-xs s-hover py-2 px-3 rounded-lg font-semibold border" title="Afficher/masquer les achats hors agence">🌐</button>
         <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
       </div>
       <div class="table-scroll s-card rounded-xl shadow-lg border">
@@ -969,7 +970,7 @@
               <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')">Famille ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('V')" data-tooltip="Prélevé comptoir 12 mois">Prél ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-ok" onclick="sortBy('caAnnuel')" data-tooltip="CA comptoir sur la période chargée (source : consommé MAGASIN)">CA ↕</th>
-              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-tooltip="Clients de la zone ayant acheté cet article hors agence (Web/Représentant/DCS). Source : chalandise.">🌐</th>
+              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-tooltip="Clients de la zone ayant acheté cet article hors agence (Web/Représentant/DCS). Source : chalandise.">🌐 ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center text-cyan-300" onclick="sortBy('enleveTotal')" data-tooltip="Enlevé (colis) 12 mois">Enl ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-action" onclick="sortBy('W')">Fréq ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-caution" onclick="sortBy('stockActuel')">Stock ↕</th>
