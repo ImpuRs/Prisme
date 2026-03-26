@@ -1387,6 +1387,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
       if(useMulti&&_S.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of _S.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
+      for(const r of _S.finalData){r.caAnnuel=Math.round(r.V*(r.prixUnitaire||0));}
       enrichPrixUnitaire();
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
@@ -2878,27 +2879,32 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
       const bg=r.isNouveaute?'i-ok-bg':(r.nouveauMin>0?'s-card':'s-card-alt t-disabled');
-      const sc=r.stockActuel<0?'c-danger font-extrabold':'c-caution font-bold';
+      const sc=(() => { if(r.nouveauMin===0&&r.nouveauMax===0)return 't-disabled'; if(r.stockActuel<0)return 'c-danger font-extrabold i-danger-bg'; if(r.stockActuel===0)return 'c-danger font-bold i-danger-bg'; if(r.stockActuel<=r.nouveauMin)return 'c-caution font-bold i-caution-bg'; if(r.stockActuel>r.nouveauMax)return 'c-info font-bold i-info-bg'; return 'c-ok font-bold i-ok-bg'; })();
       const br=getAgeBracket(r.ageJours);
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'c-caution i-caution-bg font-bold':r.nouveauMin>r.medMinReseau?'c-caution font-semibold':'t-disabled'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'c-caution i-caution-bg font-bold':r.nouveauMax>r.medMaxReseau?'c-caution font-semibold':'t-disabled'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
+      const caEst=r.caAnnuel>0?(r.caAnnuel>=1000?`${(r.caAnnuel/1000).toFixed(1)}k€`:`${r.caAnnuel}€`):'—';
+      const ancStr=(r.ancienMin===0&&r.ancienMax===0)?`<span class="t-disabled" title="Pas de MIN/MAX dans l'ERP">—</span>`:(r.ancienMin>0&&r.ancienMax===0)?`<span class="c-caution" title="MAX absent — anomalie ERP">${r.ancienMin}/0</span>`:`${r.ancienMin}/${r.ancienMax}`;
     p.push(`<tr class="border-b hover:i-info-bg ${bg}">
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${_copyCodeBtn(r.code)}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${r.libelle}">${r.libelle}</div></td>
+      <td class="px-2 py-2 text-xs t-tertiary truncate max-w-[100px]" title="${r.famille||''}">${r.famille||'—'}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.V}</td>
+      <td class="px-2 py-2 text-center text-xs font-bold c-ok">${caEst}</td>
       <td class="px-2 py-2 text-center text-cyan-600 text-xs">${r.enleveTotal||0}</td>
       <td class="px-2 py-2 text-center c-action font-bold text-xs">${r.W}</td>
-      <td class="px-2 py-2 text-center ${sc} i-caution-bg text-xs">${r.stockActuel}</td>
+      <td class="px-2 py-2 text-center ${sc} text-xs">${r.stockActuel}</td>
       <td class="px-2 py-2 text-center text-xs ${couvColor(r.couvertureJours)}">${formatCouv(r.couvertureJours)}</td>
       <td class="px-2 py-2 text-center text-xs whitespace-nowrap"><span class="age-dot ${AGE_BRACKETS[br].dotClass}"></span>${getAgeLabel(r.ageJours)}</td>
-      <td class="px-2 py-2 text-center text-xs t-disabled">${r.ancienMin}/${r.ancienMax}</td>
+      <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
       <td class="px-2 py-2 text-center font-extrabold c-action i-info-bg text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-extrabold c-action i-info-bg text-xs">${r.nouveauMax}</td>
       ${_medMinCell}${_medMaxCell}
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'c-ok i-ok-bg':r.abcClass==='B'?'c-action i-info-bg':r.abcClass==='C'?'c-caution i-caution-bg':'t-disabled'}">${r.abcClass||'—'}</td>
       <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'c-ok i-ok-bg':r.fmrClass==='M'?'c-action i-info-bg':r.fmrClass==='R'?'c-danger i-danger-bg':'t-disabled'}">${r.fmrClass||'—'}</td>
+      <td class="px-2 py-2 text-center w-8"><button onclick="openArticlePanel('${r.code}','table')" class="text-gray-400 hover:text-blue-500 text-xs px-1 font-bold" title="Ouvrir la fiche article">↗</button></td>
     </tr>`);}
-    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${13+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
+    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${15+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
   }
 
   // ★ V24: Render Radar (ABC/FMR matrix) tab — supports Famille/Emplacement filters
