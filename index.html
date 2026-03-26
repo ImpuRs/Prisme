@@ -518,6 +518,7 @@
     :focus-visible{outline:2px solid var(--c-action);outline-offset:2px}
 
   #tabPromo{display:flex;flex-direction:column}
+  #promoStickyHeader{position:sticky;top:0;z-index:25;background:var(--s-page);border-bottom:1px solid var(--b-default);padding-bottom:8px}
   #promoScrollZone{overflow-y:auto;max-height:calc(100vh - 220px)}
   </style>
 </head>
@@ -1564,27 +1565,30 @@
 
     <!-- TAB 7 : PROMO -->
     <div id="tabPromo" class="tab-content hidden">
-      <!-- Écran accueil Promo -->
-      <div id="promoAccueil" class="mb-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button onclick="_lancerPhoning()"
-            class="p-5 s-card rounded-xl border-2 border-orange-300 hover:border-orange-500 text-left transition-all hover:shadow-md">
-            <div class="text-2xl mb-2">🗺️</div>
-            <h3 class="font-extrabold t-primary text-sm mb-1">Préparer mon phoning</h3>
-            <p class="text-[11px] t-tertiary">Charger une opération promo · Liste d'appels · Ce que je propose par client</p>
-          </button>
-          <button onclick="_lancerCiblage()"
-            class="p-5 s-card rounded-xl border-2 border-blue-300 hover:border-blue-500 text-left transition-all hover:shadow-md">
-            <div class="text-2xl mb-2">🔍</div>
-            <h3 class="font-extrabold t-primary text-sm mb-1">Cibler un article ou une famille</h3>
-            <p class="text-[11px] t-tertiary">Recherche libre · Acheteurs PDV · Prospects métier · Export ciblage</p>
-          </button>
+      <!-- Sticky header: cards + toggle -->
+      <div id="promoStickyHeader">
+        <!-- Écran accueil Promo -->
+        <div id="promoAccueil" class="mb-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button onclick="_lancerPhoning()"
+              class="p-5 s-card rounded-xl border-2 border-orange-300 hover:border-orange-500 text-left transition-all hover:shadow-md">
+              <div class="text-2xl mb-2">🗺️</div>
+              <h3 class="font-extrabold t-primary text-sm mb-1">Préparer mon phoning</h3>
+              <p class="text-[11px] t-tertiary">Charger une opération promo · Liste d'appels · Ce que je propose par client</p>
+            </button>
+            <button onclick="_lancerCiblage()"
+              class="p-5 s-card rounded-xl border-2 border-blue-300 hover:border-blue-500 text-left transition-all hover:shadow-md">
+              <div class="text-2xl mb-2">🔍</div>
+              <h3 class="font-extrabold t-primary text-sm mb-1">Cibler un article ou une famille</h3>
+              <p class="text-[11px] t-tertiary">Recherche libre · Acheteurs PDV · Prospects métier · Export ciblage</p>
+            </button>
+          </div>
         </div>
-      </div>
-      <!-- B4: Mode toggle — zone fixe, hors scroll -->
-      <div id="promoModeToggle" class="flex items-center gap-3 mb-0 pb-2 border-b b-default flex-shrink-0">
-        <button id="promoModeAnalyse" onclick="_setPromoMode('analyse')" class="text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300" style="background:rgba(59,130,246,.1)">📊 Analyse</button>
-        <button id="promoModeAction" onclick="_setPromoMode('action')" class="text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default">⚡ Action</button>
+        <!-- B4: Mode toggle -->
+        <div id="promoModeToggle" class="flex items-center gap-3 mb-0 flex-shrink-0">
+          <button id="promoModeAnalyse" onclick="_setPromoMode('analyse')" class="text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300" style="background:rgba(59,130,246,.1)">📊 Analyse</button>
+          <button id="promoModeAction" onclick="_setPromoMode('action')" class="text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default">⚡ Action</button>
+        </div>
       </div>
       <!-- ZONE SCROLLABLE — contient import + recherche + résultats -->
       <div id="promoScrollZone">
