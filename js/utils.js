@@ -7,6 +7,12 @@
 
 import { METIERS_STRATEGIQUES, SECTEUR_DIR_MAP } from './constants.js';
 
+export function escapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''; }
 
 export function extractClientCode(val) {
@@ -43,6 +49,8 @@ export function parseExcelDate(v) {
     if (p.length === 3) {
       let [a, b, d] = p.map(x => parseInt(x, 10));
       if (isNaN(a) || isNaN(b) || isNaN(d)) return null;
+      // ISO YYYY-MM-DD : premier segment est déjà l'année 4 chiffres
+      if (a >= 100) return new Date(a, b - 1, d);
       if (d < 100) d += 2000;
       if (a > 12) return new Date(d, b - 1, a);
       if (b > 12) return new Date(d, a - 1, b);
@@ -133,14 +141,41 @@ export function readExcel(f) {
 export function yieldToMain() { return new Promise(r => setTimeout(r, 0)); }
 
 export function parseCSVText(text, sep) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return [];
-  const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim());
+  // Tokenizer RFC 4180 : gère guillemets, séparateurs et retours ligne dans les champs
+  function tokenize(line, s) {
+    const fields = []; let cur = ''; let inQ = false; let i = 0;
+    while (i < line.length) {
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i += 2; } // guillemet doublé
+          else { inQ = false; i++; }
+        } else { cur += ch; i++; }
+      } else if (ch === '"') { inQ = true; i++; }
+      else if (ch === s) { fields.push(cur.trim()); cur = ''; i++; }
+      else { cur += ch; i++; }
+    }
+    fields.push(cur.trim());
+    return fields;
+  }
+  // Reconstruit les lignes en tenant compte des retours ligne dans les champs quotés
+  const rows = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') { inQ = !inQ; cur += ch; }
+    else if (!inQ && (ch === '\n' || (ch === '\r' && text[i + 1] === '\n'))) {
+      if (ch === '\r') i++;
+      if (cur.trim()) rows.push(cur); cur = '';
+    } else { cur += ch; }
+  }
+  if (cur.trim()) rows.push(cur);
+  if (!rows.length) return [];
+  const headers = tokenize(rows[0], sep);
   const data = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(sep).map(v => v.replace(/^"|"$/g, '').trim());
+  for (let i = 1; i < rows.length; i++) {
+    const vals = tokenize(rows[i], sep);
     const row = {};
-    for (let j = 0; j < headers.length; j++) row[headers[j]] = vals[j] || '';
+    for (let j = 0; j < headers.length; j++) row[headers[j]] = vals[j] !== undefined ? vals[j] : '';
     data.push(row);
   }
   return data;

@@ -8,7 +8,7 @@
 'use strict';
 
 import { RADAR_LABELS } from './constants.js';
-import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate } from './utils.js';
+import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml } from './utils.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { estimerCAPerdu, computeSPC, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
@@ -344,7 +344,7 @@ function openArticlePanel(code,source){
   const acts=[];
   if(r.stockActuel<=0&&r.nouveauMin>0)acts.push(`<div class="diag-action-row"><span class="c-ok font-bold">1.</span><span class="flex-1 ml-2 text-sm">Commander — MIN recalculé : <strong>${r.nouveauMin}</strong></span><button onclick="navigator.clipboard.writeText('${code}').catch(()=>{})" class="diag-btn bg-violet-900 text-violet-200 border border-violet-500 text-[10px]">📋 Copier</button></div>`);
   const topBuyer=buyerList.find(b=>b.caArt>0);
-  if(topBuyer&&topBuyer.daysSince!==null&&topBuyer.daysSince>30)acts.push(`<div class="diag-action-row"><span class="c-caution font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Appeler <strong>${topBuyer.nom}</strong> — plus gros acheteur, <strong class="c-danger">${topBuyer.daysSince}j</strong> sans commande</span></div>`);
+  if(topBuyer&&topBuyer.daysSince!==null&&topBuyer.daysSince>30)acts.push(`<div class="diag-action-row"><span class="c-caution font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Appeler <strong>${escapeHtml(topBuyer.nom)}</strong> — plus gros acheteur, <strong class="c-danger">${topBuyer.daysSince}j</strong> sans commande</span></div>`);
   if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[..._S.storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="c-caution">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
   const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
   // Render
