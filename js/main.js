@@ -1400,7 +1400,7 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
-      if (_S.selectedMyStore) { _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
+      if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
@@ -2959,6 +2959,19 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
 
   // ── Restauration de session au démarrage ─────────────────────
   (async function _initFromCache() {
+    // Pré-remplir le sélecteur d'agence depuis localStorage si une valeur est sauvegardée
+    const _savedStore = localStorage.getItem('prisme_selectedStore');
+    if (_savedStore) {
+      const sel = document.getElementById('selectMyStore');
+      if (sel) {
+        if (sel.options.length <= 1) {
+          const o = document.createElement('option');
+          o.value = _savedStore; o.textContent = _savedStore; o.selected = true;
+          sel.appendChild(o);
+        }
+        sel.value = _savedStore;
+      }
+    }
     // 1. Toujours restaurer les exclusions (pas de TTL)
     _restoreExclusions();
     // 2. Migration transparente PILOT_PRO → PRISME (si ancienne base présente)
