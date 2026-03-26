@@ -8,7 +8,7 @@
 'use strict';
 
 import { METIERS_STRATEGIQUES } from './constants.js';
-import { cleanCode, formatEuro, readExcel } from './utils.js';
+import { cleanCode, formatEuro, readExcel, escapeHtml } from './utils.js';
 import { _S } from './state.js';
 import { computeSPC, _clientPassesFilters } from './engine.js';
 import { showToast } from './ui.js';
@@ -309,7 +309,7 @@ function _populatePromoFilterDropdowns(){
     const sel=document.getElementById(id);if(!sel)return;
     const cur=sel.value;
     const first=sel.options[0].outerHTML;
-    sel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+    sel.innerHTML=first+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
     if(vals.includes(cur))sel.value=cur;
   };
   // Famille + Sous-famille from matchedCodes
@@ -352,7 +352,7 @@ function _onPromoFamilleChange(){
   }
   const first=sfSel.options[0].outerHTML;
   const vals=[...sfSet].sort();
-  sfSel.innerHTML=first+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+  sfSel.innerHTML=first+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   if(vals.includes(cur))sfSel.value=cur; else sfSel.value='';
   _applyPromoFilters();
 }
@@ -804,7 +804,7 @@ function _renderPromoImportResults(){
   const filterCommEl=document.getElementById('promoImportFilterCommercial');
   if(filterCommEl){
     const curVal=filterCommEl.value;
-    filterCommEl.innerHTML='<option value="">Tous les commerciaux</option>'+commerciauxF.map(c=>`<option value="${c}">${c}</option>`).join('');
+    filterCommEl.innerHTML='<option value="">Tous les commerciaux</option>'+commerciauxF.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     if(commerciauxF.includes(curVal))filterCommEl.value=curVal;
   }
   const filtreComm=filterCommEl?.value||'';

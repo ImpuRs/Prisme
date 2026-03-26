@@ -7,6 +7,12 @@
 
 import { METIERS_STRATEGIQUES, SECTEUR_DIR_MAP } from './constants.js';
 
+export function escapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 export function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''; }
 
 export function extractClientCode(val) {

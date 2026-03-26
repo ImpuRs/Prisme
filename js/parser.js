@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache } from './utils.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml } from './utils.js';
 import { _S, resetAppState } from './state.js';
 
 
@@ -219,7 +219,7 @@ export function launchTerritoireWorker(rows, progressCb) {
       else if (d.type === 'done') {
         _S.territoireLines = d.lines; _S.terrDirectionData = d.terrDirData;
         const sel = document.getElementById('terrFilterDir');
-        if (sel) { sel.innerHTML = '<option value="">Toutes Directions</option>'; d.dirsSorted.forEach(dir => { sel.innerHTML += `<option value="${dir}">${dir}</option>`; }); }
+        if (sel) { sel.innerHTML = '<option value="">Toutes Directions</option>'; d.dirsSorted.forEach(dir => { sel.innerHTML += `<option value="${escapeHtml(dir)}">${escapeHtml(dir)}</option>`; }); }
         buildSecteurCheckboxes(d.secteursSorted || []);
         _S.territoireReady = true;
         _S._activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); resolve();
