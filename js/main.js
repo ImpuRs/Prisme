@@ -1399,7 +1399,8 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);
-      _saveToCache(); _saveSessionToIDB(); // Sauvegarder après le chargement principal
+      // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
+      if (_S.selectedMyStore) { _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
     }catch(error){showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     // V24.4: Process territoire IN BACKGROUND — after loading overlay hidden, UI already usable
@@ -1414,7 +1415,8 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
           computePhantomArticles();
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
-          _saveToCache(); _saveSessionToIDB(); // Resauvegarder avec les données territoire
+          // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
+          if (_S.selectedMyStore) { _saveToCache(); _saveSessionToIDB(); } // Resauvegarder avec les données territoire
         }else{showToast('⚠️ Fichier territoire vide ou non lisible','warning');}
       }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');updatePipeline('territoire','pending');}
       finally{showTerritoireLoading(false);}

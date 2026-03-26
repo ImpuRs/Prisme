@@ -98,7 +98,8 @@ export async function parseChalandise(file) {
   const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on territoire tab
   if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.renderAll?.(); }
-  _saveSessionToIDB(); // Sauvegarder avec les données chalandise
+  // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
+  if (_S.selectedMyStore) _saveSessionToIDB(); // Sauvegarder avec les données chalandise
 }
 
 export function onChalandiseSelected(input) {
