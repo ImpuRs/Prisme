@@ -467,7 +467,9 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       const _terr={territoireReady:_S.territoireReady,territoireLines:_S.territoireLines,terrDirectionData:_S.terrDirectionData,terrContribBySecteur:_S.terrContribBySecteur,terrContribByDirection:_S.terrContribByDirection};
       const _chal={chalandiseData:_S.chalandiseData,chalandiseReady:_S.chalandiseReady,chalandiseMetiers:_S.chalandiseMetiers,clientsByMetier:_S.clientsByMetier,clientsByCommercial:_S.clientsByCommercial};
       const _misc={periodFilterStart:_S.periodFilterStart,periodFilterEnd:_S.periodFilterEnd,consommePeriodMinFull:_S.consommePeriodMinFull,consommePeriodMaxFull:_S.consommePeriodMaxFull,_rawDataC:_S._rawDataC,_rawDataS:_S._rawDataS};
+      const _storeToKeep=_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||'';
       resetAppState();resetPromo();
+      if(_storeToKeep)_S.selectedMyStore=_storeToKeep;
       Object.assign(_S,_terr,_chal,_misc);
       processDataFromRaw(_S._rawDataC,_S._rawDataS,{isRefilter:true});
     }else{processData();}
