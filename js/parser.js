@@ -301,8 +301,8 @@ export function buildSecteurCheckboxes(secteurs) {
     const dirLabel = getSecteurDirection(s);
     const label = dirLabel ? `${s} (${dirLabel})` : s;
     html += `<label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs">
-      <input type="checkbox" value="${s}" checked onchange="onSecteurChange()" class="rounded">
-      <span class="font-semibold">${label}</span>
+      <input type="checkbox" value="${escapeHtml(s)}" checked onchange="onSecteurChange()" class="rounded">
+      <span class="font-semibold">${escapeHtml(label)}</span>
     </label>`;
   }
   div.innerHTML = html;
