@@ -389,10 +389,9 @@ function exportTourneeCSV(){
     const lastOrderStr=lastOrder?lastOrder.toISOString().slice(0,10):'—';
     const cp=(info.cp||'').replace(/\s/g,'');
     const ville=info.ville||'';
-    const artMap=_S.ventesClientArticle.get(c.cc)||new Map();
     const toPitch=[];
     for(const code of r.matchedCodes){
-      if(artMap.has(code))continue;
+      if(_isArticleAlreadyBought(c.cc,code))continue;
       const ref=_S.finalData.find(d=>d.code===code);
       if(ref&&ref.stockActuel>0)toPitch.push({code,lib:ref.libelle||code});
       if(toPitch.length>=3)break;
@@ -600,6 +599,20 @@ function copyPromoClipboard(){
 
 // ─── PROMO V2 — Import opération ─────────────────────────────────────────
 let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, sectionF}
+
+/**
+ * Retourne true si le client cc a déjà acheté l'article code sur n'importe quel canal.
+ * Agrège : MAGASIN (ventesClientArticle) + WEB/REP/DCS (ventesClientHorsMagasin) + territoire.
+ * Usage : promo.js uniquement — accède à _S, ne pas déplacer dans utils.js.
+ */
+function _isArticleAlreadyBought(cc,code){
+  if((_S.ventesClientArticle.get(cc)||new Map()).has(code))return true;
+  if((_S.ventesClientHorsMagasin?.get(cc)||new Map()).has(code))return true;
+  if(_S.territoireReady){
+    for(const l of _S.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
+  }
+  return false;
+}
 
 function _checkOmnicanalWarning(){
   const existing=document.getElementById('promoOmnicanalWarning');
