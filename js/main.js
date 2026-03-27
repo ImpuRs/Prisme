@@ -2121,8 +2121,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const selectedSecteurs=getSelectedSecteurs();
+    const _cg=_S._selectedTerrCanal||'';
     const familles={};
     for(const l of _S.territoireLines){
+      if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction)continue;
       if(filterRayon&&l.rayonStatus!==filterRayon)continue;
@@ -2162,8 +2164,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
+    const _cg=_S._selectedTerrCanal||'';
     const artMap={};
     for(const l of _S.territoireLines){
+      if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
@@ -2195,8 +2199,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
+    const _cg=_S._selectedTerrCanal||'';
     const artMap={};
     for(const l of _S.territoireLines){
+      if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
@@ -2224,8 +2230,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     statusFilter=statusFilter||'';
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const _cg=_S._selectedTerrCanal||'';
     const artMap={};
     for(const l of _S.territoireLines){
+      if(_cg&&l.canal!==_cg)continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
@@ -2270,8 +2278,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const _cg=_S._selectedTerrCanal||'';
     const artMap={};
     for(const l of _S.territoireLines){
+      if(_cg&&l.canal!==_cg)continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
