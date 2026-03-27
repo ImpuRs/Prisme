@@ -972,6 +972,11 @@
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
         <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
       </div>
+      <div id="activeFilterBadges"
+        style="display:none;flex-wrap:wrap;gap:6px;padding:6px 12px;
+               position:sticky;top:44px;z-index:15;
+               background:var(--s-page);border-bottom:1px solid var(--b-light)">
+      </div>
       <div class="table-scroll s-card rounded-xl shadow-lg border">
         <table class="min-w-full table-auto text-left">
           <thead class="s-panel-inner t-inverse sticky top-0">
@@ -1000,7 +1005,7 @@
           <tbody id="tableBody" class="text-sm divide-y divide-gray-100"></tbody>
         </table>
       </div>
-      <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
+      <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><span id="filteredCATotal" class="hidden text-xs font-semibold c-ok" style="margin-left:12px"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
     </div>
 
     <!-- TAB 2 : DASHBOARD -->
