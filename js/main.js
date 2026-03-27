@@ -873,13 +873,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _terrCanalFilter=_S._globalCanal||'';
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
+    console.log('[FILTRE] canal actif:', _S._globalCanal, 'articleCanalCA size:', _S.articleCanalCA?.size);
     if(_isNonMagasin){
-      // Canaux hors MAGASIN : filtrer ventesClientHorsMagasin par canal
+      // Canaux hors MAGASIN : filtrer ventesClientHorsMagasin via articleCanalCA (plus fiable que v.canal)
       _clientArtMap=new Map();
       for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
         const filtered=new Map();
         for(const[artCode,v] of artMap.entries()){
-          if(v.canal===_terrCanalFilter)filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
+          if((_S.articleCanalCA.get(artCode)?.get(_terrCanalFilter)?.ca||0)>0)
+            filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
         }
         if(filtered.size>0)_clientArtMap.set(cc,filtered);
       }
@@ -960,12 +962,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
+    const _cockpitCanalFilter=_S._globalCanal||'';
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
       if(_qClient&&!matchQuery(_qClient,cc,info.nom||''))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
+      // [Feature C] filtre canal : garder uniquement les clients ayant du CA sur ce canal via articleCanalCA
+      if(_cockpitCanalFilter){
+        const _ccArts=DataStore.ventesClientArticle.get(cc);
+        const _ccArtsHors=_S.ventesClientHorsMagasin.get(cc);
+        const _allCodes=[...(_ccArts?.keys()||[]),...(_ccArtsHors?.keys()||[])];
+        const _hasCanal=_allCodes.some(artCode=>(_S.articleCanalCA.get(artCode)?.get(_cockpitCanalFilter)?.ca||0)>0);
+        if(!_hasCanal)continue;
+      }
       const pdvActif=_isPDVActif(cc);
       const globActif=_isGlobalActif(info);
       const classif=_normalizeClassif(info.classification);
@@ -1976,13 +1987,27 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const caHors=caWeb+caRep+caDcs;
     const caTotal=caMag+caHors;
     const tauxObs=caTotal>0?Math.round(caHors/caTotal*100):0;
-    let html=`<div class="mb-3 p-3 s-card rounded-xl border">
-      <p class="text-sm font-bold t-primary mb-1">📡 Omnicanalité zone
-        <span class="text-[10px] font-normal t-disabled ml-1" title="Calculé sur les clients identifiés dans votre chalandise. Le taux réel peut être inférieur si des clients importants sont hors zone.">ⓘ</span>
-      </p>
-      <p class="text-2xl font-extrabold c-action">${tauxObs}% <span class="text-sm font-normal t-tertiary">du CA identifié passe hors agence</span></p>
-      <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}</p>
-    </div>`;
+    const _rfCanal=_S._globalCanal||'';
+    let html;
+    if(_rfCanal){
+      // [Feature C] filtre canal actif : afficher uniquement la ligne du canal sélectionné
+      const _canalLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS'};
+      const _canalCA=_S.canalAgence[_rfCanal]?.ca||0;
+      const _canalLabel=_canalLabels[_rfCanal]||_rfCanal;
+      html=`<div class="mb-3 p-3 s-card rounded-xl border">
+        <p class="text-sm font-bold t-primary mb-1">🔵 Canal filtré : ${_canalLabel}</p>
+        <p class="text-2xl font-extrabold c-action">${formatEuro(_canalCA)} <span class="text-sm font-normal t-tertiary">CA ${_canalLabel} total</span></p>
+        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></p>
+      </div>`;
+    }else{
+      html=`<div class="mb-3 p-3 s-card rounded-xl border">
+        <p class="text-sm font-bold t-primary mb-1">📡 Omnicanalité zone
+          <span class="text-[10px] font-normal t-disabled ml-1" title="Calculé sur les clients identifiés dans votre chalandise. Le taux réel peut être inférieur si des clients importants sont hors zone.">ⓘ</span>
+        </p>
+        <p class="text-2xl font-extrabold c-action">${tauxObs}% <span class="text-sm font-normal t-tertiary">du CA identifié passe hors agence</span></p>
+        <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}</p>
+      </div>`;
+    }
     if(_S.chalandiseReady&&_S.caByArticleCanal.size){
       const famCanal={};
       for(const r of DataStore.finalData){
