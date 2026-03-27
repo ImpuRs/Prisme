@@ -10,6 +10,7 @@
 import { METIERS_STRATEGIQUES } from './constants.js';
 import { cleanCode, formatEuro, readExcel, escapeHtml, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
+import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { computeSPC, _clientPassesFilters } from './engine.js';
 import { showToast } from './ui.js';
 
@@ -38,7 +39,7 @@ function _buildPromoSuggestions(q){
   const famMap=new Map();
   // r.famille est maintenant un code ("C02") — chercher sur code ET libellé
   const famCodes = new Set();
-  for(const r of _S.finalData){
+  for(const r of DataStore.finalData){
     const code = r.famille||'';
     if(!code) continue;
     famCodes.add(code);
@@ -48,7 +49,7 @@ function _buildPromoSuggestions(q){
   }
   for(const famCode of famCodes){
     if(matchQuery(q, famLib(famCode), famCode, famLabel(famCode))){
-      const cnt = [..._S.finalData].filter(r=>r.famille===famCode).length;
+      const cnt = [...DataStore.finalData].filter(r=>r.famille===famCode).length;
       famMap.set(famCode, cnt);
     }
   }
@@ -68,7 +69,7 @@ function _buildPromoSuggestions(q){
       artSug.push({type:'article',label:code+' · '+lib.slice(0,50)+(lib.length>50?'…':''),sub:fam||'',value:code});
     }
   };
-  for(const r of _S.finalData){if(artSug.length>=4)break;tryAdd(r.code,_S.libelleLookup[r.code]||r.libelle||r.code,famLib(_S.articleFamille[r.code]||r.famille||''));}
+  for(const r of DataStore.finalData){if(artSug.length>=4)break;tryAdd(r.code,_S.libelleLookup[r.code]||r.libelle||r.code,famLib(_S.articleFamille[r.code]||r.famille||''));}
   for(const[code,lib] of Object.entries(_S.libelleLookup)){if(artSug.length>=4)break;tryAdd(code,lib,famLib(_S.articleFamille[code]||''));}
   _promoSuggestItems=[...famSug,...artSug];
   _renderPromoSuggestions();
@@ -154,14 +155,14 @@ function runPromoSearch(){
   const raw=(document.getElementById('promoSearchInput')||{}).value||'';
   const terms=raw.split(/[\s,;]+/).map(t=>t.trim()).filter(Boolean);
   if(!terms.length){showToast('⚠️ Saisissez un code, une famille ou un mot-clé','warning');return;}
-  if(!_S.finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
+  if(!DataStore.finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
 
-  // 1. Match articles — _S.finalData first, then full _S.libelleLookup (réseau)
+  // 1. Match articles — DataStore.finalData first, then full _S.libelleLookup (réseau)
   const matchedCodes=new Set();
   for(const term of terms){
     const tl=normalizeStr(term);
     // a) PDV stock — use _S.libelleLookup as authoritative label source
-    for(const r of _S.finalData){
+    for(const r of DataStore.finalData){
       const lib=normalizeStr(_S.libelleLookup[r.code]||r.libelle||'');
       const famCode = _S.articleFamille[r.code]||r.famille||'';
       const famL = normalizeStr(famLib(famCode));
@@ -193,7 +194,7 @@ function runPromoSearch(){
   // 2. Matched families
   const matchedFamilles=new Set();
   for(const c of matchedCodes){
-    const _fc=_S.articleFamille[c]||(_S.finalData.find(r=>r.code===c)||{}).famille||'';
+    const _fc=_S.articleFamille[c]||(DataStore.finalData.find(r=>r.code===c)||{}).famille||'';
     const f=famLib(_fc);
     if(f)matchedFamilles.add(f);
   }
@@ -202,7 +203,7 @@ function runPromoSearch(){
   const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate,canal}
 
   // Source 1 : MAGASIN
-  for(const [cc,artMap] of _S.ventesClientArticle.entries()){
+  for(const [cc,artMap] of DataStore.ventesClientArticle.entries()){
     for(const code of artMap.keys()){
       if(!matchedCodes.has(code))continue;
       if(!buyerMap.has(cc)){
@@ -230,7 +231,7 @@ function runPromoSearch(){
 
   // Source 3 : territoire (si chargé)
   if(_S.territoireReady){
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(!matchedCodes.has(l.code))continue;
       const cc=l.clientCode;if(!cc)continue;
       if(!buyerMap.has(cc)){
@@ -249,7 +250,7 @@ function runPromoSearch(){
   for(const c of sectionA)if(c.metier)targetMetiers.add(c.metier);
   // fallback: all families matched — use chalandise metiers of anyone who bought these families via territoire
   if(!targetMetiers.size&&_S.territoireReady){
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(matchedFamilles.has(l.famille)&&l.clientCode){
         const info=_S.chalandiseData.get(l.clientCode)||{};if(info.metier)targetMetiers.add(info.metier);
       }
@@ -260,12 +261,12 @@ function runPromoSearch(){
     // Clients who buy these families via territoire (other canals) but not at PDV
     const terrBuyers=new Set();
     if(_S.territoireReady){
-      for(const l of _S.territoireLines){if(matchedFamilles.has(l.famille)&&l.clientCode&&!buyerCodes.has(l.clientCode))terrBuyers.add(l.clientCode);}
+      for(const l of DataStore.territoireLines){if(matchedFamilles.has(l.famille)&&l.clientCode&&!buyerCodes.has(l.clientCode))terrBuyers.add(l.clientCode);}
     }
     for(const cc of terrBuyers){
       const info=_S.chalandiseData.get(cc)||{};
       if(!_clientPassesFilters||_clientPassesFilters(info)){
-        const terrCA=_S.territoireLines.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
+        const terrCA=DataStore.territoireLines.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
         sectionB.push({cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca2025:info.ca2025||0,terrCA});
       }
     }
@@ -322,8 +323,8 @@ let _promoSfMap={}; // code → {famille, sousFamille}
 
 function _populatePromoFilterDropdowns(){
   const r=_promoSearchResult;if(!r)return;
-  // Build sous-famille map from _S.finalData (once per search)
-  _promoSfMap={};for(const row of _S.finalData)_promoSfMap[row.code]={famille:row.famille||'',sousFamille:row.sousFamille||''};
+  // Build sous-famille map from DataStore.finalData (once per search)
+  _promoSfMap={};for(const row of DataStore.finalData)_promoSfMap[row.code]={famille:row.famille||'',sousFamille:row.sousFamille||''};
   const all=[...r.sectionA,...r.sectionB,...r.sectionC];
   const uniq=(key)=>[...new Set(all.map(c=>c[key]||'').filter(Boolean))].sort();
   const fill=(id,vals,labelFn)=>{
@@ -393,14 +394,14 @@ function exportTourneeCSV() {
     const spc  = c.spc || computeSPC(c.cc, info);
 
     // Fix omnicanal : exclure les 3 canaux
-    const artMapMag = _S.ventesClientArticle.get(c.cc)       || new Map();
-    const terrCodes = new Set((_S.territoireLines||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
+    const artMapMag = DataStore.ventesClientArticle.get(c.cc)       || new Map();
+    const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
     const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(c.cc)||new Map()).keys());
 
     const toPitch = [];
     for(const code of matchedCodes) {
       if(artMapMag.has(code) || terrCodes.has(code) || horsCodes.has(code)) continue;
-      const ref = _S.finalData.find(d=>d.code===code);
+      const ref = DataStore.finalData.find(d=>d.code===code);
       if(ref && ref.stockActuel > 0) toPitch.push({ code, lib: ref.libelle||code });
       if(toPitch.length >= 3) break;
     }
@@ -526,8 +527,8 @@ function _buildPitchHTML(cc) {
                     || new Set();
   if(!matchedCodes.size) return '<p class="t-disabled text-[11px] py-1">Aucune recherche active.</p>';
 
-  const artMap    = _S.ventesClientArticle.get(cc)        || new Map();
-  const terrCodes = new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+  const artMap    = DataStore.ventesClientArticle.get(cc)        || new Map();
+  const terrCodes = new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
   const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
 
   const candidates = [...matchedCodes].filter(code =>
@@ -543,9 +544,9 @@ function _buildPitchHTML(cc) {
     return (myStore[b]?.countBL||0) - (myStore[a]?.countBL||0);
   });
 
-  const enStock   = candidates.filter(c => (_S.finalData.find(d=>d.code===c)?.stockActuel||0) > 0);
+  const enStock   = candidates.filter(c => (DataStore.finalData.find(d=>d.code===c)?.stockActuel||0) > 0);
   const enRupture = candidates.filter(c => {
-    const ref = _S.finalData.find(d=>d.code===c);
+    const ref = DataStore.finalData.find(d=>d.code===c);
     return ref ? ref.stockActuel <= 0 : false;
   });
   const pitch = [...enStock.slice(0,5), ...enRupture.slice(0,2)];
@@ -553,7 +554,7 @@ function _buildPitchHTML(cc) {
   if(!pitch.length) return '<p class="t-disabled text-[11px] py-1">✅ Client achète déjà tous les articles de la sélection.</p>';
 
   return pitch.map(code => {
-    const ref   = _S.finalData.find(d=>d.code===code);
+    const ref   = DataStore.finalData.find(d=>d.code===code);
     const lib   = _S.libelleLookup[code] || ref?.libelle || code;
     const stock = ref?.stockActuel ?? null;
     const stockBadge = stock === null
@@ -573,7 +574,7 @@ function _buildPitchHTML(cc) {
 }
 
 function _buildAchatsHTML(cc) {
-  const artData = _S.ventesClientArticle.get(cc);
+  const artData = DataStore.ventesClientArticle.get(cc);
   if(!artData?.size) return '<p class="t-disabled text-[11px] py-1">Aucune donnée comptoir.</p>';
 
   const matchedCodes = _promoSearchResult?.matchedCodes;
@@ -627,7 +628,7 @@ function _renderSearchResults() {
   // Article-level famille/sous-famille check for section A
   const _passFamA=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
-    const artData=_S.ventesClientArticle.get(cc);if(!artData)return false;
+    const artData=DataStore.ventesClientArticle.get(cc);if(!artData)return false;
     for(const code of artData.keys()){
       if(!r.matchedCodes.has(code))continue;
       const f=_S.articleFamille[code]||_promoSfMap[code]?.famille||'';
@@ -641,7 +642,7 @@ function _renderSearchResults() {
   const _passFamB=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
     if(!_S.territoireReady)return true;
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(l.clientCode!==cc)continue;
       if(!r.matchedFamilles.has(l.famille))continue;
       if(fFamille&&l.famille!==fFamille)continue;
@@ -798,10 +799,10 @@ let _promoImportResult=null; // {opName, promoCodes, sectionD, sectionE, section
  * Usage : promo.js uniquement — accède à _S, ne pas déplacer dans utils.js.
  */
 function _isArticleAlreadyBought(cc,code){
-  if((_S.ventesClientArticle.get(cc)||new Map()).has(code))return true;
+  if((DataStore.ventesClientArticle.get(cc)||new Map()).has(code))return true;
   if((_S.ventesClientHorsMagasin?.get(cc)||new Map()).has(code))return true;
   if(_S.territoireReady){
-    for(const l of _S.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
+    for(const l of DataStore.territoireLines){if(l.clientCode===cc&&l.code===code)return true;}
   }
   return false;
 }
@@ -822,7 +823,7 @@ function _clearPromoImport(){
 }
 
 async function runPromoImport(){
-  if(!_S.finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
+  if(!DataStore.finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
   let promoCodes=new Set();let opName='';
   // 1. Try XLSX file first
   const fileInput=document.getElementById('promoImportFile');
@@ -846,13 +847,13 @@ async function runPromoImport(){
   if(opEl)opEl.textContent=opName?'— '+opName:'— '+promoCodes.size+' articles';
 
   // Build article label + stock lookup
-  const stockByCode=new Map();for(const r of _S.finalData)stockByCode.set(r.code,r);
+  const stockByCode=new Map();for(const r of DataStore.finalData)stockByCode.set(r.code,r);
 
   // ── SECTION D : Articles vendus au comptoir ─────────────────────────────
   const sectionD=[];
   for(const code of promoCodes){
     let qtyTotal=0,caTotal=0,buyers=new Set();
-    for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+    for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
       const d=artMap.get(code);if(!d)continue;
       buyers.add(cc);qtyTotal+=(d.sumPrelevee||0);caTotal+=(d.sumCA||d.sumPrelevee||0);
     }
@@ -884,14 +885,14 @@ async function runPromoImport(){
   for(const code of promoCodes){const f=famLib(_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'');if(f)promoFams.add(f);}
   // Helper: true si cc a déjà acheté un article promo (comptoir + territoire + hors magasin)
   const _dejaAcheteur=(cc,promoCodes)=>{
-    const comptoir=_S.ventesClientArticle.get(cc)||new Map();
-    const terr=new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+    const comptoir=DataStore.ventesClientArticle.get(cc)||new Map();
+    const terr=new Set((DataStore.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
     const hors=new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
     return[...promoCodes].some(code=>comptoir.has(code)||terr.has(code)||hors.has(code));
   };
   // Clients who buy the family but not the promo articles (any channel)
   const sectionF=[];
-  for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+  for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
     if(_dejaAcheteur(cc,promoCodes))continue;
     // Check if client buys any article in the promo families
     let famCA=0;let famStr='';

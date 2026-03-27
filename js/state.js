@@ -13,10 +13,10 @@ export const _S = {};
 // ── Core data ──
 _S.finalData = [];
 _S.filteredData = [];
-_S.sortCol = 'V';
+_S.sortCol = 'caAnnuel'; // valeur par défaut alignée sur resetAppState()
 _S.sortAsc = false;
 _S.currentPage = 0;
-_S.debounceTimer = null;
+_S.debounceTimer = null; // timer UI — intentionnellement absent de resetAppState() (pas de données métier)
 
 // ── Store / ventes ──
 _S.ventesParMagasin = {};
@@ -132,6 +132,20 @@ _S._overviewOpenL3 = null;
 // ── Lazy tab render cache ──
 _S._tabRendered = {}; // tabId → true once rendered; reset on filter change
 
+// ── Cache territoire par filtre canal ──────────────────────────────────────
+// Map<cacheKey, { dirHtml, top100Html, cliHtml, contribHtml, kpi[] }>
+// cacheKey = "canal|secteurs|q|filterDir|filterRayon"
+// Invalidé uniquement au rechargement du fichier territoire.
+// 5 canaux × quelques combos de filtres ≈ ~400–500 Ko max — négligeable.
+_S._terrCanalCache = new Map();
+
+// ── Cache Benchmark (Étape 4) ──
+// { key, benchLists, benchFamEcarts } | null
+// key = "myStore|bassin|univers|minCA|obsMode|chalandise"
+// Invariant canal : le filtre canal ne touche pas computeBenchmark.
+// Invalidé sur changement de bassin/métier/myStore/chalandise. Jamais sur canal.
+_S._benchCache = null;
+
 // ── Decision Queue (Sprint 1) ──
 _S.decisionQueueData = [];
 
@@ -179,6 +193,8 @@ _S.reseauFuitesMetier = [];   // {metier, total, actifs, indiceFuite%} — si ch
 _S._activeReseauWorker = null;
 
 // ── Reset session — appeler en début de processData() ──────────
+// CONVENTION : toute nouvelle variable _S.xxx DOIT être déclarée ICI (init)
+// ET dans resetAppState() ci-dessous. Oublier le reset = bug silencieux au re-chargement.
 export function resetAppState() {
   // Annuler les workers en cours si présents
   if (_S._activeTerrWorker) { try { _S._activeTerrWorker.terminate(); } catch (_) {} _S._activeTerrWorker = null; }
@@ -246,6 +262,12 @@ export function resetAppState() {
   // Lazy tab render cache
   _S._tabRendered = {};
 
+  // Cache territoire canal
+  _S._terrCanalCache = new Map();
+
+  // Cache benchmark
+  _S._benchCache = null;
+
   // Decision Queue
   _S.decisionQueueData = [];
 
@@ -275,4 +297,35 @@ export function resetAppState() {
   // Réseau worker
   if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} _S._activeReseauWorker = null; }
   _S.reseauNomades = []; _S.nomadesMissedArts = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
+}
+
+// ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
+// Ces assertions détectent les régressions silencieuses lors des refactorings.
+// Elles s'activent uniquement en dev (console.assert est no-op en prod si les devtools sont fermés).
+export function assertPostParseInvariants() {
+  // Invariant 1 : finalData peuplé après parsing stock
+  console.assert(_S.finalData.length > 0,
+    '[PRISME] finalData vide après parsing — vérifier le fichier État du Stock');
+
+  // Invariant 2 : globalJoursOuvres dans une plage cohérente (détecte un calcul de période cassé)
+  console.assert(_S.globalJoursOuvres >= 100 && _S.globalJoursOuvres <= 365,
+    '[PRISME] globalJoursOuvres hors plage [100–365] : ' + _S.globalJoursOuvres);
+
+  // Invariant 3 : ventesClientArticle peuplé si un magasin est sélectionné
+  // (MIN/MAX calculés sur agence sélectionnée — si vide, V=0 pour tous les articles)
+  if (_S.selectedMyStore) {
+    console.assert(_S.ventesClientArticle.size > 0,
+      '[PRISME] ventesClientArticle vide avec magasin sélectionné : ' + _S.selectedMyStore);
+  }
+
+  // Invariant 4 : dualité ventesClientArticle/HorsMagasin — MAGASIN ne doit pas être dans cannauxHorsMagasin
+  // (feature métier : PDV comptoir ≠ hors-agence — si cassé, les 2 structures se chevauchent)
+  console.assert(!_S.cannauxHorsMagasin.has('MAGASIN'),
+    '[PRISME] cannauxHorsMagasin contient MAGASIN — dualité PDV/hors-agence corrompue');
+
+  // Invariant 5 : finalData stable par rapport au filtre canal (V calculé par agence, pas canal)
+  // On vérifie que tous les articles ont un W et V numériques
+  const _broken = _S.finalData.filter(r => typeof r.V !== 'number' || typeof r.W !== 'number').length;
+  console.assert(_broken === 0,
+    '[PRISME] ' + _broken + ' articles avec V ou W non-numériques dans finalData');
 }

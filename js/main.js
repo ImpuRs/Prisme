@@ -11,12 +11,13 @@
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
-import { _S, resetAppState } from './state.js';
+import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
+import { DataStore } from './store.js';
 import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume } from './diagnostic.js';
 
@@ -144,7 +145,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     _buildDeptFilter();
     _buildOverviewFilterChips();
-    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
+    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
     // Aggregate by direction commerciale — FIXED columns
     const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
     for(const[cc,info] of _S.chalandiseData.entries()){
@@ -386,10 +387,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _toggleClientArticles(row,clientCode){
     const nextRow=row.nextElementSibling;
     if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
-    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
-    // Section 1 : achats comptoir (_S.ventesClientArticle)
-    const artData=_S.ventesClientArticle.get(clientCode);
+    // [Adapter Étape 5] — territoireLines / finalData / ventesClientArticle : canal-invariants
+    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
+    // Section 1 : achats comptoir (DataStore.ventesClientArticle — MAGASIN/myStore only)
+    const artData=DataStore.ventesClientArticle.get(clientCode);
     let comptoirArts=[];
     if(artData&&artData.size>0){
       comptoirArts=[...artData.entries()].sort((a,b)=>b[1].sumPrelevee-a[1].sumPrelevee).slice(0,20).map(([code,d])=>{
@@ -397,11 +399,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         return{code,libelle:si?si.libelle:_S.libelleLookup[code]||code,qty:d.sumPrelevee,ca:d.sumCA,rayonStatus:si?(si.stockActuel>0?'green':'yellow'):'red'};
       });
     }
-    // Section 2 : achats hors comptoir (_S.territoireLines — tous canaux BL omnicanal)
+    // Section 2 : achats hors comptoir (DataStore.territoireLines — tous canaux BL omnicanal)
     let terrArts=[];
     if(hasTerr){
       const artMap={};
-      for(const l of _S.territoireLines){
+      for(const l of DataStore.territoireLines){
         if(l.clientCode===clientCode){
           if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0,canals:new Set(),rayonStatus:l.rayonStatus};
           artMap[l.code].ca+=l.ca;
@@ -464,7 +466,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     if(_S._rawDataC&&_S._rawDataS){
       // Préserver territoire + chalandise + bornes full-période à travers le reset
-      const _terr={territoireReady:_S.territoireReady,territoireLines:_S.territoireLines,terrDirectionData:_S.terrDirectionData,terrContribBySecteur:_S.terrContribBySecteur,terrContribByDirection:_S.terrContribByDirection};
+      const _terr={territoireReady:_S.territoireReady,territoireLines:DataStore.territoireLines,terrDirectionData:_S.terrDirectionData,terrContribBySecteur:_S.terrContribBySecteur,terrContribByDirection:_S.terrContribByDirection};
       const _chal={chalandiseData:_S.chalandiseData,chalandiseReady:_S.chalandiseReady,chalandiseMetiers:_S.chalandiseMetiers,clientsByMetier:_S.clientsByMetier,clientsByCommercial:_S.clientsByCommercial};
       const _misc={periodFilterStart:_S.periodFilterStart,periodFilterEnd:_S.periodFilterEnd,consommePeriodMinFull:_S.consommePeriodMinFull,consommePeriodMaxFull:_S.consommePeriodMaxFull,_rawDataC:_S._rawDataC,_rawDataS:_S._rawDataS};
       const _storeToKeep=_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||'';
@@ -569,12 +571,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
-    for(const r of _S.finalData){if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
+    for(const r of DataStore.finalData){if(r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
     const srNum=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
     // Ruptures
-    const rupturesList=_S.finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
+    const rupturesList=DataStore.finalData.filter(r=>r.W>=3&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
     // Dormants
-    const dormantsList=_S.finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
+    const dormantsList=DataStore.finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
     const dormantVal=Math.round(dormantsList.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
     // Benchmark
     const win3=(_S.benchLists.obsFamiliesWin||[]).slice(0,3);
@@ -588,7 +590,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const now=new Date();const silencieuxList=[];
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       if(daysBetween(lastDate,now)>30){
-        const artData=_S.ventesClientArticle.get(cc);
+        const artData=DataStore.ventesClientArticle.get(cc);
         const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
       }
@@ -599,7 +601,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
     // Clients à capter
     let clientsACapter=0;
-    if(_S.chalandiseReady){for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_S.ventesClientArticle.has(cc))clientsACapter++;}}
+    if(_S.chalandiseReady){for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!DataStore.ventesClientArticle.has(cc))clientsACapter++;}}
     // Fichiers
     const fichiersList=['Consommé','État du Stock'];
     if(_S.territoireReady)fichiersList.push('Le Terrain');
@@ -722,7 +724,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(clientsACapter>0){
         parts.push(`${clientsACapter.toLocaleString('fr')} client${clientsACapter!==1?'s':''} actif${clientsACapter!==1?'s':''} Legallais ne passe${clientsACapter!==1?'nt':''} pas en agence — principal levier de croissance.`);
       }
-      parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${_S.finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
+      parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${DataStore.finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
       L.push(parts.join(' '));
     }
     // Omnicanalité
@@ -763,8 +765,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'';if(arrow)arrow.textContent=isOpen?'▶':'▼';
   }
   function _populateTerrFamilleFilter(){
-    const sel=document.getElementById('terrFamilleFilter');if(!sel||!_S.finalData.length)return;
-    const fams=[...new Set(_S.finalData.map(r=>r.famille).filter(Boolean))].sort((a,b)=>famLib(a).localeCompare(famLib(b)));
+    const sel=document.getElementById('terrFamilleFilter');if(!sel||!DataStore.finalData.length)return;
+    const fams=[...new Set(DataStore.finalData.map(r=>r.famille).filter(Boolean))].sort((a,b)=>famLib(a).localeCompare(famLib(b)));
     const cur=sel.value;
     sel.innerHTML='<option value="">Toutes familles</option>';
     fams.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=famLabel(f);sel.appendChild(o);});
@@ -774,17 +776,17 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _setPDVCanalFilter(val){_S.pdvCanalFilter=val;_buildDegradedCockpit();}
 
   function _buildDegradedCockpit(){
-    const el=document.getElementById('terrDegradedBlock');if(!el||!_S.finalData.length)return;
+    const el=document.getElementById('terrDegradedBlock');if(!el||!DataStore.finalData.length)return;
     _populateTerrFamilleFilter();
     const qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
-    const famMap=new Map(_S.finalData.map(r=>[r.code,r.famille]));
+    const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
     // Silencieux >30j
     const silencieux=[];
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       const d=daysBetween(lastDate,_today);if(d<=30)continue;
-      const artMap=_S.ventesClientArticle.get(cc);if(!artMap)continue;
+      const artMap=DataStore.ventesClientArticle.get(cc);if(!artMap)continue;
       let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
       if(ca<=0)continue;
       const nom=_S.clientNomLookup[cc]||cc;
@@ -796,7 +798,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _pdvFilter=_S.pdvCanalFilter||'all';
     const _pdvLabel=_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total';
     const _topMap={};
-    for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+    for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
       let ca=0;
       for(const[artCode,v] of artMap.entries()){
         if(selFam&&famMap.get(artCode)!==selFam)continue;
@@ -836,16 +838,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Special rendering for 🟣 Fidèles hors zone
     if(_S._selectedCrossStatus==='fidele'){
       if(!_S.crossingStats||!_S.crossingStats.fideles.size){el.innerHTML='<div class="s-card rounded-xl shadow-md border p-5 t-disabled text-sm">Aucun fidèle hors zone identifié.</div>';return;}
-      const terrNom={};if(_S.territoireReady)for(const l of _S.territoireLines){if(l.clientCode&&l.clientNom&&!terrNom[l.clientCode])terrNom[l.clientCode]=l.clientNom;}
+      const terrNom={};if(_S.territoireReady)for(const l of DataStore.territoireLines){if(l.clientCode&&l.clientNom&&!terrNom[l.clientCode])terrNom[l.clientCode]=l.clientNom;}
       const fideleList=[];
-      for(const cc of _S.crossingStats.fideles){const artMap=_S.ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:_S.clientNomLookup[cc]||terrNom[cc]||'—',ca,nbArts});}
+      for(const cc of _S.crossingStats.fideles){const artMap=DataStore.ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:_S.clientNomLookup[cc]||terrNom[cc]||'—',ca,nbArts});}
       fideleList.sort((a,b)=>b.ca-a.ca);
       const show=fideleList.slice(0,100),more=fideleList.length-100;
       const rows=show.map(c=>`<tr class="border-t b-light hover:i-info-bg cursor-pointer" onclick="openClient360('${c.code}','reseau')"><td class="py-1 px-2 font-mono text-[10px] t-tertiary">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.code)}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'t-disabled'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
       el.innerHTML=`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><h3 class="font-extrabold t-primary">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] t-tertiary mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="t-disabled">(CA = CA Magasin uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] t-disabled p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
       return;
     }
-    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
+    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
     const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     let searchResultsHtml='';
     // Categorize & score clients
@@ -868,7 +870,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const lastOrder=_S.clientLastOrder.get(cc)||null;
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
-      const clientArtData=_S.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+      const clientArtData=DataStore.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
       const _contratCadre=false;
       const finalScore=_clientUrgencyScore(cc,info);
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_contratCadre};
@@ -883,14 +885,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for(const[cc,info] of _S.chalandiseData.entries()){
         if(!matchQuery(_qClient,cc,info.nom||''))continue;
         srSeen.add(cc);
-        const artData=_S.ventesClientArticle.get(cc);
+        const artData=DataStore.ventesClientArticle.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         srList.push({code:cc,nom:info.nom||'',metier:info.metier||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ville:info.ville||'',ca2025:info.ca2025||0,caPDVN});
       }
       for(const[cc,nom] of Object.entries(_S.clientNomLookup)){
         if(srSeen.has(cc))continue;
         if(!matchQuery(_qClient,cc,nom||''))continue;
-        const artData=_S.ventesClientArticle.get(cc);
+        const artData=DataStore.ventesClientArticle.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         srList.push({code:cc,nom:nom||'',metier:'',statut:'',classification:'',commercial:'',ville:'',ca2025:0,caPDVN});
       }
@@ -950,7 +952,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let badges='';
       const lastOrder=_S.clientLastOrder.get(cc);
       if(lastOrder){const daysAgo=Math.round((new Date()-lastOrder)/86400000);if(daysAgo>60)badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-caution-bg c-caution">⏰ ${daysAgo}j</span> `;}
-      const artMap=_S.ventesClientArticle.get(cc);
+      const artMap=DataStore.ventesClientArticle.get(cc);
       if(artMap&&_S.cockpitLists.ruptures&&_S.cockpitLists.ruptures.size>0){for(const code of artMap.keys()){if(_S.cockpitLists.ruptures.has(code)){badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span> `;break;}}}
       if(_S.reconquestCohort.some(r=>r.cc===cc))badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span> `;
       return badges;
@@ -960,7 +962,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
       const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
       const encNom=encodeURIComponent(c.nom||c.code);
-      const artMap=_S.ventesClientArticle.get(c.code);
+      const artMap=DataStore.ventesClientArticle.get(c.code);
       const _rupture=artMap&&_S.cockpitLists.ruptures?.size>0&&[...artMap.keys()].some(code=>_S.cockpitLists.ruptures.has(code));
       const _reconquete=_S.reconquestCohort.some(r=>r.cc===c.code);
       const horsMag=_S.ventesClientHorsMagasin.get(c.code);
@@ -1195,7 +1197,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_LABELS = { INTERNET:'🌐 Web', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS' };
 
     // Filtrer articles déjà vendus en MAGASIN à ce client
-    const magasinArts = _S.ventesClientArticle.get(cc) || new Map();
+    const magasinArts = DataStore.ventesClientArticle.get(cc) || new Map();
 
     let rows = '';
     for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].ca - a[1].ca)) {
@@ -1266,7 +1268,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     resetPromo();
     // V24.4: Kick off territoire parse immediately — runs in parallel with consommé+stock processing
     const f3=document.getElementById('fileTerritoire').files[0];
-    _S.territoireReady=false;_S.territoireLines=[];_S.terrDirectionData={};
+    _S.territoireReady=false;_S.territoireLines=[];_S.terrDirectionData={}; // producteur — _S direct
     const terrParsePromise=f3?parseTerritoireFile(f3).catch(e=>{showToast('⚠️ Lecture territoire: '+e.message,'warning');return null;}):null;
     if(f3){updatePipeline('territoire','pending');}
     showLoading('Lecture…','');await yieldToMain();
@@ -1279,6 +1281,52 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
     await processDataFromRaw(dataC,dataS,{f3,terrParsePromise});
+  }
+
+  // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
+  // Règle : chaque fonction a une seule responsabilité, paramètres explicites, pas de
+  // variables locales de processDataFromRaw capturées par closure.
+
+  function _computeSeasonalIndex(monthlySales) {
+    // B3 : agrège monthlySales par famille → _S.seasonalIndex (coefficients saisonniers)
+    const familyMonthly={};
+    for(const[code,months] of Object.entries(monthlySales)){
+      const fam=_S.articleFamille[code];if(!fam)continue;
+      if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);
+      for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];
+    }
+    _S.seasonalIndex={};
+    for(const[fam,months] of Object.entries(familyMonthly)){
+      const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;
+      _S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
+    }
+    _S.articleMonthlySales=monthlySales;
+  }
+
+  function _buildSynthFromRaw(articleRaw) {
+    // Transforme articleRaw (brut consommé) en synth (T, V, W, U écrêtés)
+    // Pure : aucun effet de bord sur _S.
+    const synth={};
+    for(const[code,art] of Object.entries(articleRaw)){
+      const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);
+      let maxP=0,cntP=0,sumP=0;
+      if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}
+      if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
+      synth[code]={maxP,sumP:isReg?0:Math.max(pNet,0),sumE:art.te,cbl:art.cbl,cblP:isReg?0:cntP};
+    }
+    return synth;
+  }
+
+  function _enrichFinalDataWithCA() {
+    // Injecte caAnnuel sur chaque article de DataStore.finalData depuis DataStore.ventesClientArticle
+    // (canal MAGASIN, myStore uniquement — invariant dualité PDV/hors-agence)
+    const _caByCode=new Map();
+    for(const[,artMap] of DataStore.ventesClientArticle.entries()){
+      for(const[code,data] of artMap.entries()){
+        _caByCode.set(code,(_caByCode.get(code)||0)+(data.sumCA||0));
+      }
+    }
+    for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
   }
 
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
@@ -1346,14 +1394,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // B3: monthly sales accumulation
       if(dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
       if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
-      // V2 Phase 1: _S.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
+      // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim()||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
       // _S.clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
       if(cc2&&!_S.clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)_S.clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
-      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!_S.ventesClientArticle.has(cc2))_S.ventesClientArticle.set(cc2,new Map());const artMap=_S.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;e.countBL++;}
+      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;e.countBL++;}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));}
       if(cc2&&dateV&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const prev=_S.clientLastOrder.get(cc2);if(!prev||dateV>prev)_S.clientLastOrder.set(cc2,dateV);}
@@ -1389,13 +1437,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       updatePipeline('consomme','done');
       // B3: Moteur saisonnier — agrégation par famille
-      {const familyMonthly={};for(const[code,months] of Object.entries(monthlySales)){const fam=_S.articleFamille[code];if(!fam)continue;if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];}
-      _S.seasonalIndex={};for(const[fam,months] of Object.entries(familyMonthly)){const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;_S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);}
-      _S.articleMonthlySales=monthlySales;}
+      _computeSeasonalIndex(monthlySales);
 
-      const synth={};
-      for(const[code,art] of Object.entries(articleRaw)){const pNet=art.tpp+art.tpn;const isReg=(art.tpp>0&&pNet<=0);let maxP=0,cntP=0,sumP=0;if(!isReg){for(const bl of Object.values(art.bls)){if(bl.p>0){if(bl.p>maxP)maxP=bl.p;sumP+=bl.p;cntP++;}}}if(!isReg&&sumP>0&&pNet>0&&pNet<sumP*0.5){const r=pNet/sumP;maxP=Math.round(maxP*r);sumP=pNet;}
-      synth[code]={maxP,sumP:isReg?0:Math.max(pNet,0),sumE:art.te,cbl:art.cbl,cblP:isReg?0:cntP};}
+      const synth=_buildSynthFromRaw(articleRaw);
 
       updateProgress(68,100,'Analyse ventes…');
       const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
@@ -1421,7 +1465,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
-      _S.finalData=[];_S.libelleLookup={};_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
+      _S.finalData=[];_S.libelleLookup={}; // producteur — _S direct_S.stockParMagasin={};_S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
       _S.parentRefsExcluded=0;
       const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();const NOW=new Date();
 
@@ -1456,40 +1500,31 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       else if(Wp===0){nouveauMin=0;nouveauMax=0;} // H1: guard — Wp=0 ne doit jamais atteindre l'écretage
       else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);const secDays=Wp>=12?4:Wp>=4?3:(prixUnitaire>HIGH_PRICE?1:2);nouveauMin=Math.max(Math.min(Math.round(dl+(X*secDays)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
       const couvertureJours=calcCouverture(stockActuel,V);
-      _S.finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
+      DataStore.finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       // C1: enrichir _S.libelleLookup avec les libellés consommé pour les codes absents du stock
       for(const k in _libelleFromConsomme){if(!_S.libelleLookup[k])_S.libelleLookup[k]=_libelleFromConsomme[k];}
       updatePipeline('stock','done');
 
       // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
-      if(useMulti&&_S.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of _S.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
+      if(useMulti&&DataStore.finalData.length){const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);if(_otherS.length){for(const r of DataStore.finalData){const _mins=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMin).filter(v=>v>0);const _maxs=_otherS.map(s=>_S.stockParMagasin[s]?.[r.code]?.qteMax).filter(v=>v>0);r.medMinReseau=_mins.length?_median(_mins):null;r.medMaxReseau=_maxs.length?_median(_maxs):null;}}}
 
       enrichPrixUnitaire();
-      // CA réel depuis sumCA consommé (source : ventesClientArticle)
-      const _caByCode = new Map();
-      for (const [, artMap] of _S.ventesClientArticle.entries()) {
-        for (const [code, data] of artMap.entries()) {
-          _caByCode.set(code, (_caByCode.get(code) || 0) + (data.sumCA || 0));
-        }
-      }
-      for (const r of _S.finalData) {
-        r.caAnnuel = Math.round(_caByCode.get(r.code) || 0);
-      }
+      _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
-      for (const r of _S.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
+      for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
       // Guard: warn if all stock values are 0 (likely bad export)
-      if(_S.finalData.length>0&&_S.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
-      updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(_S.finalData);
+      if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
+      updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
       updateProgress(95,100,'Affichage…');await yieldToMain();
       populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
-      document.getElementById('navStats').textContent=_S.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
+      document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
       if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
       document.getElementById('navReportingBtn').classList.remove('hidden');
@@ -1498,7 +1533,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
       // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
       const _terrBtn=document.getElementById('btnTabTerritoire');
-      if(_S.finalData.length>0){_terrBtn.classList.remove('hidden');}else{_terrBtn.classList.add('hidden');}
+      if(DataStore.finalData.length>0){_terrBtn.classList.remove('hidden');}else{_terrBtn.classList.add('hidden');}
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
@@ -1513,7 +1548,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
             entry[data.canal] = (entry[data.canal] || 0) + data.ca;
           }
         }
-        for (const r of _S.finalData) {
+        for (const r of DataStore.finalData) {
           const c = _S.caByArticleCanal.get(r.code) || {};
           r.caWeb = c.INTERNET || 0;
           r.caRep = c.REPRESENTANT || 0;
@@ -1523,10 +1558,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
             .filter(([, m]) => m.has(r.code)).length;
         }
       }
-      if(_S.chalandiseReady&&_S.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
-      if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,_S.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
+      if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
       if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
@@ -1541,6 +1576,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           await launchTerritoireWorker(terrRaw,updateTerrProgress);
           updatePipeline('territoire','done');
           computePhantomArticles();
+          _S._terrCanalCache = new Map(); // invalidation : nouvelles données territoire
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
           // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
@@ -1648,7 +1684,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       return fc.includes(filterFam)||fl.includes(filterFam)||flbl.includes(filterFam);
     };
     if(canal==='MAGASIN'){
-      for(const r of _S.finalData){
+      for(const r of DataStore.finalData){
         if(!r.famille||(r.caAnnuel||0)<=0)continue;
         if(!_matchFam(r))continue;
         if(!famData[r.famille])famData[r.famille]={ca:0,nbArt:0};
@@ -1658,7 +1694,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }else if(canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS'){
       if(!_S.chalandiseReady)return null; // data not available without chalandise
       const caField=canal==='INTERNET'?'caWeb':canal==='REPRESENTANT'?'caRep':'caDcs';
-      for(const r of _S.finalData){
+      for(const r of DataStore.finalData){
         if(!r.famille||(r[caField]||0)<=0)continue;
         if(!_matchFam(r))continue;
         if(!famData[r.famille])famData[r.famille]={ca:0,nbArt:0};
@@ -1729,7 +1765,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(!caField)return[];
     if((canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS')&&!_S.chalandiseReady)return[];
     const arts=[];
-    for(const r of _S.finalData){
+    for(const r of DataStore.finalData){
       if(r.famille!==famCode)continue;
       const ca=r[caField]||0;
       if(ca<=0)continue;
@@ -1839,7 +1875,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     </div>`;
     if(_S.chalandiseReady&&_S.caByArticleCanal.size){
       const famCanal={};
-      for(const r of _S.finalData){
+      for(const r of DataStore.finalData){
         if(!r.famille)continue;
         const _fk=famLib(r.famille);
         if(!famCanal[_fk])famCanal[_fk]={mag:0,hors:0};
@@ -1848,7 +1884,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       // Compter les clients distincts par famille (via ventesClientHorsMagasin)
       const artFamMap=new Map();
-      for(const r of _S.finalData){if(r.famille&&r.code)artFamMap.set(r.code,famLib(r.famille));}
+      for(const r of DataStore.finalData){if(r.famille&&r.code)artFamMap.set(r.code,famLib(r.famille));}
       const famClients={};
       for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
         const famsSeen=new Set();
@@ -1905,22 +1941,40 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // A4: Fantômes de rayon — en stock mais que personne n'achète au comptoir
   function computePhantomArticles(){
     _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
-    if(!_S.finalData.length)return;
+    if(!DataStore.finalData.length)return;
     // soldAtPDV = articles vendus en MAGASIN uniquement (ventesClientArticle = canal MAGASIN)
     // _S.articleClients agrège tous canaux — utiliser ventesClientArticle (filtré MAGASIN) à la place
     const soldAtPDV=new Set();
-    for(const[,artMap]of _S.ventesClientArticle.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
-    _S.phantomArticles=_S.finalData.filter(r=>r.stockActuel>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
+    for(const[,artMap]of DataStore.ventesClientArticle.entries()){for(const code of artMap.keys())soldAtPDV.add(code);}
+    _S.phantomArticles=DataStore.finalData.filter(r=>r.stockActuel>0&&!r.isParent&&/^\d{6}$/.test(r.code)&&!soldAtPDV.has(r.code)).sort((a,b)=>(b.stockActuel*b.prixUnitaire)-(a.stockActuel*a.prixUnitaire));
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
   function _setTerrGlobalCanalFilter(val){_S._selectedTerrCanal=val;renderTerritoireTab();}
 
+  // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
+  // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
+  // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
+  function getKPIsByCanal(canal) {
+    const _c = canal && canal !== 'ALL' ? canal : null;
+    return {
+      canal: _c || 'ALL',
+      // Stats canal depuis canalAgence (déjà agrégé au parsing, accès O(1))
+      canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
+      totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + v.ca, 0),
+      // Lignes territoire filtrées par canal (dérivées de territoireLines, source brute conservée)
+      terrLines: _c ? DataStore.territoireLines.filter(l => l.canal === _c) : DataStore.territoireLines,
+      // finalData est un invariant canal — jamais recalculé au changement de filtre
+      finalData: DataStore.finalData,
+    };
+  }
+
   function renderTerritoireTab(){
-    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
-    const hasChal=_S.chalandiseReady;
-    const hasData=_S.finalData.length>0;
+    // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
+    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
+    const hasChal=DataStore.chalandiseReady;
+    const hasData=DataStore.finalData.length>0;
     const degraded=!hasTerr&&!hasChal&&hasData;
     // terrNoChalandise: only when truly nothing loaded
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData);
@@ -1963,17 +2017,37 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Show all territory-only blocks
     ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const _canalGlobal=_S._selectedTerrCanal||'';
     const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
+
+    // ── Garde de cache territoire ────────────────────────────────────────────
+    // q, filterDir, filterRayon déjà déclarés plus haut dans la fonction (lignes ~1998-2000)
+    const _secteurKey=[...getSelectedSecteurs()].sort().join(',');
+    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_secteurKey}|${q}|${filterDir}|${filterRayon}`;
+    if(_S._terrCanalCache.has(_terrCacheKey)){
+      const _cached=_S._terrCanalCache.get(_terrCacheKey);
+      const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+      const _si=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
+      _si('terrDirectionTable',_cached.dirHtml);
+      _si('terrTop100Table',_cached.top100Html);
+      _si('terrClientsTable',_cached.cliHtml);
+      if(_cached.contribHtml)_si('terrContribTable',_cached.contribHtml);
+      _cached.kpi.forEach(([id,v])=>_sg(id,v));
+      // Éléments non-texte
+      const _ccEl=document.getElementById('terrKpiCouvertureInfo');if(_ccEl)_ccEl.classList.toggle('hidden',!_canalGlobal);
+      const _ctEl=document.getElementById('terrContribTitle');if(_ctEl){if(_canalGlobal)_ctEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _ctEl.textContent='🔗 Contributeurs agence';}
+      renderInsightsBanner();_renderFamilleCanal();
+      return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
+    }
 
     // Global KPI stats — always from ALL lines (for croisement summary, lignes KPI)
     let caTotal=0,specialCA=0;
     const blSetAll=new Set();
     const clientsMap={};
     const dirSet=new Set();
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){ // [Adapter Étape 5] — canal-invariant total
       caTotal+=l.ca;blSetAll.add(l.bl);
       if(l.isSpecial)specialCA+=l.ca;
       else dirSet.add(l.direction);
@@ -1982,7 +2056,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const pctSpecial=caTotal>0?((specialCA/caTotal)*100).toFixed(1):'0';
 
     // Canal-filtered stats for CA KPI + couverture rayon KPI
-    const _linesForKPI=_canalGlobal?_S.territoireLines.filter(l=>l.canal===_canalGlobal):_S.territoireLines;
+    // [Adapter Étape 5] — premier usage réel de DataStore.byCanal() comme API de dérivation
+    const _linesForKPI=DataStore.byCanal(_canalGlobal).terrLines;
     let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
     for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
@@ -2002,7 +2077,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_contribTitleEl){if(_canalGlobal)_contribTitleEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _contribTitleEl.textContent='🔗 Contributeurs agence';}
 
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-    setSafe('terrKpiLignes',_S.territoireLines.length.toLocaleString('fr'));
+    setSafe('terrKpiLignes',DataStore.territoireLines.length.toLocaleString('fr')); // [Adapter Étape 5]
     setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
     // CA Total KPI: show canal-filtered value + note when filter active
     setSafe('terrKpiCATotal',formatEuro(caTotalFiltered));
@@ -2027,7 +2102,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
-    const linesFiltered=_S.territoireLines.filter(l=>{
+    const linesFiltered=DataStore.territoireLines.filter(l=>{ // [Adapter Étape 5]
       if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
       if(filterDir&&l.direction!==filterDir)return false;
@@ -2111,6 +2186,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const extClients=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
     _S._insights.absentsTerr=absentsTerr;_S._insights.extClients=extClients;_S._insights.hasTerr=true;
     renderInsightsBanner();
+
+    // ── Stockage cache territoire ─────────────────────────────────────────
+    // Captures les innerHTML APRÈS le rendu complet, avant _renderFamilleCanal()
+    const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
+    const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
+    _S._terrCanalCache.set(_terrCacheKey,{
+      dirHtml: _gi('terrDirectionTable'),
+      top100Html: _gi('terrTop100Table'),
+      cliHtml: _gi('terrClientsTable'),
+      contribHtml: _gi('terrContribTable'),
+      kpi: ['terrKpiLignes','terrKpiLignesSub','terrKpiCATotal','terrKpiCATotalSub',
+            'terrKpiCouverture','terrKpiCouvertureSub','terrKpiSpecialPct','terrKpiSpecialSub',
+            'terrKpiClients','terrKpiClientsSub','terrSpecialKPIText'].map(id=>[id,_gt(id)]),
+    });
+
     _renderFamilleCanal();
   }
 
@@ -2132,7 +2222,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selectedSecteurs=getSelectedSecteurs();
     const _cg=_S._selectedTerrCanal||'';
     const familles={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){ // [Adapter Étape 5]
       if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction)continue;
@@ -2171,11 +2261,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // Render filtered article list for a direction + rayonStatus
   function renderTerrDirStatusArticles(rowId,direction,status){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
     const _cg=_S._selectedTerrCanal||'';
     const artMap={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
@@ -2206,11 +2296,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _loadMoreTerrDirStatus(btn,rowId,offset,encDir,status){
     const direction=decodeURIComponent(encDir);
     const LIMIT=50,newOff=offset+LIMIT;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
     const _cg=_S._selectedTerrCanal||'';
     const artMap={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
@@ -2238,10 +2328,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function renderTerrFamArticles(rowId,direction,famille,statusFilter){
     statusFilter=statusFilter||'';
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const _cg=_S._selectedTerrCanal||'';
     const artMap={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
@@ -2286,10 +2376,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     statusFilter=statusFilter||'';
     const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
     const LIMIT=50,newOff=offset+LIMIT;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const _cg=_S._selectedTerrCanal||'';
     const artMap={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
@@ -2307,18 +2397,18 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // VOLET 3: Résumé exécutif du croisement
   function renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock){
     const el=document.getElementById('terrCroisementText');if(!el)return;
-    const nbLignes=_S.territoireLines.length;
+    const nbLignes=DataStore.territoireLines.length;
     const nbBL=blSetAll.size;
     const nbDirs=dirSet.size;
     const nbClients=Object.keys(clientsMap).length;
-    const nbRefStock=_S.finalData.length;
+    const nbRefStock=DataStore.finalData.length;
     const nbMois=_S.consommeMoisCouverts||'?';
     const nbBLConso=Object.keys(_S.blData).length;
     const pctTop100=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
     let terrPeriodStr='';
     // Detect territory period from lines
     let tMin=null,tMax=null;
-    for(const l of _S.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
+    for(const l of DataStore.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
     if(tMin&&tMax)terrPeriodStr=`, ${fmtDate(new Date(tMin))}–${fmtDate(new Date(tMax))}`;
     else if(_S.consommePeriodMin)terrPeriodStr='';
     el.innerHTML=`<p>🔗 PRISME a croisé <strong class="text-violet-300">${nbLignes.toLocaleString('fr')} lignes territoire</strong> (<span class="c-action">${nbBL.toLocaleString('fr')} BL${terrPeriodStr}</span>, <strong>${nbDirs} Direction${nbDirs>1?'s':''}</strong>, <strong>${nbClients} client${nbClients>1?'s':''}</strong>) avec votre stock agence (<strong class="c-ok">${nbRefStock.toLocaleString('fr')} réf.</strong>) et votre consommé (<strong>${nbMois} mois</strong>, <strong>${nbBLConso.toLocaleString('fr')} BL</strong>).</p><p class="mt-2">→ <strong class="text-yellow-300">${pctTop100}%</strong> des articles du Top 100 territoire sont en rayon.</p>`;
@@ -2327,7 +2417,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // VOLET 2bis: Build secteur + direction contributeurs aggregate maps
   function buildTerrContrib(){
     _S.terrContribBySecteur=new Map();_S.terrContribByDirection=new Map();
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(!l.secteur)continue;
       const dir=getSecteurDirection(l.secteur)||l.direction||'—';
       // Per-secteur
@@ -2494,10 +2584,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // Vue 4 — Articles d'un client (lazy, triés CA desc, limite 50) — inclut spéciaux avec tag SPÉ
   function renderContribArticles(rowId,clientCode){
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
-    const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
     const artMap={};
-    for(const l of _S.territoireLines){
+    for(const l of DataStore.territoireLines){
       if(l.clientCode!==clientCode)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus,isSpecial:l.isSpecial||!isStd(l.code)};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
@@ -2556,7 +2646,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function exportTerritoireCSV(){
-    if(!_S.territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
+    if(!DataStore.territoireLines.length){showToast('⚠️ Aucune donnée territoire','warning');return;}
     const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
     const lines=['\uFEFF'+h.join(SEP)];
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -2564,7 +2654,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const selectedSecteursCSV=getSelectedSecteurs();
     const _canalGlobalExp=_S._selectedTerrCanal||'';
-    const filtered=_S.territoireLines.filter(l=>{
+    const filtered=DataStore.territoireLines.filter(l=>{
       if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
@@ -2584,7 +2674,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
-    const{missed,under,over,storePerf,familyPerf}=_S.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
+    // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
+    const{missed,under,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
     renderObservatoire();
 const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
@@ -2795,16 +2886,16 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   // C4: Heatmap Famille × Commercial
   function renderHeatmapFamilleCommercial(){
     const container=document.getElementById('heatmapContainer');if(!container)return;
-    if(!_S.chalandiseReady||!_S.ventesClientArticle.size){container.innerHTML='<p class="t-disabled text-sm p-4">Chargez la chalandise pour voir la heatmap.</p>';return;}
+    if(!_S.chalandiseReady||!DataStore.ventesClientArticle.size){container.innerHTML='<p class="t-disabled text-sm p-4">Chargez la chalandise pour voir la heatmap.</p>';return;}
     const matrix={},famTotals={},comTotals={};const commercials=new Set();
     const clientComLookup={};
     for(const[cc,info]of _S.chalandiseData.entries()){if(info.commercial)clientComLookup[cc]=info.commercial;}
-    if(_S.territoireReady){for(const l of _S.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=SECTEUR_DIR_MAP[l.secteur]||l.secteur;}}
-    for(const[cc,artMap]of _S.ventesClientArticle.entries()){
-      const com=clientComLookup[cc]||(_S.territoireReady?(_S.territoireLines.find(l=>l.clientCode===cc)?.commercial||null):null)||'⚠️ Sans commercial';
+    if(_S.territoireReady){for(const l of DataStore.territoireLines){if(l.clientCode&&!clientComLookup[l.clientCode]&&l.secteur)clientComLookup[l.clientCode]=SECTEUR_DIR_MAP[l.secteur]||l.secteur;}}
+    for(const[cc,artMap]of DataStore.ventesClientArticle.entries()){
+      const com=clientComLookup[cc]||(_S.territoireReady?(DataStore.territoireLines.find(l=>l.clientCode===cc)?.commercial||null):null)||'⚠️ Sans commercial';
       commercials.add(com);if(!matrix[com])matrix[com]={};
       for(const[code,data]of artMap.entries()){
-        const fam=famLib(_S.articleFamille[code]||(_S.finalData.find(d=>d.code===code)?.famille)||'')||'Non classé';const ca=data.sumCA||0;
+        const fam=famLib(_S.articleFamille[code]||(DataStore.finalData.find(d=>d.code===code)?.famille)||'')||'Non classé';const ca=data.sumCA||0;
         matrix[com][fam]=(matrix[com][fam]||0)+ca;
         famTotals[fam]=(famTotals[fam]||0)+ca;
         comTotals[com]=(comTotals[com]||0)+ca;
@@ -2874,7 +2965,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   }
 
   function renderObservatoire(){
-    const{obsKpis,obsFamiliesLose,obsFamiliesWin,obsActionPlan}=_S.benchLists;
+    // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
+    const{obsKpis,obsFamiliesLose,obsFamiliesWin,obsActionPlan}=DataStore.benchLists;
     const obsMode=_S.selectedObsCompare||'median';
     const obsLabel=obsMode==='median'?'Médiane réseau':obsMode;
     const isMedian=obsMode==='median';
@@ -3002,7 +3094,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     if(el('pepitesOtherCALabel'))el('pepitesOtherCALabel').textContent=isMedian?'CA médiane réseau':`CA ${obsLabel}`;
     // Pré-calcul clients zone par famille (si chalandise dispo)
     const _famCZ={};
-    if(_S.chalandiseReady&&_S.ventesClientArticle.size){for(const[cc,artMap]of _S.ventesClientArticle.entries()){if(!_S.chalandiseData.has(cc))continue;const seen=new Set();for(const code of artMap.keys()){const f=_S.articleFamille[code];if(f&&!seen.has(f)){seen.add(f);_famCZ[f]=(_famCZ[f]||0)+1;}}}}
+    if(_S.chalandiseReady&&DataStore.ventesClientArticle.size){for(const[cc,artMap]of DataStore.ventesClientArticle.entries()){if(!_S.chalandiseData.has(cc))continue;const seen=new Set();for(const code of artMap.keys()){const f=_S.articleFamille[code];if(f&&!seen.has(f)){seen.add(f);_famCZ[f]=(_famCZ[f]||0)+1;}}}}
     const pepOtherRows=pepOther.map(p=>{
       const ecartStr=p.ecartPct!==null?`<span class="c-caution font-extrabold">+${p.ecartPct}%</span>`:'<span class="c-danger font-extrabold">Absent</span>';
       const myFreqStr=p.myFreq>0?`<span class="t-primary">${p.myFreq}</span>`:'<span class="c-danger font-semibold">0</span>';
@@ -3083,7 +3175,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
         const totalReseau=d.agences.reduce((s,a)=>s+a.countBL,0);
         const nbAgences=d.agences.filter(a=>a.countBL>0).length;
         const mediane=nbAgences>0?Math.round(totalReseau/nbAgences):0;
-        const myStock=_S.finalData.find(r=>r.code===code)?.stockActuel??null;
+        const myStock=DataStore.finalData.find(r=>r.code===code)?.stockActuel??null;
         const stockBadge=myStock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':myStock>0?`<span class="c-ok text-[9px] font-bold">${myStock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';
         const ratio=mediane>0?Math.round(myBL/mediane*100):null;
         const perfBadge=ratio===null?'<span class="badge bg-slate-400 text-white text-[9px]">Médiane 0</span>':ratio>=100?'<span class="badge bg-emerald-500 text-white text-[9px]">🏆 Sur-perf</span>':ratio>=50?'<span class="badge bg-amber-500 text-white text-[9px]">📉 Sous-perf</span>':'<span class="badge bg-red-500 text-white text-[9px]">🚫 Faible</span>';
@@ -3198,7 +3290,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
     _S.parentRefsExcluded=0;
-    const dataSource=(_S.filteredData.length>0&&_S.filteredData.length<_S.finalData.length)?_S.filteredData:_S.finalData;
+    // [Adapter Étape 5] — DataStore.finalData / .filteredData : canaux-invariants
+    const dataSource=(DataStore.filteredData.length>0&&DataStore.filteredData.length<DataStore.finalData.length)?DataStore.filteredData:DataStore.finalData;
     // CA perdu — contexte multi vs mono agence
     const hasMulti=_S.storesIntersection.size>1;
     const medianCAByCode={};
@@ -3309,7 +3402,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
 
     renderCockpitEquation();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
-    if(dataSource===_S.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
+    if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
     // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
     _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti};
     generateDecisionQueue();
@@ -3320,7 +3413,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
 
   function renderCockpitRupClients(){
     const el=document.getElementById('cockpitRupClients');if(!el)return;
-    const ruptureArts=_S.finalData.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
+    const ruptureArts=DataStore.finalData.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
     const rupClients=[];
     if(ruptureArts.length){
       const clientRupMap=new Map();
@@ -3328,7 +3421,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
         const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
         for(const cc of buyers){
           const nom=_S.clientNomLookup[cc]||cc;
-          const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
+          const caArt=(DataStore.ventesClientArticle.get(cc)||new Map()).get(art.code);
           if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
           const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
         }
@@ -3377,14 +3470,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   // ★ TABLEAU
   function renderTable(pageOnly){
     if(!pageOnly){
-      _S.filteredData=getFilteredData();
-      _S.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});
+      _S.filteredData=getFilteredData(); // producteur — _S direct
+      DataStore.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});
       updateActiveAgeIndicator();
     }
-    const tp=Math.max(1,Math.ceil(_S.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=_S.filteredData.slice(start,start+PAGE_SIZE);
-    document.getElementById('resultCount').textContent=_S.filteredData.length.toLocaleString('fr')+' article'+(_S.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,_S.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${_S.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
+    const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=DataStore.filteredData.slice(start,start+PAGE_SIZE);
+    document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
     _renderActiveFilterBadges();
-    const _totalCA=_S.filteredData.reduce((s,r)=>s+(r.caAnnuel||0),0);const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
+    const _totalCA=DataStore.filteredData.reduce((s,r)=>s+(r.caAnnuel||0),0);const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
     const p=[];
     const showMed=_S.storesIntersection.size>1;
     {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
@@ -3421,7 +3514,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   }
 
   function _jumpToPage(val){
-    const tp=Math.max(1,Math.ceil(_S.filteredData.length/PAGE_SIZE));
+    const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));
     const page=parseInt(val);
     if(isNaN(page))return;
     _S.currentPage=Math.min(Math.max(0,page-1),tp-1);
@@ -3437,7 +3530,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     const stat=document.getElementById('filterStatut')?.value||'';
     const abc=document.getElementById('filterABC')?.value||'';
     const fmr=document.getElementById('filterFMR')?.value||'';
-    let data=_S.finalData.filter(r=>r.W>=1);
+    let data=DataStore.finalData.filter(r=>r.W>=1);
     if(fam)data=data.filter(r=>r.famille===fam);
     if(sFam)data=data.filter(r=>r.sousFamille===sFam);
     if(emp)data=data.filter(r=>r.emplacement===emp);
@@ -3447,7 +3540,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     return data;
   }
   function renderABCTab(){
-    if(!_S.finalData.length||!Object.keys(_S.abcMatrixData).length)return;
+    // [Adapter Étape 5] — DataStore.finalData / .abcMatrixData : canaux-invariants
+    if(!DataStore.finalData.length||!Object.keys(DataStore.abcMatrixData).length)return;
     const radarData=_radarFilteredData();
     const mx=_radarComputeMatrix(radarData);
     const globalFilters=[document.getElementById('filterFamille')?.value,document.getElementById('filterSousFamille')?.value,document.getElementById('filterEmplacement')?.value,document.getElementById('filterStatut')?.value,document.getElementById('filterABC')?.value,document.getElementById('filterFMR')?.value].filter(Boolean);
@@ -3564,7 +3658,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     await _migrateIDB();
     // 3. Tenter la restauration complète depuis IndexedDB
     const restored = await _restoreSessionFromIDB();
-    if (restored && _S.finalData.length > 0) {
+    if (restored && DataStore.finalData.length > 0) {
       // ── 0. Gardes-fous AVANT tout code UI — _S.storesIntersection et _S.selectedMyStore ──
       // Doit s'exécuter immédiatement après await _restoreSessionFromIDB(),
       // avant toute référence à _S.selectedMyStore ou _S.storesIntersection dans l'UI.
@@ -3580,15 +3674,15 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
         const _saved2=localStorage.getItem('prisme_selectedStore');_S.selectedMyStore=(_saved2&&_S.storesIntersection.has(_saved2))?_saved2:[..._S.storesIntersection][0];
         console.log('[PRISME] _S.selectedMyStore sélectionné automatiquement :', _S.selectedMyStore);
       }
-      // ── Vérification de cohérence : _S.finalData contaminé ? ──
-      // Un _S.finalData multi-agences sauvé par erreur (_S.storesIntersection vide lors de la session
+      // ── Vérification de cohérence : DataStore.finalData contaminé ? ──
+      // Un DataStore.finalData multi-agences sauvé par erreur (_S.storesIntersection vide lors de la session
       // précédente → useMulti=false → pas de filtre agence) aurait N×storeCount articles.
       // On utilise _S.storeCountConsomme (fiable même quand _S.storesIntersection est encore vide)
       // plutôt que _S.storesIntersection.size qui peut être 0 dans un cache corrompu.
       if(_S.storeCountConsomme>1&&_S.selectedMyStore){
         const _myStockCount=Object.keys(_S.stockParMagasin[_S.selectedMyStore]||{}).length;
-        if(_myStockCount>0&&_S.finalData.length>_myStockCount*2.5){
-          console.warn('[PRISME] cache contaminé — _S.finalData='+_S.finalData.length+' articles mais '+_S.selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
+        if(_myStockCount>0&&DataStore.finalData.length>_myStockCount*2.5){
+          console.warn('[PRISME] cache contaminé — DataStore.finalData='+DataStore.finalData.length+' articles mais '+_S.selectedMyStore+' en a '+_myStockCount+' en stock. Cache invalidé.');
           await _clearIDB();
           showToast('⚠️ Cache obsolète détecté et purgé — rechargez vos fichiers.','warning');
           _restoreFromCache();
@@ -3598,9 +3692,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
 
       // ── Reproduit exactement la séquence de fin de processData() L2462-2488 ──
 
-      // 1. Peupler les filtres depuis _S.finalData (équivalent populateSelect L2470)
+      // 1. Peupler les filtres depuis DataStore.finalData (équivalent populateSelect L2470)
       const _rFam=new Set(),_rSFam=new Set(),_rEmp=new Set(),_rStat=new Set();
-      for(const r of _S.finalData){
+      for(const r of DataStore.finalData){
         if(r.famille&&r.famille!=='Non Classé')_rFam.add(r.famille);
         if(r.sousFamille)_rSFam.add(r.sousFamille);
         if(r.emplacement)_rEmp.add(r.emplacement);
@@ -3610,7 +3704,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
       populateSelect('filterEmplacement',_rEmp);populateSelect('filterStatut',_rStat);
 
       // 2. Navbar (L2472-2476)
-      document.getElementById('navStats').textContent=_S.finalData.length.toLocaleString('fr')+' art.';
+      document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';
       document.getElementById('navStats').classList.remove('hidden');
       if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
       document.getElementById('navReportingBtn').classList.remove('hidden');
@@ -3737,7 +3831,7 @@ window.onChalandiseSelected = async function(input) {
   if (!input.files || !input.files[0]) return;
   await parseChalandise(input.files[0]);
   // Si les données sont déjà chargées, recalculer le benchmark avec la chalandise
-  if (_S.finalData.length > 0 && _S.storesIntersection.size > 1) {
+  if (DataStore.finalData.length > 0 && _S.storesIntersection.size > 1) {
     computeBenchmark();
     renderBenchmark();
   }
@@ -3747,6 +3841,7 @@ window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window._setTerrGlobalCanalFilter = _setTerrGlobalCanalFilter;
+window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;

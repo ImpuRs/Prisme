@@ -11,6 +11,7 @@
 import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
 import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
+import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore } from './engine.js';
 
 
@@ -64,7 +65,7 @@ export function updateTerrProgress(cur, total) {
 
 // ── Import zone collapse ──────────────────────────────────────
 export function onFileSelected(i, id) {
-  if (i.files.length > 0 && _S.finalData.length > 0) {
+  if (i.files.length > 0 && DataStore.finalData.length > 0) {
     if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau fichier remplacera toutes les données. Continuer ?')) {
       i.value = '';
       return;
@@ -92,7 +93,7 @@ export function expandImportZone() {
   if (iz) iz.classList.remove('hidden');
   if (bannerRight) bannerRight.innerHTML = '';
   if (banner && bannerLeft && !bannerLeft.innerHTML.trim()) banner.classList.add('hidden');
-  if (_S.finalData.length > 0) {
+  if (DataStore.finalData.length > 0) {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
@@ -108,7 +109,7 @@ export function switchTab(id) {
   if (btn) {
     btn.classList.add('active');
     // Lazy render: first visit to this tab triggers render if data is loaded
-    if (!_S._tabRendered[id] && _S.finalData.length > 0) renderCurrentTab();
+    if (!_S._tabRendered[id] && DataStore.finalData.length > 0) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -151,7 +152,7 @@ export function getFilteredData() {
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const searchQuery = document.getElementById('searchInput').value.trim();
-  const filtered = _S.finalData.filter(r => {
+  const filtered = DataStore.finalData.filter(r => {
     if(fam){
       const famCode = r.famille||'';
       if(!matchQuery(fam, famLib(famCode), famCode, famLabel(famCode))) return false;
@@ -172,8 +173,8 @@ export function getFilteredData() {
 }
 
 export function renderAll() {
-  _S.filteredData = getFilteredData();
-  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
+  DataStore.filteredData = getFilteredData();
+  DataStore.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator();
   renderTable(true); // articles always re-renders (exception: not behind lazy flag)
   _S._tabRendered = {}; // invalidate all tab caches (filter or data changed)
@@ -216,8 +217,8 @@ export function showCockpitInTable(type) {
   if (nbtn) { const isNouv = type === 'nouveautes'; nbtn.classList.toggle('bg-emerald-500', isNouv); nbtn.classList.toggle('text-white', isNouv); nbtn.classList.toggle('s-hover', !isNouv); nbtn.classList.toggle('t-secondary', !isNouv); }
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
   _S.currentPage = 0; switchTab('table');
-  _S.filteredData = getFilteredData();
-  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
+  DataStore.filteredData = getFilteredData();
+  DataStore.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator(); renderTable(true);
 }
 
@@ -317,7 +318,7 @@ export function copyReportText() {
 
 // ── Table sort / pagination ───────────────────────────────────
 export function sortBy(c) { if (_S.sortCol === c) _S.sortAsc = !_S.sortAsc; else { _S.sortCol = c; _S.sortAsc = false; } _S.currentPage = 0; renderTable(); }
-export function changePage(d) { const m = Math.ceil(_S.filteredData.length / PAGE_SIZE) - 1; _S.currentPage = Math.max(0, Math.min(_S.currentPage + d, m)); renderTable(true); }
+export function changePage(d) { const m = Math.ceil(DataStore.filteredData.length / PAGE_SIZE) - 1; _S.currentPage = Math.max(0, Math.min(_S.currentPage + d, m)); renderTable(true); }
 
 // ── KPI history ───────────────────────────────────────────────
 export function clearSavedKPI() { _S.kpiHistory = []; document.getElementById('compareBlock').classList.add('hidden'); showToast('🗑️ Historique effacé.', 'success'); }
@@ -343,7 +344,7 @@ export function downloadCSV() {
   const SEP = ';';
   const hd = ['Code', 'Libelle', 'Famille', 'S/Fam', 'Empl', 'Statut', 'Age', 'Tranche', 'Nouv', 'RefPere', 'Preleve', 'Enleve', 'Freq', 'Stock', 'Couverture(j)', 'PU', 'AncMin', 'AncMax', 'MIN', 'MAX', 'ABC', 'FMR', 'CAPerdu'];
   const lines = ['\uFEFF' + hd.join(SEP)];
-  const data = _S.filteredData.length ? _S.filteredData : _S.finalData;
+  const data = DataStore.filteredData.length ? DataStore.filteredData : DataStore.finalData;
   for (const r of data) {
     const br = getAgeBracket(r.ageJours);
     const caPerduCSV = (r.W >= 3 && r.stockActuel <= 0 && !r.isParent && r.V > 0) ? estimerCAPerdu(r.V, r.prixUnitaire, Math.min(r.ageJours >= 999 ? 90 : r.ageJours, 90)) : 0;
@@ -447,10 +448,10 @@ export function _cmdBuildResults(q) {
 
   if (!q) return groups;
 
-  // 2. Articles (search _S.finalData)
-  if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
+  // 2. Articles (search DataStore.finalData)
+  if (typeof DataStore.finalData !== 'undefined' && DataStore.finalData.length) {
     const artResults = [];
-    for (const r of _S.finalData) {
+    for (const r of DataStore.finalData) {
       if (artResults.length >= 5) break;
       if (matchQuery(q, r.code, r.libelle, famLib(r.famille || ''))) {
         const stockColor = r.stockActuel <= 0 ? 'i-danger-bg c-danger' : 'i-ok-bg c-ok';
@@ -523,9 +524,9 @@ export function _cmdBuildResults(q) {
   if (clientResults.length) groups.push({ header: '👥 Clients', items: clientResults });
 
   // 4. Familles
-  if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
+  if (typeof DataStore.finalData !== 'undefined' && DataStore.finalData.length) {
     const famSet = new Set();
-    _S.finalData.forEach(r => { if (r.famille) famSet.add(famLib(r.famille)); });
+    DataStore.finalData.forEach(r => { if (r.famille) famSet.add(famLib(r.famille)); });
     const famResults = [];
     for (const f of famSet) {
       if (famResults.length >= 3) break;
@@ -571,8 +572,8 @@ export function _cmdBuildResults(q) {
 }
 
 export function _cmdClientCA(code) {
-  if (typeof _S.ventesClientArticle === 'undefined') return '';
-  const arts = _S.ventesClientArticle.get(code);
+  if (typeof DataStore.ventesClientArticle === 'undefined') return '';
+  const arts = DataStore.ventesClientArticle.get(code);
   if (!arts) return '';
   let total = 0;
   for (const v of arts.values()) total += (v.sumCA || 0);
@@ -604,15 +605,15 @@ export function _cmdMoveSelection(dir) {
 export function updateAmbientSignal() {
   const el = document.getElementById('ambient-signal');
   if (!el) return;
-  if (!_S.finalData.length) { el.style.setProperty('--health-color', 'transparent'); return; }
+  if (!DataStore.finalData.length) { el.style.setProperty('--health-color', 'transparent'); return; }
 
   // Taux de service : articles fréquents (W≥3) en stock ÷ total fréquents
-  const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const freq = DataStore.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
   const inStock = freq.filter(r => r.stockActuel > 0).length;
   const sr = freq.length > 0 ? (inStock / freq.length * 100) : 100;
 
   // Ruptures critiques : W≥3, stock≤0, priorityScore≥5000
-  const critRupt = _S.finalData.filter(r =>
+  const critRupt = DataStore.finalData.filter(r =>
     r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0) &&
     calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
   ).length;
@@ -641,7 +642,7 @@ export function updateAmbientSignal() {
 export function renderCockpitBriefing() {
   const el = document.getElementById('cockpitBriefing');
   const textEl = document.getElementById('cockpitBriefingText');
-  if (!el || !textEl || !_S.finalData.length) { if (el) el.classList.add('hidden'); return; }
+  if (!el || !textEl || !DataStore.finalData.length) { if (el) el.classList.add('hidden'); return; }
 
   const d = _S._briefingData || {};
   const lstR = d.lstR || [];
@@ -692,10 +693,10 @@ export function renderCockpitBriefing() {
   }
 
   // 4. C-Rare si significatif
-  if (_S.finalData[0]?.abcClass !== undefined) {
-    const crItems = _S.finalData.filter(r => r.abcClass === 'C' && r.fmrClass === 'R' && r.stockActuel > 0);
+  if (DataStore.finalData[0]?.abcClass !== undefined) {
+    const crItems = DataStore.finalData.filter(r => r.abcClass === 'C' && r.fmrClass === 'R' && r.stockActuel > 0);
     const crVal = crItems.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0);
-    const totalFull = _S.finalData.reduce((s, r) => r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s, 0);
+    const totalFull = DataStore.finalData.reduce((s, r) => r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s, 0);
     const crPct = totalFull > 0 ? (crVal / totalFull * 100).toFixed(1) : '0';
     if (crVal > 100) {
       sentences.push({ icon: '🗑️', color: 'c-muted', text: `${n(crPct + '%', 'c-muted', `${crItems.length} articles C-Rare en stock`)} du stock (${n(formatEuro(crVal), 'c-muted', 'Valeur stock C-Rare')}) en C-Rare — candidat au déréférencement.` });
@@ -703,9 +704,9 @@ export function renderCockpitBriefing() {
   }
 
   // 5. Territoire si chargé
-  if (_S.territoireReady && _S.territoireLines.length > 0) {
+  if (_S.territoireReady && DataStore.territoireLines.length > 0) {
     const artMap = new Map();
-    for (const l of _S.territoireLines) {
+    for (const l of DataStore.territoireLines) {
       if (l.isSpecial) continue;
       let a = artMap.get(l.code);
       if (!a) { a = { ca: 0, rayonStatus: l.rayonStatus }; artMap.set(l.code, a); }

@@ -343,10 +343,26 @@ export function getSelectedSecteurs() {
 
 // ── Benchmark multi-agences ───────────────────────────────────
 export function computeBenchmark() {
+  // Cache canal-invariant : la clé exclut intentionnellement le filtre canal global.
+  // Seuls bassin, univers, minCA, obsMode, myStore et chalandise affectent le résultat.
+  const _bKey = [
+    _S.selectedMyStore || '',
+    [..._S.selectedBenchBassin].sort().join(','),
+    _S.obsFilterUnivers || '',
+    _S.obsFilterMinCA || 0,
+    _S.selectedObsCompare || 'median',
+    _S.chalandiseReady ? '1' : '0',
+  ].join('|');
+  if (_S._benchCache && _S._benchCache.key === _bKey) {
+    _S.benchLists    = _S._benchCache.benchLists;
+    _S.benchFamEcarts = _S._benchCache.benchFamEcarts;
+    return; // ~0ms — invariant canal confirmé
+  }
+
   const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
   const cs = bassinStores.filter(s => _S.storesIntersection.has(s));
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
-  if (!cs.length) return;
+  if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;
   let myV = _S.ventesParMagasin[_S.selectedMyStore] || {};
   const bv = {};
@@ -496,6 +512,9 @@ export function computeBenchmark() {
   }
   pepitesOther.sort((a, b) => (b.compFreq - b.myFreq) - (a.compFreq - a.myFreq));
   _S.benchLists.pepitesOther = pepitesOther.slice(0, 50);
+
+  // Mémoriser le résultat — clé sans canal (invariant architectural)
+  _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts };
 }
 
 // ── Worker réseau inline ────────────────────────────────────────────────────
