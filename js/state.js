@@ -221,6 +221,9 @@ export function resetAppState() {
   _S.chalandiseData = new Map(); _S.chalandiseReady = false; _S.chalandiseMetiers = [];
   _S.clientsByMetier = new Map(); _S.clientsByCommercial = new Map();
 
+  // Observatoire
+  _S.obsFilterUnivers = ''; _S.obsFilterMinCA = 0; _S.selectedObsCompare = 'median';
+
   // Croisement / cockpit export / exclusions
   _S.crossingStats = null; _S._cockpitExportData = null;
   _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
