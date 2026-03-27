@@ -604,6 +604,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const fichiersList=['Consommé','État du Stock'];
     if(_S.territoireReady)fichiersList.push('Le Terrain');
     if(_S.chalandiseReady)fichiersList.push('Chalandise');
+    // Position réseau
+    let reseauRank=null,reseauTotal=null;
+    if(hasBench){const sp=_S.benchLists.storePerf||{};const spSorted=Object.entries(sp).sort((a,b)=>b[1].freq-a[1].freq);if(spSorted.length>0){reseauTotal=spSorted.length;const myIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);if(myIdx>=0)reseauRank=myIdx+1;}}
+    const pdmBassin=hasBench&&kpis&&ok(kpis.mine?.pdm)?kpis.mine.pdm:null;
+    // Omnicanalité
+    const caMag=_S.canalAgence['MAGASIN']?.ca||0;
+    const caWeb=_S.canalAgence['INTERNET']?.ca||0;
+    const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
+    const caDcs=_S.canalAgence['DCS']?.ca||0;
+    const caHorsAgence=caWeb+caRep+caDcs;
+    const caTotalCanal=caMag+caHorsAgence;
+    const pctHorsAgence=caTotalCanal>0?Math.round(caHorsAgence/caTotalCanal*100):null;
+    // Nomades cross-agence
+    const nbNomades=(_S.reseauNomades||[]).length;
+    // Plan d'action familles
+    const actionPlan=_S.benchLists.obsActionPlan||[];
     // ── Build prose ─────────────────────────────────────────────
     const hr='─'.repeat(52);
     const L=[];
@@ -649,6 +665,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       L.push('');L.push(p);
     }
+    // Position réseau
+    if(reseauRank!==null&&reseauTotal!==null){
+      let rp=`Nous nous classons ${reseauRank}${reseauRank===1?'er':'e'} sur ${reseauTotal} agences du réseau`;
+      const mxMarge=kpis&&ok(kpis.mine?.txMarge)?kpis.mine.txMarge:null;
+      const medMarge=kpis&&ok(kpis.compared?.txMarge)?kpis.compared.txMarge:null;
+      if(ok(mxMarge)&&ok(medMarge)){if(mxMarge>=medMarge)rp+=`, avec un taux de marge au-dessus de la médiane (${mxMarge.toFixed(2)}% vs ${medMarge.toFixed(2)}%)`;}
+      if(ok(pdmBassin))rp+=`. Notre couverture bassin est à ${Math.round(pdmBassin)}%, principal levier d'assortiment`;
+      L.push(rp+'.');
+    }
     L.push('');
     // ── POINTS D'AMÉLIORATION ────────────────────────────────────
     L.push("POINTS D'AMÉLIORATION");L.push('');
@@ -679,8 +704,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis plus de 30 jours`;
       if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA Magasin cumulé)`;
       p+='.';
-      if(silencieuxTop3)p+=` Les ${Math.min(3,silencieuxList.length)} premier${silencieuxList.length>1?'s':''} à relancer : ${silencieuxTop3}.`;
+      const silTop5=silencieuxList.slice(0,5);
+      if(silTop5.length){const silFmt=silTop5.map(c=>`${c.nom} (${formatEuro(c.caPDV)})`).join(', ');p+=` Priorités de relance : ${silFmt}.`;}
       L.push(p);
+      if(nbNomades>0){L.push(`Par ailleurs, ${nbNomades.toLocaleString('fr')} client${nbNomades!==1?'s':''} de ce portefeuille achète${nbNomades!==1?'nt':''} également dans d'autres agences du réseau — un potentiel de consolidation à exploiter.`);}
     }
     // Familles en retrait
     if(lose3.length>0){
@@ -697,6 +724,30 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${_S.finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
       L.push(parts.join(' '));
+    }
+    // Omnicanalité
+    if(ok(pctHorsAgence)&&pctHorsAgence>0){
+      const relais=[];
+      if(caWeb>0)relais.push(`Web (${formatEuro(Math.round(caWeb))})`);
+      if(caRep>0)relais.push(`Représentant (${formatEuro(Math.round(caRep))})`);
+      if(caDcs>0)relais.push(`DCS (${formatEuro(Math.round(caDcs))})`);
+      let op=`${pctHorsAgence}% de notre CA identifié passe hors agence`;
+      if(relais.length)op+=` — ${relais.join(', ')} constituent des relais à consolider`;
+      L.push(op+'.');
+    }
+    // ── PLAN D'ACTION ─────────────────────────────────────────────
+    if(actionPlan.length>0){
+      L.push('');
+      L.push("PLAN D'ACTION");L.push('');
+      if(actionPlan.length>=3){
+        const [a1,a2,a3]=actionPlan;
+        L.push(`Trois familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés), ${a2.fam} (${formatEuro(a2.caPotentiel)}) et ${a3.fam} (${formatEuro(a3.caPotentiel)}).`);
+      }else if(actionPlan.length===2){
+        const [a1,a2]=actionPlan;
+        L.push(`Deux familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés) et ${a2.fam} (${formatEuro(a2.caPotentiel)}).`);
+      }else{
+        L.push(`La famille ${actionPlan[0].fam} concentre l'essentiel du potentiel non capté avec ${formatEuro(actionPlan[0].caPotentiel)} identifiés.`);
+      }
     }
     return L.join('\n');
   }
