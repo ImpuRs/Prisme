@@ -8,13 +8,12 @@
 'use strict';
 
 import { RADAR_LABELS } from './constants.js';
-import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml } from './utils.js';
+import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, normFam } from './utils.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { estimerCAPerdu, computeSPC, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
-function _normFamGlobal(f){return f?f.replace(/^[A-Z]\d{2,3} - /,''):f;}
 
 function openDiagnostic(famille,source){
   const overlay=document.getElementById('diagnosticOverlay');
@@ -634,8 +633,8 @@ function _diagBadge(s){
 
 // ── VOYANT 1 : 📦 MON RAYON (toujours actif) ──
 function _diagVoyant1(famille){
-  famille=_normFamGlobal(famille);
-  const arts=_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille);
+  famille=normFam(famille);
+  const arts=_S.finalData.filter(r=>normFam(r.famille)===famille);
   if(!arts.length)return{status:'absent',arts:0,enStock:0,nonRef:0,ruptures:[],caPerduTotal:0,nbMM:0,dormants:[],mmDetail:[],nonCal:0,sousD:0,statusRup:'ok',statusMM:'ok'};
   // Stock / ruptures
   const enStock=arts.filter(r=>r.stockActuel>0).length;
@@ -746,8 +745,8 @@ function _diagRenderL2(l,hasBench,refStore){
 // ── VOYANT 2 : 👥 MES CLIENTS (Chalandise) ──
 function _diagVoyant2(famille,hasChal,metierFilter){
   if(!hasChal)return{status:'lock',reason:'Chargez la Zone de Chalandise pour activer l\'analyse clients'};
-  famille=_normFamGlobal(famille);
-  const famArts=new Set(_S.finalData.filter(r=>_normFamGlobal(r.famille)===famille).map(r=>r.code));
+  famille=normFam(famille);
+  const famArts=new Set(_S.finalData.filter(r=>normFam(r.famille)===famille).map(r=>r.code));
   if(!famArts.size)return{status:'warn',reason:'Aucun article trouvé pour cette famille',metiers:[]};
   const metierBuyers={};
   for(const artCode of famArts){const buyers=_S.articleClients.get(artCode);if(!buyers)continue;for(const cc of buyers){const info=_S.chalandiseData.get(cc);if(!info||!info.metier)continue;if(!clientMatchesDeptFilter(info)||!clientMatchesClassifFilter(info)||!clientMatchesStatutFilter(info)||!clientMatchesActivitePDVFilter(info)||!clientMatchesCommercialFilter(info))continue;if(!metierBuyers[info.metier])metierBuyers[info.metier]=new Set();metierBuyers[info.metier].add(cc);}}
@@ -895,7 +894,7 @@ function _diagRenderV2(v,hasChal){
 // ── VOYANT 3 : 🔭 LE RÉSEAU (multi-agences) ──
 function _diagVoyant3(famille,hasMulti){
   if(!hasMulti)return{status:'lock',reason:'Données multi-agences requises — chargez un fichier Consommé incluant plusieurs agences'};
-  famille=_normFamGlobal(famille);
+  famille=normFam(famille);
   const cs=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   const nbOtherStores=cs.length;
   if(!nbOtherStores)return{status:'lock',reason:'Un seul magasin dans le fichier'};
@@ -905,7 +904,7 @@ function _diagVoyant3(famille,hasMulti){
   const myV=_S.ventesParMagasin[_S.selectedMyStore]||{};
   const myArts=new Set();let myCA=0;
   for(const[code,data] of Object.entries(myV)){
-    if(_normFamGlobal(_S.articleFamille[code]||'')!==famille)continue;
+    if(normFam(_S.articleFamille[code]||'')!==famille)continue;
     if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0)myArts.add(code);
     myCA+=(data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0));
   }
@@ -914,7 +913,7 @@ function _diagVoyant3(famille,hasMulti){
   for(const store of cs){
     const sv=_S.ventesParMagasin[store]||{};let storeCA=0;
     for(const[code,data] of Object.entries(sv)){
-      if(_normFamGlobal(_S.articleFamille[code]||'')!==famille)continue;
+      if(normFam(_S.articleFamille[code]||'')!==famille)continue;
       const codeCA=data.sumCA>0?data.sumCA:(data.sumPrelevee||0)*(prixLookup[code]||0);
       if((data.sumPrelevee||0)>0||(data.sumEnleve||0)>0){artStoreCnt[code]=(artStoreCnt[code]||0)+1;if(!artStoreFreqs[code])artStoreFreqs[code]=[];artStoreFreqs[code].push(data.countBL||0);if(!artStoreCAs[code])artStoreCAs[code]=[];artStoreCAs[code].push(codeCA);}
       storeCA+=codeCA;
@@ -1372,4 +1371,4 @@ function exportDiagnosticCSV(famille){
 
 
 
-export { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume };
+export { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume };

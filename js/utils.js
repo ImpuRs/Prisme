@@ -241,6 +241,10 @@ export function _median(arr) {
   return m % 2 ? s[(m - 1) / 2] : (s[m / 2 - 1] + s[m / 2]) / 2;
 }
 
+export function normFam(f) {
+  return f ? f.replace(/^[A-Z]\d{2,3} - /, '') : f;
+}
+
 export function _isMetierStrategique(metier) {
   const l = (metier || '').toLowerCase();
   return METIERS_STRATEGIQUES.some(m => l.includes(m));
