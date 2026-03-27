@@ -307,9 +307,15 @@ export function assertPostParseInvariants() {
   console.assert(_S.finalData.length > 0,
     '[PRISME] finalData vide après parsing — vérifier le fichier État du Stock');
 
-  // Invariant 2 : globalJoursOuvres dans une plage cohérente (détecte un calcul de période cassé)
-  console.assert(_S.globalJoursOuvres >= 100 && _S.globalJoursOuvres <= 365,
-    '[PRISME] globalJoursOuvres hors plage [100–365] : ' + _S.globalJoursOuvres);
+  // Invariant 2 : globalJoursOuvres dans une plage cohérente (non-bloquant — période variable)
+  // < 40 j : données insuffisantes pour des MIN/MAX fiables
+  // 40–90 j : période courte, MIN/MAX approximatifs (ex: consommé 3 mois)
+  // 90–365 j : nominal — silencieux
+  // > 365 j : période anormalement longue, probable anomalie de date
+  {const _jj=_S.globalJoursOuvres;
+  if(_jj<40)console.error('[PRISME] globalJoursOuvres='+_jj+' — données insuffisantes (<40 j), MIN/MAX non fiables');
+  else if(_jj<90)console.warn('[PRISME] globalJoursOuvres='+_jj+' — période courte (40–90 j), MIN/MAX approximatifs');
+  else if(_jj>365)console.warn('[PRISME] globalJoursOuvres='+_jj+' — période anormalement longue (>365 j), vérifier les dates du consommé');}
 
   // Invariant 3 : ventesClientArticle peuplé si un magasin est sélectionné
   // (MIN/MAX calculés sur agence sélectionnée — si vide, V=0 pour tous les articles)
