@@ -17,8 +17,8 @@ import { showToast } from './ui.js';
 function _spcBadge(spc){if(spc==null)return'';const color=spc>=70?'c-danger font-extrabold':spc>=40?'c-caution font-bold':'t-disabled';return`<span class="text-[10px] ${color} ml-1" title="Score Potentiel Client (SPC)">${spc}</span>`;}
 
 // ── 🎯 Ciblage Promo ──
-let _promoLastResult=null;
-function resetPromo(){_promoLastResult=null;}
+let _promoSearchResult=null;   // résultat recherche libre
+function resetPromo(){_promoSearchResult=null;}
 let _promoSuggestTimer=null;
 let _promoSuggestIdx=-1;
 let _promoSuggestItems=[];
@@ -167,7 +167,6 @@ function runPromoSearch(){
   }
 
   // 2. Matched families
-  const tb=document.getElementById('promoTargetingBlock');if(tb)tb.classList.remove('hidden');
   const matchedFamilles=new Set();
   for(const c of matchedCodes){
     const f=_S.articleFamille[c]||(_S.finalData.find(r=>r.code===c)||{}).famille;
@@ -288,19 +287,17 @@ function runPromoSearch(){
   {
     const sC=sectionC.filter(c=>{const info=_S.chalandiseData.get(c.cc)||{};const statut=(info.statut||'').toLowerCase();return!statut.includes('inactif')&&!statut.includes('perdu');});
     sC.sort((a,b)=>(b.ca2025||0)-(a.ca2025||0));
-    _promoLastResult={matchedCodes,sectionA,sectionB,sectionC:sC.slice(0,50),sectionCTotal:sC.length,terms,matchedFamilles};
+    _promoSearchResult={matchedCodes,sectionA,sectionB,sectionC:sC.slice(0,50),sectionCTotal:sC.length,terms,matchedFamilles};
   }
   _populatePromoFilterDropdowns();
   _checkOmnicanalWarning();
-  _renderPromoResults();
-  const btnAction=document.getElementById('promoModeAction');
-  if(btnAction){btnAction.classList.remove('t-disabled','b-default');btnAction.classList.add('c-action','border-orange-300');btnAction.style.background='rgba(249,115,22,.1)';}
+  _renderSearchResults();
 }
 
 let _promoSfMap={}; // code → {famille, sousFamille}
 
 function _populatePromoFilterDropdowns(){
-  const r=_promoLastResult;if(!r)return;
+  const r=_promoSearchResult;if(!r)return;
   // Build sous-famille map from _S.finalData (once per search)
   _promoSfMap={};for(const row of _S.finalData)_promoSfMap[row.code]={famille:row.famille||'',sousFamille:row.sousFamille||''};
   const all=[...r.sectionA,...r.sectionB,...r.sectionC];
@@ -328,21 +325,21 @@ function _populatePromoFilterDropdowns(){
   const depts=new Set();
   for(const c of all){const info=_S.chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'');if(cp.length>=2)depts.add(cp.slice(0,2));}
   fill('promoFilterDept',[...depts].sort());
-  // Show refinement panel
-  const ph=document.getElementById('promoFiltersPlaceholder');const rf=document.getElementById('promoRefinementFilters');
-  if(ph)ph.classList.add('hidden');if(rf)rf.classList.remove('hidden');
+  // Show inline refinement filters
+  const rf=document.getElementById('promoRefinementFilters');
+  if(rf)rf.classList.remove('hidden');
 }
 
 function _onPromoFamilleChange(){
   const fam=(document.getElementById('promoFilterFamille')||{}).value||'';
   // Primary entry point: no prior search — fill search bar and trigger search
-  if(fam&&!_promoLastResult){
+  if(fam&&!_promoSearchResult){
     const si=document.getElementById('promoSearchInput');if(si)si.value=fam;
     runPromoSearch();
     return;
   }
   // Cascade: repopulate sous-famille to only those within selected famille
-  const r=_promoLastResult;if(!r)return;
+  const r=_promoSearchResult;if(!r)return;
   const sfSel=document.getElementById('promoFilterSousFamille');if(!sfSel)return;
   const cur=sfSel.value;
   const sfSet=new Set();
@@ -357,112 +354,254 @@ function _onPromoFamilleChange(){
   _applyPromoFilters();
 }
 
-function _applyPromoFilters(){_renderPromoResults();}
+function _applyPromoFilters(){_renderSearchResults();}
 
-// B4: Mode Action Promo
-let _promoMode='analyse';
-function _lancerPhoning(){_setPromoMode('analyse');setTimeout(()=>{const z=document.getElementById('promoImportZone');if(z)z.open=true;},50);}
-function _lancerCiblage(){_setPromoMode('analyse');setTimeout(()=>{const inp=document.getElementById('promoSearchInput');if(inp)inp.focus();},50);}
-window._lancerPhoning=_lancerPhoning;window._lancerCiblage=_lancerCiblage;
-function _setPromoMode(mode){
-  _promoMode=mode;
-  const aBtn=document.getElementById('promoModeAnalyse');
-  const xBtn=document.getElementById('promoModeAction');
-  const actionView=document.getElementById('promoActionView');
-  if(aBtn)aBtn.className=mode==='analyse'?'text-xs font-bold py-1 px-3 rounded-full border c-action border-blue-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
-  if(aBtn&&mode==='analyse')aBtn.style.background='rgba(59,130,246,.1)';else if(aBtn)aBtn.style.background='';
-  if(xBtn)xBtn.className=mode==='action'?'text-xs font-bold py-1 px-3 rounded-full border c-danger border-red-300':'text-xs font-bold py-1 px-3 rounded-full border t-disabled b-default';
-  if(xBtn&&mode==='action')xBtn.style.background='rgba(239,68,68,.1)';else if(xBtn)xBtn.style.background='';
-  if(actionView)actionView.classList.toggle('hidden',mode!=='action');
-  document.querySelectorAll('#tabPromo .tab-content-section').forEach(el=>el.classList.toggle('hidden',mode==='action'));
-  if(mode==='action')_renderPromoActionView();
-}
-function exportTourneeCSV(){
-  const r=_promoLastResult;
-  if(!r){showToast('⚠️ Lancez une recherche Promo d\'abord','warning');return;}
-  const allClients=new Map();
-  for(const c of[...(r.sectionA||[]),...(r.sectionB||[]),...(r.sectionC||[])]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
-  const ranked=[...allClients.values()].map(c=>{
-    const info=_S.chalandiseData.get(c.cc)||{};
-    const spc=c.spc||computeSPC(c.cc,info);
-    const lastOrder=_S.clientLastOrder.get(c.cc);
-    const lastOrderStr=lastOrder?lastOrder.toISOString().slice(0,10):'—';
-    const cp=(info.cp||'').replace(/\s/g,'');
-    const ville=info.ville||'';
-    const toPitch=[];
-    for(const code of r.matchedCodes){
-      if(_isArticleAlreadyBought(c.cc,code))continue;
-      const ref=_S.finalData.find(d=>d.code===code);
-      if(ref&&ref.stockActuel>0)toPitch.push({code,lib:ref.libelle||code});
-      if(toPitch.length>=3)break;
+function exportTourneeCSV() {
+  const sr = _promoSearchResult;
+  const ir = _promoImportResult;
+  if(!sr && !ir) { showToast('⚠️ Lancez d\'abord une recherche','warning'); return; }
+
+  const matchedCodes = sr?.matchedCodes || ir?.promoCodes || new Set();
+  const clients = sr
+    ? [...(sr.sectionA||[]), ...(sr.sectionB||[]), ...(sr.sectionC||[])]
+    : (ir?.sectionF||[]);
+
+  const ranked = clients.map(c => {
+    const info = _S.chalandiseData.get(c.cc) || {};
+    const spc  = c.spc || computeSPC(c.cc, info);
+
+    // Fix omnicanal : exclure les 3 canaux
+    const artMapMag = _S.ventesClientArticle.get(c.cc)       || new Map();
+    const terrCodes = new Set((_S.territoireLines||[]).filter(l=>l.clientCode===c.cc).map(l=>l.code));
+    const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(c.cc)||new Map()).keys());
+
+    const toPitch = [];
+    for(const code of matchedCodes) {
+      if(artMapMag.has(code) || terrCodes.has(code) || horsCodes.has(code)) continue;
+      const ref = _S.finalData.find(d=>d.code===code);
+      if(ref && ref.stockActuel > 0) toPitch.push({ code, lib: ref.libelle||code });
+      if(toPitch.length >= 3) break;
     }
-    return{cc:c.cc,nom:c.nom||info.nom||c.cc,spc,cp,ville,metier:info.metier||'',commercial:info.commercial||'',lastOrderStr,toPitch,ca:c.ca||0};
-  }).filter(c=>c.spc>=20).sort((a,b)=>a.cp.localeCompare(b.cp)||b.spc-a.spc);
-  if(!ranked.length){showToast('Aucun client qualifié pour la tournée','warning');return;}
-  const SEP=';';
-  const header=['Code','Nom','SPC','CP','Ville','Métier','Commercial','Dernière cde','Article 1','Article 2','Article 3','CA'].join(SEP);
-  const rows=ranked.map(c=>{
-    const arts=c.toPitch.map(a=>`${a.code} ${a.lib}`);
-    return[c.cc,`"${c.nom}"`,c.spc,c.cp,`"${c.ville}"`,`"${c.metier}"`,`"${c.commercial}"`,c.lastOrderStr,`"${arts[0]||''}"`,`"${arts[1]||''}"`,`"${arts[2]||''}"`,c.ca>0?Math.round(c.ca):''].join(SEP);
+
+    const lastOrder = _S.clientLastOrder.get(c.cc);
+    return {
+      cc: c.cc,
+      nom: c.nom || info.nom || c.cc,
+      spc,
+      cp: (info.cp||'').replace(/\s/g,''),
+      ville: info.ville||'',
+      metier: info.metier||c.metier||'',
+      commercial: info.commercial||c.commercial||'',
+      lastOrderStr: lastOrder ? lastOrder.toISOString().slice(0,10) : '—',
+      toPitch,
+      ca: c.ca || c.famCA || 0
+    };
+  })
+  .filter(c => c.spc >= 20)
+  .sort((a,b) => a.cp.localeCompare(b.cp) || b.spc - a.spc);
+
+  if(!ranked.length) { showToast('Aucun client qualifié (SPC ≥ 20)','warning'); return; }
+
+  const SEP = ';';
+  const label = sr ? (sr.terms||['promo'])[0] : (ir?.opName||'operation');
+  const header = ['Code','Nom','SPC','CP','Ville','Métier','Commercial',
+                  'Dernière cde','Article 1','Article 2','Article 3','CA'].join(SEP);
+  const rows = ranked.map(c => {
+    const arts = c.toPitch.map(a => `${a.code} ${a.lib}`);
+    return [
+      c.cc, `"${c.nom}"`, c.spc, c.cp, `"${c.ville}"`,
+      `"${c.metier}"`, `"${c.commercial}"`, c.lastOrderStr,
+      `"${arts[0]||''}"`, `"${arts[1]||''}"`, `"${arts[2]||''}"`,
+      c.ca > 0 ? Math.round(c.ca) : ''
+    ].join(SEP);
   });
-  const content='\uFEFF'+header+'\n'+rows.join('\n');
-  const blob=new Blob([content],{type:'text/csv;charset=utf-8;'});
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(blob);
-  link.download=`PRISME_Tournee_${(r.terms||['promo'])[0]}_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(link);link.click();document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-  showToast(`📄 Fiche tournée : ${ranked.length} clients exportés`,'success');
-}
-function _renderPromoActionView(){
-  const r=_promoLastResult;
-  if(!r){const el=document.getElementById('promoActionClients');if(el)el.innerHTML=`<div class="text-center py-8"><p class="text-sm t-tertiary mb-3">Chargez d'abord une opération promo pour préparer vos appels.</p><button onclick="_setPromoMode('analyse');setTimeout(()=>{const z=document.getElementById('promoImportZone');if(z)z.open=true;},100)" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">📋 Charger une opération promo</button></div>`;return;}
-  const allClients=new Map();
-  for(const c of[...r.sectionA,...r.sectionB,...r.sectionC]){if(!allClients.has(c.cc))allClients.set(c.cc,c);}
-  const ranked=[...allClients.values()].map(c=>({...c,spc:c.spc!=null?c.spc:computeSPC(c.cc,_S.chalandiseData.get(c.cc)||{})})).sort((a,b)=>(b.spc||0)-(a.spc||0)).slice(0,10);
-  const titre=r._fromImport?`📋 ${r._opName||'Opération promo'} — Clients à relancer`:'Top 10 — Qui appeler';
-  const clientsEl=document.getElementById('promoActionClients');
-  if(clientsEl)clientsEl.innerHTML=`<div class="flex items-center justify-between mb-2"><span class="text-[10px] font-bold t-tertiary uppercase">${titre}</span><button onclick="exportTourneeCSV()" class="text-[10px] font-bold py-1 px-2 rounded c-action i-info-bg border">📄 Fiche tournée CSV</button></div>`+ranked.map((c,i)=>{const info=_S.chalandiseData.get(c.cc)||{};return`<div class="p-2 s-card rounded-lg border cursor-pointer hover:shadow-md transition-shadow" onclick="_showActionArticles('${escapeHtml(c.cc)}')"><div class="flex items-center gap-2"><span class="font-extrabold text-sm c-action">#${i+1}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-1 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom||c.cc)}</span>${_spcBadge(c.spc)}</div><div class="text-[10px] t-tertiary">${escapeHtml(info.metier||'')} ${info.commercial?'· '+escapeHtml(info.commercial):''}</div></div></div></div>`;}).join('');
-  if(ranked.length>0)_showActionArticles(ranked[0].cc);
-}
-function _showActionArticles(cc){
-  const el=document.getElementById('promoActionArticles');if(!el)return;
-  const r=_promoLastResult;if(!r){el.innerHTML='<p class="t-tertiary text-sm">Aucune recherche active.</p>';return;}
-  const info=_S.chalandiseData.get(cc)||{};
-  const artMap=_S.ventesClientArticle.get(cc)||new Map();
-  const terrCodes=new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
-  const horsMagCodes=new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
-  const candidates=[...r.matchedCodes].filter(code=>!artMap.has(code)&&!terrCodes.has(code)&&!horsMagCodes.has(code));
-  const myStore=_S.ventesParMagasin[_S.selectedMyStore]||{};
-  const isPepite=new Set((_S.benchLists?.pepitesOther||[]).map(a=>a.code));
-  candidates.sort((a,b)=>{const pa=isPepite.has(a)?1:0,pb=isPepite.has(b)?1:0;if(pa!==pb)return pb-pa;return(myStore[b]?.countBL||0)-(myStore[a]?.countBL||0);});
-  const enStock=candidates.filter(c=>{const ref=_S.finalData.find(d=>d.code===c);return ref?ref.stockActuel>0:false;});
-  const enRupture=candidates.filter(c=>{const ref=_S.finalData.find(d=>d.code===c);return ref?ref.stockActuel<=0:false;});
-  const pitchCodes=[...enStock.slice(0,5),...enRupture.slice(0,2)];
-  const toPitch=pitchCodes.map(code=>{const ref=_S.finalData.find(d=>d.code===code);const lib=_S.libelleLookup[code]||(ref?ref.libelle:code);const stock=ref?ref.stockActuel:null;return{code,lib,stock};});
-  const nom=info.nom||_S.clientNomLookup[cc]||cc;
-  el.innerHTML=`<p class="text-[10px] t-tertiary mb-2">Articles pour <strong>${escapeHtml(nom)}</strong> :</p>`+(toPitch.length===0?'<p class="t-disabled text-sm">Client achète déjà tous les articles promo au PDV.</p>':`<div class="space-y-1">${toPitch.slice(0,15).map(a=>{const sb=a.stock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':a.stock>0?`<span class="c-ok text-[9px] font-bold">${a.stock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">⚠️ Rupture — à commander</span>';return`<div class="flex items-center gap-2 py-1 px-2 s-card-alt rounded text-[11px]"><span class="font-mono t-disabled">${escapeHtml(a.code)}</span><span class="flex-1 truncate">${escapeHtml(a.lib)}</span>${sb}</div>`;}).join('')}${toPitch.length>15?`<p class="text-[10px] t-disabled mt-1">+ ${toPitch.length-15} articles</p>`:''}</div>`);
+
+  const blob = new Blob(['\uFEFF'+header+'\n'+rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Tournee_${label}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link); URL.revokeObjectURL(link.href);
+  showToast(`📄 Fiche tournée : ${ranked.length} clients`, 'success');
 }
 
 function _resetPromoFilters(){
   ['promoFilterFamille','promoFilterSousFamille','promoFilterMetier','promoFilterCommercial','promoFilterClassif','promoFilterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const ca=document.getElementById('promoFilterCAMin');if(ca)ca.value='';
   const st=document.getElementById('promoFilterStrat');if(st)st.checked=false;
-  _renderPromoResults();
+  _renderSearchResults();
 }
 
-function _renderPromoResults(){
-  const r=_promoLastResult;if(!r)return;
-  const fmtD=d=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
-  // Read refinement filters
-  const fFamille=(document.getElementById('promoFilterFamille')||{}).value||'';
-  const fSousFamille=(document.getElementById('promoFilterSousFamille')||{}).value||'';
-  const fMetier=(document.getElementById('promoFilterMetier')||{}).value||'';
-  const fComm=(document.getElementById('promoFilterCommercial')||{}).value||'';
-  const fClassif=(document.getElementById('promoFilterClassif')||{}).value||'';
-  const fCAMin=parseFloat((document.getElementById('promoFilterCAMin')||{}).value)||0;
-  const fDept=(document.getElementById('promoFilterDept')||{}).value||'';
-  const fStrat=(document.getElementById('promoFilterStrat')||{}).checked||false;
+// ── Accordion client inline ────────────────────────────────────────────────
+
+let _promoOpenCc = null; // cc de l'accordion actuellement ouvert
+
+function _togglePromoClientRow(cc) {
+  // Fermer le précédent
+  if(_promoOpenCc && _promoOpenCc !== cc) {
+    const prev = document.getElementById(`promoAcc_${_promoOpenCc}`);
+    const prevChev = document.getElementById(`promoChevron_${_promoOpenCc}`);
+    if(prev) { prev.classList.remove('open'); prev.innerHTML = ''; }
+    if(prevChev) prevChev.style.transform = '';
+  }
+
+  const panel = document.getElementById(`promoAcc_${cc}`);
+  const chev  = document.getElementById(`promoChevron_${cc}`);
+  if(!panel) return;
+
+  // Toggle : referme si même client
+  if(_promoOpenCc === cc && panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    panel.innerHTML = '';
+    if(chev) chev.style.transform = '';
+    _promoOpenCc = null;
+    return;
+  }
+
+  // Ouvrir
+  _promoOpenCc = cc;
+  panel.classList.add('open');
+  if(chev) chev.style.transform = 'rotate(90deg)';
+
+  const pitchHTML  = _buildPitchHTML(cc);
+  const achatsHTML = _buildAchatsHTML(cc);
+
+  panel.innerHTML = `
+    <div class="border-t b-default" style="background:var(--s-card-alt)">
+      <div class="flex gap-1 px-3 py-1.5 border-b b-light">
+        <button class="promo-acc-tab active"
+                onclick="_switchPromoTab(this,'pitch','${cc}')">
+          🎯 Ce que je propose
+        </button>
+        <button class="promo-acc-tab"
+                onclick="_switchPromoTab(this,'achats','${cc}')">
+          📋 Ses achats
+        </button>
+      </div>
+      <div id="promoAccPitch_${cc}"  class="p-3 space-y-1">${pitchHTML}</div>
+      <div id="promoAccAchats_${cc}" class="p-3 hidden">${achatsHTML}</div>
+    </div>`;
+}
+
+function _switchPromoTab(btn, tab, cc) {
+  const pitchEl  = document.getElementById(`promoAccPitch_${cc}`);
+  const achatsEl = document.getElementById(`promoAccAchats_${cc}`);
+  const tabs = btn.parentElement.querySelectorAll('.promo-acc-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  if(tab === 'pitch') {
+    pitchEl?.classList.remove('hidden');
+    achatsEl?.classList.add('hidden');
+  } else {
+    pitchEl?.classList.add('hidden');
+    achatsEl?.classList.remove('hidden');
+  }
+}
+
+function _buildPitchHTML(cc) {
+  const matchedCodes = _promoSearchResult?.matchedCodes
+                    || _promoImportResult?.promoCodes
+                    || new Set();
+  if(!matchedCodes.size) return '<p class="t-disabled text-[11px] py-1">Aucune recherche active.</p>';
+
+  const artMap    = _S.ventesClientArticle.get(cc)        || new Map();
+  const terrCodes = new Set((_S.territoireLines||[]).filter(l=>l.clientCode===cc).map(l=>l.code));
+  const horsCodes = new Set((_S.ventesClientHorsMagasin?.get(cc)||new Map()).keys());
+
+  const candidates = [...matchedCodes].filter(code =>
+    !artMap.has(code) && !terrCodes.has(code) && !horsCodes.has(code)
+  );
+
+  const myStore  = _S.ventesParMagasin[_S.selectedMyStore] || {};
+  const isPepite = new Set((_S.benchLists?.pepitesOther||[]).map(a=>a.code));
+
+  candidates.sort((a,b) => {
+    const pa = isPepite.has(a)?1:0, pb = isPepite.has(b)?1:0;
+    if(pa !== pb) return pb - pa;
+    return (myStore[b]?.countBL||0) - (myStore[a]?.countBL||0);
+  });
+
+  const enStock   = candidates.filter(c => (_S.finalData.find(d=>d.code===c)?.stockActuel||0) > 0);
+  const enRupture = candidates.filter(c => {
+    const ref = _S.finalData.find(d=>d.code===c);
+    return ref ? ref.stockActuel <= 0 : false;
+  });
+  const pitch = [...enStock.slice(0,5), ...enRupture.slice(0,2)];
+
+  if(!pitch.length) return '<p class="t-disabled text-[11px] py-1">✅ Client achète déjà tous les articles de la sélection.</p>';
+
+  return pitch.map(code => {
+    const ref   = _S.finalData.find(d=>d.code===code);
+    const lib   = _S.libelleLookup[code] || ref?.libelle || code;
+    const stock = ref?.stockActuel ?? null;
+    const stockBadge = stock === null
+      ? '<span class="t-disabled text-[9px]">Non réf.</span>'
+      : stock > 0
+        ? `<span class="c-ok text-[9px] font-bold">${stock} en stock</span>`
+        : '<span class="c-danger text-[9px] font-bold">⚠️ Rupture</span>';
+    const pepBadge = isPepite.has(code)
+      ? '<span class="text-[8px] bg-amber-100 text-amber-700 rounded px-1 ml-1">⭐ Réseau</span>'
+      : '';
+    return `<div class="flex items-center gap-2 py-1 px-2 s-card rounded border b-light text-[11px]">
+      <span class="font-mono t-disabled w-14 shrink-0">${code}</span>
+      <span class="flex-1 truncate">${escapeHtml(lib)}${pepBadge}</span>
+      ${stockBadge}
+    </div>`;
+  }).join('');
+}
+
+function _buildAchatsHTML(cc) {
+  const artData = _S.ventesClientArticle.get(cc);
+  if(!artData?.size) return '<p class="t-disabled text-[11px] py-1">Aucune donnée comptoir.</p>';
+
+  const matchedCodes = _promoSearchResult?.matchedCodes;
+  const rows = [...artData.entries()]
+    .filter(([code]) => !matchedCodes || matchedCodes.has(code))
+    .sort((a,b) => (b[1].sumCA||0) - (a[1].sumCA||0))
+    .slice(0, 10);
+
+  if(!rows.length) return '<p class="t-disabled text-[11px] py-1">Aucun achat sur cette sélection.</p>';
+
+  return `<table class="min-w-full text-[10px]">
+    <thead><tr class="t-tertiary font-bold border-b b-light">
+      <th class="text-left py-0.5 px-1">Code</th>
+      <th class="text-left py-0.5 px-1">Libellé</th>
+      <th class="text-center py-0.5 px-1">Qté</th>
+      <th class="text-right py-0.5 px-1">CA</th>
+    </tr></thead>
+    <tbody>${rows.map(([code,d]) => {
+      const lib = _S.libelleLookup[code] || code;
+      return `<tr class="border-t b-light">
+        <td class="font-mono t-disabled py-0.5 px-1">${code}</td>
+        <td class="py-0.5 px-1 t-primary">${escapeHtml(lib)}</td>
+        <td class="text-center t-tertiary py-0.5 px-1">${d.countBL||'—'}</td>
+        <td class="text-right font-bold c-ok py-0.5 px-1">${d.sumCA>0?formatEuro(d.sumCA):'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// ── Rendering recherche libre ──────────────────────────────────────────────
+
+function _renderSearchResults() {
+  const r = _promoSearchResult; if(!r) return;
+
+  const fmtD = d => {
+    if(!d) return '—';
+    try { return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+    catch { return '—'; }
+  };
+
+  // Lire les filtres actifs
+  const fFamille    = document.getElementById('promoFilterFamille')?.value    || '';
+  const fSousFamille= document.getElementById('promoFilterSousFamille')?.value || '';
+  const fMetier     = document.getElementById('promoFilterMetier')?.value     || '';
+  const fComm       = document.getElementById('promoFilterCommercial')?.value || '';
+  const fClassif    = document.getElementById('promoFilterClassif')?.value    || '';
+  const fCAMin      = parseFloat(document.getElementById('promoFilterCAMin')?.value) || 0;
+  const fDept       = document.getElementById('promoFilterDept')?.value       || '';
+  const fStrat      = document.getElementById('promoFilterStrat')?.checked    || false;
+
   // Article-level famille/sous-famille check for section A
   const _passFamA=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
@@ -477,7 +616,6 @@ function _renderPromoResults(){
     }
     return false;
   };
-  // Famille check for section B (via _S.territoireLines, sous-famille not available)
   const _passFamB=(cc)=>{
     if(!fFamille&&!fSousFamille)return true;
     if(!_S.territoireReady)return true;
@@ -489,42 +627,105 @@ function _renderPromoResults(){
     }
     return false;
   };
-  const pass=(c,caField,famCheck)=>{
-    if(famCheck&&!famCheck(c.cc))return false;
-    if(fMetier&&(c.metier||'')!==fMetier)return false;
-    if(fComm&&(c.commercial||'')!==fComm)return false;
-    if(fClassif&&(c.classification||'')!==fClassif)return false;
-    if(fCAMin>0&&((c[caField]||0))<fCAMin)return false;
-    if(fDept){const info=_S.chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'').slice(0,2);if(cp!==fDept)return false;}
-    if(fStrat){const info=_S.chalandiseData.get(c.cc)||{};const m=(info.metier||c.metier||'').toLowerCase();if(!METIERS_STRATEGIQUES.some(s=>m===s||m.includes(s)))return false;}
+  const passBase = (c, caField, famCheck) => {
+    if(famCheck && !famCheck(c.cc)) return false;
+    if(fMetier  && (c.metier||'')         !== fMetier)  return false;
+    if(fComm    && (c.commercial||'')     !== fComm)    return false;
+    if(fClassif && (c.classification||'') !== fClassif) return false;
+    if(fCAMin > 0 && (c[caField]||0) < fCAMin) return false;
+    if(fDept) {
+      const cp = (_S.chalandiseData.get(c.cc)?.cp||'').replace(/\s/g,'').slice(0,2);
+      if(cp !== fDept) return false;
+    }
+    if(fStrat) {
+      const m = (c.metier||'').toLowerCase();
+      if(!METIERS_STRATEGIQUES.some(s => m.includes(s))) return false;
+    }
     return true;
   };
-  const sA=r.sectionA.filter(c=>pass(c,'ca',_passFamA));
-  const sB=r.sectionB.filter(c=>pass(c,'ca2025',_passFamB));
-  const sC=r.sectionC.filter(c=>pass(c,'ca2025',null));
+
+  const sA = r.sectionA.filter(c => passBase(c, 'ca', _passFamA));
+  const sB = r.sectionB.filter(c => passBase(c, 'ca2025', _passFamB));
+  const sC = r.sectionC.filter(c => passBase(c, 'ca2025', null));
+
   // Section A
-  document.getElementById('promoCountA').textContent=sA.length+(sA.length<r.sectionA.length?' / '+r.sectionA.length:'');
-  document.getElementById('promoTableA').innerHTML=sA.slice(0,200).map(c=>{
-    const inChal=_S.chalandiseReady&&_S.chalandiseData.has(c.cc);
-    const horsZoneBadge=!inChal?'<span class="ml-1 text-[9px] s-hover t-disabled border b-default rounded px-1 py-0.5 font-normal">hors zone</span>':'';
-    const canalBadge=c.canal==='PDV'?''
-      :c.canal==='MIXTE'?'<span class="badge bg-purple-100 text-purple-700 text-[9px]">🌐 Multi-canal</span>'
-      :`<span class="badge bg-blue-100 text-blue-700 text-[9px]">🌐 ${c.canal}</span>`;
-    const metierCell=c.metier?escapeHtml(c.metier):(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
-    const commCell=c.commercial?escapeHtml(c.commercial):(!inChal?'<span class="t-disabled text-[9px]">hors zone</span>':'—');
-    return`<tr class="border-t b-light hover:i-ok-bg cursor-pointer" onclick="_togglePromoClientArts(this,'${escapeHtml(c.cc)}')"><td class="py-1 px-2 font-mono t-disabled text-[9px]">${escapeHtml(c.cc)}</td><td class="py-1 px-2 font-semibold">${escapeHtml(c.nom)}${horsZoneBadge}${canalBadge}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${metierCell}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary">${fmtD(c.lastDate)}</td><td class="py-1 px-2 t-tertiary">${commCell}</td></tr>`;
-  }).join('');
+  document.getElementById('promoCountA').textContent =
+    sA.length + (sA.length < r.sectionA.length ? ' / ' + r.sectionA.length : '');
+  document.getElementById('promoBodyA').innerHTML =
+    sA.length
+      ? sA.slice(0,200).map(c => _renderClientCard(c, 'A', fmtD)).join('')
+      : '<p class="text-[11px] t-disabled py-2 px-3">Aucun acheteur identifié.</p>';
+
   // Section B
-  document.getElementById('promoCountB').textContent=sB.length+(sB.length<r.sectionB.length?' / '+r.sectionB.length:'');
-  document.getElementById('promoTableB').innerHTML=sB.length?sB.slice(0,200).map(c=>`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-tertiary">${escapeHtml(c.cc)}</td><td class="py-1 px-2 font-semibold">${escapeHtml(c.nom)}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td><td class="py-1 px-2 text-right font-bold c-danger">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="py-3 text-center t-disabled">'+(_S.territoireReady?'Aucun acheteur hors PDV identifié':'Chargez le fichier Le Terrain pour activer cette vue')+'</td></tr>';
+  document.getElementById('promoCountB').textContent =
+    sB.length + (sB.length < r.sectionB.length ? ' / ' + r.sectionB.length : '');
+  document.getElementById('promoBodyB').innerHTML =
+    sB.length
+      ? sB.slice(0,200).map(c => _renderClientCard(c, 'B', fmtD)).join('')
+      : '<p class="text-[11px] t-disabled py-2 px-3">' +
+        (_S.territoireReady ? 'Aucun acheteur hors PDV identifié.'
+                            : 'Chargez le fichier Terrain pour activer cette vue.') +
+        '</p>';
+
   // Section C
-  document.getElementById('promoCountC').textContent=sC.length+(r.sectionCTotal>sC.length?' / '+r.sectionCTotal:'');
-  {const extraNote=(r.sectionCTotal||0)>50?`<tr><td colspan="6" class="py-2 text-center text-[10px] t-tertiary italic">${(r.sectionCTotal)-50} autres prospects — filtrer par métier ou secteur pour les voir</td></tr>`:'';
-  document.getElementById('promoTableC').innerHTML=sC.length?sC.slice(0,200).map(c=>`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-tertiary">${escapeHtml(c.cc)}</td><td class="py-1 px-2 font-semibold">${escapeHtml(c.nom)}${_spcBadge(c.spc)}</td><td class="py-1 px-2 t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 t-tertiary">${c.classification?escapeHtml(c.classification):'—'}</td><td class="py-1 px-2 t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td></tr>`).join('')+extraNote:'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.chalandiseReady?'Aucun prospect identifié dans les métiers cibles':'Chargez la Zone de Chalandise pour activer cette vue')+'</td></tr>';}
-  document.getElementById('promoResults').classList.remove('hidden');
+  document.getElementById('promoCountC').textContent =
+    sC.length + (r.sectionCTotal > 50 ? ' / ' + r.sectionCTotal : '');
+  document.getElementById('promoBodyC').innerHTML =
+    sC.length
+      ? sC.slice(0,200).map(c => _renderClientCard(c, 'C', fmtD)).join('')
+      : '<p class="text-[11px] t-disabled py-2 px-3">' +
+        (_S.chalandiseReady ? 'Aucun prospect dans les métiers cibles.'
+                            : 'Chargez la Chalandise pour activer cette vue.') +
+        '</p>';
+
+  document.getElementById('promoSearchResults').classList.remove('hidden');
   document.getElementById('promoExportBtn').classList.remove('hidden');
   document.getElementById('promoCopyBtn').classList.remove('hidden');
-  _setPromoMode(_promoMode);
+
+  // Afficher filtres inline
+  const rf = document.getElementById('promoRefinementFilters');
+  if(rf) rf.classList.remove('hidden');
+}
+
+function _renderClientCard(c, section, fmtD) {
+  const canalBadge = !c.canal || c.canal === 'PDV' ? ''
+    : c.canal === 'MIXTE'
+      ? '<span class="inline-flex items-center text-[8px] bg-purple-100 text-purple-700 rounded px-1 ml-1">🌐 Multi</span>'
+      : `<span class="inline-flex items-center text-[8px] bg-blue-100 text-blue-700 rounded px-1 ml-1">🌐 ${c.canal}</span>`;
+
+  const inChal = _S.chalandiseReady && _S.chalandiseData.has(c.cc);
+  const horsZone = !inChal
+    ? '<span class="text-[8px] t-disabled border b-default rounded px-1 ml-1">hors zone</span>'
+    : '';
+
+  const caValue = section === 'A' ? c.ca : c.ca2025 || c.terrCA || 0;
+  const caColor = section === 'A' ? 'c-ok' : section === 'B' ? 'c-danger' : 'c-caution';
+  const caLabel = caValue > 0 ? formatEuro(caValue) : '—';
+
+  const lastDateStr = section === 'A' ? fmtD(c.lastDate) : '';
+
+  return `
+    <div class="promo-client-card border b-default rounded-lg s-card overflow-hidden">
+      <div class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:s-hover transition-colors"
+           onclick="_togglePromoClientRow('${c.cc}')">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1 flex-wrap leading-tight">
+            <span class="font-semibold text-sm t-primary">${escapeHtml(c.nom)}</span>
+            ${_spcBadge(c.spc)}${canalBadge}${horsZone}
+          </div>
+          <div class="text-[10px] t-tertiary mt-0.5">
+            ${escapeHtml(c.metier||'—')} · ${escapeHtml(c.commercial||'—')}
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <span class="font-bold text-sm ${caColor}">${caLabel}</span>
+          ${lastDateStr ? `<div class="text-[9px] t-disabled">${lastDateStr}</div>` : ''}
+        </div>
+        <span class="text-[10px] t-disabled ml-1 shrink-0 transition-transform"
+              id="promoChevron_${c.cc}">▶</span>
+      </div>
+      <div id="promoAcc_${c.cc}" class="promo-client-accordion"></div>
+    </div>`;
 }
 
 function _togglePromoSection(sec){
@@ -532,37 +733,9 @@ function _togglePromoSection(sec){
   if(!body)return;const open=body.style.display==='none';body.style.display=open?'':'none';if(arrow)arrow.textContent=open?'▲':'▼';
 }
 
-function _togglePromoClientArts(row,cc){
-  const next=row.nextElementSibling;
-  if(next&&next.classList.contains('promo-art-panel')){next.remove();return;}
-  const r=_promoLastResult;if(!r)return;
-  const artData=_S.ventesClientArticle.get(cc);
-  if(!artData||!artData.size){
-    const tr=document.createElement('tr');tr.className='promo-art-panel';
-    tr.innerHTML=`<td colspan="6" class="py-2 px-4 i-ok-bg text-[10px] t-disabled italic">Aucune donnée article disponible pour ce client.</td>`;
-    row.after(tr);return;
-  }
-  // Filter to matchedCodes only, sort by CA desc, top 10
-  const rows=[...artData.entries()]
-    .filter(([code])=>r.matchedCodes.has(code))
-    .sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0))
-    .slice(0,10);
-  const allRows=rows.length?rows:[...artData.entries()].sort((a,b)=>(b[1].sumCA||b[1].sumPrelevee||0)-(a[1].sumCA||a[1].sumPrelevee||0)).slice(0,10);
-  const note=!rows.length?'<p class="text-[9px] c-caution mb-1">Aucun achat direct sur la sélection — top articles tous codes confondus :</p>':'';
-  const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'—';}catch{return'—';}};
-  const lastDate=_S.clientLastOrder.get(cc);
-  const trs=allRows.map(([code,d])=>{
-    const lib=_S.libelleLookup[code]||(_S.finalData.find(x=>x.code===code)||{}).libelle||code;
-    const ca=d.sumCA||d.sumPrelevee||0;
-    return`<tr class="border-t b-light"><td class="py-0.5 px-2 font-mono t-disabled text-[9px]">${code}</td><td class="py-0.5 px-2 t-primary">${lib}</td><td class="py-0.5 px-2 text-center t-tertiary">${d.countBL||'—'}</td><td class="py-0.5 px-2 text-right font-bold c-ok">${ca>0?formatEuro(ca):'—'}</td><td class="py-0.5 px-2 text-center t-disabled">${fmtD(lastDate)}</td></tr>`;
-  }).join('');
-  const tr=document.createElement('tr');tr.className='promo-art-panel';
-  tr.innerHTML=`<td colspan="6" class="py-2 px-4 i-ok-bg border-b b-light">${note}<table class="min-w-full text-[10px]"><thead class="i-ok-bg c-ok font-bold"><tr><th class="py-0.5 px-2 text-left">Code</th><th class="py-0.5 px-2 text-left">Libellé</th><th class="py-0.5 px-2 text-center">Qté</th><th class="py-0.5 px-2 text-right">CA</th><th class="py-0.5 px-2 text-center">Dernier achat</th></tr></thead><tbody>${trs}</tbody></table></td>`;
-  row.after(tr);
-}
 
 function exportPromoCSV(){
-  const r=_promoLastResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
+  const r=_promoSearchResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
   const SEP=';';const lines=['CIBLAGE PROMO — '+r.terms.join(' '),''];
   lines.push('=== A. ACHETEURS PDV ===');
   lines.push(['Code','Nom','Métier','CA sélection','Dernier achat','Commercial'].join(SEP));
@@ -579,7 +752,7 @@ function exportPromoCSV(){
 }
 
 function copyPromoClipboard(){
-  const r=_promoLastResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
+  const r=_promoSearchResult;if(!r){showToast('Lancez d\'abord une recherche','warning');return;}
   const fmtD=d=>{try{return d?d.toLocaleDateString('fr-FR'):''}catch{return '';}};
   const lines=['🎯 Ciblage promo : '+r.terms.join(' '),''];
   lines.push(`🟢 Acheteurs PDV (${r.sectionA.length}) :`);
@@ -622,7 +795,7 @@ function _checkOmnicanalWarning(){
     banner.id='promoOmnicanalWarning';
     banner.className='text-[10px] t-tertiary border b-default rounded px-3 py-1.5 mb-2 flex items-center gap-2';
     banner.innerHTML=`<span>ℹ️</span><span>Ciblage comptoir uniquement — aucun canal WEB/REP/DCS détecté dans le fichier Consommé. Pour un ciblage omnicanal, vérifiez que le fichier contient la colonne "Canal commande" avec des valeurs autres que MAGASIN.</span>`;
-    const searchZone=document.getElementById('promoSearchZone')||document.querySelector('#tabPromo .tab-content-section');
+    const searchZone=document.getElementById('promoBody')||document.querySelector('#tabPromo');
     if(searchZone)searchZone.prepend(banner);
   }
 }
@@ -633,12 +806,11 @@ function _onPromoImportFileChange(input){
 }
 
 function _clearPromoImport(){
-  document.getElementById('promoCodesInput').value='';
-  document.getElementById('promoImportFile').value='';
-  document.getElementById('promoImportFileName').textContent='Aucun fichier sélectionné';
-  document.getElementById('promoImportOpName').textContent='';
-  document.getElementById('promoImportBlock').classList.add('hidden');
-  document.getElementById('promoImportExportBtn').classList.add('hidden');
+  const fi=document.getElementById('promoImportFile');if(fi)fi.value='';
+  const fn=document.getElementById('promoImportFileName');if(fn)fn.textContent='Aucun fichier';
+  const on=document.getElementById('promoImportOpName');if(on)on.textContent='';
+  const ir=document.getElementById('promoImportResults');if(ir)ir.classList.add('hidden');
+  const eb=document.getElementById('promoImportExportBtn');if(eb)eb.classList.add('hidden');
   _promoImportResult=null;
 }
 
@@ -659,11 +831,6 @@ async function runPromoImport(){
         if(!opName&&colMap.op&&row[colMap.op])opName=String(row[colMap.op]).trim();
       }
     }catch(e){showToast('⚠️ Erreur lecture fichier : '+e.message,'error');return;}
-  }
-  // 2. Fallback to textarea
-  if(!promoCodes.size){
-    const raw=(document.getElementById('promoCodesInput')||{}).value||'';
-    for(const line of raw.split(/[\r\n,;]+/)){const c=cleanCode(line.trim().split('_')[0].trim()).replace(/^0+/,'');if(/^\d{6}$/.test(c))promoCodes.add(c);}
   }
   if(!promoCodes.size){showToast('⚠️ Aucun code article valide trouvé (format attendu : 6 chiffres)','warning');return;}
 
@@ -737,8 +904,6 @@ async function runPromoImport(){
   _promoImportResult={opName,promoCodes,sectionD,sectionE,sectionF};
   _checkOmnicanalWarning();
   _renderPromoImportResults();
-  // Auto-open the details block
-  const zone=document.getElementById('promoImportZone');if(zone)zone.open=true;
   showToast(`📥 Opération analysée : ${sectionD.length} vendus · ${sectionE.length} non vendus · ${sectionF.length} à relancer`,'success');
 }
 
@@ -747,9 +912,9 @@ function _activatePromoImportAction(){
   if(!r||!r.promoCodes.size){showToast('⚠️ Chargez d\'abord une opération promo','warning');return;}
 
   // Guard : recherche libre active → toast undo
-  if(_promoLastResult&&!_promoLastResult._fromImport){
-    const prevTerms=(_promoLastResult.terms||[]).join(', ')||'précédente';
-    const snapshot=_promoLastResult;
+  if(_promoSearchResult&&!_promoSearchResult._fromImport){
+    const prevTerms=(_promoSearchResult.terms||[]).join(', ')||'précédente';
+    const snapshot=_promoSearchResult;
     let undone=false;
     const toastId='promoUndoToast';
     document.getElementById(toastId)?.remove();
@@ -762,7 +927,7 @@ function _activatePromoImportAction(){
     const timer=setTimeout(()=>{if(!undone)cleanup();},4000);
     document.getElementById('promoUndoBtn')?.addEventListener('click',()=>{
       undone=true;clearTimeout(timer);cleanup();
-      _promoLastResult=snapshot;
+      _promoSearchResult=snapshot;
       showToast('↩️ Recherche restaurée','success');
     });
   }
@@ -771,58 +936,131 @@ function _activatePromoImportAction(){
   for(const c of r.sectionF){
     allTargets.set(c.cc,{cc:c.cc,nom:c.nom,metier:c.metier,commercial:c.commercial,ca2025:_S.chalandiseData.get(c.cc)?.ca2025||0,terrCA:0});
   }
-  _promoLastResult={terms:[r.opName||'Opération promo'],matchedCodes:r.promoCodes,sectionA:[],sectionB:[...allTargets.values()],sectionC:[],_fromImport:true,_opName:r.opName};
-  _setPromoMode('action');
-  _renderPromoActionView();
+  _promoSearchResult={terms:[r.opName||'Opération promo'],matchedCodes:r.promoCodes,sectionA:[],sectionB:[...allTargets.values()],sectionC:[],_fromImport:true,_opName:r.opName};
   showToast(`⚡ ${r.sectionF.length} clients chargés pour l'opération "${r.opName||'Promo'}"`, 'success');
 }
 window._activatePromoImportAction=_activatePromoImportAction;
-window._renderPromoImportResults=_renderPromoImportResults;
 
 function _renderPromoImportResults(){
-  const r=_promoImportResult;if(!r)return;
-  const block=document.getElementById('promoImportBlock');if(block)block.classList.remove('hidden');
-  // Summary
-  const sold=r.sectionD.length,unsold=r.sectionE.length,retarget=r.sectionF.length;
-  const totalCA=r.sectionD.reduce((s,x)=>s+x.caTotal,0);
-  const sumEl=document.getElementById('promoImportSummary');
-  if(sumEl)sumEl.innerHTML=`<strong>${r.promoCodes.size}</strong> articles opération · <span class="c-ok">${sold} vendus (${formatEuro(totalCA)} CA Magasin)</span> · <span class="c-danger">${unsold} non vendus</span> · <span class="c-caution">${retarget} clients à relancer</span>${r.opName?` · <em>${r.opName}</em>`:''}`;
+  const r = _promoImportResult; if(!r) return;
+
+  const sold    = r.sectionD.length;
+  const unsold  = r.sectionE.length;
+  const retarget = r.sectionF.length;
+  const totalCA = r.sectionD.reduce((s,x)=>s+x.caTotal,0);
+
+  // Summary bar
+  const sumEl = document.getElementById('promoImportSummaryBar');
+  if(sumEl) sumEl.innerHTML =
+    `<strong>${r.promoCodes.size}</strong> articles · ` +
+    `<span class="c-ok">${sold} vendus — ${formatEuro(totalCA)}</span> · ` +
+    `<span class="c-danger">${unsold} non vendus</span> · ` +
+    `<span class="c-caution">${retarget} à relancer</span>` +
+    (r.opName ? ` · <em>${escapeHtml(r.opName)}</em>` : '');
+
   // Section D
-  document.getElementById('promoImportCountD').textContent=sold;
-  document.getElementById('promoImportTableD').innerHTML=r.sectionD.slice(0,200).map(x=>{
-    const stockCell=x.stock===null?'<span class="t-disabled">Non référencé</span>':x.stock>0?`<span class="c-ok font-bold">${x.stock}</span>`:'<span class="c-danger">0</span>';
-    return`<tr class="border-t b-light hover:i-ok-bg"><td class="py-1 px-2 font-mono t-disabled">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center">${Math.round(x.qtyTotal)}</td><td class="py-1 px-2 text-right font-bold c-ok">${x.caTotal>0?formatEuro(x.caTotal):'—'}</td><td class="py-1 px-2 text-center">${x.nbClients}</td><td class="py-1 px-2 text-center">${stockCell}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" class="py-3 text-center t-disabled">Aucun article vendu</td></tr>';
+  document.getElementById('promoImportCountD').textContent = sold;
+  document.getElementById('promoImportTableD').innerHTML = r.sectionD.slice(0,200).map(x => {
+    const stockCell = x.stock === null
+      ? '<span class="t-disabled">Non réf.</span>'
+      : x.stock > 0 ? `<span class="c-ok font-bold">${x.stock}</span>`
+      : '<span class="c-danger">0</span>';
+    return `<tr class="border-t b-light hover:i-ok-bg">
+      <td class="py-1 px-2 font-mono t-disabled">${x.code}</td>
+      <td class="py-1 px-2 font-semibold truncate max-w-[180px]">${escapeHtml(x.lib)}</td>
+      <td class="py-1 px-2 text-center">${Math.round(x.qtyTotal)}</td>
+      <td class="py-1 px-2 text-right font-bold c-ok">${x.caTotal>0?formatEuro(x.caTotal):'—'}</td>
+      <td class="py-1 px-2 text-center">${x.nbClients}</td>
+      <td class="py-1 px-2 text-center">${stockCell}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="py-3 text-center t-disabled">Aucun article vendu</td></tr>';
+
   // Section E
-  document.getElementById('promoImportCountE').textContent=unsold;
-  document.getElementById('promoImportTableE').innerHTML=r.sectionE.slice(0,200).map(x=>{
-    const stockCell=x.stock===null?'—':`${x.stock}`;
-    return`<tr class="border-t border-red-50 hover:i-danger-bg"><td class="py-1 px-2 font-mono t-disabled">${x.code}</td><td class="py-1 px-2 font-semibold truncate max-w-[180px]" title="${x.lib}">${x.lib}</td><td class="py-1 px-2 text-center text-xs">${x.rayonStatus}</td><td class="py-1 px-2 text-center">${stockCell}</td><td class="py-1 px-2 t-tertiary text-[10px] truncate max-w-[120px]">${x.famille||'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="5" class="py-3 text-center c-ok font-semibold">✅ Tous les articles promo ont été vendus au comptoir</td></tr>';
-  // Section F — filtre commercial
-  const commerciauxF=[...new Set(r.sectionF.map(x=>x.commercial).filter(Boolean))].sort();
-  const filterCommEl=document.getElementById('promoImportFilterCommercial');
-  if(filterCommEl){
-    const curVal=filterCommEl.value;
-    filterCommEl.innerHTML='<option value="">Tous les commerciaux</option>'+commerciauxF.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-    if(commerciauxF.includes(curVal))filterCommEl.value=curVal;
+  document.getElementById('promoImportCountE').textContent = unsold;
+  document.getElementById('promoImportTableE').innerHTML = r.sectionE.slice(0,200).map(x =>
+    `<tr class="border-t border-red-50 hover:i-danger-bg">
+      <td class="py-1 px-2 font-mono t-disabled">${x.code}</td>
+      <td class="py-1 px-2 font-semibold truncate max-w-[180px]">${escapeHtml(x.lib)}</td>
+      <td class="py-1 px-2 text-center text-xs">${x.rayonStatus}</td>
+      <td class="py-1 px-2 text-center">${x.stock===null?'—':x.stock}</td>
+      <td class="py-1 px-2 t-tertiary text-[10px]">${escapeHtml(x.famille||'—')}</td>
+    </tr>`
+  ).join('') || '<tr><td colspan="5" class="py-3 text-center c-ok">✅ Tous les articles ont été vendus</td></tr>';
+
+  // Section F — groupée par commercial
+  document.getElementById('promoImportCountF').textContent = retarget;
+  const byComm = new Map();
+  for(const c of r.sectionF) {
+    const comm = c.commercial || '—';
+    if(!byComm.has(comm)) byComm.set(comm, []);
+    byComm.get(comm).push(c);
   }
-  const filtreComm=filterCommEl?.value||'';
-  const sectionFFiltered=filtreComm?r.sectionF.filter(x=>x.commercial===filtreComm):r.sectionF;
-  document.getElementById('promoImportCountF').textContent=sectionFFiltered.length+(sectionFFiltered.length<retarget?' / '+retarget:'');
-  document.getElementById('promoImportTableF').innerHTML=sectionFFiltered.slice(0,200).map(x=>{
-    const statutBadge=x.statut?`<span class="text-[9px] s-hover t-disabled border b-default rounded px-1 font-normal ml-1">${x.statut}</span>`:'';
-    return`<tr class="border-t border-orange-50 hover:i-caution-bg"><td class="py-1 px-2 font-mono t-disabled">${x.cc}</td><td class="py-1 px-2 font-semibold">${x.nom}${statutBadge}</td><td class="py-1 px-2 t-tertiary">${x.metier||'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${x.famCA>0?formatEuro(x.famCA):'—'}</td><td class="py-1 px-2 t-tertiary text-[10px]">${x.raison}</td><td class="py-1 px-2 t-tertiary">${x.commercial||'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" class="py-3 text-center t-disabled">'+(_S.ventesClientArticle.size?'Aucun client à relancer identifié':'Données comptoir non disponibles')+'</td></tr>';
-  // Show export button
+  document.getElementById('promoImportBodyF').innerHTML = [...byComm.entries()]
+    .sort((a,b) => b[1].length - a[1].length)
+    .map(([comm, clients]) => `
+      <div class="border b-default rounded-lg overflow-hidden">
+        <div class="flex items-center justify-between px-3 py-2 s-card-alt border-b b-light">
+          <span class="font-semibold text-sm">${escapeHtml(comm)}</span>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] t-tertiary">${clients.length} client${clients.length>1?'s':''}</span>
+            <button onclick="_exportCommercialCSV('${comm.replace(/'/g,"\\'")}')"
+              class="text-[10px] font-bold c-action border b-default rounded px-2 py-0.5 hover:i-info-bg">
+              📥 Sa liste
+            </button>
+          </div>
+        </div>
+        <table class="min-w-full text-[10px]">
+          <tbody>${clients.map(c => `
+            <tr class="border-t b-light hover:i-caution-bg">
+              <td class="py-1 px-2 font-mono t-disabled">${c.cc}</td>
+              <td class="py-1 px-2 font-semibold">${escapeHtml(c.nom)}</td>
+              <td class="py-1 px-2 t-tertiary">${escapeHtml(c.metier||'—')}</td>
+              <td class="py-1 px-2 text-right font-bold c-caution">${c.famCA>0?formatEuro(c.famCA):'—'}</td>
+              <td class="py-1 px-2 t-disabled text-[9px]">${escapeHtml(c.raison||'')}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`)
+    .join('') || '<p class="text-[11px] t-disabled py-2">Aucun client à relancer.</p>';
+
+  // Bouton préparer les appels
+  const btnCont = document.getElementById('promoImportActionBtn');
+  if(btnCont && retarget > 0) {
+    btnCont.innerHTML = `
+      <div class="flex items-center justify-between pt-3 border-t b-light">
+        <p class="text-[11px] t-tertiary">${retarget} clients identifiés</p>
+        <button onclick="_activatePromoImportAction()"
+          class="text-sm font-bold py-2 px-4 rounded-lg text-white"
+          style="background:var(--p-orange-500,#f97316)">
+          ⚡ Préparer les appels →
+        </button>
+      </div>`;
+    btnCont.classList.remove('hidden');
+  }
+
+  document.getElementById('promoImportResults').classList.remove('hidden');
   document.getElementById('promoImportExportBtn').classList.remove('hidden');
-  // Bouton "Préparer les appels"
-  const btnContainer=document.getElementById('promoImportActionBtn');
-  if(btnContainer){
-    const btnHtml=r.sectionF.length>0?`<div class="mt-3 pt-3 border-t b-light flex items-center justify-between"><p class="text-[11px] t-tertiary">Section F : ${r.sectionF.length} clients à relancer</p><button onclick="_activatePromoImportAction()" class="text-sm font-bold py-2 px-4 rounded-lg bg-orange-500 hover:bg-orange-600 text-white">⚡ Préparer les appels →</button></div>`:`<div class="mt-3 pt-3 border-t b-light"><p class="text-[11px] t-disabled">Aucun client à relancer pour cette opération.</p></div>`;
-    btnContainer.innerHTML=btnHtml;
-    btnContainer.classList.remove('hidden');
-  }
+}
+
+function _exportCommercialCSV(commercial) {
+  const r = _promoImportResult; if(!r) return;
+  const clients = r.sectionF.filter(c => (c.commercial||'—') === commercial);
+  const SEP = ';';
+  const lines = [
+    `PRISME — Opération${r.opName?' '+r.opName:''} — ${commercial}`,
+    ['Code','Nom','Métier','CA famille','Raison'].join(SEP),
+    ...clients.map(c => [
+      c.cc, `"${c.nom}"`, `"${c.metier}"`,
+      c.famCA.toFixed(2).replace('.',','), `"${c.raison||''}"`
+    ].join(SEP))
+  ];
+  const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_${r.opName||'Promo'}_${commercial.replace(/[^a-z0-9]/gi,'_')}.csv`;
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link); URL.revokeObjectURL(link.href);
+  showToast(`📥 ${clients.length} clients exportés — ${commercial}`, 'success');
 }
 
 function _togglePromoImportSection(sec){
@@ -852,4 +1090,4 @@ function exportPromoImportCSV(){
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _checkOmnicanalWarning };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _checkOmnicanalWarning, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults };
