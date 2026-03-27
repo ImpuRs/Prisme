@@ -537,7 +537,7 @@ export function _cmdBuildResults(q) {
       if (f.toLowerCase().includes(ql)) {
         famResults.push({
           icon: '🏷️',
-          main: _cmdEsc(f),
+          main: _cmdEsc(famLabel(f)),
           sub: 'Filtrer par famille',
           fn: () => {
             document.getElementById('filterFamille').value = f;
