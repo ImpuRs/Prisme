@@ -11,6 +11,8 @@ export const DORMANT_DAYS = 365;
 export const NOUVEAUTE_DAYS = 35;
 export const SECURITY_DAYS = 3;
 export const HIGH_PRICE = 150;
+export const CROSS_AGENCE_MIN_CA = 150;  // CA minimum (€) chez l'autre agence pour valider une opportunité cross-agence
+export const CROSS_AGENCE_MIN_BL = 2;   // Nombre minimum de BL distincts chez l'autre agence
 
 export const METIERS_STRATEGIQUES = [
   'menuisier agenceur poseur','menuisier agenceur fabricant','menuisier specialiste',
