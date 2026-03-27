@@ -57,7 +57,7 @@ _S.territoireReady = false;
 _S.terrDirectionData = {};
 _S.terrContribBySecteur = new Map();
 _S.terrContribByDirection = new Map();
-_S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
+_S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 
 // ── Agences par fichier (pour alerte stock mono-agence) ──
 _S.storeCountConsomme = 0; // nb agences détectées dans le consommé
@@ -201,7 +201,7 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.terrClientsCanalFilter = 'all'; _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
   _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
