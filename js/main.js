@@ -870,8 +870,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
-    // Canal global chip → source de données
-    const _terrCanalFilter=_S._globalCanal||'';
+    // [V3.2] Canal depuis DataStore.byContext() — API unifiée
+    const _terrCanalFilter=DataStore.byContext().activeFilters.canal;
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
     if(_isNonMagasin){
@@ -965,13 +965,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Categorize & score clients
     const silencieux=[],urgences=[],developper=[],fideliser=[];
     const _today=new Date();
-    const _cockpitCanalFilter=_S._globalCanal||'';
+    const {activeFilters:{canal:_cockpitCanalFilter,commercial:_cockpitCom}}=DataStore.byContext(); // [V3.2]
+    const _cockpitComSet=_cockpitCom?(_S.clientsByCommercial.get(_cockpitCom)||new Set()):null;
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
       if(_qClient&&!matchQuery(_qClient,cc,info.nom||''))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
+      if(_cockpitComSet&&!_cockpitComSet.has(cc))continue; // [V3.2] filtre commercial
       // [Feature C] filtre canal : garder uniquement les clients ayant du CA sur ce canal via articleCanalCA
       if(_cockpitCanalFilter){
         const _ccArts=DataStore.ventesClientArticle.get(cc);
@@ -2414,10 +2416,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const selectedSecteurs=getSelectedSecteurs();
-    const _cg=_S._globalCanal||'';
+    const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
+    const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const familles={};
     for(const l of DataStore.territoireLines){ // [Adapter Étape 5]
       if(_cg&&l.canal!==_cg)continue;
+      if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction)continue;
       if(filterRayon&&l.rayonStatus!==filterRayon)continue;
@@ -2457,10 +2461,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
-    const _cg=_S._globalCanal||'';
+    const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
+    const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
+      if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
@@ -2492,10 +2498,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
-    const _cg=_S._globalCanal||'';
+    const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
+    const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
+      if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
       if(l.direction!==direction||l.rayonStatus!==status)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,famille:l.famille||'',ca:0};
@@ -2523,10 +2531,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     statusFilter=statusFilter||'';
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _cg=_S._globalCanal||'';
+    const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
+    const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
+      if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
@@ -2571,10 +2581,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _cg=_S._globalCanal||'';
+    const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
+    const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
+      if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.direction!==direction)continue;
       if((l.famille||'')!==famille)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus};
@@ -2847,9 +2859,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const selectedSecteursCSV=getSelectedSecteurs();
-    const _canalGlobalExp=_S._globalCanal||'';
+    const {activeFilters:{canal:_canalGlobalExp,commercial:_comExp}}=DataStore.byContext(); // [V3.2]
+    const _comSetExp=_comExp?(_S.clientsByCommercial.get(_comExp)||new Set()):null;
     const filtered=DataStore.territoireLines.filter(l=>{
       if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
+      if(_comSetExp&&(!l.clientCode||!_comSetExp.has(l.clientCode)))return false; // [V3.2]
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
       if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
