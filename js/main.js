@@ -1720,14 +1720,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const _webDisplayCA=v=>Math.max(0,v.caE||0);
     const _activeCanal=_S._globalCanal||'';
-    const allEntries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
-    const entries=_activeCanal?allEntries.filter(([c])=>c===_activeCanal):allEntries;
-    if(!entries.length&&!_activeCanal){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
-    if(!entries.length){el.innerHTML=`<p class="t-disabled text-sm p-4">Aucune donnée pour le canal ${CANAL_LABELS[_activeCanal]||_activeCanal}.</p>`;if(wrapper)wrapper.classList.remove('hidden');return;}
+    // La répartition n'a de sens qu'en vue tous canaux
+    if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
+    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
+    if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
     const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
-    const _canalFilterSubtitle=_activeCanal?`<p class="text-[10px] t-tertiary px-3 pb-1">Filtré sur canal <strong>${CANAL_LABELS[_activeCanal]||_activeCanal}</strong></p>`:'';
-    let html=`${_canalFilterSubtitle}<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>`;
+    let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
     html+='<th class="py-2 px-3 text-left">Canal</th>';
     html+='<th class="py-2 px-3 text-right">Prélevé</th>';
     html+='<th class="py-2 px-3 text-right">Enlevé</th>';
