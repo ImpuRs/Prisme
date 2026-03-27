@@ -3482,9 +3482,8 @@ window._toggleExcludedList      = _toggleExcludedList;
 window._unexcludeAll            = _unexcludeAll;
 // Benchmark Obs — expand famille
 window.toggleObsFamily          = toggleObsFamily;
-// Promo — accordion inline
-window._togglePromoClientRow    = _togglePromoClientRow;
-window._switchPromoTab          = _switchPromoTab;
+// Promo — accordion inline (also wired at processData)
+
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
 // D2 — Theme Switch

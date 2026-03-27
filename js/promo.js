@@ -325,9 +325,6 @@ function _populatePromoFilterDropdowns(){
   const depts=new Set();
   for(const c of all){const info=_S.chalandiseData.get(c.cc)||{};const cp=(info.cp||'').replace(/\s/g,'');if(cp.length>=2)depts.add(cp.slice(0,2));}
   fill('promoFilterDept',[...depts].sort());
-  // Show inline refinement filters
-  const rf=document.getElementById('promoRefinementFilters');
-  if(rf)rf.classList.remove('hidden');
 }
 
 function _onPromoFamilleChange(){
@@ -682,9 +679,6 @@ function _renderSearchResults() {
   document.getElementById('promoExportBtn').classList.remove('hidden');
   document.getElementById('promoCopyBtn').classList.remove('hidden');
 
-  // Afficher filtres inline
-  const rf = document.getElementById('promoRefinementFilters');
-  if(rf) rf.classList.remove('hidden');
 }
 
 function _renderClientCard(c, section, fmtD) {

@@ -789,9 +789,23 @@
           </div>
         </div>
 
-        <!-- GROUP Promo — filtres maintenant inline dans l'onglet -->
+        <!-- GROUP Promo -->
         <div id="filterGroupPromo" class="hidden">
-          <p class="text-[11px] t-disabled italic py-4 text-center">Les filtres Promo sont intégrés dans l'onglet.</p>
+          <p class="text-[10px] font-bold c-caution uppercase tracking-wide mb-2">Affiner les résultats</p>
+          <div class="flex flex-col gap-1.5">
+            <select id="promoFilterFamille" onchange="_onPromoFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes les familles</option></select>
+            <select id="promoFilterSousFamille" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
+            <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
+            <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
+            <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
+            <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
+            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
+            <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
+              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-orange-500">
+              ⭐ Stratégiques uniquement
+            </label>
+            <button onclick="_resetPromoFilters()" class="text-[10px] t-disabled hover:t-secondary text-left mt-1">↺ Réinitialiser les filtres</button>
+          </div>
         </div>
 
       </div><!-- /filterPanelContent -->
@@ -1631,45 +1645,6 @@
           <div id="promoImportOpName" class="text-[10px] t-tertiary mt-1"></div>
         </div>
 
-      </div>
-
-      <!-- FILTRES — bandeau horizontal sous les entrées -->
-      <div id="promoRefinementFilters" class="hidden shrink-0 flex flex-wrap gap-2 px-4 py-2 border-b b-light s-card-alt text-[10px]">
-        <select id="promoFilterFamille" onchange="_onPromoFamilleChange()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Toutes familles</option>
-        </select>
-        <select id="promoFilterSousFamille" onchange="_applyPromoFilters()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Toutes sous-familles</option>
-        </select>
-        <select id="promoFilterMetier" onchange="_applyPromoFilters()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Tous métiers</option>
-        </select>
-        <select id="promoFilterCommercial" onchange="_applyPromoFilters()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Tous commerciaux</option>
-        </select>
-        <select id="promoFilterClassif" onchange="_applyPromoFilters()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Toutes classifications</option>
-        </select>
-        <select id="promoFilterDept" onchange="_applyPromoFilters()"
-          class="py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-          <option value="">Tous départements</option>
-        </select>
-        <input id="promoFilterCAMin" type="number" placeholder="CA min (€)"
-          oninput="_applyPromoFilters()"
-          class="w-24 py-0.5 px-2 rounded border b-default s-card t-primary text-[10px]">
-        <label class="flex items-center gap-1 cursor-pointer">
-          <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()">
-          <span>⭐ Stratégiques</span>
-        </label>
-        <button onclick="_resetPromoFilters()"
-          class="text-[10px] t-tertiary hover:t-primary underline">
-          Réinitialiser
-        </button>
       </div>
 
       <!-- ZONE CORPS — scroll naturel -->
