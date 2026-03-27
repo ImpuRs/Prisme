@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
+import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap } from './engine.js';
@@ -1847,8 +1847,19 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         famCanal[_fk].mag+=r.caAnnuel||0;
         famCanal[_fk].hors+=r.caHorsMagasin||0;
       }
+      // Compter les clients distincts par famille (via ventesClientHorsMagasin)
+      const artFamMap=new Map();
+      for(const r of _S.finalData){if(r.famille&&r.code)artFamMap.set(r.code,famLib(r.famille));}
+      const famClients={};
+      for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+        const famsSeen=new Set();
+        for(const code of artMap.keys()){
+          const fk=artFamMap.get(code);
+          if(fk&&!famsSeen.has(fk)){famsSeen.add(fk);if(!famClients[fk])famClients[fk]=new Set();famClients[fk].add(cc);}
+        }
+      }
       const rows=Object.entries(famCanal)
-        .filter(([,d])=>d.hors>=100)
+        .filter(([fk,d])=>d.hors>=ONLINE_FAM_MIN_CA_HORS&&(d.mag+d.hors)>=ONLINE_FAM_MIN_CA_TOTAL&&(famClients[fk]?.size||0)>=ONLINE_FAM_MIN_CLIENTS)
         .sort((a,b)=>{
           const ta=a[1].mag+a[1].hors>0?a[1].hors/(a[1].mag+a[1].hors):0;
           const tb=b[1].mag+b[1].hors>0?b[1].hors/(b[1].mag+b[1].hors):0;
@@ -1879,8 +1890,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
             </tbody>
           </table>
         </div>`;
-      }else{
-        html+=`<p class="text-xs t-disabled mt-2">Aucune famille avec achat hors agence significatif (min 100€).</p>`;
       }
     }else if(!_S.chalandiseReady){
       html+=`<p class="text-[10px] t-disabled mt-2">Chargez la chalandise pour le détail par famille et par client.</p>`;
