@@ -604,6 +604,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const fichiersList=['Consommé','État du Stock'];
     if(_S.territoireReady)fichiersList.push('Le Terrain');
     if(_S.chalandiseReady)fichiersList.push('Chalandise');
+    // Position réseau
+    let reseauRank=null,reseauTotal=null;
+    if(hasBench){const sp=_S.benchLists.storePerf||{};const spSorted=Object.entries(sp).sort((a,b)=>b[1].freq-a[1].freq);if(spSorted.length>0){reseauTotal=spSorted.length;const myIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);if(myIdx>=0)reseauRank=myIdx+1;}}
+    const pdmBassin=hasBench&&kpis&&ok(kpis.mine?.pdm)?kpis.mine.pdm:null;
+    // Omnicanalité
+    const caMag=_S.canalAgence['MAGASIN']?.ca||0;
+    const caWeb=_S.canalAgence['INTERNET']?.ca||0;
+    const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
+    const caDcs=_S.canalAgence['DCS']?.ca||0;
+    const caHorsAgence=caWeb+caRep+caDcs;
+    const caTotalCanal=caMag+caHorsAgence;
+    const pctHorsAgence=caTotalCanal>0?Math.round(caHorsAgence/caTotalCanal*100):null;
+    // Nomades cross-agence
+    const nbNomades=(_S.reseauNomades||[]).length;
+    // Plan d'action familles
+    const actionPlan=_S.benchLists.obsActionPlan||[];
     // ── Build prose ─────────────────────────────────────────────
     const hr='─'.repeat(52);
     const L=[];
@@ -649,6 +665,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       L.push('');L.push(p);
     }
+    // Position réseau
+    if(reseauRank!==null&&reseauTotal!==null){
+      let rp=`Nous nous classons ${reseauRank}${reseauRank===1?'er':'e'} sur ${reseauTotal} agences du réseau`;
+      const mxMarge=kpis&&ok(kpis.mine?.txMarge)?kpis.mine.txMarge:null;
+      const medMarge=kpis&&ok(kpis.compared?.txMarge)?kpis.compared.txMarge:null;
+      if(ok(mxMarge)&&ok(medMarge)){if(mxMarge>=medMarge)rp+=`, avec un taux de marge au-dessus de la médiane (${mxMarge.toFixed(2)}% vs ${medMarge.toFixed(2)}%)`;}
+      if(ok(pdmBassin))rp+=`. Notre couverture bassin est à ${Math.round(pdmBassin)}%, principal levier d'assortiment`;
+      L.push(rp+'.');
+    }
     L.push('');
     // ── POINTS D'AMÉLIORATION ────────────────────────────────────
     L.push("POINTS D'AMÉLIORATION");L.push('');
@@ -679,8 +704,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis plus de 30 jours`;
       if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA Magasin cumulé)`;
       p+='.';
-      if(silencieuxTop3)p+=` Les ${Math.min(3,silencieuxList.length)} premier${silencieuxList.length>1?'s':''} à relancer : ${silencieuxTop3}.`;
+      const silTop5=silencieuxList.slice(0,5);
+      if(silTop5.length){const silFmt=silTop5.map(c=>`${c.nom} (${formatEuro(c.caPDV)})`).join(', ');p+=` Priorités de relance : ${silFmt}.`;}
       L.push(p);
+      if(nbNomades>0){L.push(`Par ailleurs, ${nbNomades.toLocaleString('fr')} client${nbNomades!==1?'s':''} de ce portefeuille achète${nbNomades!==1?'nt':''} également dans d'autres agences du réseau — un potentiel de consolidation à exploiter.`);}
     }
     // Familles en retrait
     if(lose3.length>0){
@@ -697,6 +724,30 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${_S.finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
       L.push(parts.join(' '));
+    }
+    // Omnicanalité
+    if(ok(pctHorsAgence)&&pctHorsAgence>0){
+      const relais=[];
+      if(caWeb>0)relais.push(`Web (${formatEuro(Math.round(caWeb))})`);
+      if(caRep>0)relais.push(`Représentant (${formatEuro(Math.round(caRep))})`);
+      if(caDcs>0)relais.push(`DCS (${formatEuro(Math.round(caDcs))})`);
+      let op=`${pctHorsAgence}% de notre CA identifié passe hors agence`;
+      if(relais.length)op+=` — ${relais.join(', ')} constituent des relais à consolider`;
+      L.push(op+'.');
+    }
+    // ── PLAN D'ACTION ─────────────────────────────────────────────
+    if(actionPlan.length>0){
+      L.push('');
+      L.push("PLAN D'ACTION");L.push('');
+      if(actionPlan.length>=3){
+        const [a1,a2,a3]=actionPlan;
+        L.push(`Trois familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés), ${a2.fam} (${formatEuro(a2.caPotentiel)}) et ${a3.fam} (${formatEuro(a3.caPotentiel)}).`);
+      }else if(actionPlan.length===2){
+        const [a1,a2]=actionPlan;
+        L.push(`Deux familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés) et ${a2.fam} (${formatEuro(a2.caPotentiel)}).`);
+      }else{
+        L.push(`La famille ${actionPlan[0].fam} concentre l'essentiel du potentiel non capté avec ${formatEuro(actionPlan[0].caPotentiel)} identifiés.`);
+      }
     }
     return L.join('\n');
   }
@@ -1285,7 +1336,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(canal){const _sk_canal=extractStoreCode(row)||'INCONNU';const _storeMatch=!_S.selectedMyStore||_sk_canal==='INCONNU'||_sk_canal===_S.selectedMyStore;if(_storeMatch){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0,caP:0,caE:0};_S.canalAgence[canal].bl.add(nc2);}}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
-      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
+      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=Math.max(0,getCaColumn(row,'prél')||0);const _caE3=Math.max(0,getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
         if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{ca:0,qte:0,canal};ex.ca+=caLigne;ex.qte+=qteLigne;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
@@ -1526,16 +1577,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const pct=Math.round((data.ca||0)/totalCA*100);
       const barW=Math.max(pct,2);
       const isMag=canal==='MAGASIN';
-      const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      const prevCell=(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const _caP=data.caP||0;const _caE=data.caE||0;
-      const _barTip=`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`;
+      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
       let _barHtml;
-      if(isMag&&_caP>0){
+      if(_caP>0){
         const _tot=data.ca||1;
         const _pW=(_caP/_tot*barW).toFixed(1);
         const _eW=(_caE/_tot*barW).toFixed(1);
-        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:#3b82f6;border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:rgba(59,130,246,0.35);border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
+        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:${color};border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:${color};opacity:0.4;border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
       }else{
         _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div>`;
       }
@@ -1548,7 +1599,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.filter(([c])=>c==='MAGASIN').reduce((s,[,v])=>s+(v.caP||0),0);
+    const totalP=entries.reduce((s,[,v])=>s+(v.caP||0),0);
     const totalE=entries.reduce((s,[,v])=>s+(v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
