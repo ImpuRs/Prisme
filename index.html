@@ -362,6 +362,9 @@
     .diag-kpi-pill:hover:not(:disabled){border-color:var(--c-action);color:var(--t-primary)}
     .diag-kpi-pill.active{border-color:var(--c-action);background:rgba(37,99,235,0.15);color:var(--c-action)}
     .diag-kpi-pill:disabled{opacity:.4;cursor:not-allowed}
+    .terr-canal-chip{display:inline-flex;align-items:center;gap:2px;font-size:var(--fs-2xs);font-weight:var(--fw-bold);padding:var(--sp-1) var(--sp-2);border-radius:var(--r-full);border:1.5px solid var(--chip-color,var(--b-dark));background:transparent;color:var(--chip-color,var(--t-secondary));cursor:pointer;transition:all .15s}
+    .terr-canal-chip:hover:not(.active){opacity:.8}
+    .terr-canal-chip.active{background:var(--chip-color,var(--c-action));color:#fff;border-color:var(--chip-color,var(--c-action))}
     details>summary{list-style:none;cursor:pointer}
     details>summary::-webkit-details-marker{display:none}
     .diag-reconquest-active{background:rgba(239,68,68,0.3)!important;border-color:#ef4444!important;color:#fca5a5!important;box-shadow:0 0 0 1px rgba(239,68,68,0.3)}
@@ -688,11 +691,11 @@
           <div class="flex flex-col gap-1 mb-1.5">
             <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Canal</p>
             <div class="flex flex-wrap gap-1">
-              <button id="terrGlobalCanalAll" class="diag-kpi-pill active" onclick="_setTerrGlobalCanalFilter('')">Tous</button>
-              <button id="terrGlobalCanalMag" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('MAGASIN')">Magasin</button>
-              <button id="terrGlobalCanalNet" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('INTERNET')">Internet</button>
-              <button id="terrGlobalCanalRep" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('REPRESENTANT')">Représentant</button>
-              <button id="terrGlobalCanalDcs" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('DCS')">DCS</button>
+              <button id="terrGlobalCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setTerrGlobalCanalFilter('')">Tous</button>
+              <button id="terrGlobalCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setTerrGlobalCanalFilter('MAGASIN')">🏪 Magasin</button>
+              <button id="terrGlobalCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setTerrGlobalCanalFilter('INTERNET')">🌐 Internet</button>
+              <button id="terrGlobalCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setTerrGlobalCanalFilter('REPRESENTANT')">🤝 Représentant</button>
+              <button id="terrGlobalCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setTerrGlobalCanalFilter('DCS')">🏢 DCS</button>
             </div>
             <div id="terrCanalFilterWarn" class="hidden text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5 leading-snug font-semibold"></div>
           </div>

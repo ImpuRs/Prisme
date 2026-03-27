@@ -1939,7 +1939,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Left panel: territory filters only with territoire data; famille filter in degraded mode
     const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
-    // V1: Show V2 teaser when chalandise loaded but no BL territoire
+
+    // Canal chip active state + warning — always updated regardless of data state
+    {const _cg=_S._selectedTerrCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+    const _cgId=_cg==='MAGASIN'?'terrGlobalCanalMag':_cg==='INTERNET'?'terrGlobalCanalNet':_cg==='REPRESENTANT'?'terrGlobalCanalRep':_cg==='DCS'?'terrGlobalCanalDcs':'terrGlobalCanalAll';
+    const _cgEl=document.getElementById(_cgId);if(_cgEl)_cgEl.classList.add('active');
+    const _cwEl=document.getElementById('terrCanalFilterWarn');
+    if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}}
+
+// V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
     // Show chalandise overview + left panel filters if chalandise loaded
     _buildChalandiseOverview();
@@ -1968,16 +1977,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _canalGlobal=_S._selectedTerrCanal||'';
     const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
-
-    // Update canal chip active state
-    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    const _activeCanalGlobalId=_canalGlobal==='MAGASIN'?'terrGlobalCanalMag':_canalGlobal==='INTERNET'?'terrGlobalCanalNet':_canalGlobal==='REPRESENTANT'?'terrGlobalCanalRep':_canalGlobal==='DCS'?'terrGlobalCanalDcs':'terrGlobalCanalAll';
-    const _activeCGEl=document.getElementById(_activeCanalGlobalId);if(_activeCGEl)_activeCGEl.classList.add('active');
-
-    // Show/hide inline canal warning in sidebar
-    const _canalWarnEl=document.getElementById('terrCanalFilterWarn');
-    if(_canalWarnEl)_canalWarnEl.classList.toggle('hidden',!_canalGlobal);
-    if(_canalWarnEl&&_canalGlobal)_canalWarnEl.innerHTML=`⚠️ Filtré : canal <strong>${_canalGlobalLabel}</strong><br>CA et clients = ${_canalGlobalLabel} uniquement<br>Contributeurs = tous canaux`;
 
     // Global KPI stats — always from ALL lines (for croisement summary, lignes KPI)
     let caTotal=0,specialCA=0;
