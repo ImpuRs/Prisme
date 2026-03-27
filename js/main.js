@@ -2121,6 +2121,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
   function _setTerrGlobalCanalFilter(val){
     _S._globalCanal=val;
+    renderCanalAgence();
     renderTerritoireTab();
   }
 
