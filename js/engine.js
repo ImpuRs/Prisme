@@ -163,7 +163,7 @@ export function _isPerdu24plus(info) { return _isPerdu(info) && !(info.ca2025 ||
 // ── Croisement consommé × chalandise ──────────────────────────
 export function computeClientCrossing() {
   if (!_S.chalandiseReady || !_S.clientsMagasin.size) { _S.crossingStats = null; return; }
-  const fideles = new Set(), potentiels = new Set(), captes = new Set();
+  const fideles = new Set(), potentiels = new Set(), captes = new Set(), fidelespdv = new Set();
   for (const cc of _S.clientsMagasin) {
     if (_S.chalandiseData.has(cc)) captes.add(cc); else fideles.add(cc);
   }
@@ -173,7 +173,11 @@ export function computeClientCrossing() {
       if (s.includes('actif') && !s.includes('inactif')) potentiels.add(cc);
     }
   }
-  _S.crossingStats = { fideles, potentiels, captes };
+  // Fidèles PDV : clients ayant acheté en canal MAGASIN avec fréquence >= 2
+  for (const [cc, freq] of _S.clientsMagasinFreq) {
+    if (freq >= 2) fidelespdv.add(cc);
+  }
+  _S.crossingStats = { fideles, potentiels, captes, fidelespdv };
 }
 
 export function _clientUrgencyScore(cc, info) {
@@ -232,6 +236,7 @@ export function _passesClientCrossFilter(cc) {
   if (_S._selectedCrossStatus === 'fidele') return _S.crossingStats.fideles.has(cc);
   if (_S._selectedCrossStatus === 'capte') return _S.crossingStats.captes.has(cc);
   if (_S._selectedCrossStatus === 'potentiel') return _S.crossingStats.potentiels.has(cc);
+  if (_S._selectedCrossStatus === 'fidelespdv') return !!_S.crossingStats.fidelespdv?.has(cc);
   return true;
 }
 
