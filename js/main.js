@@ -1360,7 +1360,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_S.libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)_S.libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==_S.selectedMyStore)continue;
       const libelle=_S.libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
-      const famille=colFamille?(row[colFamille]||'').toString().trim()||'Non Classé':'Non Classé';
+      const famille=normFam(colFamille?(row[colFamille]||'').toString().trim()||'Non Classé':'Non Classé');
       const sousFamille=colSousFamille?(row[colSousFamille]||'').toString().trim():'';
       const rawEmp=(getVal(row,'Emplacement')||'').toString().trim();const emplacement=(rawEmp===''||rawEmp==='-')?'':rawEmp;
       if(famille&&famille!=='Non Classé')familles.add(famille);if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
