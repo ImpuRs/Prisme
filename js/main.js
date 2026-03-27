@@ -1502,7 +1502,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   // V24.4+: Render canal distribution block — enriched with prélevé/enlevé CA
-  let _canalDrillOpen=null; // currently expanded canal drill
   function renderCanalAgence(){
     const el=document.getElementById('canalAgenceBlock');if(!el)return;
     const wrapper=document.getElementById('terrCanalBlock');
@@ -1527,11 +1526,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const pct=Math.round((data.ca||0)/totalCA*100);
       const barW=Math.max(pct,2);
       const isMag=canal==='MAGASIN';
-      const isOpen=_canalDrillOpen===canal;
       const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       html+=`<tr class="border-b b-light cursor-pointer transition-colors hover:s-card-alt ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
-      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label} <span id="canalChev_${canal}" class="text-[10px] font-normal t-disabled ml-1 inline-block transition-transform" style="${isOpen?'transform:rotate(90deg)':''}">▶</span></td>`;
+      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
       html+=prevCell;
       html+=enlevCell;
       html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
@@ -1550,41 +1548,18 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     html+=`<td></td></tr>`;
     html+='</tbody></table></div>';
     el.innerHTML=html;
-    // Re-render drill panel if one is currently open (e.g. after filter change)
-    if(_canalDrillOpen)_renderCanalDrill(_canalDrillOpen);
   }
 
   function openCanalDrill(canal){
-    const p=document.getElementById('canalDrillPanel');
-    // Fermer le chevron précédent
-    if(_canalDrillOpen&&_canalDrillOpen!==canal){
-      const prevChev=document.getElementById('canalChev_'+_canalDrillOpen);
-      if(prevChev)prevChev.style.transform='';
-    }
-    // Toggle : referme si même canal
-    if(_canalDrillOpen===canal&&p&&p.classList.contains('open')){
-      p.classList.remove('open');p.innerHTML='';
-      const chev=document.getElementById('canalChev_'+canal);
-      if(chev)chev.style.transform='';
-      _canalDrillOpen=null;
-      return;
-    }
-    // Ouvrir
-    _canalDrillOpen=canal;
-    const chev=document.getElementById('canalChev_'+canal);
-    if(chev)chev.style.transform='rotate(90deg)';
-    _renderCanalDrill(canal);
+    const overlay=document.getElementById('articlePanelOverlay');
+    const panel=document.getElementById('articlePanel');
+    if(!overlay||!panel)return;
+    panel.style.maxWidth='560px';
+    panel.innerHTML=_renderCanalDrill(canal);
+    overlay.classList.add('active');
   }
 
-  function closeCanalDrill(){
-    const p=document.getElementById('canalDrillPanel');
-    if(p){p.classList.remove('open');p.innerHTML='';}
-    if(_canalDrillOpen){
-      const chev=document.getElementById('canalChev_'+_canalDrillOpen);
-      if(chev)chev.style.transform='';
-    }
-    _canalDrillOpen=null;
-  }
+  function closeCanalDrill(){closeArticlePanel();}
 
   function _canalFamData(canal){
     // Returns {famCode:{ca,nbArt}} for the given canal, respecting filterFamille
@@ -1622,7 +1597,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function _renderCanalDrill(canal){
-    const el=document.getElementById('canalDrillPanel');if(!el)return;
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const label=CANAL_LABELS[canal]||canal;
@@ -1630,19 +1604,18 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterFamRaw=(document.getElementById('filterFamille')?.value||'').trim();
     const famData=_canalFamData(canal);
     const needsChalandise=(canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS')&&!_S.chalandiseReady;
-    const noData=canal==='AUTRE'||(famData&&!Object.keys(famData).length&&!needsChalandise);
     const top10=famData?Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca).slice(0,10):[];
     const canalTotal=top10.reduce((s,[,d])=>s+d.ca,0)||1;
-    const filterBadge=filterFamRaw?`<span class="text-[11px] ml-2 px-2 py-0.5 rounded-full font-semibold" style="background:#7c3aed25;color:#a78bfa;border:1px solid #7c3aed40">Filtré sur : ${famLabel(filterFamRaw)}</span>`:'';
+    const filterBadge=filterFamRaw?`<span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background:#7c3aed25;color:#a78bfa;border:1px solid #7c3aed40">Filtré : ${famLabel(filterFamRaw)}</span>`:'';
     let body='';
     if(needsChalandise){
-      body=`<p class="text-xs t-disabled py-3 px-1">Chargez la Zone de Chalandise pour le détail par famille sur ce canal.</p>`;
+      body=`<p class="text-xs t-inverse-muted py-4">Chargez la Zone de Chalandise pour le détail par famille sur ce canal.</p>`;
     }else if(canal==='AUTRE'){
-      body=`<p class="text-xs t-disabled py-3 px-1">Pas de ventilation famille disponible pour le canal "Autre".</p>`;
+      body=`<p class="text-xs t-inverse-muted py-4">Pas de ventilation famille disponible pour le canal "Autre".</p>`;
     }else if(!top10.length){
-      body=`<p class="text-xs t-disabled py-3 px-1">Aucune donnée famille pour ce canal${filterFamRaw?' avec ce filtre':''}</p>`;
+      body=`<p class="text-xs t-inverse-muted py-4">Aucune donnée famille pour ce canal${filterFamRaw?' avec ce filtre':''}.</p>`;
     }else{
-      body=`<div class="overflow-x-auto mt-2"><table class="min-w-full text-xs"><thead><tr class="border-b" style="border-color:var(--b-darker)">`;
+      body=`<div class="overflow-x-auto mt-3"><table class="min-w-full text-xs"><thead><tr class="border-b" style="border-color:var(--b-darker)">`;
       body+=`<th class="py-1.5 px-3 text-left t-inverse-muted font-semibold">Famille</th>`;
       body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">CA</th>`;
       body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">% canal</th>`;
@@ -1660,23 +1633,19 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       body+=`</tbody></table></div>`;
     }
-    const html=`<div class="diag-level diag-v1 diag-border-ok" style="border-left-color:${color}!important">
-      <div class="diag-level-hdr">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-extrabold text-sm" style="color:${color}">🔍 Détail canal — ${label}</span>
-          ${filterBadge}
+    return `<div>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-extrabold text-base text-white" style="color:${color}">Détail canal — ${label}</h2>
+          ${filterBadge?`<div class="mt-1">${filterBadge}</div>`:''}
         </div>
-        <div class="flex gap-2 items-center">
+        <div class="flex gap-2 items-center shrink-0 ml-3">
           ${(!needsChalandise&&canal!=='AUTRE'&&top10.length)?`<button onclick="exportCanalDrillCSV('${canal}')" class="diag-btn" style="background:#1e3a8a30;color:#93c5fd;border:1px solid #1e40af50">📥 CSV</button>`:''}
-          <button onclick="closeCanalDrill()" class="diag-btn" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)">✕ Fermer</button>
+          <button onclick="closeArticlePanel()" class="diag-btn" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)">✕</button>
         </div>
       </div>
       ${body}
     </div>`;
-    const wasOpen=el.classList.contains('open');
-    el.innerHTML=html;
-    el.classList.add('open');
-    if(!wasOpen)el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 
   function exportCanalDrillCSV(canal){
