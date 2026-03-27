@@ -1685,7 +1685,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         }
       }
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
@@ -2883,18 +2883,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function renderBenchmark(){
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
-    const{missed,under,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
+    const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
     renderObservatoire();
-const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
+const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=fl(over);
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
-    sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
+    sB('badgeMissed',fM.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Detail tables (elements removed from DOM — render only if still present)
     const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
     let p=[];for(const m of fM){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
     rT('benchMissedTable',p.join('')||'<tr><td colspan="5" class="text-center py-4 t-disabled">🎉</td></tr>');
-    p=[];for(const u of fU){const rt=(u.ratio*100).toFixed(0)+'%',bw=Math.min(u.ratio*100,100);p.push(`<tr class="border-b hover:i-caution-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${u.code}</span><span class="text-[11px] font-semibold leading-tight" title="${u.lib}">${u.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-caution">${u.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${u.avg}</td><td class="py-1.5 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-12 s-hover rounded-full h-1.5"><div class="perf-bar bg-amber-500 rounded-full" style="width:${bw}%"></div></div><span class="c-caution font-bold text-[10px]">${rt}</span></div></td></tr>`);}
-    rT('benchUnderTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled">🎉</td></tr>');
     p=[];for(const o of fO)p.push(`<tr class="border-b hover:i-ok-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${o.lib}">${o.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-ok">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-ok font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);
     rT('benchOverTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled">—</td></tr>');
     // Forces & Faiblesses
@@ -2904,9 +2902,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     const fNote=document.getElementById('benchFamilyNote');if(fNote){const m=_S.benchLists.familyPerfMasked||0;if(m>0){fNote.textContent=`${m} famille${m>1?'s':''} marginale${m>1?'s':''} masquée${m>1?'s':''} (CA médiane < 1 000 €).`;fNote.classList.remove('hidden');}else fNote.classList.add('hidden');}
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.textContent=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane)`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     const fbadge=document.getElementById('obsFamilyBadge');if(fbadge){if(sousPerf>0){fbadge.textContent=sousPerf+' sous la médiane';fbadge.classList.remove('hidden');}else fbadge.classList.add('hidden');}
-    // Store ranking
+    // Store ranking [V3] — tri dynamique par _rankSortKey / _rankSortDir
     const showClientsZone=_S.chalandiseReady;const chHdr=document.getElementById('benchClientsZoneHeader');if(chHdr)chHdr.style.display=showClientsZone?'':'none';
-    const sorted=Object.entries(storePerf).sort((a,b)=>b[1].freq-a[1].freq);
+    // Sync select UI avec l'état courant
+    {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'txMarge'))sel.value=_S._rankSortKey||'txMarge';}
+    const _rankKey=_S._rankSortKey||'txMarge';const _rankDir=_S._rankSortDir||-1;
+    const _nbCanauxActifs=(store)=>{const ca=_S.canalAgence[store]||{};return Math.max(1,Object.values(ca).filter(v=>(v.ca||0)>500).length);};
+    const sorted=Object.entries(storePerf).sort((a,b)=>{let va=a[1][_rankKey]??0;let vb=b[1][_rankKey]??0;if(_rankKey==='freq'){va/=_nbCanauxActifs(a[0]);vb/=_nbCanauxActifs(b[0]);}return _rankDir*(vb-va);});
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
@@ -3130,6 +3132,24 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   }
 
   // === OBSERVATOIRE HELPERS ===
+  // [V3] Overlay canal KPI cards — lecture agence uniquement, sans comparaison réseau
+  function toggleObsCanalBreakdown() {
+    const el = document.getElementById('obsCanalBreakdown');
+    if (!el) return;
+    if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+    const canaux = ['MAGASIN','INTERNET','REPRESENTANT','DCS','AUTRE'];
+    const rows = canaux.map(canal => {
+      let ca = 0;
+      for (const [, cmap] of _S.articleCanalCA) ca += cmap.get(canal)?.ca || 0;
+      return ca > 0
+        ? `<div class="flex justify-between"><span class="t-secondary">${canal}</span><span class="font-bold">${formatEuro(ca)}</span></div>`
+        : '';
+    }).filter(Boolean);
+    el.innerHTML = (rows.length ? rows.join('') : '<p class="t-disabled">Aucune donnée canal disponible.</p>')
+      + '<p class="text-[10px] t-disabled italic mt-1">Source : mon agence uniquement — aucune comparaison réseau</p>';
+    el.classList.remove('hidden');
+  }
+
   function _obsNav(t){
     if(t==='silencieux'){
       switchTab('territoire');
@@ -3348,9 +3368,27 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     _S.obsFilterUnivers='';_S.obsFilterMinCA=0;
     const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
+    _setBenchPeriode('12M');
     const t0=performance.now();computeBenchmark();renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
+  }
+
+  // [V3] Filtre période réseau — active _getFilteredMonths via _S._globalPeriodePreset
+  function _setBenchPeriode(preset, btn) {
+    _S._globalPeriodePreset = preset;
+    // Sync chip UI
+    document.querySelectorAll('.bench-periode-chip').forEach(el => {
+      const active = el.textContent.trim() === preset;
+      el.classList.toggle('i-info-bg', active);
+      el.classList.toggle('c-action', active);
+      el.classList.toggle('border-cyan-300', active);
+      el.classList.toggle('s-card', !active);
+      el.classList.toggle('t-secondary', !active);
+      el.classList.toggle('b-default', !active);
+    });
+    const t0=performance.now();renderBenchmark();
+    const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
   }
 
   function _buildObsUniversDropdown(){
@@ -3364,9 +3402,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     const q=(document.getElementById('obsArtSearch')?.value||'').trim();
     const res=document.getElementById('obsArtSearchResult');if(!res)return;
     if(!q){res.innerHTML='';return;}
-    const{missed,under,over}=_S.benchLists;const rows=[];
+    const{missed,over}=_S.benchLists;const rows=[];
     for(const m of(missed||[])){if(matchQuery(q,m.code,m.lib)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
-    for(const u of(under||[])){if(matchQuery(q,u.code,u.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-caution-bg cursor-pointer" onclick="openArticlePanel('${u.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${u.code}</span><span class="flex-1 text-xs min-w-0">${u.lib}</span><span class="badge bg-amber-500 text-white text-[9px] shrink-0">📉 Sous-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${u.myQte} · Méd: ${u.avg} · ${(u.ratio*100).toFixed(0)}%</span></div>`);}}
     for(const o of(over||[])){if(matchQuery(q,o.code,o.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
     if(!rows.length){
       const agenceData={};
@@ -3466,7 +3503,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
       .catch(() => showToast('❌ Erreur copie', 'error'));
   }
 
-  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else if(type==='under'){h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.under.map(u=>[u.code,`"${u.lib}"`,u.myQte,u.avg,(u.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+  function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Freq','Mag','Stock','Diagnostic'];rows=_S.benchLists.missed.map(m=>[m.code,`"${m.lib}"`,m.bassinFreq,m.sc+'/'+m.nbCompare,m.myStock,m.diagnostic]);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=_S.benchLists.over.map(o=>[o.code,`"${o.lib}"`,o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
   // ★ DASHBOARD + COCKPIT
   function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'t-tertiary':isGood?'c-ok':'c-danger';const bg=diff===0?'s-card-alt':isGood?'i-ok-bg':'i-danger-bg';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold t-secondary mb-1">'+m.label+'</p><p class="text-sm font-extrabold t-primary">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
@@ -4242,6 +4279,8 @@ window._saveSessionToIDB = _saveSessionToIDB;
 window.onObsCompareChange = onObsCompareChange;
 window.onObsFilterChange = onObsFilterChange;
 window.resetObsFilters = resetObsFilters;
+window._setBenchPeriode = _setBenchPeriode;
+window.toggleObsCanalBreakdown = toggleObsCanalBreakdown;
 window._onPromoFamilleChange = _onPromoFamilleChange;
 window._applyPromoFilters = _applyPromoFilters;
 window.buildTerrContrib = buildTerrContrib;

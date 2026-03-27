@@ -61,6 +61,8 @@ _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clien
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS' | 'AUTRE'
 _S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
+_S._rankSortKey = 'txMarge'; // [V3] tri classement agences : 'txMarge' | 'freq' | 'serv' | 'pdm'
+_S._rankSortDir = -1;         // [V3] -1 = DESC, 1 = ASC
 _S.blCanalMap = new Map(); // BL → canal (built from consommé, passed to territoire worker)
 _S.articleCanalCA = new Map(); // [F1 fix] code → Map(canal → {ca, qteP, countBL}) — tous canaux, toutes agences filtrées
 
@@ -299,6 +301,9 @@ export function resetAppState() {
   // Réseau worker
   if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} _S._activeReseauWorker = null; }
   _S.reseauNomades = []; _S.nomadesMissedArts = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
+
+  // Ranking réseau
+  _S._rankSortKey = 'txMarge'; _S._rankSortDir = -1;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────

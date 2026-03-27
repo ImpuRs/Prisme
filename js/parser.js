@@ -411,7 +411,15 @@ export function computeBenchmark() {
     if (mq === 0 && b.sc >= Math.min(2, n)) { let diagnostic = mst > 0 ? '🟢 En stock — visibilité?' : '🔴 Stock 0 — référencer?'; _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myStock: mst, sv: b.tb, diagnostic }); }
     else if (mq > 0 && avg > 0) { const r = mq / avg; if (r < 0.5 && b.sc >= 2) _S.benchLists.under.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: avg - mq }); else if (r > 1.5 && mq >= 5) _S.benchLists.over.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: r }); }
   }
-  _S.benchLists.missed.sort((a, b) => b.sv - a.sv); _S.benchLists.under.sort((a, b) => b.sv - a.sv); _S.benchLists.over.sort((a, b) => b.sv - a.sv);
+  // Sort missed by priority score [V3]: couverture réseau × fréquence × urgence stock zéro
+  const _totalAgences = n || 1;
+  for (const m of _S.benchLists.missed) {
+    m.priorityScore = (m.sc / _totalAgences) * 0.4
+      + Math.min(m.bassinFreq / 50, 1) * 0.4
+      + (m.myStock === 0 ? 0.2 : 0);
+  }
+  _S.benchLists.missed.sort((a, b) => b.priorityScore - a.priorityScore);
+  _S.benchLists.under.sort((a, b) => b.sv - a.sv); _S.benchLists.over.sort((a, b) => b.sv - a.sv);
   // === OBSERVATOIRE DATA ===
   const prixLookup = {}; for (const r of _S.finalData) prixLookup[r.code] = r.prixUnitaire || 0;
   const finalDataByCode = {}; for (const r of _S.finalData) finalDataByCode[r.code] = r;
@@ -435,8 +443,15 @@ export function computeBenchmark() {
     const mine = myFamCA[fam] || 0;
     famPDM[fam] = total > 0 ? Math.round(mine / total * 100) : null;
   }
-  // Enrich familyPerf entries with per-family PDM
-  for (const fp of _S.benchLists.familyPerf) fp.pdm = famPDM[fp.fam] ?? null;
+  // Enrich familyPerf entries with per-family PDM + priorityScore [V3]
+  for (const fp of _S.benchLists.familyPerf) {
+    fp.pdm = famPDM[fp.fam] ?? null;
+    const ecartAbs = Math.abs(fp.ecart) / 100;          // 0-1
+    const pdmW = (famPDM[fp.fam] || 0) / 100;           // 0-1
+    const caW = (myFamCA[fp.fam] || 0) / (myTotalCA || 1); // poids CA
+    fp.priorityScore = ecartAbs * (1 - pdmW) * caW;     // urgence × opportunité × poids
+  }
+  _S.benchLists.familyPerf.sort((a, b) => b.priorityScore - a.priorityScore);
   const obsMode = _S.selectedObsCompare || 'median';
   let compV = null, compFamCA = {}, compFamRef = {}, compTotalCA = 0, compRef = 0, compFreq = 0, compServ = 0;
   if (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) {
