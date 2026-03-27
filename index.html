@@ -1239,6 +1239,7 @@
         <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px]">
           <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
           <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
+          <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
         </div>
         <div class="t-disabled text-lg font-light hidden sm:block">›</div>
         <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px]">
@@ -1251,17 +1252,12 @@
           <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
           <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
           <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
+          <p id="terrSumSubCaptes" class="text-[9px] c-ok mt-0.5 hidden">🟢 <span id="terrSumCaptes">0</span> captés zone</p>
+          <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
         </div>
         <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
           <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
           <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
-        </div>
-        <!-- Croisement KPI — shown when crossingStats available -->
-        <div id="terrSumCroisement" class="hidden ml-2 pl-3 border-l-2 b-light flex flex-col justify-center gap-0.5">
-          <p class="text-[9px] font-bold t-disabled uppercase tracking-wide">🔀 Croisement</p>
-          <p class="text-[11px] font-bold text-violet-600">🟣 <span id="terrSumFideles">0</span> fidèles hors zone</p>
-          <p class="text-[11px] font-bold c-danger">🔴 <span id="terrSumPotentiels">0</span> potentiels non captés</p>
-          <p class="text-[11px] font-bold c-ok">🟢 <span id="terrSumCaptes">0</span> captés</p>
         </div>
       </div>
 
