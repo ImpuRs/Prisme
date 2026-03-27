@@ -2048,7 +2048,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
   function getKPIsByCanal(canal) {
     const _c = canal && canal !== 'ALL' ? canal : null;
-    const hasTerritoire = _S.territoireLines.length > 0;
+    const hasTerritoire = _S.territoireReady && _S.territoireLines.length > 0;
     const terrLines = _c ? DataStore.territoireLines.filter(l => l.canal === _c) : DataStore.territoireLines;
     return {
       canal: _c || 'ALL',
@@ -2093,7 +2093,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}
     // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
     {const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
-    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&_kpi.capabilities.hasArticleFacts;_degBanner.classList.toggle('hidden',!_showBanner);}}}
+    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}}
 
 // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
