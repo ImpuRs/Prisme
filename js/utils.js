@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { METIERS_STRATEGIQUES, SECTEUR_DIR_MAP } from './constants.js';
+import { METIERS_STRATEGIQUES, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, FAMILLE_HORS_CATALOGUE } from './constants.js';
 
 export function escapeHtml(s) {
   return String(s === null || s === undefined ? '' : s)
@@ -241,8 +241,48 @@ export function _median(arr) {
   return m % 2 ? s[(m - 1) / 2] : (s[m / 2 - 1] + s[m / 2]) / 2;
 }
 
-export function normFam(f) {
-  return f ? f.replace(/^[A-Z]\d{2,3} - /, '') : f;
+/**
+ * Extrait le CODE famille depuis n'importe quel format :
+ * "C02 - Coupe" → "C02"  |  "Coupe" → cherche dans FAMILLE_LOOKUP → "C02"  |  "C02" → "C02"
+ * Utilisé au PARSING pour alimenter _S.articleFamille
+ */
+export function extractFamCode(raw) {
+  if (!raw) return '';
+  const s = raw.toString().trim();
+  // Format "CODE - Libellé" → extraire le code
+  const m = s.match(/^([A-Z]\d{2,3}|\d{2,3})\s*-\s*/);
+  if (m) return m[1];
+  // Si c'est déjà un code pur (ex: "C02" ou "00")
+  if (/^([A-Z]\d{2,3}|\d{2,3})$/.test(s)) return s;
+  // Libellé brut — chercher dans FAMILLE_LOOKUP
+  const sL = s.toLowerCase();
+  for (const [code, lib] of Object.entries(FAMILLE_LOOKUP)) {
+    if (lib.toLowerCase() === sL) return code;
+  }
+  // Libellé inconnu du référentiel — retourner tel quel
+  return s;
+}
+
+/**
+ * Retourne le libellé d'affichage pour un code famille.
+ * "C02" → "Coupe"  |  "Coupe" (libellé brut) → "Coupe"  |  "" → ""
+ * Utilisé dans les tableaux et comparaisons internes.
+ */
+export function famLib(code) {
+  if (!code) return '';
+  return FAMILLE_LOOKUP[code] || code;
+}
+
+/**
+ * Retourne le label complet "CODE · Libellé" pour l'affichage dans les selects/filtres.
+ * "C02" → "C02 · Coupe"  |  codes hors catalogue → libellé seul  |  code inconnu → code tel quel
+ */
+export function famLabel(code) {
+  if (!code) return '';
+  const lib = FAMILLE_LOOKUP[code];
+  if (!lib) return code;
+  if (FAMILLE_HORS_CATALOGUE.has(code)) return lib;
+  return `${code} · ${lib}`;
 }
 
 export function _isMetierStrategique(metier) {
