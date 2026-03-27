@@ -2066,6 +2066,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // [Adapter Étape 5] — premier usage réel de DataStore.byCanal() comme API de dérivation
     const _linesForKPI=DataStore.byCanal(_canalGlobal).terrLines;
     console.log('[TERRAIN] _linesForKPI length:', _linesForKPI?.length);
+    const _sample=_S.territoireLines.slice(0,3);
+    console.log('[TERR] sample lines:', _sample.map(l=>({bl:l.bl,canal:l.canal})));
     let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
     for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}

@@ -145,6 +145,7 @@ export function _terrWorker() {
     const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
     const blConsommeSet = new Set(blConsommeArr);
     const blCanalMap = blCanalArr ? new Map(blCanalArr) : new Map();
+    console.log('[WORKER] blCanalMap size:', blCanalMap.size, '| blConsommeSet size:', blConsommeSet.size);
     const clientsMagasin = new Set(clientsMagasinArr);
     const stockMap = new Map(stockArr.map(r => [r.code, r]));
     const sample = rows[0] || {};
@@ -159,6 +160,8 @@ export function _terrWorker() {
     const cCA = findCol('ca');
     if (!cArticle) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Article introuvable' }); return; }
     if (!cBL) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Numéro de BL introuvable' }); return; }
+    const testBL = (rows[0] ? rows[0][cBL] || '' : '').toString().trim();
+    console.log('[WORKER] test BL:', testBL, '→ canal blCanalMap:', blCanalMap.get(testBL), '| in blConsommeSet:', blConsommeSet.has(testBL));
     const lines = []; const dirSet = new Set(); const secteurSet = new Set(); const CHUNK = 2000; const total = rows.length;
     for (let ci = 0; ci < Math.ceil(total / CHUNK); ci++) {
       const start = ci * CHUNK, end = Math.min(start + CHUNK, total);
@@ -213,7 +216,10 @@ export function launchTerritoireWorker(rows, progressCb) {
     const worker = new Worker(workerUrl);
     _S._activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
     const stockArr = _S.finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
-    worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: [..._S.blCanalMap.entries()], clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
+    const _blCanalArr = [..._S.blCanalMap.entries()];
+    console.log('[WORKER-SEND] blCanalMap size:', _S.blCanalMap.size, '| blConsommeSet size:', _S.blConsommeSet.size);
+    console.log('[WORKER-SEND] blCanalArr sample (5 premiers):', _blCanalArr.slice(0, 5));
+    worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: _blCanalArr, clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
     worker.onmessage = function (ev) {
       const d = ev.data;
       if (d.type === 'progress') { if (progressCb) progressCb(d.cur, d.total); }
