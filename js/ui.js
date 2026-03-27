@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib } from './utils.js';
 import { _S } from './state.js';
 import { calcPriorityScore } from './engine.js';
 
@@ -152,7 +152,7 @@ export function getFilteredData() {
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const terms = document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
   const filtered = _S.finalData.filter(r => {
-    if (fam && !(r.famille || '').toLowerCase().includes(fam.toLowerCase())) return false;
+    if (fam && !famLib(r.famille || '').toLowerCase().includes(fam.toLowerCase())) return false;
     if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam.toLowerCase())) return false;
     if (emp && !(r.emplacement || '').toLowerCase().includes(emp.toLowerCase())) return false;
     if (stat && r.statut !== stat) return false;
@@ -160,7 +160,7 @@ export function getFilteredData() {
     if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
-    if (terms.length > 0) { const h = (r.code + ' ' + r.libelle + ' ' + r.famille).toLowerCase(); return terms.every(t => h.includes(t)); }
+    if (terms.length > 0) { const h = (r.code + ' ' + r.libelle + ' ' + famLib(r.famille || '')).toLowerCase(); return terms.every(t => h.includes(t)); }
     return true;
   });
   let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (terms.length) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++;
@@ -344,7 +344,7 @@ export function downloadCSV() {
   for (const r of data) {
     const br = getAgeBracket(r.ageJours);
     const caPerduCSV = (r.W >= 3 && r.stockActuel <= 0 && !r.isParent && r.V > 0) ? estimerCAPerdu(r.V, r.prixUnitaire, Math.min(r.ageJours >= 999 ? 90 : r.ageJours, 90)) : 0;
-    lines.push([r.code, `"${r.libelle.replace(/"/g, '""')}"`, `"${r.famille}"`, `"${r.sousFamille}"`, `"${r.emplacement}"`, `"${r.statut}"`, r.ageJours, AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g, '').trim(), r.isNouveaute ? 'OUI' : 'NON', r.isParent ? 'OUI' : 'NON', r.V, r.enleveTotal || 0, r.W, r.stockActuel, r.couvertureJours >= 999 ? '' : r.couvertureJours, r.prixUnitaire.toFixed(2).replace('.', ','), r.ancienMin, r.ancienMax, r.nouveauMin, r.nouveauMax, r.abcClass || '', r.fmrClass || '', caPerduCSV || ''].join(SEP));
+    lines.push([r.code, `"${r.libelle.replace(/"/g, '""')}"`, `"${famLib(r.famille || '')}"`, `"${r.sousFamille}"`, `"${r.emplacement}"`, `"${r.statut}"`, r.ageJours, AGE_BRACKETS[br].label.replace(/[🟢🟡🟠🔴]/g, '').trim(), r.isNouveaute ? 'OUI' : 'NON', r.isParent ? 'OUI' : 'NON', r.V, r.enleveTotal || 0, r.W, r.stockActuel, r.couvertureJours >= 999 ? '' : r.couvertureJours, r.prixUnitaire.toFixed(2).replace('.', ','), r.ancienMin, r.ancienMax, r.nouveauMin, r.nouveauMax, r.abcClass || '', r.fmrClass || '', caPerduCSV || ''].join(SEP));
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
@@ -450,13 +450,13 @@ export function _cmdBuildResults(q) {
     const artResults = [];
     for (const r of _S.finalData) {
       if (artResults.length >= 5) break;
-      const haystack = (r.code + ' ' + r.libelle + ' ' + (r.famille || '')).toLowerCase();
+      const haystack = (r.code + ' ' + r.libelle + ' ' + famLib(r.famille || '')).toLowerCase();
       if (terms.every(t => haystack.includes(t))) {
         const stockColor = r.stockActuel <= 0 ? 'i-danger-bg c-danger' : 'i-ok-bg c-ok';
         artResults.push({
           icon: '📦',
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${r.code}</span>${_cmdEsc(r.libelle)}`,
-          sub: `${r.famille || '—'} · Stock: ${r.stockActuel}`,
+          sub: `${famLib(r.famille || '') || '—'} · Stock: ${r.stockActuel}`,
           badge: [r.abcClass, r.fmrClass].filter(Boolean).join(''),
           badgeCls: 'bg-indigo-100 text-indigo-700',
           fn: () => {
@@ -524,7 +524,7 @@ export function _cmdBuildResults(q) {
   // 4. Familles
   if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
     const famSet = new Set();
-    _S.finalData.forEach(r => { if (r.famille) famSet.add(r.famille); });
+    _S.finalData.forEach(r => { if (r.famille) famSet.add(famLib(r.famille)); });
     const famResults = [];
     for (const f of famSet) {
       if (famResults.length >= 3) break;

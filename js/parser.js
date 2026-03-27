@@ -10,8 +10,8 @@
 //        qui restent dans index.html/ui.js — fonctionne car scope global
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, normFam } from './utils.js';
+import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP } from './constants.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib } from './utils.js';
 import { _S, resetAppState } from './state.js';
 
 
@@ -371,8 +371,8 @@ export function computeBenchmark() {
   for (const store of cs) { sp[store] = { ref: 0, freq: 0, serv: 0, clientsZone: 0, txMarge: null }; const sv = _S.ventesParMagasin[store] || {}; for (const [k, v] of Object.entries(sv)) { if (_S.obsFilterUnivers && _S.articleUnivers[k] !== _S.obsFilterUnivers) continue; if (v.sumPrelevee > 0) sp[store].ref++; sp[store].freq += v.countBL; } sp[store].serv = Math.round((sp[store].ref / totalArtsInBassin) * 100); if (_S.chalandiseReady && _S.ventesClientsPerStore[store]) sp[store].clientsZone = [..._S.ventesClientsPerStore[store]].filter(c => _S.chalandiseData.has(c)).length; const _c = Object.values(sv).reduce((s, v) => s + (v.sumCA || 0), 0); const _v = Object.values(sv).reduce((s, v) => s + (v.sumVMB || 0), 0); sp[store].txMarge = _c > 0 ? _v / _c * 100 : null; }
   _S.benchLists.storePerf = sp;
   const myFamFreq = {}; const storesFamFreq = {};
-  for (const [code, data] of Object.entries(myV)) { if (!/^\d{6}$/.test(code)) continue; const fam = normFam(_S.articleFamille[code]) || ''; if (fam) myFamFreq[fam] = (myFamFreq[fam] || 0) + data.countBL; }
-  for (const store of cs) { storesFamFreq[store] = {}; const sv = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code)) continue; if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const fam = normFam(_S.articleFamille[code]) || ''; if (fam) storesFamFreq[store][fam] = (storesFamFreq[store][fam] || 0) + data.countBL; } }
+  for (const [code, data] of Object.entries(myV)) { if (!/^\d{6}$/.test(code)) continue; const fam = famLib(_S.articleFamille[code]) || ''; if (fam) myFamFreq[fam] = (myFamFreq[fam] || 0) + data.countBL; }
+  for (const store of cs) { storesFamFreq[store] = {}; const sv = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code)) continue; if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const fam = famLib(_S.articleFamille[code]) || ''; if (fam) storesFamFreq[store][fam] = (storesFamFreq[store][fam] || 0) + data.countBL; } }
   const allFamsSet = new Set([...Object.keys(myFamFreq)]); for (const store of cs) for (const f of Object.keys(storesFamFreq[store] || {})) allFamsSet.add(f);
   const bassinFamMedian = {}; for (const fam of allFamsSet) { const vals = cs.map(s => (storesFamFreq[s] || {})[fam] || 0).filter(v => v > 0); if (vals.length) bassinFamMedian[fam] = _median(vals); }
   const familyPerf = []; let familyPerfMasked = 0;
@@ -400,14 +400,14 @@ export function computeBenchmark() {
   const allOtherStores = [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
   const storeFamCA = {}, storeFamRef = {}, storeTotalCA = {};
   const artCA = data => data.sumCA || 0;
-  for (const store of allOtherStores) { storeFamCA[store] = {}; storeFamRef[store] = {}; let ca = 0; const sv = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const lineCA = artCA(data); ca += lineCA; if (!data.sumPrelevee && !data.sumEnleve) continue; const fam = normFam(_S.articleFamille[code]); if (!fam || !/^\d{6}$/.test(code)) continue; storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + lineCA; storeFamRef[store][fam] = (storeFamRef[store][fam] || 0) + 1; } storeTotalCA[store] = ca; }
+  for (const store of allOtherStores) { storeFamCA[store] = {}; storeFamRef[store] = {}; let ca = 0; const sv = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv)) { if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const lineCA = artCA(data); ca += lineCA; if (!data.sumPrelevee && !data.sumEnleve) continue; const fam = famLib(_S.articleFamille[code]); if (!fam || !/^\d{6}$/.test(code)) continue; storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + lineCA; storeFamRef[store][fam] = (storeFamRef[store][fam] || 0) + 1; } storeTotalCA[store] = ca; }
   const bassinFamCAMed = {}; for (const fam of allFamsSet) { const caVals = cs.map(s => (storeFamCA[s] || {})[fam] || 0).filter(v => v > 0); if (caVals.length) bassinFamCAMed[fam] = _median(caVals); }
   _S.benchLists._bassinFamCAMed = bassinFamCAMed;
   { const _bfpBefore = _S.benchLists.familyPerf.length; _S.benchLists.familyPerf = _S.benchLists.familyPerf.filter(fp => (bassinFamCAMed[fp.fam] || 0) >= 1000); _S.benchLists.familyPerfMasked = (_S.benchLists.familyPerfMasked || 0) + (_bfpBefore - _S.benchLists.familyPerf.length); }
   // Top 5 articles per family (Moi / Méd. / % bassin) for F&F expand
-  for (const fp of _S.benchLists.familyPerf) { const myArts = []; for (const [c, d] of Object.entries(myV)) { if (!/^\d{6}$/.test(c) || normFam(_S.articleFamille[c]) !== fp.fam) continue; const artVals = cs.map(s => ((_S.ventesParMagasin[s] || {})[c] || {}).countBL || 0).filter(v => v > 0); const med = artVals.length ? Math.round(_median(artVals)) : 0; const pct = med > 0 ? Math.round(d.countBL / med * 100) : null; const _rawLib = _S.libelleLookup[c] || c; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; myArts.push({ code: c, lib, my: d.countBL, med, pct }); } fp.topArticles = myArts.sort((a, b) => b.my - a.my).slice(0, 5); }
+  for (const fp of _S.benchLists.familyPerf) { const myArts = []; for (const [c, d] of Object.entries(myV)) { if (!/^\d{6}$/.test(c) || famLib(_S.articleFamille[c]) !== fp.fam) continue; const artVals = cs.map(s => ((_S.ventesParMagasin[s] || {})[c] || {}).countBL || 0).filter(v => v > 0); const med = artVals.length ? Math.round(_median(artVals)) : 0; const pct = med > 0 ? Math.round(d.countBL / med * 100) : null; const _rawLib = _S.libelleLookup[c] || c; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; myArts.push({ code: c, lib, my: d.countBL, med, pct }); } fp.topArticles = myArts.sort((a, b) => b.my - a.my).slice(0, 5); }
   const myFamCA = {}, myFamRef = {}; let myTotalCA = 0;
-  for (const [code, data] of Object.entries(myV)) { const lineCA = artCA(data); myTotalCA += lineCA; if (!data.sumPrelevee && !data.sumEnleve) continue; if (!/^\d{6}$/.test(code)) continue; const fam = normFam(_S.articleFamille[code]); if (!fam) continue; myFamCA[fam] = (myFamCA[fam] || 0) + lineCA; myFamRef[fam] = (myFamRef[fam] || 0) + 1; }
+  for (const [code, data] of Object.entries(myV)) { const lineCA = artCA(data); myTotalCA += lineCA; if (!data.sumPrelevee && !data.sumEnleve) continue; if (!/^\d{6}$/.test(code)) continue; const fam = famLib(_S.articleFamille[code]); if (!fam) continue; myFamCA[fam] = (myFamCA[fam] || 0) + lineCA; myFamRef[fam] = (myFamRef[fam] || 0) + 1; }
   // PDM bassin — poids de mon magasin dans le bassin
   const bassinTotalCA = myTotalCA + Object.values(storeTotalCA).reduce((s, v) => s + v, 0); const myPoids = bassinTotalCA > 0 ? myTotalCA / bassinTotalCA : 0; const bassinFamCATot = {}; for (const [fam, ca] of Object.entries(myFamCA)) bassinFamCATot[fam] = ca; for (const store of allOtherStores) for (const [fam, ca] of Object.entries(storeFamCA[store] || {})) bassinFamCATot[fam] = (bassinFamCATot[fam] || 0) + ca;
   // PDM par famille : ma part dans le bassin pour chaque famille
@@ -448,11 +448,11 @@ export function computeBenchmark() {
     const ecartPct = caOther > 0 ? Math.round((caMe - caOther) / caOther * 100) : (caMe > 0 ? 100 : 0);
     let missingArts = [], specialArts = [];
     const _splitLib = raw => { if (!raw) return 'Libellé non disponible'; const m = /^\d{6} - /.exec(raw); return m ? raw.substring(m[0].length).trim() : raw; };
-    if (compV) { for (const [code, data] of Object.entries(compV)) { if (normFam(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) + (data.sumEnleve || 0) <= 0) continue; if ((myV[code]?.sumPrelevee || 0) > 0) continue; const r = finalDataByCode[code]; const statutMe = !r ? '❌ Absent' : r.stockActuel > 0 ? '✅ En stock' : r.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; const caA = artCA(data); if (!/^\d{6}$/.test(code)) { specialArts.push({ code, freqOther: data.countBL, caOther: Math.round(caA) }); continue; } const r2 = finalDataByCode[code]; const statMe2 = !r2 ? '❌ Absent' : r2.stockActuel > 0 ? '✅ En stock' : r2.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; missingArts.push({ code, lib: _splitLib(_S.libelleLookup[code] || 'Libellé non disponible'), freqOther: data.countBL, caOther: Math.round(caA), statutMe: statMe2 }); }
-    } else { const threshold = refMe === 0 ? 2 : Math.max(2, Math.ceil(cs.length / 2)); const artCnt = {}, artFreqSum = {}, artCASum = {}; for (const store of cs) { const sv2 = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv2)) { if (normFam(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) + (data.sumEnleve || 0) <= 0) continue; if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; artCnt[code] = (artCnt[code] || 0) + 1; artFreqSum[code] = (artFreqSum[code] || 0) + data.countBL; artCASum[code] = (artCASum[code] || 0) + artCA(data); } } for (const [code, cnt] of Object.entries(artCnt)) { if (cnt < threshold || (myV[code]?.sumPrelevee || 0) > 0) continue; const r = finalDataByCode[code]; const statutMe = !r ? '❌ Absent' : r.stockActuel > 0 ? '✅ En stock' : r.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; const caO2 = Math.round(artCASum[code] / cnt); if (!/^\d{6}$/.test(code)) { specialArts.push({ code, freqOther: Math.round(artFreqSum[code] / cnt), caOther: caO2, nbStores: cnt }); continue; } const r2b = finalDataByCode[code]; const statMe2b = !r2b ? '❌ Absent' : r2b.stockActuel > 0 ? '✅ En stock' : r2b.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; missingArts.push({ code, lib: _splitLib(_S.libelleLookup[code] || 'Libellé non disponible'), freqOther: Math.round(artFreqSum[code] / cnt), caOther: caO2, statutMe: statMe2b, nbStores: cnt }); } }
+    if (compV) { for (const [code, data] of Object.entries(compV)) { if (famLib(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) + (data.sumEnleve || 0) <= 0) continue; if ((myV[code]?.sumPrelevee || 0) > 0) continue; const r = finalDataByCode[code]; const statutMe = !r ? '❌ Absent' : r.stockActuel > 0 ? '✅ En stock' : r.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; const caA = artCA(data); if (!/^\d{6}$/.test(code)) { specialArts.push({ code, freqOther: data.countBL, caOther: Math.round(caA) }); continue; } const r2 = finalDataByCode[code]; const statMe2 = !r2 ? '❌ Absent' : r2.stockActuel > 0 ? '✅ En stock' : r2.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; missingArts.push({ code, lib: _splitLib(_S.libelleLookup[code] || 'Libellé non disponible'), freqOther: data.countBL, caOther: Math.round(caA), statutMe: statMe2 }); }
+    } else { const threshold = refMe === 0 ? 2 : Math.max(2, Math.ceil(cs.length / 2)); const artCnt = {}, artFreqSum = {}, artCASum = {}; for (const store of cs) { const sv2 = _S.ventesParMagasin[store] || {}; for (const [code, data] of Object.entries(sv2)) { if (famLib(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) + (data.sumEnleve || 0) <= 0) continue; if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; artCnt[code] = (artCnt[code] || 0) + 1; artFreqSum[code] = (artFreqSum[code] || 0) + data.countBL; artCASum[code] = (artCASum[code] || 0) + artCA(data); } } for (const [code, cnt] of Object.entries(artCnt)) { if (cnt < threshold || (myV[code]?.sumPrelevee || 0) > 0) continue; const r = finalDataByCode[code]; const statutMe = !r ? '❌ Absent' : r.stockActuel > 0 ? '✅ En stock' : r.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; const caO2 = Math.round(artCASum[code] / cnt); if (!/^\d{6}$/.test(code)) { specialArts.push({ code, freqOther: Math.round(artFreqSum[code] / cnt), caOther: caO2, nbStores: cnt }); continue; } const r2b = finalDataByCode[code]; const statMe2b = !r2b ? '❌ Absent' : r2b.stockActuel > 0 ? '✅ En stock' : r2b.ancienMax > 0 ? '⚠️ Rupture' : '❌ Absent'; missingArts.push({ code, lib: _splitLib(_S.libelleLookup[code] || 'Libellé non disponible'), freqOther: Math.round(artFreqSum[code] / cnt), caOther: caO2, statutMe: statMe2b, nbStores: cnt }); } }
     if (refMe === 0) { missingArts.sort((a, b) => b.caOther - a.caOther); } else { missingArts.sort((a, b) => b.freqOther - a.freqOther); } missingArts = missingArts.slice(0, 50);
     // Articles exclusifs — vendus par moi mais pas par la comparaison
-    const exclusiveArts = []; if (compV) { for (const [code, data] of Object.entries(myV)) { if (normFam(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; if ((compV[code]?.sumPrelevee || 0) > 0 || (compV[code]?.sumEnleve || 0) > 0) continue; const lib = _S.libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data)) }); } } else { const threshold = Math.max(2, Math.ceil(cs.length / 2)); for (const [code, data] of Object.entries(myV)) { if (normFam(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; let otherCount = 0; for (const store of cs) { if ((_S.ventesParMagasin[store]?.[code]?.sumPrelevee || 0) > 0) otherCount++; } if (otherCount >= threshold) continue; const lib = _S.libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data)), nbStores: otherCount }); } } exclusiveArts.sort((a, b) => b.ca - a.ca);
+    const exclusiveArts = []; if (compV) { for (const [code, data] of Object.entries(myV)) { if (famLib(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; if ((compV[code]?.sumPrelevee || 0) > 0 || (compV[code]?.sumEnleve || 0) > 0) continue; const lib = _S.libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data)) }); } } else { const threshold = Math.max(2, Math.ceil(cs.length / 2)); for (const [code, data] of Object.entries(myV)) { if (famLib(_S.articleFamille[code]) !== fam || (data.sumPrelevee || 0) <= 0 || !/^\d{6}$/.test(code)) continue; let otherCount = 0; for (const store of cs) { if ((_S.ventesParMagasin[store]?.[code]?.sumPrelevee || 0) > 0) otherCount++; } if (otherCount >= threshold) continue; const lib = _S.libelleLookup[code] || code; const splitLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib; exclusiveArts.push({ code, lib: splitLib, freq: data.countBL, ca: Math.round(artCA(data)), nbStores: otherCount }); } } exclusiveArts.sort((a, b) => b.ca - a.ca);
     const entry = { fam, caMe, caOther, ecartPct, refMe, refOther, missingArts, specialArts, exclusiveArts: exclusiveArts.slice(0, 30), caTheorique: Math.round(myPoids * (bassinFamCATot[fam] || 0)), ecartTheorique: Math.round((myFamCA[fam] || 0) - myPoids * (bassinFamCATot[fam] || 0)), pdm: famPDM[fam] ?? null };
     if (ecartPct <= -5) obsFamiliesLose.push(entry); else if (ecartPct >= 5) obsFamiliesWin.push(entry);
   }
@@ -476,7 +476,7 @@ export function computeBenchmark() {
     const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
     if (compFreq <= 0 || myFreq <= compFreq * 1.3) continue;
     const ecartPct = Math.round((myFreq / compFreq - 1) * 100);
-    pepites.push({ code, lib: _pepLib(code), fam: normFam(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)) });
+    pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)) });
   }
   pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
   _S.benchLists.pepites = pepites.slice(0, 50);
@@ -486,7 +486,7 @@ export function computeBenchmark() {
     const myFreq = myV[code]?.countBL || 0;
     if (compFreq < 2 || compFreq <= myFreq * 1.3) return;
     const ecartPct = myFreq > 0 ? Math.round((compFreq / myFreq - 1) * 100) : null;
-    pepitesOther.push({ code, lib: _pepLib(code), fam: normFam(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caComp: Math.round(caComp) });
+    pepitesOther.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caComp: Math.round(caComp) });
   };
   if (compV) {
     for (const [code, data] of Object.entries(compV)) { if (!/^\d{6}$/.test(code)) continue; _addPepOther(code, data.countBL || 0, artCA(data)); }
@@ -502,7 +502,8 @@ export function computeBenchmark() {
 export function _reseauWorker() {
   self.onmessage = function(e) {
     const { myStore, ventesParMagasin, storesIntersection, articleFamille,
-            chalandiseData, chalandiseReady } = e.data;
+            chalandiseData, chalandiseReady, famLookup } = e.data;
+    const _famLib = (code) => (famLookup && famLookup[code]) ? famLookup[code] : (code || '');
 
     // Convertir articleClientsMap en Map de Sets pour lookup rapide
     const artClientsMap = {};
@@ -547,7 +548,7 @@ export function _reseauWorker() {
     for (const [code, cnt] of Object.entries(artStoreCount)) {
       if (cnt < otherStoresCount * 0.5) continue; // présent dans <50% des autres stores
       if ((myV[code]?.countBL || 0) > 0) continue; // déjà vendu chez moi
-      const fam = normFam(articleFamille[code] || '');
+      const fam = _famLib(articleFamille[code] || '');
       orphelins.push({ code, fam, nbStores: cnt, totalFreq: artTotalFreq[code] || 0 });
     }
     orphelins.sort((a, b) => b.nbStores - a.nbStores || b.totalFreq - a.totalFreq);
@@ -621,7 +622,7 @@ export function _reseauWorker() {
           : 0;
         return {
           code,
-          fam: normFam(articleFamille[code] || ''),
+          fam: _famLib(articleFamille[code] || ''),
           nbClients: d.clients.size,
           clientCodes: [...d.clients].slice(0, 10),
           caReseau: caMedian
@@ -692,7 +693,8 @@ export function launchReseauWorker() {
         chalandiseData: null, // non transmis (lourd) — on passe chalandiseMetierMap
         chalandiseMetierMap,
         clientsPerStore,
-        articleClientsMap
+        articleClientsMap,
+        famLookup: FAMILLE_LOOKUP
       });
     } catch (err) { reject(err); }
   });

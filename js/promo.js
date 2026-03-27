@@ -8,7 +8,7 @@
 'use strict';
 
 import { METIERS_STRATEGIQUES } from './constants.js';
-import { cleanCode, formatEuro, readExcel, escapeHtml } from './utils.js';
+import { cleanCode, formatEuro, readExcel, escapeHtml, famLib, famLabel } from './utils.js';
 import { _S } from './state.js';
 import { computeSPC, _clientPassesFilters } from './engine.js';
 import { showToast } from './ui.js';
@@ -38,8 +38,8 @@ function _buildPromoSuggestions(q){
   const terms=ql.split(/[\s,;]+/).filter(Boolean);
   // Families
   const famMap=new Map();
-  for(const r of _S.finalData){const f=r.famille||'';if(!f)continue;if(terms.every(t=>f.toLowerCase().includes(t))){famMap.set(f,(famMap.get(f)||0)+1);}}
-  for(const[code,f] of Object.entries(_S.articleFamille)){if(!f)continue;if(terms.every(t=>f.toLowerCase().includes(t))){if(!famMap.has(f))famMap.set(f,0);famMap.set(f,famMap.get(f)+1);}}
+  for(const r of _S.finalData){const f=famLib(r.famille||'');if(!f)continue;const fFull=famLabel(r.famille||'').toLowerCase();if(terms.every(t=>f.toLowerCase().includes(t)||fFull.includes(t)||(r.famille||'').toLowerCase().includes(t))){famMap.set(f,(famMap.get(f)||0)+1);}}
+  for(const[code,famCode] of Object.entries(_S.articleFamille)){if(!famCode)continue;const fLib=famLib(famCode);const fFull=famLabel(famCode).toLowerCase();if(terms.every(t=>fLib.toLowerCase().includes(t)||fFull.includes(t)||famCode.toLowerCase().includes(t))){if(!famMap.has(fLib))famMap.set(fLib,0);famMap.set(fLib,famMap.get(fLib)+1);}}
   const famSug=[...famMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([fam,cnt])=>({type:'famille',label:fam,sub:cnt+' article'+(cnt!==1?'s':''),value:fam}));
   // Articles
   const artSug=[];const seen=new Set();
@@ -50,8 +50,8 @@ function _buildPromoSuggestions(q){
       artSug.push({type:'article',label:code+' · '+lib.slice(0,50)+(lib.length>50?'…':''),sub:fam||'',value:code});
     }
   };
-  for(const r of _S.finalData){if(artSug.length>=4)break;tryAdd(r.code,_S.libelleLookup[r.code]||r.libelle||r.code,_S.articleFamille[r.code]||r.famille||'');}
-  for(const[code,lib] of Object.entries(_S.libelleLookup)){if(artSug.length>=4)break;tryAdd(code,lib,_S.articleFamille[code]||'');}
+  for(const r of _S.finalData){if(artSug.length>=4)break;tryAdd(r.code,_S.libelleLookup[r.code]||r.libelle||r.code,famLib(_S.articleFamille[r.code]||r.famille||''));}
+  for(const[code,lib] of Object.entries(_S.libelleLookup)){if(artSug.length>=4)break;tryAdd(code,lib,famLib(_S.articleFamille[code]||''));}
   _promoSuggestItems=[...famSug,...artSug];
   _renderPromoSuggestions();
 }
@@ -145,7 +145,7 @@ function runPromoSearch(){
     // a) PDV stock — use _S.libelleLookup as authoritative label source
     for(const r of _S.finalData){
       const lib=(_S.libelleLookup[r.code]||r.libelle||'').toLowerCase();
-      const fam=(_S.articleFamille[r.code]||r.famille||'').toLowerCase();
+      const fam=famLib(_S.articleFamille[r.code]||r.famille||'').toLowerCase();
       if(r.code===term||r.code.includes(term)||lib.includes(tl)||fam.includes(tl))
         matchedCodes.add(r.code);
     }
@@ -153,7 +153,7 @@ function runPromoSearch(){
     for(const[code,lib] of Object.entries(_S.libelleLookup)){
       if(matchedCodes.has(code))continue;
       const libL=lib.toLowerCase();
-      const famL=(_S.articleFamille[code]||'').toLowerCase();
+      const famL=famLib(_S.articleFamille[code]||'').toLowerCase();
       if(code===term||code.includes(term)||libL.includes(tl)||famL.includes(tl))
         matchedCodes.add(code);
     }
@@ -169,7 +169,8 @@ function runPromoSearch(){
   // 2. Matched families
   const matchedFamilles=new Set();
   for(const c of matchedCodes){
-    const f=_S.articleFamille[c]||(_S.finalData.find(r=>r.code===c)||{}).famille;
+    const _fc=_S.articleFamille[c]||(_S.finalData.find(r=>r.code===c)||{}).famille||'';
+    const f=famLib(_fc);
     if(f)matchedFamilles.add(f);
   }
 
@@ -301,17 +302,18 @@ function _populatePromoFilterDropdowns(){
   _promoSfMap={};for(const row of _S.finalData)_promoSfMap[row.code]={famille:row.famille||'',sousFamille:row.sousFamille||''};
   const all=[...r.sectionA,...r.sectionB,...r.sectionC];
   const uniq=(key)=>[...new Set(all.map(c=>c[key]||'').filter(Boolean))].sort();
-  const fill=(id,vals)=>{
+  const fill=(id,vals,labelFn)=>{
     const sel=document.getElementById(id);if(!sel)return;
     const cur=sel.value;
     const first=sel.options[0].outerHTML;
-    sel.innerHTML=first+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    sel.innerHTML=first+vals.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(labelFn?labelFn(v):v)}</option>`).join('');
     if(vals.includes(cur))sel.value=cur;
   };
-  // Famille + Sous-famille from matchedCodes
+  // Famille + Sous-famille from matchedCodes (store famLib labels as values)
   const famSet=new Set();const sfSet=new Set();
   for(const code of r.matchedCodes){
-    const f=_S.articleFamille[code]||_promoSfMap[code]?.famille||'';
+    const _fc=_S.articleFamille[code]||_promoSfMap[code]?.famille||'';
+    const f=famLib(_fc);
     const sf=_promoSfMap[code]?.sousFamille||'';
     if(f)famSet.add(f);if(sf)sfSet.add(sf);
   }
@@ -340,7 +342,7 @@ function _onPromoFamilleChange(){
   const cur=sfSel.value;
   const sfSet=new Set();
   for(const code of r.matchedCodes){
-    if(fam&&(_S.articleFamille[code]||_promoSfMap[code]?.famille||'')!==fam)continue;
+    if(fam&&famLib(_S.articleFamille[code]||_promoSfMap[code]?.famille||'')!==fam)continue;
     const sf=_promoSfMap[code]?.sousFamille||'';if(sf)sfSet.add(sf);
   }
   const first=sfSel.options[0].outerHTML;
@@ -833,7 +835,7 @@ async function runPromoImport(){
     if(buyers.size>0||caTotal>0){
       const ref=stockByCode.get(code)||{};
       const lib=_S.libelleLookup[code]||ref.libelle||code;
-      sectionD.push({code,lib,qtyTotal,caTotal,nbClients:buyers.size,stock:ref.stockActuel??null,famille:ref.famille||_S.articleFamille[code]||''});
+      sectionD.push({code,lib,qtyTotal,caTotal,nbClients:buyers.size,stock:ref.stockActuel??null,famille:famLib(ref.famille||_S.articleFamille[code]||'')});
     }
   }
   sectionD.sort((a,b)=>b.caTotal-a.caTotal);
@@ -848,14 +850,14 @@ async function runPromoImport(){
     const stock=ref.stockActuel??null;
     const inRayon=ref.ancienMin>0||ref.ancienMax>0;
     const rayonStatus=stock===null?'❌ Absent':stock>0?'✅ En rayon':inRayon?'⚠️ Rupture':'❌ Absent';
-    sectionE.push({code,lib,rayonStatus,stock,famille:ref.famille||_S.articleFamille[code]||''});
+    sectionE.push({code,lib,rayonStatus,stock,famille:famLib(ref.famille||_S.articleFamille[code]||'')});
   }
   sectionE.sort((a,b)=>a.lib.localeCompare(b.lib));
 
   // ── SECTION F : Clients à relancer ──────────────────────────────────────
   // Families covered by the promo
   const promoFams=new Set();
-  for(const code of promoCodes){const f=_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'';if(f)promoFams.add(f);}
+  for(const code of promoCodes){const f=famLib(_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'');if(f)promoFams.add(f);}
   // Helper: true si cc a déjà acheté un article promo (comptoir + territoire + hors magasin)
   const _dejaAcheteur=(cc,promoCodes)=>{
     const comptoir=_S.ventesClientArticle.get(cc)||new Map();
@@ -870,7 +872,7 @@ async function runPromoImport(){
     // Check if client buys any article in the promo families
     let famCA=0;let famStr='';
     for(const[code,d] of artMap.entries()){
-      const f=_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'';
+      const f=famLib(_S.articleFamille[code]||(stockByCode.get(code)||{}).famille||'');
       if(promoFams.has(f)){famCA+=(d.sumCA||d.sumPrelevee||0);if(!famStr)famStr=f;}
     }
     if(famCA>0){
