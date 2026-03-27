@@ -38,9 +38,31 @@ function _buildPromoSuggestions(q){
   const terms=ql.split(/[\s,;]+/).filter(Boolean);
   // Families
   const famMap=new Map();
-  for(const r of _S.finalData){const f=famLib(r.famille||'');if(!f)continue;const fFull=famLabel(r.famille||'').toLowerCase();if(terms.every(t=>f.toLowerCase().includes(t)||fFull.includes(t)||(r.famille||'').toLowerCase().includes(t))){famMap.set(f,(famMap.get(f)||0)+1);}}
-  for(const[code,famCode] of Object.entries(_S.articleFamille)){if(!famCode)continue;const fLib=famLib(famCode);const fFull=famLabel(famCode).toLowerCase();if(terms.every(t=>fLib.toLowerCase().includes(t)||fFull.includes(t)||famCode.toLowerCase().includes(t))){if(!famMap.has(fLib))famMap.set(fLib,0);famMap.set(fLib,famMap.get(fLib)+1);}}
-  const famSug=[...famMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([fam,cnt])=>({type:'famille',label:fam,sub:cnt+' article'+(cnt!==1?'s':''),value:fam}));
+  // r.famille est maintenant un code ("C02") — chercher sur code ET libellé
+  const famCodes = new Set();
+  for(const r of _S.finalData){
+    const code = r.famille||'';
+    if(!code) continue;
+    famCodes.add(code);
+  }
+  for(const code of Object.values(_S.articleFamille)){
+    if(code) famCodes.add(code);
+  }
+  for(const famCode of famCodes){
+    const lib = famLib(famCode).toLowerCase();
+    const full = famLabel(famCode).toLowerCase(); // "c02 · coupe"
+    if(terms.every(t => lib.includes(t) || famCode.toLowerCase().includes(t) || full.includes(t))){
+      const cnt = [..._S.finalData].filter(r=>r.famille===famCode).length;
+      famMap.set(famCode, cnt);
+    }
+  }
+  const famSug=[...famMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4)
+    .map(([famCode,cnt])=>({
+      type:'famille',
+      label: famLabel(famCode),   // "C02 · Coupe" affiché
+      sub: cnt+' article'+(cnt!==1?'s':''),
+      value: famCode              // "C02" mis dans l'input au clic
+    }));
   // Articles
   const artSug=[];const seen=new Set();
   const tryAdd=(code,lib,fam)=>{
@@ -145,16 +167,22 @@ function runPromoSearch(){
     // a) PDV stock — use _S.libelleLookup as authoritative label source
     for(const r of _S.finalData){
       const lib=(_S.libelleLookup[r.code]||r.libelle||'').toLowerCase();
-      const fam=famLib(_S.articleFamille[r.code]||r.famille||'').toLowerCase();
-      if(r.code===term||r.code.includes(term)||lib.includes(tl)||fam.includes(tl))
+      const famCode = _S.articleFamille[r.code]||r.famille||'';
+      const famL = famLib(famCode).toLowerCase();
+      const famFull = famLabel(famCode).toLowerCase();
+      if(r.code===term||r.code.includes(term)||lib.includes(tl)||
+         famCode.toLowerCase().includes(tl)||famL.includes(tl)||famFull.includes(tl))
         matchedCodes.add(r.code);
     }
     // b) Network articles present in _S.libelleLookup but absent from PDV stock (ex: Dewalt hors rayon)
     for(const[code,lib] of Object.entries(_S.libelleLookup)){
       if(matchedCodes.has(code))continue;
       const libL=lib.toLowerCase();
-      const famL=famLib(_S.articleFamille[code]||'').toLowerCase();
-      if(code===term||code.includes(term)||libL.includes(tl)||famL.includes(tl))
+      const famCode2 = _S.articleFamille[code]||'';
+      const famL2 = famLib(famCode2).toLowerCase();
+      const famFull2 = famLabel(famCode2).toLowerCase();
+      if(code===term||code.includes(term)||libL.includes(tl)||
+         famCode2.toLowerCase().includes(tl)||famL2.includes(tl)||famFull2.includes(tl))
         matchedCodes.add(code);
     }
   }
