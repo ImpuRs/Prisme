@@ -1265,31 +1265,13 @@ import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, 
       // V24.4: capture canal data BEFORE filtering (for _S.canalAgence)
       if(canal){const _sk_canal=extractStoreCode(row)||'INCONNU';const _storeMatch=!_S.selectedMyStore||_sk_canal==='INCONNU'||_sk_canal===_S.selectedMyStore;if(_storeMatch){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0,caP:0,caE:0};_S.canalAgence[canal].bl.add(nc2);}}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
-      // Capture canaux hors MAGASIN pour la vue Terrain multi-canaux
-      // Fix: en mono-agence ou quand les lignes hors-MAGASIN n'ont pas de Code PDV,
-      // extractStoreCode(row) retourne '' → 'INCONNU' ≠ selectedMyStore → rejet injustifié.
-      // On n'applique le filtre store que si la ligne porte un code agence explicite.
-      const _canaux_hors = ['INTERNET','REPRESENTANT','DCS'];
-      if(_canaux_hors.includes(canal)) {
-        const _sk3 = extractStoreCode(row) || 'INCONNU';
-        if(!(_S.selectedMyStore && _sk3 !== 'INCONNU' && _sk3 !== _S.selectedMyStore)) {
-          const _cc3 = extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
-          const _code3 = cleanCode((getVal(row,'Article','Code')||'').toString());
-          const _ca3 = (getCaColumn(row,'prél')||0) + (getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
-          if(_cc3 && _code3) {
-            _S.cannauxHorsMagasin.add(canal);
-            if(!_S.ventesClientHorsMagasin.has(_cc3)) _S.ventesClientHorsMagasin.set(_cc3, new Map());
-            const _artMap3 = _S.ventesClientHorsMagasin.get(_cc3);
-            if(!_artMap3.has(_code3)) _artMap3.set(_code3, { canal, ca: 0, count: 0 });
-            const _e3 = _artMap3.get(_code3);
-            _e3.ca += _ca3;
-            _e3.count++;
-          }
-        }
-      }
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
       if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
-      if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN')continue;
+      if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
+        // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
+        if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{ca:0,qte:0,canal};ex.ca+=caLigne;ex.qte+=qteLigne;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
+        continue;
+      }
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();if(famConso&&code)_S.articleFamille[code]=famConso;const _uv2=(getVal(row,'Univers')||'').toString().trim();const _cf2=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
