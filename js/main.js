@@ -1528,13 +1528,24 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const isMag=canal==='MAGASIN';
       const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      const _caP=data.caP||0;const _caE=data.caE||0;
+      const _barTip=`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`;
+      let _barHtml;
+      if(_caP>0){
+        const _tot=data.ca||1;
+        const _pW=(_caP/_tot*barW).toFixed(1);
+        const _eW=(_caE/_tot*barW).toFixed(1);
+        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:#3b82f6;border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:rgba(255,255,255,0.22);border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
+      }else{
+        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div>`;
+      }
       html+=`<tr class="border-b b-light cursor-pointer transition-colors hover:s-card-alt ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
       html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
       html+=prevCell;
       html+=enlevCell;
       html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
       html+=`<td class="py-2 px-3 text-right font-bold t-secondary">${pct}%</td>`;
-      html+=`<td class="py-2 px-3"><div class="w-32 s-hover rounded-full h-3 overflow-hidden"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div></td>`;
+      html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
     const totalP=entries.filter(([c])=>c==='MAGASIN').reduce((s,[,v])=>s+(v.caP||0),0);
@@ -3621,6 +3632,7 @@ window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
 window.openCanalDrill = openCanalDrill;
+window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
