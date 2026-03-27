@@ -142,8 +142,9 @@ export function _terrWorker() {
   function cleanOmniPrice(v) { if (!v) return 0; const s = v.toString().replace(/\s/g, '').replace(/€/g, '').replace(/,/g, '.'); return parseFloat(s) || 0; }
   function extractClientCode(val) { const s = (val || '').toString().trim(); const idx = s.indexOf(' - '); return idx >= 0 ? s.slice(0, idx).trim() : s; }
   self.onmessage = function (ev) {
-    const { rows, blConsommeArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
+    const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
     const blConsommeSet = new Set(blConsommeArr);
+    const blCanalMap = blCanalArr ? new Map(blCanalArr) : new Map();
     const clientsMagasin = new Set(clientsMagasinArr);
     const stockMap = new Map(stockArr.map(r => [r.code, r]));
     const sample = rows[0] || {};
@@ -173,7 +174,7 @@ export function _terrWorker() {
         const secteur = (cSecteur ? row[cSecteur] || '' : '').toString().trim();
         const clientCodeRaw = (cClient ? row[cClient] || '' : '').toString().trim();
         const clientNom = (cNom ? row[cNom] || '' : '').toString().trim();
-        const canal = bl && blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR';
+        const canal = bl ? (blCanalMap.get(bl) || (blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
         const stockItem = stockMap.get(code);
         const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
         const ccNum = extractClientCode(clientCodeRaw);
@@ -212,7 +213,7 @@ export function launchTerritoireWorker(rows, progressCb) {
     const worker = new Worker(workerUrl);
     _S._activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
     const stockArr = _S.finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
-    worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
+    worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: [..._S.blCanalMap.entries()], clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
     worker.onmessage = function (ev) {
       const d = ev.data;
       if (d.type === 'progress') { if (progressCb) progressCb(d.cur, d.total); }

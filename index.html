@@ -684,6 +684,18 @@
 
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
+          <!-- Canal global filter chips -->
+          <div class="flex flex-col gap-1 mb-1.5">
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Canal</p>
+            <div class="flex flex-wrap gap-1">
+              <button id="terrGlobalCanalAll" class="diag-kpi-pill active" onclick="_setTerrGlobalCanalFilter('')">Tous</button>
+              <button id="terrGlobalCanalMag" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('MAGASIN')">Magasin</button>
+              <button id="terrGlobalCanalNet" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('INTERNET')">Internet</button>
+              <button id="terrGlobalCanalRep" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('REPRESENTANT')">Représentant</button>
+              <button id="terrGlobalCanalDcs" class="diag-kpi-pill" onclick="_setTerrGlobalCanalFilter('DCS')">DCS</button>
+            </div>
+            <div id="terrCanalFilterWarn" class="hidden text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5 leading-snug font-semibold"></div>
+          </div>
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
             <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
@@ -1312,8 +1324,8 @@
         <div id="terrKPIBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
           <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
             <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
-            <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p class="text-indigo-200 text-[10px] mt-0.5">source unique · fichier territoire</p></div>
-            <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p></div>
+            <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCATotalSub" class="text-indigo-200 text-[10px] mt-0.5 font-bold"></p></div>
+            <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p><p id="terrKpiCouvertureInfo" class="hidden text-emerald-200 text-[9px] mt-0.5">ℹ️ stock physique indépendant du canal</p></div>
             <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
             <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
           </div>
@@ -1347,7 +1359,7 @@
         <!-- 7. Contributeurs agence — V2 (nécessite BL Territoire) -->
         <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
           <div class="flex items-center justify-between px-2 py-1.5 border-b">
-            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">🤝 Contributeurs agence <span class="text-[10px] font-normal t-disabled">— Direction → Secteur → Client → Articles</span></h3>
+            <h3 id="terrContribTitle" class="font-extrabold t-primary text-xs flex items-center gap-2">🔗 Contributeurs agence</h3>
             <button onclick="exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
           </div>
           <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
