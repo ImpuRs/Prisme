@@ -14,6 +14,10 @@ export const HIGH_PRICE = 150;
 export const CROSS_AGENCE_MIN_CA = 150;  // CA minimum (€) chez l'autre agence pour valider une opportunité cross-agence
 export const CROSS_AGENCE_MIN_BL = 2;   // Nombre minimum de BL distincts chez l'autre agence
 
+export const ONLINE_FAM_MIN_CA_HORS = 500;   // CA hors agence minimum pour "Familles à fort achat en ligne"
+export const ONLINE_FAM_MIN_CA_TOTAL = 1000; // CA total famille minimum
+export const ONLINE_FAM_MIN_CLIENTS = 2;     // Nb clients distincts minimum
+
 export const METIERS_STRATEGIQUES = [
   'menuisier agenceur poseur','menuisier agenceur fabricant','menuisier specialiste',
   'fermeture','centre de formation','formation metier','serrurier','metalier','métallier',
