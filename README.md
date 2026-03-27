@@ -143,4 +143,4 @@ Première version sous le nom PRISME. Récapitulatif de toutes les fonctionnalit
 
 ## 📝 Licence
 
-Usage interne — Quincaillerie Legallais.
+Usage interne — JE
