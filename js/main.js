@@ -798,14 +798,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _topMap={};
     for(const[cc,artMap] of _S.ventesClientArticle.entries()){
       let ca=0;
-      for(const[artCode,v] of artMap.entries()){if(selFam&&famMap.get(artCode)!==selFam)continue;ca+=_pdvFilter==='preleve'?(v.sumCAPrelevee||0):(v.sumCA||0);}
-      _topMap[cc]={cc,ca,nbArts:artMap.size};
-    }
-    if(_pdvFilter==='all'){
-      for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
-        let ca=0;for(const[artCode,v] of artMap.entries()){if(selFam&&famMap.get(artCode)!==selFam)continue;ca+=v.ca||0;}
-        if(_topMap[cc])_topMap[cc].ca+=ca;else _topMap[cc]={cc,ca,nbArts:artMap.size};
+      for(const[artCode,v] of artMap.entries()){
+        if(selFam&&famMap.get(artCode)!==selFam)continue;
+        ca+=_pdvFilter==='preleve'?(v.sumCAPrelevee||0):_pdvFilter==='all'?(v.sumCAAll||v.sumCA||0):(v.sumCA||0);
       }
+      _topMap[cc]={cc,ca,nbArts:artMap.size};
     }
     const topClients=Object.values(_topMap).map(c=>({...c,nom:_S.clientNomLookup[c.cc]||c.cc})).filter(c=>c.ca>0&&(!qClient||matchQuery(qClient,c.cc,c.nom)));
     topClients.sort((a,b)=>b.ca-a.ca);
@@ -819,14 +816,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     if(topClients.length){
       const _detailsOpen=document.querySelector('#terrDegradedBlock details.s-card')?.open??true;
-      const _hasHors=_S.cannauxHorsMagasin.size>0;
-      // Si aucun canal hors-MAGASIN détecté, 'all' est identique à 'magasin' → corriger le label et masquer le bouton
-      const _effectiveFilter=(!_hasHors&&_pdvFilter==='all')?'magasin':_pdvFilter;
-      const _pdvLabelEff=_effectiveFilter==='magasin'?'CA Magasin':_effectiveFilter==='preleve'?'CA Prélevé':'CA Total';
-      const _toggleOptions=_hasHors?[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']]:[['magasin','Magasin'],['preleve','Prélevé uniquement']];
-      const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${_toggleOptions.map(([v,l])=>{const a=_effectiveFilter===v;return`<button class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold cursor-pointer${a?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default'}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`;}).join('')}</div>`;
+      const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']].map(([v,l])=>{const a=_pdvFilter===v;return`<button class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold cursor-pointer${a?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default'}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`;}).join('')}</div>`;
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
-      const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">${_pdvLabelEff}</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">${_pdvLabel}</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       if(hasChal){
         html+=`<details${_detailsOpen?' open':''} class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b cursor-pointer list-none flex-wrap"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4>${_toggle}<span class="text-[10px] t-disabled">▼</span></summary>${_topTable}</details>`;
       } else {
@@ -1338,6 +1330,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
       if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
+      // Accumulation CA tous canaux par client — avant le filtre canal (pour "Tous canaux" dans Top clients PDV)
+      {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAP=getCaColumn(row,'prél')||0;const _caAE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const _caAT=_caAP+_caAE;const _qteAP=getQuantityColumn(row,'prél')||0;const _qteAE=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);if(_caAT>0||_qteAP>0||_qteAE>0){if(!_S.ventesClientArticle.has(_ccA))_S.ventesClientArticle.set(_ccA,new Map());const _amA=_S.ventesClientArticle.get(_ccA);if(!_amA.has(_codeA))_amA.set(_codeA,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});_amA.get(_codeA).sumCAAll+=_caAT;}}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
         if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{ca:0,qte:0,canal};ex.ca+=caLigne;ex.qte+=qteLigne;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
