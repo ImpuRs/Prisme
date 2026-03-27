@@ -129,13 +129,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const comList=document.getElementById('terrCommercialList');
     if(comInput&&comList){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${escapeHtml(c)}">`).join('');if(_S._selectedCommercial)comInput.value=_S._selectedCommercial;}
   }
-  // [Feature B] Vue par commercial — CA, actifs/perdus/prospects, top 3 familles
+  // [Feature B / V3.2] Vue par commercial — CA, actifs/perdus/prospects, top 3 familles
   // Jointure à la volée : chalandiseData × ventesClientArticle (ou ventesClientHorsMagasin si canal hors-MAGASIN)
-  // Respecte _globalCanal (Feature C prérequis)
+  // [V3.2] Lit canal depuis DataStore.byContext() (API unifiée)
   function _renderCommercialSummary(){
     const el=document.getElementById('commercialSummaryBlock');if(!el)return;
     if(!_S.chalandiseReady||!_S.clientsByCommercial.size){el.classList.add('hidden');return;}
-    const canal=_S._globalCanal||'';
+    const _ctx=DataStore.byContext();
+    const canal=_ctx.activeFilters.canal;
     const isHors=canal&&canal!=='MAGASIN';
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,famLib(r.famille)||'Autre']));
     const comData={};
@@ -160,8 +161,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const totalCount=mainList.length+(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0)?1:0);
     if(!totalCount){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
-    const sel=_S._selectedCommercial;
-    const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'}[canal]||canal):'';
+    const sel=_ctx.activeFilters.commercial;
+    const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'}[canal]||canal):'';
     const PAGE=15;
     const isOpen=el.dataset.open==='1';
     const showAll=el.dataset.showAll==='1';
@@ -2203,14 +2204,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _canalGlobal=_S._globalCanal||'';
-    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
+    // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
+    const _ctx=DataStore.byContext();
+    const _canalGlobal=_ctx.activeFilters.canal;
+    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRÉSENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
 
-    // ── Garde de cache territoire ────────────────────────────────────────────
-    // q, filterDir, filterRayon déjà déclarés plus haut dans la fonction (lignes ~1998-2000)
+    // ── Garde de cache territoire ─────────────────────────────────────────────
+    // Clé inclut commercial (V3.2) : terrLines differ si commercial actif
     const _secteurKey=[...getSelectedSecteurs()].sort().join(',');
-    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_secteurKey}|${q}|${filterDir}|${filterRayon}`;
+    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}|${filterDir}|${filterRayon}`;
     if(_S._terrCanalCache.has(_terrCacheKey)){
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
       const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -2241,8 +2244,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const pctSpecial=caTotal>0?((specialCA/caTotal)*100).toFixed(1):'0';
 
     // Canal-filtered stats for CA KPI + couverture rayon KPI
-    // [Adapter Étape 5] — premier usage réel de DataStore.byCanal() comme API de dérivation
-    const _linesForKPI=DataStore.byCanal(_canalGlobal).terrLines;
+    // [V3.2] terrLines déjà filtré canal + commercial par DataStore.byContext()
+    const _linesForKPI=_ctx.terrLines;
     let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
     for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}

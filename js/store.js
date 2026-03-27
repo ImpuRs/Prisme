@@ -50,6 +50,47 @@ export const DataStore = {
   // 5 clés max (MAGASIN|INTERNET|REPRESENTANT|DCS + total), accès O(1).
   get canalAgence()           { return _S.canalAgence; },
 
+  // ── Point d'entrée multi-dimensions (V3.2) ──────────────────────────────
+  // Consolide canal + période + commercial en une seule dérivation.
+  // Paramètres optionnels : lit _S._globalCanal / _globalPeriodePreset /
+  // _selectedCommercial par défaut. Ne modifie JAMAIS finalData.
+  byContext({ canal, periode, commercial } = {}) {
+    const _canal   = canal      !== undefined ? canal      : (_S._globalCanal        || '');
+    const _periode = periode    !== undefined ? periode    : (_S._globalPeriodePreset || '12M');
+    const _com     = commercial !== undefined ? commercial : (_S._selectedCommercial  || '');
+
+    // Dimension canal — délègue à byCanal() (terrLines filtré par canal)
+    const kpis = this.byCanal(_canal);
+
+    // Dimension commercial — filtre terrLines par-dessus le filtre canal
+    const terrLines = _com
+      ? kpis.terrLines.filter(l => (l.commercial || '') === _com)
+      : kpis.terrLines;
+
+    // Dimension période — indices des mois actifs (pour sparklines / _getFilteredMonths)
+    const mois = new Date().getMonth();
+    let periodeMonths;
+    if      (_periode === '6M')  periodeMonths = Array.from({ length: 6 },       (_, i) => (mois - 5 + i + 12) % 12);
+    else if (_periode === 'YTD') periodeMonths = Array.from({ length: mois + 1 }, (_, i) => i);
+    else                         periodeMonths = Array.from({ length: 12 },       (_, i) => i);
+
+    return {
+      ...kpis,            // canal, canalStats, totalCA, articleFacts, finalData, capabilities
+      terrLines,          // override : commercial appliqué par-dessus filtre canal
+      periodeMonths,      // indices mois actifs pour sparklines
+      activeFilters: {
+        canal:   _canal,
+        periode: _periode,
+        commercial: _com,
+      },
+      capabilities: {
+        ...kpis.capabilities,
+        hasCommercial:    !!_com,
+        hasPeriodeFilter: _periode !== '12M',
+      },
+    };
+  },
+
   // ── Méthode de dérivation canal ───────────────────────────────────────────
   // Point d'entrée unique pour les vues filtrées par canal.
   // Délègue à getKPIsByCanal() exposée sur window par main.js (Étape 3).
