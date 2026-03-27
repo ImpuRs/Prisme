@@ -13,6 +13,22 @@ export function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// ── Recherche normalisée ───────────────────────────────────────
+// Supprime les accents et met en minuscules pour la comparaison.
+export function normalizeStr(str) {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// Vérifie que tous les mots de `query` sont présents dans au moins
+// un des champs fournis (recherche partielle, multi-mots, sans accents).
+// Retourne true si query est vide.
+export function matchQuery(query, ...fields) {
+  const terms = normalizeStr(query).split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const haystack = fields.map(f => normalizeStr(f)).join(' ');
+  return terms.every(t => haystack.includes(t));
+}
+
 export function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''; }
 
 export function extractClientCode(val) {
