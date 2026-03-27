@@ -3632,6 +3632,7 @@ window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
 window.openCanalDrill = openCanalDrill;
+window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
