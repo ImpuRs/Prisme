@@ -873,15 +873,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _terrCanalFilter=_S._globalCanal||'';
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
-    console.log('[FILTRE] canal actif:', _S._globalCanal, 'articleCanalCA size:', _S.articleCanalCA?.size);
     if(_isNonMagasin){
-      // Canaux hors MAGASIN : filtrer ventesClientHorsMagasin via articleCanalCA (plus fiable que v.canal)
+      // Canaux hors MAGASIN : utiliser ventesClientHorsMagasin directement (v.ca = total non-MAGASIN)
+      // Ne pas filtrer par articleCanalCA — ce filtre pouvait vider _clientArtMap si articleCanalCA
+      // n'était pas peuplé (ex. lignes sans N° commande), ce qui faisait disparaître tout le bloc.
       _clientArtMap=new Map();
       for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
         const filtered=new Map();
         for(const[artCode,v] of artMap.entries()){
-          if((_S.articleCanalCA.get(artCode)?.get(_terrCanalFilter)?.ca||0)>0)
-            filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
+          if(v.ca>0)filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
         }
         if(filtered.size>0)_clientArtMap.set(cc,filtered);
       }
