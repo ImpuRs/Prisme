@@ -269,7 +269,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 var(--sp-1);border-radius:var(--r-full);font-size:var(--fs-xs);font-weight:var(--fw-extrabold)}
     .table-scroll{max-height:600px;overflow-y:auto;overflow-x:auto}.list-scroll{max-height:280px;overflow-y:auto}
-    .list-scroll thead,.table-scroll thead{position:sticky;top:0;z-index:10;background:var(--s-card-alt)}.list-scroll thead th,.table-scroll thead th{position:sticky;top:0;z-index:30;background:var(--s-card-alt)}
+    .list-scroll thead,.table-scroll thead{background:var(--s-card-alt)}.list-scroll thead th,.table-scroll thead th{position:sticky;top:0;z-index:30;background:var(--s-card-alt)}
     .age-row-clickable{cursor:pointer;transition:all .15s}.age-row-clickable:hover{transform:translateX(4px)}
     .age-dot{display:inline-block;width:8px;height:8px;border-radius:var(--r-full);margin-right:3px;vertical-align:middle}
     .age-fresh{background:var(--c-ok)}.age-warm{background:var(--p-amber-500)}.age-hot{background:var(--c-caution)}.age-critical{background:var(--c-danger)}
@@ -979,8 +979,8 @@
       </div>
       <div class="table-scroll s-card rounded-xl shadow-lg border">
         <table class="min-w-full table-auto text-left">
-          <thead class="s-panel-inner t-inverse sticky top-0">
-            <tr class="z-30 relative">
+          <thead class="s-panel-inner t-inverse">
+            <tr>
               <th class="px-2 py-3 text-xs uppercase sticky left-0 s-panel-inner z-30" onclick="sortBy('code')">Code ↕</th>
               <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30" onclick="sortBy('libelle')">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')">Famille ↕</th>
