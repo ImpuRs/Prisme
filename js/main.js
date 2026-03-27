@@ -163,9 +163,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const sel=_S._selectedCommercial;
     const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'}[canal]||canal):'';
     const PAGE=15;
-    const bodyId='commercialSummaryBody';
-    const isCollapsed=el.dataset.collapsed!=='0';
+    const isOpen=el.dataset.open==='1';
     const showAll=el.dataset.showAll==='1';
+    const totalCA=mainList.reduce((s,[,d])=>s+d.ca,0)+(unassigned?unassigned.ca:0);
+    const summaryLine=`${totalCount} commercial${totalCount>1?'s':''} · ${totalCA>0?formatEuro(totalCA):'—'}`;
     const visibleMain=showAll?mainList:mainList.slice(0,PAGE);
     function rowHtml(com,d,labelOverride){
       const top3=Object.entries(d.familles).filter(([,ca])=>ca>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f])=>f).join(' · ');
@@ -188,36 +189,29 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const remaining=mainList.length-PAGE;
     if(!showAll&&remaining>0)rows+=`<tr><td colspan="6" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
     if(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0))rows+=rowHtml('-',unassigned,'Non assigné');
-    let html=`<div class="s-card rounded-xl shadow-md border overflow-hidden mb-3">
-      <div class="flex items-center justify-between px-3 py-2 border-b s-card-alt cursor-pointer" onclick="_toggleCommercialSummary()">
+    let html=`<details ${isOpen?'open':''} class="s-card rounded-xl shadow-md border overflow-hidden mb-3" ontoggle="document.getElementById('commercialSummaryBlock').dataset.open=this.open?'1':'0'">
+      <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
         <h3 class="font-extrabold t-primary text-xs flex items-center gap-1.5">
-          <span id="commercialSummaryArrow">${isCollapsed?'▶':'▼'}</span>
           👤 Vue par commercial${canalLabel?` — <span class="c-action">${canalLabel}</span>`:''}
           <span class="font-normal t-disabled">(${totalCount})</span>
         </h3>
-        ${sel?`<button onclick="event.stopPropagation();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
-      </div>
-      <div id="${bodyId}" style="${isCollapsed?'display:none':''}">
-        <div class="overflow-x-auto"><table class="min-w-full text-xs">
-        <thead class="s-panel-inner t-inverse"><tr>
-          <th class="py-1.5 px-2 text-left">Commercial</th>
-          <th class="py-1.5 px-2 text-right">CA agence</th>
-          <th class="py-1.5 px-2 text-center">Actifs</th>
-          <th class="py-1.5 px-2 text-center">Perdus</th>
-          <th class="py-1.5 px-2 text-center">Prospects</th>
-          <th class="py-1.5 px-2 text-left">Top 3 familles</th>
-        </tr></thead><tbody>${rows}</tbody></table></div>
-      </div>
-    </div>`;
+        <div class="flex items-center gap-2">
+          ${sel?`<button onclick="event.stopPropagation();event.preventDefault();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
+          <span class="text-[10px] t-tertiary font-normal">${summaryLine}</span>
+          <span class="acc-arrow t-disabled">▶</span>
+        </div>
+      </summary>
+      <div class="overflow-x-auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse"><tr>
+        <th class="py-1.5 px-2 text-left">Commercial</th>
+        <th class="py-1.5 px-2 text-right">CA agence</th>
+        <th class="py-1.5 px-2 text-center">Actifs</th>
+        <th class="py-1.5 px-2 text-center">Perdus</th>
+        <th class="py-1.5 px-2 text-center">Prospects</th>
+        <th class="py-1.5 px-2 text-left">Top 3 familles</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    </details>`;
     el.innerHTML=html;
-  }
-  function _toggleCommercialSummary(){
-    const el=document.getElementById('commercialSummaryBlock');if(!el)return;
-    const body=document.getElementById('commercialSummaryBody');const arrow=document.getElementById('commercialSummaryArrow');if(!body)return;
-    const isOpen=body.style.display!=='none';
-    body.style.display=isOpen?'none':'';
-    el.dataset.collapsed=isOpen?'1':'0';
-    if(arrow)arrow.textContent=isOpen?'▶':'▼';
   }
 
   function _buildChalandiseOverview(){
