@@ -1502,6 +1502,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   // V24.4+: Render canal distribution block — enriched with prélevé/enlevé CA
+  let _canalDrillOpen=null; // currently expanded canal drill
   function renderCanalAgence(){
     const el=document.getElementById('canalAgenceBlock');if(!el)return;
     const wrapper=document.getElementById('terrCanalBlock');
@@ -1526,10 +1527,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const pct=Math.round((data.ca||0)/totalCA*100);
       const barW=Math.max(pct,2);
       const isMag=canal==='MAGASIN';
+      const isOpen=_canalDrillOpen===canal;
       const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      html+=`<tr class="border-b b-light hover:s-card-alt ${isMag?'font-semibold':''}">`;
-      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
+      html+=`<tr class="border-b b-light cursor-pointer transition-colors ${isOpen?'s-panel-inner t-inverse':'hover:s-card-alt'} ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
+      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label} <span class="text-[10px] font-normal opacity-60">${isOpen?'▲':'▼'}</span></td>`;
       html+=prevCell;
       html+=enlevCell;
       html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
@@ -1548,6 +1550,130 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     html+=`<td></td></tr>`;
     html+='</tbody></table></div>';
     el.innerHTML=html;
+    // Re-render drill panel if one is currently open (e.g. after filter change)
+    if(_canalDrillOpen)_renderCanalDrill(_canalDrillOpen);
+  }
+
+  function openCanalDrill(canal){
+    if(_canalDrillOpen===canal){_canalDrillOpen=null;const p=document.getElementById('canalDrillPanel');if(p){p.innerHTML='';p.classList.add('hidden');}renderCanalAgence();return;}
+    _canalDrillOpen=canal;
+    renderCanalAgence(); // refresh table to update chevron state
+    _renderCanalDrill(canal);
+  }
+
+  function closeCanalDrill(){
+    _canalDrillOpen=null;
+    const p=document.getElementById('canalDrillPanel');if(p){p.innerHTML='';p.classList.add('hidden');}
+    renderCanalAgence();
+  }
+
+  function _canalFamData(canal){
+    // Returns {famCode:{ca,nbArt}} for the given canal, respecting filterFamille
+    const filterFam=(document.getElementById('filterFamille')?.value||'').trim().toLowerCase();
+    const famData={};
+    const _matchFam=(r)=>{
+      if(!filterFam)return true;
+      const fc=(r.famille||'').toLowerCase();
+      const fl=famLib(r.famille).toLowerCase();
+      const flbl=famLabel(r.famille).toLowerCase();
+      return fc.includes(filterFam)||fl.includes(filterFam)||flbl.includes(filterFam);
+    };
+    if(canal==='MAGASIN'){
+      for(const r of _S.finalData){
+        if(!r.famille||(r.caAnnuel||0)<=0)continue;
+        if(!_matchFam(r))continue;
+        if(!famData[r.famille])famData[r.famille]={ca:0,nbArt:0};
+        famData[r.famille].ca+=r.caAnnuel||0;
+        famData[r.famille].nbArt++;
+      }
+    }else if(canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS'){
+      if(!_S.chalandiseReady)return null; // data not available without chalandise
+      const caField=canal==='INTERNET'?'caWeb':canal==='REPRESENTANT'?'caRep':'caDcs';
+      for(const r of _S.finalData){
+        if(!r.famille||(r[caField]||0)<=0)continue;
+        if(!_matchFam(r))continue;
+        if(!famData[r.famille])famData[r.famille]={ca:0,nbArt:0};
+        famData[r.famille].ca+=r[caField]||0;
+        famData[r.famille].nbArt++;
+      }
+    }else{
+      return null; // AUTRE: no family breakdown
+    }
+    return famData;
+  }
+
+  function _renderCanalDrill(canal){
+    const el=document.getElementById('canalDrillPanel');if(!el)return;
+    const CANAL_LABELS={MAGASIN:'🏪 Comptoir',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
+    const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
+    const label=CANAL_LABELS[canal]||canal;
+    const color=CANAL_COLORS[canal]||'#94a3b8';
+    const filterFamRaw=(document.getElementById('filterFamille')?.value||'').trim();
+    const famData=_canalFamData(canal);
+    const needsChalandise=(canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS')&&!_S.chalandiseReady;
+    const noData=canal==='AUTRE'||(famData&&!Object.keys(famData).length&&!needsChalandise);
+    const top10=famData?Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca).slice(0,10):[];
+    const canalTotal=top10.reduce((s,[,d])=>s+d.ca,0)||1;
+    const filterBadge=filterFamRaw?`<span class="text-[11px] ml-2 px-2 py-0.5 rounded-full font-semibold" style="background:#7c3aed25;color:#a78bfa;border:1px solid #7c3aed40">Filtré sur : ${famLabel(filterFamRaw)}</span>`:'';
+    let body='';
+    if(needsChalandise){
+      body=`<p class="text-xs t-disabled py-3 px-1">Chargez la Zone de Chalandise pour le détail par famille sur ce canal.</p>`;
+    }else if(canal==='AUTRE'){
+      body=`<p class="text-xs t-disabled py-3 px-1">Pas de ventilation famille disponible pour le canal "Autre".</p>`;
+    }else if(!top10.length){
+      body=`<p class="text-xs t-disabled py-3 px-1">Aucune donnée famille pour ce canal${filterFamRaw?' avec ce filtre':''}</p>`;
+    }else{
+      body=`<div class="overflow-x-auto mt-2"><table class="min-w-full text-xs"><thead><tr class="border-b" style="border-color:var(--b-darker)">`;
+      body+=`<th class="py-1.5 px-3 text-left t-inverse-muted font-semibold">Famille</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">CA</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">% canal</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">Nb art.</th>`;
+      body+=`</tr></thead><tbody>`;
+      for(const[fc,d] of top10){
+        const pct=Math.round(d.ca/canalTotal*100);
+        const barW=Math.max(pct,2);
+        body+=`<tr class="border-b" style="border-color:var(--b-darker)">`;
+        body+=`<td class="py-1.5 px-3 font-semibold t-inverse">${famLabel(fc)}</td>`;
+        body+=`<td class="py-1.5 px-3 text-right font-bold" style="color:${color}">${formatEuro(d.ca)}</td>`;
+        body+=`<td class="py-1.5 px-3 text-right t-inverse-muted"><div class="flex items-center justify-end gap-1.5">${pct}%<div class="w-16 rounded-full h-1.5 overflow-hidden" style="background:var(--b-darker)"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div></div></td>`;
+        body+=`<td class="py-1.5 px-3 text-right t-inverse-muted">${d.nbArt}</td>`;
+        body+=`</tr>`;
+      }
+      body+=`</tbody></table></div>`;
+    }
+    const html=`<div class="diag-level diag-v1 diag-border-ok" style="border-left-color:${color}!important;margin-top:0">
+      <div class="diag-level-hdr">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-extrabold text-sm" style="color:${color}">🔍 Détail canal — ${label}</span>
+          ${filterBadge}
+        </div>
+        <div class="flex gap-2 items-center">
+          ${(!needsChalandise&&canal!=='AUTRE'&&top10.length)?`<button onclick="exportCanalDrillCSV('${canal}')" class="diag-btn" style="background:#1e3a8a30;color:#93c5fd;border:1px solid #1e40af50">📥 CSV</button>`:''}
+          <button onclick="closeCanalDrill()" class="diag-btn" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)">✕ Fermer</button>
+        </div>
+      </div>
+      ${body}
+    </div>`;
+    el.innerHTML=html;
+    el.classList.remove('hidden');
+  }
+
+  function exportCanalDrillCSV(canal){
+    const CANAL_LABELS={MAGASIN:'Comptoir',INTERNET:'Web',DCS:'DCS',REPRESENTANT:'Representant',AUTRE:'Autre'};
+    const famData=_canalFamData(canal);
+    if(!famData)return;
+    const rows=Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca);
+    const total=rows.reduce((s,[,d])=>s+d.ca,0)||1;
+    let csv='Famille;CA;% canal;Nb art.\n';
+    for(const[fc,d] of rows){
+      const pct=Math.round(d.ca/total*100);
+      csv+=`"${famLabel(fc)}";${d.ca.toFixed(2)};${pct}%;${d.nbArt}\n`;
+    }
+    const filterFamRaw=(document.getElementById('filterFamille')?.value||'').trim();
+    const suffix=filterFamRaw?`_fam_${filterFamRaw}`:'';
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`canal_${CANAL_LABELS[canal]||canal}${suffix}.csv`;a.click();
   }
 
   function _renderFamilleCanal(){
@@ -3414,6 +3540,9 @@ window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
+window.openCanalDrill = openCanalDrill;
+window.closeCanalDrill = closeCanalDrill;
+window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
