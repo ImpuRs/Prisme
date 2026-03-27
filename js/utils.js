@@ -45,17 +45,31 @@ export function parseExcelDate(v) {
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   if (typeof v === 'number') return new Date(Math.round((v - 25569) * 864e5));
   if (typeof v === 'string') {
-    const c = v.split(' ')[0], p = c.split(/[-/]/);
+    const s = v.split(' ')[0]; // strip time part
+    const p = s.split(/[-/]/);
     if (p.length === 3) {
-      let [a, b, d] = p.map(x => parseInt(x, 10));
-      if (isNaN(a) || isNaN(b) || isNaN(d)) return null;
-      // ISO YYYY-MM-DD : premier segment est déjà l'année 4 chiffres
-      if (a >= 100) return new Date(a, b - 1, d);
+      const n = p.map(x => parseInt(x, 10));
+      if (n.some(isNaN)) return null;
+      // Format ISO : YYYY-MM-DD (premier segment > 31 → c'est l'année)
+      if (n[0] > 31) {
+        // YYYY-MM-DD
+        return new Date(n[0], n[1] - 1, n[2]);
+      }
+      // Format DD-MM-YYYY ou DD/MM/YYYY (dernier segment > 31 → c'est l'année)
+      if (n[2] > 31) {
+        return new Date(n[2], n[1] - 1, n[0]);
+      }
+      // Ambiguité MM-DD-YY ou DD-MM-YY : compléter l'année si < 100
+      let [a, b, d] = n;
       if (d < 100) d += 2000;
+      // Si a > 12 → a est forcément le jour, b le mois
       if (a > 12) return new Date(d, b - 1, a);
+      // Si b > 12 → b est forcément le jour, a le mois
       if (b > 12) return new Date(d, a - 1, b);
+      // Défaut : DD-MM-YYYY (convention française)
       return new Date(d, b - 1, a);
     }
+    // Fallback : laisser le moteur JS parser (formats RFC2822, etc.)
     const x = new Date(v);
     return isNaN(x.getTime()) ? null : x;
   }
@@ -141,41 +155,71 @@ export function readExcel(f) {
 export function yieldToMain() { return new Promise(r => setTimeout(r, 0)); }
 
 export function parseCSVText(text, sep) {
-  // Tokenizer RFC 4180 : gère guillemets, séparateurs et retours ligne dans les champs
-  function tokenize(line, s) {
-    const fields = []; let cur = ''; let inQ = false; let i = 0;
-    while (i < line.length) {
-      const ch = line[i];
-      if (inQ) {
-        if (ch === '"') {
-          if (line[i + 1] === '"') { cur += '"'; i += 2; } // guillemet doublé
-          else { inQ = false; i++; }
-        } else { cur += ch; i++; }
-      } else if (ch === '"') { inQ = true; i++; }
-      else if (ch === s) { fields.push(cur.trim()); cur = ''; i++; }
-      else { cur += ch; i++; }
+  // Parser RFC 4180 — gère : champs quotés, séparateur dans un champ,
+  // guillemets échappés (""), sauts de ligne dans un champ quoté.
+  const rows = [];
+  let cur = [];
+  let field = '';
+  let inQuotes = false;
+  let i = 0;
+
+  // Normaliser les fins de ligne
+  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const len = src.length;
+
+  while (i <= len) {
+    const ch = i < len ? src[i] : null;
+
+    if (inQuotes) {
+      if (ch === '"') {
+        // Guillemet échappé ("") ou fin de champ quoté
+        if (i + 1 < len && src[i + 1] === '"') {
+          field += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i++;
+        }
+      } else if (ch === null) {
+        // Fin de fichier dans un champ quoté — on sort quand même
+        cur.push(field);
+        rows.push(cur);
+        break;
+      } else {
+        field += ch;
+        i++;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+        i++;
+      } else if (ch === sep) {
+        cur.push(field.trim());
+        field = '';
+        i++;
+      } else if (ch === '\n' || ch === null) {
+        cur.push(field.trim());
+        if (cur.some(f => f !== '')) rows.push(cur); // ignorer lignes vides
+        cur = [];
+        field = '';
+        i++;
+      } else {
+        field += ch;
+        i++;
+      }
     }
-    fields.push(cur.trim());
-    return fields;
   }
-  // Reconstruit les lignes en tenant compte des retours ligne dans les champs quotés
-  const rows = []; let cur = ''; let inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"') { inQ = !inQ; cur += ch; }
-    else if (!inQ && (ch === '\n' || (ch === '\r' && text[i + 1] === '\n'))) {
-      if (ch === '\r') i++;
-      if (cur.trim()) rows.push(cur); cur = '';
-    } else { cur += ch; }
-  }
-  if (cur.trim()) rows.push(cur);
+
   if (!rows.length) return [];
-  const headers = tokenize(rows[0], sep);
+
+  // Première ligne = headers
+  const headers = rows[0];
   const data = [];
-  for (let i = 1; i < rows.length; i++) {
-    const vals = tokenize(rows[i], sep);
+  for (let r = 1; r < rows.length; r++) {
     const row = {};
-    for (let j = 0; j < headers.length; j++) row[headers[j]] = vals[j] !== undefined ? vals[j] : '';
+    for (let c = 0; c < headers.length; c++) {
+      row[headers[c]] = rows[r][c] ?? '';
+    }
     data.push(row);
   }
   return data;
