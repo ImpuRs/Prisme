@@ -2065,6 +2065,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const top100InStock=top100All.filter(a=>a.rayonStatus==='green').length;
     const pctCouverture=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
 
+    // Canal-filtered: special CA + clients — via getKPIsByCanal(_S._selectedTerrCanal)
+    // _linesForKPI already holds DataStore.byCanal(_canalGlobal).terrLines
+    let specialCAFiltered=0;const _clientsKPI={};
+    for(const l of _linesForKPI){if(l.isSpecial)specialCAFiltered+=l.ca;if(l.clientCode&&!_clientsKPI[l.clientCode])_clientsKPI[l.clientCode]={type:l.clientType};}
+    const pctSpecialFiltered=caTotalFiltered>0?((specialCAFiltered/caTotalFiltered)*100).toFixed(1):'0';
+    const mixteCountKPI=Object.values(_clientsKPI).filter(c=>c.type==='mixte').length;
+    const extCountKPI=Object.values(_clientsKPI).filter(c=>c.type==='exterieur').length;
+
     // VOLET 3: Résumé croisement (always from ALL lines)
     renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock);
 
@@ -2089,16 +2097,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Couverture rayon badge: remind that stock is physical (independent of canal)
     const _couvertureInfoEl=document.getElementById('terrKpiCouvertureInfo');
     if(_couvertureInfoEl)_couvertureInfoEl.classList.toggle('hidden',!_canalGlobal);
-    setSafe('terrKpiSpecialPct',pctSpecial+'%');
-    setSafe('terrKpiSpecialSub',formatEuro(specialCA)+' non stockable');
-    const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
-    const extCount=Object.values(clientsMap).filter(c=>c.type==='exterieur').length;
-    setSafe('terrKpiClients',Object.keys(clientsMap).length.toLocaleString('fr'));
-    setSafe('terrKpiClientsSub',`✅ ${mixteCount} mixtes · ❌ ${extCount} ext. purs`);
+    setSafe('terrKpiSpecialPct',pctSpecialFiltered+'%');
+    setSafe('terrKpiSpecialSub',formatEuro(specialCAFiltered)+' non stockable');
+    setSafe('terrKpiClients',Object.keys(_clientsKPI).length.toLocaleString('fr'));
+    setSafe('terrKpiClientsSub',`✅ ${mixteCountKPI} mixtes · ❌ ${extCountKPI} ext. purs`);
 
     // Special KPI banner
     const spEl=document.getElementById('terrSpecialKPIText');
-    if(spEl)spEl.textContent=`${pctSpecial}% du CA Legallais est du spécial non stockable — ${formatEuro(specialCA)} (hors de la vue Direction, Top 100 et croisement rayon)`;
+    if(spEl)spEl.textContent=`${pctSpecialFiltered}% du CA Legallais est du spécial non stockable — ${formatEuro(specialCAFiltered)} (hors de la vue Direction, Top 100 et croisement rayon)`;
 
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
