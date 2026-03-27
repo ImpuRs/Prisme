@@ -4,7 +4,7 @@
 
 **Outil d'analyse et d'optimisation des stocks** pour magasins de distribution B2B.
 
-Anciennement Optistock PRO (V22→V24). Fichier HTML unique, zéro dépendance serveur — fonctionne dans Google Apps Script ou en local dans un navigateur.
+Fichier HTML unique, zéro dépendance serveur — fonctionne dans Google Apps Script ou en local dans un navigateur.
 
 ---
 
