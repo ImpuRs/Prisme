@@ -17,6 +17,10 @@ const CACHE_KEY      = 'PRISME_PREFS';
 const CACHE_KEY_OLD  = 'PRISME_CACHE_OLD'; // ancienne clé volumineuse — purgée au démarrage
 const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
+// Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
+// Toute session stockée avec une version différente est purgée automatiquement.
+const CACHE_VERSION  = 'v3.1';
+
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
   // Purge ancienne clé volumineuse
@@ -107,6 +111,20 @@ export function _clearCache() {
     document.body.classList.remove('pilot-loaded'); // classe CSS interne, non renommée
     document.getElementById('insightsBanner')?.classList.add('hidden');
   }
+}
+
+// ── Bandeau "cache mis à jour — rechargez vos fichiers" ───────
+// Affiché quand la version IndexedDB ne correspond plus à CACHE_VERSION.
+export function _showCacheUpdateBanner() {
+  const banner = document.getElementById('cacheBanner');
+  if (!banner) return;
+  const btnStyle = 'padding:2px 10px;border-radius:4px;background:#1e293b;color:rgba(255,255,255,0.7);font-size:var(--fs-xs);cursor:pointer;border:1px solid rgba(255,255,255,0.15)';
+  banner.innerHTML =
+    `<span>🔄 Cache mis à jour — rechargez vos fichiers pour bénéficier des nouvelles fonctionnalités.</span>` +
+    `<div style="display:flex;gap:6px">` +
+    `<button onclick="document.getElementById('cacheBanner').classList.add('hidden')" style="${btnStyle}">OK</button>` +
+    `</div>`;
+  banner.classList.remove('hidden');
 }
 
 // ── Bandeau "données restaurées depuis IndexedDB" ─────────────
@@ -205,7 +223,7 @@ export async function _saveSessionToIDB() {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     const st = tx.objectStore(IDB_STORE);
     const payload = {
-      version: '3.0',
+      version: CACHE_VERSION,
       timestamp: Date.now(),
       // ── Core ──
       finalData:             _S.finalData,
@@ -229,6 +247,8 @@ export async function _saveSessionToIDB() {
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
       clientArticles:        [..._S.clientArticles].map(([k, v]) => [k, [...v]]),
+      // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
+      articleCanalCA:        _serializeNestedMap(_S.articleCanalCA),
       // ── Territoire ──
       territoireReady:       _S.territoireReady,
       territoireLines:       _S.territoireLines,
@@ -255,6 +275,14 @@ export async function _saveSessionToIDB() {
       periodFilterEnd:       _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
       // ── Benchmark (cache rendu) ──
       benchLists:            _serializeBenchLists(_S.benchLists),
+      // ── Moteur saisonnier (B3) ──
+      seasonalIndex:         _S.seasonalIndex,
+      articleMonthlySales:   _S.articleMonthlySales,
+      // ── Client aggregation Worker (B1) ──
+      clientFamCA:           _S.clientFamCA,
+      metierFamBench:        _S.metierFamBench,
+      // ── Opportunité nette (C1) ──
+      opportuniteNette:      _S.opportuniteNette,
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -273,7 +301,14 @@ export async function _restoreSessionFromIDB() {
     const req = tx.objectStore(IDB_STORE).get('current');
     const data = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
     db.close();
-    if (!data || data.version !== '3.0') return false;
+    if (!data) return false;
+    if (data.version !== CACHE_VERSION) {
+      // Version obsolète : purger le cache et avertir l'utilisateur
+      db.close(); await _clearIDB();
+      console.log('[PRISME] version cache obsolète (' + (data.version || '?') + ' → ' + CACHE_VERSION + ') — purgée');
+      _showCacheUpdateBanner();
+      return false;
+    }
     // TTL 30 jours : session trop ancienne → purge silencieuse
     if (data.timestamp && Date.now() - data.timestamp > 30 * 24 * 3600 * 1000) {
       db.close(); await _clearIDB();
@@ -327,6 +362,20 @@ export async function _restoreSessionFromIDB() {
     _S.periodFilterEnd    = data.periodFilterEnd    ? new Date(data.periodFilterEnd)    : null;
 
     _S.benchLists = _deserializeBenchLists(data.benchLists || {});
+
+    // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
+    _S.articleCanalCA = _deserializeNestedMap(data.articleCanalCA || []);
+
+    // ── Moteur saisonnier (B3) ──
+    _S.seasonalIndex       = data.seasonalIndex       || {};
+    _S.articleMonthlySales = data.articleMonthlySales || {};
+
+    // ── Client aggregation Worker (B1) ──
+    _S.clientFamCA     = data.clientFamCA     || {};
+    _S.metierFamBench  = data.metierFamBench  || {};
+
+    // ── Opportunité nette (C1) ──
+    _S.opportuniteNette = data.opportuniteNette || [];
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
