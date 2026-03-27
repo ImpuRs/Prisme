@@ -1379,10 +1379,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_S.libelleLookup[code]){const lib=rawCode.toString().substring(code.length+3).trim()||(getVal(row,'Libellé','Designation')||'').toString().trim();if(lib)_S.libelleLookup[code]=lib;}
       if(useMulti&&storeCode!==_S.selectedMyStore)continue;
       const libelle=_S.libelleLookup[code]||code;const statut=(getVal(row,'Statut')||'Inconnu').toString().trim();
-      const _rawFamille=colFamille?(row[colFamille]||'').toString().trim():'';const famille=_rawFamille?extractFamCode(_rawFamille)||'Non Classé':'Non Classé';
+      const _rawFamille=colFamille?(row[colFamille]||'').toString().trim():'';const famille=(_rawFamille?extractFamCode(_rawFamille):null)||_S.articleFamille[code]||'Non Classé';
       const sousFamille=colSousFamille?(row[colSousFamille]||'').toString().trim():'';
       const rawEmp=(getVal(row,'Emplacement')||'').toString().trim();const emplacement=(rawEmp===''||rawEmp==='-')?'':rawEmp;
-      if(famille&&famille!=='Non Classé')familles.add(famLib(famille));if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
+      if(famille&&famille!=='Non Classé')familles.add(famille);if(sousFamille)sousFamilles.add(sousFamille);if(emplacement)emplacements.add(emplacement);if(statut)statuts.add(statut);
       const keyStock=_cSStk;const keyValeurStock=_cSValS;
       const stockActuel=cleanPrice(keyStock?row[keyStock]:0);const valeurStock=keyValeurStock?cleanPrice(row[keyValeurStock]):null;const prixUnitaire=(valeurStock!==null&&stockActuel!==0)?Math.abs(valeurStock/stockActuel):(Math.abs(cleanPrice(getVal(row,'Valeur','Prix')))/(Math.abs(stockActuel)||1));
       const dateSortie=parseExcelDate(getVal(row,'dernière sortie','sortie'));const date1ereEntree=parseExcelDate(getVal(row,'première entrée','premiere entree','première réception'));const dateEntree=parseExcelDate(getVal(row,'dernière entrée','entrée'));const dateRef=parseExcelDate(getVal(row,'référencement','réf'));
@@ -1436,7 +1436,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(_S.finalData.length>0&&_S.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(_S.finalData);
       updateProgress(95,100,'Affichage…');await yieldToMain();
-      populateSelect('filterFamille',familles);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
+      populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
       document.getElementById('navStats').textContent=_S.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
@@ -3087,7 +3087,7 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
     const abc=document.getElementById('filterABC')?.value||'';
     const fmr=document.getElementById('filterFMR')?.value||'';
     let data=_S.finalData.filter(r=>r.W>=1);
-    if(fam)data=data.filter(r=>famLib(r.famille)===fam);
+    if(fam)data=data.filter(r=>r.famille===fam);
     if(sFam)data=data.filter(r=>r.sousFamille===sFam);
     if(emp)data=data.filter(r=>r.emplacement===emp);
     if(stat)data=data.filter(r=>r.statut===stat);
@@ -3250,12 +3250,12 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       // 1. Peupler les filtres depuis _S.finalData (équivalent populateSelect L2470)
       const _rFam=new Set(),_rSFam=new Set(),_rEmp=new Set(),_rStat=new Set();
       for(const r of _S.finalData){
-        if(r.famille&&r.famille!=='Non Classé')_rFam.add(famLib(r.famille));
+        if(r.famille&&r.famille!=='Non Classé')_rFam.add(r.famille);
         if(r.sousFamille)_rSFam.add(r.sousFamille);
         if(r.emplacement)_rEmp.add(r.emplacement);
         if(r.statut)_rStat.add(r.statut);
       }
-      populateSelect('filterFamille',_rFam);populateSelect('filterSousFamille',_rSFam);
+      populateSelect('filterFamille',_rFam,famLabel);populateSelect('filterSousFamille',_rSFam);
       populateSelect('filterEmplacement',_rEmp);populateSelect('filterStatut',_rStat);
 
       // 2. Navbar (L2472-2476)

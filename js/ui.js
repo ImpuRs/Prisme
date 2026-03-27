@@ -138,9 +138,9 @@ export function closeFilterDrawer() {
   if (overlay) overlay.classList.remove('active');
 }
 
-export function populateSelect(id, vals) {
+export function populateSelect(id, vals, labelFn) {
   const s = document.getElementById(id); if (!s) return;
-  if (s.tagName === 'INPUT') { const dl = document.getElementById(s.getAttribute('list')); if (dl) { dl.innerHTML = ''; [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); } return; }
+  if (s.tagName === 'INPUT') { const dl = document.getElementById(s.getAttribute('list')); if (dl) { dl.innerHTML = ''; [...vals].sort((a,b)=>(labelFn?labelFn(a):a).localeCompare(labelFn?labelFn(b):b)).forEach(v => { const o = document.createElement('option'); o.value = v; if (labelFn) o.textContent = labelFn(v); dl.appendChild(o); }); } return; }
   const f = s.options[0].textContent; s.innerHTML = `<option value="">${f}</option>`;
   [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o); });
 }
