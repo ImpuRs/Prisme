@@ -782,23 +782,43 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
-    // Silencieux >30j
-    const silencieux=[];
-    for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-      const d=daysBetween(lastDate,_today);if(d<=30)continue;
-      const artMap=DataStore.ventesClientArticle.get(cc);if(!artMap)continue;
-      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
-      if(ca<=0)continue;
-      const nom=_S.clientNomLookup[cc]||cc;
-      if(qClient&&!matchQuery(qClient,cc,nom))continue;
-      silencieux.push({cc,nom,ca,d});
+    // Canal global chip → source de données
+    const _terrCanalFilter=_S._selectedTerrCanal||'';
+    const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
+    let _clientArtMap;
+    if(_isNonMagasin){
+      // Canaux hors MAGASIN : filtrer ventesClientHorsMagasin par canal
+      _clientArtMap=new Map();
+      for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+        const filtered=new Map();
+        for(const[artCode,v] of artMap.entries()){
+          if(v.canal===_terrCanalFilter)filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
+        }
+        if(filtered.size>0)_clientArtMap.set(cc,filtered);
+      }
+    }else{
+      _clientArtMap=DataStore.ventesClientArticle;
     }
-    silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
-    // Top clients — filtrés par canal PDV
-    const _pdvFilter=_S.pdvCanalFilter||'all';
-    const _pdvLabel=_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total';
+    // Silencieux >30j — MAGASIN uniquement (clientLastOrder est MAGASIN-based)
+    const silencieux=[];
+    if(!_isNonMagasin){
+      for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+        const d=daysBetween(lastDate,_today);if(d<=30)continue;
+        const artMap=_clientArtMap.get(cc);if(!artMap)continue;
+        let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
+        if(ca<=0)continue;
+        const nom=_S.clientNomLookup[cc]||cc;
+        if(qClient&&!matchQuery(qClient,cc,nom))continue;
+        silencieux.push({cc,nom,ca,d});
+      }
+      silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
+    }
+    // Top clients — canal PDV (désactivé si canal non-MAGASIN sélectionné)
+    const _pdvFilter=_isNonMagasin?'all':(_S.pdvCanalFilter||'all');
+    const _canalLabel={INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    const _pdvLabel=_isNonMagasin?`CA ${_canalLabel[_terrCanalFilter]||_terrCanalFilter}`:(_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total');
     const _topMap={};
-    for(const[cc,artMap] of DataStore.ventesClientArticle.entries()){
+    for(const[cc,artMap] of _clientArtMap.entries()){
       let ca=0;
       for(const[artCode,v] of artMap.entries()){
         if(selFam&&famMap.get(artCode)!==selFam)continue;

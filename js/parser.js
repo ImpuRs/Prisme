@@ -144,8 +144,9 @@ export function _terrWorker() {
   self.onmessage = function (ev) {
     const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
     const blConsommeSet = new Set(blConsommeArr);
-    const blCanalMap = blCanalArr ? new Map(blCanalArr) : new Map();
-    console.log('[WORKER] blCanalMap size:', blCanalMap.size, '| blConsommeSet size:', blConsommeSet.size);
+    const blCanalMapLocal = blCanalArr ? new Map(blCanalArr) : new Map();
+    console.log('[WORKER-IN] blCanalMapLocal.size:', blCanalMapLocal.size);
+    console.log('[WORKER-IN] sample BL lookup:', [...blCanalMapLocal.entries()].slice(0, 2));
     const clientsMagasin = new Set(clientsMagasinArr);
     const stockMap = new Map(stockArr.map(r => [r.code, r]));
     const sample = rows[0] || {};
@@ -161,7 +162,7 @@ export function _terrWorker() {
     if (!cArticle) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Article introuvable' }); return; }
     if (!cBL) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Numéro de BL introuvable' }); return; }
     const testBL = (rows[0] ? rows[0][cBL] || '' : '').toString().trim();
-    console.log('[WORKER] test BL:', testBL, '→ canal blCanalMap:', blCanalMap.get(testBL), '| in blConsommeSet:', blConsommeSet.has(testBL));
+    console.log('[WORKER-IN] test BL:', testBL, '→ canal:', blCanalMapLocal.get(testBL), '| in blConsommeSet:', blConsommeSet.has(testBL));
     const lines = []; const dirSet = new Set(); const secteurSet = new Set(); const CHUNK = 2000; const total = rows.length;
     for (let ci = 0; ci < Math.ceil(total / CHUNK); ci++) {
       const start = ci * CHUNK, end = Math.min(start + CHUNK, total);
@@ -177,7 +178,7 @@ export function _terrWorker() {
         const secteur = (cSecteur ? row[cSecteur] || '' : '').toString().trim();
         const clientCodeRaw = (cClient ? row[cClient] || '' : '').toString().trim();
         const clientNom = (cNom ? row[cNom] || '' : '').toString().trim();
-        const canal = bl ? (blCanalMap.get(bl) || (blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
+        const canal = bl ? (blCanalMapLocal.get(bl) || (blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
         const stockItem = stockMap.get(code);
         const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
         const ccNum = extractClientCode(clientCodeRaw);
@@ -217,8 +218,8 @@ export function launchTerritoireWorker(rows, progressCb) {
     _S._activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
     const stockArr = _S.finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
     const _blCanalArr = [..._S.blCanalMap.entries()];
-    console.log('[WORKER-SEND] blCanalMap size:', _S.blCanalMap.size, '| blConsommeSet size:', _S.blConsommeSet.size);
-    console.log('[WORKER-SEND] blCanalArr sample (5 premiers):', _blCanalArr.slice(0, 5));
+    console.log('[WORKER-SEND] blCanalArr length:', _blCanalArr.length);
+    console.log('[WORKER-SEND] sample:', _blCanalArr.slice(0, 3));
     worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: _blCanalArr, clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
     worker.onmessage = function (ev) {
       const d = ev.data;
