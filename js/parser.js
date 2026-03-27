@@ -10,7 +10,7 @@
 //        qui restent dans index.html/ui.js — fonctionne car scope global
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP } from './constants.js';
+import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP } from './constants.js';
 import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib } from './utils.js';
 import { _S, resetAppState } from './state.js';
 
@@ -579,8 +579,11 @@ export function _reseauWorker() {
     }
 
     // ── 4. Nomades × Articles : ce que mes nomades achètent ailleurs mais pas chez moi
+    const CROSS_AGENCE_MIN_CA = e.data.crossAgenceMinCA || 150;
+    const CROSS_AGENCE_MIN_BL = e.data.crossAgenceMinBL || 2;
+
     const nomadeSet = new Set(nomades);
-    // article → { clients: Set<cc>, caByStore: { store: avgCA } }
+    // article → { clients: Set<cc>, caByStore: { store: avgCA }, totalCaOther, totalBLOther }
     const missedByArt = {};
 
     for (const store of storesIntersection) {
@@ -601,20 +604,23 @@ export function _reseauWorker() {
         for (const cc of artBuyers) {
           if (!nomadeSet.has(cc)) continue;
           if (!storeClientsSet.has(cc)) continue; // ce client a-t-il acheté dans ce store ?
-          if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caByStore: {} };
+          if (!missedByArt[code]) missedByArt[code] = { clients: new Set(), caByStore: {}, totalCaOther: 0, totalBLOther: 0 };
           missedByArt[code].clients.add(cc);
           foundNomade = true;
         }
-        // CA : valeur unitaire moyenne dans ce store — ajouté UNE seule fois par store
+        // CA : valeur unitaire moyenne + totaux — ajoutés UNE seule fois par store
         if (foundNomade && !missedByArt[code].caByStore[store]) {
           const avgCA = data.countBL > 0 ? Math.round((data.sumCA || 0) / data.countBL) : 0;
           missedByArt[code].caByStore[store] = avgCA;
+          missedByArt[code].totalCaOther += (data.sumCA || 0);
+          missedByArt[code].totalBLOther += (data.countBL || 0);
         }
       }
     }
 
-    // Finaliser : CA affiché = médiane des CA unitaires par store
+    // Finaliser : filtrer par seuils CA et BL, trier par CA autre agence DESC
     const nomadesMissedArts = Object.entries(missedByArt)
+      .filter(([, d]) => d.totalCaOther >= CROSS_AGENCE_MIN_CA && d.totalBLOther >= CROSS_AGENCE_MIN_BL)
       .map(([code, d]) => {
         const caValues = Object.values(d.caByStore);
         const caMedian = caValues.length
@@ -625,10 +631,12 @@ export function _reseauWorker() {
           fam: _famLib(articleFamille[code] || ''),
           nbClients: d.clients.size,
           clientCodes: [...d.clients].slice(0, 10),
-          caReseau: caMedian
+          caReseau: caMedian,
+          totalCaOther: Math.round(d.totalCaOther),
+          totalBLOther: d.totalBLOther
         };
       })
-      .sort((a, b) => b.nbClients - a.nbClients || b.caReseau - a.caReseau)
+      .sort((a, b) => b.totalCaOther - a.totalCaOther)
       .slice(0, 50);
 
     self.postMessage({
@@ -694,7 +702,9 @@ export function launchReseauWorker() {
         chalandiseMetierMap,
         clientsPerStore,
         articleClientsMap,
-        famLookup: FAMILLE_LOOKUP
+        famLookup: FAMILLE_LOOKUP,
+        crossAgenceMinCA: CROSS_AGENCE_MIN_CA,
+        crossAgenceMinBL: CROSS_AGENCE_MIN_BL
       });
     } catch (err) { reject(err); }
   });

@@ -2438,16 +2438,18 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       else badge.classList.add('hidden');
     }
     if (!list.length) {
-      el.innerHTML = '<p class="t-disabled text-sm p-4">Aucune donnée — nécessite un fichier multi-agences avec clients communs.</p>';
+      const isMulti = _S.storesIntersection && _S.storesIntersection.size > 1;
+      el.innerHTML = `<p class="t-disabled text-sm p-4">${isMulti ? 'Aucune opportunité cross-agence significative détectée sur la période.' : 'Aucune donnée — nécessite un fichier multi-agences avec clients communs.'}</p>`;
       return;
     }
-    let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par vos clients <strong>dans d'autres agences</strong> mais jamais chez vous — triés par nombre de clients concernés.</p>`;
+    let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par vos clients <strong>dans d'autres agences</strong> mais jamais chez vous — filtrés ≥ 150 € et ≥ 2 BL chez l'autre agence, triés par CA autre agence.</p>`;
     html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold sticky top-0"><tr>';
     html += '<th class="py-2 px-3 text-left">Code</th>';
     html += '<th class="py-2 px-3 text-left">Libellé</th>';
     html += '<th class="py-2 px-3 text-left">Famille</th>';
-    html += '<th class="py-2 px-3 text-center">Clients concernés</th>';
-    html += '<th class="py-2 px-3 text-right">CA réseau estimé</th>';
+    html += '<th class="py-2 px-3 text-center">Clients</th>';
+    html += '<th class="py-2 px-3 text-right">CA autre agence</th>';
+    html += '<th class="py-2 px-3 text-right">BL autre agence</th>';
     html += '</tr></thead><tbody>';
     for (const art of list) {
       const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
@@ -2456,7 +2458,8 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
       html += `<td class="py-1.5 px-3 font-semibold t-primary">${lib}</td>`;
       html += `<td class="py-1.5 px-3 t-tertiary text-[11px]">${art.fam || '—'}</td>`;
       html += `<td class="py-1.5 px-3 text-center font-extrabold c-danger">${art.nbClients}</td>`;
-      html += `<td class="py-1.5 px-3 text-right t-secondary">${art.caReseau > 0 ? formatEuro(art.caReseau) : '—'}</td>`;
+      html += `<td class="py-1.5 px-3 text-right font-bold c-caution">${art.totalCaOther > 0 ? formatEuro(art.totalCaOther) : '—'}</td>`;
+      html += `<td class="py-1.5 px-3 text-right t-secondary">${art.totalBLOther || '—'}</td>`;
       html += '</tr>';
     }
     html += '</tbody></table></div>';
