@@ -140,7 +140,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,famLib(r.famille)||'Autre']));
     const comData={};
     for(const[cc,info] of _S.chalandiseData.entries()){
-      const com=info.commercial||'⚠️ Sans commercial';
+      const com=info.commercial||'-';
       if(!comData[com])comData[com]={ca:0,actifs:0,perdus:0,prospects:0,familles:{}};
       const d=comData[com];
       if(_isProspect(info))d.prospects++;
@@ -154,41 +154,70 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(am)for(const[code,v] of am.entries()){const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
       }
     }
-    const comList=Object.entries(comData).filter(([,d])=>d.actifs+d.perdus+d.prospects>0).sort((a,b)=>b[1].ca-a[1].ca);
-    if(!comList.length){el.classList.add('hidden');return;}
+    // Separate unassigned ("-") from named commercials
+    const unassigned=comData['-'];
+    const mainList=Object.entries(comData).filter(([com,d])=>com!=='-'&&d.actifs+d.perdus+d.prospects>0).sort((a,b)=>b[1].ca-a[1].ca);
+    const totalCount=mainList.length+(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0)?1:0);
+    if(!totalCount){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
     const sel=_S._selectedCommercial;
     const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'}[canal]||canal):'';
-    let html=`<div class="s-card rounded-xl shadow-md border overflow-hidden mb-3">
-      <div class="flex items-center justify-between px-3 py-2 border-b s-card-alt">
-        <h3 class="font-extrabold t-primary text-xs">👤 Vue par commercial${canalLabel?` — <span class="c-action">${canalLabel}</span>`:''}</h3>
-        ${sel?`<button onclick="_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
-      </div>
-      <div class="overflow-x-auto"><table class="min-w-full text-xs">
-      <thead class="s-panel-inner t-inverse"><tr>
-        <th class="py-1.5 px-2 text-left">Commercial</th>
-        <th class="py-1.5 px-2 text-right">CA agence</th>
-        <th class="py-1.5 px-2 text-center">Actifs</th>
-        <th class="py-1.5 px-2 text-center">Perdus</th>
-        <th class="py-1.5 px-2 text-center">Prospects</th>
-        <th class="py-1.5 px-2 text-left">Top 3 familles</th>
-      </tr></thead><tbody>`;
-    for(const[com,d] of comList){
+    const PAGE=15;
+    const bodyId='commercialSummaryBody';
+    const isCollapsed=el.dataset.collapsed!=='0';
+    const showAll=el.dataset.showAll==='1';
+    const visibleMain=showAll?mainList:mainList.slice(0,PAGE);
+    function rowHtml(com,d,labelOverride){
       const top3=Object.entries(d.familles).filter(([,ca])=>ca>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f])=>f).join(' · ');
       const isRowSel=sel===com;
       const noResults=isRowSel&&d.ca===0&&d.actifs===0;
-      html+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter('${escapeHtml(com)}')">
-        <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(com)}${isRowSel?' ✓':''}</td>
+      const label=labelOverride||com;
+      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter('${escapeHtml(com)}')">
+        <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
         <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
         <td class="py-1.5 px-2 text-center ${d.actifs>0?'c-ok font-bold':'t-disabled'}">${d.actifs||'—'}</td>
         <td class="py-1.5 px-2 text-center ${d.perdus>0?'c-caution':'t-disabled'}">${d.perdus||'—'}</td>
         <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
         <td class="py-1.5 px-2 text-[10px] t-secondary max-w-[200px] truncate" title="${escapeHtml(top3)}">${top3||'—'}</td>
       </tr>`;
-      if(noResults)html+=`<tr><td colspan="6" class="py-2 px-3 text-[11px] c-danger font-semibold">⚠️ Aucun résultat pour <strong>${escapeHtml(sel)}</strong>${canalLabel?' sur canal '+canalLabel:''}.</td></tr>`;
+      if(noResults)r+=`<tr><td colspan="6" class="py-2 px-3 text-[11px] c-danger font-semibold">⚠️ Aucun résultat pour <strong>${escapeHtml(label)}</strong>${canalLabel?' sur canal '+canalLabel:''}.</td></tr>`;
+      return r;
     }
-    html+=`</tbody></table></div></div>`;
+    let rows='';
+    for(const[com,d] of visibleMain)rows+=rowHtml(com,d);
+    const remaining=mainList.length-PAGE;
+    if(!showAll&&remaining>0)rows+=`<tr><td colspan="6" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
+    if(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0))rows+=rowHtml('-',unassigned,'Non assigné');
+    let html=`<div class="s-card rounded-xl shadow-md border overflow-hidden mb-3">
+      <div class="flex items-center justify-between px-3 py-2 border-b s-card-alt cursor-pointer" onclick="_toggleCommercialSummary()">
+        <h3 class="font-extrabold t-primary text-xs flex items-center gap-1.5">
+          <span id="commercialSummaryArrow">${isCollapsed?'▶':'▼'}</span>
+          👤 Vue par commercial${canalLabel?` — <span class="c-action">${canalLabel}</span>`:''}
+          <span class="font-normal t-disabled">(${totalCount})</span>
+        </h3>
+        ${sel?`<button onclick="event.stopPropagation();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
+      </div>
+      <div id="${bodyId}" style="${isCollapsed?'display:none':''}">
+        <div class="overflow-x-auto"><table class="min-w-full text-xs">
+        <thead class="s-panel-inner t-inverse"><tr>
+          <th class="py-1.5 px-2 text-left">Commercial</th>
+          <th class="py-1.5 px-2 text-right">CA agence</th>
+          <th class="py-1.5 px-2 text-center">Actifs</th>
+          <th class="py-1.5 px-2 text-center">Perdus</th>
+          <th class="py-1.5 px-2 text-center">Prospects</th>
+          <th class="py-1.5 px-2 text-left">Top 3 familles</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+      </div>
+    </div>`;
     el.innerHTML=html;
+  }
+  function _toggleCommercialSummary(){
+    const el=document.getElementById('commercialSummaryBlock');if(!el)return;
+    const body=document.getElementById('commercialSummaryBody');const arrow=document.getElementById('commercialSummaryArrow');if(!body)return;
+    const isOpen=body.style.display!=='none';
+    body.style.display=isOpen?'none':'';
+    el.dataset.collapsed=isOpen?'1':'0';
+    if(arrow)arrow.textContent=isOpen?'▶':'▼';
   }
 
   function _buildChalandiseOverview(){
