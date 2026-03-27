@@ -59,8 +59,10 @@ _S.terrContribBySecteur = new Map();
 _S.terrContribByDirection = new Map();
 _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
-_S._selectedTerrCanal = ''; // '' | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS'
+_S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS'
+_S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
 _S.blCanalMap = new Map(); // BL → canal (built from consommé, passed to territoire worker)
+_S.articleCanalCA = new Map(); // [F1 fix] code → Map(canal → {ca, qteP, countBL}) — tous canaux, toutes agences filtrées
 
 // ── Agences par fichier (pour alerte stock mono-agence) ──
 _S.storeCountConsomme = 0; // nb agences détectées dans le consommé
@@ -220,7 +222,7 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._selectedTerrCanal = ''; _S.blCanalMap = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
   _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 

@@ -145,8 +145,6 @@ export function _terrWorker() {
     const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
     const blConsommeSet = new Set(blConsommeArr);
     const blCanalMapLocal = blCanalArr ? new Map(blCanalArr) : new Map();
-    console.log('[WORKER-IN] blCanalMapLocal.size:', blCanalMapLocal.size);
-    console.log('[WORKER-IN] sample BL lookup:', [...blCanalMapLocal.entries()].slice(0, 2));
     const clientsMagasin = new Set(clientsMagasinArr);
     const stockMap = new Map(stockArr.map(r => [r.code, r]));
     const sample = rows[0] || {};
@@ -161,8 +159,6 @@ export function _terrWorker() {
     const cCA = findCol('ca');
     if (!cArticle) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Article introuvable' }); return; }
     if (!cBL) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Numéro de BL introuvable' }); return; }
-    const testBL = (rows[0] ? rows[0][cBL] || '' : '').toString().trim();
-    console.log('[WORKER-IN] test BL:', testBL, '→ canal:', blCanalMapLocal.get(testBL), '| in blConsommeSet:', blConsommeSet.has(testBL));
     const lines = []; const dirSet = new Set(); const secteurSet = new Set(); const CHUNK = 2000; const total = rows.length;
     for (let ci = 0; ci < Math.ceil(total / CHUNK); ci++) {
       const start = ci * CHUNK, end = Math.min(start + CHUNK, total);
@@ -218,8 +214,6 @@ export function launchTerritoireWorker(rows, progressCb) {
     _S._activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
     const stockArr = _S.finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
     const _blCanalArr = [..._S.blCanalMap.entries()];
-    console.log('[WORKER-SEND] blCanalArr length:', _blCanalArr.length);
-    console.log('[WORKER-SEND] sample:', _blCanalArr.slice(0, 3));
     worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: _blCanalArr, clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
     worker.onmessage = function (ev) {
       const d = ev.data;

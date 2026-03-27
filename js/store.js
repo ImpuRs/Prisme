@@ -59,12 +59,18 @@ export const DataStore = {
     }
     // Fallback si appelé avant initialisation main.js (ex: tests unitaires)
     const _c = canal && canal !== 'ALL' ? canal : null;
+    const hasTerritoire = _S.territoireLines.length > 0;
     return {
       canal: _c || 'ALL',
       canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
       totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + (v.ca || 0), 0),
       terrLines: _c ? _S.territoireLines.filter(l => l.canal === _c) : _S.territoireLines,
+      articleFacts: !hasTerritoire ? _S.articleCanalCA : null,
       finalData: _S.finalData,
+      capabilities: {
+        hasTerritoire,
+        hasArticleFacts: _S.articleCanalCA.size > 0,
+      },
     };
   },
 };

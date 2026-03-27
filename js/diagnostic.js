@@ -365,9 +365,12 @@ function _sparkline(values,opts={}){
   return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="inline-block align-middle" style="overflow:visible"><polyline points="${points}" fill="none" stroke="var(--c-action)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${w}" cy="${(h-(lastVal/max)*(h-2)).toFixed(1)}" r="2" fill="var(--c-action)"/></svg><span class="text-[9px] ${trend} ml-1">${arrow}</span>`;
 }
 function _articleSparkline(code){
-  const months=_S.articleMonthlySales[code];
+  // [Feature A] Respecte _globalPeriodePreset — slicing délégué à main.js via window
+  const months=typeof window._getFilteredMonths==='function'?window._getFilteredMonths(code):_S.articleMonthlySales[code];
   if(!months||months.every(v=>v===0))return'';
-  return`<span class="inline-flex items-center gap-1 ml-2" title="Ventes mensuelles (J→D)">${_sparkline(months)}</span>`;
+  const preset=_S._globalPeriodePreset||'12M';
+  const label=preset==='YTD'?'YTD':preset==='6M'?'6 derniers mois':'J→D';
+  return`<span class="inline-flex items-center gap-1 ml-2" title="Ventes ${label}">${_sparkline(months)}</span>`;
 }
 function _familySparkline(famille){
   const idx=_S.seasonalIndex[famille];

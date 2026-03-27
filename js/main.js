@@ -129,6 +129,68 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const comList=document.getElementById('terrCommercialList');
     if(comInput&&comList){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${escapeHtml(c)}">`).join('');if(_S._selectedCommercial)comInput.value=_S._selectedCommercial;}
   }
+  // [Feature B] Vue par commercial — CA, actifs/perdus/prospects, top 3 familles
+  // Jointure à la volée : chalandiseData × ventesClientArticle (ou ventesClientHorsMagasin si canal hors-MAGASIN)
+  // Respecte _globalCanal (Feature C prérequis)
+  function _renderCommercialSummary(){
+    const el=document.getElementById('commercialSummaryBlock');if(!el)return;
+    if(!_S.chalandiseReady||!_S.clientsByCommercial.size){el.classList.add('hidden');return;}
+    const canal=_S._globalCanal||'';
+    const isHors=canal&&canal!=='MAGASIN';
+    const famMap=new Map(DataStore.finalData.map(r=>[r.code,famLib(r.famille)||'Autre']));
+    const comData={};
+    for(const[cc,info] of _S.chalandiseData.entries()){
+      const com=info.commercial||'⚠️ Sans commercial';
+      if(!comData[com])comData[com]={ca:0,actifs:0,perdus:0,prospects:0,familles:{}};
+      const d=comData[com];
+      if(_isProspect(info))d.prospects++;
+      else if(_isPerdu(info)&&!_isPDVActif(cc))d.perdus++;
+      else d.actifs++;
+      if(isHors){
+        const hm=_S.ventesClientHorsMagasin.get(cc);
+        if(hm)for(const[code,v] of hm.entries()){if(v.canal!==canal)continue;const ca=v.ca||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
+      }else{
+        const am=DataStore.ventesClientArticle.get(cc);
+        if(am)for(const[code,v] of am.entries()){const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
+      }
+    }
+    const comList=Object.entries(comData).filter(([,d])=>d.actifs+d.perdus+d.prospects>0).sort((a,b)=>b[1].ca-a[1].ca);
+    if(!comList.length){el.classList.add('hidden');return;}
+    el.classList.remove('hidden');
+    const sel=_S._selectedCommercial;
+    const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'}[canal]||canal):'';
+    let html=`<div class="s-card rounded-xl shadow-md border overflow-hidden mb-3">
+      <div class="flex items-center justify-between px-3 py-2 border-b s-card-alt">
+        <h3 class="font-extrabold t-primary text-xs">👤 Vue par commercial${canalLabel?` — <span class="c-action">${canalLabel}</span>`:''}</h3>
+        ${sel?`<button onclick="_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
+      </div>
+      <div class="overflow-x-auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse"><tr>
+        <th class="py-1.5 px-2 text-left">Commercial</th>
+        <th class="py-1.5 px-2 text-right">CA agence</th>
+        <th class="py-1.5 px-2 text-center">Actifs</th>
+        <th class="py-1.5 px-2 text-center">Perdus</th>
+        <th class="py-1.5 px-2 text-center">Prospects</th>
+        <th class="py-1.5 px-2 text-left">Top 3 familles</th>
+      </tr></thead><tbody>`;
+    for(const[com,d] of comList){
+      const top3=Object.entries(d.familles).filter(([,ca])=>ca>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f])=>f).join(' · ');
+      const isRowSel=sel===com;
+      const noResults=isRowSel&&d.ca===0&&d.actifs===0;
+      html+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter('${escapeHtml(com)}')">
+        <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(com)}${isRowSel?' ✓':''}</td>
+        <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.actifs>0?'c-ok font-bold':'t-disabled'}">${d.actifs||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.perdus>0?'c-caution':'t-disabled'}">${d.perdus||'—'}</td>
+        <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
+        <td class="py-1.5 px-2 text-[10px] t-secondary max-w-[200px] truncate" title="${escapeHtml(top3)}">${top3||'—'}</td>
+      </tr>`;
+      if(noResults)html+=`<tr><td colspan="6" class="py-2 px-3 text-[11px] c-danger font-semibold">⚠️ Aucun résultat pour <strong>${escapeHtml(sel)}</strong>${canalLabel?' sur canal '+canalLabel:''}.</td></tr>`;
+    }
+    html+=`</tbody></table></div></div>`;
+    el.innerHTML=html;
+  }
+
   function _buildChalandiseOverview(){
     const blk=document.getElementById('terrChalandiseOverview');
     if(!blk)return;
@@ -216,6 +278,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
     // Cockpit client
     _buildCockpitClient();
+    // [Feature B] Vue par commercial
+    _renderCommercialSummary();
   }
   // Level 2: Métiers for a Direction
   function _toggleOverviewL2(dirEnc,idx){
@@ -783,7 +847,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _today=new Date();
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
     // Canal global chip → source de données
-    const _terrCanalFilter=_S._selectedTerrCanal||'';
+    const _terrCanalFilter=_S._globalCanal||'';
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
     if(_isNonMagasin){
@@ -1397,7 +1461,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(canal){const _sk_canal=extractStoreCode(row)||'INCONNU';const _storeMatch=!_S.selectedMyStore||_sk_canal==='INCONNU'||_sk_canal===_S.selectedMyStore;if(_storeMatch){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();const _bl2=(getVal(row,'Numéro de BL','Numéro BL','N° BL')||'').toString().trim();if(nc2||_bl2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),blNums:new Set(),ca:0,caP:0,caE:0};if(nc2)_S.canalAgence[canal].bl.add(nc2);if(_bl2&&_bl2!==nc2)_S.canalAgence[canal].blNums.add(_bl2);}}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
-      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
+      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;
+      // [F1 fix] articleCanalCA — tous canaux, filtré par agence, construit ici dans la boucle existante
+      {const _cf1=cleanCode((getVal(row,'Article','Code')||'').toString());if(_cf1){const _qteP_acc=getQuantityColumn(row,'prél')||0;if(_caP3+_caE3>0||_qteP_acc>0){if(!_S.articleCanalCA.has(_cf1))_S.articleCanalCA.set(_cf1,new Map());const _acm=_S.articleCanalCA.get(_cf1);if(!_acm.has(canal))_acm.set(canal,{ca:0,qteP:0,countBL:0});const _ace=_acm.get(canal);_ace.ca+=_caP3+_caE3;_ace.qteP+=_qteP_acc;_ace.countBL++;}}}
+      }}
       // Accumulation CA tous canaux par client — avant le filtre canal (pour "Tous canaux" dans Top clients PDV)
       {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAP=getCaColumn(row,'prél')||0;const _caAE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const _caAT=_caAP+_caAE;const _qteAP=getQuantityColumn(row,'prél')||0;const _qteAE=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);if(_caAT>0||_qteAP>0||_qteAE>0){if(!_S.ventesClientArticle.has(_ccA))_S.ventesClientArticle.set(_ccA,new Map());const _amA=_S.ventesClientArticle.get(_ccA);if(!_amA.has(_codeA))_amA.set(_codeA,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});_amA.get(_codeA).sumCAAll+=_caAT;}}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
@@ -1443,17 +1510,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(data.bl instanceof Set){for(const bl of data.bl)_S.blCanalMap.set(bl, canal);}
         if(data.blNums instanceof Set){for(const bl of data.blNums)_S.blCanalMap.set(bl, canal);}
       }
-      console.log('[CANAL] blCanalMap size:', _S.blCanalMap.size, '| sample:', [..._S.blCanalMap.entries()].slice(0,3));
       // V24.4: convert _S.canalAgence bl sets to counts (blNums n'est pas affiché — supprimé)
       for(const c of Object.keys(_S.canalAgence)){_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;delete _S.canalAgence[c].blNums;}
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
-      // Debug — canaux hors MAGASIN
-      console.log('[HorsMagasin] ventesClientHorsMagasin size:', _S.ventesClientHorsMagasin.size);
-      console.log('[HorsMagasin] exemple clés:', [..._S.ventesClientHorsMagasin.keys()].slice(0, 5));
-      console.log('[HorsMagasin] canaux:', [..._S.cannauxHorsMagasin]);
       // Garde-fou canaux hors MAGASIN
       if(_S.cannauxHorsMagasin.size > 0) {
         const _labelsCanaux = {INTERNET:'🌐 Internet', REPRESENTANT:'🤝 Représentant', DCS:'🏢 DCS'};
@@ -1977,10 +2039,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
   function _setTerrGlobalCanalFilter(val){
-    console.log('[CANAL] filtre sélectionné:', val);
-    _S._selectedTerrCanal=val;
-    console.log('[CANAL] _S._selectedTerrCanal après set:', _S._selectedTerrCanal);
-    console.log('[CANAL] byCanal lines count:', DataStore.byCanal(val)?.terrLines?.length);
+    _S._globalCanal=val;
     renderTerritoireTab();
   }
 
@@ -1989,20 +2048,29 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
   function getKPIsByCanal(canal) {
     const _c = canal && canal !== 'ALL' ? canal : null;
+    const hasTerritoire = _S.territoireLines.length > 0;
+    const terrLines = _c ? DataStore.territoireLines.filter(l => l.canal === _c) : DataStore.territoireLines;
     return {
       canal: _c || 'ALL',
       // Stats canal depuis canalAgence (déjà agrégé au parsing, accès O(1))
       canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
       totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + v.ca, 0),
       // Lignes territoire filtrées par canal (dérivées de territoireLines, source brute conservée)
-      terrLines: _c ? DataStore.territoireLines.filter(l => l.canal === _c) : DataStore.territoireLines,
+      terrLines,
+      // [F1 fix] En mode dégradé (pas de fichier territoire), articleFacts fournit les CA canal
+      // depuis le consommé agence — source différente de territoireLines (agence ≠ omnicanal)
+      articleFacts: !hasTerritoire ? _S.articleCanalCA : null,
       // finalData est un invariant canal — jamais recalculé au changement de filtre
       finalData: DataStore.finalData,
+      // capabilities : permet aux consommateurs d'adapter leur rendu sans hardcoder des vérifications
+      capabilities: {
+        hasTerritoire,
+        hasArticleFacts: _S.articleCanalCA.size > 0,
+      },
     };
   }
 
   function renderTerritoireTab(){
-    console.log('[TERRAIN] render avec canal:', _S._selectedTerrCanal);
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
@@ -2017,12 +2085,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
     // Canal chip active state + warning — always updated regardless of data state
-    {const _cg=_S._selectedTerrCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    {const _cg=_S._globalCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
     const _cgId=_cg==='MAGASIN'?'terrGlobalCanalMag':_cg==='INTERNET'?'terrGlobalCanalNet':_cg==='REPRESENTANT'?'terrGlobalCanalRep':_cg==='DCS'?'terrGlobalCanalDcs':'terrGlobalCanalAll';
     const _cgEl=document.getElementById(_cgId);if(_cgEl)_cgEl.classList.add('active');
     const _cwEl=document.getElementById('terrCanalFilterWarn');
-    if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}}
+    if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}
+    // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
+    {const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
+    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&_kpi.capabilities.hasArticleFacts;_degBanner.classList.toggle('hidden',!_showBanner);}}}
 
 // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
@@ -2050,7 +2121,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _canalGlobal=_S._selectedTerrCanal||'';
+    const _canalGlobal=_S._globalCanal||'';
     const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
 
@@ -2090,9 +2161,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Canal-filtered stats for CA KPI + couverture rayon KPI
     // [Adapter Étape 5] — premier usage réel de DataStore.byCanal() comme API de dérivation
     const _linesForKPI=DataStore.byCanal(_canalGlobal).terrLines;
-    console.log('[TERRAIN] _linesForKPI length:', _linesForKPI?.length);
-    const _sample=_S.territoireLines.slice(0,3);
-    console.log('[TERR] sample lines:', _sample.map(l=>({bl:l.bl,canal:l.canal})));
     let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
     for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
@@ -2100,7 +2168,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const top100InStock=top100All.filter(a=>a.rayonStatus==='green').length;
     const pctCouverture=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
 
-    // Canal-filtered: special CA + clients — via getKPIsByCanal(_S._selectedTerrCanal)
+    // Canal-filtered: special CA + clients — via getKPIsByCanal(_S._globalCanal)
     // _linesForKPI already holds DataStore.byCanal(_canalGlobal).terrLines
     let specialCAFiltered=0;const _clientsKPI={};
     for(const l of _linesForKPI){if(l.isSpecial)specialCAFiltered+=l.ca;if(l.clientCode&&!_clientsKPI[l.clientCode])_clientsKPI[l.clientCode]={type:l.clientType};}
@@ -2261,7 +2329,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const selectedSecteurs=getSelectedSecteurs();
-    const _cg=_S._selectedTerrCanal||'';
+    const _cg=_S._globalCanal||'';
     const familles={};
     for(const l of DataStore.territoireLines){ // [Adapter Étape 5]
       if(_cg&&l.canal!==_cg)continue;
@@ -2304,7 +2372,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
-    const _cg=_S._selectedTerrCanal||'';
+    const _cg=_S._globalCanal||'';
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
@@ -2339,7 +2407,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
-    const _cg=_S._selectedTerrCanal||'';
+    const _cg=_S._globalCanal||'';
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
@@ -2370,7 +2438,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     statusFilter=statusFilter||'';
     const inner=document.getElementById(rowId+'-inner');if(!inner)return;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _cg=_S._selectedTerrCanal||'';
+    const _cg=_S._globalCanal||'';
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
@@ -2418,7 +2486,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const direction=decodeURIComponent(encDir),famille=decodeURIComponent(encFam);
     const LIMIT=50,newOff=offset+LIMIT;
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
-    const _cg=_S._selectedTerrCanal||'';
+    const _cg=_S._globalCanal||'';
     const artMap={};
     for(const l of DataStore.territoireLines){
       if(_cg&&l.canal!==_cg)continue;
@@ -2694,7 +2762,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const selectedSecteursCSV=getSelectedSecteurs();
-    const _canalGlobalExp=_S._selectedTerrCanal||'';
+    const _canalGlobalExp=_S._globalCanal||'';
     const filtered=DataStore.territoireLines.filter(l=>{
       if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
       if(filterDir&&l.direction!==filterDir)return false;
@@ -3304,6 +3372,119 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
   // ★ DASHBOARD + COCKPIT
   function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'t-tertiary':isGood?'c-ok':'c-danger';const bg=diff===0?'s-card-alt':isGood?'i-ok-bg':'i-danger-bg';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold t-secondary mb-1">'+m.label+'</p><p class="text-sm font-extrabold t-primary">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
 
+  // ── Feature D — Recommandations Saisonnières ──────────────────────────────
+  // Projection du mois courant depuis seasonalIndex (famille → [12 coefficients]).
+  // Zéro structure _S ajoutée — calcul au render uniquement.
+  // Les MIN/MAX réglementaires (ancienMin/nouveauMin) NE SONT PAS modifiés.
+  // [Feature A] Retourne les mois filtrés selon _globalPeriodePreset
+  // Utilisé par sparklines (diagnostic) et saisonnier widget
+  function _getFilteredMonths(code) {
+    const months = _S.articleMonthlySales[code];
+    if (!months) return null;
+    const preset = _S._globalPeriodePreset || '12M';
+    if (preset === '12M') return months;
+    const mois = new Date().getMonth();
+    if (preset === '6M') return Array.from({length: 6}, (_, i) => months[(mois - 5 + i + 12) % 12]);
+    if (preset === 'YTD') return months.slice(0, mois + 1);
+    return months;
+  }
+  window._getFilteredMonths = _getFilteredMonths;
+
+  function setPeriodePreset(val) {
+    _S._globalPeriodePreset = val || '12M';
+    ['12M','YTD','6M'].forEach(p => {
+      const el = document.getElementById('periodeChip' + p);
+      if (el) el.classList.toggle('active', p === _S._globalPeriodePreset);
+    });
+    const note = document.getElementById('saisonPeriodeNote');
+    if (note) note.classList.toggle('hidden', _S._globalPeriodePreset === '12M');
+    renderSaisonWidget();
+  }
+  window.setPeriodePreset = setPeriodePreset;
+
+  function _getSaisonCandidats() {
+    const mois = new Date().getMonth();
+    const candidats = [];
+    for (const r of DataStore.finalData) {
+      if (r.nouveauMin <= 0 || r.W < 1 || r.isParent) continue;
+      const coeff = _S.seasonalIndex[r.famille]?.[mois];
+      // Seulement les mois à forte saisonnalité (coeff > 1) — évite le bruit en basse saison
+      if (!coeff || coeff <= 1.05) continue;
+      const saisonMin = Math.ceil(r.nouveauMin * coeff);
+      if (r.stockActuel < saisonMin) {
+        const qteCde = saisonMin - r.stockActuel;
+        candidats.push({
+          code: r.code, libelle: r.libelle, famille: r.famille,
+          nouveauMin: r.nouveauMin, saisonMin,
+          stockActuel: r.stockActuel, coeff,
+          qteCde, vaEuro: qteCde * (r.prixUnitaire || 0),
+        });
+      }
+    }
+    candidats.sort((a, b) => b.vaEuro - a.vaEuro);
+    return candidats;
+  }
+
+  function renderSaisonWidget() {
+    const el = document.getElementById('saisonWidget');
+    if (!el) return;
+    const hasSeason = Object.keys(_S.seasonalIndex).length > 0;
+    if (!hasSeason) { el.classList.add('hidden'); return; }
+
+    const mois = new Date().getMonth();
+    const nomsMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const moisLbl = document.getElementById('saisonMoisLabel');
+    if (moisLbl) moisLbl.textContent = nomsMois[mois];
+
+    const candidats = _getSaisonCandidats();
+    const badge = document.getElementById('badgeSaison');
+    if (badge) badge.textContent = candidats.length;
+    el.classList.toggle('hidden', candidats.length === 0);
+
+    const tbody = document.getElementById('saisonTableBody');
+    if (!tbody) return;
+    if (candidats.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 t-disabled text-xs">Aucun article sous seuil saisonnier ce mois</td></tr>';
+      return;
+    }
+    tbody.innerHTML = candidats.slice(0, 30).map(r => {
+      const coeffPct = '+' + Math.round((r.coeff - 1) * 100) + '%';
+      return `<tr class="hover:bg-amber-50 text-xs">
+        <td class="py-2 px-2 font-mono text-[11px]">${escapeHtml(r.code)}</td>
+        <td class="py-2 px-2 truncate max-w-[180px]" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</td>
+        <td class="py-2 px-2 text-center t-secondary">${r.stockActuel}</td>
+        <td class="py-2 px-2 text-center font-bold text-amber-700">${r.saisonMin} <span class="text-[9px] font-normal text-amber-500">(${coeffPct})</span></td>
+        <td class="py-2 px-2 text-center font-bold text-amber-600">+${r.qteCde}</td>
+        <td class="py-2 px-2 text-right font-bold">${r.vaEuro > 0 ? formatEuro(r.vaEuro) : '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function exportSaisonCSV() {
+    if (!Object.keys(_S.seasonalIndex).length) return;
+    const mois = new Date().getMonth();
+    const nomsMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const candidats = _getSaisonCandidats();
+    if (!candidats.length) { showToast('Aucun article à exporter', 'info'); return; }
+    const SEP = ';';
+    const header = ['Code','Libellé','Famille','Stock actuel','MIN annuel','Seuil saisonnier','Coefficient','À commander','Valeur estimée (€)'];
+    const rows = candidats.map(r => [
+      r.code, `"${r.libelle.replace(/"/g, '""')}"`, `"${r.famille}"`,
+      r.stockActuel, r.nouveauMin, r.saisonMin,
+      r.coeff.toFixed(2), r.qteCde,
+      r.vaEuro.toFixed(2).replace('.', ','),
+    ]);
+    const csv = '\uFEFF' + [header, ...rows].map(r => r.join(SEP)).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `PRISME_Saison_${nomsMois[mois]}_${_S.selectedMyStore || 'agence'}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
     const nbClientsPDV=_S.clientsMagasin.size;
@@ -3442,6 +3623,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     })();
 
     renderCockpitEquation();
+    // Feature D — Préconisation saisonnière (projection du mois courant, zéro structure _S)
+    renderSaisonWidget();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
     // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
@@ -3877,6 +4060,7 @@ window.onChalandiseSelected = async function(input) {
     renderBenchmark();
   }
 };
+window.exportSaisonCSV = exportSaisonCSV;
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;

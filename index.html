@@ -1176,6 +1176,53 @@
         </div>
       </div>
 
+      <!-- 🌱 Feature D — Préconisation Saisonnière (widget distinct des MIN/MAX réglementaires) -->
+      <div id="saisonWidget" class="mb-10 hidden">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h2 class="text-xl font-extrabold text-amber-700 uppercase flex items-center gap-2">
+            🌱 Préconisation du mois
+            <span id="badgeSaison" class="badge bg-amber-500 text-white"></span>
+          </h2>
+          <!-- [Feature A] Filtre période — affecte sparklines tendance + seuil saisonnier -->
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] text-amber-700 font-bold mr-1">Période :</span>
+            <button id="periodeChip12M" class="terr-canal-chip active" style="--chip-color:#d97706" onclick="setPeriodePreset('12M')">12 mois</button>
+            <button id="periodeChipYTD" class="terr-canal-chip" style="--chip-color:#d97706" onclick="setPeriodePreset('YTD')">Depuis janv.</button>
+            <button id="periodeChip6M" class="terr-canal-chip" style="--chip-color:#d97706" onclick="setPeriodePreset('6M')">6 mois</button>
+          </div>
+        </div>
+        <p class="text-[11px] text-amber-600 mb-1 italic">
+          Indicatif uniquement — stock sous le seuil saisonnier pour ce mois. Les MIN/MAX réglementaires (ERP) ne changent pas.
+        </p>
+        <p id="saisonPeriodeNote" class="hidden text-[11px] text-orange-600 font-semibold mb-3">⚠️ MIN/MAX non recalculés sur cette période — la période filtre uniquement les graphiques de tendance.</p>
+        <div class="bg-amber-50 p-5 rounded-xl border-t-4 border-amber-400">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-amber-800 flex items-center gap-1">
+              📅 <span id="saisonMoisLabel"></span> — Articles sous seuil saisonnier
+              <em class="info-tip" data-tip="saisonMin = MIN annuel × coefficient saisonnier du mois. Coefficient calculé depuis l'historique de ventes du fichier Consommé.">ℹ</em>
+            </h3>
+            <button onclick="exportSaisonCSV()" class="text-[11px] bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded hover:bg-amber-300 transition-colors">
+              ⬇️ Export CSV
+            </button>
+          </div>
+          <div class="list-scroll">
+            <table class="min-w-full text-xs">
+              <thead class="bg-amber-100 text-amber-800 sticky top-0">
+                <tr>
+                  <th class="py-2 px-2 text-left">Code</th>
+                  <th class="py-2 px-2 text-left">Libellé</th>
+                  <th class="py-2 px-2 text-center">Stock</th>
+                  <th class="py-2 px-2 text-center">Seuil mois <em class="info-tip" data-tip="MIN × coeff. saison">ℹ</em></th>
+                  <th class="py-2 px-2 text-center">À commander</th>
+                  <th class="py-2 px-2 text-right">Valeur est.</th>
+                </tr>
+              </thead>
+              <tbody id="saisonTableBody" class="divide-y divide-amber-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Hidden elements kept for JS compatibility (cockpitLists sets still populated for filter) -->
       <div class="hidden" aria-hidden="true">
         <table><tbody id="actionFantomes"></tbody></table>
@@ -1296,6 +1343,15 @@
           </div>
         </div>
         <div id="canalAgenceBlock" class="p-3"></div>
+      </div>
+
+      <!-- [Feature C] Bandeau dégradé canal : filtre canal actif mais pas de BL Territoire -->
+      <div id="canalDegradedBanner" class="hidden mb-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-xl flex items-start gap-2.5">
+        <span class="text-xl flex-shrink-0 mt-0.5">📊</span>
+        <div>
+          <p class="text-amber-800 font-bold text-sm">Source : ventes agence uniquement</p>
+          <p class="text-amber-700 text-[11px] mt-0.5">Les données affichées proviennent du consommé agence uniquement. Chargez <strong>Le Terrain</strong> (BL omnicanal Qlik) pour voir les ventes hors agence sur ce canal.</p>
+        </div>
       </div>
 
       <div id="terrFamilleCanal" class="mb-4"></div>
@@ -1420,6 +1476,9 @@
             </table>
           </div>
         </div>
+
+        <!-- [Feature B] Vue par commercial -->
+        <div id="commercialSummaryBlock" class="hidden mt-2 mx-2"></div>
 
         <!-- 10. Territoire en un coup d'oeil (Zone de Chalandise) -->
         <div id="terrChalandiseOverview" class="hidden mt-2 mx-2 mb-1.5">
