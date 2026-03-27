@@ -50,6 +50,7 @@ _S.abcMatrixData = {};
 _S.canalAgence = {};
 _S.blConsommeSet = new Set();
 _S.clientsMagasin = new Set();
+_S.clientsMagasinFreq = new Map(); // Map<clientCode, nbBL> — fréquence MAGASIN par client
 _S.territoireLines = [];
 _S.territoireReady = false;
 _S.terrDirectionData = {};
@@ -198,7 +199,7 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.clientsMagasin = new Set();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
   _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
