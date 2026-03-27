@@ -10,7 +10,7 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
@@ -787,7 +787,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
       if(ca<=0)continue;
       const nom=_S.clientNomLookup[cc]||cc;
-      if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+      if(qClient&&!matchQuery(qClient,cc,nom))continue;
       silencieux.push({cc,nom,ca,d});
     }
     silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
@@ -797,7 +797,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
       if(ca<=0)continue;
       const nom=_S.clientNomLookup[cc]||cc;
-      if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+      if(qClient&&!matchQuery(qClient,cc,nom))continue;
       topClients.push({cc,nom,ca,nbArts:artMap.size});
     }
     topClients.sort((a,b)=>b.ca-a.ca);
@@ -810,7 +810,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
         for(const cc of buyers){
           const nom=_S.clientNomLookup[cc]||cc;
-          if(qClient&&!cc.toLowerCase().includes(qClient)&&!nom.toLowerCase().includes(qClient))continue;
+          if(qClient&&!matchQuery(qClient,cc,nom))continue;
           const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
           if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
           const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
@@ -873,7 +873,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _today=new Date();
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info))continue;
-      if(_qClient&&!cc.toLowerCase().includes(_qClient)&&!(info.nom||'').toLowerCase().includes(_qClient))continue;
+      if(_qClient&&!matchQuery(_qClient,cc,info.nom||''))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
@@ -901,7 +901,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_qClient){
       const srList=[];const srSeen=new Set();
       for(const[cc,info] of _S.chalandiseData.entries()){
-        if(!cc.toLowerCase().includes(_qClient)&&!(info.nom||'').toLowerCase().includes(_qClient))continue;
+        if(!matchQuery(_qClient,cc,info.nom||''))continue;
         srSeen.add(cc);
         const artData=_S.ventesClientArticle.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
@@ -909,7 +909,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       for(const[cc,nom] of Object.entries(_S.clientNomLookup)){
         if(srSeen.has(cc))continue;
-        if(!cc.toLowerCase().includes(_qClient)&&!(nom||'').toLowerCase().includes(_qClient))continue;
+        if(!matchQuery(_qClient,cc,nom||''))continue;
         const artData=_S.ventesClientArticle.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         srList.push({code:cc,nom:nom||'',metier:'',statut:'',classification:'',commercial:'',ville:'',ca2025:0,caPDVN});
@@ -2010,7 +2010,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
       if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
-      if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))return false;}
+      if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
       return true;
     });
 
@@ -2113,7 +2113,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(l.direction!==direction)continue;
       if(filterRayon&&l.rayonStatus!==filterRayon)continue;
       if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))continue;
-      if(q){const h=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h.includes(q.toLowerCase()))continue;}
+      if(q&&!matchQuery(q,l.code,l.libelle,l.direction))continue;
       const famKey=l.famille||'';
       if(!familles[famKey])familles[famKey]={caTotal:0,nb:new Set()};
       familles[famKey].caTotal+=l.ca;familles[famKey].nb.add(l.code);
@@ -2534,7 +2534,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
       if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
-      if(q){const h2=(l.code+' '+l.libelle+' '+l.direction).toLowerCase();if(!h2.includes(q.toLowerCase()))return false;}
+      if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
       return true;
     });
     const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
@@ -2546,10 +2546,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
-    const{missed,under,over,storePerf,familyPerf}=_S.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').toLowerCase().trim();
+    const{missed,under,over,storePerf,familyPerf}=_S.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
     renderObservatoire();
-const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
+const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=fl(under),fO=fl(over);
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeUnder',fU.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Detail tables (elements removed from DOM — render only if still present)
@@ -3023,18 +3023,18 @@ const fl=l=>q?l.filter(x=>(x.code+' '+x.lib).toLowerCase().includes(q)):l;const 
   }
 
   function renderObsArticleSearch(){
-    const q=(document.getElementById('obsArtSearch')?.value||'').toLowerCase().trim();
+    const q=(document.getElementById('obsArtSearch')?.value||'').trim();
     const res=document.getElementById('obsArtSearchResult');if(!res)return;
     if(!q){res.innerHTML='';return;}
     const{missed,under,over}=_S.benchLists;const rows=[];
-    for(const m of(missed||[])){if((m.code+' '+m.lib).toLowerCase().includes(q)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
-    for(const u of(under||[])){if((u.code+' '+u.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-caution-bg cursor-pointer" onclick="openArticlePanel('${u.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${u.code}</span><span class="flex-1 text-xs min-w-0">${u.lib}</span><span class="badge bg-amber-500 text-white text-[9px] shrink-0">📉 Sous-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${u.myQte} · Méd: ${u.avg} · ${(u.ratio*100).toFixed(0)}%</span></div>`);}}
-    for(const o of(over||[])){if((o.code+' '+o.lib).toLowerCase().includes(q)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
+    for(const m of(missed||[])){if(matchQuery(q,m.code,m.lib)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
+    for(const u of(under||[])){if(matchQuery(q,u.code,u.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-caution-bg cursor-pointer" onclick="openArticlePanel('${u.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${u.code}</span><span class="flex-1 text-xs min-w-0">${u.lib}</span><span class="badge bg-amber-500 text-white text-[9px] shrink-0">📉 Sous-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${u.myQte} · Méd: ${u.avg} · ${(u.ratio*100).toFixed(0)}%</span></div>`);}}
+    for(const o of(over||[])){if(matchQuery(q,o.code,o.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
     if(!rows.length){
       const agenceData={};
       for(const[store,arts]of Object.entries(_S.ventesParMagasin||{})){
         for(const[code,data]of Object.entries(arts)){
-          if(!(code+' '+(_S.libelleLookup[code]||'')).toLowerCase().includes(q))continue;
+          if(!matchQuery(q,code,_S.libelleLookup[code]||''))continue;
           if(!agenceData[code])agenceData[code]={lib:_S.libelleLookup[code]||code,agences:[]};
           agenceData[code].agences.push({store,countBL:data.countBL||0});
         }
