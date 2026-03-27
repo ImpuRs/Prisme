@@ -100,9 +100,19 @@ _S._selectedCommercial = '';
 _S._selectedMetier = '';
 _S._filterStrategiqueOnly = false;
 
+/**
+ * @typedef {Object} ClientArticleFact
+ * @property {number} sumPrelevee    - Quantité prélevée (prél uniquement)
+ * @property {number} sumCAPrelevee  - CA sur quantités prélevées
+ * @property {number} sumCA          - CA total (prél + enlev)
+ * @property {number} [sumCAAll]     - CA tous canaux (ventesClientArticle uniquement)
+ * @property {number} countBL        - Nb BL distincts
+ * @property {string} [canal]        - Canal source (ventesClientHorsMagasin uniquement)
+ */
 // ── Client data ──
+// Achats comptoir : cc → Map(codeArticle → ClientArticleFact) — myStore, canal MAGASIN uniquement
 _S.ventesClientArticle = new Map();
-// Canaux hors MAGASIN : cc → Map(codeArticle → { canal, ca, count })
+// Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesClientHorsMagasin = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
 _S.cannauxHorsMagasin = new Set();
@@ -341,4 +351,15 @@ export function assertPostParseInvariants() {
   const _broken = _S.finalData.filter(r => typeof r.V !== 'number' || typeof r.W !== 'number').length;
   console.assert(_broken === 0,
     '[PRISME] ' + _broken + ' articles avec V ou W non-numériques dans finalData');
+
+  // Invariant 6 : ventesClientHorsMagasin utilise le schéma ClientArticleFact (sumCA, pas ca)
+  // Si un entry contient encore l'ancien champ 'ca', la migration étape 2 n'a pas été appliquée.
+  if (_S.ventesClientHorsMagasin.size > 0) {
+    const _first = _S.ventesClientHorsMagasin.values().next().value;
+    if (_first?.size > 0) {
+      const _firstVal = _first.values().next().value;
+      console.assert(typeof _firstVal?.sumCA === 'number',
+        '[PRISME] ventesClientHorsMagasin utilise encore l\'ancien schema {ca} — migration étape 2 requise');
+    }
+  }
 }

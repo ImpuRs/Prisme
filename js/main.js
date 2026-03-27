@@ -149,7 +149,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       else d.actifs++;
       if(isHors){
         const hm=_S.ventesClientHorsMagasin.get(cc);
-        if(hm)for(const[code,v] of hm.entries()){if(v.canal!==canal)continue;const ca=v.ca||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
+        if(hm)for(const[code,v] of hm.entries()){if(v.canal!==canal)continue;const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
       }else{
         const am=DataStore.ventesClientArticle.get(cc);
         if(am)for(const[code,v] of am.entries()){const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
@@ -875,14 +875,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
     if(_isNonMagasin){
-      // Canaux hors MAGASIN : utiliser ventesClientHorsMagasin directement (v.ca = total non-MAGASIN)
+      // Canaux hors MAGASIN : utiliser ventesClientHorsMagasin directement (v.sumCA = total non-MAGASIN)
       // Ne pas filtrer par articleCanalCA — ce filtre pouvait vider _clientArtMap si articleCanalCA
       // n'était pas peuplé (ex. lignes sans N° commande), ce qui faisait disparaître tout le bloc.
       _clientArtMap=new Map();
       for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
         const filtered=new Map();
         for(const[artCode,v] of artMap.entries()){
-          if(v.ca>0)filtered.set(artCode,{sumCA:v.ca,sumCAPrelevee:0,sumCAAll:v.ca,sumPrelevee:0,countBL:0});
+          if(v.sumCA>0)filtered.set(artCode,{sumCA:v.sumCA,sumCAPrelevee:v.sumCAPrelevee||0,sumCAAll:v.sumCA,sumPrelevee:v.sumPrelevee||0,countBL:v.countBL||0});
         }
         if(filtered.size>0)_clientArtMap.set(cc,filtered);
       }
@@ -1323,7 +1323,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const magasinArts = DataStore.ventesClientArticle.get(cc) || new Map();
 
     let rows = '';
-    for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].ca - a[1].ca)) {
+    for (const [code, data] of [...artMap.entries()].sort((a,b) => b[1].sumCA - a[1].sumCA)) {
       const lib = (_S.libelleLookup[code] || code).replace(/^\d{6} - /, '');
       const dejaVendu = magasinArts.has(code);
       const canalLabel = CANAL_LABELS[data.canal] || data.canal;
@@ -1331,7 +1331,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         <td class="py-1 px-2 font-mono text-[10px] t-tertiary">${code}</td>
         <td class="py-1 px-2 text-[11px] font-semibold">${lib}</td>
         <td class="py-1 px-2 text-[10px]">${canalLabel}</td>
-        <td class="py-1 px-2 text-right text-[11px] font-bold ${data.ca > 0 ? 'c-action' : 't-disabled'}">${data.ca > 0 ? formatEuro(data.ca) : '—'}</td>
+        <td class="py-1 px-2 text-right text-[11px] font-bold ${data.sumCA > 0 ? 'c-action' : 't-disabled'}">${data.sumCA > 0 ? formatEuro(data.sumCA) : '—'}</td>
         <td class="py-1 px-2 text-center text-[10px] ${dejaVendu ? 'c-ok' : 'c-caution'}">${dejaVendu ? '✅ En agence' : '⚠️ Pas en agence'}</td>
       </tr>`;
     }
@@ -1508,7 +1508,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAP=getCaColumn(row,'prél')||0;const _caAE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const _caAT=_caAP+_caAE;const _qteAP=getQuantityColumn(row,'prél')||0;const _qteAE=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);if(_caAT>0||_qteAP>0||_qteAE>0){if(!_S.ventesClientArticle.has(_ccA))_S.ventesClientArticle.set(_ccA,new Map());const _amA=_S.ventesClientArticle.get(_ccA);if(!_amA.has(_codeA))_amA.set(_codeA,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});_amA.get(_codeA).sumCAAll+=_caAT;}}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
-        if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{ca:0,qte:0,canal};ex.ca+=caLigne;ex.qte+=qteLigne;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
+        if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
         continue;
       }
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
@@ -1527,7 +1527,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim()||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
       // _S.clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
       if(cc2&&!_S.clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)_S.clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
-      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;e.countBL++;}
+      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;e.countBL++;}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));}
       if(cc2&&dateV&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const prev=_S.clientLastOrder.get(cc2);if(!prev||dateV>prev)_S.clientLastOrder.set(cc2,dateV);}
@@ -1671,7 +1671,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           for (const [code, data] of artMap.entries()) {
             if (!_S.caByArticleCanal.has(code)) _S.caByArticleCanal.set(code, {});
             const entry = _S.caByArticleCanal.get(code);
-            entry[data.canal] = (entry[data.canal] || 0) + data.ca;
+            entry[data.canal] = (entry[data.canal] || 0) + data.sumCA;
           }
         }
         for (const r of DataStore.finalData) {
