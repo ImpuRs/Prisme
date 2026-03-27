@@ -1531,7 +1531,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       html+=`<tr class="border-b b-light cursor-pointer transition-colors hover:s-card-alt ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
-      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
+      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label} <span id="canalChev_${canal}" class="text-[10px] font-normal t-disabled ml-1 inline-block transition-transform" style="${isOpen?'transform:rotate(90deg)':''}">▶</span></td>`;
       html+=prevCell;
       html+=enlevCell;
       html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
@@ -1555,16 +1555,35 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function openCanalDrill(canal){
-    if(_canalDrillOpen===canal){_canalDrillOpen=null;const p=document.getElementById('canalDrillPanel');if(p){p.innerHTML='';p.classList.add('hidden');}renderCanalAgence();return;}
+    const p=document.getElementById('canalDrillPanel');
+    // Fermer le chevron précédent
+    if(_canalDrillOpen&&_canalDrillOpen!==canal){
+      const prevChev=document.getElementById('canalChev_'+_canalDrillOpen);
+      if(prevChev)prevChev.style.transform='';
+    }
+    // Toggle : referme si même canal
+    if(_canalDrillOpen===canal&&p&&p.classList.contains('open')){
+      p.classList.remove('open');p.innerHTML='';
+      const chev=document.getElementById('canalChev_'+canal);
+      if(chev)chev.style.transform='';
+      _canalDrillOpen=null;
+      return;
+    }
+    // Ouvrir
     _canalDrillOpen=canal;
-    renderCanalAgence(); // refresh table to update chevron state
+    const chev=document.getElementById('canalChev_'+canal);
+    if(chev)chev.style.transform='rotate(90deg)';
     _renderCanalDrill(canal);
   }
 
   function closeCanalDrill(){
+    const p=document.getElementById('canalDrillPanel');
+    if(p){p.classList.remove('open');p.innerHTML='';}
+    if(_canalDrillOpen){
+      const chev=document.getElementById('canalChev_'+_canalDrillOpen);
+      if(chev)chev.style.transform='';
+    }
     _canalDrillOpen=null;
-    const p=document.getElementById('canalDrillPanel');if(p){p.innerHTML='';p.classList.add('hidden');}
-    renderCanalAgence();
   }
 
   function _canalFamData(canal){
@@ -1654,8 +1673,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       </div>
       ${body}
     </div>`;
+    const wasOpen=el.classList.contains('open');
     el.innerHTML=html;
-    el.classList.remove('hidden');
+    el.classList.add('open');
+    if(!wasOpen)el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 
   function exportCanalDrillCSV(canal){
