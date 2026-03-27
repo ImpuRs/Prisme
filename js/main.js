@@ -1073,14 +1073,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   window.exportTop5CSV=exportTop5CSV;
   function _setCrossFilter(status){
     _S._selectedCrossStatus=status;
-    const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte',btnCrossFidelespdv:'fidelespdv'};
+    const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
     for(const[id,val] of Object.entries(map)){
       const btn=document.getElementById(id);if(!btn)continue;
       const active=val===status;
-      const isFidelespdv=id==='btnCrossFidelespdv';
       btn.classList.toggle('s-panel-inner',active);btn.classList.toggle('text-white',active);btn.classList.toggle('b-dark',active);
       btn.classList.toggle('s-card',!active);btn.classList.toggle('b-default',!active);
-      if(isFidelespdv){btn.classList.toggle('text-blue-600',!active);}else{btn.classList.toggle('t-primary',!active);}
+      btn.classList.toggle('t-primary',!active);
     }
     _buildChalandiseOverview();
   }
@@ -1938,7 +1937,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
-    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));_sv('terrSumFidelespdv',(_S.crossingStats.fidelespdv?.size||0).toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);_sh('terrSumSubFidelespdv',hasCross&&(_S.crossingStats.fidelespdv?.size||0)>0);const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!hasCross);}
+    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!hasCross);}
     if(!hasData&&!hasTerr&&!hasChal)return;
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
