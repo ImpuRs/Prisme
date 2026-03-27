@@ -177,7 +177,7 @@ function _renderClient360(clientCode,source){
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
   if(oppArts.length)tabs.push({id:'opport',label:`💡 Opportunités — ${oppArts.length}`});
 
-  const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Comptoir'};
+  const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
 
   let tabsHtml='';
   if(tabs.length){
