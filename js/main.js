@@ -1951,7 +1951,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
-  function _setTerrGlobalCanalFilter(val){_S._selectedTerrCanal=val;renderTerritoireTab();}
+  function _setTerrGlobalCanalFilter(val){
+    console.log('[CANAL] filtre sélectionné:', val);
+    _S._selectedTerrCanal=val;
+    console.log('[CANAL] _S._selectedTerrCanal après set:', _S._selectedTerrCanal);
+    console.log('[CANAL] byCanal lines count:', DataStore.byCanal(val)?.terrLines?.length);
+    renderTerritoireTab();
+  }
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
   // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
@@ -1971,6 +1977,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function renderTerritoireTab(){
+    console.log('[TERRAIN] render avec canal:', _S._selectedTerrCanal);
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
@@ -2058,6 +2065,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Canal-filtered stats for CA KPI + couverture rayon KPI
     // [Adapter Étape 5] — premier usage réel de DataStore.byCanal() comme API de dérivation
     const _linesForKPI=DataStore.byCanal(_canalGlobal).terrLines;
+    console.log('[TERRAIN] _linesForKPI length:', _linesForKPI?.length);
     let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
     for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
