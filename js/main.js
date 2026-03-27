@@ -903,6 +903,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
     }
     // Top clients — canal PDV (désactivé si canal non-MAGASIN sélectionné)
+    if(_isNonMagasin&&_S.pdvCanalFilter==='preleve')_S.pdvCanalFilter='all';
     const _pdvFilter=_isNonMagasin?'all':(_S.pdvCanalFilter||'all');
     const _canalLabel={INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _pdvLabel=_isNonMagasin?`CA ${_canalLabel[_terrCanalFilter]||_terrCanalFilter}`:(_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total');
@@ -927,7 +928,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     if(topClients.length){
       const _detailsOpen=document.querySelector('#terrDegradedBlock details.s-card')?.open??true;
-      const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']].map(([v,l])=>{const a=_pdvFilter===v;return`<button class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold cursor-pointer${a?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default'}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`;}).join('')}</div>`;
+      const _pdvButtons=_isNonMagasin?[['all','Tous canaux'],['magasin','Magasin']]:[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']];
+      const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${_pdvButtons.map(([v,l])=>{const a=_pdvFilter===v;return`<button class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold cursor-pointer${a?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default'}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`;}).join('')}</div>`;
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
       const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">${_pdvLabel}</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       if(hasChal){
@@ -1717,11 +1719,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const _webDisplayCA=v=>Math.max(0,v.caE||0);
-    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
-    if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
+    const _activeCanal=_S._globalCanal||'';
+    const allEntries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
+    const entries=_activeCanal?allEntries.filter(([c])=>c===_activeCanal):allEntries;
+    if(!entries.length&&!_activeCanal){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
+    if(!entries.length){el.innerHTML=`<p class="t-disabled text-sm p-4">Aucune donnée pour le canal ${CANAL_LABELS[_activeCanal]||_activeCanal}.</p>`;if(wrapper)wrapper.classList.remove('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
     const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
-    let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
+    const _canalFilterSubtitle=_activeCanal?`<p class="text-[10px] t-tertiary px-3 pb-1">Filtré sur canal <strong>${CANAL_LABELS[_activeCanal]||_activeCanal}</strong></p>`:'';
+    let html=`${_canalFilterSubtitle}<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>`;
     html+='<th class="py-2 px-3 text-left">Canal</th>';
     html+='<th class="py-2 px-3 text-right">Prélevé</th>';
     html+='<th class="py-2 px-3 text-right">Enlevé</th>';
