@@ -778,7 +778,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(_S.finalData.map(r=>[r.code,r.famille]));
-    const ruptureArts=_S.finalData.filter(r=>r.stockActuel<=0&&r.W>=3);
     // Silencieux >30j
     const silencieux=[];
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
@@ -801,24 +800,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       topClients.push({cc,nom,ca,nbArts:artMap.size});
     }
     topClients.sort((a,b)=>b.ca-a.ca);
-    // Clients impactés par ruptures — via _S.articleClients (article→clients, sans filtre store)
-    const rupClients=[];
-    if(ruptureArts.length){
-      const clientRupMap=new Map();
-      for(const art of ruptureArts){
-        if(selFam&&famMap.get(art.code)!==selFam)continue;
-        const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
-        for(const cc of buyers){
-          const nom=_S.clientNomLookup[cc]||cc;
-          if(qClient&&!matchQuery(qClient,cc,nom))continue;
-          const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
-          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
-          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
-        }
-      }
-      rupClients.push(...clientRupMap.values());
-      rupClients.sort((a,b)=>b.caRup-a.caRup);
-    }
     const hasChal=_S.chalandiseReady;
     const silSet=new Set(silencieux.map(c=>c.cc));
     const banner=`<div class="mb-3 p-3 i-caution-bg border b-light rounded-lg text-xs c-caution">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
@@ -826,15 +807,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(!hasChal&&silencieux.length){
       const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'c-danger':c.d>60?'c-caution':'c-caution';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="i-danger-bg rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
-    }
-    if(rupClients.length){
-      const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
-      const _rupTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
-      if(hasChal){
-        html+=`<details class="i-caution-bg rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b b-light cursor-pointer list-none"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_rupTable}</details>`;
-      } else {
-        html+=`<div class="i-caution-bg rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div>${_rupTable}</div>`;
-      }
     }
     if(topClients.length){
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
@@ -3289,6 +3261,31 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     generateDecisionQueue();
     renderCockpitBriefing();
     renderDecisionQueue();
+    renderCockpitRupClients();
+  }
+
+  function renderCockpitRupClients(){
+    const el=document.getElementById('cockpitRupClients');if(!el)return;
+    const ruptureArts=_S.finalData.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
+    const rupClients=[];
+    if(ruptureArts.length){
+      const clientRupMap=new Map();
+      for(const art of ruptureArts){
+        const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
+        for(const cc of buyers){
+          const nom=_S.clientNomLookup[cc]||cc;
+          const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
+          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
+          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
+        }
+      }
+      rupClients.push(...clientRupMap.values());
+      rupClients.sort((a,b)=>b.caRup-a.caRup);
+    }
+    if(!rupClients.length){el.innerHTML='';return;}
+    const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
+    const _rupTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
+    el.innerHTML=`<details class="i-caution-bg rounded-xl border-t-4 border-orange-400 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b b-light cursor-pointer list-none"><span>🔴</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_rupTable}</details>`;
   }
 
   // ★ BADGES FILTRES ACTIFS
