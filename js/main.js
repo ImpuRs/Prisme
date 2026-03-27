@@ -1720,8 +1720,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const _webDisplayCA=v=>Math.max(0,v.caE||0);
     const _activeCanal=_S._globalCanal||'';
-    // La répartition n'a de sens qu'en vue tous canaux
-    if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
+    if(_activeCanal){
+      // Filtre canal actif : afficher une synthèse à la place du tableau
+      if(wrapper)wrapper.classList.remove('hidden');
+      const _cgLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
+      const _cgLabel=_cgLabels[_activeCanal]||_activeCanal;
+      const _data=_S.canalAgence[_activeCanal];
+      const _dispCA=_activeCanal!=='MAGASIN'?_webDisplayCA(_data||{}):(_data?.ca||0);
+      el.innerHTML=`<div class="p-3 flex items-center gap-3"><div class="flex-1"><p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Canal filtré : ${_cgLabel}</p><p class="text-xl font-extrabold c-action mt-0.5">${formatEuro(_dispCA)}</p></div><button class="text-[10px] t-disabled underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></div>`;
+      return;
+    }
     const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
