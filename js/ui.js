@@ -680,9 +680,9 @@ export function renderCockpitBriefing() {
     const srNum = parseFloat(sr);
     const srCls = srNum >= 95 ? 'c-ok' : srNum >= 85 ? 'c-caution' : 'c-danger';
     const srFmt = n(`${sr}%`, srCls, 'Taux de disponibilité des articles fréquents (W≥3)');
-    if (srNum >= 95) sentences.push({ icon: '💪', color: 'c-ok', text: `Taux de service\u00a0: ${srFmt} — excellent.` });
-    else if (srNum >= 85) sentences.push({ icon: '👍', color: 'c-caution', text: `Taux de service\u00a0: ${srFmt} — correct, marge de progression sur les ruptures.` });
-    else sentences.push({ icon: '⚠️', color: 'c-danger', text: `Taux de service\u00a0: ${srFmt} — priorité\u00a0: résoudre les ruptures pour remonter.` });
+    if (srNum >= 95) sentences.push({ icon: '💪', color: 'c-ok', text: `Taux de dispo\u00a0: ${srFmt} — excellent.` });
+    else if (srNum >= 85) sentences.push({ icon: '👍', color: 'c-caution', text: `Taux de dispo\u00a0: ${srFmt} — correct, marge de progression sur les ruptures.` });
+    else sentences.push({ icon: '⚠️', color: 'c-danger', text: `Taux de dispo\u00a0: ${srFmt} — priorité\u00a0: résoudre les ruptures pour remonter.` });
   }
 
   // 3. Stock à assainir (dormants + excédent ERP)
@@ -966,7 +966,7 @@ export function exportCockpitResume() {
   const lines = [];
   lines.push(`COCKPIT ${_S.selectedMyStore} — ${new Date().toLocaleDateString('fr-FR')}`);
   lines.push(`CA Magasin : ${formatEuro(_S._briefingData?.caComptoir || 0)}`);
-  lines.push(`Taux de service : ${_S._briefingData?.sr ?? '—'}%`);
+  lines.push(`Taux de dispo : ${_S._briefingData?.sr ?? '—'}%`);
   lines.push(`Ruptures : ${_S.cockpitLists.ruptures?.size ?? 0} · Dormants : ${_S.cockpitLists.dormants?.size ?? 0}`);
   lines.push('');
   lines.push('ACTIONS PRIORITAIRES :');
