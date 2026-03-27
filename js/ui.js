@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel } from './utils.js';
 import { _S } from './state.js';
 import { calcPriorityScore } from './engine.js';
 
@@ -152,7 +152,13 @@ export function getFilteredData() {
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const terms = document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
   const filtered = _S.finalData.filter(r => {
-    if (fam && !famLib(r.famille || '').toLowerCase().includes(fam.toLowerCase())) return false;
+    if(fam){
+      const famCode = r.famille||'';
+      const famL = famLib(famCode).toLowerCase();
+      const famFull = famLabel(famCode).toLowerCase();
+      const q = fam.toLowerCase();
+      if(!famL.includes(q) && !famCode.toLowerCase().includes(q) && !famFull.includes(q)) return false;
+    }
     if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam.toLowerCase())) return false;
     if (emp && !(r.emplacement || '').toLowerCase().includes(emp.toLowerCase())) return false;
     if (stat && r.statut !== stat) return false;
