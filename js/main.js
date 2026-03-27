@@ -17,7 +17,7 @@ import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
-import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _setPromoMode, exportTourneeCSV, _showActionArticles, _resetPromoFilters, _togglePromoSection, _togglePromoClientArts, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo } from './promo.js';
+import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { _normFamGlobal, openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume } from './diagnostic.js';
 
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
@@ -3341,9 +3341,11 @@ window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window.renderHeatmapFamilleCommercial = renderHeatmapFamilleCommercial;
-window._setPromoMode = _setPromoMode;
-window._showActionArticles = _showActionArticles;
 window.exportTourneeCSV = exportTourneeCSV;
+window._togglePromoClientRow = _togglePromoClientRow;
+window._switchPromoTab = _switchPromoTab;
+window._exportCommercialCSV = _exportCommercialCSV;
+window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauHeatmap = renderReseauHeatmap;
@@ -3480,8 +3482,9 @@ window._toggleExcludedList      = _toggleExcludedList;
 window._unexcludeAll            = _unexcludeAll;
 // Benchmark Obs — expand famille
 window.toggleObsFamily          = toggleObsFamily;
-// Promo — articles client
-window._togglePromoClientArts   = _togglePromoClientArts;
+// Promo — accordion inline
+window._togglePromoClientRow    = _togglePromoClientRow;
+window._switchPromoTab          = _switchPromoTab;
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
 // D2 — Theme Switch
