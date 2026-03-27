@@ -1823,7 +1823,17 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         famData[r.famille].nbArt++;
       }
     }else{
-      return null; // AUTRE: no family breakdown
+      // Canal sans caField pré-calculé (ex: AUTRE) — derive from articleCanalCA
+      if(!_S.articleCanalCA.size)return null;
+      for(const r of DataStore.finalData){
+        if(!r.famille)continue;
+        if(!_matchFam(r))continue;
+        const ca=_S.articleCanalCA.get(r.code)?.get(canal)?.ca||0;
+        if(ca<=0)continue;
+        if(!famData[r.famille])famData[r.famille]={ca:0,nbArt:0};
+        famData[r.famille].ca+=ca;
+        famData[r.famille].nbArt++;
+      }
     }
     return famData;
   }
@@ -1842,8 +1852,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     let body='';
     if(needsChalandise){
       body=`<p class="text-xs t-inverse-muted py-4">Chargez la Zone de Chalandise pour le détail par famille sur ce canal.</p>`;
-    }else if(canal==='AUTRE'){
-      body=`<p class="text-xs t-inverse-muted py-4">Pas de ventilation famille disponible pour le canal "Autre".</p>`;
     }else if(!top10.length){
       body=`<p class="text-xs t-inverse-muted py-4">Aucune donnée famille pour ce canal${filterFamRaw?' avec ce filtre':''}.</p>`;
     }else{
@@ -1872,7 +1880,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           ${filterBadge?`<div class="mt-1">${filterBadge}</div>`:''}
         </div>
         <div class="flex gap-2 items-center shrink-0 ml-3">
-          ${(!needsChalandise&&canal!=='AUTRE'&&top10.length)?`<button onclick="exportCanalDrillCSV('${canal}')" class="diag-btn" style="background:#1e3a8a30;color:#93c5fd;border:1px solid #1e40af50">📥 CSV</button>`:''}
+          ${(!needsChalandise&&top10.length)?`<button onclick="exportCanalDrillCSV('${canal}')" class="diag-btn" style="background:#1e3a8a30;color:#93c5fd;border:1px solid #1e40af50">📥 CSV</button>`:''}
           <button onclick="closeArticlePanel()" class="diag-btn" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)">✕</button>
         </div>
       </div>
@@ -1883,7 +1891,18 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _canalArtData(canal,famCode){
     // Returns [{code,libelle,ca,freq}] for given canal+family, sorted by CA desc
     const caField=canal==='MAGASIN'?'caAnnuel':canal==='INTERNET'?'caWeb':canal==='REPRESENTANT'?'caRep':canal==='DCS'?'caDcs':null;
-    if(!caField)return[];
+    if(!caField){
+      // Canal sans caField pré-calculé (ex: AUTRE) — derive from articleCanalCA
+      if(!_S.articleCanalCA.size)return[];
+      const arts=[];
+      for(const r of DataStore.finalData){
+        if(r.famille!==famCode)continue;
+        const ca=_S.articleCanalCA.get(r.code)?.get(canal)?.ca||0;
+        if(ca<=0)continue;
+        arts.push({code:r.code,libelle:_S.libelleLookup[r.code]||r.code,ca,freq:r.W||0});
+      }
+      return arts.sort((a,b)=>b.ca-a.ca);
+    }
     if((canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS')&&!_S.chalandiseReady)return[];
     const arts=[];
     for(const r of DataStore.finalData){
@@ -1984,14 +2003,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const caWeb=_S.canalAgence['INTERNET']?.ca||0;
     const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
     const caDcs=_S.canalAgence['DCS']?.ca||0;
-    const caHors=caWeb+caRep+caDcs;
+    const caAutre=_S.canalAgence['AUTRE']?.ca||0;
+    const caHors=caWeb+caRep+caDcs+caAutre;
     const caTotal=caMag+caHors;
     const tauxObs=caTotal>0?Math.round(caHors/caTotal*100):0;
     const _rfCanal=_S._globalCanal||'';
     let html;
     if(_rfCanal){
       // [Feature C] filtre canal actif : afficher uniquement la ligne du canal sélectionné
-      const _canalLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS'};
+      const _canalLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
       const _canalCA=_S.canalAgence[_rfCanal]?.ca||0;
       const _canalLabel=_canalLabels[_rfCanal]||_rfCanal;
       html=`<div class="mb-3 p-3 s-card rounded-xl border">
@@ -2005,7 +2025,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           <span class="text-[10px] font-normal t-disabled ml-1" title="Calculé sur les clients identifiés dans votre chalandise. Le taux réel peut être inférieur si des clients importants sont hors zone.">ⓘ</span>
         </p>
         <p class="text-2xl font-extrabold c-action">${tauxObs}% <span class="text-sm font-normal t-tertiary">du CA identifié passe hors agence</span></p>
-        <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}</p>
+        <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}${caAutre>0?' · AUTRE '+formatEuro(caAutre):''}</p>
       </div>`;
     }
     if(_S.chalandiseReady&&_S.caByArticleCanal.size){
@@ -2133,9 +2153,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
     // Canal chip active state + warning — always updated regardless of data state
-    {const _cg=_S._globalCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
-    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    const _cgId=_cg==='MAGASIN'?'terrGlobalCanalMag':_cg==='INTERNET'?'terrGlobalCanalNet':_cg==='REPRESENTANT'?'terrGlobalCanalRep':_cg==='DCS'?'terrGlobalCanalDcs':'terrGlobalCanalAll';
+    {const _cg=_S._globalCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
+    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs','terrGlobalCanalAut'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+    const _cgId=_cg==='MAGASIN'?'terrGlobalCanalMag':_cg==='INTERNET'?'terrGlobalCanalNet':_cg==='REPRESENTANT'?'terrGlobalCanalRep':_cg==='DCS'?'terrGlobalCanalDcs':_cg==='AUTRE'?'terrGlobalCanalAut':'terrGlobalCanalAll';
     const _cgEl=document.getElementById(_cgId);if(_cgEl)_cgEl.classList.add('active');
     const _cwEl=document.getElementById('terrCanalFilterWarn');
     if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}
@@ -2170,7 +2190,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const _canalGlobal=_S._globalCanal||'';
-    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
 
     // ── Garde de cache territoire ────────────────────────────────────────────
