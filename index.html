@@ -1525,6 +1525,11 @@
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
+      <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
+      <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border border-amber-300 rounded-lg text-xs font-semibold c-caution">
+        ⚠️ Filtrage partiel — Mon agence : canal <span id="benchCanalBiasLabel">—</span>. Médiane réseau : tous canaux.
+        Ne pas interpréter les écarts comme des benchmarks comparatifs stricts.
+      </div>
       <!-- BARRE DE RECHERCHE ARTICLE -->
       <div class="s-card rounded-xl shadow-sm border b-default mb-6 p-4">
         <input type="text" id="obsArtSearch" oninput="renderObsArticleSearch()" class="w-full p-3 text-sm border-2 border-cyan-200 rounded-lg font-semibold focus:ring-2 focus:ring-cyan-400 outline-none" placeholder="🔍 Rechercher parmi les articles comparés au réseau (Manqué · Sur-perf)">
@@ -1704,7 +1709,16 @@
         </div>
       </details>
 
-
+      <!-- 🌡️ HEATMAP RÉSEAU — fermé par défaut [V3] -->
+      <details class="s-card rounded-xl shadow-md border b-default mb-6">
+        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
+          <div><h3 class="font-extrabold t-primary text-sm">🌡️ Heatmap réseau — 20 familles × agences</h3><p class="text-[10px] t-tertiary mt-0.5">Ratio CA famille : vert ≥100% médiane · orange ≥50% · rouge &lt;50%</p></div>
+          <span class="acc-arrow t-tertiary">▶</span>
+        </summary>
+        <div id="reseauHeatmapContainer" class="p-2 overflow-x-auto">
+          <p class="t-disabled text-sm p-4">Chargement après analyse réseau…</p>
+        </div>
+      </details>
 
     </div>
 

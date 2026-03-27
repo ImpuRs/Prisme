@@ -702,5 +702,5 @@ export function computeReseauHeatmap() {
   for (const store of allStores) storeCA[store] = Object.values(storeFamCA[store] || {}).reduce((s,v)=>s+v,0);
   const agences = [myStore, ...allStores.filter(s => s !== myStore).sort((a,b) => storeCA[b]-storeCA[a])];
 
-  _S.reseauHeatmapData = { familles, agences, matrix };
+  _S.reseauHeatmapData = { familles, agences, matrix, famMedianCA: famMedian };
 }

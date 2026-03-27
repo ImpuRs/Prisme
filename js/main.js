@@ -2987,13 +2987,35 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       html += `<th class="py-1 px-1 t-inverse-muted font-semibold text-center" style="writing-mode:vertical-rl;white-space:nowrap;max-height:100px;padding:6px 3px" title="${fam}">${fam.length > 18 ? fam.slice(0,16)+'…' : fam}</th>`;
     }
     html += '</tr></thead><tbody>';
+    // [V3] Canal filter — myStore only via articleCanalCA, réseau reste tous canaux
+    const _heatmapCanal = _S._globalCanal || '';
+    const _myFamCACanal = {}; // CA par famille filtré canal pour myStore
+    if (_heatmapCanal && _S.articleCanalCA.size) {
+      for (const [code, cmap] of _S.articleCanalCA) {
+        const ca = cmap.get(_heatmapCanal)?.ca || 0;
+        if (!ca) continue;
+        const fam = famLib(_S.articleFamille[code] || '');
+        if (fam) _myFamCACanal[fam] = (_myFamCACanal[fam] || 0) + ca;
+      }
+    }
+    // Note de lecture si canal actif
+    if (_heatmapCanal) {
+      html += `<tr><td colspan="${familles.length + 1}" class="py-1 px-2 text-[10px] t-disabled italic i-caution-bg/40">⚠️ Mon agence : canal ${_heatmapCanal} · Réseau : tous canaux — ne pas comparer directement</td></tr>`;
+    }
     for (const store of agences) {
       const isMe = store === myStore;
       const rowCls = isMe ? 'i-info-bg font-bold ring-2 ring-cyan-400' : 'hover:s-card-alt';
       html += `<tr class="border-b b-light ${rowCls}">`;
       html += `<td class="py-1 px-2 font-semibold sticky left-0 s-card z-10 whitespace-nowrap">${isMe ? '⭐ ' : ''}${store}</td>`;
       for (const fam of familles) {
-        const r = (matrix[fam] || {})[store] || 0;
+        let r;
+        if (isMe && _heatmapCanal && Object.keys(_myFamCACanal).length) {
+          // Pour myStore : utiliser CA canal filtré ÷ médiane réseau tous canaux
+          const famMedianCA = d.famMedianCA?.[fam] || 0;
+          r = famMedianCA > 0 ? (_myFamCACanal[fam] || 0) / famMedianCA : 0;
+        } else {
+          r = (matrix[fam] || {})[store] || 0;
+        }
         const cls = ratioClass(r);
         html += `<td class="py-1 px-1 text-center font-bold ${cls}" title="${store} · ${fam} : ${ratioLabel(r)}">${ratioLabel(r)}</td>`;
       }
@@ -3303,8 +3325,15 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       const _winPdmCell=f.pdm!=null?`<td class="py-2 px-3 text-center text-xs font-bold ${f.pdm>=20?'c-ok':f.pdm>=10?'c-caution':'c-danger'}">${f.pdm}%</td>`:`<td class="py-2 px-3 text-center text-xs t-disabled">—</td>`;return `<tr class="border-b cursor-pointer hover:i-ok-bg/40 transition-colors" onclick="toggleObsFamily('${winId}')"><td class="py-2 px-3 font-semibold t-primary"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${advCell}</td>${_winPdmCell}<td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${winId}" class="hidden i-ok-bg/70"><td colspan="4"><div class="pb-3">${detailGrid}${exclHtml}<div class="px-3 pb-1">${noArts}</div></div></td></tr>`;
     }).join('');
     if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="4" class="py-4 text-center t-disabled">—</td></tr>';
-    // 💎 Mes pépites
-    const pepites=_S.benchLists.pepites||[];
+    // [V3] Bandeau biais canal — sections soft : pépites filtrées agence vs réseau brut
+    const _obsCanal=_S._globalCanal||'';
+    const biasBanner=el('benchCanalBias');
+    if(biasBanner){if(_obsCanal){const lb=el('benchCanalBiasLabel');if(lb)lb.textContent=_obsCanal;biasBanner.classList.remove('hidden');}else biasBanner.classList.add('hidden');}
+    // 💎 Mes pépites [V3] — filtrage par canal articleCanalCA si actif
+    const pepitesAll=_S.benchLists.pepites||[];
+    const pepites=_obsCanal
+      ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal)))
+      : pepitesAll;
     const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
     if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Fréq Moi (${_S.selectedMyStore||'Moi'})`;
     if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent=isMedian?'Fréq médiane réseau':`Fréq ${obsLabel}`;
