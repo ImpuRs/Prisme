@@ -1531,11 +1531,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _caP=data.caP||0;const _caE=data.caE||0;
       const _barTip=`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`;
       let _barHtml;
-      if(_caP>0){
+      if(isMag&&_caP>0){
         const _tot=data.ca||1;
         const _pW=(_caP/_tot*barW).toFixed(1);
         const _eW=(_caE/_tot*barW).toFixed(1);
-        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:#3b82f6;border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:rgba(255,255,255,0.22);border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
+        _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:#3b82f6;border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:rgba(59,130,246,0.35);border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
       }else{
         _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div>`;
       }
