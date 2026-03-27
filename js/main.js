@@ -1336,7 +1336,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(canal){const _sk_canal=extractStoreCode(row)||'INCONNU';const _storeMatch=!_S.selectedMyStore||_sk_canal==='INCONNU'||_sk_canal===_S.selectedMyStore;if(_storeMatch){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();if(nc2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),ca:0,caP:0,caE:0};_S.canalAgence[canal].bl.add(nc2);}}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
-      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=Math.max(0,getCaColumn(row,'prél')||0);const _caE3=Math.max(0,getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
+      if(canal&&_S.canalAgence[canal]){const _sk_ca=extractStoreCode(row)||'INCONNU';if(!_S.selectedMyStore||_sk_ca==='INCONNU'||_sk_ca===_S.selectedMyStore){const _caP3=getCaColumn(row,'prél')||0;const _caE3=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;_S.canalAgence[canal].caP+=_caP3;_S.canalAgence[canal].caE+=_caE3;_S.canalAgence[canal].ca+=_caP3+_caE3;}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
         if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{ca:0,qte:0,canal};ex.ca+=caLigne;ex.qte+=qteLigne;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
@@ -1579,11 +1579,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const isMag=canal==='MAGASIN';
       const prevCell=(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      const _caP=data.caP||0;const _caE=data.caE||0;
-      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
+      const _caP=Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
+      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(data.caE||0)}`;
       let _barHtml;
       if(_caP>0){
-        const _tot=data.ca||1;
+        const _tot=Math.max(data.ca||0,_caP+_caE)||1;
         const _pW=(_caP/_tot*barW).toFixed(1);
         const _eW=(_caE/_tot*barW).toFixed(1);
         _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:${color};border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:${color};opacity:0.4;border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
@@ -1599,8 +1599,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.reduce((s,[,v])=>s+(v.caP||0),0);
-    const totalE=entries.reduce((s,[,v])=>s+(v.caE||0),0);
+    const totalP=entries.reduce((s,[,v])=>s+Math.max(0,v.caP||0),0);
+    const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
     html+=`<td class="py-2 px-3 text-right">${formatEuro(totalP)}</td>`;
