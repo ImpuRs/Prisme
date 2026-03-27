@@ -1720,16 +1720,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const _webDisplayCA=v=>Math.max(0,v.caE||0);
     const _activeCanal=_S._globalCanal||'';
-    if(_activeCanal){
-      // Filtre canal actif : afficher une synthèse à la place du tableau
-      if(wrapper)wrapper.classList.remove('hidden');
-      const _cgLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-      const _cgLabel=_cgLabels[_activeCanal]||_activeCanal;
-      const _data=_S.canalAgence[_activeCanal];
-      const _dispCA=_activeCanal!=='MAGASIN'?_webDisplayCA(_data||{}):(_data?.ca||0);
-      el.innerHTML=`<div class="p-3 flex items-center gap-3"><div class="flex-1"><p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Canal filtré : ${_cgLabel}</p><p class="text-xl font-extrabold c-action mt-0.5">${formatEuro(_dispCA)}</p></div><button class="text-[10px] t-disabled underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></div>`;
-      return;
-    }
+    // La répartition n'a de sens qu'en vue tous canaux — masquer quand filtre actif
+    if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
     const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
@@ -2025,11 +2017,19 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_rfCanal){
       // [Feature C] filtre canal actif : afficher uniquement la ligne du canal sélectionné
       const _canalLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-      const _canalCA=_S.canalAgence[_rfCanal]?.ca||0;
+      const _canalData=_S.canalAgence[_rfCanal]||{ca:0,caP:0,caE:0};
+      const _canalCA=_rfCanal==='MAGASIN'?(_canalData.ca||0):Math.max(0,_canalData.caE||0);
       const _canalLabel=_canalLabels[_rfCanal]||_rfCanal;
+      let _subHtml='';
+      if(_rfCanal==='MAGASIN'&&_canalCA>0){
+        const _caP=Math.max(0,_canalData.caP||0);const _caE=Math.max(0,_canalData.caE||0);
+        const _pctP=Math.round(_caP/_canalCA*100);const _pctE=Math.round(_caE/_canalCA*100);
+        _subHtml=`<div class="flex gap-4 mt-2 text-xs"><span class="t-secondary">Prélevé : <strong class="t-primary">${formatEuro(_caP)}</strong> <span class="t-disabled">(${_pctP}%)</span></span><span class="t-secondary">Enlevé : <strong class="t-primary">${formatEuro(_caE)}</strong> <span class="t-disabled">(${_pctE}%)</span></span></div>`;
+      }
       html=`<div class="mb-3 p-3 s-card rounded-xl border">
         <p class="text-sm font-bold t-primary mb-1">🔵 Canal filtré : ${_canalLabel}</p>
         <p class="text-2xl font-extrabold c-action">${formatEuro(_canalCA)} <span class="text-sm font-normal t-tertiary">CA ${_canalLabel} total</span></p>
+        ${_subHtml}
         <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></p>
       </div>`;
     }else{
