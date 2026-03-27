@@ -1550,13 +1550,23 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=html;
   }
 
+  let _canalDrillState={canal:null,famCode:null};
+
   function openCanalDrill(canal){
     const overlay=document.getElementById('articlePanelOverlay');
     const panel=document.getElementById('articlePanel');
     if(!overlay||!panel)return;
+    _canalDrillState={canal,famCode:null};
     panel.style.maxWidth='560px';
     panel.innerHTML=_renderCanalDrill(canal);
     overlay.classList.add('active');
+  }
+
+  function openCanalDrillArticles(canal,famCode){
+    const panel=document.getElementById('articlePanel');
+    if(!panel)return;
+    _canalDrillState={canal,famCode};
+    panel.innerHTML=_renderCanalDrillArticles(canal,famCode);
   }
 
   function closeCanalDrill(){closeArticlePanel();}
@@ -1624,8 +1634,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for(const[fc,d] of top10){
         const pct=Math.round(d.ca/canalTotal*100);
         const barW=Math.max(pct,2);
-        body+=`<tr class="border-b" style="border-color:var(--b-darker)">`;
-        body+=`<td class="py-1.5 px-3 font-semibold t-inverse">${famLabel(fc)}</td>`;
+        body+=`<tr class="border-b cursor-pointer transition-colors hover:s-card-alt" style="border-color:var(--b-darker)" onclick="openCanalDrillArticles('${canal}','${fc}')" title="Voir les articles">`;
+        body+=`<td class="py-1.5 px-3 font-semibold t-inverse">${famLabel(fc)} <span class="t-disabled text-[10px]">›</span></td>`;
         body+=`<td class="py-1.5 px-3 text-right font-bold" style="color:${color}">${formatEuro(d.ca)}</td>`;
         body+=`<td class="py-1.5 px-3 text-right t-inverse-muted"><div class="flex items-center justify-end gap-1.5">${pct}%<div class="w-16 rounded-full h-1.5 overflow-hidden" style="background:var(--b-darker)"><div style="width:${barW}%;background:${color};height:100%;border-radius:9999px"></div></div></div></td>`;
         body+=`<td class="py-1.5 px-3 text-right t-inverse-muted">${d.nbArt}</td>`;
@@ -1648,22 +1658,102 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     </div>`;
   }
 
-  function exportCanalDrillCSV(canal){
-    const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Web',DCS:'DCS',REPRESENTANT:'Representant',AUTRE:'Autre'};
-    const famData=_canalFamData(canal);
-    if(!famData)return;
-    const rows=Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca);
-    const total=rows.reduce((s,[,d])=>s+d.ca,0)||1;
-    let csv='Famille;CA;% canal;Nb art.\n';
-    for(const[fc,d] of rows){
-      const pct=Math.round(d.ca/total*100);
-      csv+=`"${famLabel(fc)}";${d.ca.toFixed(2)};${pct}%;${d.nbArt}\n`;
+  function _canalArtData(canal,famCode){
+    // Returns [{code,libelle,ca,freq}] for given canal+family, sorted by CA desc
+    const caField=canal==='MAGASIN'?'caAnnuel':canal==='INTERNET'?'caWeb':canal==='REPRESENTANT'?'caRep':canal==='DCS'?'caDcs':null;
+    if(!caField)return[];
+    if((canal==='INTERNET'||canal==='REPRESENTANT'||canal==='DCS')&&!_S.chalandiseReady)return[];
+    const arts=[];
+    for(const r of _S.finalData){
+      if(r.famille!==famCode)continue;
+      const ca=r[caField]||0;
+      if(ca<=0)continue;
+      arts.push({code:r.code,libelle:_S.libelleLookup[r.code]||r.code,ca,freq:r.W||0});
     }
-    const filterFamRaw=(document.getElementById('filterFamille')?.value||'').trim();
-    const suffix=filterFamRaw?`_fam_${filterFamRaw}`:'';
-    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download=`canal_${CANAL_LABELS[canal]||canal}${suffix}.csv`;a.click();
+    return arts.sort((a,b)=>b.ca-a.ca);
+  }
+
+  function _renderCanalDrillArticles(canal,famCode){
+    const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
+    const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
+    const label=CANAL_LABELS[canal]||canal;
+    const color=CANAL_COLORS[canal]||'#94a3b8';
+    const famName=famLabel(famCode);
+    const arts=_canalArtData(canal,famCode);
+    const famTotal=arts.reduce((s,a)=>s+a.ca,0)||1;
+    let body='';
+    if(!arts.length){
+      body=`<p class="text-xs t-inverse-muted py-4">Aucun article pour cette famille sur ce canal.</p>`;
+    }else{
+      body=`<div class="overflow-x-auto mt-3"><table class="min-w-full text-xs"><thead><tr class="border-b" style="border-color:var(--b-darker)">`;
+      body+=`<th class="py-1.5 px-3 text-left t-inverse-muted font-semibold">Code</th>`;
+      body+=`<th class="py-1.5 px-3 text-left t-inverse-muted font-semibold">Article</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">CA</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">Fréq.</th>`;
+      body+=`<th class="py-1.5 px-3 text-right t-inverse-muted font-semibold">% famille</th>`;
+      body+=`</tr></thead><tbody>`;
+      for(const a of arts){
+        const pct=Math.round(a.ca/famTotal*100);
+        body+=`<tr class="border-b" style="border-color:var(--b-darker)">`;
+        body+=`<td class="py-1.5 px-3 font-mono t-inverse-muted">${a.code}</td>`;
+        body+=`<td class="py-1.5 px-3 t-inverse max-w-[180px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>`;
+        body+=`<td class="py-1.5 px-3 text-right font-bold" style="color:${color}">${formatEuro(a.ca)}</td>`;
+        body+=`<td class="py-1.5 px-3 text-right t-inverse-muted">${a.freq}</td>`;
+        body+=`<td class="py-1.5 px-3 text-right t-inverse-muted">${pct}%</td>`;
+        body+=`</tr>`;
+      }
+      body+=`</tbody></table></div>`;
+    }
+    return `<div>
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <button onclick="openCanalDrill('${canal}')" class="diag-btn shrink-0" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)" title="Retour aux familles">←</button>
+          <div>
+            <h2 class="font-extrabold text-base" style="color:${color}">Détail canal — ${label} › ${escapeHtml(famName)}</h2>
+          </div>
+        </div>
+        <div class="flex gap-2 items-center shrink-0 ml-3">
+          ${arts.length?`<button onclick="exportCanalDrillCSV('${canal}','${famCode}')" class="diag-btn" style="background:#1e3a8a30;color:#93c5fd;border:1px solid #1e40af50">📥 CSV</button>`:''}
+          <button onclick="closeArticlePanel()" class="diag-btn" style="background:var(--s-panel-inner);color:var(--t-inverse-muted);border:1px solid var(--b-dark)">✕</button>
+        </div>
+      </div>
+      ${body}
+    </div>`;
+  }
+
+  function exportCanalDrillCSV(canal,famCode){
+    const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Web',DCS:'DCS',REPRESENTANT:'Representant',AUTRE:'Autre'};
+    const canalName=CANAL_LABELS[canal]||canal;
+    if(famCode){
+      // Articles level
+      const arts=_canalArtData(canal,famCode);
+      if(!arts.length)return;
+      const total=arts.reduce((s,a)=>s+a.ca,0)||1;
+      let csv='Code;Article;CA;Fréq.;% famille\n';
+      for(const a of arts){
+        const p=Math.round(a.ca/total*100);
+        csv+=`"${a.code}";"${a.libelle.replace(/"/g,'""')}";${a.ca.toFixed(2)};${a.freq};${p}%\n`;
+      }
+      const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+      const el=document.createElement('a');el.href=URL.createObjectURL(blob);
+      el.download=`canal_${canalName}_${famCode}.csv`;el.click();
+    }else{
+      // Families level
+      const famData=_canalFamData(canal);
+      if(!famData)return;
+      const rows=Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca);
+      const total=rows.reduce((s,[,d])=>s+d.ca,0)||1;
+      let csv='Famille;CA;% canal;Nb art.\n';
+      for(const[fc,d] of rows){
+        const p=Math.round(d.ca/total*100);
+        csv+=`"${famLabel(fc)}";${d.ca.toFixed(2)};${p}%;${d.nbArt}\n`;
+      }
+      const filterFamRaw=(document.getElementById('filterFamille')?.value||'').trim();
+      const suffix=filterFamRaw?`_fam_${filterFamRaw}`:'';
+      const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download=`canal_${canalName}${suffix}.csv`;a.click();
+    }
   }
 
   function _renderFamilleCanal(){
