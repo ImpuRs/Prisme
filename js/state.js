@@ -59,7 +59,7 @@ _S.terrContribBySecteur = new Map();
 _S.terrContribByDirection = new Map();
 _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
-_S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS'
+_S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS' | 'AUTRE'
 _S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
 _S.blCanalMap = new Map(); // BL → canal (built from consommé, passed to territoire worker)
 _S.articleCanalCA = new Map(); // [F1 fix] code → Map(canal → {ca, qteP, countBL}) — tous canaux, toutes agences filtrées
