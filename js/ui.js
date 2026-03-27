@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { calcPriorityScore } from './engine.js';
 
@@ -150,23 +150,20 @@ export function getFilteredData() {
   const fam = (document.getElementById('filterFamille').value || '').trim(), sFam = (document.getElementById('filterSousFamille').value || '').trim(), emp = (document.getElementById('filterEmplacement').value || '').trim(), stat = document.getElementById('filterStatut').value, af = document.getElementById('filterAge').value;
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
-  const terms = document.getElementById('searchInput').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const searchQuery = document.getElementById('searchInput').value.trim();
   const filtered = _S.finalData.filter(r => {
     if(fam){
       const famCode = r.famille||'';
-      const famL = famLib(famCode).toLowerCase();
-      const famFull = famLabel(famCode).toLowerCase();
-      const q = fam.toLowerCase();
-      if(!famL.includes(q) && !famCode.toLowerCase().includes(q) && !famFull.includes(q)) return false;
+      if(!matchQuery(fam, famLib(famCode), famCode, famLabel(famCode))) return false;
     }
-    if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam.toLowerCase())) return false;
-    if (emp && !(r.emplacement || '').toLowerCase().includes(emp.toLowerCase())) return false;
+    if (sFam && !matchQuery(sFam, r.sousFamille || '')) return false;
+    if (emp && !matchQuery(emp, r.emplacement || '')) return false;
     if (stat && r.statut !== stat) return false;
     if (af) { const b = AGE_BRACKETS[af]; if (b && (r.ageJours < b.min || r.ageJours >= b.max)) return false; }
     if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
-    if (terms.length > 0) { const h = (r.code + ' ' + r.libelle + ' ' + famLib(r.famille || '')).toLowerCase(); return terms.every(t => h.includes(t)); }
+    if (searchQuery) { return matchQuery(searchQuery, r.code, r.libelle, famLib(r.famille || '')); }
     return true;
   });
   let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (terms.length) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++;
@@ -436,12 +433,12 @@ export function _cmdRender(q) {
 
 export function _cmdBuildResults(q) {
   const groups = [];
-  const ql = q.toLowerCase();
+  const ql = normalizeStr(q);
 
   // 1. Quick actions
   const matchedActions = [];
   for (const a of _CMD_ACTIONS) {
-    if (!q || a.kw.some(k => k.includes(ql) || ql.includes(k.split(' ')[0]))) {
+    if (!q || a.kw.some(k => { const kn = normalizeStr(k); return kn.includes(ql) || ql.includes(kn.split(' ')[0]); })) {
       matchedActions.push({ icon: a.icon, main: a.label, sub: '', fn: a.fn });
       if (matchedActions.length >= 5) break;
     }
@@ -452,12 +449,10 @@ export function _cmdBuildResults(q) {
 
   // 2. Articles (search _S.finalData)
   if (typeof _S.finalData !== 'undefined' && _S.finalData.length) {
-    const terms = ql.split(/\s+/).filter(Boolean);
     const artResults = [];
     for (const r of _S.finalData) {
       if (artResults.length >= 5) break;
-      const haystack = (r.code + ' ' + r.libelle + ' ' + famLib(r.famille || '')).toLowerCase();
-      if (terms.every(t => haystack.includes(t))) {
+      if (matchQuery(q, r.code, r.libelle, famLib(r.famille || ''))) {
         const stockColor = r.stockActuel <= 0 ? 'i-danger-bg c-danger' : 'i-ok-bg c-ok';
         artResults.push({
           icon: '📦',
@@ -481,7 +476,7 @@ export function _cmdBuildResults(q) {
   if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.size) {
     for (const [code, info] of _S.chalandiseData) {
       if (clientResults.length >= 5) break;
-      if (code.toLowerCase().includes(ql) || (info.nom || '').toLowerCase().includes(ql)) {
+      if (matchQuery(q, code, info.nom || '')) {
         const ca = _cmdClientCA(code);
         const isActif = (info.statut || '').toLowerCase().includes('actif');
         clientResults.push({
@@ -507,7 +502,7 @@ export function _cmdBuildResults(q) {
     for (const [code, nom] of Object.entries(_S.clientNomLookup)) {
       if (clientResults.length >= 5) break;
       if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.has(code)) continue;
-      if (code.toLowerCase().includes(ql) || (nom || '').toLowerCase().includes(ql)) {
+      if (matchQuery(q, code, nom || '')) {
         clientResults.push({
           icon: '👤',
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(nom || code)}`,
@@ -534,7 +529,7 @@ export function _cmdBuildResults(q) {
     const famResults = [];
     for (const f of famSet) {
       if (famResults.length >= 3) break;
-      if (f.toLowerCase().includes(ql)) {
+      if (matchQuery(q, f)) {
         famResults.push({
           icon: '🏷️',
           main: _cmdEsc(famLabel(f)),
@@ -555,7 +550,7 @@ export function _cmdBuildResults(q) {
     const agResults = [];
     for (const s of _S.storesIntersection) {
       if (agResults.length >= 3) break;
-      if (s !== _S.selectedMyStore && s.toLowerCase().includes(ql)) {
+      if (s !== _S.selectedMyStore && matchQuery(q, s)) {
         agResults.push({
           icon: '🏪',
           main: s,

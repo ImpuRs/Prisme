@@ -8,7 +8,7 @@
 'use strict';
 
 import { METIERS_STRATEGIQUES } from './constants.js';
-import { cleanCode, formatEuro, readExcel, escapeHtml, famLib, famLabel } from './utils.js';
+import { cleanCode, formatEuro, readExcel, escapeHtml, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { computeSPC, _clientPassesFilters } from './engine.js';
 import { showToast } from './ui.js';
@@ -34,8 +34,6 @@ function _onPromoInput(){
 }
 
 function _buildPromoSuggestions(q){
-  const ql=q.toLowerCase();
-  const terms=ql.split(/[\s,;]+/).filter(Boolean);
   // Families
   const famMap=new Map();
   // r.famille est maintenant un code ("C02") — chercher sur code ET libellé
@@ -49,9 +47,7 @@ function _buildPromoSuggestions(q){
     if(code) famCodes.add(code);
   }
   for(const famCode of famCodes){
-    const lib = famLib(famCode).toLowerCase();
-    const full = famLabel(famCode).toLowerCase(); // "c02 · coupe"
-    if(terms.every(t => lib.includes(t) || famCode.toLowerCase().includes(t) || full.includes(t))){
+    if(matchQuery(q, famLib(famCode), famCode, famLabel(famCode))){
       const cnt = [..._S.finalData].filter(r=>r.famille===famCode).length;
       famMap.set(famCode, cnt);
     }
@@ -67,7 +63,7 @@ function _buildPromoSuggestions(q){
   const artSug=[];const seen=new Set();
   const tryAdd=(code,lib,fam)=>{
     if(artSug.length>=4||seen.has(code))return;
-    if(terms.every(t=>code.toLowerCase().includes(t)||lib.toLowerCase().includes(t)||(fam||'').toLowerCase().includes(t))){
+    if(matchQuery(q, code, lib, fam||'')){
       seen.add(code);
       artSug.push({type:'article',label:code+' · '+lib.slice(0,50)+(lib.length>50?'…':''),sub:fam||'',value:code});
     }
@@ -163,26 +159,26 @@ function runPromoSearch(){
   // 1. Match articles — _S.finalData first, then full _S.libelleLookup (réseau)
   const matchedCodes=new Set();
   for(const term of terms){
-    const tl=term.toLowerCase();
+    const tl=normalizeStr(term);
     // a) PDV stock — use _S.libelleLookup as authoritative label source
     for(const r of _S.finalData){
-      const lib=(_S.libelleLookup[r.code]||r.libelle||'').toLowerCase();
+      const lib=normalizeStr(_S.libelleLookup[r.code]||r.libelle||'');
       const famCode = _S.articleFamille[r.code]||r.famille||'';
-      const famL = famLib(famCode).toLowerCase();
-      const famFull = famLabel(famCode).toLowerCase();
-      if(r.code===term||r.code.includes(term)||lib.includes(tl)||
-         famCode.toLowerCase().includes(tl)||famL.includes(tl)||famFull.includes(tl))
+      const famL = normalizeStr(famLib(famCode));
+      const famFull = normalizeStr(famLabel(famCode));
+      if(r.code===term||normalizeStr(r.code).includes(tl)||lib.includes(tl)||
+         normalizeStr(famCode).includes(tl)||famL.includes(tl)||famFull.includes(tl))
         matchedCodes.add(r.code);
     }
     // b) Network articles present in _S.libelleLookup but absent from PDV stock (ex: Dewalt hors rayon)
     for(const[code,lib] of Object.entries(_S.libelleLookup)){
       if(matchedCodes.has(code))continue;
-      const libL=lib.toLowerCase();
+      const libL=normalizeStr(lib);
       const famCode2 = _S.articleFamille[code]||'';
-      const famL2 = famLib(famCode2).toLowerCase();
-      const famFull2 = famLabel(famCode2).toLowerCase();
-      if(code===term||code.includes(term)||libL.includes(tl)||
-         famCode2.toLowerCase().includes(tl)||famL2.includes(tl)||famFull2.includes(tl))
+      const famL2 = normalizeStr(famLib(famCode2));
+      const famFull2 = normalizeStr(famLabel(famCode2));
+      if(code===term||normalizeStr(code).includes(tl)||libL.includes(tl)||
+         normalizeStr(famCode2).includes(tl)||famL2.includes(tl)||famFull2.includes(tl))
         matchedCodes.add(code);
     }
   }
