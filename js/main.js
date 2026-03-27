@@ -1560,10 +1560,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const _webDisplayCA=v=>Math.max(0,v.caE||0);
-    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c==='INTERNET'?_webDisplayCA(v):(v.ca||0))>0);
+    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
-    const totalCA=entries.reduce((s,[c,v])=>s+(c==='INTERNET'?_webDisplayCA(v):(v.ca||0)),0)||1;
+    const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
     let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
     html+='<th class="py-2 px-3 text-left">Canal</th>';
     html+='<th class="py-2 px-3 text-right">Prélevé</th>';
@@ -1575,7 +1575,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const[canal,data] of entries){
       const label=CANAL_LABELS[canal]||canal;
       const color=CANAL_COLORS[canal]||CANAL_COLORS.AUTRE;
-      const isWeb=canal==='INTERNET';
+      const isWeb=canal!=='MAGASIN';
       const isMag=canal==='MAGASIN';
       const dispCA=isWeb?_webDisplayCA(data):(data.ca||0);
       const pct=Math.round(dispCA/totalCA*100);
@@ -1602,7 +1602,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.reduce((s,[c,v])=>s+(c==='INTERNET'?0:Math.max(0,v.caP||0)),0);
+    const totalP=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?0:Math.max(0,v.caP||0)),0);
     const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
