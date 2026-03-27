@@ -1559,10 +1559,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_ORDER=['MAGASIN','REPRESENTANT','INTERNET','DCS','AUTRE'];
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
-    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([,v])=>v&&(v.ca||0)>0);
+    const _webDisplayCA=v=>Math.max(0,v.caE||0);
+    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
-    const totalCA=entries.reduce((s,[,v])=>s+(v.ca||0),0)||1;
+    const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
     let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
     html+='<th class="py-2 px-3 text-left">Canal</th>';
     html+='<th class="py-2 px-3 text-right">Prélevé</th>';
@@ -1574,13 +1575,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const[canal,data] of entries){
       const label=CANAL_LABELS[canal]||canal;
       const color=CANAL_COLORS[canal]||CANAL_COLORS.AUTRE;
-      const pct=Math.round((data.ca||0)/totalCA*100);
-      const barW=Math.max(pct,2);
+      const isWeb=canal!=='MAGASIN';
       const isMag=canal==='MAGASIN';
-      const prevCell=(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      const _caP=Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
-      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(data.caE||0)}`;
+      const dispCA=isWeb?_webDisplayCA(data):(data.ca||0);
+      const pct=Math.round(dispCA/totalCA*100);
+      const barW=Math.max(pct,2);
+      const _caP=isWeb?0:Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
+      const prevCell=_caP>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(_caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      const enlevCell=_caE>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(_caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
+      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
       let _barHtml;
       if(_caP>0){
         const _tot=Math.max(data.ca||0,_caP+_caE)||1;
@@ -1594,12 +1597,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
       html+=prevCell;
       html+=enlevCell;
-      html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
+      html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(dispCA)}</td>`;
       html+=`<td class="py-2 px-3 text-right font-bold t-secondary">${pct}%</td>`;
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.reduce((s,[,v])=>s+Math.max(0,v.caP||0),0);
+    const totalP=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?0:Math.max(0,v.caP||0)),0);
     const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
@@ -1910,7 +1913,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // terrNoChalandise: only when truly nothing loaded
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData);
     // terrDegradedBlock: degraded mode only
-    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',!degraded);
+    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||!hasData);
     // Left panel: territory filters only with territoire data; famille filter in degraded mode
     const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
@@ -1929,6 +1932,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Chalandise-only mode: show canal + chalandise overview
       ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
       _renderFamilleCanal();
+      _buildDegradedCockpit();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
