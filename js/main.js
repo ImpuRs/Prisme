@@ -1386,7 +1386,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         _S.clientArticles.get(codeClient).add(code);
       }
       if(!useMulti||sk===_S.selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(_hasCommandeCol?(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||''):('__r'+j)).toString().trim()||('__r'+j);if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
-      if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
+      if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));if(qteP>0)_S.blPreleveeSet.add(blNum);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
       // V24.4: convert _S.canalAgence bl sets to counts
       for(const c of Object.keys(_S.canalAgence))_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
@@ -1921,6 +1921,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
 
+  function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
+
   function renderTerritoireTab(){
     const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
     const hasChal=_S.chalandiseReady;
@@ -2015,8 +2017,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
 
     // Clients filtered by the same direction/rayon/secteur/search filters (for clients table)
+    const _canalFilter=_S.terrClientsCanalFilter||'all';
+    const _canalLabel=_canalFilter==='magasin'?'CA Magasin':_canalFilter==='preleve'?'CA Prélevé':'CA Total';
+    const linesForClients=_canalFilter==='magasin'?linesFiltered.filter(l=>l.canal==='MAGASIN'):_canalFilter==='preleve'?linesFiltered.filter(l=>_S.blPreleveeSet.has(l.bl)):linesFiltered;
     const clientsMapFiltered={};
-    for(const l of linesFiltered){
+    for(const l of linesForClients){
       if(l.clientCode){
         if(!clientsMapFiltered[l.clientCode])clientsMapFiltered[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};
         clientsMapFiltered[l.clientCode].ca+=l.ca;clientsMapFiltered[l.clientCode].refs.add(l.code);
@@ -2075,6 +2080,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Clients top 50 — filtered by same filters as direction/top100 views + client search
     const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
+    // Update canal toggle active state
+    ['terrCanalAll','terrCanalMag','terrCanalPrel'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+    const _activeCanal=_canalFilter==='magasin'?'terrCanalMag':_canalFilter==='preleve'?'terrCanalPrel':'terrCanalAll';
+    const _activeCanalEl=document.getElementById(_activeCanal);if(_activeCanalEl)_activeCanalEl.classList.add('active');
+    // Update column header and block title
+    const _chEl=document.getElementById('terrClientsCAHeader');if(_chEl)_chEl.textContent=_canalLabel;
+    const _ctEl=document.getElementById('terrClientsTitle');if(_ctEl)_ctEl.textContent=`\u{1F465} Clients (top ${clientsList.length} par ${_canalLabel})`;
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
@@ -3681,6 +3693,7 @@ window.onChalandiseSelected = async function(input) {
 };
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
+window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
