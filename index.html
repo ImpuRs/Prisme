@@ -1388,14 +1388,21 @@
 
         <!-- 9. Clients top 50 (territoire BL) — V2 (nécessite BL Territoire) -->
         <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
-          <div class="flex items-center gap-2 px-2 py-1.5 border-b"><h3 class="font-extrabold t-primary text-xs flex-1">👥 Clients (top 50 par CA Legallais)</h3></div>
+          <div class="flex items-center gap-2 px-2 py-1.5 border-b flex-wrap">
+            <h3 id="terrClientsTitle" class="font-extrabold t-primary text-xs flex-1">👥 Clients (top 50 par CA Total)</h3>
+            <div class="flex gap-1 flex-wrap">
+              <button id="terrCanalAll" class="diag-kpi-pill active" onclick="_setTerrClientsCanalFilter('all')">Tous canaux</button>
+              <button id="terrCanalMag" class="diag-kpi-pill" onclick="_setTerrClientsCanalFilter('magasin')">Magasin</button>
+              <button id="terrCanalPrel" class="diag-kpi-pill" onclick="_setTerrClientsCanalFilter('preleve')">Prélevé uniquement</button>
+            </div>
+          </div>
           <div class="table-scroll">
             <table class="min-w-full text-xs">
               <thead class="s-panel-inner t-inverse sticky top-0">
                 <tr>
                   <th class="py-1.5 px-2 text-left">Code</th>
                   <th class="py-1.5 px-2 text-left">Nom</th>
-                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th id="terrClientsCAHeader" class="py-1.5 px-2 text-right">CA Total</th>
                   <th class="py-1.5 px-2 text-center">Nb Réf</th>
                   <th class="py-1.5 px-2 text-center">Type</th>
                 </tr>
