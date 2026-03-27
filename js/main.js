@@ -1507,7 +1507,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const el=document.getElementById('canalAgenceBlock');if(!el)return;
     const wrapper=document.getElementById('terrCanalBlock');
     const CANAL_ORDER=['MAGASIN','REPRESENTANT','INTERNET','DCS','AUTRE'];
-    const CANAL_LABELS={MAGASIN:'🏪 Comptoir',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
+    const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([,v])=>v&&(v.ca||0)>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
@@ -1530,8 +1530,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const isOpen=_canalDrillOpen===canal;
       const prevCell=isMag&&(data.caP||0)>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(data.caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=(data.caE||0)>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(data.caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      html+=`<tr class="border-b b-light cursor-pointer transition-colors ${isOpen?'s-panel-inner t-inverse':'hover:s-card-alt'} ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
-      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label} <span class="text-[10px] font-normal opacity-60">${isOpen?'▲':'▼'}</span></td>`;
+      html+=`<tr class="border-b b-light cursor-pointer transition-colors hover:s-card-alt ${isMag?'font-semibold':''}" onclick="openCanalDrill('${canal}')" title="Voir le détail par famille">`;
+      html+=`<td class="py-2 px-3 font-bold" style="color:${color}">${label}</td>`;
       html+=prevCell;
       html+=enlevCell;
       html+=`<td class="py-2 px-3 text-right font-extrabold" style="color:${color}">${formatEuro(data.ca||0)}</td>`;
@@ -1604,7 +1604,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _renderCanalDrill(canal){
     const el=document.getElementById('canalDrillPanel');if(!el)return;
-    const CANAL_LABELS={MAGASIN:'🏪 Comptoir',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
+    const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
     const label=CANAL_LABELS[canal]||canal;
     const color=CANAL_COLORS[canal]||'#94a3b8';
@@ -1641,7 +1641,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       body+=`</tbody></table></div>`;
     }
-    const html=`<div class="diag-level diag-v1 diag-border-ok" style="border-left-color:${color}!important;margin-top:0">
+    const html=`<div class="diag-level diag-v1 diag-border-ok" style="border-left-color:${color}!important">
       <div class="diag-level-hdr">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-extrabold text-sm" style="color:${color}">🔍 Détail canal — ${label}</span>
@@ -1659,7 +1659,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function exportCanalDrillCSV(canal){
-    const CANAL_LABELS={MAGASIN:'Comptoir',INTERNET:'Web',DCS:'DCS',REPRESENTANT:'Representant',AUTRE:'Autre'};
+    const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Web',DCS:'DCS',REPRESENTANT:'Representant',AUTRE:'Autre'};
     const famData=_canalFamData(canal);
     if(!famData)return;
     const rows=Object.entries(famData).sort((a,b)=>b[1].ca-a[1].ca);
