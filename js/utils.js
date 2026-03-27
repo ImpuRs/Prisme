@@ -280,7 +280,7 @@ export function famLib(code) {
 export function famLabel(code) {
   if (!code) return '';
   const lib = FAMILLE_LOOKUP[code];
-  if (!lib) return code;
+  if (!lib) return `(${code})`;
   if (FAMILLE_HORS_CATALOGUE.has(code)) return lib;
   return `${code} · ${lib}`;
 }
