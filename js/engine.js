@@ -10,7 +10,7 @@
 'use strict';
 import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, normFam } from './utils.js';
 
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
@@ -647,7 +647,6 @@ export function computeSPC(cc, info) {
 // Peuple _S.reseauHeatmapData depuis ventesParMagasin et articleFamille.
 // Résultat : { familles: string[], agences: string[], matrix: {fam:{store: ratio}} }
 export function computeReseauHeatmap() {
-  const _normFam = f => f ? f.replace(/^[A-Z]\d{2,3} - /, '') : f;
   const myStore = _S.selectedMyStore;
   const allStores = [..._S.storesIntersection];
   if (allStores.length < 2) { _S.reseauHeatmapData = null; return; }
@@ -660,7 +659,7 @@ export function computeReseauHeatmap() {
     const sv = _S.ventesParMagasin[store] || {};
     for (const [code, data] of Object.entries(sv)) {
       if (!/^\d{6}$/.test(code)) continue;
-      const fam = _normFam(_S.articleFamille[code]);
+      const fam = normFam(_S.articleFamille[code]);
       if (!fam) continue;
       const ca = data.sumCA || 0;
       storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + ca;
