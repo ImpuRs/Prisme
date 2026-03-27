@@ -780,7 +780,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(_S.finalData.map(r=>[r.code,r.famille]));
-    const ruptureArts=_S.finalData.filter(r=>r.stockActuel<=0&&r.W>=3);
     // Silencieux >30j
     const silencieux=[];
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
@@ -810,24 +809,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     const topClients=Object.values(_topMap).map(c=>({...c,nom:_S.clientNomLookup[c.cc]||c.cc})).filter(c=>c.ca>0&&(!qClient||matchQuery(qClient,c.cc,c.nom)));
     topClients.sort((a,b)=>b.ca-a.ca);
-    // Clients impactés par ruptures — via _S.articleClients (article→clients, sans filtre store)
-    const rupClients=[];
-    if(ruptureArts.length){
-      const clientRupMap=new Map();
-      for(const art of ruptureArts){
-        if(selFam&&famMap.get(art.code)!==selFam)continue;
-        const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
-        for(const cc of buyers){
-          const nom=_S.clientNomLookup[cc]||cc;
-          if(qClient&&!matchQuery(qClient,cc,nom))continue;
-          const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
-          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
-          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
-        }
-      }
-      rupClients.push(...clientRupMap.values());
-      rupClients.sort((a,b)=>b.caRup-a.caRup);
-    }
     const hasChal=_S.chalandiseReady;
     const silSet=new Set(silencieux.map(c=>c.cc));
     const banner=`<div class="mb-3 p-3 i-caution-bg border b-light rounded-lg text-xs c-caution">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
@@ -835,15 +816,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(!hasChal&&silencieux.length){
       const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'c-danger':c.d>60?'c-caution':'c-caution';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="i-danger-bg rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
-    }
-    if(rupClients.length){
-      const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
-      const _rupTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
-      if(hasChal){
-        html+=`<details class="i-caution-bg rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b b-light cursor-pointer list-none"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_rupTable}</details>`;
-      } else {
-        html+=`<div class="i-caution-bg rounded-xl border-t-4 border-orange-400 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>⚠️</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4></div>${_rupTable}</div>`;
-      }
     }
     if(topClients.length){
       const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']].map(([v,l])=>`<button class="diag-kpi-pill${_pdvFilter===v?' active':''}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`).join('')}</div>`;
@@ -1397,6 +1369,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       if(!useMulti||sk===_S.selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(_hasCommandeCol?(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||''):('__r'+j)).toString().trim()||('__r'+j);if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));if(qteP>0)_S.blPreleveeSet.add(blNum);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
+      // Build blCanalMap (BL → canal) before converting bl sets to counts
+      _S.blCanalMap = new Map();
+      for(const [canal, data] of Object.entries(_S.canalAgence)){if(data.bl instanceof Set){for(const bl of data.bl)_S.blCanalMap.set(bl, canal);}}
       // V24.4: convert _S.canalAgence bl sets to counts
       for(const c of Object.keys(_S.canalAgence))_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
@@ -1931,6 +1906,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S.phantomArticles.forEach(r=>_S.cockpitLists.phantom.add(r.code));
   }
 
+  function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
+  function _setTerrGlobalCanalFilter(val){_S._selectedTerrCanal=val;renderTerritoireTab();}
+
   function renderTerritoireTab(){
     const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
     const hasChal=_S.chalandiseReady;
@@ -1969,6 +1947,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(_S.finalData.map(r=>[r.code,r]));
+    const _canalGlobal=_S._selectedTerrCanal||'';
+    const _canalGlobalLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    const _canalGlobalLabel=_canalGlobalLabels[_canalGlobal]||_canalGlobal;
+
+    // Update canal chip active state
+    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+    const _activeCanalGlobalId=_canalGlobal==='MAGASIN'?'terrGlobalCanalMag':_canalGlobal==='INTERNET'?'terrGlobalCanalNet':_canalGlobal==='REPRESENTANT'?'terrGlobalCanalRep':_canalGlobal==='DCS'?'terrGlobalCanalDcs':'terrGlobalCanalAll';
+    const _activeCGEl=document.getElementById(_activeCanalGlobalId);if(_activeCGEl)_activeCGEl.classList.add('active');
+
+    // Show/hide inline canal warning in sidebar
+    const _canalWarnEl=document.getElementById('terrCanalFilterWarn');
+    if(_canalWarnEl)_canalWarnEl.classList.toggle('hidden',!_canalGlobal);
+    if(_canalWarnEl&&_canalGlobal)_canalWarnEl.innerHTML=`⚠️ Filtré : canal <strong>${_canalGlobalLabel}</strong><br>CA et clients = ${_canalGlobalLabel} uniquement<br>Contributeurs = tous canaux`;
+
+    // Global KPI stats — always from ALL lines (for croisement summary, lignes KPI)
     let caTotal=0,specialCA=0;
     const blSetAll=new Set();
     const clientsMap={};
@@ -1981,27 +1974,39 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     const pctSpecial=caTotal>0?((specialCA/caTotal)*100).toFixed(1):'0';
 
-    // Couverture rayon sur Top 100 (standard articles seulement)
+    // Canal-filtered stats for CA KPI + couverture rayon KPI
+    const _linesForKPI=_canalGlobal?_S.territoireLines.filter(l=>l.canal===_canalGlobal):_S.territoireLines;
+    let caTotalFiltered=0;for(const l of _linesForKPI)caTotalFiltered+=l.ca;
     const artMapAll={};
-    for(const l of _S.territoireLines){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
+    for(const l of _linesForKPI){if(!l.isSpecial){if(!artMapAll[l.code])artMapAll[l.code]={code:l.code,ca:0,rayonStatus:l.rayonStatus};artMapAll[l.code].ca+=l.ca;}}
     const top100All=Object.values(artMapAll).sort((a,b)=>b.ca-a.ca).slice(0,100);
     const top100InStock=top100All.filter(a=>a.rayonStatus==='green').length;
     const pctCouverture=top100All.length>0?Math.round(top100InStock/top100All.length*100):0;
 
-    // VOLET 3: Résumé croisement
+    // VOLET 3: Résumé croisement (always from ALL lines)
     renderTerrCroisementSummary(blSetAll,dirSet,clientsMap,top100All,top100InStock);
 
-    // VOLET 2bis: Build secteur aggregates + contributeurs (first call)
+    // VOLET 2bis: Build secteur aggregates + contributeurs (always ALL lines — no canal filter)
     buildTerrContrib();
     renderTerrContrib();
+
+    // Update contrib title with "tous canaux" badge when canal filter active
+    const _contribTitleEl=document.getElementById('terrContribTitle');
+    if(_contribTitleEl){if(_canalGlobal)_contribTitleEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _contribTitleEl.textContent='🔗 Contributeurs agence';}
 
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
     setSafe('terrKpiLignes',_S.territoireLines.length.toLocaleString('fr'));
     setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
-    setSafe('terrKpiCATotal',formatEuro(caTotal));
+    // CA Total KPI: show canal-filtered value + note when filter active
+    setSafe('terrKpiCATotal',formatEuro(caTotalFiltered));
+    const _caTotalSubEl=document.getElementById('terrKpiCATotalSub');
+    if(_caTotalSubEl)_caTotalSubEl.textContent=_canalGlobal?`canal ${_canalGlobalLabel} uniquement`:'';
     setSafe('terrKpiCouverture',pctCouverture+'%');
     const t100Rupture=top100All.filter(a=>a.rayonStatus==='yellow').length;
     setSafe('terrKpiCouvertureSub',`${top100InStock} en rayon · ${t100Rupture} rupture · ${top100All.length-top100InStock-t100Rupture} absents`);
+    // Couverture rayon badge: remind that stock is physical (independent of canal)
+    const _couvertureInfoEl=document.getElementById('terrKpiCouvertureInfo');
+    if(_couvertureInfoEl)_couvertureInfoEl.classList.toggle('hidden',!_canalGlobal);
     setSafe('terrKpiSpecialPct',pctSpecial+'%');
     setSafe('terrKpiSpecialSub',formatEuro(specialCA)+' non stockable');
     const mixteCount=Object.values(clientsMap).filter(c=>c.type==='mixte').length;
@@ -2016,6 +2021,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
     const linesFiltered=_S.territoireLines.filter(l=>{
+      if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
@@ -2540,7 +2546,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
     const selectedSecteursCSV=getSelectedSecteurs();
+    const _canalGlobalExp=_S._selectedTerrCanal||'';
     const filtered=_S.territoireLines.filter(l=>{
+      if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
       if(filterDir&&l.direction!==filterDir)return false;
       if(filterRayon&&l.rayonStatus!==filterRayon)return false;
       if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
@@ -2550,7 +2558,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const rayonLabels={green:'En rayon',yellow:'Rupture',red:'Absent'};
     for(const l of filtered){lines.push([l.code,`"${l.libelle}"`,`"${l.direction}"`,`"${l.secteur||''}"`,`"${famLib(l.famille)||l.famille}"`,l.bl,l.ca.toFixed(2).replace('.',','),l.canal,rayonLabels[l.rayonStatus]||l.rayonStatus,l.clientCode,`"${l.clientNom}"`,l.clientType].join(SEP));}
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_LeTerrain_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
+    const _store=(_S.selectedMyStore||'').replace(/[^A-Z0-9]/gi,'');
+    const _canalSuffix=_canalGlobalExp?`_${_canalGlobalExp}`:'';
+    const _dateStr=new Date().toISOString().slice(0,7);
+    const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`terrain${_store?'_'+_store:''}${_canalSuffix}_${_dateStr}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV Le Terrain téléchargé','success');
   }
 
 
@@ -3287,6 +3298,31 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fU=f
     generateDecisionQueue();
     renderCockpitBriefing();
     renderDecisionQueue();
+    renderCockpitRupClients();
+  }
+
+  function renderCockpitRupClients(){
+    const el=document.getElementById('cockpitRupClients');if(!el)return;
+    const ruptureArts=_S.finalData.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
+    const rupClients=[];
+    if(ruptureArts.length){
+      const clientRupMap=new Map();
+      for(const art of ruptureArts){
+        const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
+        for(const cc of buyers){
+          const nom=_S.clientNomLookup[cc]||cc;
+          const caArt=(_S.ventesClientArticle.get(cc)||new Map()).get(art.code);
+          if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
+          const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
+        }
+      }
+      rupClients.push(...clientRupMap.values());
+      rupClients.sort((a,b)=>b.caRup-a.caRup);
+    }
+    if(!rupClients.length){el.innerHTML='';return;}
+    const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
+    const _rupTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
+    el.innerHTML=`<details class="i-caution-bg rounded-xl border-t-4 border-orange-400 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b b-light cursor-pointer list-none"><span>🔴</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_rupTable}</details>`;
   }
 
   // ★ BADGES FILTRES ACTIFS
@@ -3692,6 +3728,8 @@ window.onChalandiseSelected = async function(input) {
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;
+window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
+window._setTerrGlobalCanalFilter = _setTerrGlobalCanalFilter;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
