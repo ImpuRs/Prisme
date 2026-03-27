@@ -771,6 +771,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(cur)sel.value=cur;
   }
 
+  function _setPDVCanalFilter(val){_S.pdvCanalFilter=val;_buildDegradedCockpit();}
+
   function _buildDegradedCockpit(){
     const el=document.getElementById('terrDegradedBlock');if(!el||!_S.finalData.length)return;
     _populateTerrFamilleFilter();
@@ -790,15 +792,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       silencieux.push({cc,nom,ca,d});
     }
     silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
-    // Top clients by CA Magasin
-    const topClients=[];
+    // Top clients — filtrés par canal PDV
+    const _pdvFilter=_S.pdvCanalFilter||'all';
+    const _pdvLabel=_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total';
+    const _topMap={};
     for(const[cc,artMap] of _S.ventesClientArticle.entries()){
-      let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
-      if(ca<=0)continue;
-      const nom=_S.clientNomLookup[cc]||cc;
-      if(qClient&&!matchQuery(qClient,cc,nom))continue;
-      topClients.push({cc,nom,ca,nbArts:artMap.size});
+      let ca=0;
+      for(const[artCode,v] of artMap.entries()){if(selFam&&famMap.get(artCode)!==selFam)continue;ca+=_pdvFilter==='preleve'?(v.sumCAPrelevee||0):(v.sumCA||0);}
+      _topMap[cc]={cc,ca,nbArts:artMap.size};
     }
+    if(_pdvFilter==='all'){
+      for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+        let ca=0;for(const[artCode,v] of artMap.entries()){if(selFam&&famMap.get(artCode)!==selFam)continue;ca+=v.ca||0;}
+        if(_topMap[cc])_topMap[cc].ca+=ca;else _topMap[cc]={cc,ca,nbArts:artMap.size};
+      }
+    }
+    const topClients=Object.values(_topMap).map(c=>({...c,nom:_S.clientNomLookup[c.cc]||c.cc})).filter(c=>c.ca>0&&(!qClient||matchQuery(qClient,c.cc,c.nom)));
     topClients.sort((a,b)=>b.ca-a.ca);
     const hasChal=_S.chalandiseReady;
     const silSet=new Set(silencieux.map(c=>c.cc));
@@ -809,12 +818,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<div class="i-danger-bg rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
     }
     if(topClients.length){
+      const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']].map(([v,l])=>`<button class="diag-kpi-pill${_pdvFilter===v?' active':''}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`).join('')}</div>`;
       const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
-      const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">${_pdvLabel}</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       if(hasChal){
-        html+=`<details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b cursor-pointer list-none"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_topTable}</details>`;
+        html+=`<details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b cursor-pointer list-none flex-wrap"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4>${_toggle}<span class="text-[10px] t-disabled">▼</span></summary>${_topTable}</details>`;
       } else {
-        html+=`<div class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4></div>${_topTable}</div>`;
+        html+=`<div class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b flex-wrap"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4>${_toggle}</div>${_topTable}</div>`;
       }
     }
     if(!hasChal&&!silencieux.length&&!topClients.length)html+=`<p class="text-center t-disabled text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
@@ -1344,7 +1354,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim()||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
       // _S.clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
       if(cc2&&!_S.clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)_S.clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
-      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!_S.ventesClientArticle.has(cc2))_S.ventesClientArticle.set(cc2,new Map());const artMap=_S.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0)e.sumPrelevee+=qteP;e.sumCA+=caP+caE;e.countBL++;}
+      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(!_S.ventesClientArticle.has(cc2))_S.ventesClientArticle.set(cc2,new Map());const artMap=_S.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;e.countBL++;}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));}
       if(cc2&&dateV&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const prev=_S.clientLastOrder.get(cc2);if(!prev||dateV>prev)_S.clientLastOrder.set(cc2,dateV);}
@@ -2021,11 +2031,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
 
     // Clients filtered by the same direction/rayon/secteur/search filters (for clients table)
-    const _canalFilter=_S.terrClientsCanalFilter||'all';
-    const _canalLabel=_canalFilter==='magasin'?'CA Magasin':_canalFilter==='preleve'?'CA Prélevé':'CA Total';
-    const linesForClients=_canalFilter==='magasin'?linesFiltered.filter(l=>l.canal==='MAGASIN'):_canalFilter==='preleve'?linesFiltered.filter(l=>_S.blPreleveeSet.has(l.bl)):linesFiltered;
     const clientsMapFiltered={};
-    for(const l of linesForClients){
+    for(const l of linesFiltered){
       if(l.clientCode){
         if(!clientsMapFiltered[l.clientCode])clientsMapFiltered[l.clientCode]={code:l.clientCode,type:l.clientType,nom:l.clientNom,ca:0,refs:new Set()};
         clientsMapFiltered[l.clientCode].ca+=l.ca;clientsMapFiltered[l.clientCode].refs.add(l.code);
@@ -2084,13 +2091,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Clients top 50 — filtered by same filters as direction/top100 views + client search
     const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
-    // Update canal toggle active state
-    ['terrCanalAll','terrCanalMag','terrCanalPrel'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    const _activeCanal=_canalFilter==='magasin'?'terrCanalMag':_canalFilter==='preleve'?'terrCanalPrel':'terrCanalAll';
-    const _activeCanalEl=document.getElementById(_activeCanal);if(_activeCanalEl)_activeCanalEl.classList.add('active');
-    // Update column header and block title
-    const _chEl=document.getElementById('terrClientsCAHeader');if(_chEl)_chEl.textContent=_canalLabel;
-    const _ctEl=document.getElementById('terrClientsTitle');if(_ctEl)_ctEl.textContent=`\u{1F465} Clients (top ${clientsList.length} par ${_canalLabel})`;
     let pCli='';
     for(const c of clientsList){
       const typeIcon=c.type==='mixte'?'✅ Mixte':'❌ Ext. pur';
@@ -3727,6 +3727,7 @@ window.onChalandiseSelected = async function(input) {
 };
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
+window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window._setTerrGlobalCanalFilter = _setTerrGlobalCanalFilter;
 window.computePhantomArticles = computePhantomArticles;
