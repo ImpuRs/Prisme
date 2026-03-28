@@ -2168,6 +2168,86 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     };
   }
 
+  // ── Omnicanalité & Momentum — Le Terrain Sprint 5 ────────────────────────
+  function _buildTerrOmniBlock(){
+    const el=document.getElementById('terrOmniBlock');
+    if(!el)return;
+    const hasHors=_S.ventesClientHorsMagasin?.size>0;
+    const hasCom=_S.clientsByCommercial?.size>1;
+    const hasOmni=_S.clientOmniScore?.size>0;
+    if(!hasHors&&!hasCom&&!hasOmni){el.innerHTML='';return;}
+    let html='<div class="space-y-4 mt-2"><h2 class="text-xs font-extrabold t-secondary uppercase tracking-wider px-1 mb-2">📡 Omnicanalité &amp; Momentum</h2>';
+    // ── Segments omnicanaux ───────────────────────────────────────────────
+    if(hasOmni){
+      let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
+      for(const[,o]of _S.clientOmniScore){
+        if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
+        else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
+        else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
+        else{nDormant++;}
+      }
+      const total=nMono+nHybride+nDigital+nDormant||1;
+      const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
+      html+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
+        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)'],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'],[nDigital,caDigital,'Digital','📱','var(--c-caution)'],[nDormant,0,'Dormants','💤','var(--c-danger)']
+      ].map(([n,ca,label,icon,color])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
+    }
+    // ── Actifs hors agence (top 10) ───────────────────────────────────────
+    if(hasHors){
+      const horsAgence=[];
+      for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+        const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
+        if(totalHors<500)continue;
+        const pdvMap=_S.ventesClientArticle.get(cc);
+        const totalPDV=pdvMap?[...pdvMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        if(totalPDV>totalHors)continue;
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        const canaux=new Set([...artMap.values()].map(d=>d.canal).filter(Boolean));
+        horsAgence.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',totalHors,totalPDV,canaux:[...canaux].join('/')});
+      }
+      horsAgence.sort((a,b)=>b.totalHors-a.totalHors);
+      const ha10=horsAgence.slice(0,10);
+      if(ha10.length)html+=`<div class="s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Actifs hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsAgence.length} clients CA hors&gt;PDV</span></h3></div><div class="p-4"><table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','terrain')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+    // ── Momentum commercial ───────────────────────────────────────────────
+    if(hasCom){
+      const now=new Date();
+      const rows=[];
+      for(const[com,ccs]of _S.clientsByCommercial){
+        if(!com||!ccs.size)continue;
+        let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
+        for(const cc of ccs){
+          const lastDate=_S.clientLastOrder?.get(cc);
+          const arts=_S.ventesClientArticle?.get(cc);
+          const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+          if(!lastDate){nbUnknown++;continue;}
+          const d=Math.round((now-lastDate)/86400000);
+          if(d<30){nbRecent++;caActif+=ca;}
+          else if(d<90){nbAtRisk++;caActif+=ca;}
+          else{nbSilent++;caRisque+=ca;}
+        }
+        const nbTotal=ccs.size-nbUnknown;if(nbTotal===0)continue;
+        const momentum=Math.round((nbRecent*2+nbAtRisk)/(nbTotal*2)*100);
+        rows.push({com,nbRecent,nbAtRisk,nbSilent,nbTotal,caActif,caRisque,momentum});
+      }
+      rows.sort((a,b)=>a.momentum-b.momentum||b.caRisque-a.caRisque);
+      if(rows.length){
+        const cards=rows.map(r=>{
+          const pctR=Math.round(r.nbRecent/r.nbTotal*100),pctA=Math.round(r.nbAtRisk/r.nbTotal*100),pctS=Math.max(0,100-pctR-pctA);
+          const mColor=r.momentum>=65?'var(--c-ok)':r.momentum>=35?'var(--c-caution)':'var(--c-danger)';
+          const mLabel=r.momentum>=65?'⬆ Dynamique':r.momentum>=35?'➡ Stable':'⬇ En recul';
+          const comShort=r.com.includes(' - ')?r.com.split(' - ').slice(1).join(' '):r.com;
+          const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          return`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')"><div class="flex items-start justify-between mb-2"><div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div><span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span></div><div class="flex h-1.5 rounded-full overflow-hidden mb-1.5"><div style="width:${pctR}%;background:var(--c-ok)"></div><div style="width:${pctA}%;background:var(--c-caution)"></div><div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div></div><div class="flex justify-between text-[9px]"><span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span><span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span><span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span></div>${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}</div>`;
+        }).join('');
+        html+=`<div class="s-card rounded-xl border p-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3><button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div><p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j</p></div>`;
+      }
+    }
+    html+='</div>';
+    el.innerHTML=html;
+  }
+
   function renderTerritoireTab(){
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
@@ -2203,13 +2283,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
     {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!hasCross);}
-    if(!hasData&&!hasTerr&&!hasChal)return;
+    if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
+    _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
       ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
       _renderFamilleCanal();
       _buildDegradedCockpit();
+      _buildTerrOmniBlock();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -2412,6 +2494,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
 
     _renderFamilleCanal();
+    _buildTerrOmniBlock();
   }
 
   // Toggle direction row — shows famille breakdown (lazy)
