@@ -1702,7 +1702,11 @@
         <div class="p-4 space-y-4">
           <!-- Section A : Absents de votre stock (missed) -->
           <div>
-            <p class="text-xs font-bold t-secondary mb-2">Section A — Absents de votre stock <span class="t-disabled font-normal">(vendus ≥ 50% réseau)</span></p>
+            <div class="flex items-center gap-2 mb-2">
+              <p class="text-xs font-bold t-secondary">Section A — Absents de votre stock <span class="t-disabled font-normal">(vendus ≥ 50% réseau)</span></p>
+              <select id="benchMissedFamFilter" onchange="benchMissedFamChange()" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary ml-2"><option value="">Toutes familles</option></select>
+              <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
+            </div>
             <div class="overflow-x-auto">
               <table class="min-w-full text-xs">
                 <thead class="s-panel-inner t-inverse font-bold sticky top-0">

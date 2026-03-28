@@ -2901,11 +2901,20 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Render observatory sections
     renderObservatoire();
 const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=fl(over);
+    // ── Famille filter + pagination pour Section A (missed) ──────────────────
+    const _famSel=document.getElementById('benchMissedFamFilter');
+    if(_famSel){const _famSet=new Set(fM.map(m=>_S.articleFamille?.[m.code]||''));const _curFam=_famSel.value;let _opts='<option value="">Toutes familles</option>';for(const f of[..._famSet].filter(Boolean).sort())_opts+=`<option value="${f}"${f===_curFam?' selected':''}>${famLib(f)}</option>`;_famSel.innerHTML=_opts;if(_curFam&&_famSet.has(_curFam))_famSel.value=_curFam;}
+    const _famFilter=_famSel?.value||'';
+    const fMFiltered=_famFilter?fM.filter(m=>(_S.articleFamille?.[m.code]||'')===_famFilter):fM;
+    const _MISSED_PAGE=50;const _showAllMissed=!!_S._benchMissedShowAll;
+    const fMPage=_showAllMissed?fMFiltered:fMFiltered.slice(0,_MISSED_PAGE);
+    const _countEl=document.getElementById('benchMissedCountLabel');if(_countEl)_countEl.textContent=fMFiltered.length?`${fMFiltered.length} article${fMFiltered.length>1?'s':''}`:'';
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Detail tables (elements removed from DOM — render only if still present)
     const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-    let p=[];for(const m of fM){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
+    let p=[];for(const m of fMPage){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
+    if(!_showAllMissed&&fMFiltered.length>_MISSED_PAGE)p.push(`<tr><td colspan="5" class="text-center py-3"><button onclick="benchMissedShowAll(true)" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir tout (${fMFiltered.length})</button></td></tr>`);
     rT('benchMissedTable',p.join('')||'<tr><td colspan="5" class="text-center py-4 t-disabled">🎉</td></tr>');
     p=[];for(const o of fO)p.push(`<tr class="border-b hover:i-ok-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${o.lib}">${o.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-ok">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-ok font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);
     rT('benchOverTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled">—</td></tr>');
@@ -4604,6 +4613,8 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
+window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
 window.toggleRankSortDir = function(){_S._rankSortDir=(_S._rankSortDir||-1)*-1;const b=document.getElementById('rankDirBtn');if(b)b.textContent=_S._rankSortDir===-1?'▼ DESC':'▲ ASC';renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
