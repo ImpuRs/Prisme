@@ -1065,19 +1065,116 @@ export function renderIRABanner() {
   // ── Historique IRA (localStorage) ──
   _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
 
+  // Snapshot pour le modal diagnostic
+  _S._iraDiagData = { ira, iraLabel, stockScore, clientScore, captationScore,
+    fmTotal: fmArts.length, fmEnStock: fmArts.length - fmRup,
+    actifCount, totalChaland, caFuyant, caPDV };
+
   const _compDispo = `Dispo.\u00a0${stockScore}%`;
   const _compClients = actifCount > 0 ? `${actifCount}\u00a0clients\u00a0actifs` : `Activité\u00a0${clientScore}%`;
   const _compCapt = caFuyant > 0 ? `${Math.round(caFuyant/1000)}k€\u00a0fuyant` : `0\u00a0fuite\u00a0détectée`;
   const components = [_compDispo, _compClients, _compCapt].join('\u00a0·\u00a0');
 
-  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default)">
+  el.innerHTML = `<div onclick="openDiagAgence()" title="Diagnostic agence — cliquer pour détails" style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default);cursor:pointer" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
     <span style="font-weight:800;font-size:0.8rem;color:${iraColor}">📊\u00a0${ira}/100</span>
     <span style="font-size:0.75rem;font-weight:600;color:${iraColor}">·\u00a0${iraLabel}</span>
     <span style="font-size:0.72rem;color:var(--t-tertiary,#94a3b8);margin-left:auto">${components}</span>
-    <button onclick="exportAgenceSnapshot()" title="Exporter snapshot agence" style="font-size:0.65rem;padding:2px 6px;border-radius:6px;border:1px solid var(--b-light,rgba(128,128,128,0.2));background:transparent;cursor:pointer;color:var(--t-disabled)">📤</button>
+    <button onclick="event.stopPropagation();exportAgenceSnapshot()" title="Exporter snapshot agence" style="font-size:0.65rem;padding:2px 6px;border-radius:6px;border:1px solid var(--b-light,rgba(128,128,128,0.2));background:transparent;cursor:pointer;color:var(--t-disabled)">📤</button>
   </div>`;
   el.classList.remove('hidden');
 }
+
+// ── Modal Diagnostic agence ───────────────────────────────────
+export function openDiagAgence() {
+  const d = _S._iraDiagData;
+  if (!d) return;
+
+  const _color = s => s >= 70 ? 'var(--c-ok,#16a34a)' : s >= 40 ? 'var(--c-caution,#d97706)' : 'var(--c-danger,#dc2626)';
+  const _label = s => s >= 70 ? '✅ Bon niveau' : s >= 40 ? '⚠️ Vigilance' : '🔴 Actions requises';
+
+  // ── Section Dispo rayon ──
+  const dispoDetail = d.fmTotal > 0
+    ? `${d.fmEnStock} article${d.fmEnStock > 1 ? 's' : ''} F+M en stock sur ${d.fmTotal} référencés.`
+    : 'Aucune donnée stock disponible.';
+  const dispoAdvice = d.stockScore >= 70
+    ? `${_label(d.stockScore)} — ${d.fmTotal - d.fmEnStock} article${d.fmTotal - d.fmEnStock !== 1 ? 's' : ''} à réapprovisionner.`
+    : `${_label(d.stockScore)} — ${d.fmTotal - d.fmEnStock} ruptures sur articles fréquents/moyens.`;
+
+  // ── Section Activité clients ──
+  const clientDetail = d.totalChaland > 0
+    ? `${d.actifCount.toLocaleString('fr')} clients actifs sur ${d.totalChaland.toLocaleString('fr')} clients en zone.`
+    : d.actifCount > 0 ? `${d.actifCount.toLocaleString('fr')} clients actifs détectés.` : 'Chargez le fichier Zone de Chalandise pour une analyse complète.';
+  const clientAdvice = d.clientScore >= 70
+    ? `${_label(d.clientScore)} — bonne activation de la zone.`
+    : d.clientScore >= 40
+    ? `${_label(d.clientScore)} — une partie de la zone n'achète pas chez vous.`
+    : `${_label(d.clientScore)} — la majorité de la zone n'achète pas chez vous.`;
+
+  // ── Section Captation ──
+  const captDetail = d.caFuyant > 0
+    ? `${Math.round(d.caPDV / 1000)}k€ CA PDV · ${Math.round(d.caFuyant / 1000)}k€ de CA fuyant détecté.`
+    : 'Aucune fuite détectée dans le fichier Territoire.';
+  const captAdvice = d.caFuyant > 0
+    ? `${_label(d.captationScore)} — des clients achètent des familles ailleurs.`
+    : '✅ Chargez le fichier Territoire pour une analyse complète.';
+
+  // ── Recommandations ──
+  const recs = [];
+  if (d.clientScore < 40) recs.push({ txt: 'Activité clients faible → relancer les silencieux', cmd: 'clients silencieux' });
+  if (d.stockScore < 70) recs.push({ txt: `${d.fmTotal - d.fmEnStock} ruptures F+M → passer commande ERP`, cmd: 'ruptures top clients' });
+  if (d.caFuyant > 0) recs.push({ txt: 'Fuites détectées → analyser les familles fuyantes', cmd: 'familles fuyantes hors agence' });
+  if (!d.totalChaland) recs.push({ txt: 'Charger la Zone de Chalandise pour activer l\'analyse clients', cmd: null });
+  if (recs.length === 0) recs.push({ txt: 'Score satisfaisant — continuer la surveillance régulière.', cmd: null });
+
+  const recsHtml = recs.map(r => `<div style="display:flex;align-items:baseline;gap:6px;padding:4px 0">
+    <span style="font-size:0.75rem">→</span>
+    <span style="font-size:0.78rem;color:var(--t-secondary)">${r.txt}</span>
+    ${r.cmd ? `<button onclick="document.getElementById('diagAgenceModal').remove();window._cematinSearch&&window._cematinSearch('${r.cmd}')" style="margin-left:auto;font-size:0.65rem;padding:2px 8px;border-radius:8px;border:1px solid var(--b-light);background:transparent;cursor:pointer;color:var(--c-action);white-space:nowrap">Cmd+K →</button>` : ''}
+  </div>`).join('');
+
+  function _card(title, score, detail, advice) {
+    const c = _color(score);
+    return `<div style="border:1px solid var(--b-default);border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--s-card-alt)">
+        <span style="font-size:0.75rem;font-weight:700;color:var(--t-primary)">${title}</span>
+        <span style="font-size:0.9rem;font-weight:900;color:${c}">${score}%</span>
+      </div>
+      <div style="padding:10px 14px;background:var(--s-card)">
+        <p style="font-size:0.75rem;color:var(--t-secondary);margin:0 0 4px">${detail}</p>
+        <p style="font-size:0.72rem;color:${c};font-weight:600;margin:0">${advice}</p>
+      </div>
+    </div>`;
+  }
+
+  const iraColor = _color(d.ira);
+  const html = `<div id="diagAgenceModal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--bg-app);border:1px solid var(--b-default);border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
+      <div style="padding:18px 20px 12px;border-bottom:1px solid var(--b-default)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-tertiary)">Mon agence en un coup d'œil</span>
+          <button onclick="document.getElementById('diagAgenceModal').remove()" style="margin-left:auto;font-size:1rem;background:transparent;border:none;cursor:pointer;color:var(--t-disabled);padding:2px 6px;border-radius:6px" title="Fermer">✕</button>
+        </div>
+        <p style="margin:6px 0 0;font-size:1rem;font-weight:900;color:${iraColor}">📊 Score global : ${d.ira}/100 — ${d.iraLabel}</p>
+      </div>
+      <div style="padding:16px 20px">
+        ${_card('Disponibilité rayon', d.stockScore, dispoDetail, dispoAdvice)}
+        ${_card('Activité clients', d.clientScore, clientDetail, clientAdvice)}
+        ${_card('Captation zone', d.captationScore, captDetail, captAdvice)}
+        <div style="border-top:1px solid var(--b-default);padding-top:12px;margin-top:4px">
+          <p style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-tertiary);margin:0 0 8px">Comment améliorer mon score ?</p>
+          ${recsHtml}
+        </div>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--b-default);text-align:right">
+        <button onclick="document.getElementById('diagAgenceModal').remove()" style="padding:7px 20px;border-radius:20px;background:var(--s-card-alt);border:1px solid var(--b-default);cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--t-primary)">Fermer</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('diagAgenceModal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+window.openDiagAgence = openDiagAgence;
 
 // ── IRA history helpers ───────────────────────────────────────
 const _IRA_HIST_KEY = 'PRISME_IRA_HISTORY';
