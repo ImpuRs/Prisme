@@ -1840,4 +1840,4 @@ function _dispatchNLQuery(intent,params,raw){
 
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults, _parseNLQuery };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults };
