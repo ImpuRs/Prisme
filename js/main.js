@@ -3471,18 +3471,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       const actHtml=diag.actions.map(a=>`<button onclick="_obsNav('${a.nav}')" class="text-[11px] font-semibold c-action underline hover:c-action bg-transparent border-none p-0 cursor-pointer">${a.label}</button>`).join('<span class="t-disabled mx-1">·</span>');
       diagEl.innerHTML=`<div class="p-4 rounded-lg border-l-4 ${diag.border} ${diag.bg}"><div class="flex items-start gap-2"><span class="text-xl leading-none mt-0.5">${diag.icon}</span><div class="flex-1 min-w-0"><h4 class="font-bold text-sm t-primary">${diag.title}</h4><p class="text-xs t-secondary mt-1">${diag.message}</p>${diag.actions.length?`<div class="mt-2 flex flex-wrap gap-2">${actHtml}</div>`:''}</div></div></div>`;
     }else if(diagEl){diagEl.innerHTML='';}
-    // Plan d'action — format prescriptif, trié par écart CA absolu (déjà trié dans computeBenchmark)
-    const planHtml=(obsActionPlan||[]).map((a,i)=>{
-      const stars=i===0?'⭐⭐⭐':i===1?'⭐⭐':'⭐';
-      const border=a.ecartPct<-30?'border-red-300 i-danger-bg':'border-amber-300 i-caution-bg';
-      const potLabel=a.caPotentiel>0?formatEuro(a.caPotentiel):'N/A';
-      const refStr=a.refOther>0?` — sur <strong>${a.refOther} réf</strong>`:'';
-      const action=`→ Référencer <strong>${a.nbToRef>0?a.nbToRef+(a.nbToRef>1?' articles':' article'):a.refOther+(a.refOther>1?' réf':' réf')}</strong> en <strong>${a.fam}</strong> — potentiel <strong class="c-ok">${potLabel}</strong>${refStr}`;
-      const visLine=a.nbVisibility>0?`<p class="text-[10px] c-caution font-semibold mt-1">⚠️ Vérifier visibilité de <strong>${a.nbVisibility}</strong> article${a.nbVisibility>1?'s':''} en stock non vendus (emplacement ? mise en avant ?)</p>`:'';
-      return `<div class="flex items-start gap-3 p-3 rounded-lg border ${border}"><span class="text-base leading-none mt-0.5 shrink-0">${stars}</span><div class="flex-1 min-w-0"><p class="text-sm t-primary leading-snug">${action}</p><p class="text-[10px] t-tertiary mt-1">Écart CA : <span class="font-bold c-danger">${formatEuro(a.caPotentiel)}</span> manquants</p>${visLine}</div></div>`;
-    }).join('');
-    if(el('obsActionPlanDiv'))el('obsActionPlanDiv').innerHTML=planHtml||'<p class="t-disabled text-sm text-center py-2">🎉 Aucune famille sous-performante — bravo !</p>';
-    const actBadge=el('obsActionBadge');if(actBadge){const n=(obsActionPlan||[]).length;if(n>0){actBadge.textContent=n+' à traiter';actBadge.classList.remove('hidden');}else actBadge.classList.add('hidden');}
     // Families where I lose — apply min CA filter
     const minCA=_S.obsFilterMinCA||0;
     const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
