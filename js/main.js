@@ -3792,7 +3792,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function renderDashboardAndCockpit(){
     if(!_S._hasStock){
       const el=document.getElementById('tabDash');
-      if(el)el.innerHTML=_renderNoStockPlaceholder('Mon Stock');
+      if(el){
+        let slot=document.getElementById('dashNoStockSlot');
+        if(!slot){slot=document.createElement('div');slot.id='dashNoStockSlot';el.prepend(slot);}
+        slot.innerHTML=_renderNoStockPlaceholder('Mon Stock');
+        slot.style.display='';
+        [...el.children].forEach(c=>{if(c.id!=='dashNoStockSlot')c.style.display='none';});
+      }
       // Ce matin (tabAction) fonctionne sans stock — générer la DQ commerciale
       generateDecisionQueue();
       renderHealthScore();
@@ -3802,6 +3808,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       renderTabBadges();
       return;
     }
+    const _noStockSlot=document.getElementById('dashNoStockSlot');
+    if(_noStockSlot){_noStockSlot.style.display='none';[..._noStockSlot.parentElement.children].forEach(c=>c.style.display='');}
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
