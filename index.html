@@ -1633,7 +1633,7 @@
         <tbody id="obsKpiBody" class="hidden"></tbody>
       </div>
       <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
-      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6">
+      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6 overflow-hidden">
         <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
           <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
         </summary>
@@ -1644,7 +1644,6 @@
             <option value="serv">Trier par : Taux couverture</option>
             <option value="pdm">Trier par : PDM bassin</option>
           </select>
-          <button id="rankDirBtn" onclick="toggleRankSortDir()" class="text-xs s-card border b-default rounded px-2 py-1">▼ DESC</button>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
@@ -1655,7 +1654,7 @@
                 <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Couv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
                 <th class="py-2 px-3 text-center whitespace-nowrap">Tx marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA. Colonnes VMB du consommé.">ℹ</em></th>
-                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap">Clients zone<em class="info-tip" data-tip="Clients de la Zone de Chalandise actifs dans cette agence sur la période.">ℹ</em></th>
+                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap" title="Part de Marché : nb clients actifs PDV ÷ nb clients potentiels dans la zone de chalandise">PDM<em class="info-tip" data-tip="Part de Marché : nb clients actifs PDV ÷ nb clients potentiels dans la zone de chalandise.">ℹ</em></th>
                 <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement configurable avec le sélecteur ci-dessus. #1 = meilleure agence selon le critère choisi.">ℹ</em></th>
               </tr>
             </thead>
@@ -1682,9 +1681,9 @@
                 <thead class="s-panel-inner t-inverse font-bold sticky top-0">
                   <tr>
                     <th class="py-2 px-2 text-left">Article</th>
-                    <th class="py-2 px-2 text-center">Fréq réseau</th>
-                    <th class="py-2 px-2 text-center">Agences</th>
-                    <th class="py-2 px-2 text-center">Mon stock</th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('freq')">Fréq réseau <span id="missedSortFreq" class="text-[10px]">↓</span></th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('agences')">Agences <span id="missedSortAgences" class="text-[10px]"></span></th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('stock')">Mon stock <span id="missedSortStock" class="text-[10px]"></span></th>
                     <th class="py-2 px-2 text-center">Action</th>
                   </tr>
                 </thead>
