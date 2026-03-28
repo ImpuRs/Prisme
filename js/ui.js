@@ -126,6 +126,9 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
+  // Bloc score IRA sidebar — visible uniquement sur Ce matin
+  const csb = document.getElementById('cematinScoreBlock');
+  if (csb) csb.classList.toggle('hidden', id !== 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
@@ -1085,6 +1088,9 @@ export function renderIRABanner() {
     <button onclick="event.stopPropagation();exportAgenceSnapshot()" title="Exporter snapshot agence" style="font-size:0.65rem;padding:2px 6px;border-radius:6px;border:1px solid var(--b-light,rgba(128,128,128,0.2));background:transparent;cursor:pointer;color:var(--t-disabled)">📤</button>
   </div>`;
   el.classList.remove('hidden');
+  // Sidebar Ce matin — bloc score compact
+  {const _sb=document.getElementById('cematinScoreBadge');const _st=document.getElementById('cematinScoreText');const _ss=document.getElementById('cematinScoreSub');
+  if(_sb&&_st&&_ss){const _ic=_scoreColor(ira);const _ft=caFuyant>0?`${Math.round(caFuyant/1000)}k€\u00a0fuyant`:'0\u00a0fuite';const _ac=actifCount>0?`${actifCount}\u00a0clients\u00a0actifs`:'Charger\u00a0chalandise';_sb.style.borderColor=_ic+'4d';_sb.style.background=_ic+'1a';_st.innerHTML=`<span style="color:${_ic};font-weight:800;font-size:0.72rem">📊\u00a0${ira}/100</span><span style="color:${_ic};font-size:0.7rem;font-weight:600">\u00a0·\u00a0${iraLabel}</span>`;_ss.textContent=`Dispo.\u00a0${stockScore}%\u00a0·\u00a0${_ac}\u00a0·\u00a0${_ft}`;}}
 }
 
 // ── Modal Diagnostic agence ───────────────────────────────────
@@ -1140,7 +1146,7 @@ export function openDiagAgence() {
     return `<div style="border:1px solid var(--b-default);border-radius:10px;overflow:hidden;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--s-card-alt)">
         <span style="font-size:0.75rem;font-weight:700;color:var(--t-primary)">${title}</span>
-        <span style="font-size:0.9rem;font-weight:900;color:${c}">${score}%</span>
+        <span style="font-size:0.9rem;font-weight:900;color:${c}">${score}/100</span>
       </div>
       <div style="padding:10px 14px;background:var(--s-card)">
         <p style="font-size:0.75rem;color:var(--t-secondary);margin:0 0 4px">${detail}</p>
@@ -1160,9 +1166,9 @@ export function openDiagAgence() {
         <p style="margin:6px 0 0;font-size:1rem;font-weight:900;color:${iraColor}">📊 Score global : ${d.ira}/100 — ${d.iraLabel}</p>
       </div>
       <div style="padding:16px 20px">
-        ${_card('Disponibilité rayon', d.stockScore, dispoDetail, dispoAdvice)}
-        ${_card('Activité clients', d.clientScore, clientDetail, clientAdvice)}
-        ${_card('Captation zone', d.captationScore, captDetail, captAdvice)}
+        ${_card('📦 Disponibilité rayon', d.stockScore, dispoDetail, dispoAdvice)}
+        ${_card('👥 Activité clients', d.clientScore, clientDetail, clientAdvice)}
+        ${_card('🎯 Captation zone', d.captationScore, captDetail, captAdvice)}
         <div style="border-top:1px solid var(--b-default);padding-top:12px;margin-top:4px">
           <p style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-tertiary);margin:0 0 8px">Comment améliorer mon score ?</p>
           ${recsHtml}
