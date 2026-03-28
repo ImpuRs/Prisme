@@ -634,13 +634,13 @@
       <span id="filterPanelTitle" class="text-sm font-extrabold t-primary">Filtres</span>
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
-      <button data-tab="table" onclick="switchTab('table')" class="tab-btn active" style="--tab-color:#E24B4A;--tab-bg:#E24B4A1F;--tab-text:#A32D2D"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg><span>Articles</span></button>
-      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn" style="--tab-color:#EF9F27;--tab-bg:#EF9F271F;--tab-text:#854F0B"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="13" y2="14"/><line x1="7" y1="18" x2="10" y2="18"/></svg><span>Mon Stock</span></button>
+      <button data-tab="table" onclick="switchTab('table')" class="tab-btn" style="display:none;--tab-color:#E24B4A;--tab-bg:#E24B4A1F;--tab-text:#A32D2D"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg><span>Articles</span></button>
+      <button data-tab="dash" onclick="switchTab('dash')" class="tab-btn active" style="--tab-color:#EF9F27;--tab-bg:#EF9F271F;--tab-text:#854F0B"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7" y1="10" x2="17" y2="10"/><line x1="7" y1="14" x2="13" y2="14"/><line x1="7" y1="18" x2="10" y2="18"/></svg><span>Mon Stock</span></button>
       <button data-tab="action" onclick="switchTab('action')" class="tab-btn" style="--tab-color:#BA7517;--tab-bg:#FAC77526;--tab-text:#633806"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="2" y1="10" x2="4" y2="10"/><line x1="20" y1="10" x2="22" y2="10"/><line x1="17.66" y1="4.93" x2="19.07" y2="6.34"/><line x1="3" y1="17" x2="21" y2="17"/><line x1="6" y1="20" x2="18" y2="20"/></svg><span>Ce matin</span><span id="navActionBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px;background:#dc2626">0</span></button>
       <button data-tab="abc" onclick="switchTab('abc')" class="tab-btn" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Vision 9D</span></button>
-      <button data-tab="clients" onclick="switchTab('clients')" class="tab-btn" id="btnTabClients" style="--tab-color:#0891b2;--tab-bg:#06b6d41F;--tab-text:#0e4f6b"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M2 20c0-3.3 2.8-6 7-6s7 2.7 7 6"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M21 19c0-2.2-1.6-3.9-3.5-3.9"/></svg><span>Clients PDV</span><span id="navClientsBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px;background:#d97706">0</span></button>
+      <button data-tab="clients" onclick="switchTab('clients')" class="tab-btn" id="btnTabClients" style="--tab-color:#0891b2;--tab-bg:#06b6d41F;--tab-text:#0e4f6b"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M2 20c0-3.3 2.8-6 7-6s7 2.7 7 6"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M21 19c0-2.2-1.6-3.9-3.5-3.9"/></svg><span>PRISME 360</span><span id="navClientsBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px;background:#d97706">0</span></button>
       <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn hidden" id="btnTabTerritoire" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Le Terrain</span></button>
-      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn hidden" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span><span id="navBenchBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full bg-rose-500 text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px">0</span></button>
+      <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span><span id="navBenchBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full bg-rose-500 text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px">0</span></button>
       <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn" style="--tab-color:#D4537E;--tab-bg:#ED93B11F;--tab-text:#72243E"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l10 10-6 6L4 10V4z"/><circle cx="8.5" cy="8.5" r="1.5" fill="#D4537E" stroke="none"/></svg><span>Promo</span></button>
     </div>
   </div>
@@ -1053,6 +1053,9 @@
         <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none i-danger-bg hover:opacity-90 transition-opacity" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Ruptures actives">
           <span>🔴</span><div><p class="text-[10px] font-bold c-danger uppercase leading-none whitespace-nowrap">Ruptures</p><p id="dashChipRuptures" class="text-lg font-extrabold c-danger leading-tight">0</p></div>
         </div>
+        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(16,185,129,.1)" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Taux de disponibilité des articles fréquents (W≥3)">
+          <span>✅</span><div><p class="text-[10px] font-bold text-emerald-700 uppercase leading-none whitespace-nowrap">Taux de dispo.</p><p id="dashChipDispo" class="text-lg font-extrabold text-emerald-600 leading-tight">—</p></div>
+        </div>
         <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('dormants');switchTab('table')" title="Dormants à traiter">
           <span>💤</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Dormants</p><p id="dashChipDormants" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
         </div>
@@ -1108,9 +1111,9 @@
         <h2 class="text-lg font-extrabold t-primary mb-3 uppercase flex items-center gap-2">📦 Préconisation de stock <span id="badgeAssainTotal" class="badge bg-purple-600 text-white"></span></h2>
         <div class="flex flex-col gap-4">
           <details id="sasoDetail" class="i-info-bg rounded-xl border-t-4 border-purple-500">
-            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:i-info-bg">
+            <summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:i-info-bg" onclick="showCockpitInTable('saso');switchTab('table')">
               <span class="font-bold t-primary flex items-center gap-2">📦 Excédent ERP<em class="info-tip" data-tip="Stock dépassant le MAX défini dans l'ERP — à renvoyer au dépôt ou à solder.">ℹ</em><span id="badgeSaso" class="badge bg-purple-500 text-white"></span></span>
-              <span class="cockpit-link bg-purple-200 text-purple-800" onclick="event.stopPropagation();showCockpitInTable('saso')">📋 Voir dans Articles</span>
+              <span class="cockpit-link bg-purple-200 text-purple-800" onclick="event.stopPropagation();showCockpitInTable('saso');switchTab('table')">📋 Voir dans Articles</span>
             </summary>
             <div class="px-5 pb-5"><div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-info-bg t-secondary sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Excès</th><th class="py-2 px-2 text-right">€</th></tr></thead><tbody id="actionSaso" class="divide-y b-light"></tbody></table></div></div>
           </details>
@@ -1148,33 +1151,33 @@
       <div class="mb-8">
         <h3 class="font-bold t-primary mb-3 flex items-center gap-2">🗂️ Explorer mes articles <span class="text-[10px] font-normal t-disabled">— raccourcis vers l'onglet Articles avec filtre</span></h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes')" style="border-left-color:#f87171">
+          <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes');switchTab('table')" style="border-left-color:#f87171">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">📍</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
             <div class="font-semibold text-xs t-primary">Sans emplacement</div>
             <div id="scFantomesVal" class="text-[10px] c-danger font-bold mt-1">—</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('stockneg')" style="border-left-color:#818cf8">
+          <div class="shortcut-card" onclick="showCockpitInTable('stockneg');switchTab('table')" style="border-left-color:#818cf8">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scStocknegCount" class="badge bg-indigo-100 text-indigo-700">0</span></div>
             <div class="font-semibold text-xs t-primary">Stock négatif</div>
             <div id="scStocknegVal" class="text-[10px] text-indigo-600 font-bold mt-1">—</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('dormants')" style="border-left-color:#fb923c">
+          <div class="shortcut-card" onclick="showCockpitInTable('dormants');switchTab('table')" style="border-left-color:#fb923c">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">💤</span><span id="scDormantsCount" class="badge i-caution-bg c-caution">0</span></div>
             <div class="font-semibold text-xs t-primary">Dormants à traiter</div>
             <div id="scDormantsVal" class="text-[10px] c-caution font-bold mt-1">—</div>
             <div class="text-[9px] t-disabled mt-0.5">&gt; 50€ unitaire</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('fins')" style="border-left-color:#facc15">
+          <div class="shortcut-card" onclick="showCockpitInTable('fins');switchTab('table')" style="border-left-color:#facc15">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scFinsCount" class="badge bg-yellow-100 text-yellow-700">0</span></div>
             <div class="font-semibold text-xs t-primary">Fins de série</div>
             <div id="scFinsVal" class="text-[10px] text-yellow-600 font-bold mt-1">—</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('top20')" style="border-left-color:#4ade80">
+          <div class="shortcut-card" onclick="showCockpitInTable('top20');switchTab('table')" style="border-left-color:#4ade80">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">🏆</span><span class="badge i-ok-bg c-ok">20</span></div>
             <div class="font-semibold text-xs t-primary">Top 20 fréquence</div>
             <div class="text-[10px] c-ok mt-1">par nb commandes</div>
           </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('phantom')" style="border-left-color:#a78bfa">
+          <div class="shortcut-card" onclick="showCockpitInTable('phantom');switchTab('table')" style="border-left-color:#a78bfa">
             <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scPhantomCount" class="badge" style="background:rgba(167,139,250,.2);color:#a78bfa">0</span></div>
             <div class="font-semibold text-xs t-primary">Fantômes de rayon</div>
             <p id="shortcutPhantomCount" class="text-[10px] font-bold mt-1" style="color:#a78bfa">—</p>
