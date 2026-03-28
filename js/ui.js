@@ -1066,9 +1066,9 @@ export function renderIRABanner() {
   _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
 
   const components = [
-    `Stock\u00a0F+M\u00a0${stockScore}`,
-    `Momentum\u00a0${clientScore}`,
-    `Captation\u00a0${captationScore}`,
+    `Dispo.\u00a0rayon\u00a0${stockScore}`,
+    `Activité\u00a0clients\u00a0${clientScore}`,
+    `Captation\u00a0zone\u00a0${captationScore}`,
   ].join('\u00a0·\u00a0');
 
   el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default)">
