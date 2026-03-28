@@ -3800,27 +3800,30 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function renderSaisonWidget() {
     const el = document.getElementById('saisonWidget');
     if (!el) return;
+    const hasColis = (_S.cockpitLists?.colisrayon?.size || 0) > 0;
     const hasSeason = Object.keys(_S.seasonalIndex).length > 0;
-    if (!hasSeason) { el.classList.add('hidden'); return; }
+    if (!hasSeason && !hasColis) { el.classList.add('hidden'); return; }
 
     const mois = new Date().getMonth();
     const nomsMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
     const moisLbl = document.getElementById('saisonMoisLabel');
     if (moisLbl) moisLbl.textContent = nomsMois[mois];
 
-    const candidats = _getSaisonCandidats();
+    const candidats = hasSeason ? _getSaisonCandidats() : [];
     const badge = document.getElementById('badgeSaison');
     if (badge) badge.textContent = candidats.length;
     // Sprint 2: chip saisonnalité dans Mon Stock
     const chipSaison = document.getElementById('dashChipSaison');
     if (chipSaison) chipSaison.textContent = candidats.length > 0 ? candidats.length : '0';
     {const chipSaisonCont=document.getElementById('chipSaison');if(chipSaisonCont)chipSaisonCont.title=candidats.length>0?`${candidats.length} articles sous seuil saisonnier ce mois de ${nomsMois[mois]}`:'Aucun article sous seuil ce mois';}
-    el.classList.toggle('hidden', candidats.length === 0);
+    el.classList.remove('hidden');
+    // Section articles saisonniers — masquée si aucun candidat
+    const artSection = document.getElementById('saisonArtSection');
+    if (artSection) artSection.classList.toggle('hidden', candidats.length === 0);
 
     const tbody = document.getElementById('saisonTableBody');
     if (!tbody) return;
     if (candidats.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 t-disabled text-xs">Aucun article sous seuil saisonnier ce mois</td></tr>';
       return;
     }
     tbody.innerHTML = candidats.slice(0, 30).map(r => {
@@ -3962,11 +3965,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     p=[];for(const[k,br] of Object.entries(AGE_BRACKETS)){const d=ageBuckets[k];p.push(`<tr class="age-row-clickable ${k==='critical'?br.bg:'hover:s-card-alt'}" onclick="filterByAge('${k}')"><td class="py-2.5 px-3 ${br.color} font-bold text-sm">${br.label}</td><td class="py-2.5 px-3 text-right font-bold">${formatEuro(d.val)}</td><td class="py-2.5 px-3 text-right t-tertiary text-xs">${d.count}</td></tr>`);}document.getElementById('dashAgeTable').innerHTML=p.join('');
 
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
-    sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstColis.length);
+    sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);
     // Tooltips sections badges
     {const _bT=(id,t)=>{const e=document.getElementById(id);if(e)e.title=t;};
-    _bT('badgeUrgTotal',`${lstR.length} article${lstR.length!==1?'s':''} en rupture stock zéro + ${lstA.length} article${lstA.length!==1?'s':''} actif${lstA.length!==1?'s':''} sans paramétrage MIN/MAX ERP`);
-    _bT('badgeAssainTotal',`${lstColis.length} article${lstColis.length!==1?'s':''} colis à mettre en rayon`);}
+    _bT('badgeUrgTotal',`${lstR.length} article${lstR.length!==1?'s':''} en rupture stock zéro + ${lstA.length} article${lstA.length!==1?'s':''} actif${lstA.length!==1?'s':''} sans paramétrage MIN/MAX ERP`);}
     // Sprint 2: chips Mon Stock V2
     sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
     {const dh=document.getElementById('dashDispoHero');if(dh){dh.textContent=`✅ Dispo. ${sr}%`;dh.title=`${serviceOk}/${serviceTotal} articles F+M en stock`;}}
