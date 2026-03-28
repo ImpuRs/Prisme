@@ -3963,6 +3963,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
     sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstS.length+lstColis.length);
+    // Tooltips sections badges
+    {const _bT=(id,t)=>{const e=document.getElementById(id);if(e)e.title=t;};
+    _bT('badgeUrgTotal',`${lstR.length} article${lstR.length!==1?'s':''} en rupture stock zéro + ${lstA.length} article${lstA.length!==1?'s':''} actif${lstA.length!==1?'s':''} sans paramétrage MIN/MAX ERP`);
+    _bT('badgeAssainTotal',`${lstS.length} article${lstS.length!==1?'s':''} en excédent ERP + ${lstColis.length} article${lstColis.length!==1?'s':''} colis à mettre en rayon`);}
     // Sprint 2: chips Mon Stock V2
     sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
     {const dh=document.getElementById('dashDispoHero');if(dh){dh.textContent=`✅ Dispo. ${sr}%`;dh.title=`${serviceOk}/${serviceTotal} articles F+M en stock`;}}
