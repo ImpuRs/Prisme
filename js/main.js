@@ -3800,6 +3800,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         [...el.children].forEach(c=>{if(c.id!=='dashNoStockSlot')c.style.display='none';});
       }
       // Ce matin (tabAction) fonctionne sans stock — générer la DQ commerciale
+      renderCockpitEquation();
       generateDecisionQueue();
       renderHealthScore();
       renderIRABanner();
@@ -3933,6 +3934,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
     // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
     _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti};
+    renderCockpitEquation();
     generateDecisionQueue();
     renderHealthScore();
     renderIRABanner();
