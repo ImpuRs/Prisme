@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
@@ -865,7 +865,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _setPDVCanalFilter(val){_S.pdvCanalFilter=val;_buildDegradedCockpit();}
 
   function _buildDegradedCockpit(){
-    const el=document.getElementById('terrDegradedBlock');if(!el||!DataStore.finalData.length)return;
+    const el=document.getElementById('terrDegradedBlock');if(!el)return;
+    if(!DataStore.finalData.length && !_S.ventesClientArticle.size)return;
     _populateTerrFamilleFilter();
     const qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
@@ -1465,15 +1466,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
-      _S._hasStock = !!(dataS && dataS.length); // Sprint 1 : mode consommé seul si stock absent
       const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
       if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
-      if(_S._hasStock){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
+      if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
 
       const stC=new Set(),stS=new Set();
       for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
       _resetColCache();// colonnes stock ≠ colonnes consommé — purge le cache _CC pour éviter faux lookup
-      if(_S._hasStock){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
+      if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
       else{_S.storesIntersection=new Set(stC);} // consommé seul : toutes agences du consommé
       _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
       const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
@@ -1590,7 +1590,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _S.ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
       let familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();
-      if(_S._hasStock){ // ── bloc stock — ignoré en mode consommé seul ─────────────
+      if(dataS && dataS.length){ // ── bloc stock — ignoré en mode consommé seul ─────────────
       updatePipeline('stock','active');
       _resetColCache(); // colonnes stock différentes du consommé
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
@@ -1649,6 +1649,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
       // B3b: Recalcul moteur saisonnier après enrichissement articleFamille (stock est master des familles)
       _computeSeasonalIndex(monthlySales);
+      _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
@@ -2168,16 +2169,97 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     };
   }
 
+  // ── Omnicanalité & Momentum — Le Terrain Sprint 5 ────────────────────────
+  function _buildTerrOmniBlock(){
+    const el=document.getElementById('terrOmniBlock');
+    if(!el)return;
+    const hasHors=_S.ventesClientHorsMagasin?.size>0;
+    const hasCom=_S.clientsByCommercial?.size>1;
+    const hasOmni=_S.clientOmniScore?.size>0;
+    if(!hasHors&&!hasCom&&!hasOmni){el.innerHTML='';return;}
+    let html='<div class="space-y-4 mt-2"><h2 class="text-xs font-extrabold t-secondary uppercase tracking-wider px-1 mb-2">📡 Omnicanalité &amp; Momentum</h2>';
+    // ── Segments omnicanaux ───────────────────────────────────────────────
+    if(hasOmni){
+      let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
+      for(const[,o]of _S.clientOmniScore){
+        if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
+        else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
+        else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
+        else{nDormant++;}
+      }
+      const total=nMono+nHybride+nDigital+nDormant||1;
+      const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
+      html+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
+        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)'],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'],[nDigital,caDigital,'Digital','📱','var(--c-caution)'],[nDormant,0,'Dormants','💤','var(--c-danger)']
+      ].map(([n,ca,label,icon,color])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
+    }
+    // ── Actifs hors agence (top 10) ───────────────────────────────────────
+    if(hasHors){
+      const horsAgence=[];
+      for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+        const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
+        if(totalHors<500)continue;
+        const pdvMap=_S.ventesClientArticle.get(cc);
+        const totalPDV=pdvMap?[...pdvMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        if(totalPDV>totalHors)continue;
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        const canaux=new Set([...artMap.values()].map(d=>d.canal).filter(Boolean));
+        horsAgence.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',totalHors,totalPDV,canaux:[...canaux].join('/')});
+      }
+      horsAgence.sort((a,b)=>b.totalHors-a.totalHors);
+      const ha10=horsAgence.slice(0,10);
+      if(ha10.length)html+=`<div class="s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Actifs hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsAgence.length} clients CA hors&gt;PDV</span></h3></div><div class="p-4"><table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','terrain')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+    // ── Momentum commercial ───────────────────────────────────────────────
+    if(hasCom){
+      const now=new Date();
+      const rows=[];
+      for(const[com,ccs]of _S.clientsByCommercial){
+        if(!com||!ccs.size)continue;
+        let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
+        for(const cc of ccs){
+          const lastDate=_S.clientLastOrder?.get(cc);
+          const arts=_S.ventesClientArticle?.get(cc);
+          const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+          if(!lastDate){nbUnknown++;continue;}
+          const d=Math.round((now-lastDate)/86400000);
+          if(d<30){nbRecent++;caActif+=ca;}
+          else if(d<90){nbAtRisk++;caActif+=ca;}
+          else{nbSilent++;caRisque+=ca;}
+        }
+        const nbTotal=ccs.size-nbUnknown;if(nbTotal===0)continue;
+        const momentum=Math.round((nbRecent*2+nbAtRisk)/(nbTotal*2)*100);
+        rows.push({com,nbRecent,nbAtRisk,nbSilent,nbTotal,caActif,caRisque,momentum});
+      }
+      rows.sort((a,b)=>a.momentum-b.momentum||b.caRisque-a.caRisque);
+      if(rows.length){
+        const cards=rows.map(r=>{
+          const pctR=Math.round(r.nbRecent/r.nbTotal*100),pctA=Math.round(r.nbAtRisk/r.nbTotal*100),pctS=Math.max(0,100-pctR-pctA);
+          const mColor=r.momentum>=65?'var(--c-ok)':r.momentum>=35?'var(--c-caution)':'var(--c-danger)';
+          const mLabel=r.momentum>=65?'⬆ Dynamique':r.momentum>=35?'➡ Stable':'⬇ En recul';
+          const comShort=r.com.includes(' - ')?r.com.split(' - ').slice(1).join(' '):r.com;
+          const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          return`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')"><div class="flex items-start justify-between mb-2"><div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div><span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span></div><div class="flex h-1.5 rounded-full overflow-hidden mb-1.5"><div style="width:${pctR}%;background:var(--c-ok)"></div><div style="width:${pctA}%;background:var(--c-caution)"></div><div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div></div><div class="flex justify-between text-[9px]"><span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span><span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span><span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span></div>${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}</div>`;
+        }).join('');
+        html+=`<div class="s-card rounded-xl border p-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3><button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div><p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j</p></div>`;
+      }
+    }
+    html+='</div>';
+    el.innerHTML=html;
+  }
+
   function renderTerritoireTab(){
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
     const hasData=DataStore.finalData.length>0;
-    const degraded=!hasTerr&&!hasChal&&hasData;
+    const hasConsomme=_S.ventesClientArticle.size>0;
+    const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
     // terrNoChalandise: only when truly nothing loaded
-    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData);
+    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
     // terrDegradedBlock: degraded mode only
-    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||!hasData);
+    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
     // Left panel: territory filters only with territoire data; famille filter in degraded mode
     const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
@@ -2202,13 +2284,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
     {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!hasCross);}
-    if(!hasData&&!hasTerr&&!hasChal)return;
+    if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
+    _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       // Chalandise-only mode: show canal + chalandise overview
       ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
       _renderFamilleCanal();
       _buildDegradedCockpit();
+      _buildTerrOmniBlock();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -2411,6 +2495,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
 
     _renderFamilleCanal();
+    _buildTerrOmniBlock();
   }
 
   // Toggle direction row — shows famille breakdown (lazy)
@@ -2900,11 +2985,20 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Render observatory sections
     renderObservatoire();
 const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=fl(over);
+    // ── Famille filter + pagination pour Section A (missed) ──────────────────
+    const _famSel=document.getElementById('benchMissedFamFilter');
+    if(_famSel){const _famSet=new Set(fM.map(m=>_S.articleFamille?.[m.code]||''));const _curFam=_famSel.value;let _opts='<option value="">Toutes familles</option>';for(const f of[..._famSet].filter(Boolean).sort())_opts+=`<option value="${f}"${f===_curFam?' selected':''}>${famLib(f)}</option>`;_famSel.innerHTML=_opts;if(_curFam&&_famSet.has(_curFam))_famSel.value=_curFam;}
+    const _famFilter=_famSel?.value||'';
+    const fMFiltered=_famFilter?fM.filter(m=>(_S.articleFamille?.[m.code]||'')===_famFilter):fM;
+    const _MISSED_PAGE=50;const _showAllMissed=!!_S._benchMissedShowAll;
+    const fMPage=_showAllMissed?fMFiltered:fMFiltered.slice(0,_MISSED_PAGE);
+    const _countEl=document.getElementById('benchMissedCountLabel');if(_countEl)_countEl.textContent=fMFiltered.length?`${fMFiltered.length} article${fMFiltered.length>1?'s':''}`:'';
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n;};
     sB('badgeMissed',fM.length);sB('badgeOver',fO.length);sB('badgeStores',Object.keys(storePerf).length);
     // Detail tables (elements removed from DOM — render only if still present)
     const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-    let p=[];for(const m of fM){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
+    let p=[];for(const m of fMPage){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${m.lib}">${m.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
+    if(!_showAllMissed&&fMFiltered.length>_MISSED_PAGE)p.push(`<tr><td colspan="5" class="text-center py-3"><button onclick="benchMissedShowAll(true)" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir tout (${fMFiltered.length})</button></td></tr>`);
     rT('benchMissedTable',p.join('')||'<tr><td colspan="5" class="text-center py-4 t-disabled">🎉</td></tr>');
     p=[];for(const o of fO)p.push(`<tr class="border-b hover:i-ok-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${o.lib}">${o.lib}</span></td><td class="py-1.5 px-2 text-center font-bold c-ok">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-ok font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);
     rT('benchOverTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled">—</td></tr>');
@@ -3624,6 +3718,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const candidats = _getSaisonCandidats();
     const badge = document.getElementById('badgeSaison');
     if (badge) badge.textContent = candidats.length;
+    // Sprint 2: chip saisonnalité dans Mon Stock
+    const chipSaison = document.getElementById('dashChipSaison');
+    if (chipSaison) chipSaison.textContent = candidats.length > 0 ? candidats.length : '0';
     el.classList.toggle('hidden', candidats.length === 0);
 
     const tbody = document.getElementById('saisonTableBody');
@@ -3693,7 +3790,18 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   function renderDashboardAndCockpit(){
-    if(!_S._hasStock){const el=document.getElementById('tabDash');if(el)el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📦</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Mon Stock</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>';return;}
+    if(!_S._hasStock){
+      const el=document.getElementById('tabDash');
+      if(el)el.innerHTML=_renderNoStockPlaceholder('Mon Stock');
+      // Ce matin (tabAction) fonctionne sans stock — générer la DQ commerciale
+      generateDecisionQueue();
+      renderHealthScore();
+      renderIRABanner();
+      renderCockpitBriefing();
+      renderDecisionQueue();
+      renderTabBadges();
+      return;
+    }
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
@@ -3754,6 +3862,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
     sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstS.length+lstColis.length);
+    // Sprint 2: chips Mon Stock V2
+    sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
     // V24.3: populate new _S.cockpitLists
     lstB.sort((a,b)=>b.sv-a.sv).slice(0,20).forEach(i=>_S.cockpitLists.top20.add(i.code));
     lstN.forEach(i=>_S.cockpitLists.nouveautes.add(i.code));
@@ -3882,7 +3992,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   // ★ TABLEAU
   function renderTable(pageOnly){
-    if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.querySelector('#resultTable tbody')?.closest('.overflow-x-auto')&&(el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📋</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Articles</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>');return;}
+    if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.innerHTML=_renderNoStockPlaceholder('Articles');return;}
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
       DataStore.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});
@@ -4008,12 +4118,12 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
-  // ── Vue "Mes clients" (V4) ─────────────────────────────────────────
+  // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────
   function renderMesClients(){
     const el=document.getElementById('tabClients');
     if(!el)return;
-    if(!DataStore.finalData.length){
-      el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord vos fichiers de données.</div>';
+    if(!_S.ventesClientArticle.size && !_S.finalData.length){
+      el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
       return;
     }
     const now=new Date();
@@ -4072,9 +4182,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }).join('')}</div></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
 
-    // ── S3b : Segments omnicanaux ─────────────────────────────────────────
+    // ── S3b : Segments omnicanaux → déplacé vers Le Terrain (Sprint 5) ─────
     let omniHtml='';
-    if(_S.clientOmniScore?.size){
+    if(false&&_S.clientOmniScore?.size){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
       for(const[,o]of _S.clientOmniScore){
         if(o.segment==='mono'){nMono++;caMono+=o.caPDV;}
@@ -4114,9 +4224,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }
     }
 
-    // ── S4: Actifs hors agence (top 10) ──────────────────────────────
+    // ── S4: Actifs hors agence → déplacé vers Le Terrain (Sprint 5) ─────────
     const horsAgence=[];
-    for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+    if(false)for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
       const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
       if(totalHors<500)continue;
       const pdvMap=_S.ventesClientArticle.get(cc);
@@ -4134,6 +4244,54 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dont le CA hors-agence dépasse le CA en magasin — signal de captation partielle à convertir.</p>
       <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','clients')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td><td class="py-1.5 text-right c-action font-semibold">${c.commercial||'—'}</td></tr>`).join('')}</tbody></table></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
+
+    // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
+    let topPDVHtml='';
+    if(_S.ventesClientArticle.size){
+      const topRows=[];
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<100)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        topRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
+      }
+      topRows.sort((a,b)=>b.caPDV-a.caPDV);
+      const top=topRows.slice(0,20);
+      if(top.length){
+        const now=Date.now();
+        const rows=top.map(r=>{
+          const daysSince=r.lastDate?Math.round((now-r.lastDate)/86400000):null;
+          const silence=daysSince!==null?`${daysSince}j`:'—';
+          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+          const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
+          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+        }).join('');
+        topPDVHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      }
+    }
+
+    // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
+    let horsZoneHtml='';
+    if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+      const hors=[];
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        if(_S.chalandiseData.has(cc))continue;
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<200)continue;
+        const nom=_S.clientNomLookup?.[cc]||cc;
+        hors.push({cc,nom,caPDV});
+      }
+      hors.sort((a,b)=>b.caPDV-a.caPDV);
+      if(hors.length){
+        const rows=hors.slice(0,10).map(r=>`<div class="flex items-center justify-between py-1.5 px-3 border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><span class="font-bold text-[11px] t-primary">${r.nom}</span><span class="text-[10px] t-disabled font-mono">${r.cc}</span><span class="font-bold text-[11px] c-action">${formatEuro(r.caPDV)}</span></div>`).join('');
+        horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div>${rows}</div></div>`;
+      }
+    }
 
     // ── Section 4b : Clients devenus digitaux ────────────────────────────
     let digitauxHtml='';
@@ -4177,9 +4335,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }
     }
 
-    // ── Section 5 : Momentum commercial ──────────────────────────────────
+    // ── Section 5 : Momentum commercial → déplacé vers Le Terrain (Sprint 5) ─
     let momentumHtml='';
-    if(_S.clientsByCommercial?.size>1){
+    if(false&&_S.clientsByCommercial?.size>1){
       const now=new Date();
       const rows=[];
       for(const[com,ccs]of _S.clientsByCommercial){
@@ -4237,22 +4395,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 </div>`;
     }
 
-    const top5El=document.getElementById('clientsTop5');
-    const reconqEl=document.getElementById('clientsReconquete');
-    const oppsEl=document.getElementById('clientsOpportunites');
-    const omniEl=document.getElementById('clientsOmni');
-    const haEl=document.getElementById('clientsHorsAgence');
-    const digitauxEl=document.getElementById('clientsDigitaux');
-    const momEl=document.getElementById('clientsMomentum');
-    if(top5El)top5El.innerHTML=top5Html;
-    if(reconqEl)reconqEl.innerHTML=reconqHtml;
-    if(oppsEl)oppsEl.innerHTML=oppsHtml;
-    if(omniEl)omniEl.innerHTML=omniHtml;
-    if(haEl)haEl.innerHTML=haHtml;
-    if(digitauxEl)digitauxEl.innerHTML=digitauxHtml;
-    if(momEl)momEl.innerHTML=momentumHtml;
-    // Restaurer/activer le sous-onglet actif (persisté dans _S)
-    _switchClientsTab(_S._clientsActiveTab||'priorites');
+    const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
+    _setEl('clientsTop5',top5Html);
+    _setEl('clientsTopPDV',topPDVHtml);
+    _setEl('clientsHorsZone',horsZoneHtml);
+    _setEl('clientsDigitaux',digitauxHtml);
+    _setEl('clientsReconquete',reconqHtml);
+    _setEl('clientsOpportunites',oppsHtml);
   }
 
   function _goCommercial(commercial){
@@ -4300,18 +4449,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
   window._exportTourneeCSV=_exportTourneeCSV;
 
-  // ── Sous-onglets Mes clients ──────────────────────────────────────────────
-  function _switchClientsTab(tab){
-    _S._clientsActiveTab=tab;
-    ['priorites','horsagence','commercial'].forEach(t=>{
-      const pane=document.getElementById('clientsPane-'+t);
-      const btn=document.getElementById('clientsTabBtn-'+t);
-      if(pane)pane.classList.toggle('hidden',t!==tab);
-      if(btn){
-        if(t===tab){btn.classList.add('border-cyan-500','text-cyan-400');btn.classList.remove('border-transparent','t-disabled');}
-        else{btn.classList.remove('border-cyan-500','text-cyan-400');btn.classList.add('border-transparent','t-disabled');}
-      }
-    });
+  // ── Sous-onglet Clients PDV (vue unique) ─────────────────────────────────
+  function _switchClientsTab(){
+    // Vue unique — pas de sous-onglets depuis Sprint 4
+    const pane=document.getElementById('clientsPane-priorites');
+    if(pane)pane.classList.remove('hidden');
   }
   window._switchClientsTab=_switchClientsTab;
 
@@ -4587,6 +4729,8 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
+window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
 window.toggleRankSortDir = function(){_S._rankSortDir=(_S._rankSortDir||-1)*-1;const b=document.getElementById('rankDirBtn');if(b)b.textContent=_S._rankSortDir===-1?'▼ DESC':'▲ ASC';renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
