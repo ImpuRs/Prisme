@@ -119,7 +119,7 @@ export function switchTab(id) {
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Contextual panel title
-  const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
+  const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', clients: 'Mes clients', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
 }
@@ -368,6 +368,7 @@ const _CMD_ACTIONS = [
   { kw: ['saso'], icon: '📦', label: 'Voir les SASO', fn: () => { showCockpitInTable('saso'); } },
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('territoire'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
+  { kw: ['mes clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Mes clients', fn: () => { switchTab('clients'); } },
   { kw: ['promo'], icon: '🎯', label: 'Onglet Promo', fn: () => { switchTab('promo'); } },
   { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },

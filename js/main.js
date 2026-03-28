@@ -3992,6 +3992,101 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
+  // ── Vue "Mes clients" (V4) ─────────────────────────────────────────
+  function renderMesClients(){
+    const el=document.getElementById('tabClients');
+    if(!el)return;
+    if(!DataStore.finalData.length){
+      el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord vos fichiers de données.</div>';
+      return;
+    }
+    const now=new Date();
+
+    // ── S1: Top 5 priorités semaine ──────────────────────────────────
+    let top5=[];
+    if(_S._top5Semaine?.length){
+      top5=_S._top5Semaine;
+    } else if(_S.clientLastOrder.size){
+      const cands=[];
+      for(const [cc,lastDate] of _S.clientLastOrder.entries()){
+        const daysSince=Math.round((now-lastDate)/86400000);
+        if(daysSince<30)continue;
+        const info=_S.chalandiseData.get(cc);
+        if(!info)continue;
+        const artMap=_S.ventesClientArticle.get(cc);
+        const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        const ca=Math.max((info.ca2025||0)+caPDV,1);
+        const score=(daysSince/30)*Math.sqrt(ca);
+        const hmCount=(_S.ventesClientHorsMagasin.get(cc)||new Map()).size;
+        const parts=[];
+        if(daysSince>0)parts.push(`${daysSince}j silence`);
+        if(info.ca2025>0)parts.push(`CA ${formatEuro(info.ca2025)}/an`);
+        else if(caPDV>0)parts.push(`CA PDV ${formatEuro(caPDV)}/an`);
+        if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
+        cands.push({cc,nom:info.nom||cc,commercial:info.commercial||'',metier:info.metier||'',score:Math.round(score),reason:parts.join(' · ')||'À contacter'});
+      }
+      cands.sort((a,b)=>b.score-a.score);
+      top5=cands.slice(0,5);
+    }
+    const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2">
+      <div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233">
+        <div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3>
+        <p class="text-[10px] t-tertiary mt-0.5">Clients silencieux depuis >30j, classés par CA × durée de silence</p></div>
+        ${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la zone de chalandise pour plus de précision</span>`}
+      </div>
+      <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.cc}','clients')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c.reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div>
+    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
+
+    // ── S2: Reconquête (top 10) ──────────────────────────────────────
+    const reconq=(_S.reconquestCohort||[]).slice(0,10);
+    const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_S.reconquestCohort.length} anciens clients FID</span></h3></div>
+      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients avec historique PDV significatif (CA≥500€, ≥1 famille), silencieux depuis plus de 6 mois.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div>
+    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_S.chalandiseReady?'Aucun client éligible.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
+
+    // ── S3: Opportunités nettes (top 8) ──────────────────────────────
+    const opps=(_S.opportuniteNette||[]).slice(0,8);
+    const oppsHtml=opps.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🎯 Opportunités nettes <span class="text-[10px] font-normal t-disabled ml-1">${_S.opportuniteNette.length} clients avec familles manquantes</span></h3></div>
+      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Familles que les clients du même métier achètent chez vous — mais pas ce client. Le % = part des confrères qui achètent cette famille.</p>
+      <div class="flex flex-col gap-2">${opps.map(o=>{
+        const fams=o.missingFams.map(f=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full i-info-bg c-action font-semibold">${f.fam} ${f.metierPct}%</span>`).join(' ');
+        return`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${o.cc}','clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${o.nom}</span><span class="text-[10px] t-tertiary">${o.metier||'—'}</span><span class="text-[10px] c-action font-bold">${o.commercial||'—'}</span></div><div class="flex flex-wrap gap-1 mt-1">${fams}</div><div class="text-[10px] t-tertiary mt-1">Potentiel : <strong class="c-action">${formatEuro(o.totalPotentiel)}</strong>/an · ${o.nbMissing} famille${o.nbMissing>1?'s':''}</div></div>`;
+      }).join('')}</div></div>
+    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
+
+    // ── S4: Actifs hors agence (top 10) ──────────────────────────────
+    const horsAgence=[];
+    for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+      const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
+      if(totalHors<500)continue;
+      const pdvMap=_S.ventesClientArticle.get(cc);
+      const totalPDV=pdvMap?[...pdvMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+      if(totalPDV>totalHors)continue; // déjà bien capté
+      const info=_S.chalandiseData.get(cc);
+      const nom=info?.nom||_S.clientNomLookup[cc]||cc;
+      const canaux=new Set([...artMap.values()].map(d=>d.canal).filter(Boolean));
+      horsAgence.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',totalHors,totalPDV,canaux:[...canaux].join('/')});
+    }
+    horsAgence.sort((a,b)=>b.totalHors-a.totalHors);
+    const ha10=horsAgence.slice(0,10);
+    const haHtml=ha10.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Actifs hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsAgence.length} clients avec CA hors&gt;PDV</span></h3></div>
+      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dont le CA hors-agence dépasse le CA en magasin — signal de captation partielle à convertir.</p>
+      <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','clients')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td><td class="py-1.5 text-right c-action font-semibold">${c.commercial||'—'}</td></tr>`).join('')}</tbody></table></div>
+    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
+
+    const top5El=document.getElementById('clientsTop5');
+    const reconqEl=document.getElementById('clientsReconquete');
+    const oppsEl=document.getElementById('clientsOpportunites');
+    const haEl=document.getElementById('clientsHorsAgence');
+    if(top5El)top5El.innerHTML=top5Html;
+    if(reconqEl)reconqEl.innerHTML=reconqHtml;
+    if(oppsEl)oppsEl.innerHTML=oppsHtml;
+    if(haEl)haEl.innerHTML=haHtml;
+  }
+
   // ── Lazy tab renderer — renders only the currently active tab ──
   function renderCurrentTab(){
     const activeBtn=document.querySelector('.tab-btn.active');
@@ -4013,6 +4108,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         break;
       case 'bench':
         renderBenchmark();
+        break;
+      case 'clients':
+        renderMesClients();
         break;
       // 'promo' needs no render call
     }
@@ -4274,6 +4372,7 @@ window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
+window.renderMesClients = renderMesClients;
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
