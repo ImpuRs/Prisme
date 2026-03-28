@@ -1187,7 +1187,10 @@
       </div>
 
       <!-- 0a. NL Search Chips -->
-      <button onclick="window.generatePrismeChips()" style="margin-bottom:10px;padding:6px 16px;border-radius:20px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <button onclick="window.generatePrismeChips()" style="padding:6px 16px;border-radius:20px;background:var(--accent,#f97316);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
+        <button onclick="window.runBriefingJour()" style="padding:6px 16px;border-radius:20px;background:var(--c-ok,#10b981);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">☀️ Briefing du jour</button>
+      </div>
       <div class="flex flex-wrap gap-1.5 mb-3 px-0.5">
         <button onclick="_cematinSearch('taux de service')" class="nl-chip text-[9px] px-2 py-1 rounded-full s-card border b-light t-disabled hover:t-primary transition-colors">taux de service</button>
         <button onclick="_cematinSearch('stock dormant')" class="nl-chip text-[9px] px-2 py-1 rounded-full s-card border b-light t-disabled hover:t-primary transition-colors">stock dormant</button>

@@ -3493,3 +3493,8 @@ function _nlQ_OmnicanalMacro() {
     footer: `Source : fichier consommé multi-canal · VMC = CA ÷ nb BL par canal`,
   };
 }
+
+export function runBriefingJour() {
+  _nlRenderResults(_nlQ_BriefingJour());
+}
+window.runBriefingJour = runBriefingJour;
