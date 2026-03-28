@@ -1633,7 +1633,7 @@
         <tbody id="obsKpiBody" class="hidden"></tbody>
       </div>
       <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
-      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6">
+      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6 overflow-hidden">
         <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
           <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
         </summary>
@@ -1644,7 +1644,6 @@
             <option value="serv">Trier par : Taux couverture</option>
             <option value="pdm">Trier par : PDM bassin</option>
           </select>
-          <button id="rankDirBtn" onclick="toggleRankSortDir()" class="text-xs s-card border b-default rounded px-2 py-1">▼ DESC</button>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
