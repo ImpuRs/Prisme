@@ -1371,13 +1371,26 @@
           <p class="text-xs t-tertiary mt-1">Priorités semaine · Reconquête · Opportunités · Hors-agence</p>
         </div>
       </div>
-      <div id="clientsTop5"></div>
-      <div id="clientsReconquete"></div>
-      <div id="clientsOpportunites"></div>
-      <div id="clientsOmni"></div>
-      <div id="clientsHorsAgence"></div>
-      <div id="clientsDigitaux"></div>
-      <div id="clientsMomentum"></div>
+      <!-- Sous-onglets -->
+      <div id="clientsSubNav" class="flex gap-1 mb-4 border-b b-light pb-0">
+        <button id="clientsTabBtn-priorites"   class="clients-sub-btn px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors" onclick="_switchClientsTab('priorites')">⚡ Priorités</button>
+        <button id="clientsTabBtn-horsagence"  class="clients-sub-btn px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors" onclick="_switchClientsTab('horsagence')">🌐 Hors agence</button>
+        <button id="clientsTabBtn-commercial"  class="clients-sub-btn px-3 py-1.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors" onclick="_switchClientsTab('commercial')">📈 Commercial</button>
+      </div>
+      <!-- Contenu par sous-onglet -->
+      <div id="clientsPane-priorites">
+        <div id="clientsTop5"></div>
+        <div id="clientsReconquete"></div>
+        <div id="clientsOpportunites"></div>
+        <div id="clientsOmni"></div>
+      </div>
+      <div id="clientsPane-horsagence" class="hidden">
+        <div id="clientsHorsAgence"></div>
+        <div id="clientsDigitaux"></div>
+      </div>
+      <div id="clientsPane-commercial" class="hidden">
+        <div id="clientsMomentum"></div>
+      </div>
     </div>
 
     <!-- TAB : TERRITOIRE (V24.4) -->

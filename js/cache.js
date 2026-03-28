@@ -275,6 +275,8 @@ export async function _saveSessionToIDB() {
       periodFilterEnd:       _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
       // ── Filtres chalandise ──
       _selectedCommercial:   _S._selectedCommercial || '',
+      // ── Navigation sous-onglets ──
+      _clientsActiveTab:     _S._clientsActiveTab   || 'priorites',
       // ── Benchmark (cache rendu) ──
       benchLists:            _serializeBenchLists(_S.benchLists),
       // ── Moteur saisonnier (B3) ──
@@ -379,6 +381,8 @@ export async function _restoreSessionFromIDB() {
 
     // ── Filtres chalandise ──
     if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
+    // ── Navigation sous-onglets ──
+    if (data._clientsActiveTab)  _S._clientsActiveTab  = data._clientsActiveTab;
 
     // ── Opportunité nette & reconquête (C1) ──
     _S.opportuniteNette  = data.opportuniteNette  || [];
