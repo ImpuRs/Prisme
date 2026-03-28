@@ -3803,7 +3803,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       generateDecisionQueue();
       renderHealthScore();
       renderIRABanner();
-      renderCockpitBriefing();
+      // renderCockpitBriefing(); — remplacé par bouton ☀️ Briefing du jour
       renderDecisionQueue();
       renderTabBadges();
       return;
