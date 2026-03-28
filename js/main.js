@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, dqDismiss, clearDqDismissed, _cematinSearch } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -1687,7 +1687,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
             .filter(([, m]) => m.has(r.code)).length;
         }
       }
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();generateDecisionQueue();renderDecisionQueue();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();generateDecisionQueue();renderDecisionQueue();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
@@ -4058,6 +4058,48 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }).join('')}</div></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
 
+    // ── S3b : Segments omnicanaux ─────────────────────────────────────────
+    let omniHtml='';
+    if(_S.clientOmniScore?.size){
+      let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
+      for(const[,o]of _S.clientOmniScore){
+        if(o.segment==='mono'){nMono++;caMono+=o.caPDV;}
+        else if(o.segment==='hybride'){nHybride++;caHybride+=o.caPDV+o.caHors;}
+        else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV;}
+        else if(o.segment==='dormant'){nDormant++;caDormant+=o.caPDV;}
+      }
+      const total=nMono+nHybride+nDigital+nDormant||1;
+      const pill=(n,ca,label,icon,color)=>n>0?`<div class="flex flex-col items-center p-2.5 s-card rounded-xl border cursor-pointer hover:s-hover transition-all" onclick="_cematinSearch('clients ${label.toLowerCase().replace(' ','+')}')">
+  <span class="text-[16px] leading-none mb-1">${icon}</span>
+  <span class="text-[13px] font-extrabold t-primary">${n}</span>
+  <span class="text-[9px] t-disabled">${label}</span>
+  ${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}
+</div>`:'';
+      const pills=[
+        pill(nMono,caMono,'Mono PDV','🏪','var(--c-ok)'),
+        pill(nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'),
+        pill(nDigital,caDigital,'Digital','📱','var(--c-caution)'),
+        pill(nDormant,caDormant,'Dormants','💤','var(--c-danger)'),
+      ].filter(Boolean).join('');
+      if(pills){
+        const pctMono=Math.round(nMono/total*100);
+        const pctH=Math.round(nHybride/total*100);
+        const pctD=Math.round(nDigital/total*100);
+        const pctDor=Math.max(0,100-pctMono-pctH-pctD);
+        omniHtml=`<div class="mb-5">
+  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients analysés</span></h3>
+  <div class="grid grid-cols-4 gap-2 mb-2">${pills}</div>
+  <div class="flex h-1.5 rounded-full overflow-hidden">
+    <div style="width:${pctMono}%;background:var(--c-ok)" title="Mono PDV ${pctMono}%"></div>
+    <div style="width:${pctH}%;background:var(--c-info,#3b82f6)" title="Hybrides ${pctH}%"></div>
+    <div style="width:${pctD}%;background:var(--c-caution)" title="Digital ${pctD}%"></div>
+    <div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4" title="Dormants"></div>
+  </div>
+  <p class="text-[9px] t-disabled mt-1.5">Cliquer sur un segment pour filtrer dans Ce matin · 🏪\u00a0PDV seul · 🔀\u00a0PDV+digital · 📱\u00a0digital dominant · 💤\u00a0silence &gt;180j</p>
+</div>`;
+      }
+    }
+
     // ── S4: Actifs hors agence (top 10) ──────────────────────────────
     const horsAgence=[];
     for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
@@ -4181,12 +4223,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const top5El=document.getElementById('clientsTop5');
     const reconqEl=document.getElementById('clientsReconquete');
     const oppsEl=document.getElementById('clientsOpportunites');
+    const omniEl=document.getElementById('clientsOmni');
     const haEl=document.getElementById('clientsHorsAgence');
     const digitauxEl=document.getElementById('clientsDigitaux');
     const momEl=document.getElementById('clientsMomentum');
     if(top5El)top5El.innerHTML=top5Html;
     if(reconqEl)reconqEl.innerHTML=reconqHtml;
     if(oppsEl)oppsEl.innerHTML=oppsHtml;
+    if(omniEl)omniEl.innerHTML=omniHtml;
     if(haEl)haEl.innerHTML=haHtml;
     if(digitauxEl)digitauxEl.innerHTML=digitauxHtml;
     if(momEl)momEl.innerHTML=momentumHtml;
@@ -4342,7 +4386,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       buildPeriodFilter();
       computeClientCrossing();
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
-      if (_S.chalandiseReady && _S.clientLastOrder.size) computeReconquestCohort();
+      if (_S.chalandiseReady && _S.clientLastOrder.size) { computeReconquestCohort(); computeOmniScores(); }
       // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
       if (_S._selectedCommercial) {
         const _comInput = document.getElementById('terrCommercialFilter');
@@ -4463,6 +4507,7 @@ window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
 window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
+window.computeOmniScores = computeOmniScores;
 window.renderHeatmapFamilleCommercial = renderHeatmapFamilleCommercial;
 window.exportTourneeCSV = exportTourneeCSV;
 window._togglePromoClientRow = _togglePromoClientRow;

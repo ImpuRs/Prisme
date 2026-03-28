@@ -686,6 +686,10 @@ function _nlInterpret(q) {
   if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
   if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
   if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
+  if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
+  if (/mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('mono');
+  if (/full.{0,6}digital|100.{0,5}digital|tout.{0,6}digital/.test(raw))                     return _nlQ_OmniSegment('digital');
+  if (/segment.{0,10}omni|omnicanal/.test(raw))                                              return _nlQ_OmniSegment(null);
   return null;
 }
 
@@ -925,6 +929,39 @@ function _nlQ_FamillesSousMediane() {
   return { title:`Familles sous la médiane réseau — ${lose.length} familles (potentiel\u00a0${formatEuro(totalEcart)})`,
     html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-3">Moi</th><th class="text-right pr-3">Réseau</th><th class="text-right">Écart</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
     footer:'Cliquer sur une famille pour ouvrir le diagnostic complet' };
+}
+
+function _nlQ_OmniSegment(segment) {
+  const scores = _S.clientOmniScore;
+  if (!scores?.size) return { title:'Segments omnicanaux', html:'<p class="text-xs t-disabled">Chargez la chalandise + fichiers ventes pour calculer les segments omnicanaux.</p>' };
+  const LABELS = { mono:'Mono PDV 🏪', hybride:'Hybrides 🔀', digital:'Digital 📱', dormant:'Dormants 💤' };
+  const COLOR = { mono:'var(--c-ok)', hybride:'var(--c-info,#3b82f6)', digital:'var(--c-caution)', dormant:'var(--c-danger)' };
+  const segs = segment ? [segment] : ['mono','hybride','digital','dormant'];
+  const rows = [];
+  for (const seg of segs) {
+    const list = [];
+    for (const [cc, o] of scores) {
+      if (o.segment !== seg) continue;
+      const info = _S.chalandiseData?.get(cc);
+      list.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier||'', o });
+    }
+    list.sort((a,b)=>(b.o.caPDV+b.o.caHors)-(a.o.caPDV+a.o.caHors));
+    if (!list.length) continue;
+    const top = list.slice(0, segment ? 10 : 5);
+    const headerRow = `<tr><td colspan="5" class="pt-3 pb-1 text-[10px] font-bold" style="color:${COLOR[seg]}">${LABELS[seg]} (${list.length})</td></tr>`;
+    const dataRows = top.map(({cc,nom,metier,o})=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')">
+<td class="py-1 pr-2 font-semibold">${nom}<span class="text-[8px] t-disabled ml-1">${metier}</span></td>
+<td class="py-1 pr-2 text-right">${o.caPDV>0?formatEuro(o.caPDV):'—'}</td>
+<td class="py-1 pr-2 text-right">${o.caHors>0?formatEuro(o.caHors):'—'}</td>
+<td class="py-1 pr-2 text-right t-disabled">${o.silenceDays<999?o.silenceDays+'j':'—'}</td>
+<td class="py-1 text-right font-bold">${o.score}</td>
+</tr>`).join('');
+    rows.push(headerRow + dataRows);
+  }
+  const title = segment ? `${LABELS[segment]} — ${[...scores.values()].filter(o=>o.segment===segment).length} clients` : `Segments omnicanaux — ${scores.size} clients`;
+  return { title,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-right pr-2">CA PDV</th><th class="text-right pr-2">CA digital</th><th class="text-right pr-2">Silence</th><th class="text-right">Score</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
+    footer:'Score = ancrage PDV (40) + fréquence (30) + récence (30) · Cliquer pour fiche client 360°' };
 }
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────

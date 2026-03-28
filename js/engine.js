@@ -321,7 +321,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -611,6 +611,31 @@ export function generateDecisionQueue() {
     }
   }
 
+  // ── 9b. Clients glissant vers le digital (avaient PDV, PDV silence >90j, caHors>500) ──
+  if (_S.clientOmniScore?.size && _S.ventesClientArticle?.size) {
+    const drifters = [];
+    for (const [cc, omni] of _S.clientOmniScore) {
+      if (omni.segment !== 'digital') continue;
+      if (omni.caPDV < 200 || omni.caHors < 500) continue;
+      if (omni.silenceDays < 90) continue;
+      drifters.push({ cc, nom: _S.clientNomLookup?.[cc] || cc, ...omni });
+    }
+    drifters.sort((a, b) => b.caPDV - a.caPDV);
+    if (drifters.length > 0) {
+      const top = drifters[0];
+      const totalCA = drifters.reduce((s, c) => s + c.caPDV, 0);
+      decisions.push({
+        type: 'client_digital_drift', impact: totalCA,
+        label: `${drifters.length}\u00a0client${drifters.length > 1 ? 's' : ''} glissant vers le digital\u00a0— ${Math.round(totalCA).toLocaleString('fr')}\u00a0€ PDV à risque.`,
+        why: [
+          `Clients avec historique PDV actifs en ligne mais silencieux au comptoir depuis >${Math.min(...drifters.map(d => d.silenceDays))}j.`,
+          `Top\u00a0: ${top.nom}\u00a0— PDV\u00a0${Math.round(top.caPDV).toLocaleString('fr')}\u00a0€ vs digital\u00a0${Math.round(top.caHors).toLocaleString('fr')}\u00a0€.`,
+          `Proposer une offre comptoir ou rendez-vous pour reconvertir ces clients.`,
+        ],
+      });
+    }
+  }
+
   // ── 10. Alerte saisonnière préventive (pic mois prochain) ───────────────
   if (Object.keys(_S.seasonalIndex).length > 0) {
     const futurM = (new Date().getMonth() + 1) % 12;
@@ -852,4 +877,45 @@ export function computeReseauHeatmap() {
   const agences = [myStore, ...allStores.filter(s => s !== myStore).sort((a,b) => storeCA[b]-storeCA[a])];
 
   _S.reseauHeatmapData = { familles, agences, matrix, famMedianCA: famMedian };
+}
+
+// ── Score omnicanalité par client ─────────────────────────────────────────
+// Segmente chaque client en : mono / hybride / digital / dormant
+// et calcule un score 0-100 (ancrage PDV + fréquence + récence)
+// Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
+export function computeOmniScores() {
+  const scores = new Map();
+  const now = new Date();
+  const allCc = new Set([
+    ...(_S.ventesClientArticle?.keys() || []),
+    ...(_S.ventesClientHorsMagasin?.keys() || [])
+  ]);
+  for (const cc of allCc) {
+    const pdvArts = _S.ventesClientArticle?.get(cc);
+    const horArts = _S.ventesClientHorsMagasin?.get(cc);
+    let caPDV = 0;
+    if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
+    let caHors = 0;
+    if (horArts) for (const [, v] of horArts) caHors += v.sumCA || 0;
+    const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
+    const lastPDV = _S.clientLastOrder?.get(cc);
+    const silenceDays = lastPDV ? Math.round((now - lastPDV) / 86400000) : 999;
+    // Segment
+    let segment;
+    if (silenceDays > 180 && caHors < 100) segment = 'dormant';
+    else if (caHors > 100 && (caPDV < 50 || caHors > caPDV * 1.5)) segment = 'digital';
+    else if (caHors > 100 && caPDV > 0) segment = 'hybride';
+    else segment = 'mono';
+    // Score 0-100 : ancrage PDV (40) + fréquence (30) + récence (30)
+    const total = caPDV + caHors;
+    let score = 0;
+    if (total > 0) {
+      const recency = Math.max(0, 1 - silenceDays / 180);
+      const freqScore = Math.min(nbBL / 12, 1);
+      const pdvShare = caPDV / total;
+      score = Math.round(pdvShare * 40 + freqScore * 30 + recency * 30);
+    }
+    scores.set(cc, { segment, score, caPDV, caHors, nbBL, silenceDays });
+  }
+  _S.clientOmniScore = scores;
 }
