@@ -1236,28 +1236,8 @@
       <!-- 0b. NL Search Results -->
       <div id="cematinResults" class="hidden mb-4"></div>
 
-      <!-- 1. ★ IRA — Indice de Risque Agence ★ -->
-      <div id="iraBanner" class="hidden mb-3"></div>
-
-      <!-- 1b. ★ HEALTH SCORE (compact) ★ -->
-      <div id="healthScoreBadge" class="hidden mb-3"></div>
-
-      <!-- 2. ★ FILE DE DÉCISION ★ -->
-      <div id="decisionQueue" class="hidden mb-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">🗂️</span>
-          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">File de décision</h3>
-          <span id="dqSubtitle" class="text-[10px] t-disabled ml-1"></span>
-          <button onclick="clearDqDismissed()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Réafficher les éléments traités">↺ Réinitialiser</button>
-        </div>
-        <div id="decisionQueueList"></div>
-        <div id="dqFooter" class="hidden"></div>
-      </div>
-
-      <!-- 3. BRIEFING DU MATIN — remplacé par bouton ☀️ Briefing du jour dans la barre d'actions -->
-      <div id="cockpitBriefing" class="hidden mb-4" style="display:none!important"><div id="cockpitBriefingText"></div></div>
-
-      <!-- 4. ★ ÉQUATION COMMERCIALE ★ (contexte — après la DQ) -->
+      <!-- 1. ★ ÉQUATION COMMERCIALE ★ — premier chiffre visible -->
+      <!-- (anciennement bloc 4, remonté en tête) -->
       <div id="cockpitEquation" class="hidden mb-4">
         <div class="flex items-center justify-center gap-3 py-3 s-card rounded-xl border shadow-sm flex-wrap">
           <div class="text-center px-4 py-2 s-card-alt rounded-lg cursor-pointer hover:i-info-bg transition-colors select-none" onclick="switchTab('territoire')" title="→ Voir cockpit client">
@@ -1286,6 +1266,27 @@
         <p id="eqSource" class="text-[10px] t-disabled text-center mt-1"></p>
         <p id="eqExtra" class="text-[11px] t-tertiary text-center mt-0.5 hidden"></p>
       </div>
+
+      <!-- 2. ★ IRA — Indice de Risque Agence ★ -->
+      <div id="iraBanner" class="hidden mb-3"></div>
+
+      <!-- 2b. ★ HEALTH SCORE (compact) ★ -->
+      <div id="healthScoreBadge" class="hidden mb-3"></div>
+
+      <!-- 3. ★ FILE DE DÉCISION ★ -->
+      <div id="decisionQueue" class="hidden mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base">🗂️</span>
+          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">File de décision</h3>
+          <span id="dqSubtitle" class="text-[10px] t-disabled ml-1"></span>
+          <button onclick="clearDqDismissed()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Réafficher les éléments traités">↺ Réinitialiser</button>
+        </div>
+        <div id="decisionQueueList"></div>
+        <div id="dqFooter" class="hidden"></div>
+      </div>
+
+      <!-- BRIEFING DU MATIN — remplacé par bouton ☀️ Briefing du jour -->
+      <div id="cockpitBriefing" class="hidden mb-4" style="display:none!important"><div id="cockpitBriefingText"></div></div>
 
       <!-- 4. 🔴 CLIENTS IMPACTÉS PAR RUPTURES (urgences commerciales — ruptures listes dans Mon Stock) -->
       <div id="cockpitRupClients" class="mb-10"></div>
