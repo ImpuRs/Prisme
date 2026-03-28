@@ -4243,6 +4243,8 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
+window.toggleRankSortDir = function(){_S._rankSortDir=(_S._rankSortDir||-1)*-1;const b=document.getElementById('rankDirBtn');if(b)b.textContent=_S._rankSortDir===-1?'▼ DESC':'▲ ASC';renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;

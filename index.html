@@ -1558,13 +1558,13 @@
           <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
         </summary>
         <div class="flex items-center gap-2 mb-2 px-1">
-          <select id="rankSortKey" onchange="_S._rankSortKey=this.value;renderBenchmark()" class="text-xs s-card border b-default rounded px-2 py-1">
+          <select id="rankSortKey" onchange="setRankSortKey(this.value)" class="text-xs s-card border b-default rounded px-2 py-1">
             <option value="txMarge">Trier par : Tx marge</option>
             <option value="freq">Trier par : Nb ventes (normalisé)</option>
             <option value="serv">Trier par : Taux couverture</option>
             <option value="pdm">Trier par : PDM bassin</option>
           </select>
-          <button id="rankDirBtn" onclick="_S._rankSortDir=(_S._rankSortDir||-1)*-1;document.getElementById('rankDirBtn').textContent=_S._rankSortDir===-1?'▼ DESC':'▲ ASC';renderBenchmark()" class="text-xs s-card border b-default rounded px-2 py-1">▼ DESC</button>
+          <button id="rankDirBtn" onclick="toggleRankSortDir()" class="text-xs s-card border b-default rounded px-2 py-1">▼ DESC</button>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
