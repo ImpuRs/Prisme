@@ -1317,7 +1317,7 @@ function _nlClientsSilencieux({jours,caMin}){
     {key:'dernier',label:'Dernier achat',cls:'text-xs text-center t-tertiary'},
     {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
     {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
-  ],`${rows.length} client${rows.length>1?'s'+''}. ${caMin>0?'CA ≥ '+formatEuro(caMin):''}`);
+  ],`${rows.length} client${rows.length>1?'s':''}. ${caMin>0?'CA ≥ '+formatEuro(caMin):''}`);
 }
 
 function _nlClientsPerdus({jours,query}){
