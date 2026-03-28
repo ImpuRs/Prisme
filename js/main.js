@@ -1643,6 +1643,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
+      // B3b: Recalcul moteur saisonnier après enrichissement articleFamille (stock est master des familles)
+      _computeSeasonalIndex(monthlySales);
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
@@ -2088,13 +2090,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
                 <th class="py-1.5 px-3 text-right">CA Magasin</th>
                 <th class="py-1.5 px-3 text-right">CA Hors agence</th>
                 <th class="py-1.5 px-3 text-right">Taux observé <span class="font-normal t-disabled" title="Part du CA hors agence sur le total identifié (zone chalandise)">ⓘ</span></th>
+                <th class="py-1.5 px-3"></th>
               </tr>
             </thead>
             <tbody>
               ${rows.map(([fam,d])=>{
                 const taux=d.mag+d.hors>0?Math.round(d.hors/(d.mag+d.hors)*100):0;
                 const col=taux>=50?'c-danger':taux>=30?'c-caution':'t-primary';
-                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td></tr>`;
+                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td><td class="py-1.5 px-3 text-right"><button class="btn-xs s-panel" onclick="openDiagnostic('${fam.replace(/'/g,"\\'")}','terrain')">🔍 Diagnostiquer</button></td></tr>`;
               }).join('')}
             </tbody>
           </table>
