@@ -798,12 +798,13 @@ export function renderDecisionQueue() {
     const priorityLabel = score >= 70 ? '<span class="text-[9px] font-bold c-danger">🔥 Critique</span>'
                         : score >= 40 ? '<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>'
                         : '<span class="text-[9px] t-disabled">📌 À surveiller</span>';
+    const saisonTag = d.saisonnier ? '<span class="text-[9px] font-bold" style="color:#0891b2">🌡️ Creux saisonnier</span>' : '';
     const dqK = _dqKey(d).replace(/'/g, "\\'");
     return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
         <div class="dq-label">${cfg.icon} ${d.label}</div>
-        <div class="mt-0.5">${priorityLabel}</div>
+        <div class="mt-0.5 flex flex-wrap gap-1">${priorityLabel}${saisonTag}</div>
         ${whyHtml}
       </div>
       ${impactHtml}

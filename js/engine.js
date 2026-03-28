@@ -526,18 +526,38 @@ export function generateDecisionQueue() {
 
   // ── 7. Clients silencieux à reconquérir (reconquestCohort) ──────────────
   if (_S.reconquestCohort?.length > 0) {
+    const monthIdx = new Date().getMonth();
     let added = 0;
     for (const c of _S.reconquestCohort) {
       if (added >= 2) break;
       if (c.daysAgo < 45) continue;
+
+      // Contexte saisonnier — agréger les indices du mois courant pour les familles du client
+      let seasonSum = 0, seasonCount = 0;
+      const clientArts = _S.ventesClientArticle?.get(c.cc);
+      if (clientArts) {
+        const famsSeen = new Set();
+        for (const [code] of clientArts) {
+          const fam = _S.articleFamille?.[code];
+          if (!fam || famsSeen.has(fam)) continue;
+          famsSeen.add(fam);
+          const coeffs = _S.seasonalIndex?.[fam];
+          if (Array.isArray(coeffs) && coeffs.length === 12) { seasonSum += coeffs[monthIdx]; seasonCount++; }
+        }
+      }
+      const avgSeason = seasonCount > 0 ? seasonSum / seasonCount : 1.0;
+      const saisonnier = avgSeason < 0.85;
+
       const silScore = Math.min(100, Math.round((c.daysAgo / 180) * 50 + Math.min(c.totalCA / 200, 50)));
+      const adjScore = saisonnier ? Math.max(1, Math.round(silScore * (avgSeason / 0.85))) : silScore;
       decisions.push({
-        type: 'client_silence', code: c.cc, impact: c.totalCA, score: silScore,
+        type: 'client_silence', code: c.cc, impact: c.totalCA, score: adjScore, saisonnier,
         label: `Reconquérir\u00a0${c.nom}\u00a0— absent\u00a0${Math.round(c.daysAgo / 7)}\u00a0sem., ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ historique.`,
         why: [
           `Dernier achat au comptoir\u00a0: il y a ${c.daysAgo}\u00a0jours.`,
           `CA historique\u00a0: ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ sur ${c.nbFamilles}\u00a0famille${c.nbFamilles > 1 ? 's' : ''}.`,
           ...(c.metier ? [`Métier\u00a0: ${c.metier}.`] : []),
+          ...(saisonnier ? [`Activité saisonnière basse ce mois (indice\u00a0${(avgSeason * 100).toFixed(0)}%)\u00a0— silence potentiellement normal.`] : []),
         ],
       });
       added++;
