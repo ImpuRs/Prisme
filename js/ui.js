@@ -685,6 +685,7 @@ function _nlInterpret(q) {
   if (/nouveau.{0,12}client|client.{0,12}nouveau|premier.{0,12}achat/.test(raw))       return _nlQ_NouveauxClients(e.days||30);
   if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
   if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
+  if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
   return null;
 }
 
@@ -842,6 +843,36 @@ function _nlQ_CommercialSilent(commercial, days) {
     html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` };
 }
 
+function _nlQ_ClientsDigitaux() {
+  if (!_S.ventesClientHorsMagasin?.size || !_S.ventesClientArticle?.size)
+    return { title:'Clients devenus digitaux', html:'<p class="text-xs t-disabled">Données PDV + hors-agence requises.</p>' };
+  const now = new Date();
+  const results = [];
+  for (const [cc,horArts] of _S.ventesClientHorsMagasin) {
+    const pdvArts = _S.ventesClientArticle.get(cc);
+    if (!pdvArts?.size) continue;
+    const lastPDV = _S.clientLastOrder?.get(cc);
+    if (!lastPDV) continue;
+    const pdvSilence = Math.round((now-lastPDV)/86400000);
+    if (pdvSilence < 90) continue;
+    let caHors=0; const canalCA={};
+    for (const [,v] of horArts) { caHors+=v.sumCA||0; canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0); }
+    if (caHors < 200) continue;
+    const mainCanal = Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+    let caPDV=0; for (const [,v] of pdvArts) caPDV+=v.sumCA||0;
+    const info = _S.chalandiseData?.get(cc);
+    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', pdvSilence, caPDV, caHors, mainCanal });
+  }
+  results.sort((a,b)=>b.caPDV-a.caPDV);
+  const top = results.slice(0,15);
+  if (!top.length) return { title:'Clients devenus digitaux', html:'<p class="text-xs t-disabled">Aucun client correspondant — PDV silence >90j + actif hors-agence.</p>' };
+  const cIcon = c => c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
+  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.pdvSilence}j</td><td class="py-1 pl-2 text-right">${cIcon(r.mainCanal)}\u00a0${formatEuro(r.caHors)}</td><td class="py-1 pl-2 text-right t-disabled">${formatEuro(r.caPDV)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`Clients devenus digitaux — ${results.length} client${results.length>1?'s':''} (PDV silencieux, actifs en ligne)`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence PDV</th><th class="text-right pl-2">CA digital</th><th class="text-right pl-2">CA PDV hist.</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Silence PDV >90j + actifs sur Internet/représentant — potentiel de récupération au comptoir' };
+}
+
 function _nlQ_NouveauxClients(days) {
   if (!_S.clientLastOrder?.size) return { title:'Nouveaux clients', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
   const now = new Date();
@@ -856,7 +887,7 @@ function _nlQ_NouveauxClients(days) {
     const info = _S.chalandiseData?.get(cc);
     results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', freq, ca, daysAgo:Math.round((now-lastDate)/86400000) });
   }
-  results.sort((a,b)=>a.daysAgo-a.daysAgo||b.ca-a.ca);
+  results.sort((a,b)=>a.daysAgo-b.daysAgo||b.ca-a.ca);
   if (!results.length) return { title:`Nouveaux clients (${days} derniers jours)`, html:'<p class="text-xs t-disabled">Aucun nouveau client détecté sur cette période.</p>' };
   const rows = results.slice(0,15).map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
   return { title:`Nouveaux clients — ${results.length} dans les ${days} derniers jours`,
