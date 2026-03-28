@@ -321,7 +321,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -606,6 +606,23 @@ export function generateDecisionQueue() {
           `Ces clients achètent chez Legallais (web/rép.) mais jamais à votre comptoir.`,
           `Top\u00a0: ${top.nom}\u00a0— ${Math.round(top.caHors).toLocaleString('fr')}\u00a0€ hors-comptoir.`,
           `Inviter ces ${horsComptoir.length}\u00a0client${horsComptoir.length > 1 ? 's' : ''} au comptoir peut convertir un CA déjà acquis.`,
+        ],
+      });
+    }
+  }
+
+  // ── 9c. Familles fuyantes hors agence ────────────────────────────────────
+  if (_S.famillesHors?.length > 0) {
+    const top = _S.famillesHors[0];
+    const totalCA = _S.famillesHors.reduce((s, f) => s + f.caHors, 0);
+    if (totalCA >= 500) {
+      decisions.push({
+        type: 'famille_fuite', impact: totalCA,
+        label: `${_S.famillesHors.length}\u00a0famille${_S.famillesHors.length > 1 ? 's' : ''} achetées hors agence par vos clients\u00a0— ${Math.round(totalCA).toLocaleString('fr')}\u00a0€ non capté.`,
+        why: [
+          `Vos clients PDV achètent ces familles en ligne ou par représentant sans jamais venir au comptoir.`,
+          `Top\u00a0: ${top.fam}\u00a0— ${top.nbClients}\u00a0client${top.nbClients > 1 ? 's' : ''}\u00a0· ${Math.round(top.caHors).toLocaleString('fr')}\u00a0€.`,
+          `Référencer et mettre en avant ces familles au comptoir peut rapatrier ce CA.`,
         ],
       });
     }
@@ -918,4 +935,55 @@ export function computeOmniScores() {
     scores.set(cc, { segment, score, caPDV, caHors, nbBL, silenceDays });
   }
   _S.clientOmniScore = scores;
+}
+
+// ── Familles fuyantes hors agence ─────────────────────────────────────────
+// Détecte les familles que des clients PDV achètent hors agence sans jamais
+// les acheter au comptoir → signal de gamme manquante ou de captation partielle
+// Résultat : _S.famillesHors = [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
+export function computeFamillesHors() {
+  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size) {
+    _S.famillesHors = [];
+    return;
+  }
+  const famData = {}; // rawFam → {nbClients, caHors, canalCount, clients}
+  for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
+    const pdvArts = _S.ventesClientArticle.get(cc);
+    if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
+    // Familles achetées en PDV
+    const famsPDV = new Set();
+    for (const [code] of pdvArts) {
+      const fam = _S.articleFamille?.[code];
+      if (fam) famsPDV.add(fam);
+    }
+    // CA hors agence par famille non présente en PDV
+    const famHors = {};
+    for (const [code, v] of horArts) {
+      const rawFam = _S.articleFamille?.[code];
+      if (!rawFam || famsPDV.has(rawFam)) continue;
+      if (!famHors[rawFam]) famHors[rawFam] = { ca: 0, canal: v.canal || '' };
+      famHors[rawFam].ca += v.sumCA || 0;
+    }
+    for (const [rawFam, { ca, canal }] of Object.entries(famHors)) {
+      if (ca < 100) continue;
+      if (!famData[rawFam]) famData[rawFam] = { nbClients: 0, caHors: 0, canalCount: {}, clients: [] };
+      famData[rawFam].nbClients++;
+      famData[rawFam].caHors += ca;
+      famData[rawFam].canalCount[canal] = (famData[rawFam].canalCount[canal] || 0) + 1;
+      const info = _S.chalandiseData?.get(cc);
+      const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
+      famData[rawFam].clients.push({ cc, nom, ca, canal });
+    }
+  }
+  _S.famillesHors = Object.entries(famData)
+    .map(([rawFam, d]) => ({
+      fam: famLib(rawFam) || rawFam,
+      rawFam,
+      nbClients: d.nbClients,
+      caHors: Math.round(d.caHors),
+      mainCanal: Object.entries(d.canalCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
+      clients: d.clients.sort((a, b) => b.ca - a.ca).slice(0, 5),
+    }))
+    .filter(r => r.caHors >= 200)
+    .sort((a, b) => b.caHors - a.caHors);
 }

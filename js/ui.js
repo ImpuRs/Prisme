@@ -686,6 +686,7 @@ function _nlInterpret(q) {
   if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
   if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
   if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
+  if (/fuyant|famille.{0,10}hors|hors.{0,10}famille|echap|fugit/.test(raw))                  return _nlQ_FamillesHors();
   if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
   if (/mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('mono');
   if (/full.{0,6}digital|100.{0,5}digital|tout.{0,6}digital/.test(raw))                     return _nlQ_OmniSegment('digital');
@@ -962,6 +963,28 @@ function _nlQ_OmniSegment(segment) {
   return { title,
     html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-right pr-2">CA PDV</th><th class="text-right pr-2">CA digital</th><th class="text-right pr-2">Silence</th><th class="text-right">Score</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
     footer:'Score = ancrage PDV (40) + fréquence (30) + récence (30) · Cliquer pour fiche client 360°' };
+}
+
+function _nlQ_FamillesHors() {
+  const list = _S.famillesHors;
+  if (!list?.length) return { title:'Familles fuyantes', html:'<p class="text-xs t-disabled p-2">Chargez PDV + Terrain pour détecter les familles achetées hors agence.</p>' };
+  const cIcon = c => c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
+  const rows = list.slice(0, 15).map(f => {
+    const sub = f.clients.slice(0, 3).map(c => c.nom).join(', ');
+    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
+<td class="py-1 pr-2 font-semibold">${f.fam}</td>
+<td class="py-1 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(f.caHors)}</td>
+<td class="py-1 pr-2 text-center t-secondary">${f.nbClients}</td>
+<td class="py-1 pr-2 text-center">${cIcon(f.mainCanal)}</td>
+<td class="py-1 text-[8px] t-disabled truncate max-w-[120px]">${sub}</td>
+</tr>`;
+  }).join('');
+  const total = list.reduce((s, f) => s + f.caHors, 0);
+  return {
+    title: `Familles fuyantes — ${list.length}\u00a0familles\u00a0·\u00a0${formatEuro(total)} hors agence`,
+    html: `<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA hors</th><th class="text-center pr-2">Clients</th><th class="text-center pr-2">Canal</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer: 'Cliquer sur une famille pour ouvrir le diagnostic · Familles achetées hors agence par des clients PDV actifs' };
 }
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
