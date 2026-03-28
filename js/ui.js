@@ -845,18 +845,8 @@ export function renderDecisionQueue() {
     </div>`;
   }).join('');
 
-  // Footer : Clip ERP si au moins une commande à passer
   const footerEl = document.getElementById('dqFooter');
-  if (footerEl) {
-    const cmdItems = items.filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code);
-    if (cmdItems.length > 0) {
-      footerEl.innerHTML = `<button id="erpCopyBtn" onclick="clipERP()" class="w-full mt-1 py-2 px-3 rounded-lg text-xs font-bold s-hover b-light hover:s-hover transition-colors flex items-center justify-center gap-2" style="color:var(--c-action)">📋 Copier paquet ERP <span class="font-normal t-disabled">(${cmdItems.length} article${cmdItems.length > 1 ? 's' : ''})</span></button>`;
-      footerEl.classList.remove('hidden');
-    } else {
-      footerEl.innerHTML = '';
-      footerEl.classList.add('hidden');
-    }
-  }
+  if (footerEl) { footerEl.innerHTML = ''; footerEl.classList.add('hidden'); }
 
   el.classList.remove('hidden');
 }

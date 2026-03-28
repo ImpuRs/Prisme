@@ -1682,9 +1682,9 @@
                 <thead class="s-panel-inner t-inverse font-bold sticky top-0">
                   <tr>
                     <th class="py-2 px-2 text-left">Article</th>
-                    <th class="py-2 px-2 text-center">Fréq réseau</th>
-                    <th class="py-2 px-2 text-center">Agences</th>
-                    <th class="py-2 px-2 text-center">Mon stock</th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('freq')">Fréq réseau <span id="missedSortFreq" class="text-[10px]">↓</span></th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('agences')">Agences <span id="missedSortAgences" class="text-[10px]"></span></th>
+                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('stock')">Mon stock <span id="missedSortStock" class="text-[10px]"></span></th>
                     <th class="py-2 px-2 text-center">Action</th>
                   </tr>
                 </thead>
