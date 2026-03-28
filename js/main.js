@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
@@ -865,7 +865,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _setPDVCanalFilter(val){_S.pdvCanalFilter=val;_buildDegradedCockpit();}
 
   function _buildDegradedCockpit(){
-    const el=document.getElementById('terrDegradedBlock');if(!el||!DataStore.finalData.length)return;
+    const el=document.getElementById('terrDegradedBlock');if(!el)return;
+    if(!DataStore.finalData.length && !_S.ventesClientArticle.size)return;
     _populateTerrFamilleFilter();
     const qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
@@ -1465,15 +1466,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
-      _S._hasStock = !!(dataS && dataS.length); // Sprint 1 : mode consommé seul si stock absent
       const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
       if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
-      if(_S._hasStock){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
+      if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
 
       const stC=new Set(),stS=new Set();
       for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
       _resetColCache();// colonnes stock ≠ colonnes consommé — purge le cache _CC pour éviter faux lookup
-      if(_S._hasStock){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
+      if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
       else{_S.storesIntersection=new Set(stC);} // consommé seul : toutes agences du consommé
       _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
       const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
@@ -1589,7 +1589,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _sd0=_S.ventesParMagasin[_S.selectedMyStore]||{};const _caCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumCA||0),0);const _vmbCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumVMB||0),0);
       _S.ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
-      if(_S._hasStock){ // ── bloc stock — ignoré en mode consommé seul ─────────────
+      if(dataS && dataS.length){ // ── bloc stock — ignoré en mode consommé seul ─────────────
       updatePipeline('stock','active');
       _resetColCache(); // colonnes stock différentes du consommé
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
@@ -1648,6 +1648,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
       // B3b: Recalcul moteur saisonnier après enrichissement articleFamille (stock est master des familles)
       _computeSeasonalIndex(monthlySales);
+      _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
@@ -2172,11 +2173,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
     const hasData=DataStore.finalData.length>0;
-    const degraded=!hasTerr&&!hasChal&&hasData;
+    const hasConsomme=_S.ventesClientArticle.size>0;
+    const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
     // terrNoChalandise: only when truly nothing loaded
-    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData);
+    const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
     // terrDegradedBlock: degraded mode only
-    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||!hasData);
+    const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
     // Left panel: territory filters only with territoire data; famille filter in degraded mode
     const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
@@ -3695,7 +3697,18 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   function renderDashboardAndCockpit(){
-    if(!_S._hasStock){const el=document.getElementById('tabDash');if(el)el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📦</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Mon Stock</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>';return;}
+    if(!_S._hasStock){
+      const el=document.getElementById('tabDash');
+      if(el)el.innerHTML=_renderNoStockPlaceholder('Mon Stock');
+      // Ce matin (tabAction) fonctionne sans stock — générer la DQ commerciale
+      generateDecisionQueue();
+      renderHealthScore();
+      renderIRABanner();
+      renderCockpitBriefing();
+      renderDecisionQueue();
+      renderTabBadges();
+      return;
+    }
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
@@ -3886,7 +3899,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   // ★ TABLEAU
   function renderTable(pageOnly){
-    if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.querySelector('#resultTable tbody')?.closest('.overflow-x-auto')&&(el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📋</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Articles</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>');return;}
+    if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.innerHTML=_renderNoStockPlaceholder('Articles');return;}
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
       DataStore.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});

@@ -12,7 +12,7 @@ import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { calcPriorityScore } from './engine.js';
+import { calcPriorityScore, computeHealthScore } from './engine.js';
 import { _nlInterpret, _nlRenderResults } from './nl.js';
 
 
@@ -110,7 +110,7 @@ export function switchTab(id) {
   if (btn) {
     btn.classList.add('active');
     // Lazy render: first visit to this tab triggers render if data is loaded
-    if (!_S._tabRendered[id] && DataStore.finalData.length > 0) renderCurrentTab();
+    if (!_S._tabRendered[id] && (DataStore.finalData.length > 0 || _S.ventesClientArticle?.size > 0)) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
@@ -913,6 +913,31 @@ export function dqFocus(idx) {
 export function renderHealthScore() {
   const el = document.getElementById('healthScoreBadge');
   if (!el) return;
+  if (!_S._hasStock && !_S.clientLastOrder.size) { el.classList.add('hidden'); return; }
+  const hs = computeHealthScore();
+  if (!hs) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  if (hs.degraded) {
+    const [bg, text, ring] = hs.score >= 70
+      ? ['rgba(22,163,74,0.12)', 'var(--c-ok, #16a34a)', 'rgba(22,163,74,0.3)']
+      : hs.score >= 40
+      ? ['rgba(217,119,6,0.12)', 'var(--c-caution, #d97706)', 'rgba(217,119,6,0.3)']
+      : ['rgba(220,38,38,0.12)', 'var(--c-danger, #dc2626)', 'rgba(220,38,38,0.3)'];
+    const details = [
+      `Momentum : ${hs.details.momentum}%`,
+      hs.details.captation != null ? `Captation : ${hs.details.captation}%` : null,
+    ].filter(Boolean).join(' · ');
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;background:${bg};outline:1px solid ${ring}">
+      <span style="font-size:1.5rem;font-weight:900;color:${text}">${hs.score}<span style="font-size:0.75rem;font-weight:600">/100</span></span>
+      <div>
+        <p style="font-size:0.75rem;font-weight:700;color:${text};margin:0">${hs.label}</p>
+        <p style="font-size:0.65rem;color:${text};opacity:0.7;margin:0">${details}</p>
+      </div>
+      <span style="margin-left:auto;font-size:0.6rem;font-weight:700;color:${text};opacity:0.5;text-transform:uppercase;letter-spacing:0.05em">Mode commercial</span>
+    </div>`;
+    return;
+  }
+  // Full mode (stock loaded) — inline calculation
   const d = _S.finalData;
   if (!d.length) { el.classList.add('hidden'); return; }
 
@@ -963,6 +988,11 @@ export function renderHealthScore() {
   el.classList.remove('hidden');
 }
 
+// ── No-stock placeholder ──────────────────────────────────────
+export function _renderNoStockPlaceholder(ongletNom) {
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:16px;color:var(--t-muted)"><div style="font-size:2rem">📦</div><div style="font-size:1.1rem;font-weight:600">${ongletNom} — fichier stock non chargé</div><div style="font-size:0.9rem;max-width:400px;text-align:center">Chargez le fichier <strong>État du Stock</strong> via "Modifier les fichiers" pour accéder à cet onglet.</div></div>`;
+}
+
 // ── Tab Badges — numériques sur les onglets ───────────────────
 export function renderTabBadges() {
   // Badge "Ce matin" : nb items DQ critiques non sains
@@ -997,6 +1027,22 @@ export function renderTabBadges() {
       clientsBadge.classList.add('hidden');
     }
   }
+
+  // Task 7: grise Articles + Mon Stock si stock non chargé
+  ['table', 'dash'].forEach(tabId => {
+    const btn = document.querySelector(`[onclick*="switchTab('${tabId}')"]`);
+    if (btn) {
+      if (!_S._hasStock) {
+        btn.style.opacity = '0.45';
+        btn.title = 'Nécessite le fichier stock';
+        btn.style.pointerEvents = 'none';
+      } else {
+        btn.style.opacity = '';
+        btn.title = '';
+        btn.style.pointerEvents = '';
+      }
+    }
+  });
 }
 
 // ── IRA — Indice de Risque Agence (3 sous-scores + composite) ──

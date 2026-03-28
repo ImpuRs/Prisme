@@ -317,12 +317,12 @@ export function _diagClassifBadge(c) {
 // Stocke le résultat dans _S.decisionQueueData.
 export function generateDecisionQueue() {
   const decisions = [];
-  if (!_S.finalData.length) { _S.decisionQueueData = decisions; return; }
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
   const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, stock_synthesis: 98, sain: 99 };
 
+  if (_S.finalData.length) {
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
   const alerteItems = _S.finalData
@@ -385,6 +385,7 @@ export function generateDecisionQueue() {
       ],
     });
   }
+  } // end if (_S.finalData.length) — blocks 1a + 1b
 
   // ── 2. Clients stratégiques inactifs >30j (si chalandise chargée, top 2) ──
   if (_S.chalandiseReady && _S.clientLastOrder.size) {
@@ -419,6 +420,7 @@ export function generateDecisionQueue() {
     }
   }
 
+  if (_S.finalData.length) {
   // ── 3. Dormants (≥3 articles, valeur >500€) — capital immobilisé ──────
   const DORMANT_THRESHOLD = 365; // jours sans mouvement
   const dormants = _S.finalData.filter(r =>
@@ -438,7 +440,9 @@ export function generateDecisionQueue() {
       ],
     });
   }
+  } // end if (_S.finalData.length) — block 3
 
+  if (_S.finalData.length) {
   // ── 4. Anomalies MIN/MAX (≥5 articles actifs sans seuil ERP) ──────────
   const anomalies = _S.finalData.filter(r =>
     r.stockActuel > 0 && r.ancienMin === 0 && r.ancienMax === 0 && !r.isNouveaute && r.V > 0
@@ -454,7 +458,9 @@ export function generateDecisionQueue() {
       ],
     });
   }
+  } // end if (_S.finalData.length) — block 4
 
+  if (_S.finalData.length) {
   // ── 4b. Incohérences ERP (MIN>MAX, nouveautés non calibrées, sur-stock MAX) ──
   {
     const active = r => !r.isParent && !(r.V === 0 && r.enleveTotal > 0);
@@ -479,6 +485,7 @@ export function generateDecisionQueue() {
       });
     }
   }
+  } // end if (_S.finalData.length) — block 4b
 
   // ── 5. Concentration Client — ICC (K1) ───────────────────────────────
   _S._iccData = null;
@@ -513,11 +520,12 @@ export function generateDecisionQueue() {
     }
   }
 
+  if (_S.finalData.length) {
   // ── 6. Fragilité Produit — 1-2 clients (K6) ─────────────────────────
   _S._fragiliteData = null;
   if (_S.articleClients.size > 0) {
     const fragiles = [];
-    if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.clear();
+    if (_S.cockpitLists?.fragiles) _S.cockpitLists.fragiles.clear();
     for (const r of _S.finalData) {
       if (r.W < 3) continue;
       const clients = _S.articleClients.get(r.code);
@@ -527,7 +535,7 @@ export function generateDecisionQueue() {
       const topClientCode = clients.values().next().value;
       const topNom = _S.clientNomLookup[topClientCode] || topClientCode;
       fragiles.push({ code: r.code, libelle: r.libelle, client: topNom, clientCode: topClientCode, nbClients: clients.size, ca });
-      if (_S.cockpitLists.fragiles) _S.cockpitLists.fragiles.add(r.code);
+      if (_S.cockpitLists?.fragiles) _S.cockpitLists.fragiles.add(r.code);
     }
     fragiles.sort((a, b) => b.ca - a.ca);
     const caTotal = fragiles.reduce((s, f) => s + f.ca, 0);
@@ -548,6 +556,7 @@ export function generateDecisionQueue() {
       }
     }
   }
+  } // end if (_S.finalData.length) — block 6
 
   // ── 7. Clients silencieux à reconquérir (reconquestCohort) ──────────────
   if (_S.reconquestCohort?.length > 0) {
@@ -748,6 +757,17 @@ export function generateDecisionQueue() {
 // ── Health Score agence 0-100 ──────────────────────────────────
 // Score synthétique : stock A + captation clients + taux service + actif/dormant
 export function computeHealthScore() {
+  if (!_S._hasStock) {
+    const nowTs = Date.now();
+    const actifs = [..._S.clientLastOrder.entries()].filter(([,dt]) => nowTs-dt < 90*86400000).length;
+    const total = Math.max(_S.clientLastOrder.size, 1);
+    const momentumScore = Math.round(Math.min(1, actifs/total) * 100);
+    const captationScore = (_S.chalandiseReady && _S.chalandiseData.size > 0)
+      ? Math.round(Math.min(1, actifs / _S.chalandiseData.size) * 100) : 50;
+    const score = Math.round((momentumScore + captationScore) / 2);
+    const label = score >= 70 ? 'Bon' : score >= 40 ? 'Vigilance' : 'Critique';
+    return { score, label, details: { momentum: momentumScore, captation: captationScore, stockFM: null, service: null }, degraded: true };
+  }
   const d = _S.finalData;
   if (!d.length) return null;
 
