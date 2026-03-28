@@ -119,7 +119,7 @@ export function switchTab(id) {
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Contextual panel title
-  const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Filtres Cockpit', abc: 'Filtres Radar', clients: 'Mes clients', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
+  const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Ce matin', abc: 'Filtres Radar', clients: 'Mes clients', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
 }
@@ -373,7 +373,7 @@ const _CMD_ACTIONS = [
   { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
-  { kw: ['cockpit','actions','urgences'], icon: '⚙️', label: 'Onglet Cockpit', fn: () => { switchTab('action'); } },
+  { kw: ['ce matin','matin','cockpit','actions','urgences','file de décision','dq'], icon: '🌅', label: 'Onglet Ce matin', fn: () => { switchTab('action'); } },
   { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('dash'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
@@ -601,6 +601,16 @@ export function _cmdMoveSelection(dir) {
   if (sel) { sel.classList.add('cmd-selected'); sel.scrollIntoView({ block: 'nearest' }); }
 }
 
+// ── Ce matin : NL search shortcut ────────────────────────────
+export function _cematinSearch(q) {
+  if (!q || !q.trim()) return;
+  // Injecter dans le champ Promo + appeler le moteur NL
+  const promoInput = document.getElementById('promoSearchInput');
+  if (promoInput) promoInput.value = q.trim();
+  switchTab('promo');
+  if (typeof window.runPromoSearch === 'function') window.runPromoSearch();
+}
+
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
 // Barre 3px en haut de l'écran reflétant l'état de santé du stock
 export function updateAmbientSignal() {
@@ -771,7 +781,9 @@ export function renderDecisionQueue() {
     sain:              { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
 
-  const allItems = _S.decisionQueueData.slice(0, 9);
+  // Trier par euros perdus estimés (impact) puis par score — DQ V4
+  const sorted = _S.decisionQueueData.slice().sort((a, b) => (b.impact || 0) - (a.impact || 0) || (b.score || 0) - (a.score || 0));
+  const allItems = sorted.slice(0, 9);
   const items = allItems.filter(d => !_dqDismissed.has(_dqKey(d)));
   const nbDismissed = allItems.length - items.length;
   if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''}${nbDismissed > 0 ? ` · ${nbDismissed} traité${nbDismissed > 1 ? 's' : ''}` : ''}`;
