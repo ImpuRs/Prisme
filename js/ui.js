@@ -604,6 +604,8 @@ export function _cmdMoveSelection(dir) {
 /// ── Ce matin : NL search ────────────────────────────────────────────────────
 export function _cematinSearch(q) {
   if (!q || !q.trim()) return;
+  const inp = document.getElementById('cematinSearchInput');
+  if (inp && inp.value !== q.trim()) inp.value = q.trim();
   const result = _nlInterpret(q);
   if (result) {
     _nlRenderResults(result);
@@ -667,6 +669,9 @@ function _nlInterpret(q) {
   if (e.commercial && /(silence|absent|sans commande|perdu)/.test(raw))                 return _nlQ_CommercialSilent(e.commercial, e.days||30);
   if (e.metier && /(silence|absent|perdu|disparu)/.test(raw))                           return _nlQ_ClientsSilencieux(e.days||90, 0, e.metier);
   if (/(silence|absent|perdu|disparu)/.test(raw) && /client/.test(raw))                return _nlQ_ClientsSilencieux(e.days||45, e.euros, null);
+  if (/nouveau.{0,12}client|client.{0,12}nouveau|premier.{0,12}achat/.test(raw))       return _nlQ_NouveauxClients(e.days||30);
+  if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
+  if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
   return null;
 }
 
@@ -822,6 +827,60 @@ function _nlQ_CommercialSilent(commercial, days) {
   const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
   return { title:`${commercial} — ${results.length} client${results.length>1?'s':''} silencieux (>${days}j)`,
     html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` };
+}
+
+function _nlQ_NouveauxClients(days) {
+  if (!_S.clientLastOrder?.size) return { title:'Nouveaux clients', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
+  const now = new Date();
+  const cutoff = days * 86400000;
+  const results = [];
+  for (const [cc, lastDate] of _S.clientLastOrder) {
+    if (now - lastDate > cutoff) continue;
+    const freq = _S.clientsMagasinFreq?.get(cc) || 0;
+    if (freq > 3) continue; // clients établis exclus
+    const arts = _S.ventesClientArticle?.get(cc);
+    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
+    const info = _S.chalandiseData?.get(cc);
+    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', freq, ca, daysAgo:Math.round((now-lastDate)/86400000) });
+  }
+  results.sort((a,b)=>a.daysAgo-a.daysAgo||b.ca-a.ca);
+  if (!results.length) return { title:`Nouveaux clients (${days} derniers jours)`, html:'<p class="text-xs t-disabled">Aucun nouveau client détecté sur cette période.</p>' };
+  const rows = results.slice(0,15).map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`Nouveaux clients — ${results.length} dans les ${days} derniers jours`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">1er achat</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:`Clients avec ≤3 BL sur la période — cliquer pour fiche 360°` };
+}
+
+function _nlQ_ClientsHorsAgence(minEuros) {
+  if (!_S.ventesClientHorsMagasin?.size) return { title:'Clients hors agence', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
+  const map = new Map();
+  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
+    let ca=0; for (const [,v] of arts) ca+=v.sumCA||0;
+    if (ca>=minEuros) map.set(cc,ca);
+  }
+  const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
+  if (!top.length) return { title:`Clients hors agence >${formatEuro(minEuros)}`, html:'<p class="text-xs t-disabled">Aucun client correspondant.</p>' };
+  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
+  const hasPDV = cc => !!(_S.ventesClientArticle?.get(cc)?.size);
+  const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-2 text-[8px]">${hasPDV(cc)?'<span class="text-emerald-500">+PDV</span>':'<span style="color:var(--c-danger)">PDV absent</span>'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`Clients hors agence >${formatEuro(minEuros)} — ${map.size} trouvés`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">CA hors agence</th><th class="text-right pl-2">PDV</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'PDV absent = potentiel de captation au comptoir' };
+}
+
+function _nlQ_FamillesSousMediane() {
+  const lose = _S.benchLists?.obsFamiliesLose;
+  if (!lose?.length) return { title:'Familles sous la médiane réseau', html:'<p class="text-xs t-disabled">Chargez le fichier Terrain pour comparer avec le réseau.</p>' };
+  const rows = lose.slice(0,12).map(f=>{
+    const ecartStr = `${f.ecartPct>0?'+':''}${f.ecartPct}%`;
+    const potStr = f.caTheorique>0 ? `<span class="text-[8px] t-disabled">(théorique\u00a0${formatEuro(f.caTheorique)})</span>` : '';
+    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${f.fam.replace(/'/g,"\\'")}','bench')"><td class="py-1 pr-2 font-semibold">${f.fam}</td><td class="py-1 pr-3 text-right font-bold">${formatEuro(f.caMe)}</td><td class="py-1 pr-3 text-right t-disabled">${formatEuro(f.caOther)}</td><td class="py-1 text-right font-bold" style="color:var(--c-danger)">${ecartStr} ${potStr}</td><td class="py-1 pl-1 text-[8px] t-disabled">🔍</td></tr>`;
+  }).join('');
+  const totalEcart = lose.reduce((s,f)=>s+Math.max(0,(f.caOther||0)-(f.caMe||0)),0);
+  return { title:`Familles sous la médiane réseau — ${lose.length} familles (potentiel\u00a0${formatEuro(totalEcart)})`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-3">Moi</th><th class="text-right pr-3">Réseau</th><th class="text-right">Écart</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Cliquer sur une famille pour ouvrir le diagnostic complet' };
 }
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
