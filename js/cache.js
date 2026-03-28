@@ -283,8 +283,9 @@ export async function _saveSessionToIDB() {
       // ── Client aggregation Worker (B1) ──
       clientFamCA:           _S.clientFamCA,
       metierFamBench:        _S.metierFamBench,
-      // ── Opportunité nette (C1) ──
+      // ── Opportunité nette & reconquête (C1) ──
       opportuniteNette:      _S.opportuniteNette,
+      reconquestCohort:      _S.reconquestCohort,
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -379,8 +380,9 @@ export async function _restoreSessionFromIDB() {
     // ── Filtres chalandise ──
     if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
 
-    // ── Opportunité nette (C1) ──
-    _S.opportuniteNette = data.opportuniteNette || [];
+    // ── Opportunité nette & reconquête (C1) ──
+    _S.opportuniteNette  = data.opportuniteNette  || [];
+    _S.reconquestCohort  = data.reconquestCohort  || [];
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');

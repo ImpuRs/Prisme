@@ -530,8 +530,9 @@ export function generateDecisionQueue() {
     for (const c of _S.reconquestCohort) {
       if (added >= 2) break;
       if (c.daysAgo < 45) continue;
+      const silScore = Math.min(100, Math.round((c.daysAgo / 180) * 50 + Math.min(c.totalCA / 200, 50)));
       decisions.push({
-        type: 'client_silence', code: c.cc, impact: c.totalCA,
+        type: 'client_silence', code: c.cc, impact: c.totalCA, score: silScore,
         label: `Reconquérir\u00a0${c.nom}\u00a0— absent\u00a0${Math.round(c.daysAgo / 7)}\u00a0sem., ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ historique.`,
         why: [
           `Dernier achat au comptoir\u00a0: il y a ${c.daysAgo}\u00a0jours.`,
@@ -550,8 +551,9 @@ export function generateDecisionQueue() {
       if (added >= 2) break;
       if (o.totalPotentiel < 2000 || o.nbMissing < 3) continue;
       const topFams = o.missingFams.slice(0, 3).map(m => m.fam).join(', ');
+      const oppScore = Math.min(100, Math.round(Math.min(o.totalPotentiel / 100, 50) + Math.min(o.nbMissing * 5, 50)));
       decisions.push({
-        type: 'opportunite', code: o.cc, impact: o.totalPotentiel,
+        type: 'opportunite', code: o.cc, impact: o.totalPotentiel, score: oppScore,
         label: `Proposer\u00a0à\u00a0${o.nom}\u00a0— ${o.nbMissing}\u00a0familles manquantes, potentiel\u00a0${Math.round(o.totalPotentiel).toLocaleString('fr')}\u00a0€.`,
         why: [
           `Familles non encore achetées\u00a0: ${topFams}.`,
