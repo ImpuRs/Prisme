@@ -811,7 +811,7 @@ export function renderDecisionQueue() {
     fragilite:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
     anomalie_minmax:   { badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
     stock_synthesis:   { badgeClass: 'dq-action',  icon: '📦', impactClass: '' },
-    sain:              { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
+    captation:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
   };
 
   // Trier par euros perdus estimés (impact) puis par score — DQ V4
@@ -933,8 +933,8 @@ export function _renderNoStockPlaceholder(ongletNom) {
 
 // ── Tab Badges — numériques sur les onglets ───────────────────
 export function renderTabBadges() {
-  // Badge "Ce matin" : nb items DQ critiques non sains
-  const dqItems = (_S.decisionQueueData || []).filter(d => d.type !== 'sain');
+  // Badge "Ce matin" : nb items DQ critiques
+  const dqItems = (_S.decisionQueueData || []);
   const criticalTypes = new Set(['rupture', 'alerte_prev', 'erp_incoherence', 'saisonnalite_prev']);
   const critCount = dqItems.filter(d => criticalTypes.has(d.type)).length;
   const actionBadge = document.getElementById('navActionBadge');
@@ -1332,9 +1332,7 @@ export function exportAgenceSnapshot() {
   const sr = br.sr != null ? br.sr : null;
 
   // ── DQ items (top 5) ──
-  const dqItems = (_S.decisionQueueData || [])
-    .filter(item => item.type !== 'sain')
-    .slice(0, 5);
+  const dqItems = (_S.decisionQueueData || []).slice(0, 5);
 
   const typeEmoji = { rupture: '🔴', client_silence: '🟡', client_digital_drift: '📱', famille_fuite: '🟠', dormants: '🟡', anomalie_minmax: '⚠️', fragilite: '🟠', saisonnalite_prev: '🌡️', concentration: '🟠', opportunite: '💡' };
 
