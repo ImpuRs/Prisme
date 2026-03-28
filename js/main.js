@@ -4729,6 +4729,13 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.generatePrismeChips = function(){
+  const allChips=[...document.querySelectorAll('.nl-chip')];
+  if(!allChips.length)return;
+  for(let i=allChips.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[allChips[i],allChips[j]]=[allChips[j],allChips[i]];}
+  allChips.forEach(c=>c.style.display='none');
+  allChips.slice(0,6).forEach(c=>c.style.display='');
+};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
