@@ -110,7 +110,9 @@ export function switchTab(id) {
   if (btn) {
     btn.classList.add('active');
     // Lazy render: first visit to this tab triggers render if data is loaded
-    if (!_S._tabRendered[id] && DataStore.finalData.length > 0) renderCurrentTab();
+    // For dash/action: also render in consommé-only mode so the no-stock placeholder is shown
+    const _appLoaded = DataStore.finalData.length > 0 || ((id === 'dash' || id === 'action') && document.body.classList.contains('pilot-loaded'));
+    if (!_S._tabRendered[id] && _appLoaded) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
