@@ -1176,6 +1176,36 @@
     <!-- TAB : CE MATIN (V4) -->
     <div id="tabAction" class="tab-content hidden">
 
+      <!-- 0. ★ ÉQUATION COMMERCIALE ★ — tout premier chiffre visible -->
+      <div id="cockpitEquation" class="hidden mb-4">
+        <div class="flex items-center justify-center gap-3 py-3 s-card rounded-xl border shadow-sm flex-wrap">
+          <div class="text-center px-4 py-2 s-card-alt rounded-lg cursor-pointer hover:i-info-bg transition-colors select-none" onclick="switchTab('territoire')" title="→ Voir cockpit client">
+            <p class="text-[10px] font-bold t-tertiary uppercase">👥 Clients PDV</p>
+            <p id="eqClients" class="text-xl font-extrabold t-primary">—</p>
+            <p class="text-[9px] c-action font-semibold mt-0.5">→ Voir clients</p>
+          </div>
+          <span class="text-2xl t-disabled font-light">×</span>
+          <div class="flex items-center gap-2 px-4 py-2 s-card-alt rounded-lg">
+            <div class="text-center">
+              <p class="text-[10px] font-bold t-tertiary uppercase">📊 Passages/client</p>
+              <p id="eqFreq" class="text-xl font-extrabold t-primary">—</p>
+            </div>
+            <span class="text-lg t-disabled">×</span>
+            <div class="text-center">
+              <p class="text-[10px] font-bold t-tertiary uppercase">🛒 CA / client</p>
+              <p id="eqPanier" class="text-xl font-extrabold t-primary">—</p>
+            </div>
+          </div>
+          <span class="text-2xl t-disabled font-light">=</span>
+          <div class="text-center px-4 py-2 i-info-bg rounded-lg b-light">
+            <p class="text-[10px] font-bold c-action uppercase">💰 CA Magasin</p>
+            <p id="eqCA" class="text-xl font-extrabold c-action">—</p>
+          </div>
+        </div>
+        <p id="eqSource" class="text-[10px] t-disabled text-center mt-1"></p>
+        <p id="eqExtra" class="text-[11px] t-tertiary text-center mt-0.5 hidden"></p>
+      </div>
+
       <!-- 0a. Barre d'actions Ce matin -->
       <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
         <button onclick="window.generatePrismeChips()" style="padding:7px 18px;border-radius:20px;background:var(--accent,#f97316);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
@@ -1235,37 +1265,6 @@
 
       <!-- 0b. NL Search Results -->
       <div id="cematinResults" class="hidden mb-4"></div>
-
-      <!-- 1. ★ ÉQUATION COMMERCIALE ★ — premier chiffre visible -->
-      <!-- (anciennement bloc 4, remonté en tête) -->
-      <div id="cockpitEquation" class="hidden mb-4">
-        <div class="flex items-center justify-center gap-3 py-3 s-card rounded-xl border shadow-sm flex-wrap">
-          <div class="text-center px-4 py-2 s-card-alt rounded-lg cursor-pointer hover:i-info-bg transition-colors select-none" onclick="switchTab('territoire')" title="→ Voir cockpit client">
-            <p class="text-[10px] font-bold t-tertiary uppercase">👥 Clients PDV</p>
-            <p id="eqClients" class="text-xl font-extrabold t-primary">—</p>
-            <p class="text-[9px] c-action font-semibold mt-0.5">→ Voir clients</p>
-          </div>
-          <span class="text-2xl t-disabled font-light">×</span>
-          <div class="flex items-center gap-2 px-4 py-2 s-card-alt rounded-lg">
-            <div class="text-center">
-              <p class="text-[10px] font-bold t-tertiary uppercase">📊 Passages/client</p>
-              <p id="eqFreq" class="text-xl font-extrabold t-primary">—</p>
-            </div>
-            <span class="text-lg t-disabled">×</span>
-            <div class="text-center">
-              <p class="text-[10px] font-bold t-tertiary uppercase">🛒 CA / client</p>
-              <p id="eqPanier" class="text-xl font-extrabold t-primary">—</p>
-            </div>
-          </div>
-          <span class="text-2xl t-disabled font-light">=</span>
-          <div class="text-center px-4 py-2 i-info-bg rounded-lg b-light">
-            <p class="text-[10px] font-bold c-action uppercase">💰 CA Magasin</p>
-            <p id="eqCA" class="text-xl font-extrabold c-action">—</p>
-          </div>
-        </div>
-        <p id="eqSource" class="text-[10px] t-disabled text-center mt-1"></p>
-        <p id="eqExtra" class="text-[11px] t-tertiary text-center mt-0.5 hidden"></p>
-      </div>
 
       <!-- 2. ★ IRA — Indice de Risque Agence ★ -->
       <div id="iraBanner" class="hidden mb-3"></div>
