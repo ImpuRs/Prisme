@@ -3250,13 +3250,18 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       const ecartColor=pct>=0?'c-ok font-extrabold':pct>=-10?'c-caution font-bold':pct>=-30?'c-caution font-bold':'c-danger font-extrabold';
       const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'b-light':'border-red-300';
       const cardBg=pct>=0?'i-ok-bg/40':pct>=-10?'i-caution-bg/40':pct>=-30?'i-caution-bg/40':'i-danger-bg/40';
-      return `<div class="s-card rounded-xl border-2 ${cardBorder} ${cardBg} p-3 flex flex-col gap-1 shadow-sm">
+      const isLagging=pct<0;
+      const clickCls=isLagging?'cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all select-none':'';
+      const onclk=isLagging?`onclick="document.getElementById('benchUnderperformBanner')?.scrollIntoView({behavior:'smooth'})"` :'';
+      const drillHint=isLagging?`<p class="text-[9px] c-action font-semibold">→ Familles en retard</p>`:'';
+      return `<div class="s-card rounded-xl border-2 ${cardBorder} ${cardBg} ${clickCls} p-3 flex flex-col gap-1 shadow-sm" ${onclk}>
         <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
         <div class="flex items-end justify-between gap-1">
           <div><p class="text-sm font-extrabold c-action">${fmtVal(me,r.fmt)}</p><p class="text-[9px] t-disabled">${_S.selectedMyStore||'Moi'}</p></div>
           <div class="text-right"><p class="text-xs t-tertiary">${fmtVal(comp,r.fmt)}</p><p class="text-[9px] t-disabled">${obsLabel}</p></div>
         </div>
         <p class="text-xs ${ecartColor} border-t pt-1 mt-0.5">${ecartIcon} ${pct>0?'+':''}${pct}%</p>
+        ${drillHint}
       </div>`;
     }).join('');
     if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
