@@ -509,6 +509,8 @@
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
     #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
     #cacheBanner.hidden{display:none!important}
+    /* IRA banner migré vers sidebar Ce matin — masquer le bandeau inline */
+    #iraBanner{display:none!important}
 
     /* ═══ Tab bar premium ════════════════════════════════════ */
     #tabsContainer{background:var(--s-card);border-bottom:1px solid var(--b-default);box-shadow:var(--shadow-sm)}
@@ -658,6 +660,13 @@
 
         <!-- GROUP Stock: Articles / Mon Stock / Cockpit / Radar -->
         <div id="filterGroupStock">
+          <!-- Score IRA sidebar — visible uniquement sur Ce matin -->
+          <div id="cematinScoreBlock" class="hidden mb-1">
+            <button id="cematinScoreBadge" onclick="openDiagAgence()" style="display:block;width:100%;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid rgba(128,128,128,0.25);background:rgba(128,128,128,0.08);cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+              <div id="cematinScoreText" style="font-size:0.72rem;font-weight:700;line-height:1.4">📊 —/100 · —</div>
+              <p id="cematinScoreSub" style="font-size:0.63rem;color:var(--t-tertiary,#94a3b8);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</p>
+            </button>
+          </div>
           <div id="globalFilters" class="hidden flex flex-col gap-1.5">
             <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
             <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
