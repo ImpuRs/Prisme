@@ -1388,7 +1388,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
-    if(!f1||!f2){showToast('⚠️ Chargez vos 2 fichiers !','warning');return;}
+    if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
+    if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
@@ -1403,7 +1404,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers (parallèle)…');
-      [dataC,dataS]=await Promise.all([readExcel(f1),readExcel(f2)]);
+      [dataC,dataS]=await Promise.all([readExcel(f1),f2?readExcel(f2):Promise.resolve([])]);
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
@@ -1464,16 +1465,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
+      _S._hasStock = !!(dataS && dataS.length); // Sprint 1 : mode consommé seul si stock absent
       const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
-      const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();
       if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
-      if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
+      if(_S._hasStock){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
 
       const stC=new Set(),stS=new Set();
       for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
       _resetColCache();// colonnes stock ≠ colonnes consommé — purge le cache _CC pour éviter faux lookup
-      for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}
-      _S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}
+      if(_S._hasStock){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
+      else{_S.storesIntersection=new Set(stC);} // consommé seul : toutes agences du consommé
       _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
       const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
       _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
@@ -1588,6 +1589,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _sd0=_S.ventesParMagasin[_S.selectedMyStore]||{};const _caCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumCA||0),0);const _vmbCalc=Object.values(_sd0).reduce((s,v)=>s+(v.sumVMB||0),0);
       _S.ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
+      if(_S._hasStock){ // ── bloc stock — ignoré en mode consommé seul ─────────────
       updatePipeline('stock','active');
       _resetColCache(); // colonnes stock différentes du consommé
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
@@ -1646,6 +1648,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
       // B3b: Recalcul moteur saisonnier après enrichissement articleFamille (stock est master des familles)
       _computeSeasonalIndex(monthlySales);
+      }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
@@ -1663,9 +1666,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      // Territoire tab visible dès que le consommé est chargé (pas de dépendance chalandise)
+      // Territoire + Clients PDV tabs visibles dès que le consommé est chargé (indépendants du stock)
       const _terrBtn=document.getElementById('btnTabTerritoire');
-      if(DataStore.finalData.length>0){_terrBtn.classList.remove('hidden');}else{_terrBtn.classList.add('hidden');}
+      _terrBtn.classList.remove('hidden'); // consommé suffit pour Le Terrain
+      const _clientsBtn=document.getElementById('btnTabClients');
+      if(_clientsBtn)_clientsBtn.classList.remove('hidden');
       // Show/hide placeholder message inside territoire tab
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       // Render main UI immediately — don't wait for territoire
@@ -3687,6 +3692,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   function renderDashboardAndCockpit(){
+    if(!_S._hasStock){const el=document.getElementById('tabDash');if(el)el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📦</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Mon Stock</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>';return;}
     let totalValue=0,totalArt=0,dormantStock=0,activeSurstock=0,capalinOverflow=0,capalinCount=0,serviceOk=0,serviceTotal=0,totalCAPerdu=0;const byStatus={},byFamily={};const ageBuckets={fresh:{val:0,count:0},warm:{val:0,count:0},hot:{val:0,count:0},critical:{val:0,count:0}};
     const lstR=[],lstFa=[],lstA=[],lstS=[],lstD=[],lstFi=[],lstB=[],lstN=[],lstColis=[],lstStockNeg=[];const finCodes=new Set();
     _S.cockpitLists={ruptures:new Set(),fantomes:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
@@ -3875,6 +3881,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   // ★ TABLEAU
   function renderTable(pageOnly){
+    if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.querySelector('#resultTable tbody')?.closest('.overflow-x-auto')&&(el.innerHTML='<div class="p-10 text-center"><p class="text-4xl mb-4">📋</p><p class="text-base font-bold t-primary mb-2">Chargez l\'État du Stock pour activer Articles</p><p class="text-xs t-disabled">Le consommé seul active Ce matin, Clients PDV, Le Terrain et Promo.</p></div>');return;}
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
       DataStore.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});
