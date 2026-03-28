@@ -173,10 +173,58 @@ function _renderClient360(clientCode,source){
     return!r||r.stockActuel===0||(r.ancienMin||0)===0;
   }).slice(0,20);
 
+  // ── Omni data ────────────────────────────────────────────────────
+  const omni=_S.clientOmniScore?.get(clientCode);
+  let omniContent='';
+  if(omni){
+    const famsPDV=new Map();
+    if(artMap)for(const[code,d]of artMap){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;famsPDV.set(f,(famsPDV.get(f)||0)+(d.sumCA||0));}
+    const famsHors=new Map();
+    if(horsMag)for(const[code,d]of horsMag){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;if(!famsHors.has(f))famsHors.set(f,{ca:0,canal:d.canal||''});famsHors.get(f).ca+=d.sumCA||0;}
+    const total=omni.caPDV+omni.caHors;
+    const pdvShare=total>0?omni.caPDV/total:0;
+    const pdvScorePart=Math.round(pdvShare*40);
+    const freqScorePart=Math.round(Math.min(omni.nbBL/12,1)*30);
+    const recencyScorePart=Math.round(Math.max(0,1-omni.silenceDays/180)*30);
+    const SEG={mono:{icon:'🏪',label:'Mono PDV',color:'var(--c-ok)',desc:'Fidèle au comptoir — peu d\'activité digitale.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'Actif au comptoir ET en ligne — profil omnicanal.'},digital:{icon:'📱',label:'Digital',color:'var(--c-caution)',desc:'CA digital dominant — à reconvertir au comptoir.'},dormant:{icon:'💤',label:'Dormant',color:'var(--c-danger)',desc:'Silence prolongé sans activité digitale significative.'}};
+    const seg=SEG[omni.segment]||SEG.mono;
+    const scoreColor=omni.score>=65?'var(--c-ok)':omni.score>=35?'var(--c-caution)':'var(--c-danger)';
+    const barRow=(label,val,max,color)=>`<div class="flex items-center gap-2 mb-1"><span class="text-[9px] t-inverse-muted w-20 shrink-0">${label}</span><div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div style="width:${Math.round(val/max*100)}%;background:${color}" class="h-full rounded-full"></div></div><span class="text-[9px] font-bold t-inverse w-10 text-right">${val}/${max}</span></div>`;
+    const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
+    const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
+    const onlyPDV=[...famsPDV.entries()].filter(([f])=>!famsHors.has(f)).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const famTag=(f,ca,color)=>`<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:${color};border-color:${color};opacity:0.85">${escapeHtml(f)}${ca?' '+formatEuro(ca):''}</span>`;
+    omniContent=`<div class="p-3">
+  <div class="flex items-start gap-3 mb-4">
+    <div class="flex-1">
+      <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] t-inverse-muted uppercase tracking-wide">Score Omni</span><span class="text-[24px] font-extrabold leading-none" style="color:${scoreColor}">${omni.score}</span><span class="text-[10px] t-inverse-muted">/100</span></div>
+      <div class="h-2 rounded-full bg-white/10 overflow-hidden mb-3"><div style="width:${omni.score}%;background:${scoreColor}" class="h-full rounded-full"></div></div>
+      ${barRow('Ancrage PDV',pdvScorePart,40,'var(--c-ok)')}
+      ${barRow('Fréquence',freqScorePart,30,'var(--c-info,#3b82f6)')}
+      ${barRow('Récence',recencyScorePart,30,'var(--c-caution)')}
+    </div>
+    <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[90px]">
+      <div class="text-[22px]">${seg.icon}</div>
+      <div class="text-[10px] font-bold mt-0.5" style="color:${seg.color}">${seg.label}</div>
+      <div class="text-[8px] t-inverse-muted mt-1 leading-tight max-w-[85px]">${seg.desc}</div>
+    </div>
+  </div>
+  <div class="mb-4 p-2.5 rounded-lg s-panel-inner border b-dark">
+    <p class="text-[9px] t-inverse-muted uppercase tracking-wide mb-1.5">Répartition CA</p>
+    <div class="flex h-3 rounded-full overflow-hidden mb-1.5">${total>0?`<div style="width:${Math.round(pdvShare*100)}%;background:var(--c-ok)" title="PDV"></div><div style="width:${Math.round((1-pdvShare)*100)}%;background:var(--c-caution)" title="Digital"></div>`:'<div style="width:100%;background:#ffffff20"></div>'}</div>
+    <div class="flex justify-between text-[9px]"><span style="color:var(--c-ok)">🏪 PDV\u00a0: <strong>${formatEuro(omni.caPDV)}</strong>${total>0?` (${Math.round(pdvShare*100)}%)`:''}</span><span style="color:var(--c-caution)">📱 Digital\u00a0: <strong>${formatEuro(omni.caHors)}</strong>${total>0?` (${Math.round((1-pdvShare)*100)}%)`:''}</span></div>
+  </div>
+  ${onlyHors.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
+  ${both.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
+  ${onlyPDV.length?`<div><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-info,#60a5fa)">🏪 Familles uniquement au comptoir</p><div class="flex flex-wrap gap-1">${onlyPDV.map(([f])=>famTag(f,0,'var(--c-info,#60a5fa)')).join('')}</div></div>`:''}
+</div>`;
+  }
+
   const tabs=[];
   if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
   if(oppArts.length)tabs.push({id:'opport',label:`💡 Opportunités — ${oppArts.length}`});
+  if(omni)tabs.push({id:'omni',label:`📡 Omni — ${omni.score}/100`});
 
   const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
 
@@ -209,7 +257,8 @@ function _renderClient360(clientCode,source){
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${iciRows}</tbody></table>`,
       ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Statut</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
-      opport:`<p class="text-[10px] t-inverse-muted mb-2">Articles que ce client achète hors agence, absents ou non référencés dans votre stock.</p><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA hors agence</th><th class="py-1 px-2 text-left">Statut stock</th></tr></thead><tbody>${oppRows}</tbody></table>`
+      opport:`<p class="text-[10px] t-inverse-muted mb-2">Articles que ce client achète hors agence, absents ou non référencés dans votre stock.</p><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA hors agence</th><th class="py-1 px-2 text-left">Statut stock</th></tr></thead><tbody>${oppRows}</tbody></table>`,
+      omni:omniContent
     };
 
     tabsHtml=`<div class="flex gap-1 mb-0 border-b b-dark">${tabBtns}</div>
@@ -227,7 +276,7 @@ function _renderClient360(clientCode,source){
 }
 
 function _c360SwitchTab(clientCode,tabId){
-  ['ici','ailleurs','opport'].forEach(id=>{
+  ['ici','ailleurs','opport','omni'].forEach(id=>{
     const el=document.getElementById(`c360content-${id}`);
     const btn=document.getElementById(`c360tab-${id}`);
     if(el)el.classList.add('hidden');
