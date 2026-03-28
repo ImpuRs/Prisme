@@ -686,6 +686,7 @@ function _nlInterpret(q) {
   if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
   if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
   if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
+  if (/heatmap.{0,10}(fuit|fam|metier)|fuit.{0,10}(metier|par)|famille.{0,10}metier|metier.{0,10}fuit/.test(raw)) return _nlQ_HeatmapFuites();
   if (/fuyant|famille.{0,10}hors|hors.{0,10}famille|echap|fugit/.test(raw))                  return _nlQ_FamillesHors();
   if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
   if (/mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('mono');
@@ -985,6 +986,69 @@ function _nlQ_FamillesHors() {
     title: `Familles fuyantes — ${list.length}\u00a0familles\u00a0·\u00a0${formatEuro(total)} hors agence`,
     html: `<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA hors</th><th class="text-center pr-2">Clients</th><th class="text-center pr-2">Canal</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
     footer: 'Cliquer sur une famille pour ouvrir le diagnostic · Familles achetées hors agence par des clients PDV actifs' };
+}
+
+function _nlQ_HeatmapFuites() {
+  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size)
+    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Chargez PDV + Terrain + chalandise pour calculer la heatmap.</p>' };
+  const famList = (_S.famillesHors || []).slice(0, 8);
+  if (!famList.length)
+    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Aucune famille fuyante détectée. Les familles hors agence n\'ont pas encore été calculées.</p>' };
+  if (!_S.clientsByMetier?.size)
+    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Chargez la zone de chalandise pour afficher les métiers.</p>' };
+  // Top métiers by PDV client count (exclude empty)
+  const metierList = [..._S.clientsByMetier.entries()]
+    .filter(([m]) => m)
+    .map(([m, ccs]) => ({ m, n: [...ccs].filter(cc => _S.ventesClientArticle.has(cc)).length }))
+    .filter(e => e.n >= 3)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 6)
+    .map(e => e.m);
+  if (!metierList.length)
+    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Pas assez de clients par métier (minimum 3).</p>' };
+  // Build matrix: rawFam → metier → nb clients fuyants
+  const matrix = {};
+  for (const f of famList) { matrix[f.rawFam] = {}; for (const m of metierList) matrix[f.rawFam][m] = 0; }
+  for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
+    const pdvArts = _S.ventesClientArticle.get(cc);
+    if (!pdvArts) continue;
+    const metier = _S.chalandiseData?.get(cc)?.metier;
+    if (!metier || !metierList.includes(metier)) continue;
+    const famsPDV = new Set();
+    for (const [code] of pdvArts) { const r = _S.articleFamille?.[code]; if (r) famsPDV.add(r); }
+    for (const [code] of horArts) {
+      const r = _S.articleFamille?.[code];
+      if (r && !famsPDV.has(r) && matrix[r]) matrix[r][metier]++;
+    }
+  }
+  // Max value for color scaling
+  const allVals = famList.flatMap(f => metierList.map(m => matrix[f.rawFam][m]));
+  const maxVal = Math.max(...allVals, 1);
+  // Metier totals (nb PDV clients)
+  const metierTotals = {};
+  for (const m of metierList) metierTotals[m] = [...(_S.clientsByMetier.get(m)||[])].filter(cc => _S.ventesClientArticle.has(cc)).length;
+  // Shorten metier labels
+  const mLabel = m => m.length > 12 ? m.slice(0,11)+'…' : m;
+  // Render
+  const headerCols = metierList.map(m => `<th class="py-1 px-1.5 text-center text-[8px] t-disabled font-semibold" title="${m}">${mLabel(m)}<br><span class="font-normal opacity-60">${metierTotals[m]}cl</span></th>`).join('');
+  const rows = famList.map(f => {
+    const cells = metierList.map(m => {
+      const v = matrix[f.rawFam][m];
+      const pct = metierTotals[m] > 0 ? Math.round(v / metierTotals[m] * 100) : 0;
+      const alpha = maxVal > 0 ? v / maxVal : 0;
+      const bg = alpha > 0 ? `rgba(251,146,60,${Math.max(0.1, alpha * 0.85)})` : 'transparent';
+      const textCol = alpha > 0.5 ? '#fff' : alpha > 0.2 ? 'var(--c-caution)' : 'var(--t-disabled,#888)';
+      return `<td class="py-1.5 px-1 text-center text-[9px] font-bold" style="background:${bg};color:${textCol}">${v > 0 ? `${v}<span style="font-weight:normal;font-size:7px;opacity:0.8"> (${pct}%)</span>` : '<span style="opacity:0.2">·</span>'}</td>`;
+    }).join('');
+    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr class="border-b b-light cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
+<td class="py-1.5 px-2 text-[10px] font-semibold t-primary whitespace-nowrap">${f.fam}<span class="text-[8px] t-disabled font-normal ml-1">${formatEuro(f.caHors)}</span></td>${cells}</tr>`;
+  }).join('');
+  const totalFuites = famList.reduce((s, f) => s + f.caHors, 0);
+  return {
+    title: `Heatmap familles fuyantes × métier — ${famList.length} familles · ${formatEuro(totalFuites)}`,
+    html: `<div class="overflow-x-auto"><table class="w-full border-collapse"><thead><tr class="border-b b-light"><th class="py-1 px-2 text-left text-[9px] t-disabled">Famille fuyante</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table><p class="text-[8px] t-disabled mt-2">Nb clients du métier achetant cette famille hors agence (jamais au PDV) · intensité ∝ nb clients · cliquer → diagnostic</p></div>`,
+  };
 }
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
