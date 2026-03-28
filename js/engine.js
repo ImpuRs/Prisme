@@ -320,7 +320,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, stock_synthesis: 98, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, captation: 4.5, stock_synthesis: 98 };
 
   if (_S.finalData.length) {
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
@@ -373,18 +373,6 @@ export function generateDecisionQueue() {
     });
   }
 
-  // Si des ruptures existent mais aucune ne passe le seuil → notice de surveillance
-  if (allRupt.length > 0 && critRupt.length === 0) {
-    const n = allRupt.length;
-    decisions.push({
-      type: 'sain', impact: 0,
-      label: `Aucune rupture significative — ${n} rupture${n > 1 ? 's' : ''} mineure${n > 1 ? 's' : ''} en surveillance.`,
-      why: [
-        `${n} article${n > 1 ? 's' : ''} en rupture sous les seuils (CA/sem < ${DQ_MIN_CA_PERDU_SEM}€ et score < ${DQ_MIN_PRIORITY_SCORE})`,
-        `Seuils d'alerte : CA perdu ≥ ${DQ_MIN_CA_PERDU_SEM}€/sem OU score priorité ≥ ${DQ_MIN_PRIORITY_SCORE}`,
-      ],
-    });
-  }
   } // end if (_S.finalData.length) — blocks 1a + 1b
 
   // ── 2. Clients stratégiques inactifs >30j (si chalandise chargée, top 2) ──
@@ -714,15 +702,25 @@ export function generateDecisionQueue() {
     }
   }
 
-  // ── 11. Situation saine (aucune urgence trouvée) ─────────────────────────
-  if (decisions.length === 0) {
-    const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-    const sr = freq.length > 0 ? Math.round(freq.filter(r => r.stockActuel > 0).length / freq.length * 100) : 100;
-    decisions.push({
-      type: 'sain', impact: 0,
-      label: `RAS — stock calibré, taux de service ${sr}%, aucune anomalie critique.`,
-      why: [],
-    });
+  // ── 11. Captation zone faible (< 10% de la zone achetant en PDV) ────────
+  if (_S.chalandiseReady && _S.chalandiseData?.size > 0) {
+    const totalZone = _S.chalandiseData.size;
+    const actifCount = _S.clientsMagasin?.size || _S.ventesClientArticle?.size || 0;
+    const pct = totalZone > 0 ? Math.round(actifCount / totalZone * 100) : 100;
+    if (pct < 10) {
+      const caPot = [...(_S.chalandiseData.values())].reduce((s, c) => s + (c.ca2025 || 0), 0);
+      decisions.push({
+        type: 'captation',
+        impact: Math.round(caPot * 0.1),
+        label: `${actifCount.toLocaleString('fr')} clients actifs sur ${totalZone.toLocaleString('fr')} en zone — captation ${pct}%`,
+        why: [
+          `Seuls ${pct}% des clients potentiels achètent chez vous.`,
+          `Identifier les prospects prioritaires par métier.`,
+        ],
+        action: 'Voir dans PRISME 360',
+        score: Math.round((10 - pct) * 10),
+      });
+    }
   }
 
   // ── Tri : catégorie d'abord (rupture avant dormants), puis impact€ ────
