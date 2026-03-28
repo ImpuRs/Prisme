@@ -8,7 +8,7 @@
 // Dépend de : constants.js, utils.js, state.js, engine.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { PAGE_SIZE, AGE_BRACKETS } from './constants.js';
+import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
@@ -601,14 +601,227 @@ export function _cmdMoveSelection(dir) {
   if (sel) { sel.classList.add('cmd-selected'); sel.scrollIntoView({ block: 'nearest' }); }
 }
 
-// ── Ce matin : NL search shortcut ────────────────────────────
+/// ── Ce matin : NL search ────────────────────────────────────────────────────
 export function _cematinSearch(q) {
   if (!q || !q.trim()) return;
-  // Injecter dans le champ Promo + appeler le moteur NL
+  const result = _nlInterpret(q);
+  if (result) {
+    _nlRenderResults(result);
+    const el = document.getElementById('cematinResults');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+  // Fallback → Promo
+  _nlRenderResults(null);
   const promoInput = document.getElementById('promoSearchInput');
   if (promoInput) promoInput.value = q.trim();
   switchTab('promo');
   if (typeof window.runPromoSearch === 'function') window.runPromoSearch();
+}
+
+// ── NL Search — interpréteur de requêtes françaises ─────────────────────────
+
+function _nlNorm(s) {
+  return s.toLowerCase()
+    .replace(/[àáâã]/g,'a').replace(/[éèêë]/g,'e').replace(/[îï]/g,'i')
+    .replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/ç/g,'c');
+}
+
+function _nlEntities(raw) {
+  const daysM  = raw.match(/(\d+)\s*jours?/);
+  const weeksM = raw.match(/(\d+)\s*semaines?/);
+  const monthsM= raw.match(/(\d+)\s*mois/);
+  const eurosM = raw.match(/(\d+)\s*(?:euro|€)/);
+  const topNM  = raw.match(/top\s*(\d+)/);
+  const simN   = (raw.match(/\b(\d+)\b/)||[])[1];
+  const days   = daysM ? +daysM[1] : weeksM ? +weeksM[1]*7 : monthsM ? +monthsM[1]*30 : 0;
+  const euros  = eurosM ? +eurosM[1] : 0;
+  const n      = topNM ? Math.min(+topNM[1],50) : simN ? Math.min(+simN,50) : 10;
+  let commercial = null;
+  if (_S.clientsByCommercial?.size) {
+    for (const [c] of _S.clientsByCommercial) {
+      const tokens = _nlNorm(c).split(/[\s\-_]/);
+      if (tokens.some(t => t.length > 3 && raw.includes(t))) { commercial = c; break; }
+    }
+  }
+  let metier = null;
+  if (_S.clientsByMetier?.size) {
+    for (const [m] of _S.clientsByMetier) {
+      const mN = _nlNorm(m);
+      if (mN.length >= 4 && raw.includes(mN.slice(0,Math.min(7,mN.length)))) { metier = m; break; }
+    }
+  }
+  return { days, euros, n, commercial, metier };
+}
+
+function _nlInterpret(q) {
+  if (!q?.trim() || !_S.finalData?.length) return null;
+  const raw = _nlNorm(q);
+  const e   = _nlEntities(raw);
+  if (/taux.{0,10}(service|serv)/.test(raw))                                              return _nlQ_TauxService();
+  if (/dormant/.test(raw))                                                                return _nlQ_StockDormant(e.n);
+  if (/sans.{0,10}(min|max)|anomalie.{0,10}(min|max)/.test(raw))                        return _nlQ_AnomaliesMinMax();
+  if (/(web|internet).{0,12}client|client.{0,12}(web|internet)/.test(raw))              return _nlQ_ClientsWeb(e.n);
+  if (/representant/.test(raw) && /(unique|seule?|exclusiv|que rep|seulement)/.test(raw)) return _nlQ_ClientsRepOnly();
+  if (/rupture/.test(raw) && /(top|client|principal|meilleur|gros)/.test(raw))          return _nlQ_RupturesTopClients();
+  if (e.commercial && /(silence|absent|sans commande|perdu)/.test(raw))                 return _nlQ_CommercialSilent(e.commercial, e.days||30);
+  if (e.metier && /(silence|absent|perdu|disparu)/.test(raw))                           return _nlQ_ClientsSilencieux(e.days||90, 0, e.metier);
+  if (/(silence|absent|perdu|disparu)/.test(raw) && /client/.test(raw))                return _nlQ_ClientsSilencieux(e.days||45, e.euros, null);
+  return null;
+}
+
+function _nlRenderResults(result) {
+  const el = document.getElementById('cematinResults');
+  if (!el) return;
+  if (!result) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `<div class="s-card rounded-xl border p-3">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[11px] font-bold t-primary">${result.title}</span>
+      <button onclick="document.getElementById('cematinResults').classList.add('hidden');document.getElementById('cematinSearchInput').value=''" class="text-[10px] t-disabled hover:t-primary px-1">✕</button>
+    </div>
+    ${result.html}
+    ${result.footer?`<div class="mt-2 text-[9px] t-disabled">${result.footer}</div>`:''}
+  </div>`;
+}
+
+function _nlQ_TauxService() {
+  const active = (_S.finalData||[]).filter(r=>r.W>=1);
+  const enStock = active.filter(r=>r.stockActuel>0);
+  const taux = active.length ? (enStock.length/active.length*100).toFixed(1) : '—';
+  const ruptures = active.length - enStock.length;
+  const obs = _S.benchLists?.obsKpis?.mine;
+  const servObs = obs?.serv!=null ? `<div class="s-card rounded-xl p-3 text-center"><div class="text-lg font-bold c-caution">${(obs.serv*100).toFixed(1)}%</div><div class="text-[10px] t-disabled mt-1">taux Qlik réseau</div></div>` : '';
+  return { title:'Taux de service',
+    html:`<div class="grid grid-cols-${servObs?3:2} gap-2"><div class="s-card rounded-xl p-3 text-center"><div class="text-2xl font-bold c-action">${taux}%</div><div class="text-[10px] t-disabled mt-1">refs actives en stock</div></div><div class="s-card rounded-xl p-3 text-center"><div class="text-xl font-bold c-danger">${ruptures.toLocaleString('fr')}</div><div class="text-[10px] t-disabled mt-1">ruptures (W≥1)</div></div>${servObs}</div>` };
+}
+
+function _nlQ_StockDormant(n) {
+  const list = (_S.finalData||[]).filter(r=>r.ageJours>=DORMANT_DAYS&&r.stockActuel>0)
+    .map(r=>({ code:r.code, lib:(r.libelle||'').slice(0,35), val:Math.round((r.stockActuel||0)*(r.prixUnitaire||0)), age:r.ageJours }))
+    .sort((a,b)=>b.val-a.val).slice(0,n);
+  if (!list.length) return { title:'Stock dormant', html:'<p class="text-xs t-disabled">Aucun article dormant détecté.</p>' };
+  const tot = list.reduce((s,r)=>s+r.val,0);
+  const rows = list.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-mono t-disabled">${r.code}</td><td class="py-1 pr-3">${r.lib}</td><td class="py-1 text-right font-bold">${formatEuro(r.val)}</td><td class="py-1 pl-2 text-right t-disabled">${r.age}j</td></tr>`).join('');
+  return { title:`Dormants top ${n} — ${formatEuro(tot)} immobilisé`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Code</th><th class="text-left pr-3">Libellé</th><th class="text-right">Valeur</th><th class="text-right pl-2">Âge</th></tr></thead><tbody>${rows}</tbody></table></div>` };
+}
+
+function _nlQ_AnomaliesMinMax() {
+  const list = (_S.finalData||[]).filter(r=>(r.nouveauMin===0||r.nouveauMax===0)&&r.W>=2&&!r.isParent)
+    .map(r=>({ code:r.code, lib:(r.libelle||'').slice(0,35), w:r.W, ca:Math.round(r.caAnnuel||0) }))
+    .sort((a,b)=>b.ca-a.ca).slice(0,15);
+  if (!list.length) return { title:'Articles sans MIN/MAX', html:'<p class="text-xs t-disabled">Aucune anomalie MIN/MAX détectée.</p>' };
+  const rows = list.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-mono t-disabled">${r.code}</td><td class="py-1 pr-3">${r.lib}</td><td class="py-1 text-right">${r.w} sem</td><td class="py-1 pl-2 text-right font-bold">${formatEuro(r.ca)}</td></tr>`).join('');
+  return { title:`Articles actifs sans MIN/MAX (${list.length})`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Code</th><th class="text-left pr-3">Libellé</th><th class="text-right">W/sem</th><th class="text-right pl-2">CA/an</th></tr></thead><tbody>${rows}</tbody></table></div>` };
+}
+
+function _nlQ_ClientsWeb(n) {
+  if (!_S.ventesClientHorsMagasin?.size) return { title:'Top clients web', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
+  const map = new Map();
+  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
+    let ca=0; for (const [,v] of arts) if (v.canal==='INTERNET') ca+=v.sumCA||0;
+    if (ca>0) map.set(cc,ca);
+  }
+  const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
+  if (!top.length) return { title:'Top clients web', html:'<p class="text-xs t-disabled">Aucun achat Internet détecté.</p>' };
+  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
+  const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`Top ${n} clients Internet`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-3">Métier</th><th class="text-right">CA web</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Cliquer sur un client pour ouvrir sa fiche 360°' };
+}
+
+function _nlQ_ClientsRepOnly() {
+  if (!_S.ventesClientHorsMagasin?.size) return { title:'Clients représentant seulement', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
+  const results = [];
+  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
+    if (_S.ventesClientArticle?.get(cc)?.size) continue;
+    let caRep=0; for (const [,v] of arts) if (v.canal==='REPRESENTANT') caRep+=v.sumCA||0;
+    if (caRep>0) results.push({cc,caRep});
+  }
+  results.sort((a,b)=>b.caRep-a.caRep);
+  const top = results.slice(0,15);
+  if (!top.length) return { title:'Clients représentant seulement', html:'<p class="text-xs t-disabled">Aucun trouvé.</p>' };
+  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
+  const rows = top.map(({cc,caRep})=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(caRep)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`Clients sans comptoir — représentant uniquement (${results.length})`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-3">Métier</th><th class="text-right">CA rep</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Ces clients ne passent jamais au comptoir — potentiel de captation PDV.' };
+}
+
+function _nlQ_RupturesTopClients() {
+  const ruptures = (_S.finalData||[]).filter(r=>r.stockActuel<=0&&r.W>=2&&!r.isParent);
+  if (!ruptures.length) return { title:'Ruptures × top clients', html:'<p class="text-xs t-disabled">Aucune rupture active.</p>' };
+  const clientCA = new Map();
+  if (_S.ventesClientArticle?.size) {
+    for (const [cc,arts] of _S.ventesClientArticle) {
+      let ca=0; for (const [,v] of arts) ca+=v.sumCA||0;
+      clientCA.set(cc,ca);
+    }
+  }
+  const top50 = new Set([...clientCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,50).map(([cc])=>cc));
+  const impacts = ruptures.map(r=>{
+    const cls = _S.articleClients?.get(r.code)||new Set();
+    const nbTop = [...cls].filter(cc=>top50.has(cc)).length;
+    const caRisk = [...cls].reduce((s,cc)=>s+(_S.ventesClientArticle?.get(cc)?.get(r.code)?.sumCA||0),0);
+    return { lib:(r.libelle||r.code).slice(0,30), fam:r.famille||'', nbTop, caRisk };
+  }).filter(r=>r.nbTop>0).sort((a,b)=>b.nbTop-a.nbTop||b.caRisk-a.caRisk).slice(0,12);
+  if (!impacts.length) return { title:'Ruptures × top clients', html:'<p class="text-xs t-disabled">Aucune rupture ne touche tes top 50 clients.</p>' };
+  const rows = impacts.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2">${r.lib}</td><td class="py-1 pr-3 t-disabled">${r.fam}</td><td class="py-1 text-right font-bold c-danger">${r.nbTop}</td><td class="py-1 pl-2 text-right">${r.caRisk>0?formatEuro(r.caRisk):'—'}</td></tr>`).join('');
+  return { title:`Ruptures touchant tes top 50 clients (${impacts.length} articles)`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Article</th><th class="text-left pr-3">Famille</th><th class="text-right">Clients top</th><th class="text-right pl-2">CA/an</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Top 50 clients par CA PDV' };
+}
+
+function _nlQ_ClientsSilencieux(days, minEuros, metier) {
+  if (!_S.clientLastOrder?.size) return { title:'Clients silencieux', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
+  const now = new Date();
+  const results = [];
+  for (const [cc,lastDate] of _S.clientLastOrder) {
+    const daysAgo = Math.round((now-lastDate)/86400000);
+    if (daysAgo < days) continue;
+    const info = _S.chalandiseData?.get(cc);
+    if (metier && info?.metier !== metier) continue;
+    const arts = _S.ventesClientArticle?.get(cc);
+    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
+    if (minEuros && ca < minEuros) continue;
+    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
+  }
+  results.sort((a,b)=>b.ca-a.ca||b.daysAgo-a.daysAgo);
+  const top = results.slice(0,15);
+  if (!top.length) return { title:`Clients silencieux (>${days}j)`, html:'<p class="text-xs t-disabled">Aucun client correspondant.</p>' };
+  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  const titre = metier ? `Clients ${metier} silencieux (>${days}j)` : `Clients silencieux (>${days}j${minEuros?` >${formatEuro(minEuros)}`:''})`;
+  return { title:`${titre} — ${results.length} résultat${results.length>1?'s':''}`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:'Cliquer pour ouvrir la fiche 360°' };
+}
+
+function _nlQ_CommercialSilent(commercial, days) {
+  const clients = _S.clientsByCommercial?.get(commercial);
+  if (!clients?.size) return { title:`Portefeuille ${commercial}`, html:'<p class="text-xs t-disabled">Commercial non trouvé.</p>' };
+  const now = new Date();
+  const results = [];
+  for (const cc of clients) {
+    const lastDate = _S.clientLastOrder?.get(cc);
+    if (!lastDate) continue;
+    const daysAgo = Math.round((now-lastDate)/86400000);
+    if (daysAgo < days) continue;
+    const info = _S.chalandiseData?.get(cc);
+    const arts = _S.ventesClientArticle?.get(cc);
+    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
+    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
+  }
+  results.sort((a,b)=>b.ca-a.ca);
+  const top = results.slice(0,15);
+  if (!top.length) return { title:`${commercial} — clients silencieux`, html:`<p class="text-xs t-disabled">Tous les clients ont commandé dans les ${days} derniers jours.</p>` };
+  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
+  return { title:`${commercial} — ${results.length} client${results.length>1?'s':''} silencieux (>${days}j)`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` };
 }
 
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
