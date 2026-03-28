@@ -880,16 +880,19 @@ export function dqFocus(idx) {
       break;
     case 'client':
     case 'client_silence':
-      switchTab('territoire');
+      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
+      else switchTab('territoire');
       break;
     case 'concentration':
       switchTab('territoire');
       break;
     case 'opportunite':
-      switchTab('territoire');
+      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
+      else switchTab('territoire');
       break;
     case 'client_web_actif':
-      switchTab('territoire');
+      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
+      else switchTab('territoire');
       break;
     case 'fragilite':
       showCockpitInTable('fragiles');
