@@ -321,7 +321,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -453,6 +453,31 @@ export function generateDecisionQueue() {
         `Action : exporter les codes via l'onglet Articles, paramétrer les MIN/MAX calculés par PRISME.`,
       ],
     });
+  }
+
+  // ── 4b. Incohérences ERP (MIN>MAX, nouveautés non calibrées, sur-stock MAX) ──
+  {
+    const active = r => !r.isParent && !(r.V === 0 && r.enleveTotal > 0);
+    const minGtMax = _S.finalData.filter(r => active(r) && r.ancienMin > 0 && r.ancienMax > 0 && r.ancienMin > r.ancienMax);
+    const nouvsNoCal = _S.finalData.filter(r => active(r) && r.isNouveaute && r.W >= 2 && r.ancienMin === 0 && r.ancienMax === 0);
+    const overMax = _S.finalData.filter(r => active(r) && r.ancienMax > 0 && r.stockActuel > r.ancienMax * 2 && r.W < 3);
+    const totalIssues = minGtMax.length + nouvsNoCal.length + overMax.length;
+    if (totalIssues > 0) {
+      const parts = [];
+      if (minGtMax.length) parts.push(`${minGtMax.length} MIN>MAX`);
+      if (nouvsNoCal.length) parts.push(`${nouvsNoCal.length} nouveautés non calibrées`);
+      if (overMax.length) parts.push(`${overMax.length} stocks bloqués au-dessus du MAX`);
+      const topItem = [...minGtMax, ...nouvsNoCal, ...overMax].sort((a, b) => (b.W * (b.prixUnitaire || 0)) - (a.W * (a.prixUnitaire || 0)))[0];
+      decisions.push({
+        type: 'erp_incoherence', impact: 0,
+        label: `${totalIssues} incohérence${totalIssues > 1 ? 's' : ''} ERP détectée${totalIssues > 1 ? 's' : ''} — ${parts.join(', ')}.`,
+        why: [
+          minGtMax.length ? `MIN>MAX ERP (impossible) sur ${minGtMax.length} article${minGtMax.length > 1 ? 's' : ''} — réappro auto bloquée.` : null,
+          nouvsNoCal.length ? `${nouvsNoCal.length} nouveauté${nouvsNoCal.length > 1 ? 's' : ''} W≥2 sans MIN/MAX — calibrage urgent avant rupture.` : null,
+          topItem ? `Top priorité : ${(topItem.libelle || topItem.code).substring(0, 32)} (W=${topItem.W}).` : null,
+        ].filter(Boolean),
+      });
+    }
   }
 
   // ── 5. Concentration Client — ICC (K1) ───────────────────────────────

@@ -13,6 +13,7 @@ import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeS
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore } from './engine.js';
+import { _nlInterpret, _nlRenderResults } from './nl.js';
 
 
 // ── Toast notifications ───────────────────────────────────────
@@ -634,501 +635,6 @@ export function _cematinSearch(q) {
   if (typeof window.runPromoSearch === 'function') window.runPromoSearch();
 }
 
-// ── NL Search — interpréteur de requêtes françaises ─────────────────────────
-
-function _nlNorm(s) {
-  return s.toLowerCase()
-    .replace(/[àáâã]/g,'a').replace(/[éèêë]/g,'e').replace(/[îï]/g,'i')
-    .replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/ç/g,'c');
-}
-
-function _nlEntities(raw) {
-  const daysM  = raw.match(/(\d+)\s*jours?/);
-  const weeksM = raw.match(/(\d+)\s*semaines?/);
-  const monthsM= raw.match(/(\d+)\s*mois/);
-  const eurosM = raw.match(/(\d+)\s*(?:euro|€)/);
-  const topNM  = raw.match(/top\s*(\d+)/);
-  const simN   = (raw.match(/\b(\d+)\b/)||[])[1];
-  const days   = daysM ? +daysM[1] : weeksM ? +weeksM[1]*7 : monthsM ? +monthsM[1]*30 : 0;
-  const euros  = eurosM ? +eurosM[1] : 0;
-  const n      = topNM ? Math.min(+topNM[1],50) : simN ? Math.min(+simN,50) : 10;
-  let commercial = null;
-  if (_S.clientsByCommercial?.size) {
-    for (const [c] of _S.clientsByCommercial) {
-      const tokens = _nlNorm(c).split(/[\s\-_]/);
-      if (tokens.some(t => t.length > 3 && raw.includes(t))) { commercial = c; break; }
-    }
-  }
-  let metier = null;
-  if (_S.clientsByMetier?.size) {
-    for (const [m] of _S.clientsByMetier) {
-      const mN = _nlNorm(m);
-      if (mN.length >= 4 && raw.includes(mN.slice(0,Math.min(7,mN.length)))) { metier = m; break; }
-    }
-  }
-  return { days, euros, n, commercial, metier };
-}
-
-function _nlInterpret(q) {
-  if (!q?.trim() || !_S.finalData?.length) return null;
-  const raw = _nlNorm(q);
-  const e   = _nlEntities(raw);
-  if (/taux.{0,10}(service|serv)/.test(raw))                                              return _nlQ_TauxService();
-  if (/dormant/.test(raw))                                                                return _nlQ_StockDormant(e.n);
-  if (/sans.{0,10}(min|max)|anomalie.{0,10}(min|max)/.test(raw))                        return _nlQ_AnomaliesMinMax();
-  if (/(web|internet).{0,12}client|client.{0,12}(web|internet)/.test(raw))              return _nlQ_ClientsWeb(e.n);
-  if (/representant/.test(raw) && /(unique|seule?|exclusiv|que rep|seulement)/.test(raw)) return _nlQ_ClientsRepOnly();
-  if (/rupture/.test(raw) && /(top|client|principal|meilleur|gros)/.test(raw))          return _nlQ_RupturesTopClients();
-  if (e.commercial && /(silence|absent|sans commande|perdu)/.test(raw))                 return _nlQ_CommercialSilent(e.commercial, e.days||30);
-  if (e.metier && /(silence|absent|perdu|disparu)/.test(raw))                           return _nlQ_ClientsSilencieux(e.days||90, 0, e.metier);
-  if (/(silence|absent|perdu|disparu)/.test(raw) && /client/.test(raw))                return _nlQ_ClientsSilencieux(e.days||45, e.euros, null);
-  if (/nouveau.{0,12}client|client.{0,12}nouveau|premier.{0,12}achat/.test(raw))       return _nlQ_NouveauxClients(e.days||30);
-  if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
-  if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
-  if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
-  if (e.commercial && /(fuyant|famille|portefeuille|hors.{0,10}agence|manque)/.test(raw))    return _nlQ_CommercialFuites(e.commercial);
-  if (/(fuit|fuyant).{0,10}(par|commercial|portefeuille)|commercial.{0,10}(fuit|fuyant)/.test(raw)) return _nlQ_CommercialFuites(null);
-  if (/heatmap.{0,10}(fuit|fam|metier)|fuit.{0,10}(metier|par)|famille.{0,10}metier|metier.{0,10}fuit/.test(raw)) return _nlQ_HeatmapFuites();
-  if (/fuyant|famille.{0,10}hors|hors.{0,10}famille|echap|fugit/.test(raw))                  return _nlQ_FamillesHors();
-  if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
-  if (/mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('mono');
-  if (/full.{0,6}digital|100.{0,5}digital|tout.{0,6}digital/.test(raw))                     return _nlQ_OmniSegment('digital');
-  if (/segment.{0,10}omni|omnicanal/.test(raw))                                              return _nlQ_OmniSegment(null);
-  return null;
-}
-
-function _nlRenderResults(result) {
-  const el = document.getElementById('cematinResults');
-  if (!el) return;
-  if (!result) { el.classList.add('hidden'); return; }
-  el.classList.remove('hidden');
-  el.innerHTML = `<div class="s-card rounded-xl border p-3">
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-[11px] font-bold t-primary">${result.title}</span>
-      <button onclick="document.getElementById('cematinResults').classList.add('hidden');document.getElementById('cematinSearchInput').value=''" class="text-[10px] t-disabled hover:t-primary px-1">✕</button>
-    </div>
-    ${result.html}
-    ${result.footer?`<div class="mt-2 text-[9px] t-disabled">${result.footer}</div>`:''}
-  </div>`;
-}
-
-function _nlQ_TauxService() {
-  const active = (_S.finalData||[]).filter(r=>r.W>=1);
-  const enStock = active.filter(r=>r.stockActuel>0);
-  const taux = active.length ? (enStock.length/active.length*100).toFixed(1) : '—';
-  const ruptures = active.length - enStock.length;
-  const obs = _S.benchLists?.obsKpis?.mine;
-  const servObs = obs?.serv!=null ? `<div class="s-card rounded-xl p-3 text-center"><div class="text-lg font-bold c-caution">${(obs.serv*100).toFixed(1)}%</div><div class="text-[10px] t-disabled mt-1">taux Qlik réseau</div></div>` : '';
-  return { title:'Taux de service',
-    html:`<div class="grid grid-cols-${servObs?3:2} gap-2"><div class="s-card rounded-xl p-3 text-center"><div class="text-2xl font-bold c-action">${taux}%</div><div class="text-[10px] t-disabled mt-1">refs actives en stock</div></div><div class="s-card rounded-xl p-3 text-center"><div class="text-xl font-bold c-danger">${ruptures.toLocaleString('fr')}</div><div class="text-[10px] t-disabled mt-1">ruptures (W≥1)</div></div>${servObs}</div>` };
-}
-
-function _nlQ_StockDormant(n) {
-  const list = (_S.finalData||[]).filter(r=>r.ageJours>=DORMANT_DAYS&&r.stockActuel>0)
-    .map(r=>({ code:r.code, lib:(r.libelle||'').slice(0,35), val:Math.round((r.stockActuel||0)*(r.prixUnitaire||0)), age:r.ageJours }))
-    .sort((a,b)=>b.val-a.val).slice(0,n);
-  if (!list.length) return { title:'Stock dormant', html:'<p class="text-xs t-disabled">Aucun article dormant détecté.</p>' };
-  const tot = list.reduce((s,r)=>s+r.val,0);
-  const rows = list.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-mono t-disabled">${r.code}</td><td class="py-1 pr-3">${r.lib}</td><td class="py-1 text-right font-bold">${formatEuro(r.val)}</td><td class="py-1 pl-2 text-right t-disabled">${r.age}j</td></tr>`).join('');
-  return { title:`Dormants top ${n} — ${formatEuro(tot)} immobilisé`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Code</th><th class="text-left pr-3">Libellé</th><th class="text-right">Valeur</th><th class="text-right pl-2">Âge</th></tr></thead><tbody>${rows}</tbody></table></div>` };
-}
-
-function _nlQ_AnomaliesMinMax() {
-  const list = (_S.finalData||[]).filter(r=>(r.nouveauMin===0||r.nouveauMax===0)&&r.W>=2&&!r.isParent)
-    .map(r=>({ code:r.code, lib:(r.libelle||'').slice(0,35), w:r.W, ca:Math.round(r.caAnnuel||0) }))
-    .sort((a,b)=>b.ca-a.ca).slice(0,15);
-  if (!list.length) return { title:'Articles sans MIN/MAX', html:'<p class="text-xs t-disabled">Aucune anomalie MIN/MAX détectée.</p>' };
-  const rows = list.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-mono t-disabled">${r.code}</td><td class="py-1 pr-3">${r.lib}</td><td class="py-1 text-right">${r.w} sem</td><td class="py-1 pl-2 text-right font-bold">${formatEuro(r.ca)}</td></tr>`).join('');
-  return { title:`Articles actifs sans MIN/MAX (${list.length})`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Code</th><th class="text-left pr-3">Libellé</th><th class="text-right">W/sem</th><th class="text-right pl-2">CA/an</th></tr></thead><tbody>${rows}</tbody></table></div>` };
-}
-
-function _nlQ_ClientsWeb(n) {
-  if (!_S.ventesClientHorsMagasin?.size) return { title:'Top clients web', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
-  const map = new Map();
-  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
-    let ca=0; for (const [,v] of arts) if (v.canal==='INTERNET') ca+=v.sumCA||0;
-    if (ca>0) map.set(cc,ca);
-  }
-  const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
-  if (!top.length) return { title:'Top clients web', html:'<p class="text-xs t-disabled">Aucun achat Internet détecté.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
-  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
-  const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`Top ${n} clients Internet`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-3">Métier</th><th class="text-right">CA web</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Cliquer sur un client pour ouvrir sa fiche 360°' };
-}
-
-function _nlQ_ClientsRepOnly() {
-  if (!_S.ventesClientHorsMagasin?.size) return { title:'Clients représentant seulement', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
-  const results = [];
-  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
-    if (_S.ventesClientArticle?.get(cc)?.size) continue;
-    let caRep=0; for (const [,v] of arts) if (v.canal==='REPRESENTANT') caRep+=v.sumCA||0;
-    if (caRep>0) results.push({cc,caRep});
-  }
-  results.sort((a,b)=>b.caRep-a.caRep);
-  const top = results.slice(0,15);
-  if (!top.length) return { title:'Clients représentant seulement', html:'<p class="text-xs t-disabled">Aucun trouvé.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
-  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
-  const rows = top.map(({cc,caRep})=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(caRep)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`Clients sans comptoir — représentant uniquement (${results.length})`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-3">Métier</th><th class="text-right">CA rep</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Ces clients ne passent jamais au comptoir — potentiel de captation PDV.' };
-}
-
-function _nlQ_RupturesTopClients() {
-  const ruptures = (_S.finalData||[]).filter(r=>r.stockActuel<=0&&r.W>=2&&!r.isParent);
-  if (!ruptures.length) return { title:'Ruptures × top clients', html:'<p class="text-xs t-disabled">Aucune rupture active.</p>' };
-  const clientCA = new Map();
-  if (_S.ventesClientArticle?.size) {
-    for (const [cc,arts] of _S.ventesClientArticle) {
-      let ca=0; for (const [,v] of arts) ca+=v.sumCA||0;
-      clientCA.set(cc,ca);
-    }
-  }
-  const top50 = new Set([...clientCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,50).map(([cc])=>cc));
-  const impacts = ruptures.map(r=>{
-    const cls = _S.articleClients?.get(r.code)||new Set();
-    const nbTop = [...cls].filter(cc=>top50.has(cc)).length;
-    const caRisk = [...cls].reduce((s,cc)=>s+(_S.ventesClientArticle?.get(cc)?.get(r.code)?.sumCA||0),0);
-    return { lib:(r.libelle||r.code).slice(0,30), fam:r.famille||'', nbTop, caRisk };
-  }).filter(r=>r.nbTop>0).sort((a,b)=>b.nbTop-a.nbTop||b.caRisk-a.caRisk).slice(0,12);
-  if (!impacts.length) return { title:'Ruptures × top clients', html:'<p class="text-xs t-disabled">Aucune rupture ne touche tes top 50 clients.</p>' };
-  const rows = impacts.map(r=>`<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2">${r.lib}</td><td class="py-1 pr-3 t-disabled">${r.fam}</td><td class="py-1 text-right font-bold c-danger">${r.nbTop}</td><td class="py-1 pl-2 text-right">${r.caRisk>0?formatEuro(r.caRisk):'—'}</td></tr>`).join('');
-  return { title:`Ruptures touchant tes top 50 clients (${impacts.length} articles)`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Article</th><th class="text-left pr-3">Famille</th><th class="text-right">Clients top</th><th class="text-right pl-2">CA/an</th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Top 50 clients par CA PDV' };
-}
-
-function _nlQ_ClientsSilencieux(days, minEuros, metier) {
-  if (!_S.clientLastOrder?.size) return { title:'Clients silencieux', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
-  const now = new Date();
-  const results = [];
-  for (const [cc,lastDate] of _S.clientLastOrder) {
-    const daysAgo = Math.round((now-lastDate)/86400000);
-    if (daysAgo < days) continue;
-    const info = _S.chalandiseData?.get(cc);
-    if (metier && info?.metier !== metier) continue;
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    if (minEuros && ca < minEuros) continue;
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
-  }
-  results.sort((a,b)=>b.ca-a.ca||b.daysAgo-a.daysAgo);
-  const top = results.slice(0,15);
-  if (!top.length) return { title:`Clients silencieux (>${days}j)`, html:'<p class="text-xs t-disabled">Aucun client correspondant.</p>' };
-  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  const titre = metier ? `Clients ${metier} silencieux (>${days}j)` : `Clients silencieux (>${days}j${minEuros?` >${formatEuro(minEuros)}`:''})`;
-  return { title:`${titre} — ${results.length} résultat${results.length>1?'s':''}`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Cliquer pour ouvrir la fiche 360°' };
-}
-
-function _nlQ_CommercialSilent(commercial, days) {
-  const clients = _S.clientsByCommercial?.get(commercial);
-  if (!clients?.size) return { title:`Portefeuille ${commercial}`, html:'<p class="text-xs t-disabled">Commercial non trouvé.</p>' };
-  const now = new Date();
-  const results = [];
-  for (const cc of clients) {
-    const lastDate = _S.clientLastOrder?.get(cc);
-    if (!lastDate) continue;
-    const daysAgo = Math.round((now-lastDate)/86400000);
-    if (daysAgo < days) continue;
-    const info = _S.chalandiseData?.get(cc);
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
-  }
-  results.sort((a,b)=>b.ca-a.ca);
-  const top = results.slice(0,15);
-  if (!top.length) return { title:`${commercial} — clients silencieux`, html:`<p class="text-xs t-disabled">Tous les clients ont commandé dans les ${days} derniers jours.</p>` };
-  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`${commercial} — ${results.length} client${results.length>1?'s':''} silencieux (>${days}j)`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` };
-}
-
-function _nlQ_ClientsDigitaux() {
-  if (!_S.ventesClientHorsMagasin?.size || !_S.ventesClientArticle?.size)
-    return { title:'Clients devenus digitaux', html:'<p class="text-xs t-disabled">Données PDV + hors-agence requises.</p>' };
-  const now = new Date();
-  const results = [];
-  for (const [cc,horArts] of _S.ventesClientHorsMagasin) {
-    const pdvArts = _S.ventesClientArticle.get(cc);
-    if (!pdvArts?.size) continue;
-    const lastPDV = _S.clientLastOrder?.get(cc);
-    if (!lastPDV) continue;
-    const pdvSilence = Math.round((now-lastPDV)/86400000);
-    if (pdvSilence < 90) continue;
-    let caHors=0; const canalCA={};
-    for (const [,v] of horArts) { caHors+=v.sumCA||0; canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0); }
-    if (caHors < 200) continue;
-    const mainCanal = Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
-    let caPDV=0; for (const [,v] of pdvArts) caPDV+=v.sumCA||0;
-    const info = _S.chalandiseData?.get(cc);
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', pdvSilence, caPDV, caHors, mainCanal });
-  }
-  results.sort((a,b)=>b.caPDV-a.caPDV);
-  const top = results.slice(0,15);
-  if (!top.length) return { title:'Clients devenus digitaux', html:'<p class="text-xs t-disabled">Aucun client correspondant — PDV silence >90j + actif hors-agence.</p>' };
-  const cIcon = c => c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
-  const rows = top.map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right c-caution">${r.pdvSilence}j</td><td class="py-1 pl-2 text-right">${cIcon(r.mainCanal)}\u00a0${formatEuro(r.caHors)}</td><td class="py-1 pl-2 text-right t-disabled">${formatEuro(r.caPDV)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`Clients devenus digitaux — ${results.length} client${results.length>1?'s':''} (PDV silencieux, actifs en ligne)`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">Silence PDV</th><th class="text-right pl-2">CA digital</th><th class="text-right pl-2">CA PDV hist.</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Silence PDV >90j + actifs sur Internet/représentant — potentiel de récupération au comptoir' };
-}
-
-function _nlQ_NouveauxClients(days) {
-  if (!_S.clientLastOrder?.size) return { title:'Nouveaux clients', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
-  const now = new Date();
-  const cutoff = days * 86400000;
-  const results = [];
-  for (const [cc, lastDate] of _S.clientLastOrder) {
-    if (now - lastDate > cutoff) continue;
-    const freq = _S.clientsMagasinFreq?.get(cc) || 0;
-    if (freq > 3) continue; // clients établis exclus
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    const info = _S.chalandiseData?.get(cc);
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', freq, ca, daysAgo:Math.round((now-lastDate)/86400000) });
-  }
-  results.sort((a,b)=>a.daysAgo-b.daysAgo||b.ca-a.ca);
-  if (!results.length) return { title:`Nouveaux clients (${days} derniers jours)`, html:'<p class="text-xs t-disabled">Aucun nouveau client détecté sur cette période.</p>' };
-  const rows = results.slice(0,15).map(r=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${r.cc}','nl')"><td class="py-1 pr-2">${r.nom.slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${r.metier}</td><td class="py-1 text-right">${r.daysAgo}j</td><td class="py-1 pl-2 text-right font-bold">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`Nouveaux clients — ${results.length} dans les ${days} derniers jours`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">1er achat</th><th class="text-right pl-2">CA</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:`Clients avec ≤3 BL sur la période — cliquer pour fiche 360°` };
-}
-
-function _nlQ_ClientsHorsAgence(minEuros) {
-  if (!_S.ventesClientHorsMagasin?.size) return { title:'Clients hors agence', html:'<p class="text-xs t-disabled">Données hors-agence non disponibles.</p>' };
-  const map = new Map();
-  for (const [cc,arts] of _S.ventesClientHorsMagasin) {
-    let ca=0; for (const [,v] of arts) ca+=v.sumCA||0;
-    if (ca>=minEuros) map.set(cc,ca);
-  }
-  const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
-  if (!top.length) return { title:`Clients hors agence >${formatEuro(minEuros)}`, html:'<p class="text-xs t-disabled">Aucun client correspondant.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
-  const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
-  const hasPDV = cc => !!(_S.ventesClientArticle?.get(cc)?.size);
-  const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-2 text-[8px]">${hasPDV(cc)?'<span class="text-emerald-500">+PDV</span>':'<span style="color:var(--c-danger)">PDV absent</span>'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
-  return { title:`Clients hors agence >${formatEuro(minEuros)} — ${map.size} trouvés`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-left pr-2">Métier</th><th class="text-right">CA hors agence</th><th class="text-right pl-2">PDV</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'PDV absent = potentiel de captation au comptoir' };
-}
-
-function _nlQ_FamillesSousMediane() {
-  const lose = _S.benchLists?.obsFamiliesLose;
-  if (!lose?.length) return { title:'Familles sous la médiane réseau', html:'<p class="text-xs t-disabled">Chargez le fichier Terrain pour comparer avec le réseau.</p>' };
-  const rows = lose.slice(0,12).map(f=>{
-    const ecartStr = `${f.ecartPct>0?'+':''}${f.ecartPct}%`;
-    const potStr = f.caTheorique>0 ? `<span class="text-[8px] t-disabled">(théorique\u00a0${formatEuro(f.caTheorique)})</span>` : '';
-    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${f.fam.replace(/'/g,"\\'")}','bench')"><td class="py-1 pr-2 font-semibold">${f.fam}</td><td class="py-1 pr-3 text-right font-bold">${formatEuro(f.caMe)}</td><td class="py-1 pr-3 text-right t-disabled">${formatEuro(f.caOther)}</td><td class="py-1 text-right font-bold" style="color:var(--c-danger)">${ecartStr} ${potStr}</td><td class="py-1 pl-1 text-[8px] t-disabled">🔍</td></tr>`;
-  }).join('');
-  const totalEcart = lose.reduce((s,f)=>s+Math.max(0,(f.caOther||0)-(f.caMe||0)),0);
-  return { title:`Familles sous la médiane réseau — ${lose.length} familles (potentiel\u00a0${formatEuro(totalEcart)})`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-3">Moi</th><th class="text-right pr-3">Réseau</th><th class="text-right">Écart</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:'Cliquer sur une famille pour ouvrir le diagnostic complet' };
-}
-
-function _nlQ_OmniSegment(segment) {
-  const scores = _S.clientOmniScore;
-  if (!scores?.size) return { title:'Segments omnicanaux', html:'<p class="text-xs t-disabled">Chargez la chalandise + fichiers ventes pour calculer les segments omnicanaux.</p>' };
-  const LABELS = { mono:'Mono PDV 🏪', hybride:'Hybrides 🔀', digital:'Digital 📱', dormant:'Dormants 💤' };
-  const COLOR = { mono:'var(--c-ok)', hybride:'var(--c-info,#3b82f6)', digital:'var(--c-caution)', dormant:'var(--c-danger)' };
-  const segs = segment ? [segment] : ['mono','hybride','digital','dormant'];
-  const rows = [];
-  for (const seg of segs) {
-    const list = [];
-    for (const [cc, o] of scores) {
-      if (o.segment !== seg) continue;
-      const info = _S.chalandiseData?.get(cc);
-      list.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier||'', o });
-    }
-    list.sort((a,b)=>(b.o.caPDV+b.o.caHors)-(a.o.caPDV+a.o.caHors));
-    if (!list.length) continue;
-    const top = list.slice(0, segment ? 10 : 5);
-    const headerRow = `<tr><td colspan="5" class="pt-3 pb-1 text-[10px] font-bold" style="color:${COLOR[seg]}">${LABELS[seg]} (${list.length})</td></tr>`;
-    const dataRows = top.map(({cc,nom,metier,o})=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')">
-<td class="py-1 pr-2 font-semibold">${nom}<span class="text-[8px] t-disabled ml-1">${metier}</span></td>
-<td class="py-1 pr-2 text-right">${o.caPDV>0?formatEuro(o.caPDV):'—'}</td>
-<td class="py-1 pr-2 text-right">${o.caHors>0?formatEuro(o.caHors):'—'}</td>
-<td class="py-1 pr-2 text-right t-disabled">${o.silenceDays<999?o.silenceDays+'j':'—'}</td>
-<td class="py-1 text-right font-bold">${o.score}</td>
-</tr>`).join('');
-    rows.push(headerRow + dataRows);
-  }
-  const title = segment ? `${LABELS[segment]} — ${[...scores.values()].filter(o=>o.segment===segment).length} clients` : `Segments omnicanaux — ${scores.size} clients`;
-  return { title,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-right pr-2">CA PDV</th><th class="text-right pr-2">CA digital</th><th class="text-right pr-2">Silence</th><th class="text-right">Score</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
-    footer:'Score = ancrage PDV (40) + fréquence (30) + récence (30) · Cliquer pour fiche client 360°' };
-}
-
-function _nlQ_FamillesHors() {
-  const list = _S.famillesHors;
-  if (!list?.length) return { title:'Familles fuyantes', html:'<p class="text-xs t-disabled p-2">Chargez PDV + Terrain pour détecter les familles achetées hors agence.</p>' };
-  const cIcon = c => c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
-  const rows = list.slice(0, 15).map(f => {
-    const sub = f.clients.slice(0, 3).map(c => c.nom).join(', ');
-    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
-<td class="py-1 pr-2 font-semibold">${f.fam}</td>
-<td class="py-1 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(f.caHors)}</td>
-<td class="py-1 pr-2 text-center t-secondary">${f.nbClients}</td>
-<td class="py-1 pr-2 text-center">${cIcon(f.mainCanal)}</td>
-<td class="py-1 text-[8px] t-disabled truncate max-w-[120px]">${sub}</td>
-</tr>`;
-  }).join('');
-  const total = list.reduce((s, f) => s + f.caHors, 0);
-  return {
-    title: `Familles fuyantes — ${list.length}\u00a0familles\u00a0·\u00a0${formatEuro(total)} hors agence`,
-    html: `<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA hors</th><th class="text-center pr-2">Clients</th><th class="text-center pr-2">Canal</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer: 'Cliquer sur une famille pour ouvrir le diagnostic · Familles achetées hors agence par des clients PDV actifs' };
-}
-
-function _nlQ_CommercialFuites(commercial) {
-  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size)
-    return { title:'Fuites portefeuille', html:'<p class="text-xs t-disabled p-2">Données PDV + Terrain requises.</p>' };
-  const comShort = c => c.includes(' - ') ? c.split(' - ').slice(1).join(' ') : c;
-  // Helper: compute fuite CA for one set of clients
-  const computeFuitesForClients = ccs => {
-    const famData = {};
-    for (const cc of ccs) {
-      const pdvArts = _S.ventesClientArticle.get(cc);
-      const horArts = _S.ventesClientHorsMagasin.get(cc);
-      if (!pdvArts || !horArts) continue;
-      const famsPDV = new Set();
-      for (const [code] of pdvArts) { const r = _S.articleFamille?.[code]; if (r) famsPDV.add(r); }
-      for (const [code, v] of horArts) {
-        const r = _S.articleFamille?.[code];
-        if (!r || famsPDV.has(r)) continue;
-        const ca = v.sumCA || 0;
-        if (!famData[r]) famData[r] = { ca: 0, clients: [] };
-        famData[r].ca += ca;
-        const info = _S.chalandiseData?.get(cc);
-        famData[r].clients.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, ca });
-      }
-    }
-    return Object.entries(famData)
-      .filter(([, d]) => d.ca >= 50)
-      .map(([r, d]) => ({ fam: famLib(r) || r, rawFam: r, ca: Math.round(d.ca), clients: d.clients.sort((a,b)=>b.ca-a.ca).slice(0,3) }))
-      .sort((a, b) => b.ca - a.ca);
-  };
-  // ── Mode ranking : pas de commercial précisé ──────────────────
-  if (!commercial) {
-    if (!_S.clientsByCommercial?.size) return { title:'Fuites par commercial', html:'<p class="text-xs t-disabled p-2">Chargez la zone de chalandise pour voir les commerciaux.</p>' };
-    const ranking = [];
-    for (const [com, ccs] of _S.clientsByCommercial) {
-      if (!com || !ccs.size) continue;
-      const fams = computeFuitesForClients(ccs);
-      const caTotal = fams.reduce((s, f) => s + f.ca, 0);
-      if (caTotal < 100) continue;
-      ranking.push({ com, caTotal, nFams: fams.length, nClients: [...ccs].filter(cc => _S.ventesClientHorsMagasin.has(cc)).length });
-    }
-    ranking.sort((a, b) => b.caTotal - a.caTotal);
-    if (!ranking.length) return { title:'Fuites par commercial', html:'<p class="text-xs t-disabled p-2">Aucune fuite détectée dans les portefeuilles.</p>' };
-    const totalFuite = ranking.reduce((s, r) => s + r.caTotal, 0);
-    const rows = ranking.map(r => {
-      const safeQ = r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="_cematinSearch('commercial+${safeQ}+familles+fuyantes')">
-<td class="py-1.5 pr-2 font-semibold">${comShort(r.com)}</td>
-<td class="py-1.5 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(r.caTotal)}</td>
-<td class="py-1.5 pr-2 text-center">${r.nFams}</td>
-<td class="py-1.5 text-center t-disabled">${r.nClients}</td>
-</tr>`;
-    }).join('');
-    return { title:`Fuites par commercial — ${formatEuro(totalFuite)} total`,
-      html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Commercial</th><th class="text-right pr-2">CA fuyant</th><th class="text-center pr-2">Familles</th><th class="text-center">Clients digital</th></tr></thead><tbody>${rows}</tbody></table></div>`,
-      footer:'Cliquer sur un commercial pour voir ses familles fuyantes en détail' };
-  }
-  // ── Mode détail : commercial spécifique ───────────────────────
-  const ccs = _S.clientsByCommercial?.get(commercial);
-  if (!ccs?.size) return { title:`Fuites — ${comShort(commercial)}`, html:`<p class="text-xs t-disabled p-2">Commercial "${comShort(commercial)}" non trouvé dans la chalandise.</p>` };
-  const famList = computeFuitesForClients(ccs);
-  if (!famList.length) return { title:`Fuites portefeuille — ${comShort(commercial)}`, html:'<p class="text-xs t-disabled p-2">Aucune fuite détectée pour ce portefeuille.</p>' };
-  const totalCA = famList.reduce((s, f) => s + f.ca, 0);
-  const rows = famList.slice(0, 12).map(f => {
-    const sub = f.clients.map(c => `${c.nom}\u00a0${formatEuro(c.ca)}`).join(', ');
-    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
-<td class="py-1.5 pr-2 font-semibold">${f.fam}</td>
-<td class="py-1.5 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(f.ca)}</td>
-<td class="py-1.5 pr-2 text-center">${f.clients.length}</td>
-<td class="py-1.5 text-[8px] t-disabled truncate max-w-[140px]">${sub}</td>
-</tr>`;
-  }).join('');
-  return { title:`Fuites portefeuille ${comShort(commercial)} — ${famList.length}\u00a0familles\u00a0·\u00a0${formatEuro(totalCA)}`,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA fuyant</th><th class="text-center pr-2">Clients</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
-    footer:`Familles que les clients de ${comShort(commercial)} achètent hors agence · Cliquer → diagnostic` };
-}
-
-function _nlQ_HeatmapFuites() {
-  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size)
-    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Chargez PDV + Terrain + chalandise pour calculer la heatmap.</p>' };
-  const famList = (_S.famillesHors || []).slice(0, 8);
-  if (!famList.length)
-    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Aucune famille fuyante détectée. Les familles hors agence n\'ont pas encore été calculées.</p>' };
-  if (!_S.clientsByMetier?.size)
-    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Chargez la zone de chalandise pour afficher les métiers.</p>' };
-  // Top métiers by PDV client count (exclude empty)
-  const metierList = [..._S.clientsByMetier.entries()]
-    .filter(([m]) => m)
-    .map(([m, ccs]) => ({ m, n: [...ccs].filter(cc => _S.ventesClientArticle.has(cc)).length }))
-    .filter(e => e.n >= 3)
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 6)
-    .map(e => e.m);
-  if (!metierList.length)
-    return { title:'Heatmap familles × métier', html:'<p class="text-xs t-disabled p-2">Pas assez de clients par métier (minimum 3).</p>' };
-  // Build matrix: rawFam → metier → nb clients fuyants
-  const matrix = {};
-  for (const f of famList) { matrix[f.rawFam] = {}; for (const m of metierList) matrix[f.rawFam][m] = 0; }
-  for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
-    const pdvArts = _S.ventesClientArticle.get(cc);
-    if (!pdvArts) continue;
-    const metier = _S.chalandiseData?.get(cc)?.metier;
-    if (!metier || !metierList.includes(metier)) continue;
-    const famsPDV = new Set();
-    for (const [code] of pdvArts) { const r = _S.articleFamille?.[code]; if (r) famsPDV.add(r); }
-    for (const [code] of horArts) {
-      const r = _S.articleFamille?.[code];
-      if (r && !famsPDV.has(r) && matrix[r]) matrix[r][metier]++;
-    }
-  }
-  // Max value for color scaling
-  const allVals = famList.flatMap(f => metierList.map(m => matrix[f.rawFam][m]));
-  const maxVal = Math.max(...allVals, 1);
-  // Metier totals (nb PDV clients)
-  const metierTotals = {};
-  for (const m of metierList) metierTotals[m] = [...(_S.clientsByMetier.get(m)||[])].filter(cc => _S.ventesClientArticle.has(cc)).length;
-  // Shorten metier labels
-  const mLabel = m => m.length > 12 ? m.slice(0,11)+'…' : m;
-  // Render
-  const headerCols = metierList.map(m => `<th class="py-1 px-1.5 text-center text-[8px] t-disabled font-semibold" title="${m}">${mLabel(m)}<br><span class="font-normal opacity-60">${metierTotals[m]}cl</span></th>`).join('');
-  const rows = famList.map(f => {
-    const cells = metierList.map(m => {
-      const v = matrix[f.rawFam][m];
-      const pct = metierTotals[m] > 0 ? Math.round(v / metierTotals[m] * 100) : 0;
-      const alpha = maxVal > 0 ? v / maxVal : 0;
-      const bg = alpha > 0 ? `rgba(251,146,60,${Math.max(0.1, alpha * 0.85)})` : 'transparent';
-      const textCol = alpha > 0.5 ? '#fff' : alpha > 0.2 ? 'var(--c-caution)' : 'var(--t-disabled,#888)';
-      return `<td class="py-1.5 px-1 text-center text-[9px] font-bold" style="background:${bg};color:${textCol}">${v > 0 ? `${v}<span style="font-weight:normal;font-size:7px;opacity:0.8"> (${pct}%)</span>` : '<span style="opacity:0.2">·</span>'}</td>`;
-    }).join('');
-    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return `<tr class="border-b b-light cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
-<td class="py-1.5 px-2 text-[10px] font-semibold t-primary whitespace-nowrap">${f.fam}<span class="text-[8px] t-disabled font-normal ml-1">${formatEuro(f.caHors)}</span></td>${cells}</tr>`;
-  }).join('');
-  const totalFuites = famList.reduce((s, f) => s + f.caHors, 0);
-  return {
-    title: `Heatmap familles fuyantes × métier — ${famList.length} familles · ${formatEuro(totalFuites)}`,
-    html: `<div class="overflow-x-auto"><table class="w-full border-collapse"><thead><tr class="border-b b-light"><th class="py-1 px-2 text-left text-[9px] t-disabled">Famille fuyante</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table><p class="text-[8px] t-disabled mt-2">Nb clients du métier achetant cette famille hors agence (jamais au PDV) · intensité ∝ nb clients · cliquer → diagnostic</p></div>`,
-  };
-}
-
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
 // Barre 3px en haut de l'écran reflétant l'état de santé du stock
 export function updateAmbientSignal() {
@@ -1453,6 +959,362 @@ export function renderHealthScore() {
   el.classList.remove('hidden');
 }
 
+// ── Tab Badges — numériques sur les onglets ───────────────────
+export function renderTabBadges() {
+  // Badge "Ce matin" : nb items DQ critiques non sains
+  const dqItems = (_S.decisionQueueData || []).filter(d => d.type !== 'sain');
+  const criticalTypes = new Set(['rupture', 'alerte_prev', 'erp_incoherence', 'saisonnalite_prev']);
+  const critCount = dqItems.filter(d => criticalTypes.has(d.type)).length;
+  const actionBadge = document.getElementById('navActionBadge');
+  if (actionBadge) {
+    if (critCount > 0) {
+      actionBadge.textContent = critCount > 9 ? '9+' : critCount;
+      actionBadge.classList.remove('hidden');
+      // Color: red if rupture present, amber otherwise
+      const hasRupture = dqItems.some(d => d.type === 'rupture' || d.type === 'alerte_prev');
+      actionBadge.style.background = hasRupture ? '#dc2626' : '#d97706';
+    } else {
+      actionBadge.classList.add('hidden');
+    }
+  }
+
+  // Badge "Mes clients" : clients silencieux >90j avec CA PDV
+  const clientsBadge = document.getElementById('navClientsBadge');
+  if (clientsBadge && _S.clientLastOrder?.size > 0) {
+    const nowTs = Date.now();
+    let silentCount = 0;
+    for (const [cc, dt] of _S.clientLastOrder) {
+      if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
+    }
+    if (silentCount > 0) {
+      clientsBadge.textContent = silentCount > 99 ? '99+' : silentCount;
+      clientsBadge.classList.remove('hidden');
+    } else {
+      clientsBadge.classList.add('hidden');
+    }
+  }
+}
+
+// ── IRA — Indice de Risque Agence (3 sous-scores + composite) ──
+export function renderIRABanner() {
+  const el = document.getElementById('iraBanner');
+  if (!el) return;
+  const d = _S.finalData;
+  if (!d.length) { el.classList.add('hidden'); return; }
+
+  // ── Score Stock : taux de service articles F+M (non rupture / total) ──
+  const fmArts = d.filter(r => (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const fmRup = fmArts.filter(r => r.stockActuel <= 0).length;
+  const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
+
+  // ── Score Clients : momentum (actifs <90j) / total chalandise ──
+  let clientScore = 50;
+  let actifCount = 0, totalChaland = 0;
+  if (_S.chalandiseReady && _S.chalandiseData && _S.chalandiseData.size > 0) {
+    const nowTs = Date.now();
+    totalChaland = _S.chalandiseData.size;
+    actifCount = [...(_S.clientLastOrder || new Map()).entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
+  } else if (_S.clientLastOrder && _S.clientLastOrder.size > 0) {
+    const nowTs = Date.now();
+    const all = _S.clientLastOrder.size;
+    actifCount = [..._S.clientLastOrder.values()].filter(dt => nowTs - dt < 90 * 86400000).length;
+    clientScore = Math.min(100, Math.round(100 * actifCount / all));
+    totalChaland = all;
+  }
+
+  // ── Score Captation : CA PDV / (CA PDV + CA fuyant) ──
+  let captationScore = 100;
+  let caPDV = 0, caFuyant = 0;
+  if (_S.famillesHors && _S.famillesHors.length > 0) {
+    caFuyant = _S.famillesHors.reduce((s, f) => s + (f.caHors || 0), 0);
+    if (_S.ventesClientArticle) {
+      for (const [, arts] of _S.ventesClientArticle) {
+        for (const [, v] of arts) caPDV += (v.sumCA || 0);
+      }
+    }
+    const total = caPDV + caFuyant;
+    captationScore = total > 0 ? Math.round(100 * caPDV / total) : 100;
+  } else if (_S.canalAgence && _S.canalAgence.MAGASIN) {
+    captationScore = 100; // pas de données fuite, on ne pénalise pas
+  }
+
+  // ── IRA composite ──
+  const ira = Math.round(stockScore * 0.40 + clientScore * 0.35 + captationScore * 0.25);
+
+  // ── Helpers ──
+  function _scoreColor(s) {
+    if (s >= 75) return '#16a34a';
+    if (s >= 50) return '#d97706';
+    return '#dc2626';
+  }
+  function _scoreBg(s) {
+    if (s >= 75) return 'rgba(22,163,74,0.10)';
+    if (s >= 50) return 'rgba(217,119,6,0.10)';
+    return 'rgba(220,38,38,0.10)';
+  }
+  function _scoreRing(s) {
+    if (s >= 75) return 'rgba(22,163,74,0.28)';
+    if (s >= 50) return 'rgba(217,119,6,0.28)';
+    return 'rgba(220,38,38,0.28)';
+  }
+  function _pill(label, score, sub) {
+    const c = _scoreColor(score), bg = _scoreBg(score), ring = _scoreRing(score);
+    const barW = score + '%';
+    return `<div style="flex:1;min-width:0;padding:8px 10px;border-radius:10px;background:${bg};outline:1px solid ${ring}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <span style="font-size:0.65rem;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:0.04em">${label}</span>
+        <span style="font-size:1rem;font-weight:900;color:${c}">${score}<span style="font-size:0.6rem">/100</span></span>
+      </div>
+      <div style="height:3px;border-radius:2px;background:rgba(128,128,128,0.15);margin-bottom:4px">
+        <div style="height:3px;border-radius:2px;width:${barW};background:${c};transition:width 0.4s"></div>
+      </div>
+      <p style="font-size:0.6rem;color:var(--c-muted);opacity:0.75;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</p>
+    </div>`;
+  }
+
+  const stockSub = `${fmArts.length - fmRup}/${fmArts.length} arts F+M en stock`;
+  const clientSub = totalChaland > 0 ? `${actifCount} actifs sur ${totalChaland} clients` : 'Charger chalandise';
+  const captSub = caFuyant > 0
+    ? `${Math.round(caPDV/1000)}k€ PDV · ${Math.round(caFuyant/1000)}k€ fuyant`
+    : 'Aucune fuite détectée';
+
+  const iraColor = _scoreColor(ira);
+  const iraLabel = ira >= 75 ? 'Agence en forme' : ira >= 50 ? 'Points d\'attention' : 'Actions urgentes';
+
+  // ── Historique IRA (localStorage) ──
+  _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
+  const history = _loadIRAHistory();
+  const histSvg = _renderIRASparkline(history);
+
+  el.innerHTML = `<div style="padding:10px 14px;border-radius:12px;background:var(--bg-card,#1e2330);outline:1px solid rgba(128,128,128,0.15)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--c-muted)">📊 Indice de Risque Agence</span>
+      <span style="margin-left:auto;font-size:1.25rem;font-weight:900;color:${iraColor}">${ira}<span style="font-size:0.65rem;font-weight:600">/100</span></span>
+      <span style="font-size:0.65rem;font-weight:700;color:${iraColor};padding:2px 7px;border-radius:20px;background:${_scoreBg(ira)}">${iraLabel}</span>
+      <button onclick="exportAgenceSnapshot()" title="Exporter le snapshot agence (markdown)" style="font-size:0.65rem;padding:2px 7px;border-radius:8px;border:1px solid rgba(128,128,128,0.2);background:transparent;cursor:pointer;color:var(--c-muted)" onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">📤</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      ${_pill('Stock F+M', stockScore, stockSub)}
+      ${_pill('Momentum clients', clientScore, clientSub)}
+      ${_pill('Captation PDV', captationScore, captSub)}
+    </div>${histSvg ? `<div style="margin-top:8px">${histSvg}</div>` : ''}
+  </div>`;
+  el.classList.remove('hidden');
+}
+
+// ── IRA history helpers ───────────────────────────────────────
+const _IRA_HIST_KEY = 'PRISME_IRA_HISTORY';
+const _IRA_MAX_DAYS = 90;
+
+function _saveIRASnapshot(ira, sr, cs, cap) {
+  try {
+    const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const hist = _loadIRAHistory();
+    // Dedup: remplacer le snapshot du jour si déjà présent
+    const idx = hist.findIndex(p => p.d === today);
+    const snap = { d: today, ira, sr, cs, cap };
+    if (idx >= 0) hist[idx] = snap; else hist.push(snap);
+    // Garder les 90 derniers jours
+    hist.sort((a, b) => a.d.localeCompare(b.d));
+    while (hist.length > _IRA_MAX_DAYS) hist.shift();
+    localStorage.setItem(_IRA_HIST_KEY, JSON.stringify(hist));
+  } catch (_) {}
+}
+
+export function _loadIRAHistory() {
+  try {
+    const raw = localStorage.getItem(_IRA_HIST_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) || [];
+  } catch (_) { return []; }
+}
+
+function _renderIRASparkline(history) {
+  if (!history || history.length < 2) return '';
+  const pts = history.slice(-30); // derniers 30 points
+  const n = pts.length;
+  const W = 340, H = 36, padL = 2, padR = 2, padT = 3, padB = 10;
+  const pw = W - padL - padR, ph = H - padT - padB;
+
+  const iras  = pts.map(p => p.ira);
+  const srs   = pts.map(p => p.sr);
+  const xStep = pw / Math.max(n - 1, 1);
+
+  function poly(vals, color, dash = '') {
+    const points = vals.map((v, i) => {
+      const x = (padL + i * xStep).toFixed(1);
+      const y = (padT + ph - v / 100 * ph).toFixed(1);
+      return `${x},${y}`;
+    }).join(' ');
+    return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.8"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  }
+
+  // Zone de référence : ligne à 75 (seuil "agence en forme")
+  const refY = (padT + ph - 75 / 100 * ph).toFixed(1);
+  const refLine = `<line x1="${padL}" y1="${refY}" x2="${W - padR}" y2="${refY}" stroke="rgba(22,163,74,0.2)" stroke-dasharray="2,3"/>`;
+
+  // Dot sur le dernier point IRA
+  const lastIRA = iras[n - 1];
+  const dotX = (padL + (n - 1) * xStep).toFixed(1);
+  const dotY = (padT + ph - lastIRA / 100 * ph).toFixed(1);
+  const dotColor = lastIRA >= 75 ? '#16a34a' : lastIRA >= 50 ? '#d97706' : '#dc2626';
+  const dot = `<circle cx="${dotX}" cy="${dotY}" r="2.5" fill="${dotColor}"/>`;
+
+  // Labels axe Y
+  const labelY75 = `<text x="${W - padR + 1}" y="${refY - 0 + 3.5}" font-size="6" fill="rgba(22,163,74,0.4)" text-anchor="start">75</text>`;
+
+  // Dates début / fin sous le sparkline
+  const d0 = pts[0].d.slice(5).replace('-', '/');  // MM/DD
+  const dN = pts[n - 1].d.slice(5).replace('-', '/');
+  const dateLabel = `<text x="${padL}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.4)">${d0}</text>
+    <text x="${W - padR}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.4)" text-anchor="end">${dN}</text>`;
+
+  // Légende
+  const legend = `<text x="${W / 2}" y="${H - 1}" font-size="6" fill="rgba(128,128,128,0.45)" text-anchor="middle">━ IRA  ╌ Taux service  (${n} pts)</text>`;
+
+  const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+    ${refLine}
+    ${poly(srs, 'rgba(99,179,237,0.45)', '2,2')}
+    ${poly(iras, dotColor)}
+    ${dot}
+    ${labelY75}
+    ${dateLabel}
+    ${legend}
+  </svg>`;
+  return svg;
+}
+
+// ── Snapshot agence — export markdown clipboard ───────────────
+export function exportAgenceSnapshot() {
+  const d = _S.finalData;
+  if (!d.length) { showToast('Aucune donnée chargée', 'info'); return; }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const store = _S.selectedMyStore || 'Agence';
+  const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/\u00a0/g, ' ');
+
+  // ── IRA scores (réplique logique renderIRABanner) ──
+  const fmArts = d.filter(r => (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const fmRup = fmArts.filter(r => r.stockActuel <= 0).length;
+  const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
+
+  let clientScore = 50, actifCount = 0, totalChaland = 0;
+  if (_S.clientLastOrder?.size > 0) {
+    const nowTs = Date.now();
+    if (_S.chalandiseData?.size > 0) { totalChaland = _S.chalandiseData.size; }
+    else { totalChaland = _S.clientLastOrder.size; }
+    actifCount = [..._S.clientLastOrder.values()].filter(dt => nowTs - dt < 90 * 86400000).length;
+    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
+  }
+
+  let captationScore = 100, caPDVtot = 0, caFuyantTot = 0;
+  if (_S.famillesHors?.length > 0) {
+    caFuyantTot = _S.famillesHors.reduce((s, f) => s + (f.caHors || 0), 0);
+    if (_S.ventesClientArticle) for (const [, arts] of _S.ventesClientArticle) for (const [, v] of arts) caPDVtot += (v.sumCA || 0);
+    const tot = caPDVtot + caFuyantTot;
+    captationScore = tot > 0 ? Math.round(100 * caPDVtot / tot) : 100;
+  }
+  const ira = Math.round(stockScore * 0.40 + clientScore * 0.35 + captationScore * 0.25);
+  const iraLabel = ira >= 75 ? 'Agence en forme' : ira >= 50 ? 'Points d\'attention' : 'Actions urgentes';
+
+  // ── Briefing ──
+  const br = _S._briefingData || {};
+  const lstR = br.lstR || [];
+  const totalCAPerdu = br.totalCAPerdu || 0;
+  const dormantStock = br.dormantStock || 0;
+  const capalinOverflow = br.capalinOverflow || 0;
+  const sr = br.sr != null ? br.sr : null;
+
+  // ── DQ items (top 5) ──
+  const dqItems = (_S.decisionQueueData || [])
+    .filter(item => item.type !== 'sain')
+    .slice(0, 5);
+
+  const typeEmoji = { rupture: '🔴', client_silence: '🟡', client_digital_drift: '📱', famille_fuite: '🟠', dormants: '🟡', anomalie_minmax: '⚠️', fragilite: '🟠', saisonnalite_prev: '🌡️', concentration: '🟠', opportunite: '💡' };
+
+  // ── Canal KPIs ──
+  const caMag = _S.canalAgence?.MAGASIN?.ca || 0;
+  const caWeb = _S.canalAgence?.INTERNET?.ca || 0;
+  const caRep = _S.canalAgence?.REPRESENTANT?.ca || 0;
+  const caDcs = _S.canalAgence?.DCS?.ca || 0;
+  const caTot = caMag + caWeb + caRep + caDcs;
+
+  // ── Familles fuyantes top 3 ──
+  const topFuites = (_S.famillesHors || []).slice(0, 3);
+
+  // ── Build markdown ──
+  const lines = [];
+  lines.push(`# 📊 Snapshot Agence — ${store} · ${dateStr}`);
+  lines.push('');
+
+  // IRA
+  lines.push(`## 🎯 IRA ${ira}/100 — ${iraLabel}`);
+  lines.push(`- 📦 Stock F+M : **${stockScore}/100** · ${fmArts.length - fmRup}/${fmArts.length} articles en stock`);
+  if (totalChaland > 0) lines.push(`- 👥 Momentum clients : **${clientScore}/100** · ${actifCount} actifs / ${totalChaland} clients`);
+  if (caFuyantTot > 0) lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · ${Math.round(caPDVtot/1000)}k€ PDV · ${Math.round(caFuyantTot/1000)}k€ fuyant`);
+  else lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · Aucune fuite détectée`);
+  lines.push('');
+
+  // Alertes DQ
+  if (dqItems.length > 0) {
+    lines.push('## 🗂️ Alertes prioritaires');
+    dqItems.forEach((item, i) => {
+      const emoji = typeEmoji[item.type] || '📌';
+      lines.push(`${i + 1}. ${emoji} ${stripHtml(item.label)}`);
+      if (item.why?.[0]) lines.push(`   → ${stripHtml(item.why[0])}`);
+    });
+    lines.push('');
+  }
+
+  // KPIs stock
+  lines.push('## 📦 KPIs stock');
+  if (sr !== null) lines.push(`- Taux de service F+M : **${sr}%**`);
+  lines.push(`- Ruptures actives (F+M) : **${lstR.length}** articles${totalCAPerdu > 0 ? ` · ~${Math.round(totalCAPerdu/1000)}k€ à risque` : ''}`);
+  if (dormantStock + capalinOverflow > 0) lines.push(`- Stock à assainir : **${formatEuro(dormantStock + capalinOverflow)}** (dormants ${formatEuro(dormantStock)} + excédent ${formatEuro(capalinOverflow)})`);
+  lines.push('');
+
+  // CA canaux
+  if (caTot > 0) {
+    lines.push('## 💶 CA multi-canal');
+    if (caMag > 0) lines.push(`- Comptoir (PDV) : **${formatEuro(caMag)}** (${Math.round(caMag/caTot*100)}%)`);
+    if (caWeb > 0) lines.push(`- Internet : **${formatEuro(caWeb)}** (${Math.round(caWeb/caTot*100)}%)`);
+    if (caRep > 0) lines.push(`- Représentant : **${formatEuro(caRep)}** (${Math.round(caRep/caTot*100)}%)`);
+    if (caDcs > 0) lines.push(`- DCS : **${formatEuro(caDcs)}** (${Math.round(caDcs/caTot*100)}%)`);
+    lines.push('');
+  }
+
+  // Fuites
+  if (topFuites.length > 0) {
+    lines.push('## 🟠 Top familles fuyantes');
+    topFuites.forEach(f => lines.push(`- ${f.fam} : **${formatEuro(f.caHors)}** hors agence · ${f.nbClients} clients`));
+    if (_S.famillesHors.length > 3) lines.push(`  _(+${_S.famillesHors.length - 3} autres familles)_`);
+    lines.push('');
+  }
+
+  lines.push('---');
+  lines.push(`_Généré par PRISME · ${dateStr} ${timeStr}_`);
+
+  const md = lines.join('\n');
+
+  navigator.clipboard.writeText(md).then(() => {
+    showToast('📋 Snapshot copié — prêt à coller dans Notion, Teams ou email', 'success');
+  }).catch(() => {
+    // Fallback: textarea select
+    const ta = document.createElement('textarea');
+    ta.value = md;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('📋 Snapshot copié (fallback)', 'success');
+  });
+}
+
 // ── Feature 7: Clip ERP — TSV CODE<tab>QTÉ ───────────────────
 export function clipERP() {
   const lines = (_S.decisionQueueData || [])
@@ -1531,6 +1393,42 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     if (_cmdSelectedIdx >= 0) _cmdExec(_cmdSelectedIdx);
     else if (_cmdItems.length > 0) _cmdExec(0);
+  }
+});
+
+// ── Sprint AG: Raccourcis clavier étendus ──────────────────────
+document.addEventListener('keydown', function(e) {
+  // Ne pas interférer avec les inputs / textearea / contenteditable
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return;
+
+  // Escape : fermer overlays (diagnostic, client 360°) si ouverts
+  if (e.key === 'Escape') {
+    const diag = document.getElementById('diagnosticOverlay');
+    if (diag && !diag.classList.contains('hidden')) { diag.classList.add('hidden'); e.preventDefault(); return; }
+    const c360 = document.getElementById('client360Overlay');
+    if (c360 && !c360.classList.contains('hidden')) { c360.classList.add('hidden'); e.preventDefault(); return; }
+    // Hide NL results if open
+    const nlRes = document.getElementById('cematinResults');
+    if (nlRes && !nlRes.classList.contains('hidden')) { nlRes.classList.add('hidden'); e.preventDefault(); return; }
+    return;
+  }
+
+  // / : focus barre NL search (Ce matin)
+  if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
+    const si = document.getElementById('cematinSearchInput');
+    if (si) { e.preventDefault(); switchTab('action'); si.focus(); si.select(); }
+    return;
+  }
+
+  // 1–7 : switcher d'onglet (uniquement sans modificateur)
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    const TAB_MAP = { '1': 'table', '2': 'dash', '3': 'action', '4': 'abc', '5': 'clients', '6': 'territoire', '7': 'bench' };
+    const tab = TAB_MAP[e.key];
+    if (tab) {
+      const btn = document.querySelector(`[data-tab="${tab}"]`);
+      if (btn && !btn.classList.contains('hidden')) { e.preventDefault(); switchTab(tab); }
+    }
   }
 });
 
