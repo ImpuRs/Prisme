@@ -3623,6 +3623,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const candidats = _getSaisonCandidats();
     const badge = document.getElementById('badgeSaison');
     if (badge) badge.textContent = candidats.length;
+    // Sprint 2: chip saisonnalité dans Mon Stock
+    const chipSaison = document.getElementById('dashChipSaison');
+    if (chipSaison) chipSaison.textContent = candidats.length > 0 ? candidats.length : '0';
     el.classList.toggle('hidden', candidats.length === 0);
 
     const tbody = document.getElementById('saisonTableBody');
@@ -3753,6 +3756,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     const sB=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n>0?n:'0';};
     sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstS.length+lstColis.length);
+    // Sprint 2: chips Mon Stock V2
+    sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
     // V24.3: populate new _S.cockpitLists
     lstB.sort((a,b)=>b.sv-a.sv).slice(0,20).forEach(i=>_S.cockpitLists.top20.add(i.code));
     lstN.forEach(i=>_S.cockpitLists.nouveautes.add(i.code));
