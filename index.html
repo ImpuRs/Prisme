@@ -1176,20 +1176,11 @@
     <!-- TAB : CE MATIN (V4) -->
     <div id="tabAction" class="tab-content hidden">
 
-      <!-- 0. ★ NL SEARCH BAR ★ -->
-      <div class="mb-4">
-        <div class="flex gap-2 items-center s-card rounded-xl border px-3 py-2 shadow-sm">
-          <span class="text-base flex-shrink-0">🔍</span>
-          <input type="text" id="cematinSearchInput" placeholder="Rechercher — clients silencieux, ruptures top clients, stock dormant…" class="flex-1 bg-transparent text-[12px] t-primary font-semibold outline-none placeholder:t-disabled" onkeydown="if(event.key==='Enter')_cematinSearch(this.value)">
-          <button onclick="_cematinSearch(document.getElementById('cematinSearchInput').value)" class="text-[10px] font-bold px-3 py-1.5 rounded-lg flex-shrink-0" style="background:#FAC77526;color:#BA7517;border:1px solid #FAC77566">Chercher</button>
-          <span class="text-[9px] t-disabled hidden md:inline flex-shrink-0">Cmd+K</span>
-        </div>
-      </div>
-
-      <!-- 0a. NL Search Chips -->
-      <div style="display:flex;gap:10px;margin-bottom:12px;">
-        <button onclick="window.generatePrismeChips()" style="padding:6px 16px;border-radius:20px;background:var(--accent,#f97316);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
-        <button onclick="window.runBriefingJour()" style="padding:6px 16px;border-radius:20px;background:var(--c-ok,#10b981);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">☀️ Briefing du jour</button>
+      <!-- 0a. Barre d'actions Ce matin -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
+        <button onclick="window.generatePrismeChips()" style="padding:7px 18px;border-radius:20px;background:var(--accent,#f97316);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
+        <button onclick="window.runBriefingJour()" style="padding:7px 18px;border-radius:20px;background:var(--c-ok,#22c55e);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">☀️ Briefing du jour</button>
+        <button onclick="window.openCmdPalette()" style="padding:7px 18px;border-radius:20px;background:transparent;color:var(--t-main,#111);border:1.5px solid var(--border,#e5e7eb);cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">🔍 Rechercher<kbd style="font-size:0.75rem;opacity:0.6;background:var(--bg-2,#f3f4f6);padding:1px 6px;border-radius:4px;">Cmd+K</kbd></button>
       </div>
       <div class="flex flex-wrap gap-1.5 mb-3 px-0.5">
         <button onclick="_cematinSearch('taux de service')" class="nl-chip text-[9px] px-2 py-1 rounded-full s-card border b-light t-disabled hover:t-primary transition-colors">taux de service</button>

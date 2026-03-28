@@ -3494,6 +3494,18 @@ function _nlQ_OmnicanalMacro() {
   };
 }
 
+export function generatePrismeChips() {
+  const allChips = [...document.querySelectorAll('.nl-chip')];
+  if (!allChips.length) return;
+  for (let i = allChips.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allChips[i], allChips[j]] = [allChips[j], allChips[i]];
+  }
+  allChips.forEach(c => c.style.display = 'none');
+  allChips.slice(0, 6).forEach(c => c.style.display = '');
+}
+window.generatePrismeChips = generatePrismeChips;
+
 export function runBriefingJour() {
   _nlRenderResults(_nlQ_BriefingJour());
 }
