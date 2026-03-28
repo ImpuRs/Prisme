@@ -19,7 +19,7 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.1';
+const CACHE_VERSION  = 'v3.2';
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -225,6 +225,7 @@ export async function _saveSessionToIDB() {
     const payload = {
       version: CACHE_VERSION,
       timestamp: Date.now(),
+      _hasStock:             _S._hasStock,
       // ── Core ──
       finalData:             _S.finalData,
       ventesParMagasin:      _S.ventesParMagasin,
@@ -321,6 +322,7 @@ export async function _restoreSessionFromIDB() {
       return false;
     }
 
+    _S._hasStock            = data._hasStock            || false;
     _S.finalData            = data.finalData            || [];
     _S.ventesParMagasin     = data.ventesParMagasin     || {};
     _S.stockParMagasin      = data.stockParMagasin      || {};
