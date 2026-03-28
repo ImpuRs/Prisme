@@ -569,6 +569,19 @@ export function _cmdBuildResults(q) {
     if (agResults.length) groups.push({ header: '🏪 Agences', items: agResults });
   }
 
+  // 6. NL Search — si la requête matche l'interpréteur
+  const nlPreview = _nlInterpret(q);
+  if (nlPreview) {
+    groups.push({ header: '🔍 Recherche intelligente', items: [{
+      icon: '🔍',
+      main: _cmdEsc(q),
+      sub: nlPreview.title,
+      badge: 'Ce matin',
+      badgeCls: 'bg-amber-100 text-amber-700',
+      fn: () => { switchTab('action'); setTimeout(() => _cematinSearch(q), 80); }
+    }]});
+  }
+
   return groups;
 }
 
