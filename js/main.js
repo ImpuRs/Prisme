@@ -4079,14 +4079,81 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','clients')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td><td class="py-1.5 text-right c-action font-semibold">${c.commercial||'—'}</td></tr>`).join('')}</tbody></table></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
 
+    // ── Section 5 : Momentum commercial ──────────────────────────────────
+    let momentumHtml='';
+    if(_S.clientsByCommercial?.size>1){
+      const now=new Date();
+      const rows=[];
+      for(const[com,ccs]of _S.clientsByCommercial){
+        if(!com||!ccs.size)continue;
+        let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
+        for(const cc of ccs){
+          const lastDate=_S.clientLastOrder?.get(cc);
+          const arts=_S.ventesClientArticle?.get(cc);
+          const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+          if(!lastDate){nbUnknown++;continue;}
+          const d=Math.round((now-lastDate)/86400000);
+          if(d<30){nbRecent++;caActif+=ca;}
+          else if(d<90){nbAtRisk++;caActif+=ca;}
+          else{nbSilent++;caRisque+=ca;}
+        }
+        const nbTotal=ccs.size-nbUnknown;
+        if(nbTotal===0)continue;
+        const momentum=Math.round((nbRecent*2+nbAtRisk)/(nbTotal*2)*100);
+        rows.push({com,nbRecent,nbAtRisk,nbSilent,nbTotal,caActif,caRisque,momentum});
+      }
+      rows.sort((a,b)=>a.momentum-b.momentum||b.caRisque-a.caRisque);// croissant : les en recul en premier
+      const cards=rows.map(r=>{
+        const pctR=Math.round(r.nbRecent/r.nbTotal*100);
+        const pctA=Math.round(r.nbAtRisk/r.nbTotal*100);
+        const pctS=Math.max(0,100-pctR-pctA);
+        const mColor=r.momentum>=65?'var(--c-ok)':r.momentum>=35?'var(--c-caution)':'var(--c-danger)';
+        const mLabel=r.momentum>=65?'⬆\uFE0F Dynamique':r.momentum>=35?'➡\uFE0F Stable':'⬇\uFE0F En recul';
+        const comShort=r.com.includes(' - ')?r.com.split(' - ').slice(1).join(' '):r.com;
+        const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        return `<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')">
+  <div class="flex items-start justify-between mb-2">
+    <div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div>
+    <span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span>
+  </div>
+  <div class="flex h-1.5 rounded-full overflow-hidden mb-1.5">
+    <div style="width:${pctR}%;background:var(--c-ok)"></div>
+    <div style="width:${pctA}%;background:var(--c-caution)"></div>
+    <div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div>
+  </div>
+  <div class="flex justify-between text-[9px]">
+    <span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span>
+    <span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span>
+    <span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span>
+  </div>
+  ${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}
+</div>`;
+      }).join('');
+      if(cards)momentumHtml=`<div class="mb-5">
+  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📈 Momentum commercial</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>
+  <p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer dans Le Terrain · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j sans commande PDV</p>
+</div>`;
+    }
+
     const top5El=document.getElementById('clientsTop5');
     const reconqEl=document.getElementById('clientsReconquete');
     const oppsEl=document.getElementById('clientsOpportunites');
     const haEl=document.getElementById('clientsHorsAgence');
+    const momEl=document.getElementById('clientsMomentum');
     if(top5El)top5El.innerHTML=top5Html;
     if(reconqEl)reconqEl.innerHTML=reconqHtml;
     if(oppsEl)oppsEl.innerHTML=oppsHtml;
     if(haEl)haEl.innerHTML=haHtml;
+    if(momEl)momEl.innerHTML=momentumHtml;
+  }
+
+  function _goCommercial(commercial){
+    _S._selectedCommercial=commercial;
+    const inp=document.getElementById('terrCommercialFilter');
+    if(inp)inp.value=commercial;
+    switchTab('territoire');
+    if(typeof renderTerritoireTab==='function')renderTerritoireTab();
   }
 
   // ── Lazy tab renderer — renders only the currently active tab ──
@@ -4378,6 +4445,7 @@ window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
 window._cematinSearch = _cematinSearch;
 window.renderMesClients = renderMesClients;
+window._goCommercial = _goCommercial;
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
