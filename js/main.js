@@ -4242,6 +4242,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     if(haEl)haEl.innerHTML=haHtml;
     if(digitauxEl)digitauxEl.innerHTML=digitauxHtml;
     if(momEl)momEl.innerHTML=momentumHtml;
+    // Restaurer/activer le sous-onglet actif (persisté dans _S)
+    _switchClientsTab(_S._clientsActiveTab||'priorites');
   }
 
   function _goCommercial(commercial){
@@ -4288,6 +4290,21 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
   }
   window._exportTourneeCSV=_exportTourneeCSV;
+
+  // ── Sous-onglets Mes clients ──────────────────────────────────────────────
+  function _switchClientsTab(tab){
+    _S._clientsActiveTab=tab;
+    ['priorites','horsagence','commercial'].forEach(t=>{
+      const pane=document.getElementById('clientsPane-'+t);
+      const btn=document.getElementById('clientsTabBtn-'+t);
+      if(pane)pane.classList.toggle('hidden',t!==tab);
+      if(btn){
+        if(t===tab){btn.classList.add('border-cyan-500','text-cyan-400');btn.classList.remove('border-transparent','t-disabled');}
+        else{btn.classList.remove('border-cyan-500','text-cyan-400');btn.classList.add('border-transparent','t-disabled');}
+      }
+    });
+  }
+  window._switchClientsTab=_switchClientsTab;
 
   // ── Lazy tab renderer — renders only the currently active tab ──
   function renderCurrentTab(){

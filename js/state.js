@@ -59,6 +59,7 @@ _S.terrContribBySecteur = new Map();
 _S.terrContribByDirection = new Map();
 _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
+_S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
 _S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS' | 'AUTRE'
 _S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
 _S._rankSortKey = 'txMarge'; // [V3] tri classement agences : 'txMarge' | 'freq' | 'serv' | 'pdm'
@@ -266,6 +267,7 @@ export function resetAppState() {
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
   _S._selectedActivitesPDV = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false;
+  _S._clientsActiveTab = 'priorites';
 
   // KPI history
   _S.kpiHistory = [];
