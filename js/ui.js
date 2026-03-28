@@ -686,6 +686,8 @@ function _nlInterpret(q) {
   if (/hors.{0,10}agence/.test(raw) && e.euros>0)                                      return _nlQ_ClientsHorsAgence(e.euros);
   if (/sous.{0,10}(mediane|median)|retard.{0,10}reseau|reseau.{0,10}(mieux|meilleur)/.test(raw)) return _nlQ_FamillesSousMediane();
   if (/digital|numerique|(pass|devenu).{0,10}(web|internet|rep)|plus.{0,10}comptoir/.test(raw)) return _nlQ_ClientsDigitaux();
+  if (e.commercial && /(fuyant|famille|portefeuille|hors.{0,10}agence|manque)/.test(raw))    return _nlQ_CommercialFuites(e.commercial);
+  if (/(fuit|fuyant).{0,10}(par|commercial|portefeuille)|commercial.{0,10}(fuit|fuyant)/.test(raw)) return _nlQ_CommercialFuites(null);
   if (/heatmap.{0,10}(fuit|fam|metier)|fuit.{0,10}(metier|par)|famille.{0,10}metier|metier.{0,10}fuit/.test(raw)) return _nlQ_HeatmapFuites();
   if (/fuyant|famille.{0,10}hors|hors.{0,10}famille|echap|fugit/.test(raw))                  return _nlQ_FamillesHors();
   if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
@@ -986,6 +988,82 @@ function _nlQ_FamillesHors() {
     title: `Familles fuyantes — ${list.length}\u00a0familles\u00a0·\u00a0${formatEuro(total)} hors agence`,
     html: `<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA hors</th><th class="text-center pr-2">Clients</th><th class="text-center pr-2">Canal</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
     footer: 'Cliquer sur une famille pour ouvrir le diagnostic · Familles achetées hors agence par des clients PDV actifs' };
+}
+
+function _nlQ_CommercialFuites(commercial) {
+  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size)
+    return { title:'Fuites portefeuille', html:'<p class="text-xs t-disabled p-2">Données PDV + Terrain requises.</p>' };
+  const comShort = c => c.includes(' - ') ? c.split(' - ').slice(1).join(' ') : c;
+  // Helper: compute fuite CA for one set of clients
+  const computeFuitesForClients = ccs => {
+    const famData = {};
+    for (const cc of ccs) {
+      const pdvArts = _S.ventesClientArticle.get(cc);
+      const horArts = _S.ventesClientHorsMagasin.get(cc);
+      if (!pdvArts || !horArts) continue;
+      const famsPDV = new Set();
+      for (const [code] of pdvArts) { const r = _S.articleFamille?.[code]; if (r) famsPDV.add(r); }
+      for (const [code, v] of horArts) {
+        const r = _S.articleFamille?.[code];
+        if (!r || famsPDV.has(r)) continue;
+        const ca = v.sumCA || 0;
+        if (!famData[r]) famData[r] = { ca: 0, clients: [] };
+        famData[r].ca += ca;
+        const info = _S.chalandiseData?.get(cc);
+        famData[r].clients.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, ca });
+      }
+    }
+    return Object.entries(famData)
+      .filter(([, d]) => d.ca >= 50)
+      .map(([r, d]) => ({ fam: famLib(r) || r, rawFam: r, ca: Math.round(d.ca), clients: d.clients.sort((a,b)=>b.ca-a.ca).slice(0,3) }))
+      .sort((a, b) => b.ca - a.ca);
+  };
+  // ── Mode ranking : pas de commercial précisé ──────────────────
+  if (!commercial) {
+    if (!_S.clientsByCommercial?.size) return { title:'Fuites par commercial', html:'<p class="text-xs t-disabled p-2">Chargez la zone de chalandise pour voir les commerciaux.</p>' };
+    const ranking = [];
+    for (const [com, ccs] of _S.clientsByCommercial) {
+      if (!com || !ccs.size) continue;
+      const fams = computeFuitesForClients(ccs);
+      const caTotal = fams.reduce((s, f) => s + f.ca, 0);
+      if (caTotal < 100) continue;
+      ranking.push({ com, caTotal, nFams: fams.length, nClients: [...ccs].filter(cc => _S.ventesClientHorsMagasin.has(cc)).length });
+    }
+    ranking.sort((a, b) => b.caTotal - a.caTotal);
+    if (!ranking.length) return { title:'Fuites par commercial', html:'<p class="text-xs t-disabled p-2">Aucune fuite détectée dans les portefeuilles.</p>' };
+    const totalFuite = ranking.reduce((s, r) => s + r.caTotal, 0);
+    const rows = ranking.map(r => {
+      const safeQ = r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="_cematinSearch('commercial+${safeQ}+familles+fuyantes')">
+<td class="py-1.5 pr-2 font-semibold">${comShort(r.com)}</td>
+<td class="py-1.5 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(r.caTotal)}</td>
+<td class="py-1.5 pr-2 text-center">${r.nFams}</td>
+<td class="py-1.5 text-center t-disabled">${r.nClients}</td>
+</tr>`;
+    }).join('');
+    return { title:`Fuites par commercial — ${formatEuro(totalFuite)} total`,
+      html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Commercial</th><th class="text-right pr-2">CA fuyant</th><th class="text-center pr-2">Familles</th><th class="text-center">Clients digital</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+      footer:'Cliquer sur un commercial pour voir ses familles fuyantes en détail' };
+  }
+  // ── Mode détail : commercial spécifique ───────────────────────
+  const ccs = _S.clientsByCommercial?.get(commercial);
+  if (!ccs?.size) return { title:`Fuites — ${comShort(commercial)}`, html:`<p class="text-xs t-disabled p-2">Commercial "${comShort(commercial)}" non trouvé dans la chalandise.</p>` };
+  const famList = computeFuitesForClients(ccs);
+  if (!famList.length) return { title:`Fuites portefeuille — ${comShort(commercial)}`, html:'<p class="text-xs t-disabled p-2">Aucune fuite détectée pour ce portefeuille.</p>' };
+  const totalCA = famList.reduce((s, f) => s + f.ca, 0);
+  const rows = famList.slice(0, 12).map(f => {
+    const sub = f.clients.map(c => `${c.nom}\u00a0${formatEuro(c.ca)}`).join(', ');
+    const safeFam = f.fam.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${safeFam}','hors')">
+<td class="py-1.5 pr-2 font-semibold">${f.fam}</td>
+<td class="py-1.5 pr-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(f.ca)}</td>
+<td class="py-1.5 pr-2 text-center">${f.clients.length}</td>
+<td class="py-1.5 text-[8px] t-disabled truncate max-w-[140px]">${sub}</td>
+</tr>`;
+  }).join('');
+  return { title:`Fuites portefeuille ${comShort(commercial)} — ${famList.length}\u00a0familles\u00a0·\u00a0${formatEuro(totalCA)}`,
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Famille</th><th class="text-right pr-2">CA fuyant</th><th class="text-center pr-2">Clients</th><th class="text-left">Exemples</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer:`Familles que les clients de ${comShort(commercial)} achètent hors agence · Cliquer → diagnostic` };
 }
 
 function _nlQ_HeatmapFuites() {
