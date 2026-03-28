@@ -78,6 +78,7 @@ export const DataStore = {
       ...kpis,            // canal, canalStats, totalCA, articleFacts, finalData, capabilities
       terrLines,          // override : commercial appliqué par-dessus filtre canal
       periodeMonths,      // indices mois actifs pour sparklines
+      seasonalIndex: _S.seasonalIndex, // {famille → [12 coefficients]} — moteur saisonnier
       activeFilters: {
         canal:   _canal,
         periode: _periode,
