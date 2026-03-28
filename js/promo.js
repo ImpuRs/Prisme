@@ -153,6 +153,9 @@ document.addEventListener('blur',e=>{
 
 function runPromoSearch(){
   const raw=(document.getElementById('promoSearchInput')||{}).value||'';
+  // ── NL couche : détection d'intention langage naturel ──
+  const nlParsed = _parseNLQuery(raw);
+  if (nlParsed) { _dispatchNLQuery(nlParsed.intent, nlParsed.params, raw); return; }
   const terms=raw.split(/[\s,;]+/).map(t=>t.trim()).filter(Boolean);
   if(!terms.length){showToast('⚠️ Saisissez un code, une famille ou un mot-clé','warning');return;}
   if(!DataStore.finalData.length){showToast('⚠️ Chargez les données stock d\'abord','warning');return;}
@@ -1095,6 +1098,429 @@ function exportPromoImportCSV(){
   const nm=`PRISME_PromoImport${r.opName?'_'+r.opName.replace(/[^a-z0-9]/gi,'_'):'_operation'}_${new Date().toISOString().slice(0,10)}.csv`;
   const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=nm;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);showToast('📥 CSV opération téléchargé','success');
 }
+// ══════════════════════════════════════════════════════════════════════════
+// NL SEARCH — couche parseIntent (Sprint 1 · débat V4 2026-03-28)
+// Couvre 10 intents prioritaires. Branché en amont de runPromoSearch().
+// Lorsqu'un intent NL est détecté, on court-circuite le pipeline article
+// et on affiche un résultat tabulaire dans #promoNLResult.
+// ══════════════════════════════════════════════════════════════════════════
+
+function _normNL(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+
+export function _parseNLQuery(text){
+  const t=_normNL(text.trim());
+  const numM=(p)=>{const m=t.match(p);return m?parseInt(m[1]):null;};
+  const kEuro=(p)=>{const m=t.match(p);if(!m)return null;return parseInt(m[1])*(t.charAt(m.index+m[0].length-1)==='k'?1000:1);};
+
+  if(/(?:qui|que)?\s*(?:dois[- ]?je|faut[- ]?il)?\s*appeler|reconqu[eê]t|relancer/.test(t))
+    return{intent:'RECONQUETE',params:{}};
+
+  if(/silencieux|sans commande|n.?ont pas command|silence/.test(t)){
+    const jours=numM(/depuis\s+(\d+)\s*j/)||numM(/(\d+)\s*j(?:ours?)?/)||30;
+    const caMin=kEuro(/(?:plus de|>)\s*(\d+)\s*k?(?:\s*€)?/)||0;
+    return{intent:'CLIENTS_SILENCIEUX',params:{jours,caMin}};
+  }
+
+  if(/perdus?|disparus?|churn|(?:pas|plus)\s+(?:vu|venu|revu)/.test(t)){
+    const moisM=t.match(/(\d+)\s*mois/);
+    const jourM=t.match(/(\d+)\s*j(?:ours?)?/);
+    const jours=moisM?parseInt(moisM[1])*30:(jourM?parseInt(jourM[1]):90);
+    return{intent:'CLIENTS_PERDUS',params:{jours,query:text}};
+  }
+
+  if(/dormant|immobilis|invendu|longtemps en stock/.test(t)){
+    const valM=t.match(/(?:>|plus de|de)\s*(\d+)\s*(k)?/);
+    const valMin=valM?parseInt(valM[1])*(/k/.test(valM[0])?1000:1):0;
+    const moisM=t.match(/(\d+)\s*mois/);
+    const nbJours=moisM?parseInt(moisM[1])*30:365;
+    return{intent:'STOCK_DORMANT',params:{valMin,nbJours}};
+  }
+
+  if(/(?:sous|dessous)\s+(?:la\s+)?mediane|mediane.*(?:sous|retard)|familles?.*(?:sous|retard)|bench/.test(t))
+    return{intent:'BENCH_SOUS_MEDIANE',params:{}};
+
+  if(/taux\s*(?:de\s*)?service|service.*taux/.test(t))
+    return{intent:'KPI_TAUX_SERVICE',params:{}};
+
+  if(/hors[- ](?:agence|comptoir|pdv)|achet(?:ent|e).*ailleurs|ailleurs.*achet/.test(t)){
+    const caMin=kEuro(/(?:plus de|>)\s*(\d+)\s*k?/)||0;
+    return{intent:'CLIENTS_HORS_AGENCE',params:{caMin}};
+  }
+
+  if(/uniquement|seulement|exclusivement/.test(t)&&/web|internet|representant|\brep\b/.test(t)){
+    const canal=/web|internet/.test(t)?'INTERNET':'REPRESENTANT';
+    return{intent:'CANAL_EXCLUSIF',params:{canal}};
+  }
+
+  if(/(?:top|meilleur|premier).*client.*(?:web|internet)|client.*(?:web|internet).*(?:top|plus)/.test(t)){
+    const nM=t.match(/top\s*(\d+)|(\d+)\s+client/);
+    return{intent:'TOP_CLIENTS_CANAL',params:{canal:'INTERNET',topN:nM?parseInt(nM[1]||nM[2]):10}};
+  }
+  if(/(?:top|meilleur|premier).*client.*(?:rep\b|representant)|client.*rep\b/.test(t)){
+    const nM=t.match(/top\s*(\d+)|(\d+)\s+client/);
+    return{intent:'TOP_CLIENTS_CANAL',params:{canal:'REPRESENTANT',topN:nM?parseInt(nM[1]||nM[2]):10}};
+  }
+
+  if(/prospect|opportunit|potentiel|famille.*manquant/.test(t)){
+    const caMin=kEuro(/(?:>|plus de)\s*(\d+)\s*k?/)||1000;
+    return{intent:'OPPORTUNITES',params:{caMin}};
+  }
+
+  if(/nouveau.*client|client.*nouveau|premier.*achat|1er.*achat/.test(t))
+    return{intent:'NOUVEAUX_CLIENTS',params:{}};
+
+  return null;
+}
+
+// ── Helpers de formatage ──────────────────────────────────────
+const _fmtDate=(d)=>{if(!d)return'—';try{return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch{return'—';}};
+
+// ── Rendu NL ─────────────────────────────────────────────────
+// Affiche le résultat dans #promoNLResult, masque les sections A/B/C.
+function _renderNLResult(intentLabel, rows, cols, meta=''){
+  const el=document.getElementById('promoNLResult');
+  const sr=document.getElementById('promoSearchResults');
+  const mi=document.getElementById('promoMatchInfo');
+  if(!el||!sr)return;
+  // Masquer sections A/B/C
+  ['A','B','C'].forEach(s=>{
+    const b=document.getElementById('promoBody'+s);
+    if(b&&b.parentElement)b.parentElement.style.display='none';
+  });
+  el.style.display='';
+  if(mi){mi.innerHTML=`<span class="font-semibold c-action">🔍 Requête NL</span> · ${intentLabel}${meta?' · '+meta:''}`;mi.classList.remove('hidden');}
+  if(!rows.length){
+    el.innerHTML=`<p class="text-sm t-tertiary py-4 text-center">Aucun résultat.</p>`;
+  }else{
+    const ths=cols.map(c=>`<th class="py-2 px-2 text-left text-[10px] uppercase t-tertiary font-semibold sticky top-0 s-card-alt">${c.label}</th>`).join('');
+    const trs=rows.map(r=>{
+      const tds=cols.map(c=>`<td class="py-1.5 px-2 ${c.cls||'text-xs'}">${r[c.key]??'—'}</td>`).join('');
+      return`<tr class="border-b hover:s-card-alt">${tds}</tr>`;
+    }).join('');
+    el.innerHTML=`<div class="list-scroll" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-xs"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
+  }
+  sr.classList.remove('hidden');
+}
+
+function _resetNLDisplay(){
+  const el=document.getElementById('promoNLResult');
+  if(el){el.innerHTML='';el.style.display='none';}
+  ['A','B','C'].forEach(s=>{const b=document.getElementById('promoBody'+s);if(b&&b.parentElement)b.parentElement.style.display='';});
+}
+
+// ── Handlers par intent ───────────────────────────────────────
+
+function _nlReconquete(){
+  if(!_S.reconquestCohort?.length){
+    const el=document.getElementById('promoNLResult');const sr=document.getElementById('promoSearchResults');
+    if(el&&sr){el.innerHTML='<p class="text-sm t-disabled py-4 text-center">Cohorte reconquête non disponible (fichier Chalandise requis).</p>';el.style.display='';sr.classList.remove('hidden');}
+    const mi=document.getElementById('promoMatchInfo');if(mi){mi.innerHTML='🔍 Requête NL · Clients à reconquérir';mi.classList.remove('hidden');}
+    return;
+  }
+  const rows=_S.reconquestCohort.slice(0,20).map(c=>({
+    nom:escapeHtml(c.nom||c.cc),
+    jours:c.daysAgo+'j',
+    ca:formatEuro(c.totalCA),
+    fams:c.nbFamilles,
+    commercial:escapeHtml(c.commercial||'—'),
+    metier:escapeHtml(c.metier||'—'),
+    score:c.score,
+  }));
+  _renderNLResult('Clients à reconquérir',rows,[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'jours',label:'Absence',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA historique',cls:'text-xs text-right font-bold'},
+    {key:'fams',label:'Familles',cls:'text-xs text-center t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlClientsSilencieux({jours,caMin}){
+  const now=Date.now();const threshold=jours*86400000;
+  const rows=[];
+  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+    const d=now-lastDate;if(d<threshold)continue;
+    const artMap=_S.ventesClientArticle.get(cc);if(!artMap)continue;
+    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
+    if(ca<caMin)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    rows.push({cc,nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round(d/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—'),lastDate});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  _renderNLResult(`Clients silencieux >${jours}j`,rows.slice(0,50).map(r=>({
+    nom:r.nom,
+    jours:r.joursN+'j',
+    ca:formatEuro(r.ca),
+    dernier:_fmtDate(r.lastDate),
+    metier:r.metier,
+    commercial:r.commercial,
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'jours',label:'Silence',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA historique',cls:'text-xs text-right font-bold'},
+    {key:'dernier',label:'Dernier achat',cls:'text-xs text-center t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s'+''}. ${caMin>0?'CA ≥ '+formatEuro(caMin):''}`);
+}
+
+function _nlClientsPerdus({jours,query}){
+  const now=Date.now();const threshold=jours*86400000;
+  const qNorm=_normNL(query);
+  const rows=[];
+  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+    const d=now-lastDate;if(d<threshold)continue;
+    const artMap=_S.ventesClientArticle.get(cc);if(!artMap)continue;
+    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
+    if(ca<=0)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    // Filtre métier optionnel (mots du query qui matchent des métiers)
+    if(_S.chalandiseReady&&info.metier){
+      const metNorm=_normNL(info.metier);
+      const hasMetier=/plombier|electricien|charpentier|menuisier|maconnerie|peintre|carreleur|serrurier|chauffagiste/.test(qNorm);
+      if(hasMetier&&!qNorm.includes(metNorm.split(' ')[0]))continue;
+    }
+    rows.push({cc,nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round(d/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—'),lastDate});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  _renderNLResult(`Clients perdus (>${Math.round(jours/30)}m)`,rows.slice(0,50).map(r=>({
+    nom:r.nom,
+    jours:r.joursN+'j',
+    ca:formatEuro(r.ca),
+    dernier:_fmtDate(r.lastDate),
+    metier:r.metier,
+    commercial:r.commercial,
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'jours',label:'Absence',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA historique',cls:'text-xs text-right font-bold'},
+    {key:'dernier',label:'Dernier achat',cls:'text-xs text-center t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlStockDormant({valMin,nbJours}){
+  const rows=DataStore.finalData
+    .filter(r=>(r.ageJours||0)>=nbJours&&(r.stockActuel||0)>0)
+    .map(r=>({code:r.code,lib:escapeHtml((r.libelle||r.code).substring(0,40)),age:r.ageJours,val:Math.round((r.stockActuel||0)*(r.prixUnitaire||0)),fam:r.famille||'',abc:r.abcClass||'?'}))
+    .filter(r=>r.val>=valMin)
+    .sort((a,b)=>b.val-a.val)
+    .slice(0,50);
+  const total=rows.reduce((s,r)=>s+r.val,0);
+  _renderNLResult(`Stock dormant ≥${nbJours}j`,rows.map(r=>({
+    code:`<span class="font-mono text-[10px] t-disabled">${r.code}</span>`,
+    lib:r.lib,
+    age:r.age+'j',
+    val:formatEuro(r.val),
+    abc:`<span class="font-bold ${r.abc==='A'?'c-danger':r.abc==='B'?'c-caution':'t-disabled'}">${r.abc}</span>`,
+    fam:r.fam,
+  })),[
+    {key:'code',label:'Code',cls:'text-xs'},
+    {key:'lib',label:'Libellé',cls:'text-xs font-semibold'},
+    {key:'age',label:'Age',cls:'text-xs text-center c-danger font-bold'},
+    {key:'val',label:'Valeur immob.',cls:'text-xs text-right font-bold'},
+    {key:'abc',label:'ABC',cls:'text-xs text-center'},
+    {key:'fam',label:'Famille',cls:'text-xs t-tertiary'},
+  ],`${rows.length} article${rows.length>1?'s':''} · ${formatEuro(total)} immobilisés`);
+}
+
+function _nlBenchSousMediane(){
+  const fp=_S.benchLists?.familyPerf;
+  if(!fp?.length){_renderNLResult('Familles sous médiane',[],[],`Benchmark non disponible`);return;}
+  const sous=fp.filter(f=>f.ecart<0).sort((a,b)=>a.ecart-b.ecart);
+  _renderNLResult('Familles sous médiane',sous.slice(0,30).map(f=>{
+    const pct=f.med>0?Math.round(f.my/f.med*100):null;
+    return{
+      fam:escapeHtml(f.fam),
+      moi:f.my,
+      med:f.med,
+      pct:pct!==null?`<span class="font-bold ${pct<50?'c-danger':pct<100?'c-caution':''}">${pct}%</span>`:'—',
+      diag:pct!==null&&pct<50?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" onclick="openDiagnostic('${escapeHtml(f.fam).replace(/'/g,"\\'")}','bench')">🔍</button>`:'',
+    };
+  }),[
+    {key:'fam',label:'Famille',cls:'text-xs font-semibold'},
+    {key:'moi',label:'Moi',cls:'text-xs text-right'},
+    {key:'med',label:'Médiane',cls:'text-xs text-right t-tertiary'},
+    {key:'pct',label:'% médiane',cls:'text-xs text-right'},
+    {key:'diag',label:'',cls:'text-xs text-center'},
+  ],`${sous.length} famille${sous.length>1?'s':''} en retard`);
+}
+
+function _nlKpiTauxService(){
+  const el=document.getElementById('promoNLResult');const sr=document.getElementById('promoSearchResults');
+  const mi=document.getElementById('promoMatchInfo');
+  if(!el||!sr)return;
+  ['A','B','C'].forEach(s=>{const b=document.getElementById('promoBody'+s);if(b&&b.parentElement)b.parentElement.style.display='none';});
+  el.style.display='';sr.classList.remove('hidden');
+  if(mi){mi.innerHTML='🔍 Requête NL · Taux de service';mi.classList.remove('hidden');}
+  const kpis=_S.benchLists?.obsKpis;
+  if(!kpis?.mine?.serv&&kpis?.mine?.serv!==0){el.innerHTML='<p class="text-sm t-tertiary py-4 text-center">Benchmark non disponible.</p>';return;}
+  const s=kpis.mine.serv;const sm=kpis.compared?.serv||0;
+  const color=s>=sm?'c-ok':'c-caution';
+  const delta=sm>0?Math.round((s-sm)*10)/10:null;
+  el.innerHTML=`<div class="flex items-center gap-6 p-6 s-card rounded-xl">
+    <span class="text-5xl font-black ${color}">${s}<span class="text-2xl">%</span></span>
+    <div>
+      <p class="font-bold t-primary">Taux de service agence</p>
+      <p class="text-sm t-tertiary">Médiane réseau\u00a0: <strong>${sm}%</strong>${delta!==null?` · Écart\u00a0: <strong class="${delta>=0?'c-ok':'c-danger'}">${delta>=0?'+':''}${delta}pts</strong>`:''}</p>
+    </div>
+  </div>`;
+}
+
+function _nlClientsHorsAgence({caMin}){
+  const agg=new Map();
+  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
+    if(ca<(caMin||0))continue;
+    const capdv=(() =>{const m=_S.ventesClientArticle?.get(cc);if(!m)return 0;let s=0;for(const v of m.values())s+=(v.sumCA||0);return s;})();
+    const info=_S.chalandiseData?.get(cc)||{};
+    agg.set(cc,{nom:_S.clientNomLookup[cc]||info.nom||cc,caHors:ca,caPdv:capdv,metier:info.metier||'—',commercial:info.commercial||'—'});
+  }
+  const rows=[...agg.values()].sort((a,b)=>b.caHors-a.caHors).slice(0,50);
+  _renderNLResult(`Clients hors-agence${caMin>0?' >'+formatEuro(caMin):''}`,rows.map(r=>({
+    nom:escapeHtml(r.nom),
+    caHors:formatEuro(r.caHors),
+    caPdv:r.caPdv>0?formatEuro(r.caPdv):'<span class="t-disabled">—</span>',
+    ratio:r.caPdv>0?Math.round(r.caHors/(r.caHors+r.caPdv)*100)+'% hors':'<span class="c-caution font-bold">100% hors</span>',
+    metier:escapeHtml(r.metier),
+    commercial:escapeHtml(r.commercial),
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'caHors',label:'CA hors-PDV',cls:'text-xs text-right font-bold c-danger'},
+    {key:'caPdv',label:'CA PDV',cls:'text-xs text-right'},
+    {key:'ratio',label:'Ratio',cls:'text-xs text-center'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlCanalExclusif({canal}){
+  const rows=[];
+  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+    if(_S.ventesClientArticle?.has(cc))continue; // déjà PDV
+    let ca=0;let hasCanal=false;
+    for(const v of artMap.values()){
+      if(v.canal===canal)hasCanal=true;
+      ca+=(v.sumCA||0);
+    }
+    if(!hasCanal||ca<=0)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—'});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  _renderNLResult(`Clients ${canal} sans PDV`,rows.slice(0,50).map(r=>({
+    nom:escapeHtml(r.nom),
+    ca:formatEuro(r.ca),
+    metier:escapeHtml(r.metier),
+    commercial:escapeHtml(r.commercial),
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'ca',label:`CA ${canal}`,cls:'text-xs text-right font-bold'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlTopClientsCanal({canal,topN}){
+  const agg=new Map();
+  for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+    let ca=0;let hasC=false;
+    for(const v of artMap.values()){if(v.canal===canal){hasC=true;ca+=(v.sumCA||0);}}
+    if(!hasC||ca<=0)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    agg.set(cc,{nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—',spc:computeSPC(cc,info)});
+  }
+  const rows=[...agg.values()].sort((a,b)=>b.ca-a.ca).slice(0,topN||10);
+  _renderNLResult(`Top ${topN||10} clients ${canal}`,rows.map((r,i)=>({
+    rank:`<strong>#${i+1}</strong>`,
+    nom:escapeHtml(r.nom),
+    ca:formatEuro(r.ca),
+    metier:escapeHtml(r.metier),
+    commercial:escapeHtml(r.commercial),
+    spc:_spcBadge(r.spc),
+  })),[
+    {key:'rank',label:'#',cls:'text-xs text-center'},
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'ca',label:`CA ${canal}`,cls:'text-xs text-right font-bold'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+    {key:'spc',label:'SPC',cls:'text-xs text-center'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlOpportunites({caMin}){
+  if(!_S.opportuniteNette?.length){
+    _renderNLResult('Opportunités nettes',[],[],`Chalandise requise`);return;
+  }
+  const rows=_S.opportuniteNette.filter(o=>o.totalPotentiel>=caMin).slice(0,30);
+  _renderNLResult(`Opportunités ≥${formatEuro(caMin)}`,rows.map(r=>({
+    nom:escapeHtml(r.nom),
+    potentiel:formatEuro(r.totalPotentiel),
+    nb:r.nbMissing+' fam.',
+    fams:escapeHtml(r.missingFams.slice(0,3).map(m=>m.fam).join(', ')),
+    metier:escapeHtml(r.metier||'—'),
+    commercial:escapeHtml(r.commercial||'—'),
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'potentiel',label:'Potentiel',cls:'text-xs text-right font-bold c-ok'},
+    {key:'nb',label:'Familles',cls:'text-xs text-center'},
+    {key:'fams',label:'Top familles manquantes',cls:'text-xs t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _nlNouveauxClients(){
+  const now=new Date();const debut=new Date(now.getFullYear(),now.getMonth(),1);const debutTs=debut.getTime();
+  // Nouveau = premier achat du client dans les données = client dont la date de premier achat est ce mois
+  // Approximation : clients dont lastOrder est ce mois ET qui ont peu de BL (≤3)
+  const rows=[];
+  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+    if(lastDate<debutTs)continue;
+    const artMap=_S.ventesClientArticle?.get(cc);if(!artMap)continue;
+    let ca=0,bl=0;for(const v of artMap.values()){ca+=(v.sumCA||0);bl+=(v.countBL||0);}
+    if(ca<=0)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,bl,metier:info.metier||'—',commercial:info.commercial||'—',lastDate});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  _renderNLResult('Nouveaux clients ce mois',rows.slice(0,30).map(r=>({
+    nom:escapeHtml(r.nom),
+    date:_fmtDate(r.lastDate),
+    ca:formatEuro(r.ca),
+    bl:r.bl+'&nbsp;BL',
+    metier:escapeHtml(r.metier),
+    commercial:escapeHtml(r.commercial),
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'date',label:'Premier achat',cls:'text-xs text-center'},
+    {key:'ca',label:'CA',cls:'text-xs text-right font-bold'},
+    {key:'bl',label:'BL',cls:'text-xs text-center t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length>1?'s':''}`);
+}
+
+function _dispatchNLQuery(intent,params,raw){
+  _resetNLDisplay();
+  switch(intent){
+    case 'RECONQUETE':        _nlReconquete();break;
+    case 'CLIENTS_SILENCIEUX':_nlClientsSilencieux(params);break;
+    case 'CLIENTS_PERDUS':    _nlClientsPerdus(params);break;
+    case 'STOCK_DORMANT':     _nlStockDormant(params);break;
+    case 'BENCH_SOUS_MEDIANE':_nlBenchSousMediane();break;
+    case 'KPI_TAUX_SERVICE':  _nlKpiTauxService();break;
+    case 'CLIENTS_HORS_AGENCE':_nlClientsHorsAgence(params);break;
+    case 'CANAL_EXCLUSIF':    _nlCanalExclusif(params);break;
+    case 'TOP_CLIENTS_CANAL': _nlTopClientsCanal(params);break;
+    case 'OPPORTUNITES':      _nlOpportunites(params);break;
+    case 'NOUVEAUX_CLIENTS':  _nlNouveauxClients();break;
+    default:break;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 
-export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults };
+export { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _activatePromoImportAction, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults, _parseNLQuery };
