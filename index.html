@@ -1050,22 +1050,22 @@
       </div>
       <!-- Sprint 2: 5 chips scrollables horizontalement -->
       <div class="flex gap-2 overflow-x-auto pb-1 mb-6" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none i-danger-bg hover:opacity-90 transition-opacity" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Ruptures actives">
+        <div id="chipRuptures" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none i-danger-bg hover:opacity-90 transition-opacity" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Ruptures actives">
           <span>🔴</span><div><p class="text-[10px] font-bold c-danger uppercase leading-none whitespace-nowrap">Ruptures</p><p id="dashChipRuptures" class="text-lg font-extrabold c-danger leading-tight">0</p></div>
         </div>
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(16,185,129,.1)" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Taux de disponibilité des articles fréquents (W≥3)">
+        <div id="chipDispo" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(16,185,129,.1)" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Taux de disponibilité des articles fréquents (W≥3)">
           <span>✅</span><div><p class="text-[10px] font-bold text-emerald-700 uppercase leading-none whitespace-nowrap">Taux de dispo.</p><p id="dashChipDispo" class="text-lg font-extrabold text-emerald-600 leading-tight">—</p></div>
         </div>
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('dormants');switchTab('table')" title="Dormants à traiter">
+        <div id="chipDormants" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('dormants');switchTab('table')" title="Dormants à traiter">
           <span>💤</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Dormants</p><p id="dashChipDormants" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
         </div>
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('anomalies');switchTab('table')" title="Articles actifs sans MIN ou MAX ERP — cliquez pour voir dans Articles">
+        <div id="chipAnomalies" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('anomalies');switchTab('table')" title="Articles actifs sans MIN ou MAX ERP — cliquez pour voir dans Articles">
           <span>⚠️</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Anomalies</p><p id="dashChipAnomalies" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
         </div>
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(129,140,248,.12)" onclick="showCockpitInTable('stockneg');switchTab('table')" title="Stock négatif">
+        <div id="chipStockneg" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(129,140,248,.12)" onclick="showCockpitInTable('stockneg');switchTab('table')" title="Stock négatif">
           <span>📉</span><div><p class="text-[10px] font-bold text-indigo-700 uppercase leading-none whitespace-nowrap">Stock négatif</p><p id="dashChipStockneg" class="text-lg font-extrabold text-indigo-600 leading-tight">0</p></div>
         </div>
-        <div class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-amber-50 hover:opacity-90 transition-opacity" onclick="(function(){const s=document.getElementById('saisonWidget');if(s){s.classList.remove('hidden');s.scrollIntoView({behavior:'smooth'})}})();" title="Préconisation saisonnière">
+        <div id="chipSaison" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-amber-50 hover:opacity-90 transition-opacity" onclick="(function(){const s=document.getElementById('saisonWidget');if(s){s.classList.remove('hidden');s.scrollIntoView({behavior:'smooth'})}})();" title="Préconisation saisonnière">
           <span>🌸</span><div><p class="text-[10px] font-bold text-amber-700 uppercase leading-none whitespace-nowrap">Saisonnalité</p><p id="dashChipSaison" class="text-lg font-extrabold text-amber-600 leading-tight">—</p></div>
         </div>
       </div>
@@ -1137,44 +1137,6 @@
           <div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-amber-100 text-amber-800 sticky top-0"><tr><th class="py-2 px-2 text-left">Code</th><th class="py-2 px-2 text-left">Libellé</th><th class="py-2 px-2 text-center">Stock</th><th class="py-2 px-2 text-center">Seuil mois <em class="info-tip" data-tip="MIN × coeff. saison">ℹ</em></th><th class="py-2 px-2 text-center">À commander</th><th class="py-2 px-2 text-right">Valeur est.</th></tr></thead><tbody id="saisonTableBody" class="divide-y divide-amber-100"></tbody></table></div>
         </div>
       </div>
-      <!-- Accès rapide — raccourcis vers l'onglet Articles -->
-      <div class="mb-8">
-        <h3 class="font-bold t-primary mb-3 flex items-center gap-2">🗂️ Explorer mes articles <span class="text-[10px] font-normal t-disabled">— raccourcis vers l'onglet Articles avec filtre</span></h3>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div class="shortcut-card border-l-red-400" onclick="showCockpitInTable('fantomes');switchTab('table')" style="border-left-color:#f87171">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">📍</span><span id="scFantomesCount" class="badge i-danger-bg c-danger">0</span></div>
-            <div class="font-semibold text-xs t-primary">Sans emplacement</div>
-            <div id="scFantomesVal" class="text-[10px] c-danger font-bold mt-1">—</div>
-          </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('stockneg');switchTab('table')" style="border-left-color:#818cf8">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scStocknegCount" class="badge bg-indigo-100 text-indigo-700">0</span></div>
-            <div class="font-semibold text-xs t-primary">Stock négatif</div>
-            <div id="scStocknegVal" class="text-[10px] text-indigo-600 font-bold mt-1">—</div>
-          </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('dormants');switchTab('table')" style="border-left-color:#fb923c">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">💤</span><span id="scDormantsCount" class="badge i-caution-bg c-caution">0</span></div>
-            <div class="font-semibold text-xs t-primary">Dormants à traiter</div>
-            <div id="scDormantsVal" class="text-[10px] c-caution font-bold mt-1">—</div>
-            <div class="text-[9px] t-disabled mt-0.5">&gt; 50€ unitaire</div>
-          </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('fins');switchTab('table')" style="border-left-color:#facc15">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">📉</span><span id="scFinsCount" class="badge bg-yellow-100 text-yellow-700">0</span></div>
-            <div class="font-semibold text-xs t-primary">Fins de série</div>
-            <div id="scFinsVal" class="text-[10px] text-yellow-600 font-bold mt-1">—</div>
-          </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('top20');switchTab('table')" style="border-left-color:#4ade80">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">🏆</span><span class="badge i-ok-bg c-ok">20</span></div>
-            <div class="font-semibold text-xs t-primary">Top 20 fréquence</div>
-            <div class="text-[10px] c-ok mt-1">par nb commandes</div>
-          </div>
-          <div class="shortcut-card" onclick="showCockpitInTable('phantom');switchTab('table')" style="border-left-color:#a78bfa">
-            <div class="flex items-center justify-between mb-2"><span class="text-lg">👻</span><span id="scPhantomCount" class="badge" style="background:rgba(167,139,250,.2);color:#a78bfa">0</span></div>
-            <div class="font-semibold text-xs t-primary">Fantômes de rayon</div>
-            <p id="shortcutPhantomCount" class="text-[10px] font-bold mt-1" style="color:#a78bfa">—</p>
-          </div>
-        </div>
-      </div>
-
       <!-- V24.4: Attractivité par Famille -->
       <div class="mb-8 s-card p-5 rounded-xl shadow-md border">
         <h3 class="font-bold text-pink-800 mb-2 border-b pb-2 flex items-center gap-2">🧲 Attractivité par Famille <em class="info-tip" data-tip="% de commandes contenant cette famille — mesure le pouvoir d'attraction du rayon">ℹ</em></h3>
