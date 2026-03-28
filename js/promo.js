@@ -1115,6 +1115,29 @@ export function _parseNLQuery(text){
   if(/(?:qui|que)?\s*(?:dois[- ]?je|faut[- ]?il)?\s*appeler|reconqu[eê]t|relancer/.test(t))
     return{intent:'RECONQUETE',params:{}};
 
+  // COMMERCIAL_SILENCE — clients d'un commercial nommé n'ayant pas commandé (plus spécifique que CLIENTS_SILENCIEUX)
+  if(_S.clientsByCommercial?.size&&/client.*(?:silence|pas\s+command|n.?ont\s+pas\s+command|sans\s+commande|inactif)/.test(t)){
+    const stopRx=/^(?:clients?|le|la|les|de|du|des|qui|ont|pas|commandes?|ce|mois|semaine|depuis|jours?|silence|sans|inactif|actif|n|ont)$/;
+    const words=t.split(/\s+/).filter(w=>!stopRx.test(w)&&w.length>3);
+    let bestCom=null,bestScore=0;
+    for(const com of _S.clientsByCommercial.keys()){
+      const cn=_normNL(com);
+      for(const w of words){if(cn.includes(w)&&w.length>bestScore){bestScore=w.length;bestCom=com;}}
+    }
+    if(bestCom){
+      const moisM=t.match(/(\d+)\s*mois/);const joursM=t.match(/(\d+)\s*j(?:ours?)?/);
+      const jours=moisM?parseInt(moisM[1])*30:(joursM?parseInt(joursM[1]):30);
+      return{intent:'COMMERCIAL_SILENCE',params:{commercial:bestCom,jours}};
+    }
+  }
+
+  // CHURN_ACTIF — clients classifiés FID/actifs qui disparaissent (avant CLIENTS_PERDUS générique)
+  if(/(?:fid[eè]le|fid\b|classif).*(?:silence|parti|dispar|plus\s+command|inactif)|(?:silence|parti|dispar).*(?:fid[eè]le|fid\b)/.test(t)){
+    const moisM=t.match(/(\d+)\s*mois/);const joursM=t.match(/(\d+)\s*j(?:ours?)?/);
+    const jours=moisM?parseInt(moisM[1])*30:(joursM?parseInt(joursM[1]):60);
+    return{intent:'CHURN_ACTIF',params:{jours}};
+  }
+
   if(/silencieux|sans commande|n.?ont pas command|silence/.test(t)){
     const jours=numM(/depuis\s+(\d+)\s*j/)||numM(/(\d+)\s*j(?:ours?)?/)||30;
     const caMin=kEuro(/(?:plus de|>)\s*(\d+)\s*k?(?:\s*€)?/)||0;
@@ -1136,15 +1159,47 @@ export function _parseNLQuery(text){
     return{intent:'STOCK_DORMANT',params:{valMin,nbJours}};
   }
 
+  // RUPTURES_TOP_CLIENTS — familles en rupture chez les top clients
+  if(/rupture.*(?:client|top\s*\d+)|(?:client|top\s*\d+).*rupture|familles?.*rupture.*client|rupture.*achet.*client/.test(t)){
+    const nM=t.match(/top\s*(\d+)|(\d+)\s+client/);
+    return{intent:'RUPTURES_TOP_CLIENTS',params:{topN:nM?parseInt(nM[1]||nM[2]):5}};
+  }
+
+  // DQ_REASSORT — commandes urgentes à passer aujourd'hui
+  if(/(?:quoi|que|qu).?(?:commander|passer)|reassort|r[eé]appro|commande.*(?:passer|urgent|aujourd|lancer)|(?:passer|lancer).*commande|commander.*aujourd/.test(t))
+    return{intent:'DQ_REASSORT',params:{}};
+
+  // ANOMALIE_MINMAX — articles actifs sans MIN/MAX ERP
+  if(/sans.*min.?max|min.?max.*(?:absent|manquant|vide|zero)|calibr|articles?.*sans.*param|param.*manquant/.test(t))
+    return{intent:'ANOMALIE_MINMAX',params:{}};
+
   if(/(?:sous|dessous)\s+(?:la\s+)?mediane|mediane.*(?:sous|retard)|familles?.*(?:sous|retard)|bench/.test(t))
     return{intent:'BENCH_SOUS_MEDIANE',params:{}};
+
+  // BENCH_FAMILLE_RESEAU — classement réseau pour une famille donnée
+  if(/(?:vend|vendu|meilleur|classement|rang|performance).*r[eé]seau|r[eé]seau.*(?:classement|rang|meilleur|vend|performance|famille|mieux)/.test(t))
+    return{intent:'BENCH_FAMILLE_RESEAU',params:{query:text}};
 
   if(/taux\s*(?:de\s*)?service|service.*taux/.test(t))
     return{intent:'KPI_TAUX_SERVICE',params:{}};
 
+  // ARTICLES_HORS_MARQUE — articles d'une marque/type achetés ailleurs (requiert "articles" pour éviter conflit avec CLIENTS_HORS_AGENCE)
+  if(/articles?.*(?:achet.*ailleurs|hors\s+agence|pas\s+chez)|marque.*ailleurs/.test(t)){
+    const stop=/^(?:articles?|achet[eé]s?|achetons|achetent|ailleurs|hors|agence|pdv|chez|moi|nous|qui|sont|les|des|de|du|la|le|en|et|avec|sans|dans|pas)$/;
+    const term=t.split(/\s+/).filter(w=>w.length>2&&!stop.test(w)).join(' ').trim();
+    return{intent:'ARTICLES_HORS_MARQUE',params:{term:term||text}};
+  }
+
   if(/hors[- ](?:agence|comptoir|pdv)|achet(?:ent|e).*ailleurs|ailleurs.*achet/.test(t)){
     const caMin=kEuro(/(?:plus de|>)\s*(\d+)\s*k?/)||0;
     return{intent:'CLIENTS_HORS_AGENCE',params:{caMin}};
+  }
+
+  // METIER_CANAL — clients d'un métier sur un canal précis (avant CANAL_EXCLUSIF)
+  if(/(web|internet|representant|\brep\b|dcs)/.test(t)&&/(plombier|electricien|charpentier|menuisier|maconn|peintre|carreleur|serrurier|chauffagiste|couvreur|electricit|plomberie|serrurerie|menuiserie|peinture|carrelage|charpente|chauffage|climatisation|couverture)/.test(t)){
+    const canal=/web|internet/.test(t)?'INTERNET':/representant|\brep\b/.test(t)?'REPRESENTANT':'DCS';
+    const metM=t.match(/(plombier|electricien|charpentier|menuisier|maconn|peintre|carreleur|serrurier|chauffagiste|couvreur|electricit|plomberie|serrurerie|menuiserie|peinture|carrelage|charpente|chauffage|climatisation|couverture)/);
+    return{intent:'METIER_CANAL',params:{canal,metierKw:metM?metM[1]:''}};
   }
 
   if(/uniquement|seulement|exclusivement/.test(t)&&/web|internet|representant|\brep\b/.test(t)){
@@ -1503,20 +1558,282 @@ function _nlNouveauxClients(){
   ],`${rows.length} client${rows.length>1?'s':''}`);
 }
 
+// ── Sprint 2 — 8 intents supplémentaires ─────────────────────
+
+function _nlCommercialSilence({commercial,jours}){
+  const clients=_S.clientsByCommercial?.get(commercial);
+  if(!clients?.size){_renderNLResult('Commercial — clients silencieux',[],[],`Commercial introuvable`);return;}
+  const now=Date.now();const thr=jours*86400000;
+  const rows=[];
+  for(const cc of clients){
+    const lastDate=_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
+    const artMap=_S.ventesClientArticle?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
+    const info=_S.chalandiseData?.get(cc)||{};
+    rows.push({nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round((now-lastDate)/86400000),ca,classif:escapeHtml(info.classification||'—'),metier:escapeHtml(info.metier||'—'),lastDate});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  const comLabel=commercial.split(' - ').pop()||commercial;
+  _renderNLResult(`${comLabel} — silence >${jours}j`,rows.slice(0,40).map(r=>({
+    nom:r.nom,
+    jours:r.joursN+'j',
+    ca:r.ca>0?formatEuro(r.ca):'<span class="t-disabled">—</span>',
+    dernier:_fmtDate(r.lastDate),
+    classif:r.classif,
+    metier:r.metier,
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'jours',label:'Silence',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA historique',cls:'text-xs text-right font-bold'},
+    {key:'dernier',label:'Dernier achat',cls:'text-xs text-center t-tertiary'},
+    {key:'classif',label:'Classif.',cls:'text-xs t-tertiary'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length!==1?'s':''} sur ${clients.size}`);
+}
+
+function _nlChurnActif({jours}){
+  if(!_S.chalandiseReady||!_S.chalandiseData?.size){
+    _renderNLResult('Clients FID silencieux',[],[],`Chalandise requise`);return;
+  }
+  const now=Date.now();const thr=jours*86400000;const rows=[];
+  for(const[cc,info] of _S.chalandiseData.entries()){
+    if(!/fid|pot\+|actif/i.test(info.classification||''))continue;
+    const lastDate=_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
+    const artMap=_S.ventesClientArticle?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
+    if(ca<=0)continue;
+    rows.push({nom:escapeHtml(info.nom||cc),classif:escapeHtml(info.classification||''),joursN:Math.round((now-lastDate)/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—')});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  _renderNLResult(`Clients actifs silencieux >${jours}j`,rows.slice(0,40).map(r=>({
+    nom:r.nom,
+    classif:`<span class="text-[10px] c-caution font-bold">${r.classif}</span>`,
+    jours:r.joursN+'j',
+    ca:formatEuro(r.ca),
+    metier:r.metier,
+    commercial:r.commercial,
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'classif',label:'Classif.',cls:'text-xs text-center'},
+    {key:'jours',label:'Silence',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA historique',cls:'text-xs text-right font-bold'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length!==1?'s':''}`);
+}
+
+function _nlRupturesTopClients({topN}){
+  if(!DataStore.finalData.length||!_S.ventesClientArticle?.size){
+    _renderNLResult('Ruptures top clients',[],[],`Données insuffisantes`);return;
+  }
+  const clientCA=new Map();
+  for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);clientCA.set(cc,ca);
+  }
+  const topSet=new Set([...clientCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,topN||5).map(([cc])=>cc));
+  const rupMap=new Map();
+  for(const cc of topSet){
+    const artMap=_S.ventesClientArticle.get(cc)||new Map();
+    for(const[code,v] of artMap.entries()){
+      const art=DataStore.finalData.find(r=>r.code===code);
+      if(!art||(art.stockActuel||0)>0)continue;
+      if(!rupMap.has(code))rupMap.set(code,{lib:_S.libelleLookup[code]||code,fam:_S.articleFamille[code]||art.famille||'',abc:art.abcClass||'?',clients:new Set(),ca:0});
+      const r=rupMap.get(code);r.clients.add(cc);r.ca+=(v.sumCA||0);
+    }
+  }
+  const rows=[...rupMap.values()].map(r=>({
+    lib:escapeHtml((r.lib||'').substring(0,35)),
+    fam:r.fam,
+    abc:`<span class="font-bold ${r.abc==='A'?'c-danger':r.abc==='B'?'c-caution':'t-disabled'}">${r.abc}</span>`,
+    clients:r.clients.size+'/'+topN,
+    ca:formatEuro(r.ca),
+    diag:r.fam?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" onclick="openDiagnostic('${escapeHtml(r.fam)}','bench')">🔍</button>`:'',
+  })).sort((a,b)=>parseInt(b.clients)-parseInt(a.clients));
+  _renderNLResult(`Ruptures chez top ${topN||5} clients`,rows,[
+    {key:'lib',label:'Article',cls:'text-xs font-semibold'},
+    {key:'fam',label:'Famille',cls:'text-xs t-tertiary'},
+    {key:'abc',label:'ABC',cls:'text-xs text-center'},
+    {key:'clients',label:'Clients touchés',cls:'text-xs text-center font-bold c-danger'},
+    {key:'ca',label:'CA à risque',cls:'text-xs text-right font-bold'},
+    {key:'diag',label:'',cls:'text-xs text-center'},
+  ],`${rows.length} article${rows.length!==1?'s':''} en rupture`);
+}
+
+function _nlDqReassort(){
+  const items=(_S.decisionQueueData||[]).filter(d=>d.type==='rupture'||d.type==='alerte_prev');
+  if(!items.length){_renderNLResult('Commandes urgentes',[],[],`Aucune rupture ni alerte préventive dans la file`);return;}
+  _renderNLResult("Commandes à passer aujourd'hui",items.slice(0,30).map(d=>({
+    type:`<span class="text-[10px] font-bold ${d.type==='alerte_prev'?'c-caution':'c-danger'}">${d.type==='alerte_prev'?'⚠️ Préventif':'🔴 Rupture'}</span>`,
+    label:escapeHtml(d.label||''),
+    impact:d.impact>0?formatEuro(d.impact):'—',
+    sugg:d.qteSugg!=null?d.qteSugg+' u.':'—',
+    action:escapeHtml((d.action||'').substring(0,50)),
+  })),[
+    {key:'type',label:'Type',cls:'text-xs text-center'},
+    {key:'label',label:'Article / Famille',cls:'text-xs font-semibold'},
+    {key:'impact',label:'CA/sem',cls:'text-xs text-right font-bold'},
+    {key:'sugg',label:'Qté sugg.',cls:'text-xs text-center'},
+    {key:'action',label:'Action',cls:'text-xs t-tertiary'},
+  ],`${items.length} article${items.length!==1?'s':''}`);
+}
+
+function _nlAnomalieMinmax(){
+  const rows=DataStore.finalData
+    .filter(r=>(!r.nouveauMin||r.nouveauMin===0)&&(r.V||0)>0&&!r.isParent)
+    .map(r=>({code:r.code,lib:escapeHtml((r.libelle||r.code).substring(0,35)),v:r.V,ca:Math.round(r.caAnnuel||0),abc:r.abcClass||'?',fam:r.famille||'',stock:r.stockActuel||0}))
+    .sort((a,b)=>b.ca-a.ca).slice(0,50);
+  _renderNLResult('Articles actifs sans MIN/MAX ERP',rows.map(r=>({
+    code:`<span class="font-mono text-[10px] t-disabled">${r.code}</span>`,
+    lib:r.lib,
+    v:r.v,
+    ca:formatEuro(r.ca),
+    abc:`<span class="font-bold ${r.abc==='A'?'c-danger':r.abc==='B'?'c-caution':'t-disabled'}">${r.abc}</span>`,
+    stock:r.stock>0?`<span class="c-ok">${r.stock}</span>`:'<span class="c-danger font-bold">0</span>',
+    fam:r.fam,
+  })),[
+    {key:'code',label:'Code',cls:'text-xs'},
+    {key:'lib',label:'Libellé',cls:'text-xs font-semibold'},
+    {key:'v',label:'W',cls:'text-xs text-center t-tertiary'},
+    {key:'ca',label:'CA annuel',cls:'text-xs text-right font-bold'},
+    {key:'abc',label:'ABC',cls:'text-xs text-center'},
+    {key:'stock',label:'Stock',cls:'text-xs text-center'},
+    {key:'fam',label:'Famille',cls:'text-xs t-tertiary'},
+  ],`${rows.length} article${rows.length!==1?'s':''} sans calibrage`);
+}
+
+function _nlBenchFamilleReseau({query}){
+  const hm=_S.reseauHeatmapData;const fp=_S.benchLists?.familyPerf;
+  if(!hm?.familles?.length&&!fp?.length){_renderNLResult('Performance réseau',[],[],`Réseau ou Benchmark non disponible`);return;}
+  const qn=_normNL(query);let matchedFam=null;
+  // Fuzzy match famille dans heatmap ou familyPerf
+  for(const src of[hm?.familles||[],fp?.map(f=>f.fam)||[]]){
+    if(matchedFam)break;
+    let best=0;
+    for(const fam of src){
+      for(const w of _normNL(fam).split(/\s+/)){
+        if(w.length>3&&qn.includes(w)&&w.length>best){best=w.length;matchedFam=fam;}
+      }
+    }
+  }
+  if(matchedFam&&hm?.matrix?.[matchedFam]){
+    const rows=Object.entries(hm.matrix[matchedFam]).map(([store,ratio])=>({store,ratio})).sort((a,b)=>b.ratio-a.ratio);
+    _renderNLResult(`Réseau — ${matchedFam}`,rows.map((r,i)=>({
+      rank:`<strong>#${i+1}</strong>`,
+      store:escapeHtml(r.store),
+      ratio:`<span class="font-bold ${r.ratio>=1.2?'c-ok':r.ratio<0.5?'c-danger':'c-caution'}">${Math.round(r.ratio*100)}%</span>`,
+    })),[
+      {key:'rank',label:'#',cls:'text-xs text-center'},
+      {key:'store',label:'Agence',cls:'text-xs font-semibold'},
+      {key:'ratio',label:'vs médiane',cls:'text-xs text-center'},
+    ],`${rows.length} agences · famille "${matchedFam}"`);
+    return;
+  }
+  // Fallback : familles triées par médiane réseau
+  const rows=(fp||[]).sort((a,b)=>(b.med||0)-(a.med||0)).slice(0,20).map(f=>({
+    fam:escapeHtml(f.fam),moi:f.my||0,med:f.med||0,pct:f.med>0?Math.round(f.my/f.med*100)+'%':'—',
+  }));
+  _renderNLResult('Performance réseau — toutes familles',rows,[
+    {key:'fam',label:'Famille',cls:'text-xs font-semibold'},
+    {key:'moi',label:'Moi',cls:'text-xs text-right'},
+    {key:'med',label:'Médiane réseau',cls:'text-xs text-right t-tertiary'},
+    {key:'pct',label:'% médiane',cls:'text-xs text-right'},
+  ],matchedFam?`"${matchedFam}" non trouvé dans heatmap`:`${rows.length} familles`);
+}
+
+function _nlMetierCanal({canal,metierKw}){
+  if(!_S.ventesClientHorsMagasin?.size){_renderNLResult(`Clients ${canal}`,[],[],`Données hors-agence non disponibles`);return;}
+  // Cherche le libellé métier exact dans chalandise
+  let metierMatch=null;
+  if(_S.chalandiseReady&&metierKw){
+    for(const info of _S.chalandiseData.values()){
+      if(info.metier&&_normNL(info.metier).includes(metierKw)){metierMatch=info.metier;break;}
+    }
+  }
+  const rows=[];
+  for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+    let ca=0,hasC=false;
+    for(const v of artMap.values()){if(v.canal===canal){hasC=true;ca+=(v.sumCA||0);}}
+    if(!hasC||ca<=0)continue;
+    const info=_S.chalandiseData?.get(cc)||{};
+    if(metierKw){
+      const m=_normNL(info.metier||'');
+      if(!m.includes(metierKw))continue;
+    }
+    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—',hasPdv:_S.ventesClientArticle?.has(cc)});
+  }
+  rows.sort((a,b)=>b.ca-a.ca);
+  const label=metierMatch||metierKw||'tous métiers';
+  _renderNLResult(`Clients ${label} — ${canal}`,rows.slice(0,40).map(r=>({
+    nom:escapeHtml(r.nom),
+    ca:formatEuro(r.ca),
+    pdv:r.hasPdv?'<span class="c-ok text-[10px]">✓ PDV</span>':'<span class="c-caution text-[10px]">hors-PDV</span>',
+    metier:escapeHtml(r.metier),
+    commercial:escapeHtml(r.commercial),
+  })),[
+    {key:'nom',label:'Client',cls:'text-xs font-semibold t-primary'},
+    {key:'ca',label:`CA ${canal}`,cls:'text-xs text-right font-bold'},
+    {key:'pdv',label:'PDV',cls:'text-xs text-center'},
+    {key:'metier',label:'Métier',cls:'text-xs t-tertiary'},
+    {key:'commercial',label:'Commercial',cls:'text-xs t-tertiary'},
+  ],`${rows.length} client${rows.length!==1?'s':''}`);
+}
+
+function _nlArticlesHorsMarque({term}){
+  if(!_S.ventesClientHorsMagasin?.size){_renderNLResult('Articles achetés ailleurs',[],[],`Données hors-agence non disponibles`);return;}
+  const tn=_normNL(term);
+  const codeCA=new Map();
+  for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+    for(const[code,v] of artMap.entries()){
+      const lib=_normNL(_S.libelleLookup[code]||code);
+      if(!lib.includes(tn)&&!_normNL(code).includes(tn))continue;
+      if(!codeCA.has(code))codeCA.set(code,{ca:0,clients:new Set()});
+      const r=codeCA.get(code);r.ca+=(v.sumCA||0);r.clients.add(cc);
+    }
+  }
+  const rows=[...codeCA.entries()].map(([code,d])=>{
+    const art=DataStore.finalData.find(r=>r.code===code);
+    const inPdv=[...(_S.ventesClientArticle?.values()||[])].some(m=>m.has(code));
+    return{code,lib:escapeHtml((_S.libelleLookup[code]||code).substring(0,35)),caHors:d.ca,clients:d.clients.size,inPdv,abc:art?.abcClass||'—',stock:art!=null?(art.stockActuel||0):-1};
+  }).sort((a,b)=>b.caHors-a.caHors).slice(0,30);
+  _renderNLResult(`"${term.substring(0,20)}" achetés ailleurs`,rows.map(r=>({
+    code:`<span class="font-mono text-[10px] t-disabled">${r.code}</span>`,
+    lib:r.lib,
+    caHors:formatEuro(r.caHors),
+    clients:r.clients,
+    pdv:r.inPdv?'<span class="c-ok text-[10px]">✓ PDV</span>':'<span class="c-caution text-[10px]">absent PDV</span>',
+    stock:r.stock>=0?(r.stock>0?`<span class="c-ok">${r.stock}</span>`:'<span class="c-danger">0</span>'):'—',
+    abc:`<span class="${r.abc==='A'?'c-danger font-bold':r.abc==='B'?'c-caution font-bold':'t-disabled'}">${r.abc}</span>`,
+  })),[
+    {key:'code',label:'Code',cls:'text-xs'},
+    {key:'lib',label:'Article',cls:'text-xs font-semibold'},
+    {key:'caHors',label:'CA ailleurs',cls:'text-xs text-right font-bold c-danger'},
+    {key:'clients',label:'Clients',cls:'text-xs text-center'},
+    {key:'pdv',label:'Chez moi',cls:'text-xs text-center'},
+    {key:'stock',label:'Stock',cls:'text-xs text-center'},
+    {key:'abc',label:'ABC',cls:'text-xs text-center'},
+  ],`${rows.length} article${rows.length!==1?'s':''} trouvés`);
+}
+
 function _dispatchNLQuery(intent,params,raw){
   _resetNLDisplay();
   switch(intent){
-    case 'RECONQUETE':        _nlReconquete();break;
-    case 'CLIENTS_SILENCIEUX':_nlClientsSilencieux(params);break;
-    case 'CLIENTS_PERDUS':    _nlClientsPerdus(params);break;
-    case 'STOCK_DORMANT':     _nlStockDormant(params);break;
-    case 'BENCH_SOUS_MEDIANE':_nlBenchSousMediane();break;
-    case 'KPI_TAUX_SERVICE':  _nlKpiTauxService();break;
-    case 'CLIENTS_HORS_AGENCE':_nlClientsHorsAgence(params);break;
-    case 'CANAL_EXCLUSIF':    _nlCanalExclusif(params);break;
-    case 'TOP_CLIENTS_CANAL': _nlTopClientsCanal(params);break;
-    case 'OPPORTUNITES':      _nlOpportunites(params);break;
-    case 'NOUVEAUX_CLIENTS':  _nlNouveauxClients();break;
+    case 'RECONQUETE':          _nlReconquete();break;
+    case 'COMMERCIAL_SILENCE':  _nlCommercialSilence(params);break;
+    case 'CHURN_ACTIF':         _nlChurnActif(params);break;
+    case 'CLIENTS_SILENCIEUX':  _nlClientsSilencieux(params);break;
+    case 'CLIENTS_PERDUS':      _nlClientsPerdus(params);break;
+    case 'STOCK_DORMANT':       _nlStockDormant(params);break;
+    case 'RUPTURES_TOP_CLIENTS':_nlRupturesTopClients(params);break;
+    case 'DQ_REASSORT':         _nlDqReassort();break;
+    case 'ANOMALIE_MINMAX':     _nlAnomalieMinmax();break;
+    case 'BENCH_SOUS_MEDIANE':  _nlBenchSousMediane();break;
+    case 'BENCH_FAMILLE_RESEAU':_nlBenchFamilleReseau(params);break;
+    case 'KPI_TAUX_SERVICE':    _nlKpiTauxService();break;
+    case 'ARTICLES_HORS_MARQUE':_nlArticlesHorsMarque(params);break;
+    case 'CLIENTS_HORS_AGENCE': _nlClientsHorsAgence(params);break;
+    case 'METIER_CANAL':        _nlMetierCanal(params);break;
+    case 'CANAL_EXCLUSIF':      _nlCanalExclusif(params);break;
+    case 'TOP_CLIENTS_CANAL':   _nlTopClientsCanal(params);break;
+    case 'OPPORTUNITES':        _nlOpportunites(params);break;
+    case 'NOUVEAUX_CLIENTS':    _nlNouveauxClients();break;
     default:break;
   }
 }
