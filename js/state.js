@@ -324,9 +324,11 @@ export function resetAppState() {
 // Ces assertions détectent les régressions silencieuses lors des refactorings.
 // Elles s'activent uniquement en dev (console.assert est no-op en prod si les devtools sont fermés).
 export function assertPostParseInvariants() {
-  // Invariant 1 : finalData peuplé après parsing stock
-  console.assert(_S.finalData.length > 0,
-    '[PRISME] finalData vide après parsing — vérifier le fichier État du Stock');
+  // Invariant 1 : finalData peuplé après parsing stock (ignoré en mode consommé seul)
+  if (_S._hasStock) {
+    console.assert(_S.finalData.length > 0,
+      '[PRISME] finalData vide après parsing — vérifier le fichier État du Stock');
+  }
 
   // Invariant 2 : globalJoursOuvres dans une plage cohérente (non-bloquant — période variable)
   // < 40 j : données insuffisantes pour des MIN/MAX fiables
