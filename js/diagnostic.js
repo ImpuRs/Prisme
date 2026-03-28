@@ -292,15 +292,47 @@ function _c360CopyResume(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientNomLookup?.[clientCode]||info.nom||clientCode;
   const artMap=DataStore.ventesClientArticle?.get(clientCode);
+  const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+  const caHors=horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
   const ca2025=info.ca2025||0;
   const lastOrder=_S.clientLastOrder?.get(clientCode);
   const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
+  const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
+  // Omni
+  const omni=_S.clientOmniScore?.get(clientCode);
+  const SEG_LABEL={mono:'Mono PDV 🏪',hybride:'Hybride 🔀',digital:'Digital 📱',dormant:'Dormant 💤'};
+  const total=(omni?.caPDV||0)+(omni?.caHors||0);
+  const pctDigital=total>0?Math.round((omni?.caHors||0)/total*100):0;
+  // Canal dominant hors-agence
+  const canalCount={};
+  if(horsMag)for(const[,d]of horsMag)canalCount[d.canal||'']=(canalCount[d.canal||'']||0)+(d.sumCA||0);
+  const mainCanal=Object.entries(canalCount).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+  const CANAL_TEXT={INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS'};
+  // Familles fuyantes (hors-agence sans PDV) pour ce client
+  const famsPDV=new Set();
+  if(artMap)for(const[code]of artMap){const r=_S.articleFamille?.[code];if(r)famsPDV.add(r);}
+  const famHors={};
+  if(horsMag)for(const[code,d]of horsMag){const r=_S.articleFamille?.[code];if(r&&!famsPDV.has(r)){famHors[r]=(famHors[r]||0)+(d.sumCA||0);}}
+  const fuyantes=Object.entries(famHors).filter(([,ca])=>ca>=100).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const famPDVOnly=[...famsPDV].filter(r=>!famHors[r]).map(r=>famLib(r)||r).slice(0,4);
+  // Opportunités (articles hors-agence absents/rupture PDV)
+  const horsCodes=horsMag?[...horsMag.keys()]:[];
+  const nbOpp=horsCodes.filter(c=>!artMap?.has(c)).length;
+  // Build text
   const lines=[
     `CLIENT 360° — ${nom} (${clientCode})`,
-    `Métier : ${info.metier||'—'} · Commercial : ${info.commercial||'—'} · ${info.ville||''}`,
+    `Métier : ${info.metier||'—'} · Commercial : ${info.commercial||'—'}${info.ville?' · '+info.ville:''}`,
+    `─────────────────────────────────────────────`,
     `CA Magasin : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
-    daysSince!==null?`Dernière commande : il y a ${daysSince}j`:'',
+    caHors>0?`CA Digital : ${formatEuro(caHors)}${total>0?` (${pctDigital}%)`:''} · Canal : ${CANAL_TEXT[mainCanal]||mainCanal||'—'}`:'',
+    daysSince!==null?`Dernière commande PDV : il y a ${daysSince}j${priorite}`:'',
+    omni?`Score Omni : ${omni.score}/100 · Segment : ${SEG_LABEL[omni.segment]||omni.segment}`:'',
+    `─────────────────────────────────────────────`,
+    fuyantes.length?`Familles fuyantes (hors agence, pas au PDV) :`:'',
+    ...fuyantes.map(([r,ca])=>`  - ${famLib(r)||r} : ${formatEuro(ca)}`),
+    famPDVOnly.length?`Familles uniquement au comptoir : ${famPDVOnly.join(' · ')}`:'',
+    nbOpp>0?`Opportunités articles : ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence non stockés ici`:''
   ].filter(Boolean);
   navigator.clipboard?.writeText(lines.join('\n'))
     .then(()=>showToast('📋 Résumé copié','success'))
