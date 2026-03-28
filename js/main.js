@@ -4214,7 +4214,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 </div>`;
       }).join('');
       if(cards)momentumHtml=`<div class="mb-5">
-  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📈 Momentum commercial</h3>
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3>
+    <button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button>
+  </div>
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>
   <p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer dans Le Terrain · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j sans commande PDV</p>
 </div>`;
@@ -4243,6 +4246,43 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     switchTab('territoire');
     if(typeof renderTerritoireTab==='function')renderTerritoireTab();
   }
+
+  function _exportTourneeCSV(){
+    const now=new Date();
+    const rows=[];
+    for(const[cc,arts]of(_S.ventesClientArticle||new Map())){
+      const lastPDV=_S.clientLastOrder?.get(cc);
+      const silenceDays=lastPDV?Math.round((now-lastPDV)/86400000):999;
+      if(silenceDays<30)continue; // actifs récents : pas besoin de visite urgente
+      let caPDV=0;for(const[,v]of arts)caPDV+=v.sumCA||0;
+      if(caPDV<100)continue;
+      const omni=_S.clientOmniScore?.get(cc);
+      const caHors=omni?.caHors||0;
+      const info=_S.chalandiseData?.get(cc);
+      const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+      const priorite=silenceDays>90?'URGENT':silenceDays>60?'À RELANCER':'SURVEILLER';
+      rows.push({
+        code:cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',
+        dernierPDV:lastPDV?lastPDV.toLocaleDateString('fr-FR'):'',
+        silenceDays,caPDV:Math.round(caPDV),caHors:Math.round(caHors),
+        omniScore:omni?.score||0,segment:omni?.segment||'',priorite
+      });
+    }
+    rows.sort((a,b)=>{
+      const p={'URGENT':0,'À RELANCER':1,'SURVEILLER':2};
+      const pa=p[a.priorite]??3,pb=p[b.priorite]??3;
+      if(pa!==pb)return pa-pb;
+      return(b.caPDV+b.caHors)-(a.caPDV+a.caHors);
+    });
+    const header=['Code','Nom','Métier','Commercial','Dernier PDV','Silence (j)','CA PDV','CA Digital','Score Omni','Segment','Priorité'];
+    const escape=v=>`"${String(v===null||v===undefined?'':v).replace(/"/g,'""')}"`;
+    const csv=[header,...rows.map(r=>[r.code,r.nom,r.metier,r.commercial,r.dernierPDV,r.silenceDays,r.caPDV,r.caHors,r.omniScore,r.segment,r.priorite])].map(row=>row.map(escape).join(';')).join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`plan-visite-${(_S.selectedMyStore||'agence').replace(/\s+/g,'-')}-${now.toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+  }
+  window._exportTourneeCSV=_exportTourneeCSV;
 
   // ── Lazy tab renderer — renders only the currently active tab ──
   function renderCurrentTab(){
