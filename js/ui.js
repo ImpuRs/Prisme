@@ -1065,11 +1065,10 @@ export function renderIRABanner() {
   // ── Historique IRA (localStorage) ──
   _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
 
-  const components = [
-    `Dispo.\u00a0rayon\u00a0${stockScore}`,
-    `Activité\u00a0clients\u00a0${clientScore}`,
-    `Captation\u00a0zone\u00a0${captationScore}`,
-  ].join('\u00a0·\u00a0');
+  const _compDispo = `Dispo.\u00a0${stockScore}%`;
+  const _compClients = actifCount > 0 ? `${actifCount}\u00a0clients\u00a0actifs` : `Activité\u00a0${clientScore}%`;
+  const _compCapt = caFuyant > 0 ? `${Math.round(caFuyant/1000)}k€\u00a0fuyant` : `0\u00a0fuite\u00a0détectée`;
+  const components = [_compDispo, _compClients, _compCapt].join('\u00a0·\u00a0');
 
   el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default)">
     <span style="font-weight:800;font-size:0.8rem;color:${iraColor}">📊\u00a0${ira}/100</span>
