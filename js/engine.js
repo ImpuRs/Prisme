@@ -525,7 +525,7 @@ export function generateDecisionQueue() {
   _S._fragiliteData = null;
   if (_S.articleClients.size > 0) {
     const fragiles = [];
-    if (_S.cockpitLists?.fragiles) _S.cockpitLists.fragiles.clear();
+    if (_S.cockpitLists?.fragiles?.clear) _S.cockpitLists.fragiles.clear();
     for (const r of _S.finalData) {
       if (r.W < 3) continue;
       const clients = _S.articleClients.get(r.code);
