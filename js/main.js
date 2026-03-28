@@ -4034,12 +4034,12 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
   }
 
-  // ── Vue "Mes clients" (V4) ─────────────────────────────────────────
+  // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────
   function renderMesClients(){
     const el=document.getElementById('tabClients');
     if(!el)return;
-    if(!DataStore.finalData.length){
-      el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord vos fichiers de données.</div>';
+    if(!_S.ventesClientArticle.size && !_S.finalData.length){
+      el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
       return;
     }
     const now=new Date();
@@ -4098,9 +4098,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }).join('')}</div></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
 
-    // ── S3b : Segments omnicanaux ─────────────────────────────────────────
+    // ── S3b : Segments omnicanaux → déplacé vers Le Terrain (Sprint 5) ─────
     let omniHtml='';
-    if(_S.clientOmniScore?.size){
+    if(false&&_S.clientOmniScore?.size){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
       for(const[,o]of _S.clientOmniScore){
         if(o.segment==='mono'){nMono++;caMono+=o.caPDV;}
@@ -4140,9 +4140,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }
     }
 
-    // ── S4: Actifs hors agence (top 10) ──────────────────────────────
+    // ── S4: Actifs hors agence → déplacé vers Le Terrain (Sprint 5) ─────────
     const horsAgence=[];
-    for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
+    if(false)for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
       const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
       if(totalHors<500)continue;
       const pdvMap=_S.ventesClientArticle.get(cc);
@@ -4160,6 +4160,54 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dont le CA hors-agence dépasse le CA en magasin — signal de captation partielle à convertir.</p>
       <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','clients')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td><td class="py-1.5 text-right c-action font-semibold">${c.commercial||'—'}</td></tr>`).join('')}</tbody></table></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
+
+    // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
+    let topPDVHtml='';
+    if(_S.ventesClientArticle.size){
+      const topRows=[];
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<100)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        topRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
+      }
+      topRows.sort((a,b)=>b.caPDV-a.caPDV);
+      const top=topRows.slice(0,20);
+      if(top.length){
+        const now=Date.now();
+        const rows=top.map(r=>{
+          const daysSince=r.lastDate?Math.round((now-r.lastDate)/86400000):null;
+          const silence=daysSince!==null?`${daysSince}j`:'—';
+          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+          const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
+          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+        }).join('');
+        topPDVHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      }
+    }
+
+    // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
+    let horsZoneHtml='';
+    if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+      const hors=[];
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        if(_S.chalandiseData.has(cc))continue;
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<200)continue;
+        const nom=_S.clientNomLookup?.[cc]||cc;
+        hors.push({cc,nom,caPDV});
+      }
+      hors.sort((a,b)=>b.caPDV-a.caPDV);
+      if(hors.length){
+        const rows=hors.slice(0,10).map(r=>`<div class="flex items-center justify-between py-1.5 px-3 border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><span class="font-bold text-[11px] t-primary">${r.nom}</span><span class="text-[10px] t-disabled font-mono">${r.cc}</span><span class="font-bold text-[11px] c-action">${formatEuro(r.caPDV)}</span></div>`).join('');
+        horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div>${rows}</div></div>`;
+      }
+    }
 
     // ── Section 4b : Clients devenus digitaux ────────────────────────────
     let digitauxHtml='';
@@ -4203,9 +4251,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }
     }
 
-    // ── Section 5 : Momentum commercial ──────────────────────────────────
+    // ── Section 5 : Momentum commercial → déplacé vers Le Terrain (Sprint 5) ─
     let momentumHtml='';
-    if(_S.clientsByCommercial?.size>1){
+    if(false&&_S.clientsByCommercial?.size>1){
       const now=new Date();
       const rows=[];
       for(const[com,ccs]of _S.clientsByCommercial){
@@ -4263,22 +4311,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 </div>`;
     }
 
-    const top5El=document.getElementById('clientsTop5');
-    const reconqEl=document.getElementById('clientsReconquete');
-    const oppsEl=document.getElementById('clientsOpportunites');
-    const omniEl=document.getElementById('clientsOmni');
-    const haEl=document.getElementById('clientsHorsAgence');
-    const digitauxEl=document.getElementById('clientsDigitaux');
-    const momEl=document.getElementById('clientsMomentum');
-    if(top5El)top5El.innerHTML=top5Html;
-    if(reconqEl)reconqEl.innerHTML=reconqHtml;
-    if(oppsEl)oppsEl.innerHTML=oppsHtml;
-    if(omniEl)omniEl.innerHTML=omniHtml;
-    if(haEl)haEl.innerHTML=haHtml;
-    if(digitauxEl)digitauxEl.innerHTML=digitauxHtml;
-    if(momEl)momEl.innerHTML=momentumHtml;
-    // Restaurer/activer le sous-onglet actif (persisté dans _S)
-    _switchClientsTab(_S._clientsActiveTab||'priorites');
+    const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
+    _setEl('clientsTop5',top5Html);
+    _setEl('clientsTopPDV',topPDVHtml);
+    _setEl('clientsHorsZone',horsZoneHtml);
+    _setEl('clientsDigitaux',digitauxHtml);
+    _setEl('clientsReconquete',reconqHtml);
+    _setEl('clientsOpportunites',oppsHtml);
   }
 
   function _goCommercial(commercial){
@@ -4326,18 +4365,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
   window._exportTourneeCSV=_exportTourneeCSV;
 
-  // ── Sous-onglets Mes clients ──────────────────────────────────────────────
-  function _switchClientsTab(tab){
-    _S._clientsActiveTab=tab;
-    ['priorites','horsagence','commercial'].forEach(t=>{
-      const pane=document.getElementById('clientsPane-'+t);
-      const btn=document.getElementById('clientsTabBtn-'+t);
-      if(pane)pane.classList.toggle('hidden',t!==tab);
-      if(btn){
-        if(t===tab){btn.classList.add('border-cyan-500','text-cyan-400');btn.classList.remove('border-transparent','t-disabled');}
-        else{btn.classList.remove('border-cyan-500','text-cyan-400');btn.classList.add('border-transparent','t-disabled');}
-      }
-    });
+  // ── Sous-onglet Clients PDV (vue unique) ─────────────────────────────────
+  function _switchClientsTab(){
+    // Vue unique — pas de sous-onglets depuis Sprint 4
+    const pane=document.getElementById('clientsPane-priorites');
+    if(pane)pane.classList.remove('hidden');
   }
   window._switchClientsTab=_switchClientsTab;
 
