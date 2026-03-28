@@ -273,6 +273,8 @@ export async function _saveSessionToIDB() {
       obsFilterUnivers:      _S.obsFilterUnivers,
       periodFilterStart:     _S.periodFilterStart ? _S.periodFilterStart.getTime() : null,
       periodFilterEnd:       _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
+      // ── Filtres chalandise ──
+      _selectedCommercial:   _S._selectedCommercial || '',
       // ── Benchmark (cache rendu) ──
       benchLists:            _serializeBenchLists(_S.benchLists),
       // ── Moteur saisonnier (B3) ──
@@ -373,6 +375,9 @@ export async function _restoreSessionFromIDB() {
     // ── Client aggregation Worker (B1) ──
     _S.clientFamCA     = data.clientFamCA     || {};
     _S.metierFamBench  = data.metierFamBench  || {};
+
+    // ── Filtres chalandise ──
+    if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
 
     // ── Opportunité nette (C1) ──
     _S.opportuniteNette = data.opportuniteNette || [];
