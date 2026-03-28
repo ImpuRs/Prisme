@@ -2250,6 +2250,99 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function renderTerritoireTab(){
+    // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
+    {
+      const now=new Date();
+      const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
+
+      // Top 5 priorités semaine
+      let top5=[];
+      if(_S._top5Semaine?.length){top5=_S._top5Semaine;}
+      else if(_S.clientLastOrder.size){
+        const cands=[];
+        for(const[cc,lastDate]of _S.clientLastOrder.entries()){
+          const daysSince=Math.round((now-lastDate)/86400000);
+          if(daysSince<30)continue;
+          const info=_S.chalandiseData.get(cc);if(!info)continue;
+          const artMap=_S.ventesClientArticle.get(cc);
+          const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+          const ca=Math.max((info.ca2025||0)+caPDV,1);
+          const score=(daysSince/30)*Math.sqrt(ca);
+          const hmCount=(_S.ventesClientHorsMagasin.get(cc)||new Map()).size;
+          const parts=[];
+          if(daysSince>0)parts.push(`${daysSince}j silence`);
+          if(info.ca2025>0)parts.push(`CA ${formatEuro(info.ca2025)}/an`);
+          else if(caPDV>0)parts.push(`CA PDV ${formatEuro(caPDV)}/an`);
+          if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
+          cands.push({cc,nom:info.nom||cc,commercial:info.commercial||'',metier:info.metier||'',score:Math.round(score),reason:parts.join(' · ')||'À contacter'});
+        }
+        cands.sort((a,b)=>b.score-a.score);
+        top5=cands.slice(0,5);
+      }
+      const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2"><div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233"><div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3><p class="text-[10px] t-tertiary mt-0.5">Clients silencieux depuis >30j, classés par CA × durée de silence</p></div>${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la zone de chalandise pour plus de précision</span>`}</div><div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.cc}','territoire')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c.reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
+      _setEl('terrTop5',top5Html);
+
+      // Reconquête
+      const reconq=(_S.reconquestCohort||[]).slice(0,10);
+      const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_S.reconquestCohort.length} anciens clients FID</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients avec historique PDV significatif (CA≥500€, ≥1 famille), silencieux depuis plus de 6 mois.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_S.chalandiseReady?'Aucun client éligible.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
+      _setEl('terrReconquete',reconqHtml);
+
+      // Opportunités nettes
+      const opps=(_S.opportuniteNette||[]).slice(0,8);
+      const oppsHtml=opps.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🎯 Opportunités nettes <span class="text-[10px] font-normal t-disabled ml-1">${_S.opportuniteNette.length} clients avec familles manquantes</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Familles que les clients du même métier achètent chez vous — mais pas ce client. Le % = part des confrères qui achètent cette famille.</p><div class="flex flex-col gap-2">${opps.map(o=>{const fams=o.missingFams.map(f=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full i-info-bg c-action font-semibold">${f.fam} ${f.metierPct}%</span>`).join(' ');return`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${o.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${o.nom}</span><span class="text-[10px] t-tertiary">${o.metier||'—'}</span><span class="text-[10px] c-action font-bold">${o.commercial||'—'}</span></div><div class="flex flex-wrap gap-1 mt-1">${fams}</div><div class="text-[10px] t-tertiary mt-1">Potentiel : <strong class="c-action">${formatEuro(o.totalPotentiel)}</strong>/an · ${o.nbMissing} famille${o.nbMissing>1?'s':''}</div></div>`;}).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
+      _setEl('terrOpportunites',oppsHtml);
+
+      // Top clients PDV
+      let topPDVHtml='';
+      if(_S.ventesClientArticle.size){
+        const topRows=[];
+        for(const[cc,artMap]of _S.ventesClientArticle){
+          const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+          if(caPDV<100)continue;
+          const horsMap=_S.ventesClientHorsMagasin.get(cc);
+          const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+          const caTotal=caPDV+caHors;
+          const lastDate=_S.clientLastOrder?.get(cc);
+          const info=_S.chalandiseData?.get(cc);
+          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+          topRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
+        }
+        topRows.sort((a,b)=>b.caPDV-a.caPDV);
+        const top=topRows.slice(0,20);
+        if(top.length){
+          const nowMs=Date.now();
+          const rows=top.map(r=>{
+            const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+            const silence=daysSince!==null?`${daysSince}j`:'—';
+            const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+            const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
+            return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+          }).join('');
+          topPDVHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        }
+      }
+      _setEl('terrTopPDV',topPDVHtml);
+
+      // Clients PDV hors zone
+      let horsZoneHtml='';
+      if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+        const hors=[];
+        for(const[cc,artMap]of _S.ventesClientArticle){
+          if(_S.chalandiseData.has(cc))continue;
+          const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+          if(caPDV<200)continue;
+          const nom=_S.clientNomLookup?.[cc]||cc;
+          hors.push({cc,nom,caPDV});
+        }
+        hors.sort((a,b)=>b.caPDV-a.caPDV);
+        if(hors.length){
+          const rows=hors.slice(0,10).map(r=>`<div class="flex items-center justify-between py-1.5 px-3 border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><span class="font-bold text-[11px] t-primary">${r.nom}</span><span class="text-[10px] t-disabled font-mono">${r.cc}</span><span class="font-bold text-[11px] c-action">${formatEuro(r.caPDV)}</span></div>`).join('');
+          horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div>${rows}</div></div>`;
+        }
+      }
+      _setEl('terrHorsZone',horsZoneHtml);
+    }
+
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
