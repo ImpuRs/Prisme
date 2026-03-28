@@ -912,83 +912,10 @@ export function dqFocus(idx) {
   }
 }
 
-// ── Health Score agence 0-100 ──────────────────────────────────
+// ── Health Score — fusionné dans renderIRABanner, ce bloc est inactif ──
 export function renderHealthScore() {
   const el = document.getElementById('healthScoreBadge');
-  if (!el) return;
-  if (!_S._hasStock && !_S.clientLastOrder.size) { el.classList.add('hidden'); return; }
-  const hs = computeHealthScore();
-  if (!hs) { el.classList.add('hidden'); return; }
-  el.classList.remove('hidden');
-  if (hs.degraded) {
-    const [bg, text, ring] = hs.score >= 70
-      ? ['rgba(22,163,74,0.12)', 'var(--c-ok, #16a34a)', 'rgba(22,163,74,0.3)']
-      : hs.score >= 40
-      ? ['rgba(217,119,6,0.12)', 'var(--c-caution, #d97706)', 'rgba(217,119,6,0.3)']
-      : ['rgba(220,38,38,0.12)', 'var(--c-danger, #dc2626)', 'rgba(220,38,38,0.3)'];
-    const details = [
-      `Momentum : ${hs.details.momentum}%`,
-      hs.details.captation != null ? `Captation : ${hs.details.captation}%` : null,
-    ].filter(Boolean).join(' · ');
-    el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;background:${bg};outline:1px solid ${ring}">
-      <span style="font-size:1.5rem;font-weight:900;color:${text}">${hs.score}<span style="font-size:0.75rem;font-weight:600">/100</span></span>
-      <div>
-        <p style="font-size:0.75rem;font-weight:700;color:${text};margin:0">${hs.label}</p>
-        <p style="font-size:0.65rem;color:${text};opacity:0.7;margin:0">${details}</p>
-      </div>
-      <span style="margin-left:auto;font-size:0.6rem;font-weight:700;color:${text};opacity:0.5;text-transform:uppercase;letter-spacing:0.05em">Mode commercial</span>
-    </div>`;
-    return;
-  }
-  // Full mode (stock loaded) — inline calculation
-  const d = _S.finalData;
-  if (!d.length) { el.classList.add('hidden'); return; }
-
-  const articlesA = d.filter(r => r.abcClass === 'A' && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-  const scoreStock = articlesA.length > 0 ? Math.max(0, 1 - articlesA.filter(r => r.stockActuel <= 0).length / articlesA.length) : 1;
-
-  let scoreClients = 0.5;
-  if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
-    const nowTs = Date.now();
-    const actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
-    scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
-  }
-
-  const serv = _S.benchLists?.obsKpis?.mine?.serv || 0;
-
-  let valDormants = 0, valStock = 0;
-  for (const r of d) {
-    const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
-    valStock += val;
-    if ((r.ageJours || 0) > 365) valDormants += val;
-  }
-  const scoreDorm = valStock > 0 ? Math.max(0, 1 - valDormants / valStock) : 1;
-
-  const score = Math.round(scoreStock * 30 + scoreClients * 30 + (serv / 100) * 20 + scoreDorm * 20);
-
-  const [bg, text, ring] = score >= 70
-    ? ['rgba(22,163,74,0.12)', 'var(--c-ok, #16a34a)', 'rgba(22,163,74,0.3)']
-    : score >= 45
-    ? ['rgba(217,119,6,0.12)', 'var(--c-caution, #d97706)', 'rgba(217,119,6,0.3)']
-    : ['rgba(220,38,38,0.12)', 'var(--c-danger, #dc2626)', 'rgba(220,38,38,0.3)'];
-
-  const labelStr = score >= 70 ? 'Bonne santé' : score >= 45 ? 'Vigilance' : 'Actions requises';
-  const details = [
-    `Stock\u00a0A\u00a0: ${Math.round(scoreStock * 100)}%`,
-    _S.chalandiseReady ? `Captation\u00a0: ${Math.round(scoreClients * 100)}%` : null,
-    serv > 0 ? `Service\u00a0: ${serv}%` : null,
-    `Actif/dormant\u00a0: ${Math.round(scoreDorm * 100)}%`,
-  ].filter(Boolean).join(' · ');
-
-  el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;background:${bg};outline:1px solid ${ring}">
-    <span style="font-size:1.5rem;font-weight:900;color:${text}">${score}<span style="font-size:0.75rem;font-weight:600">/100</span></span>
-    <div>
-      <p style="font-size:0.75rem;font-weight:700;color:${text};margin:0">${labelStr}</p>
-      <p style="font-size:0.65rem;color:${text};opacity:0.7;margin:0">${details}</p>
-    </div>
-    <span style="margin-left:auto;font-size:0.6rem;font-weight:700;color:${text};opacity:0.5;text-transform:uppercase;letter-spacing:0.05em">Score agence</span>
-  </div>`;
-  el.classList.remove('hidden');
+  if (el) el.classList.add('hidden');
 }
 
 // ── No-stock placeholder ──────────────────────────────────────
@@ -1132,26 +1059,23 @@ export function renderIRABanner() {
     ? `${Math.round(caPDV/1000)}k€ PDV · ${Math.round(caFuyant/1000)}k€ fuyant`
     : 'Aucune fuite détectée';
 
-  const iraColor = _scoreColor(ira);
-  const iraLabel = ira >= 75 ? 'Agence en forme' : ira >= 50 ? 'Points d\'attention' : 'Actions urgentes';
+  const iraLabel = ira >= 70 ? 'Bonne santé' : ira >= 40 ? 'Points d\'attention' : 'Actions urgentes';
+  const iraColor = ira >= 70 ? 'var(--c-ok,#16a34a)' : ira >= 40 ? 'var(--c-caution,#d97706)' : 'var(--c-danger,#dc2626)';
 
   // ── Historique IRA (localStorage) ──
   _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
-  const history = _loadIRAHistory();
-  const histSvg = _renderIRASparkline(history);
 
-  el.innerHTML = `<div style="padding:10px 14px;border-radius:12px;background:var(--bg-card,#1e2330);outline:1px solid rgba(128,128,128,0.15)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--c-muted)">📊 Indice de Risque Agence</span>
-      <span style="margin-left:auto;font-size:1.25rem;font-weight:900;color:${iraColor}">${ira}<span style="font-size:0.65rem;font-weight:600">/100</span></span>
-      <span style="font-size:0.65rem;font-weight:700;color:${iraColor};padding:2px 7px;border-radius:20px;background:${_scoreBg(ira)}">${iraLabel}</span>
-      <button onclick="exportAgenceSnapshot()" title="Exporter le snapshot agence (markdown)" style="font-size:0.65rem;padding:2px 7px;border-radius:8px;border:1px solid rgba(128,128,128,0.2);background:transparent;cursor:pointer;color:var(--c-muted)" onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">📤</button>
-    </div>
-    <div style="display:flex;gap:8px">
-      ${_pill('Stock F+M', stockScore, stockSub)}
-      ${_pill('Momentum clients', clientScore, clientSub)}
-      ${_pill('Captation PDV', captationScore, captSub)}
-    </div>${histSvg ? `<div style="margin-top:8px">${histSvg}</div>` : ''}
+  const components = [
+    `Stock\u00a0F+M\u00a0${stockScore}`,
+    `Momentum\u00a0${clientScore}`,
+    `Captation\u00a0${captationScore}`,
+  ].join('\u00a0·\u00a0');
+
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default)">
+    <span style="font-weight:800;font-size:0.8rem;color:${iraColor}">📊\u00a0${ira}/100</span>
+    <span style="font-size:0.75rem;font-weight:600;color:${iraColor}">·\u00a0${iraLabel}</span>
+    <span style="font-size:0.72rem;color:var(--t-tertiary,#94a3b8);margin-left:auto">${components}</span>
+    <button onclick="exportAgenceSnapshot()" title="Exporter snapshot agence" style="font-size:0.65rem;padding:2px 6px;border-radius:6px;border:1px solid var(--b-light,rgba(128,128,128,0.2));background:transparent;cursor:pointer;color:var(--t-disabled)">📤</button>
   </div>`;
   el.classList.remove('hidden');
 }
