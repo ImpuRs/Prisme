@@ -123,6 +123,9 @@ export function switchTab(id) {
   const titles = { table: 'Filtres Articles', dash: 'Filtres Stock', action: 'Ce matin', abc: 'Filtres Radar', clients: 'Mes clients', territoire: 'Filtres Le Terrain', bench: 'Filtres Le Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
+  // Masquer les filtres stock sur Ce matin (non pertinents)
+  const gf = document.getElementById('globalFilters');
+  if (gf) gf.classList.toggle('hidden', id === 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
