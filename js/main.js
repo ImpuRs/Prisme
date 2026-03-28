@@ -3965,13 +3965,12 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     sB('badgeRuptures',lstR.length);sB('badgeAnomalies',lstA.length);sB('badgeUrgTotal',lstR.length+lstA.length);sB('badgeSaso',lstS.length);sB('badgeColisRayon',lstColis.length);sB('badgeAssainTotal',lstS.length+lstColis.length);
     // Sprint 2: chips Mon Stock V2
     sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
-    {const disp=document.getElementById('dashChipDispo');if(disp)disp.textContent=sr+'%';}
+    {const dh=document.getElementById('dashDispoHero');if(dh){dh.textContent=`✅ Dispo. ${sr}%`;dh.title=`${serviceOk}/${serviceTotal} articles F+M en stock`;}}
     // Tooltips dynamiques chips
     {const _setT=(id,t)=>{const e=document.getElementById(id);if(e)e.title=t;};
     const _crit=lstR.filter(r=>r.prioScore>=70).length;
     const _snVal=Math.abs(lstStockNeg.reduce((s,i)=>s+i.sv,0));
     _setT('chipRuptures',lstR.length>0?`${lstR.length} article${lstR.length!==1?'s':''} en rupture${_crit>0?` dont ${_crit} critique${_crit!==1?'s':''}`:''} — cliquez pour voir`:'Aucune rupture');
-    _setT('chipDispo',`${serviceOk}/${serviceTotal} articles F+M en stock — ${lstR.length} à réapprovisionner`);
     _setT('chipDormants',`${lstD.length} article${lstD.length!==1?'s':''} dormant${lstD.length!==1?'s':''} — ${formatEuro(dormantStock)} immobilisé${dormantStock>1?'s':''} (>50€ unitaire)`);
     _setT('chipAnomalies',`${lstA.length} article${lstA.length!==1?'s':''} actif${lstA.length!==1?'s':''} sans MIN ou MAX ERP`);
     _setT('chipStockneg',lstStockNeg.length>0?`${lstStockNeg.length} article${lstStockNeg.length!==1?'s':''} en stock négatif — ${formatEuro(_snVal)} de valeur négative`:'Aucun stock négatif');

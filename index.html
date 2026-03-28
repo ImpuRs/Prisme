@@ -1052,36 +1052,40 @@
               <h4 class="text-blue-100 text-[11px] font-bold uppercase mb-1 flex items-center gap-1">📦 Valeur stock<em class="info-tip" data-tip="Somme des PRMP × quantité en stock pour tous les articles en rayon.">ℹ</em></h4>
               <p id="dashTotalValue" class="text-4xl font-extrabold tracking-tight">0€</p>
               <p id="dashTotalCount" class="text-blue-200 text-[11px] mt-1"></p>
+              <p id="dashDispoHero" class="text-blue-200 text-[11px] mt-0.5" title="Taux de disponibilité">✅ Dispo. —</p>
             </div>
             <p class="text-blue-200 text-[9px] font-semibold self-start mt-1">→ Articles</p>
           </div>
         </div>
       </div>
-      <!-- Sprint 2: 5 chips scrollables horizontalement -->
-      <div class="flex gap-2 overflow-x-auto pb-1 mb-6" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
-        <div id="chipRuptures" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none i-danger-bg hover:opacity-90 transition-opacity" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Ruptures actives">
-          <span>🔴</span><div><p class="text-[10px] font-bold c-danger uppercase leading-none whitespace-nowrap">Ruptures</p><p id="dashChipRuptures" class="text-lg font-extrabold c-danger leading-tight">0</p></div>
+      <!-- Chips 2 lignes -->
+      <div class="flex flex-col gap-2 mb-6">
+        <!-- Ligne 1 : alertes stock -->
+        <div class="flex gap-2 overflow-x-auto" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
+          <div id="chipRuptures" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none i-danger-bg hover:opacity-90 transition-opacity" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Ruptures actives">
+            <span>🔴</span><div><p class="text-[10px] font-bold c-danger uppercase leading-none whitespace-nowrap">Ruptures</p><p id="dashChipRuptures" class="text-lg font-extrabold c-danger leading-tight">0</p></div>
+          </div>
+          <div id="chipStockneg" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(129,140,248,.12)" onclick="showCockpitInTable('stockneg');switchTab('table')" title="Stock négatif">
+            <span>📉</span><div><p class="text-[10px] font-bold text-indigo-700 uppercase leading-none whitespace-nowrap">Stock négatif</p><p id="dashChipStockneg" class="text-lg font-extrabold text-indigo-600 leading-tight">0</p></div>
+          </div>
+          <div id="chipSansEmplacement" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(99,102,241,.1)" onclick="showCockpitInTable('sansemplacement');switchTab('table')" title="Articles actifs sans emplacement rayon">
+            <span>📍</span><div><p class="text-[10px] font-bold text-indigo-700 uppercase leading-none whitespace-nowrap">Sans emplacement</p><p id="dashChipSansEmplacement" class="text-lg font-extrabold text-indigo-600 leading-tight">0</p></div>
+          </div>
+          <div id="chipAnomalies" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('anomalies');switchTab('table')" title="Articles actifs sans MIN ou MAX ERP — cliquez pour voir dans Articles">
+            <span>⚠️</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Anomalies</p><p id="dashChipAnomalies" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
+          </div>
         </div>
-        <div id="chipDispo" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(16,185,129,.1)" onclick="showCockpitInTable('ruptures');switchTab('table')" title="Taux de disponibilité des articles fréquents (W≥3)">
-          <span>✅</span><div><p class="text-[10px] font-bold text-emerald-700 uppercase leading-none whitespace-nowrap">Taux de dispo.</p><p id="dashChipDispo" class="text-lg font-extrabold text-emerald-600 leading-tight">—</p></div>
-        </div>
-        <div id="chipDormants" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('dormants');switchTab('table')" title="Dormants à traiter">
-          <span>💤</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Dormants</p><p id="dashChipDormants" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
-        </div>
-        <div id="chipAnomalies" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('anomalies');switchTab('table')" title="Articles actifs sans MIN ou MAX ERP — cliquez pour voir dans Articles">
-          <span>⚠️</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Anomalies</p><p id="dashChipAnomalies" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
-        </div>
-        <div id="chipStockneg" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(129,140,248,.12)" onclick="showCockpitInTable('stockneg');switchTab('table')" title="Stock négatif">
-          <span>📉</span><div><p class="text-[10px] font-bold text-indigo-700 uppercase leading-none whitespace-nowrap">Stock négatif</p><p id="dashChipStockneg" class="text-lg font-extrabold text-indigo-600 leading-tight">0</p></div>
-        </div>
-        <div id="chipSaison" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-amber-50 hover:opacity-90 transition-opacity" onclick="(function(){const s=document.getElementById('saisonWidget');if(s){s.classList.remove('hidden');s.scrollIntoView({behavior:'smooth'})}})();" title="Préconisation saisonnière">
-          <span>🌸</span><div><p class="text-[10px] font-bold text-amber-700 uppercase leading-none whitespace-nowrap">Saisonnalité</p><p id="dashChipSaison" class="text-lg font-extrabold text-amber-600 leading-tight">—</p></div>
-        </div>
-        <div id="chipSansEmplacement" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(99,102,241,.1)" onclick="showCockpitInTable('sansemplacement');switchTab('table')" title="Articles actifs sans emplacement rayon">
-          <span>📍</span><div><p class="text-[10px] font-bold text-indigo-700 uppercase leading-none whitespace-nowrap">Sans emplacement</p><p id="dashChipSansEmplacement" class="text-lg font-extrabold text-indigo-600 leading-tight">0</p></div>
-        </div>
-        <div id="chipFins" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(156,163,175,.12)" onclick="showCockpitInTable('fins');switchTab('table')" title="Articles fins de série">
-          <span>📉</span><div><p class="text-[10px] font-bold text-gray-600 uppercase leading-none whitespace-nowrap">Fins de série</p><p id="dashChipFins" class="text-lg font-extrabold text-gray-500 leading-tight">0</p></div>
+        <!-- Ligne 2 : gestion stock -->
+        <div class="flex gap-2 overflow-x-auto" style="scrollbar-width:none;-webkit-overflow-scrolling:touch">
+          <div id="chipDormants" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-orange-50 hover:opacity-90 transition-opacity" onclick="showCockpitInTable('dormants');switchTab('table')" title="Dormants à traiter">
+            <span>💤</span><div><p class="text-[10px] font-bold text-orange-700 uppercase leading-none whitespace-nowrap">Dormants</p><p id="dashChipDormants" class="text-lg font-extrabold text-orange-600 leading-tight">0</p></div>
+          </div>
+          <div id="chipFins" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none hover:opacity-90 transition-opacity" style="background:rgba(156,163,175,.12)" onclick="showCockpitInTable('fins');switchTab('table')" title="Articles fins de série">
+            <span>📉</span><div><p class="text-[10px] font-bold text-gray-600 uppercase leading-none whitespace-nowrap">Fins de série</p><p id="dashChipFins" class="text-lg font-extrabold text-gray-500 leading-tight">0</p></div>
+          </div>
+          <div id="chipSaison" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer select-none bg-amber-50 hover:opacity-90 transition-opacity" onclick="(function(){const s=document.getElementById('saisonWidget');if(s){s.classList.remove('hidden');s.scrollIntoView({behavior:'smooth'})}})();" title="Préconisation saisonnière">
+            <span>🌸</span><div><p class="text-[10px] font-bold text-amber-700 uppercase leading-none whitespace-nowrap">Saisonnalité</p><p id="dashChipSaison" class="text-lg font-extrabold text-amber-600 leading-tight">—</p></div>
+          </div>
         </div>
       </div>
       <!-- Compat JS: anciens IDs KPI (mis à jour par renderDashboardAndCockpit, non affichés) -->
