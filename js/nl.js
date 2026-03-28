@@ -3510,3 +3510,6 @@ export function runBriefingJour() {
   _nlRenderResults(_nlQ_BriefingJour());
 }
 window.runBriefingJour = runBriefingJour;
+
+// Pré-afficher 6 chips dès le chargement initial
+document.addEventListener('DOMContentLoaded', () => generatePrismeChips());
