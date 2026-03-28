@@ -4079,6 +4079,48 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','clients')"><td class="py-1.5 font-bold">${c.nom}<span class="text-[9px] t-disabled font-normal ml-1">${c.metier||''}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${c.canaux}</td><td class="py-1.5 text-right c-action font-semibold">${c.commercial||'—'}</td></tr>`).join('')}</tbody></table></div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
 
+    // ── Section 4b : Clients devenus digitaux ────────────────────────────
+    let digitauxHtml='';
+    if(_S.ventesClientHorsMagasin?.size&&_S.ventesClientArticle?.size){
+      const now=new Date();
+      const digitaux=[];
+      for(const[cc,horArts]of _S.ventesClientHorsMagasin){
+        const pdvArts=_S.ventesClientArticle.get(cc);
+        if(!pdvArts?.size)continue;
+        const lastPDV=_S.clientLastOrder?.get(cc);
+        if(!lastPDV)continue;
+        const pdvSilence=Math.round((now-lastPDV)/86400000);
+        if(pdvSilence<90)continue;
+        let caHors=0;const canalCA={};
+        for(const[,v]of horArts){caHors+=v.sumCA||0;canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
+        if(caHors<200)continue;
+        const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+        let caPDV=0;for(const[,v]of pdvArts)caPDV+=v.sumCA||0;
+        const info=_S.chalandiseData?.get(cc);
+        digitaux.push({cc,nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||'',pdvSilence,caPDV,caHors,mainCanal});
+      }
+      digitaux.sort((a,b)=>b.caPDV-a.caPDV);
+      const top=digitaux.slice(0,8);
+      if(top.length){
+        const cIcon=c=>c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
+        const cards=top.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${r.cc}','digitaux')">
+  <div class="flex items-start justify-between mb-1">
+    <div class="min-w-0"><div class="text-[11px] font-bold t-primary truncate">${r.nom}</div><div class="text-[9px] t-disabled">${r.metier||'—'}</div></div>
+    <span class="text-[9px] shrink-0 ml-2" style="color:var(--c-caution)">${r.pdvSilence}j sans PDV</span>
+  </div>
+  <div class="flex gap-3 mt-1.5 text-[9px]">
+    <span>${cIcon(r.mainCanal)}\u00a0<strong>${formatEuro(r.caHors)}</strong> <span class="t-disabled">digital</span></span>
+    <span class="t-disabled">vs ${formatEuro(r.caPDV)} PDV hist.</span>
+  </div>
+</div>`).join('');
+        digitauxHtml=`<div class="mb-5">
+  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📱 Clients devenus digitaux <span class="font-normal normal-case">(${digitaux.length})</span></h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}</div>
+  <p class="text-[9px] t-disabled mt-2">PDV silencieux depuis &gt;90j mais actifs en ligne ou par représentant — potentiel de récupération au comptoir</p>
+</div>`;
+      }
+    }
+
     // ── Section 5 : Momentum commercial ──────────────────────────────────
     let momentumHtml='';
     if(_S.clientsByCommercial?.size>1){
@@ -4140,11 +4182,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const reconqEl=document.getElementById('clientsReconquete');
     const oppsEl=document.getElementById('clientsOpportunites');
     const haEl=document.getElementById('clientsHorsAgence');
+    const digitauxEl=document.getElementById('clientsDigitaux');
     const momEl=document.getElementById('clientsMomentum');
     if(top5El)top5El.innerHTML=top5Html;
     if(reconqEl)reconqEl.innerHTML=reconqHtml;
     if(oppsEl)oppsEl.innerHTML=oppsHtml;
     if(haEl)haEl.innerHTML=haHtml;
+    if(digitauxEl)digitauxEl.innerHTML=digitauxHtml;
     if(momEl)momEl.innerHTML=momentumHtml;
   }
 
