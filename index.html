@@ -1139,15 +1139,8 @@
         <p id="eqExtra" class="text-[11px] t-tertiary text-center mt-0.5 hidden"></p>
       </div>
 
-      <!-- 2. ★ BRIEFING DU MATIN ★ -->
-      <div id="cockpitBriefing" class="hidden">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">📋</span>
-          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">Briefing du matin</h3>
-          <button onclick="exportCockpitResume()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Copier le résumé Cockpit">📋</button>
-        </div>
-        <div id="cockpitBriefingText"></div>
-      </div>
+      <!-- 2. ★ HEALTH SCORE ★ -->
+      <div id="healthScoreBadge" class="hidden mb-3"></div>
 
       <!-- 3. ★ FILE DE DÉCISION ★ -->
       <div id="decisionQueue" class="hidden">
@@ -1155,9 +1148,20 @@
           <span class="text-base">🗂️</span>
           <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">File de décision</h3>
           <span id="dqSubtitle" class="text-[10px] t-disabled ml-1"></span>
+          <button onclick="clearDqDismissed()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Réafficher les éléments traités">↺ Réinitialiser</button>
         </div>
         <div id="decisionQueueList"></div>
         <div id="dqFooter" class="hidden"></div>
+      </div>
+
+      <!-- 4. ★ BRIEFING DU MATIN ★ -->
+      <div id="cockpitBriefing" class="hidden">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-base">📋</span>
+          <h3 class="font-extrabold text-xs uppercase tracking-wide" style="color:var(--c-muted)">Briefing du matin</h3>
+          <button onclick="exportCockpitResume()" class="text-[10px] t-disabled hover:t-primary py-1 px-2 rounded border b-light ml-auto" title="Copier le résumé Cockpit">📋</button>
+        </div>
+        <div id="cockpitBriefingText"></div>
       </div>
 
       <!-- 4. 🔴 URGENCES (Ruptures en accordéon) -->

@@ -740,6 +740,12 @@ export function renderCockpitBriefing() {
 
 // ── Feature 4: Decision Queue (rendu) ────────────────────────
 // Rend la file de décision depuis _S.decisionQueueData
+// ── Session dismiss pour la DQ (reset à chaque rechargement des données) ──
+const _dqDismissed = new Set();
+export function dqDismiss(key) { _dqDismissed.add(key); renderDecisionQueue(); }
+export function clearDqDismissed() { _dqDismissed.clear(); renderDecisionQueue(); }
+function _dqKey(d) { return `${d.type}__${d.code || d.label?.substring(0, 20) || ''}` ; }
+
 export function renderDecisionQueue() {
   const el = document.getElementById('decisionQueue');
   const listEl = document.getElementById('decisionQueueList');
@@ -750,23 +756,28 @@ export function renderDecisionQueue() {
   // impactClass : 'dq-high' = rouge (--c-danger), 'dq-medium' = ambre (--c-caution)
   // Noms prefixés 'dq-' pour éviter tout conflit avec les utilitaires Tailwind
   const typeConfig = {
-    rupture:        { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'dq-high' },
-    alerte_prev:    { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'dq-medium' },
-    client:         { badgeClass: 'dq-action',  icon: '📞', impactClass: 'dq-medium' },
-    concentration:  { badgeClass: 'dq-caution', icon: '📊', impactClass: 'dq-medium' },
-    dormants:       { badgeClass: 'dq-caution', icon: '💤', impactClass: 'dq-medium' },
-    fragilite:      { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
-    anomalie_minmax:{ badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
-    sain:           { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
+    rupture:           { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'dq-high' },
+    alerte_prev:       { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'dq-medium' },
+    saisonnalite_prev: { badgeClass: 'dq-caution', icon: '📅', impactClass: 'dq-medium' },
+    client:            { badgeClass: 'dq-action',  icon: '📞', impactClass: 'dq-medium' },
+    client_silence:    { badgeClass: 'dq-action',  icon: '🔔', impactClass: 'dq-medium' },
+    opportunite:       { badgeClass: 'dq-ok',      icon: '💡', impactClass: 'dq-medium' },
+    concentration:     { badgeClass: 'dq-caution', icon: '📊', impactClass: 'dq-medium' },
+    dormants:          { badgeClass: 'dq-caution', icon: '💤', impactClass: 'dq-medium' },
+    client_web_actif:  { badgeClass: 'dq-caution', icon: '🌐', impactClass: 'dq-medium' },
+    fragilite:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
+    anomalie_minmax:   { badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
+    sain:              { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
 
-  const items = _S.decisionQueueData.slice(0, 9);
-  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''} · ruptures d'abord`;
+  const allItems = _S.decisionQueueData.slice(0, 9);
+  const items = allItems.filter(d => !_dqDismissed.has(_dqKey(d)));
+  const nbDismissed = allItems.length - items.length;
+  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''}${nbDismissed > 0 ? ` · ${nbDismissed} traité${nbDismissed > 1 ? 's' : ''}` : ''}`;
 
   listEl.innerHTML = items.map((d, idx) => {
     const cfg = typeConfig[d.type] || { badgeClass: '', icon: '•', impactClass: '' };
     const impactStr = d.impact >= 1000 ? formatEuro(d.impact) : '';
-    // Fix: dormants/clients → ambre (dq-medium). Seules les ruptures actives → rouge (dq-high).
     const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
     const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
     const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
@@ -774,6 +785,7 @@ export function renderDecisionQueue() {
     const priorityLabel = score >= 70 ? '<span class="text-[9px] font-bold c-danger">🔥 Critique</span>'
                         : score >= 40 ? '<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>'
                         : '<span class="text-[9px] t-disabled">📌 À surveiller</span>';
+    const dqK = _dqKey(d).replace(/'/g, "\\'");
     return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
       <div style="flex:1;min-width:0">
@@ -782,6 +794,7 @@ export function renderDecisionQueue() {
         ${whyHtml}
       </div>
       ${impactHtml}
+      <button onclick="event.stopPropagation();dqDismiss('${dqK}')" class="ml-2 text-[10px] t-disabled hover:t-primary shrink-0" title="Marquer comme traité">✓</button>
     </div>`;
   }).join('');
 
@@ -824,18 +837,88 @@ export function dqFocus(idx) {
       showCockpitInTable('anomalies');
       break;
     case 'client':
+    case 'client_silence':
       switchTab('territoire');
       break;
     case 'concentration':
+      switchTab('territoire');
+      break;
+    case 'opportunite':
+      switchTab('territoire');
+      break;
+    case 'client_web_actif':
       switchTab('territoire');
       break;
     case 'fragilite':
       showCockpitInTable('fragiles');
       switchTab('table');
       break;
+    case 'saisonnalite_prev': {
+      if (d.code) {
+        const si = document.getElementById('searchInput');
+        if (si) si.value = d.code;
+      }
+      switchTab('table');
+      renderAll();
+      break;
+    }
     default:
       break;
   }
+}
+
+// ── Health Score agence 0-100 ──────────────────────────────────
+export function renderHealthScore() {
+  const el = document.getElementById('healthScoreBadge');
+  if (!el) return;
+  const d = _S.finalData;
+  if (!d.length) { el.classList.add('hidden'); return; }
+
+  const articlesA = d.filter(r => r.abcClass === 'A' && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const scoreStock = articlesA.length > 0 ? Math.max(0, 1 - articlesA.filter(r => r.stockActuel <= 0).length / articlesA.length) : 1;
+
+  let scoreClients = 0.5;
+  if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
+    const nowTs = Date.now();
+    const actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+    scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
+  }
+
+  const serv = _S.benchLists?.obsKpis?.mine?.serv || 0;
+
+  let valDormants = 0, valStock = 0;
+  for (const r of d) {
+    const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
+    valStock += val;
+    if ((r.ageJours || 0) > 365) valDormants += val;
+  }
+  const scoreDorm = valStock > 0 ? Math.max(0, 1 - valDormants / valStock) : 1;
+
+  const score = Math.round(scoreStock * 30 + scoreClients * 30 + (serv / 100) * 20 + scoreDorm * 20);
+
+  const [bg, text, ring] = score >= 70
+    ? ['rgba(22,163,74,0.12)', 'var(--c-ok, #16a34a)', 'rgba(22,163,74,0.3)']
+    : score >= 45
+    ? ['rgba(217,119,6,0.12)', 'var(--c-caution, #d97706)', 'rgba(217,119,6,0.3)']
+    : ['rgba(220,38,38,0.12)', 'var(--c-danger, #dc2626)', 'rgba(220,38,38,0.3)'];
+
+  const labelStr = score >= 70 ? 'Bonne santé' : score >= 45 ? 'Vigilance' : 'Actions requises';
+  const details = [
+    `Stock\u00a0A\u00a0: ${Math.round(scoreStock * 100)}%`,
+    _S.chalandiseReady ? `Captation\u00a0: ${Math.round(scoreClients * 100)}%` : null,
+    serv > 0 ? `Service\u00a0: ${serv}%` : null,
+    `Actif/dormant\u00a0: ${Math.round(scoreDorm * 100)}%`,
+  ].filter(Boolean).join(' · ');
+
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;background:${bg};outline:1px solid ${ring}">
+    <span style="font-size:1.5rem;font-weight:900;color:${text}">${score}<span style="font-size:0.75rem;font-weight:600">/100</span></span>
+    <div>
+      <p style="font-size:0.75rem;font-weight:700;color:${text};margin:0">${labelStr}</p>
+      <p style="font-size:0.65rem;color:${text};opacity:0.7;margin:0">${details}</p>
+    </div>
+    <span style="margin-left:auto;font-size:0.6rem;font-weight:700;color:${text};opacity:0.5;text-transform:uppercase;letter-spacing:0.05em">Score agence</span>
+  </div>`;
+  el.classList.remove('hidden');
 }
 
 // ── Feature 7: Clip ERP — TSV CODE<tab>QTÉ ───────────────────

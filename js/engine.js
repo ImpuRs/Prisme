@@ -321,7 +321,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, rupture: 1, client: 2, concentration: 2.5, dormants: 3, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, fragilite: 3.5, anomalie_minmax: 4, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -524,7 +524,99 @@ export function generateDecisionQueue() {
     }
   }
 
-  // ── 7. Situation saine (aucune urgence trouvée) ──────────────────────
+  // ── 7. Clients silencieux à reconquérir (reconquestCohort) ──────────────
+  if (_S.reconquestCohort?.length > 0) {
+    let added = 0;
+    for (const c of _S.reconquestCohort) {
+      if (added >= 2) break;
+      if (c.daysAgo < 45) continue;
+      decisions.push({
+        type: 'client_silence', code: c.cc, impact: c.totalCA,
+        label: `Reconquérir\u00a0${c.nom}\u00a0— absent\u00a0${Math.round(c.daysAgo / 7)}\u00a0sem., ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ historique.`,
+        why: [
+          `Dernier achat au comptoir\u00a0: il y a ${c.daysAgo}\u00a0jours.`,
+          `CA historique\u00a0: ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ sur ${c.nbFamilles}\u00a0famille${c.nbFamilles > 1 ? 's' : ''}.`,
+          ...(c.metier ? [`Métier\u00a0: ${c.metier}.`] : []),
+        ],
+      });
+      added++;
+    }
+  }
+
+  // ── 8. Opportunités nettes — familles manquantes vs pairs (opportuniteNette) ──
+  if (_S.opportuniteNette?.length > 0) {
+    let added = 0;
+    for (const o of _S.opportuniteNette) {
+      if (added >= 2) break;
+      if (o.totalPotentiel < 2000 || o.nbMissing < 3) continue;
+      const topFams = o.missingFams.slice(0, 3).map(m => m.fam).join(', ');
+      decisions.push({
+        type: 'opportunite', code: o.cc, impact: o.totalPotentiel,
+        label: `Proposer\u00a0à\u00a0${o.nom}\u00a0— ${o.nbMissing}\u00a0familles manquantes, potentiel\u00a0${Math.round(o.totalPotentiel).toLocaleString('fr')}\u00a0€.`,
+        why: [
+          `Familles non encore achetées\u00a0: ${topFams}.`,
+          `${Math.round(o.missingFams[0]?.metierPct || 0)}% des ${o.metier} du bassin achètent ces familles.`,
+          ...(o.commercial ? [`Commercial\u00a0: ${o.commercial}.`] : []),
+        ],
+      });
+      added++;
+    }
+  }
+
+  // ── 9. Clients hors-comptoir captables (ventesClientHorsMagasin sans PDV) ─
+  if (_S.ventesClientHorsMagasin?.size > 0) {
+    const horsComptoir = [];
+    for (const [cc, artMap] of _S.ventesClientHorsMagasin.entries()) {
+      if (_S.ventesClientArticle?.has(cc)) continue; // déjà client PDV
+      let caHors = 0;
+      for (const v of artMap.values()) caHors += (v.sumCA || 0);
+      if (caHors < 1000) continue;
+      horsComptoir.push({ cc, nom: _S.clientNomLookup[cc] || cc, caHors });
+    }
+    horsComptoir.sort((a, b) => b.caHors - a.caHors);
+    if (horsComptoir.length > 0) {
+      const top = horsComptoir[0];
+      const total = horsComptoir.reduce((s, c) => s + c.caHors, 0);
+      decisions.push({
+        type: 'client_web_actif', impact: total,
+        label: `${horsComptoir.length}\u00a0client${horsComptoir.length > 1 ? 's' : ''} Legallais jamais venu${horsComptoir.length > 1 ? 's' : ''} au comptoir\u00a0— ${Math.round(total).toLocaleString('fr')}\u00a0€ captables.`,
+        why: [
+          `Ces clients achètent chez Legallais (web/rép.) mais jamais à votre comptoir.`,
+          `Top\u00a0: ${top.nom}\u00a0— ${Math.round(top.caHors).toLocaleString('fr')}\u00a0€ hors-comptoir.`,
+          `Inviter ces ${horsComptoir.length}\u00a0client${horsComptoir.length > 1 ? 's' : ''} au comptoir peut convertir un CA déjà acquis.`,
+        ],
+      });
+    }
+  }
+
+  // ── 10. Alerte saisonnière préventive (pic mois prochain) ───────────────
+  if (Object.keys(_S.seasonalIndex).length > 0) {
+    const futurM = (new Date().getMonth() + 1) % 12;
+    const alertSaison = _S.finalData
+      .filter(r => r.stockActuel > 0 && r.nouveauMin > 0 && r.W >= 2
+                 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0))
+      .filter(r => {
+        const coeffs = _S.seasonalIndex[r.famille];
+        if (!coeffs || coeffs.length < 12) return false;
+        return coeffs[futurM] > 1.4 && r.stockActuel < r.nouveauMin * coeffs[futurM];
+      })
+      .sort((a, b) => (b.W * b.prixUnitaire) - (a.W * a.prixUnitaire))
+      .slice(0, 3);
+    if (alertSaison.length > 0) {
+      const top = alertSaison[0];
+      decisions.push({
+        type: 'saisonnalite_prev', impact: alertSaison.reduce((s, r) => s + r.W * r.prixUnitaire, 0),
+        label: `${alertSaison.length}\u00a0article${alertSaison.length > 1 ? 's' : ''} saisonnier${alertSaison.length > 1 ? 's' : ''}\u00a0— stock insuffisant pour le pic du mois prochain.`,
+        why: [
+          `Stock actuel < MIN × coefficient saisonnier du mois prochain.`,
+          `Top\u00a0: ${(top.libelle || top.code).substring(0, 30)} (famille ${top.famille}).`,
+          `Commander maintenant pour éviter la rupture en pic saisonnier.`,
+        ],
+      });
+    }
+  }
+
+  // ── 11. Situation saine (aucune urgence trouvée) ─────────────────────────
   if (decisions.length === 0) {
     const freq = _S.finalData.filter(r => r.W >= 3 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
     const sr = freq.length > 0 ? Math.round(freq.filter(r => r.stockActuel > 0).length / freq.length * 100) : 100;
@@ -548,6 +640,41 @@ export function generateDecisionQueue() {
   _S.decisionQueueData = decisions.slice(0, 9);
 }
 
+// ── Health Score agence 0-100 ──────────────────────────────────
+// Score synthétique : stock A + captation clients + taux service + actif/dormant
+export function computeHealthScore() {
+  const d = _S.finalData;
+  if (!d.length) return null;
+
+  // Composante 1 : ruptures articles A (poids 30%)
+  const articlesA = d.filter(r => r.abcClass === 'A' && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
+  const scoreStock = articlesA.length > 0 ? Math.max(0, 1 - articlesA.filter(r => r.stockActuel <= 0).length / articlesA.length) : 1;
+
+  // Composante 2 : clients actifs PDV 90j vs zone chalandise (poids 30%)
+  let scoreClients = 0.5; // défaut sans chalandise
+  if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
+    const nowTs = Date.now();
+    const actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+    scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
+  }
+
+  // Composante 3 : taux de service (poids 20%)
+  const serv = _S.benchLists?.obsKpis?.mine?.serv || 0;
+
+  // Composante 4 : ratio actif/dormant en valeur (poids 20%)
+  let valDormants = 0, valStock = 0;
+  for (const r of d) {
+    const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
+    valStock += val;
+    if ((r.ageJours || 0) > 365) valDormants += val;
+  }
+  const scoreDorm = valStock > 0 ? Math.max(0, 1 - valDormants / valStock) : 1;
+
+  const score = Math.round(scoreStock * 30 + scoreClients * 30 + (serv / 100) * 20 + scoreDorm * 20);
+  const color = score >= 70 ? 'green' : score >= 45 ? 'amber' : 'red';
+  const label = score >= 70 ? 'Bonne santé' : score >= 45 ? 'Vigilance' : 'Actions requises';
+  return { score, color, label, scoreStock, scoreClients, serv, scoreDorm };
+}
 
 // ── A5: Cohorte reconquête (P3.5+P4.6) ────────────────────────
 // Clients perdus (>6 mois sans commande) avec historique CA significatif
