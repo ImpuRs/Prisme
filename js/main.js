@@ -4124,6 +4124,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       updatePeriodAlert();
       buildPeriodFilter();
       computeClientCrossing();
+      // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
+      if (_S._selectedCommercial) {
+        const _comInput = document.getElementById('terrCommercialFilter');
+        if (_comInput) _comInput.value = _S._selectedCommercial;
+      }
       _S.currentPage=0;
       renderAll();
       if(useMulti){
