@@ -126,9 +126,11 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
-  // Bloc score IRA sidebar — visible uniquement sur Ce matin
+  // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
+  const css = document.getElementById('cematinSearchBlock');
+  if (css) css.classList.toggle('hidden', id !== 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
@@ -1143,24 +1145,42 @@ export function openDiagAgence() {
 
   function _card(title, score, detail, advice) {
     const c = _color(score);
-    return `<div style="border:1px solid var(--b-default);border-radius:10px;overflow:hidden;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--s-card-alt)">
-        <span style="font-size:0.75rem;font-weight:700;color:var(--t-primary)">${title}</span>
+    return `<div style="border:1px solid var(--b-darker);border-radius:10px;overflow:hidden;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--s-panel-inner)">
+        <span style="font-size:0.75rem;font-weight:700;color:var(--t-inverse)">${title}</span>
         <span style="font-size:0.9rem;font-weight:900;color:${c}">${score}/100</span>
       </div>
-      <div style="padding:10px 14px;background:var(--s-card)">
-        <p style="font-size:0.75rem;color:var(--t-secondary);margin:0 0 4px">${detail}</p>
+      <div style="padding:10px 14px;background:var(--s-panel-inner)">
+        <p style="font-size:0.75rem;color:var(--t-inverse-muted);margin:0 0 4px">${detail}</p>
         <p style="font-size:0.72rem;color:${c};font-weight:600;margin:0">${advice}</p>
       </div>
     </div>`;
   }
 
+  const pts1 = Math.round(d.stockScore * 0.40);
+  const pts2 = Math.round(d.clientScore * 0.35);
+  const pts3 = Math.round(d.captationScore * 0.25);
+  const rawTotal = (d.stockScore * 0.40 + d.clientScore * 0.35 + d.captationScore * 0.25).toFixed(1);
+  const formulaHtml = `<div style="border:1px solid var(--b-darker);border-radius:10px;overflow:hidden;margin-bottom:12px">
+    <div style="padding:6px 14px;background:var(--s-panel-inner);border-bottom:1px solid var(--b-darker)">
+      <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled)">Détail du calcul</span>
+    </div>
+    <div style="padding:10px 14px;background:var(--s-panel-inner)">
+      <table style="width:100%;border-collapse:collapse;font-size:0.74rem;font-variant-numeric:tabular-nums">
+        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">📦 Disponibilité rayon</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.stockScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 40%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts1} pt${pts1!==1?'s':''}</td></tr>
+        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">👥 Activité clients</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.clientScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 35%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts2} pt${pts2!==1?'s':''}</td></tr>
+        <tr><td style="color:var(--t-inverse-muted);padding:2px 0">🎯 Captation zone</td><td style="color:var(--t-inverse);text-align:right;padding:2px 8px">${d.captationScore}/100</td><td style="color:var(--t-disabled);text-align:right;padding:2px 8px">× 25%</td><td style="color:var(--t-inverse);font-weight:700;text-align:right;padding:2px 0">${pts3} pt${pts3!==1?'s':''}</td></tr>
+        <tr style="border-top:1px solid var(--b-darker)"><td colspan="3" style="color:var(--t-disabled);padding:4px 0 0;font-size:0.65rem">Total brut ${rawTotal} → arrondi</td><td style="font-size:0.95rem;font-weight:900;color:${_color(d.ira)};text-align:right;padding:4px 0 0">${d.ira}/100</td></tr>
+      </table>
+    </div>
+  </div>`;
+
   const iraColor = _color(d.ira);
-  const html = `<div id="diagAgenceModal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
-    <div style="background:var(--bg-app);border:1px solid var(--b-default);border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">
-      <div style="padding:18px 20px 12px;border-bottom:1px solid var(--b-default)">
+  const html = `<div id="diagAgenceModal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--s-panel);border:1px solid var(--b-dark);border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);color:var(--t-inverse)">
+      <div style="padding:18px 20px 12px;border-bottom:1px solid var(--b-dark)">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-tertiary)">Mon agence en un coup d'œil</span>
+          <span style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled)">Mon agence en un coup d'œil</span>
           <button onclick="document.getElementById('diagAgenceModal').remove()" style="margin-left:auto;font-size:1rem;background:transparent;border:none;cursor:pointer;color:var(--t-disabled);padding:2px 6px;border-radius:6px" title="Fermer">✕</button>
         </div>
         <p style="margin:6px 0 0;font-size:1rem;font-weight:900;color:${iraColor}">📊 Score global : ${d.ira}/100 — ${d.iraLabel}</p>
@@ -1169,13 +1189,14 @@ export function openDiagAgence() {
         ${_card('📦 Disponibilité rayon', d.stockScore, dispoDetail, dispoAdvice)}
         ${_card('👥 Activité clients', d.clientScore, clientDetail, clientAdvice)}
         ${_card('🎯 Captation zone', d.captationScore, captDetail, captAdvice)}
-        <div style="border-top:1px solid var(--b-default);padding-top:12px;margin-top:4px">
-          <p style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-tertiary);margin:0 0 8px">Comment améliorer mon score ?</p>
+        ${formulaHtml}
+        <div style="border-top:1px solid var(--b-darker);padding-top:12px;margin-top:4px">
+          <p style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--t-disabled);margin:0 0 8px">Comment améliorer mon score ?</p>
           ${recsHtml}
         </div>
       </div>
-      <div style="padding:12px 20px;border-top:1px solid var(--b-default);text-align:right">
-        <button onclick="document.getElementById('diagAgenceModal').remove()" style="padding:7px 20px;border-radius:20px;background:var(--s-card-alt);border:1px solid var(--b-default);cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--t-primary)">Fermer</button>
+      <div style="padding:12px 20px;border-top:1px solid var(--b-dark);text-align:right">
+        <button onclick="document.getElementById('diagAgenceModal').remove()" style="padding:7px 20px;border-radius:20px;background:var(--s-panel-inner);border:1px solid var(--b-dark);cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--t-inverse)">Fermer</button>
       </div>
     </div>
   </div>`;
