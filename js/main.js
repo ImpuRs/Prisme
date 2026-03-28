@@ -870,8 +870,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
     const _today=new Date();
     const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));
-    // [V3.2] Canal depuis DataStore.byContext() — API unifiée
-    const _terrCanalFilter=DataStore.byContext().activeFilters.canal;
+    // [V3.2] Canal + commercial depuis DataStore.byContext() — API unifiée
+    const {activeFilters:{canal:_terrCanalFilter,commercial:_terrComFilter}}=DataStore.byContext();
+    const _terrComSet=_terrComFilter?(_S.clientsByCommercial.get(_terrComFilter)||new Set()):null;
     const _isNonMagasin=_terrCanalFilter&&_terrCanalFilter!=='MAGASIN';
     let _clientArtMap;
     if(_isNonMagasin){
@@ -910,6 +911,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _pdvLabel=_isNonMagasin?`CA ${_canalLabel[_terrCanalFilter]||_terrCanalFilter}`:(_pdvFilter==='magasin'?'CA Magasin':_pdvFilter==='preleve'?'CA Prélevé':'CA Total');
     const _topMap={};
     for(const[cc,artMap] of _clientArtMap.entries()){
+      if(_terrComSet&&!_terrComSet.has(cc))continue; // Bug 1 — filtre commercial
       let ca=0;
       for(const[artCode,v] of artMap.entries()){
         if(selFam&&famMap.get(artCode)!==selFam)continue;
@@ -917,7 +919,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       _topMap[cc]={cc,ca,nbArts:artMap.size};
     }
-    const topClients=Object.values(_topMap).map(c=>({...c,nom:_S.clientNomLookup[c.cc]||c.cc})).filter(c=>c.ca>0&&(!qClient||matchQuery(qClient,c.cc,c.nom)));
+    const topClients=Object.values(_topMap).map(c=>{const rawNom=_S.clientNomLookup[c.cc];return{...c,nom:rawNom||c.cc,_nomFound:!!rawNom};}).filter(c=>c.ca>0&&(!qClient||matchQuery(qClient,c.cc,c.nom)));
     topClients.sort((a,b)=>b.ca-a.ca);
     const hasChal=_S.chalandiseReady;
     const silSet=new Set(silencieux.map(c=>c.cc));
@@ -931,7 +933,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _detailsOpen=document.querySelector('#terrDegradedBlock details.s-card')?.open??true;
       const _pdvButtons=_isNonMagasin?[['all','Tous canaux'],['magasin','Magasin']]:[['all','Tous canaux'],['magasin','Magasin'],['preleve','Prélevé uniquement']];
       const _toggle=`<div class="flex gap-1 flex-wrap" onclick="event.stopPropagation()">${_pdvButtons.map(([v,l])=>{const a=_pdvFilter===v;return`<button class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold cursor-pointer${a?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default'}" onclick="_setPDVCanalFilter('${v}')">${l}</button>`;}).join('')}</div>`;
-      const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
+      const _nomDisplay=c=>c._nomFound?`<span class="font-semibold">${c.nom}</span>`:`<span class="t-disabled italic" title="Client non référencé en chalandise">— ${c.cc}</span>`;
+      const rows=topClients.slice(0,10).map((c,i)=>`<tr class="border-t b-light"><td class="py-1 px-2 text-[10px] t-disabled font-bold">#${i+1}</td><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px]">${_nomDisplay(c)}${_unikLink(c.cc)}${silSet.has(c.cc)?' <span class="text-[9px] i-danger-bg c-danger px-1 rounded-full">silencieux</span>':''}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center text-[10px] t-tertiary">${c.nbArts}</td></tr>`).join('');
       const _topTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-center">#</th><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">${_pdvLabel}</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>`;
       if(hasChal){
         html+=`<details${_detailsOpen?' open':''} class="s-card rounded-xl shadow-md border mb-3 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b cursor-pointer list-none flex-wrap"><span>⭐</span><h4 class="font-extrabold text-sm flex-1">Top clients PDV <span class="text-[10px] font-normal t-disabled">${topClients.length} client${topClients.length>1?'s':''}</span></h4>${_toggle}<span class="text-[10px] t-disabled">▼</span></summary>${_topTable}</details>`;
