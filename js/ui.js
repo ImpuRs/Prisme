@@ -802,6 +802,7 @@ export function renderDecisionQueue() {
     client_web_actif:  { badgeClass: 'dq-caution', icon: '🌐', impactClass: 'dq-medium' },
     fragilite:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
     anomalie_minmax:   { badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
+    stock_synthesis:   { badgeClass: 'dq-action',  icon: '📦', impactClass: '' },
     sain:              { badgeClass: 'dq-ok',      icon: '✅', impactClass: '' },
   };
 
@@ -873,6 +874,9 @@ export function dqFocus(idx) {
       break;
     case 'anomalie_minmax':
       showCockpitInTable('anomalies');
+      break;
+    case 'stock_synthesis':
+      switchTab('dash');
       break;
     case 'client':
     case 'client_silence':

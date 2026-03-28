@@ -321,7 +321,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, sain: 99 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, stock_synthesis: 98, sain: 99 };
 
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
   const REAPPRO_DAYS = 8; // buffer de confort (délai réappro 48h + sécurité SECURITY_DAYS=3j)
@@ -719,6 +719,22 @@ export function generateDecisionQueue() {
   // ── Tri : catégorie d'abord (rupture avant dormants), puis impact€ ────
   // Une rupture à 100€ est PLUS urgente qu'un dormant à 68 000€ :
   // la rupture perd de l'argent chaque jour, le dormant est stable.
+  // stock_synthesis : résumé stock en fin de queue (conditionnel — Sprint 2)
+  if (_S._hasStock && _S.cockpitLists) {
+    const nRup = _S.cockpitLists.ruptures?.size || 0;
+    const nDorm = _S.cockpitLists.dormants?.size || 0;
+    const nAnom = _S.cockpitLists.anomalies?.size || 0;
+    const nNeg = _S.cockpitLists.stockneg?.size || 0;
+    if (nRup > 0 || nDorm > 0 || nAnom > 0 || nNeg > 0) {
+      const parts = [];
+      if (nRup > 0) parts.push(`${nRup} rupture${nRup > 1 ? 's' : ''}`);
+      if (nDorm > 0) parts.push(`${nDorm} dormant${nDorm > 1 ? 's' : ''}`);
+      if (nAnom > 0) parts.push(`${nAnom} anomalie${nAnom > 1 ? 's' : ''}`);
+      if (nNeg > 0) parts.push(`${nNeg} stock négatif`);
+      decisions.push({ type: 'stock_synthesis', impact: 0, label: `Stock : ${parts.join(' · ')} — Voir Mon Stock`, nav: 'dash', why: ['Cliquez pour accéder aux préconisations détaillées dans l\'onglet Mon Stock.'] });
+    }
+  }
+
   decisions.sort((a, b) => {
     const pa = TYPE_PRIORITY[a.type] ?? 50;
     const pb = TYPE_PRIORITY[b.type] ?? 50;
