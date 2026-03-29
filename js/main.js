@@ -3681,18 +3681,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   // [V3] Filtre période réseau — active _getFilteredMonths via _S._globalPeriodePreset
-  function _setBenchPeriode(preset, btn) {
+  function _setBenchPeriode(preset) {
     _S._globalPeriodePreset = preset;
-    // Sync chip UI
-    document.querySelectorAll('.bench-periode-chip').forEach(el => {
-      const active = el.textContent.trim() === preset;
-      el.classList.toggle('i-info-bg', active);
-      el.classList.toggle('c-action', active);
-      el.classList.toggle('border-cyan-300', active);
-      el.classList.toggle('s-card', !active);
-      el.classList.toggle('t-secondary', !active);
-      el.classList.toggle('b-default', !active);
-    });
     const t0=performance.now();renderBenchmark();
     const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
   }
@@ -3921,10 +3911,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   function setPeriodePreset(val) {
     _S._globalPeriodePreset = val || '12M';
-    ['12M','YTD','6M'].forEach(p => {
-      const el = document.getElementById('periodeChip' + p);
-      if (el) el.classList.toggle('active', p === _S._globalPeriodePreset);
-    });
     const note = document.getElementById('saisonPeriodeNote');
     if (note) note.classList.toggle('hidden', _S._globalPeriodePreset === '12M');
     renderSaisonWidget();
