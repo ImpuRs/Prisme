@@ -1384,7 +1384,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(checked.length)return checked;
     return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   }
-  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark();renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
@@ -1524,7 +1524,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       // B3: monthly sales accumulation
       if(dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
-      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}
+      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));if(canal){const _bck=_S.ventesParMagasin[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}}
       // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
@@ -1654,7 +1654,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();}
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._reseauCanal||null);}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
@@ -3073,6 +3073,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
+    // Sync pills canal Spectre Réseau
+    const _rc=_S._reseauCanal||'';
+    ['reseauCanalAll','reseauCanalMag','reseauCanalNet','reseauCanalRep','reseauCanalDcs','reseauCanalAut'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+    const _rcId=_rc==='MAGASIN'?'reseauCanalMag':_rc==='INTERNET'?'reseauCanalNet':_rc==='REPRESENTANT'?'reseauCanalRep':_rc==='DCS'?'reseauCanalDcs':_rc==='AUTRE'?'reseauCanalAut':'reseauCanalAll';
+    const _rcEl=document.getElementById(_rcId);if(_rcEl)_rcEl.classList.add('active');
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
@@ -3107,7 +3112,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const upBanner=document.getElementById('benchUnderperformBanner');if(upBanner){if(sousPerf>0){upBanner.innerHTML=`⚠️ ${sousPerf} famille${sousPerf>1?'s':''} en sous-performance vs bassin (< 50% médiane) — les lignes 🔍 ci-dessous déclenchent le diagnostic direct.`;upBanner.classList.remove('hidden');}else{upBanner.classList.add('hidden');}}
     const fbadge=document.getElementById('obsFamilyBadge');if(fbadge){if(sousPerf>0){fbadge.textContent=sousPerf+' sous la médiane';fbadge.classList.remove('hidden');}else fbadge.classList.add('hidden');}
     // Store ranking [V3] — tri dynamique par _rankSortKey / _rankSortDir
-    const showClientsZone=_S.chalandiseReady;const chHdr=document.getElementById('benchClientsZoneHeader');if(chHdr)chHdr.style.display=showClientsZone?'':'none';
+    const showClientsZone=true;const chHdr=document.getElementById('benchClientsZoneHeader');if(chHdr)chHdr.style.display='';
     // Sync select UI avec l'état courant
     {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'txMarge'))sel.value=_S._rankSortKey||'txMarge';}
     const _rankKey=_S._rankSortKey||'txMarge';const _rankDir=-1;
@@ -3116,8 +3121,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
-    const totalZone=_S.chalandiseData?.size||0;
-    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>25?'c-ok':data.serv>=10?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const pdm=isMe&&totalZone>0?+(data.clientsZone/totalZone*100).toFixed(1):null;const pdmTxt=pdm!==null?pdm+'%':'—';const pdmColor=pdm===null?'t-disabled':pdm>=30?'c-ok':pdm>=10?'c-caution':'c-danger';const pdmTip=pdm!==null?`${data.clientsZone} clients actifs sur ${totalZone.toLocaleString('fr')} en zone = ${pdmTxt} PDM`:'Chargez le fichier Chalandise pour calculer la PDM';const cz=showClientsZone?(isMe?`<td class="py-2 px-2 text-center text-xs font-bold ${pdmColor}" title="${pdmTip}">${pdmTxt}</td>`:`<td class="py-2 px-2 text-center text-xs t-disabled" title="Chargez le fichier Chalandise pour calculer la PDM">n/d</td>`):'';p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
+    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>25?'c-ok':data.serv>=10?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const pdmB=data.pdmBassin!=null?data.pdmBassin+'%':'—';const pdmBColor=data.pdmBassin==null?'t-disabled':data.pdmBassin>=30?'c-ok':data.pdmBassin>=15?'c-caution':'c-danger';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${pdmBColor}" title="Part du CA total du bassin réalisée par cette agence">${pdmB}</td>`:'';p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
     rT('benchStoreTable',p.join(''));
     const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
     renderHeatmapFamilleCommercial();
@@ -3581,7 +3585,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _S.selectedObsCompare=document.getElementById('obsCompareSelect')?.value||'median';
     _updateObsCheckboxVisibility();
     const t0=performance.now();
-    computeBenchmark();renderBenchmark();
+    computeBenchmark(_S._reseauCanal||null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -3589,7 +3593,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function onObsFilterChange(){
     _S.obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
     _S.obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
-    const t0=performance.now();computeBenchmark();renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
   }
 
@@ -3598,7 +3602,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
     _setBenchPeriode('12M');
-    const t0=performance.now();computeBenchmark();renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -4821,7 +4825,7 @@ window.onChalandiseSelected = async function(input) {
   await parseChalandise(input.files[0]);
   // Si les données sont déjà chargées, recalculer le benchmark avec la chalandise
   if (DataStore.finalData.length > 0 && _S.storesIntersection.size > 1) {
-    computeBenchmark();
+    computeBenchmark(_S._reseauCanal||null);
     renderBenchmark();
   }
 };
@@ -4846,6 +4850,7 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
+window._setReseauCanalFilter = function(val){_S._reseauCanal=val;computeBenchmark(val||null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};
