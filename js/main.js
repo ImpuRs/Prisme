@@ -3545,15 +3545,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       </div>`;
     }).join('');
     if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
-    // Network diagnostic block
-    const diagEl=el('obsNetworkDiag');
-    if(diagEl&&kpis){
-      const calcPct=(key)=>{const me=kpis.mine[key]||0,c=kpis.compared[key]||0;return c>0?Math.round((me-c)/c*100):(me>0?100:0);};
-      const caE=calcPct('ca'),refE=calcPct('ref'),freqE=calcPct('freq');
-      const diag=generateNetworkDiagnostic(caE,refE,freqE);
-      const actHtml=diag.actions.map(a=>`<button onclick="_obsNav('${a.nav}')" class="text-[11px] font-semibold c-action underline hover:c-action bg-transparent border-none p-0 cursor-pointer">${a.label}</button>`).join('<span class="t-disabled mx-1">·</span>');
-      diagEl.innerHTML=`<div class="p-4 rounded-lg border-l-4 ${diag.border} ${diag.bg}"><div class="flex items-start gap-2"><span class="text-xl leading-none mt-0.5">${diag.icon}</span><div class="flex-1 min-w-0"><h4 class="font-bold text-sm t-primary">${diag.title}</h4><p class="text-xs t-secondary mt-1">${diag.message}</p>${diag.actions.length?`<div class="mt-2 flex flex-wrap gap-2">${actHtml}</div>`:''}</div></div></div>`;
-    }else if(diagEl){diagEl.innerHTML='';}
+    // Tooltip ℹ sur "KPI Comparatifs" — diagnostic réseau condensé
+    const _tipEl=el('kpiDiagTip');
+    if(_tipEl&&kpis){
+      const _pct=(key)=>{const me=kpis.mine[key]||0,c=kpis.compared[key]||0;return c>0?Math.round((me-c)/c*100):(me>0?100:0);};
+      const diag=generateNetworkDiagnostic(_pct('ca'),_pct('ref'),_pct('freq'));
+      _tipEl.dataset.tip=`${diag.icon} ${diag.title} — ${diag.message}`;
+    }
+    const diagEl=el('obsNetworkDiag');if(diagEl)diagEl.innerHTML='';
     // Families where I lose — apply min CA filter
     const minCA=_S.obsFilterMinCA||0;
     const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
