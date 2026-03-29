@@ -111,7 +111,8 @@ export function _setGlobalCanal(canal) {
   document.querySelectorAll('#globalCanalFilter .canal-pill-btn').forEach(p => {
     p.classList.toggle('active', (p.dataset.canal || '') === canal);
   });
-  // Re-render onglet actif
+  // Recalculer le benchmark puis re-render onglet actif
+  if (typeof window.computeBenchmark === 'function') window.computeBenchmark(_S._globalCanal || null);
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;

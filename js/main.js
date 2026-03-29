@@ -5000,6 +5000,7 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.computeBenchmark = computeBenchmark;
 
 window._setReseauCanalFilter = function(val){
   if(!val){_S._reseauCanaux=new Set();}
