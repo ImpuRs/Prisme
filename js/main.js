@@ -572,66 +572,131 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
     renderCurrentTab(); // re-render l'onglet actif uniquement, données en mémoire
   }
-  function buildPeriodFilter(){
-    const dd=document.getElementById('periodDropdown');
-    const btn=document.getElementById('navPeriodBtn');
-    const navPeriod=document.getElementById('navPeriod');
+  // ── Sélecteur période — helpers ──────────────────────────────────────────
+  function _buildPeriodeOptions(){
     const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
-    if(!minD||!maxD){if(navPeriod)navPeriod.classList.add('hidden');return;}
-    // Build months array
-    const months=[];let cur=new Date(minD.getFullYear(),minD.getMonth(),1);
-    const endD=new Date(maxD.getFullYear(),maxD.getMonth(),1);
-    while(cur<=endD){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
-    // Build quarters
-    const quarterMap={};
-    for(const m of months){const q=Math.floor(m.getMonth()/3);const y=m.getFullYear();const qk=`${y}-Q${q+1}`;if(!quarterMap[qk])quarterMap[qk]={months:[],startM:q*3,y};quarterMap[qk].months.push(m);}
+    if(!minD||!maxD)return{mois:[],trimestres:[]};
+    const mois=[];
+    let cur=new Date(minD.getFullYear(),minD.getMonth(),1);
+    const end=new Date(maxD.getFullYear(),maxD.getMonth(),1);
+    while(cur<=end){mois.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+    const qMap={};
+    for(const m of mois){
+      const q=Math.floor(m.getMonth()/3);const y=m.getFullYear();const qk=`${y}-Q${q+1}`;
+      if(!qMap[qk])qMap[qk]={label:`Q${q+1} ${y}`,start:new Date(y,q*3,1),end:new Date(y,q*3+3,0,23,59,59),months:[]};
+      qMap[qk].months.push(m);
+    }
+    const trimestres=Object.values(qMap).filter(q=>q.months.length>=3);
+    return{mois,trimestres};
+  }
+  function _applyPeriode(start,end){
+    applyPeriodFilter(start?start.getTime():null,end?end.getTime():null);
+  }
+  window._applyPeriodeTout=()=>_applyPeriode(null,null);
+  window._applyPeriodeMois=(yyyy_mm)=>{
+    const[y,m]=yyyy_mm.split('-').map(Number);
+    _applyPeriode(new Date(y,m-1,1),new Date(y,m,0,23,59,59));
+  };
+  window._applyPeriodeLibre=(sfx)=>{
+    const sv=document.getElementById(`pdStart_${sfx}`)?.value;
+    const ev=document.getElementById(`pdEnd_${sfx}`)?.value;
+    if(!sv||!ev)return;
+    const[sy,sm]=sv.split('-').map(Number);const[ey,em]=ev.split('-').map(Number);
+    _applyPeriode(new Date(sy,sm-1,1),new Date(ey,em,0,23,59,59));
+  };
+  window._applyPeriodeMoisCourant=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    const y=maxD.getFullYear(),m=maxD.getMonth();
+    _applyPeriode(new Date(y,m,1),new Date(y,m+1,0,23,59,59));
+  };
+  window._applyPeriodeMoisPrecedent=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    const y=maxD.getFullYear(),m=maxD.getMonth();
+    const py=m===0?y-1:y,pm=m===0?11:m-1;
+    _applyPeriode(new Date(py,pm,1),new Date(py,pm+1,0,23,59,59));
+  };
+  window._applyPeriode3Mois=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-2,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
+  };
+  window._applyPeriodeQ=(sTs,eTs)=>applyPeriodFilter(sTs,eTs);
+
+  function buildPeriodFilter(){
+    const navPeriod=document.getElementById('navPeriod');
+    const{mois,trimestres}=_buildPeriodeOptions();
+    if(!mois.length){if(navPeriod)navPeriod.classList.add('hidden');return;}
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     const ps=_S.periodFilterStart?_S.periodFilterStart.getTime():null;
     const pe=_S.periodFilterEnd?_S.periodFilterEnd.getTime():null;
-    function pill(label,startTs,endTs2){
-      const active=ps===(startTs||null)&&pe===(endTs2||null);
-      const cls=active?'bg-blue-700 text-white border-blue-700':'s-card t-secondary b-default hover:border-blue-400 hover:c-action';
-      const args=startTs===null?'null,null':`${startTs},${endTs2}`;
-      return`<button class="px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${cls}" onclick="applyPeriodFilter(${args})">${label}</button>`;
+    const isTout=!ps&&!pe;
+    const _fmtM=d=>d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});
+    const _ym=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    // Prédéfinies timestamps
+    const mcTs=maxD?new Date(maxD.getFullYear(),maxD.getMonth(),1).getTime():null;
+    const mcEts=maxD?new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59).getTime():null;
+    const prevM=maxD?new Date(maxD.getFullYear(),maxD.getMonth()-1,1):null;
+    const mpTs=prevM?prevM.getTime():null;
+    const mpEts=prevM?new Date(prevM.getFullYear(),prevM.getMonth()+1,0,23,59,59).getTime():null;
+    const t3start=mois.length>=3?new Date(mois[Math.max(0,mois.length-3)].getFullYear(),mois[Math.max(0,mois.length-3)].getMonth(),1).getTime():null;
+    const t3end=maxD?new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59).getTime():null;
+    // Warn
+    const warnHtml=(ps&&pe&&Math.round((pe-ps)/86400000)<90)
+      ?`<p class="text-[10px] c-caution font-bold mt-2">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`:'';
+    function buildHtml(sfx){
+      const selS=_S.periodFilterStart?_ym(_S.periodFilterStart):_ym(mois[0]);
+      const selE=_S.periodFilterEnd?_ym(_S.periodFilterEnd):_ym(mois[mois.length-1]);
+      const opts=(sel)=>mois.map(m=>{const v=_ym(m);return`<option value="${v}"${v===sel?' selected':''}>${_fmtM(m)}</option>`;}).join('');
+      const moisPills=mois.map(m=>{
+        const sTs=new Date(m.getFullYear(),m.getMonth(),1).getTime();
+        const eTs=new Date(m.getFullYear(),m.getMonth()+1,0,23,59,59).getTime();
+        const act=ps===sTs&&pe===eTs;
+        return`<button class="periode-btn${act?' active':''}" onclick="window._applyPeriodeMois('${_ym(m)}')">${_fmtM(m)}</button>`;
+      }).join('');
+      const predBtn=(label,sub,onclick,act)=>
+        `<button class="periode-btn wide${act?' active':''}" onclick="${onclick}">${label}${sub?`<span class="periode-sub">${sub}</span>`:''}${act?' ✓':''}</button>`;
+      const qBtns=trimestres.map(q=>{
+        const sTs=q.start.getTime(),eTs=q.end.getTime();
+        return predBtn(q.label,'',`window._applyPeriodeQ(${sTs},${eTs})`,ps===sTs&&pe===eTs);
+      }).join('');
+      return`<div class="periode-section">
+  <div class="periode-label">Période libre</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <select id="pdStart_${sfx}" class="periode-select" onchange="window._applyPeriodeLibre('${sfx}')">${opts(selS)}</select>
+    <span class="t-muted" style="font-size:var(--fs-xs)">→</span>
+    <select id="pdEnd_${sfx}" class="periode-select" onchange="window._applyPeriodeLibre('${sfx}')">${opts(selE)}</select>
+  </div>
+</div>
+<div class="periode-section">
+  <div class="periode-label">Par mois</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">${moisPills}</div>
+</div>
+<div class="periode-section">
+  <div class="periode-label">Périodes prédéfinies</div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    ${predBtn('Toute la période','','window._applyPeriodeTout()',isTout)}
+    ${mcTs?predBtn('Mois en cours',_fmtM(maxD),'window._applyPeriodeMoisCourant()',ps===mcTs&&pe===mcEts):''}
+    ${prevM&&mois.length>=2?predBtn('Mois précédent',_fmtM(prevM),'window._applyPeriodeMoisPrecedent()',ps===mpTs&&pe===mpEts):''}
+    ${mois.length>=3?predBtn('3 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-3)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode3Mois()',ps===t3start&&pe===t3end):''}
+    ${qBtns}
+  </div>
+</div>${warnHtml}`;
     }
-    let html=`<div class="flex flex-wrap items-center gap-1.5"><span class="text-[10px] font-bold t-tertiary mr-1">📅 Période :</span>`;
-    html+=pill('Toute la période',null,null);
-    for(const m of months){
-      const y=m.getFullYear();const mo=m.getMonth();
-      const sTs=new Date(y,mo,1).getTime();const eTs=new Date(y,mo+1,0,23,59,59).getTime();
-      const label=m.toLocaleDateString('fr-FR',{month:'short',year:'numeric'});
-      html+=pill(label,sTs,eTs);
-    }
-    for(const[qk,qdata] of Object.entries(quarterMap)){
-      if(qdata.months.length<3)continue;
-      const firstM=qdata.startM;const y=qdata.y;
-      const sTs=new Date(y,firstM,1).getTime();const eTs=new Date(y,firstM+3,0,23,59,59).getTime();
-      const qLabel=qk.split('-')[1];
-      html+=pill(`${qLabel} ${y}`,sTs,eTs);
-    }
-    html+=`</div>`;
-    // Short period warning inside dropdown
-    let warnHtml='';
-    if(_S.periodFilterStart&&_S.periodFilterEnd){
-      const filteredDays=daysBetween(_S.periodFilterStart,_S.periodFilterEnd);
-      if(filteredDays<90)warnHtml=`<p class="text-[10px] c-caution font-bold mt-1.5">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`;
-    }
-    if(dd)dd.innerHTML=html+warnHtml;
-    const tabDd=document.getElementById('tabPeriodDropdown');
-    if(tabDd)tabDd.innerHTML=html+warnHtml;
+    const dd=document.getElementById('periodDropdown');if(dd)dd.innerHTML=buildHtml('nav');
+    const tabDd=document.getElementById('tabPeriodDropdown');if(tabDd)tabDd.innerHTML=buildHtml('tab');
     // Update navbar button + tab bar button
+    const btn=document.getElementById('navPeriodBtn');
     const tabBtn=document.getElementById('tabPeriodBtn');
     const tabLabel=document.getElementById('tabPeriodLabel');
-    if(_S.periodFilterStart&&_S.periodFilterEnd){
+    if(ps&&pe){
       const _l=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
-        ?fmtDate(_S.periodFilterStart)
-        :`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
+        ?fmtDate(_S.periodFilterStart):`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
       if(btn){btn.textContent=`📅 ${_l}`;btn.style.cssText='color:#fde047;font-weight:800';}
       if(tabLabel)tabLabel.textContent=_l;
       if(tabBtn)tabBtn.classList.add('filtered');
-    } else {
+    }else{
       if(btn)btn.style.cssText='';
-      updatePeriodAlert(); // resets tabPeriodLabel + tabBtn.filtered via ui.js
+      updatePeriodAlert();
     }
     if(navPeriod)navPeriod.classList.remove('hidden');
   }
