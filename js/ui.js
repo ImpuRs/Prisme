@@ -144,6 +144,11 @@ export function switchTab(id) {
   const _CANAL_TABS = new Set(['action', 'territoire', 'bench', 'promo']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
+  // Titre sidebar par onglet
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', bench: 'Filtres Réseau', promo: 'Animation' };
+  const _st = _sidebarTitles[id] || 'Filtres';
+  const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
+  const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
@@ -841,6 +846,7 @@ export function renderDecisionQueue() {
   const sorted = _S.decisionQueueData.slice().sort((a, b) => (b.impact || 0) - (a.impact || 0) || (b.score || 0) - (a.score || 0));
   const allItems = sorted.slice(0, 9);
   const items = allItems.filter(d => !_dqDismissed.has(_dqKey(d)));
+  _S._dqRenderedItems = items; // snapshot de l'ordre affiché pour dqFocus(idx)
   const nbDismissed = allItems.length - items.length;
   if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''}${nbDismissed > 0 ? ` · ${nbDismissed} traité${nbDismissed > 1 ? 's' : ''}` : ''}`;
 
@@ -876,12 +882,17 @@ export function renderDecisionQueue() {
 
 // ── Feature 6: Focus Mode — clic DQ → navigation ─────────────
 export function dqFocus(idx) {
-  const d = (_S.decisionQueueData || [])[idx];
+  // Lire depuis l'ordre rendu (sorted+filtered), pas le tableau brut
+  const d = (_S._dqRenderedItems || _S.decisionQueueData || [])[idx];
   if (!d) return;
+  const cc = d.clientCode || d.code;
   switch (d.type) {
     case 'rupture':
-    case 'alerte_prev': {
-      // Filtrer sur l'article spécifique dans le tableau
+    case 'alerte_prev':
+      showCockpitInTable('ruptures');
+      switchTab('dash');
+      break;
+    case 'saisonnalite_prev': {
       const si = document.getElementById('searchInput');
       if (si && d.code) si.value = d.code;
       clearCockpitFilter(true);
@@ -890,45 +901,44 @@ export function dqFocus(idx) {
       renderAll();
       break;
     }
-    case 'dormants':
-      showCockpitInTable('dormants');
-      break;
-    case 'anomalie_minmax':
-      showCockpitInTable('anomalies');
-      break;
-    case 'stock_synthesis':
-      switchTab('dash');
-      break;
     case 'client':
     case 'client_silence':
-      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
+      if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
       else switchTab('territoire');
+      break;
+    case 'captation':
+      switchTab('territoire');
       break;
     case 'concentration':
       switchTab('territoire');
       break;
     case 'opportunite':
-      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
+    case 'client_web_actif':
+    case 'client_digital_drift':
+      if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
       else switchTab('territoire');
       break;
-    case 'client_web_actif':
-      if (d.code && window.openClient360) window.openClient360(d.code, 'cockpit');
-      else switchTab('territoire');
+    case 'dormants':
+      switchTab('dash');
+      showCockpitInTable('dormants');
       break;
     case 'fragilite':
       showCockpitInTable('fragiles');
       switchTab('table');
       break;
-    case 'saisonnalite_prev': {
-      if (d.code) {
-        const si = document.getElementById('searchInput');
-        if (si) si.value = d.code;
-      }
-      switchTab('table');
-      renderAll();
+    case 'erp_incoherence':
+    case 'anomalie_minmax':
+      switchTab('dash');
+      showCockpitInTable('anomalies');
       break;
-    }
+    case 'famille_fuite':
+      switchTab('bench');
+      break;
+    case 'stock_synthesis':
+      switchTab('dash');
+      break;
     default:
+      switchTab('dash');
       break;
   }
 }
