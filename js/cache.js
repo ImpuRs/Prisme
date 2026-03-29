@@ -324,8 +324,9 @@ export async function _restoreSessionFromIDB() {
 
     _S._hasStock            = data._hasStock            || false;
     _S.finalData            = data.finalData            || [];
-    _S.ventesParMagasin     = data.ventesParMagasin     || {};
-    _S.stockParMagasin      = data.stockParMagasin      || {};
+    _S.ventesParMagasin         = data.ventesParMagasin         || {};
+    _S.ventesParMagasinByCanal  = data.ventesParMagasinByCanal  || {};
+    _S.stockParMagasin          = data.stockParMagasin          || {};
     _S.storesIntersection   = new Set(data.storesIntersection || []);
     _S.libelleLookup        = data.libelleLookup        || {};
     _S.articleFamille       = data.articleFamille       || {};
