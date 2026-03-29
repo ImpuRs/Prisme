@@ -330,6 +330,10 @@
     #articlePanelOverlay{display:none;position:fixed;inset:0;z-index:10600;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
     #articlePanelOverlay.active{display:flex;align-items:flex-start;justify-content:center}
     #articlePanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-5);max-width:600px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
+    /* Nomade article modal */
+    #nomadeArticleOverlay{display:none;position:fixed;inset:0;z-index:10550;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
+    #nomadeArticleOverlay.active{display:flex;align-items:flex-start;justify-content:center}
+    #nomadeArticlePanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-6);max-width:740px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
     /* Reporting overlay */
     #reportingOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
     #reportingOverlay.active{display:flex;align-items:flex-start;justify-content:center}
@@ -582,6 +586,11 @@
   <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
   <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
     <div id="diagnosticPanel"></div>
+  </div>
+
+  <!-- Nomade Article Modal -->
+  <div id="nomadeArticleOverlay" onclick="if(event.target===this)closeNomadeArticleModal()">
+    <div id="nomadeArticlePanel"></div>
   </div>
 
   <!-- Article Detail Panel Overlay -->
