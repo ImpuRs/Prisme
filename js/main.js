@@ -3079,8 +3079,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _rcSet=_S._reseauCanaux||new Set();
     {const _all=document.getElementById('reseauCanalAll');if(_all)_all.classList.toggle('active',_rcSet.size===0);}
     [['reseauCanalMag','MAGASIN'],['reseauCanalNet','INTERNET'],['reseauCanalRep','REPRESENTANT'],['reseauCanalDcs','DCS'],['reseauCanalAut','AUTRE']].forEach(([id,c])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_rcSet.has(c));});
+    // Sous-pills Prélevé/Enlevé — visibles seulement si MAGASIN est dans la sélection
+    {const _mmBar=document.getElementById('reseauMagasinModeBar');if(_mmBar){const _show=_rcSet.has('MAGASIN');_mmBar.classList.toggle('hidden',!_show);if(_show){const _mm=_S._reseauMagasinMode||'all';[['reseauMagModeAll','all'],['reseauMagModePrel','preleve'],['reseauMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_mm===m);});}}}
     // Libellé canal dynamique dans KPI Comparatifs
-    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_lEl.textContent=_rcSet.size===0?'📡 Tous canaux':_rcSet.size===1?`📡 Canal ${_LMAP[[..._rcSet][0]]||[..._rcSet][0]} uniquement`:`📡 Canaux : ${[..._rcSet].map(c=>_LMAP[c]||c).join(' · ')}`;}};
+    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};const _mm=_S._reseauMagasinMode||'all';const _mmSuffix=_rcSet.has('MAGASIN')&&_mm!=='all'?(_mm==='preleve'?' (prélevé)':(` (enlevé)`)):'';_lEl.textContent=_rcSet.size===0?'📡 Tous canaux':_rcSet.size===1?`📡 Canal ${_LMAP[[..._rcSet][0]]||[..._rcSet][0]} uniquement${_mmSuffix}`:`📡 Canaux : ${[..._rcSet].map(c=>_LMAP[c]||c).join(' · ')}${_mmSuffix}`;}};
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
@@ -4853,6 +4855,7 @@ window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
 window._setReseauCanalFilter = function(val){if(!val){_S._reseauCanaux=new Set();}else{if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);else _S._reseauCanaux.add(val);}; _S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
+window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};
