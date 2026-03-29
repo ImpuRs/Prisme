@@ -219,17 +219,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _buildChalandiseOverview(){
     const blk=document.getElementById('terrChalandiseOverview');
     if(!blk)return;
-    if(!_S.chalandiseReady&&_S._selectedCrossStatus!=='fidele'){blk.classList.add('hidden');return;}
+    if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
     blk.classList.remove('hidden');
     _buildCockpitClient();
-    // 🟣 Fidèles hors zone — show message in L1 table, cockpit already rendered above
-    if(_S._selectedCrossStatus==='fidele'){
-      const hd=document.getElementById('terrOverviewL1Head'),tb=document.getElementById('terrOverviewL1Table');
-      if(hd)hd.innerHTML='';
-      if(tb)tb.innerHTML=`<tr><td colspan="9" class="py-6 text-center text-xs t-disabled">🟣 Les fidèles hors zone n'appartiennent pas à la zone de chalandise — ils ne sont pas affichés dans le tableau par direction.</td></tr>`;
-      const bar2=document.getElementById('terrSummaryBar');if(bar2)bar2.classList.add('hidden');
-      return;
-    }
     _buildDeptFilter();
     _buildOverviewFilterChips();
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
@@ -994,20 +986,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
-    if(!_S.chalandiseReady&&_S._selectedCrossStatus!=='fidele'){el.classList.add('hidden');return;}
+    if(!_S.chalandiseReady){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
-    // Special rendering for 🟣 Fidèles hors zone
-    if(_S._selectedCrossStatus==='fidele'){
-      if(!_S.crossingStats||!_S.crossingStats.fideles.size){el.innerHTML='<div class="s-card rounded-xl shadow-md border p-5 t-disabled text-sm">Aucun fidèle hors zone identifié.</div>';return;}
-      const terrNom={};if(_S.territoireReady)for(const l of DataStore.territoireLines){if(l.clientCode&&l.clientNom&&!terrNom[l.clientCode])terrNom[l.clientCode]=l.clientNom;}
-      const fideleList=[];
-      for(const cc of _S.crossingStats.fideles){const artMap=DataStore.ventesClientArticle.get(cc);const ca=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;const nbArts=artMap?artMap.size:0;fideleList.push({code:cc,nom:_S.clientNomLookup[cc]||terrNom[cc]||'—',ca,nbArts});}
-      fideleList.sort((a,b)=>b.ca-a.ca);
-      const show=fideleList.slice(0,100),more=fideleList.length-100;
-      const rows=show.map(c=>`<tr class="border-t b-light hover:i-info-bg cursor-pointer" onclick="openClient360('${c.code}','reseau')"><td class="py-1 px-2 font-mono text-[10px] t-tertiary">${c.code}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.code)}</td><td class="py-1 px-2 text-right font-bold ${c.ca>0?'text-violet-700':'t-disabled'} text-[11px]">${c.ca>0?formatEuro(c.ca):'—'}</td><td class="py-1 px-2 text-center t-tertiary text-[10px]">${c.nbArts||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><h3 class="font-extrabold t-primary">🟣 Fidèles hors zone (${fideleList.length})</h3><p class="text-[10px] t-tertiary mt-0.5">Clients qui viennent en agence mais absents de la zone de chalandise — à qualifier et potentiellement à fidéliser <span class="t-disabled">(CA = CA Magasin uniquement)</span></p></div><div class="overflow-x-auto" style="max-height:500px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Réf</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] t-disabled p-2 border-t">${more} clients supplémentaires non affichés (triés par CA décroissant)</p>`:''}</div>`;
-      return;
-    }
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
     const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
     let searchResultsHtml='';
@@ -2327,6 +2307,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
+  function _syncPDVToggles(){
+    const ha=!!_S._showHorsAgence,hz=!!_S._showHorsZone;
+    const btnHA=document.getElementById('sidebarBtnHorsAgence');
+    const btnHZ=document.getElementById('sidebarBtnHorsZone');
+    if(btnHA){btnHA.className=btnHA.className.replace(/bg-\S+\s?|border-\S+\s?|text-white\s?/g,'').trim();if(ha){btnHA.classList.add('bg-indigo-600','border-indigo-500','text-white');}else{btnHA.classList.add('b-default','t-secondary');}}
+    if(btnHZ){btnHZ.className=btnHZ.className.replace(/bg-\S+\s?|border-\S+\s?|text-white\s?/g,'').trim();if(hz){btnHZ.classList.add('bg-amber-600','border-amber-500','text-white');}else{btnHZ.classList.add('b-default','t-secondary');}}
+  }
+
   // ── Top clients PDV — canal-aware, paginé, toggle hors agence ───────────
   function _renderTopClientsPDV(){
     const canal=_S._globalCanal||'';
@@ -2337,7 +2325,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const nowMs=Date.now();
     const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const el=document.getElementById('terrTopPDV');if(!el)return;
-    const toggleBtns=`<div class="flex gap-1"><button onclick="window.toggleWebColumn()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHors?'bg-indigo-600 border-indigo-500 text-white':'border-current t-disabled hover:t-primary'}">🌐 Hors agence</button><button onclick="window._toggleHorsZone()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHorsZone?'bg-amber-600 border-amber-500 text-white':'border-current t-disabled hover:t-primary'}">⚠️ Hors zone</button></div>`;
+    _syncPDVToggles();
 
     if(showHors){
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
@@ -2353,7 +2341,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         horsRows.push({cc,nom,metier:info?.metier||'',caHors,caMag,canaux:[...canaux].join('/')});
       }
       horsRows.sort((a,b)=>b.caHors-a.caHors);
-      if(!horsRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></div>`;return;}
+      if(!horsRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3></div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></div>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=horsRows.slice(0,5);
@@ -2368,7 +2356,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-danger text-[11px]">${formatEuro(r.caHors)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.caMag>0?formatEuro(r.caMag):'—'}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled">${r.canaux||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
       return;
     }
 
@@ -2383,7 +2371,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         hzRows.push({cc,nom,caPDV});
       }
       hzRows.sort((a,b)=>b.caPDV-a.caPDV);
-      if(!hzRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></div>`;return;}
+      if(!hzRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3></div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></div>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=hzRows.slice(0,5);
@@ -2398,7 +2386,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled font-mono">${r.cc}</td></tr>`).join('');
-      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
       return;
     }
 
@@ -2447,7 +2435,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
     const colDelta=isMagCanal?'Delta hors':'Delta mag';
     const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${topRows.length} clients · tous canaux`;
-    if(!topRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></div>`;return;}
+    if(!topRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3></div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></div>`;return;}
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=topRows.slice(0,5);
@@ -2468,7 +2456,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const deltaColor=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
       return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
     }).join('');
-    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${subtitle}</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${subtitle}</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
   function renderTerritoireTab(){

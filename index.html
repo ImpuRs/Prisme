@@ -803,6 +803,12 @@
                 <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-ok-bg">🟢 Captés</button>
               </div>
             </div>
+            <!-- Vue clients -->
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-1">Vue clients</p>
+            <div class="flex gap-1">
+              <button id="sidebarBtnHorsZone" onclick="window._toggleHorsZone()" class="flex-1 text-[10px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer b-default t-secondary hover:bg-amber-600 hover:border-amber-500 hover:text-white">⚠️ Hors zone</button>
+              <button id="sidebarBtnHorsAgence" onclick="window.toggleWebColumn()" class="flex-1 text-[10px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer b-default t-secondary hover:bg-indigo-600 hover:border-indigo-500 hover:text-white">🌐 Hors agence</button>
+            </div>
             <!-- Métier -->
             <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
             <!-- Commercial -->
