@@ -2331,11 +2331,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const canal=_S._globalCanal||'';
     const page=_S._clientsPDVPage||0; // 0=top5, >=1=paginated
     const showHors=!!_S._showHorsAgence;
+    const showHorsZone=!!_S._showHorsZone;
     const PDV_PAGE=20;
     const nowMs=Date.now();
     const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const el=document.getElementById('terrTopPDV');if(!el)return;
-    const toggleBtn=`<button onclick="window.toggleWebColumn()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHors?'bg-indigo-600 border-indigo-500 text-white':'border-current t-disabled hover:t-primary'}">🌐 Hors agence</button>`;
+    const toggleBtns=`<div class="flex gap-1"><button onclick="window.toggleWebColumn()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHors?'bg-indigo-600 border-indigo-500 text-white':'border-current t-disabled hover:t-primary'}">🌐 Hors agence</button><button onclick="window._toggleHorsZone()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHorsZone?'bg-amber-600 border-amber-500 text-white':'border-current t-disabled hover:t-primary'}">⚠️ Hors zone</button></div>`;
 
     if(showHors){
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
@@ -2351,7 +2352,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         horsRows.push({cc,nom,metier:info?.metier||'',caHors,caMag,canaux:[...canaux].join('/')});
       }
       horsRows.sort((a,b)=>b.caHors-a.caHors);
-      if(!horsRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3>${toggleBtn}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></div>`;return;}
+      if(!horsRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></div>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=horsRows.slice(0,5);
@@ -2366,7 +2367,37 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-danger text-[11px]">${formatEuro(r.caHors)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.caMag>0?formatEuro(r.caMag):'—'}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled">${r.canaux||'—'}</td></tr>`).join('');
-      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3>${toggleBtn}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+      return;
+    }
+
+    if(showHorsZone){
+      // ── Vue hors zone : clients PDV absents de la chalandise ──────────────
+      const hzRows=[];
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        if(_S.chalandiseData.has(cc))continue;
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<200)continue;
+        const nom=_S.clientNomLookup?.[cc]||cc;
+        hzRows.push({cc,nom,caPDV});
+      }
+      hzRows.sort((a,b)=>b.caPDV-a.caPDV);
+      if(!hzRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></div>`;return;}
+      let displayRows,pagerHtml='';
+      if(page===0){
+        displayRows=hzRows.slice(0,5);
+        if(hzRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._topPDVExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hzRows.length} clients →</button></div>`;
+      }else{
+        const maxPage=Math.ceil(hzRows.length/PDV_PAGE);
+        const cur=Math.max(1,Math.min(page,maxPage));
+        if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
+        displayRows=hzRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
+        const prev=cur>1?`<button onclick="window._topPDVPage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+        const next=cur<maxPage?`<button onclick="window._topPDVPage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
+      }
+      const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled font-mono">${r.cc}</td></tr>`).join('');
+      el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
       return;
     }
 
@@ -2415,7 +2446,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
     const colDelta=isMagCanal?'Delta hors':'Delta mag';
     const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${topRows.length} clients · tous canaux`;
-    if(!topRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3>${toggleBtn}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></div>`;return;}
+    if(!topRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3>${toggleBtns}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></div>`;return;}
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=topRows.slice(0,5);
@@ -2436,7 +2467,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const deltaColor=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
       return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
     }).join('');
-    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${subtitle}</span></h3>${toggleBtn}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${subtitle}</span></h3>${toggleBtns}</div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
   function renderTerritoireTab(){
@@ -2485,8 +2516,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Top clients PDV — canal-aware, paginé
       _renderTopClientsPDV();
 
-      // Clients PDV hors zone
-      _renderHorsZone();
     }
 
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
@@ -5065,7 +5094,8 @@ window._setReseauCanalFilter = function(val){
 window._topPDVExpand   = function(){_S._clientsPDVPage=1;_renderTopClientsPDV();};
 window._topPDVCollapse = function(){_S._clientsPDVPage=0;_renderTopClientsPDV();};
 window._topPDVPage     = function(dir){_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+dir);_renderTopClientsPDV();};
-window._toggleHorsAgence = function(){_S._showHorsAgence=!_S._showHorsAgence;_S._clientsPDVPage=0;_renderTopClientsPDV();};
+window._toggleHorsAgence = function(){_S._showHorsAgence=!_S._showHorsAgence;_S._showHorsZone=false;_S._clientsPDVPage=0;_renderTopClientsPDV();};
+window._toggleHorsZone   = function(){_S._showHorsZone=!_S._showHorsZone;_S._showHorsAgence=false;_S._clientsPDVPage=0;_renderTopClientsPDV();};
 window._horsZoneExpand   = function(){_S._horsZonePage=1;_renderHorsZone();};
 window._horsZoneCollapse = function(){_S._horsZonePage=0;_renderHorsZone();};
 window._horsZonePage     = function(dir){_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+dir);_renderHorsZone();};
@@ -5107,6 +5137,7 @@ window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){
   _S._showHorsAgence=!_S._showHorsAgence;
+  _S._showHorsZone=false;
   _S._clientsPDVPage=0;
   console.log('[DEBUG] toggleWebColumn, showHorsAgence:', _S._showHorsAgence, 'horsAgenceSize:', _S.ventesClientHorsMagasin?.size);
   _renderTopClientsPDV();
