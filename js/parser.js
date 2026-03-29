@@ -371,7 +371,7 @@ export function computeBenchmark(canaux = null) {
   // Vue canal-filtrée de ventesParMagasin (tous canaux si canaux vide/null)
   const vpm = {};
   if (!canaux || !canaux.size) { Object.assign(vpm, _S.ventesParMagasin); }
-  else { for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) { const f = {}; for (const [code, data] of Object.entries(artMap)) { let sp=0,sca=0,cbl=0,svmb=0; for(const c of canaux){const cd=data.byCanal?.[c];if(cd){const _m=c==='MAGASIN'?(_S._reseauMagasinMode||'all'):'all';const _caSrc=_m==='preleve'?(cd.sumPrelevee||0):_m==='enleve'?Math.max(0,(cd.sumCA||0)-(cd.sumPrelevee||0)):(cd.sumCA||0);sp+=cd.sumPrelevee||0;sca+=_caSrc;cbl+=cd.countBL||0;svmb+=cd.sumVMB||0;}} if(sca>0||cbl>0)f[code]={sumPrelevee:sp,sumCA:sca,countBL:cbl,sumVMB:svmb}; } vpm[store] = f; } }
+  else { for (const [store, canalMap] of Object.entries(_S.ventesParMagasinByCanal)) { const f = {}; for(const c of canaux){ const artMap = canalMap[c] || {}; const _m=c==='MAGASIN'?(_S._reseauMagasinMode||'all'):'all'; for(const [code, data] of Object.entries(artMap)){ if(!f[code])f[code]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0}; const _caSrc=_m==='preleve'?(data.sumPrelevee||0):_m==='enleve'?Math.max(0,(data.sumCA||0)-(data.sumPrelevee||0)):(data.sumCA||0); f[code].sumPrelevee+=data.sumPrelevee||0; f[code].sumCA+=_caSrc; f[code].countBL+=data.countBL||0; f[code].sumVMB+=data.sumVMB||0; }} if(Object.keys(f).length) vpm[store] = f; } }
   let myV = vpm[_S.selectedMyStore] || {};
   const bv = {};
   for (const store of cs) {
