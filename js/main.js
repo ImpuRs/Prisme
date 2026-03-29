@@ -3803,38 +3803,42 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const myStoreCA = (_S.ventesParMagasin[_S.selectedMyStore] || {})[code]?.sumCA || 0;
     const opportunite = Math.max(0, art.totalCaOther - myStoreCA);
     const caParClient = art.nbClients > 0 ? Math.round(art.totalCaOther / art.nbClients) : 0;
+    const artInfo = DataStore.finalData.find(d => d.code === code);
+    const stockHtml = artInfo
+      ? `<span class="ml-2 text-[11px]" style="color:var(--t-secondary,#cbd5e1)">Stock : <strong>${artInfo.stockActuel ?? '—'}</strong>${artInfo.abcClass ? ` · <span style="color:var(--c-action)">${artInfo.abcClass}${artInfo.fmrClass || ''}</span>` : ''}</span>`
+      : '';
     // Per-client rows
     let clientRows = '';
     for (const cc of art.clientCodes) {
       const nom = _S.clientNomLookup[cc] || (_S.chalandiseData?.get(cc)?.nom) || cc;
       const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
       clientRows += `<tr class="border-b b-light hover:i-caution-bg/30">
-        <td class="py-1.5 px-3 font-mono text-[11px] t-tertiary whitespace-nowrap">${cc}</td>
-        <td class="py-1.5 px-3 text-[12px] t-primary max-w-[200px] truncate" title="${nom.replace(/"/g,'&quot;')}">${nom}</td>
+        <td class="py-1.5 px-3 font-mono text-[11px] whitespace-nowrap" style="color:var(--t-secondary,#94a3b8)">${cc}</td>
+        <td class="py-1.5 px-3 text-[12px] font-semibold max-w-[200px] truncate" style="color:var(--t-primary,#fff)" title="${nom.replace(/"/g,'&quot;')}">${nom}</td>
         <td class="py-1.5 px-3 text-right font-bold c-caution whitespace-nowrap">${formatEuro(caParClient)}</td>
-        <td class="py-1.5 px-3 text-right whitespace-nowrap ${caMe > 0 ? 'c-ok' : 't-disabled'}">${caMe > 0 ? formatEuro(caMe) : '—'}</td>
+        <td class="py-1.5 px-3 text-right font-semibold whitespace-nowrap ${caMe > 0 ? 'c-ok' : ''}" style="${caMe <= 0 ? 'color:var(--t-secondary,#94a3b8)' : ''}">${caMe > 0 ? formatEuro(caMe) : '—'}</td>
         <td class="py-1.5 px-3 text-center"><button class="diag-btn text-[11px] py-0.5 px-2" onclick="closeNomadeArticleModal();openClient360('${cc}')" title="Fiche client 360°">📞</button></td>
       </tr>`;
     }
     panel.innerHTML = `
-      <button class="absolute top-3 right-4 text-2xl t-disabled hover:t-primary" onclick="closeNomadeArticleModal()" title="Fermer">✕</button>
-      <h2 class="text-base font-extrabold t-primary mb-1 pr-8">${lib}</h2>
-      <p class="text-[11px] t-tertiary mb-4"><span class="font-mono c-action">${code}</span> · ${art.fam || '—'}</p>
+      <button class="absolute top-3 right-4 text-2xl hover:t-primary" style="color:var(--t-secondary,#94a3b8)" onclick="closeNomadeArticleModal()" title="Fermer">✕</button>
+      <h2 class="text-base font-extrabold pr-8" style="color:var(--t-primary,#fff)">${lib}</h2>
+      <p class="text-[11px] mb-4 flex items-center flex-wrap gap-1" style="color:var(--t-secondary,#94a3b8)"><span class="font-mono c-action">${code}</span> · ${art.fam || '—'}${stockHtml}</p>
       <div class="grid grid-cols-3 gap-3 mb-4">
         <div class="s-panel-inner rounded-lg p-3 text-center">
-          <p class="text-[10px] t-tertiary mb-1">💰 CA chez toi</p>
-          <p class="text-base font-extrabold ${myStoreCA > 0 ? 'c-ok' : 't-disabled'}">${myStoreCA > 0 ? formatEuro(myStoreCA) : '—'}</p>
+          <p class="text-[10px] mb-1" style="color:var(--t-secondary,#94a3b8)">💰 CA chez toi</p>
+          <p class="text-base font-extrabold ${myStoreCA > 0 ? 'c-ok' : ''}" style="${myStoreCA <= 0 ? 'color:var(--t-secondary,#94a3b8)' : ''}">${myStoreCA > 0 ? formatEuro(myStoreCA) : '—'}</p>
         </div>
         <div class="s-panel-inner rounded-lg p-3 text-center">
-          <p class="text-[10px] t-tertiary mb-1">💸 CA chez les autres</p>
-          <p class="text-base font-extrabold c-caution">${formatEuro(art.totalCaOther)} <span class="text-[10px] font-normal t-tertiary">(${art.totalBLOther} BL)</span></p>
+          <p class="text-[10px] mb-1" style="color:var(--t-secondary,#94a3b8)">💸 CA chez les autres</p>
+          <p class="text-base font-extrabold c-caution">${formatEuro(art.totalCaOther)} <span class="text-[10px] font-normal" style="color:var(--t-secondary,#94a3b8)">(${art.totalBLOther} BL)</span></p>
         </div>
         <div class="s-panel-inner rounded-lg p-3 text-center">
-          <p class="text-[10px] t-tertiary mb-1">🎯 Opportunité</p>
+          <p class="text-[10px] mb-1" style="color:var(--t-secondary,#94a3b8)">🎯 Opportunité</p>
           <p class="text-base font-extrabold c-danger">${formatEuro(opportunite)}</p>
         </div>
       </div>
-      <h3 class="text-sm font-bold t-primary mb-2">👥 ${art.nbClients} client${art.nbClients > 1 ? 's' : ''} concerné${art.nbClients > 1 ? 's' : ''} <span class="text-[10px] font-normal t-disabled">(CA ailleurs estimé par client)</span></h3>
+      <h3 class="text-sm font-bold mb-2" style="color:var(--t-primary,#fff)">👥 ${art.nbClients} client${art.nbClients > 1 ? 's' : ''} concerné${art.nbClients > 1 ? 's' : ''} <span class="text-[10px] font-normal" style="color:var(--t-secondary,#94a3b8)">(CA ailleurs estimé par client)</span></h3>
       <div class="overflow-x-auto mb-4">
         <table class="min-w-full text-xs">
           <thead class="s-panel-inner t-inverse font-bold">
@@ -3850,7 +3854,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         </table>
       </div>
       <div class="flex gap-3 flex-wrap justify-end pt-3 border-t b-default">
-        <button class="btn-secondary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal();openArticlePanel('${code}')">Voir fiche article</button>
+        <button class="btn-secondary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal();openDiagnostic('${art.fam?.replace(/'/g,"\\'") || ''}','bench')">Diagnostic famille</button>
         <button class="btn-secondary text-xs px-3 py-1.5" onclick="_copyNomadeClientsClipboard('${code}')">Copier liste clients</button>
         <button class="btn-primary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal()">Fermer</button>
       </div>`;
