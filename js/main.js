@@ -2282,6 +2282,50 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=html;
   }
 
+  // ── Clients PDV hors zone — paginé, colonnes alignées sur _renderTopClientsPDV ──
+  function _renderHorsZone(){
+    const el=document.getElementById('terrHorsZone');if(!el)return;
+    if(!_S.chalandiseReady||!_S.ventesClientArticle.size){el.innerHTML='';return;}
+    const page=_S._horsZonePage||0;
+    const HZ_PAGE=20;
+    const nowMs=Date.now();
+    const hors=[];
+    for(const[cc,artMap]of _S.ventesClientArticle){
+      if(_S.chalandiseData.has(cc))continue;
+      const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+      if(caPDV<200)continue;
+      const horsMap=_S.ventesClientHorsMagasin.get(cc);
+      const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+      const caTotal=caPDV+caHors;
+      const lastDate=_S.clientLastOrder?.get(cc);
+      const nom=_S.clientNomLookup?.[cc]||cc;
+      hors.push({cc,nom,caPDV,caHors,caTotal,lastDate});
+    }
+    hors.sort((a,b)=>b.caPDV-a.caPDV);
+    if(!hors.length){el.innerHTML='';return;}
+    let displayRows,pagerHtml='';
+    if(page===0){
+      displayRows=hors.slice(0,5);
+      if(hors.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._horsZoneExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hors.length} clients →</button></div>`;
+    }else{
+      const maxPage=Math.ceil(hors.length/HZ_PAGE);
+      const cur=Math.max(1,Math.min(page,maxPage));
+      if(_S._horsZonePage!==cur)_S._horsZonePage=cur;
+      displayRows=hors.slice((cur-1)*HZ_PAGE,cur*HZ_PAGE);
+      const prev=cur>1?`<button onclick="window._horsZonePage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+      const next=cur<maxPage?`<button onclick="window._horsZonePage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._horsZoneCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hors.length} clients</span></div>`;
+    }
+    const rows=displayRows.map(r=>{
+      const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+      const silence=daysSince!==null?`${daysSince}j`:'—';
+      const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+      const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
+      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+    }).join('');
+    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+  }
+
   // ── Top clients PDV — canal-aware, paginé, toggle hors agence ───────────
   function _renderTopClientsPDV(){
     const canal=_S._globalCanal||'';
@@ -2442,23 +2486,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _renderTopClientsPDV();
 
       // Clients PDV hors zone
-      let horsZoneHtml='';
-      if(_S.chalandiseReady&&_S.ventesClientArticle.size){
-        const hors=[];
-        for(const[cc,artMap]of _S.ventesClientArticle){
-          if(_S.chalandiseData.has(cc))continue;
-          const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-          if(caPDV<200)continue;
-          const nom=_S.clientNomLookup?.[cc]||cc;
-          hors.push({cc,nom,caPDV});
-        }
-        hors.sort((a,b)=>b.caPDV-a.caPDV);
-        if(hors.length){
-          const rows=hors.slice(0,10).map(r=>`<div class="flex items-center justify-between py-1.5 px-3 border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><span class="font-bold text-[11px] t-primary">${r.nom}</span><span class="text-[10px] t-disabled font-mono">${r.cc}</span><span class="font-bold text-[11px] c-action">${formatEuro(r.caPDV)}</span></div>`).join('');
-          horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div>${rows}</div></div>`;
-        }
-      }
-      _setEl('terrHorsZone',horsZoneHtml);
+      _renderHorsZone();
     }
 
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
@@ -5038,6 +5066,9 @@ window._topPDVExpand   = function(){_S._clientsPDVPage=1;_renderTopClientsPDV();
 window._topPDVCollapse = function(){_S._clientsPDVPage=0;_renderTopClientsPDV();};
 window._topPDVPage     = function(dir){_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+dir);_renderTopClientsPDV();};
 window._toggleHorsAgence = function(){_S._showHorsAgence=!_S._showHorsAgence;_S._clientsPDVPage=0;_renderTopClientsPDV();};
+window._horsZoneExpand   = function(){_S._horsZonePage=1;_renderHorsZone();};
+window._horsZoneCollapse = function(){_S._horsZonePage=0;_renderHorsZone();};
+window._horsZonePage     = function(dir){_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+dir);_renderHorsZone();};
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }
   else {
