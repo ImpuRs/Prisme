@@ -4607,18 +4607,29 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
     let horsZoneHtml='';
     if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+      const nowMs=Date.now();
       const hors=[];
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(_S.chalandiseData.has(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<200)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
         const nom=_S.clientNomLookup?.[cc]||cc;
-        hors.push({cc,nom,caPDV});
+        hors.push({cc,nom,caPDV,caHors,caTotal,lastDate});
       }
       hors.sort((a,b)=>b.caPDV-a.caPDV);
       if(hors.length){
-        const rows=hors.slice(0,10).map(r=>`<div class="flex items-center justify-between py-1.5 px-3 border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><span class="font-bold text-[11px] t-primary">${r.nom}</span><span class="text-[10px] t-disabled font-mono">${r.cc}</span><span class="font-bold text-[11px] c-action">${formatEuro(r.caPDV)}</span></div>`).join('');
-        horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div>${rows}</div></div>`;
+        const rows=hors.slice(0,20).map(r=>{
+          const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+          const silence=daysSince!==null?`${daysSince}j`:'—';
+          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+          const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
+          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+        }).join('');
+        horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
       }
     }
 
