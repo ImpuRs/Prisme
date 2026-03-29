@@ -850,12 +850,18 @@
           <div class="flex flex-col gap-1.5">
             <!-- Pills canal multi-sélection Réseau -->
             <div id="reseauCanalBar" class="flex flex-wrap gap-1 pb-1 border-b b-default">
-              <button class="terr-canal-chip reseau-tous-btn active" style="--chip-color:#7c3aed" onclick="window._toggleReseauCanal('')">Tous</button>
-              <button class="terr-canal-chip" style="--chip-color:#7c3aed" data-reseau-canal="MAGASIN" onclick="window._toggleReseauCanal('MAGASIN')">🏪 Mag.</button>
-              <button class="terr-canal-chip" style="--chip-color:#0891b2" data-reseau-canal="INTERNET" onclick="window._toggleReseauCanal('INTERNET')">🌐 Web</button>
-              <button class="terr-canal-chip" style="--chip-color:#059669" data-reseau-canal="REPRESENTANT" onclick="window._toggleReseauCanal('REPRESENTANT')">👔 Rép.</button>
+              <button class="terr-canal-chip reseau-tous-btn active" style="--chip-color:#6366f1" onclick="window._toggleReseauCanal('')">Tous</button>
+              <button class="terr-canal-chip" style="--chip-color:#7c3aed" data-reseau-canal="MAGASIN" onclick="window._toggleReseauCanal('MAGASIN')">🏪 Magasin</button>
+              <button class="terr-canal-chip" style="--chip-color:#0891b2" data-reseau-canal="INTERNET" onclick="window._toggleReseauCanal('INTERNET')">🌐 Internet</button>
+              <button class="terr-canal-chip" style="--chip-color:#059669" data-reseau-canal="REPRESENTANT" onclick="window._toggleReseauCanal('REPRESENTANT')">👔 Repré.</button>
               <button class="terr-canal-chip" style="--chip-color:#d97706" data-reseau-canal="DCS" onclick="window._toggleReseauCanal('DCS')">📦 DCS</button>
               <button class="terr-canal-chip" style="--chip-color:#6b7280" data-reseau-canal="AUTRE" onclick="window._toggleReseauCanal('AUTRE')">Autre</button>
+            </div>
+            <!-- Sous-pills Prélevé/Enlevé — visibles quand MAGASIN sélectionné dans Réseau -->
+            <div id="reseauMagasinModeBar" class="hidden flex gap-1 mb-1 pl-0">
+              <button id="resMagModeAll"  class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('all')">Pré. + Enl.</button>
+              <button id="resMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('preleve')">✅ Prélevé</button>
+              <button id="resMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('enleve')">✅ Enlevé</button>
             </div>
             <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>

@@ -379,7 +379,7 @@ export function computeBenchmark(canal = null) {
     for (const [a, d] of Object.entries(sv)) {
       if (!/^\d{6}$/.test(a)) continue;
       if (!bv[a]) bv[a] = { tp: 0, tb: 0, sc: 0 };
-      bv[a].tp += d.sumPrelevee; bv[a].tb += d.countBL; bv[a].sc++;
+      bv[a].tp += canal ? d.sumCA : d.sumPrelevee; bv[a].tb += d.countBL; bv[a].sc++;
     }
   }
   if (_S.obsFilterUnivers) {
@@ -417,7 +417,7 @@ export function computeBenchmark(canal = null) {
     _S.benchFamEcarts = fe;
   }
   for (const [a, b] of Object.entries(bv)) {
-    if (b.tb < 3) continue; const md = myV[a]; const mq = md ? md.sumPrelevee : 0; const myFreq = md ? md.countBL : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
+    if (b.tb < 3) continue; const md = myV[a]; const mq = md ? (canal ? md.sumCA : md.sumPrelevee) : 0; const myFreq = md ? md.countBL : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
     if (myFreq === 0 && b.sc >= Math.min(2, n)) { let diagnostic = mst > 0 ? '🟢 En stock — visibilité?' : '🔴 Stock 0 — référencer?'; _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myStock: mst, sv: b.tb, diagnostic }); }
     else if (myFreq > 0 && avg > 0) { const r = mq / avg; if (r < 0.5 && b.sc >= 2) _S.benchLists.under.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: avg - mq }); else if (r > 1.5 && mq >= 5) _S.benchLists.over.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: r }); }
   }
