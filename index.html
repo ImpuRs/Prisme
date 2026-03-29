@@ -801,6 +801,16 @@
         <!-- GROUP Réseau: Le Réseau -->
         <div id="filterGroupBench" class="hidden">
           <div class="flex flex-col gap-1.5">
+            <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">Canal</p>
+            <div class="flex flex-wrap gap-1 mb-1">
+              <button id="reseauCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setReseauCanalFilter('')">Tous</button>
+              <button id="reseauCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauCanalFilter('MAGASIN')">🏪 Magasin</button>
+              <button id="reseauCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setReseauCanalFilter('INTERNET')">🌐 Internet</button>
+              <button id="reseauCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setReseauCanalFilter('REPRESENTANT')">👔 Représentant</button>
+              <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
+              <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
+            </div>
+            <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
             <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
             <!-- Checkboxes multi-agences -->
@@ -1604,15 +1614,6 @@
         </div>
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
-      </div>
-      <!-- Pills canal Spectre Réseau — filtre LOCAL (n'affecte pas _globalCanal ni finalData) -->
-      <div class="flex flex-wrap gap-1 mb-4">
-        <button id="reseauCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setReseauCanalFilter('')">Tous</button>
-        <button id="reseauCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauCanalFilter('MAGASIN')">🏪 Magasin</button>
-        <button id="reseauCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setReseauCanalFilter('INTERNET')">🌐 Internet</button>
-        <button id="reseauCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setReseauCanalFilter('REPRESENTANT')">👔 Représentant</button>
-        <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
-        <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
       </div>
       <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
       <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border border-amber-300 rounded-lg text-xs font-semibold c-caution">

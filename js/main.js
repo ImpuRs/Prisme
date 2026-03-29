@@ -4850,7 +4850,7 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
-window._setReseauCanalFilter = function(val){_S._reseauCanal=val;computeBenchmark(val||null);renderBenchmark();};
+window._setReseauCanalFilter = function(val){_S._reseauCanal=val;_S._benchCache=null;computeBenchmark(val||null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};
