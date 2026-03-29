@@ -549,8 +549,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       },0);
     }
   }
+  function toggleTabPeriodDropdown(){
+    const dd=document.getElementById('tabPeriodDropdown');if(!dd)return;
+    buildPeriodFilter(); // refresh pills avant d'ouvrir
+    const open=dd.classList.toggle('hidden');
+    if(!open){
+      setTimeout(()=>{
+        document.addEventListener('click',function _closeTpd(e){
+          const container=document.getElementById('tabsFilterTitle');
+          if(!container||!container.contains(e.target)){dd.classList.add('hidden');document.removeEventListener('click',_closeTpd);}
+        });
+      },0);
+    }
+  }
   function applyPeriodFilter(startTs,endTs){
     const dd=document.getElementById('periodDropdown');if(dd)dd.classList.add('hidden');
+    const tdd=document.getElementById('tabPeriodDropdown');if(tdd)tdd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     if(_S._rawDataC&&_S._rawDataS){
@@ -610,18 +624,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(filteredDays<90)warnHtml=`<p class="text-[10px] c-caution font-bold mt-1.5">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`;
     }
     if(dd)dd.innerHTML=html+warnHtml;
-    // Update navbar button style for active filter vs full range
-    if(btn){
-      if(_S.periodFilterStart&&_S.periodFilterEnd){
-        const label=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
-          ?fmtDate(_S.periodFilterStart)
-          :`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
-        btn.textContent=`📅 ${label}`;
-        btn.style.cssText='color:#fde047;font-weight:800';
-      } else {
-        btn.style.cssText='';
-        updatePeriodAlert();
-      }
+    const tabDd=document.getElementById('tabPeriodDropdown');
+    if(tabDd)tabDd.innerHTML=html+warnHtml;
+    // Update navbar button + tab bar button
+    const tabBtn=document.getElementById('tabPeriodBtn');
+    const tabLabel=document.getElementById('tabPeriodLabel');
+    if(_S.periodFilterStart&&_S.periodFilterEnd){
+      const _l=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
+        ?fmtDate(_S.periodFilterStart)
+        :`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
+      if(btn){btn.textContent=`📅 ${_l}`;btn.style.cssText='color:#fde047;font-weight:800';}
+      if(tabLabel)tabLabel.textContent=_l;
+      if(tabBtn)tabBtn.classList.add('filtered');
+    } else {
+      if(btn)btn.style.cssText='';
+      updatePeriodAlert(); // resets tabPeriodLabel + tabBtn.filtered via ui.js
     }
     if(navPeriod)navPeriod.classList.remove('hidden');
   }
@@ -4899,6 +4916,7 @@ window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
 window.togglePeriodDropdown = togglePeriodDropdown;
+window.toggleTabPeriodDropdown = toggleTabPeriodDropdown;
 window._onPurgeCache = _onPurgeCache;
 window._onReloadFiles = _onReloadFiles;
 window._clearCache = _clearCache;
