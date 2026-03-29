@@ -733,19 +733,6 @@
 
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
-          <!-- Canal global filter chips -->
-          <div class="flex flex-col gap-1 mb-1.5">
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Canal</p>
-            <div class="flex flex-wrap gap-1">
-              <button id="terrGlobalCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setTerrGlobalCanalFilter('')">Tous</button>
-              <button id="terrGlobalCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setTerrGlobalCanalFilter('MAGASIN')">🏪 Magasin</button>
-              <button id="terrGlobalCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setTerrGlobalCanalFilter('INTERNET')">🌐 Internet</button>
-              <button id="terrGlobalCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setTerrGlobalCanalFilter('REPRESENTANT')">🤝 Représentant</button>
-              <button id="terrGlobalCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setTerrGlobalCanalFilter('DCS')">🏢 DCS</button>
-              <button id="terrGlobalCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setTerrGlobalCanalFilter('AUTRE')">📦 Autre</button>
-            </div>
-            <div id="terrCanalFilterWarn" class="hidden text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5 leading-snug font-semibold"></div>
-          </div>
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
             <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
@@ -833,15 +820,6 @@
         <!-- GROUP Réseau: Le Réseau -->
         <div id="filterGroupBench" class="hidden">
           <div class="flex flex-col gap-1.5">
-            <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">Canal</p>
-            <div class="flex flex-wrap gap-1 mb-1">
-              <button id="reseauCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setReseauCanalFilter('')">Tous</button>
-              <button id="reseauCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauCanalFilter('MAGASIN')">🏪 Magasin</button>
-              <button id="reseauCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setReseauCanalFilter('INTERNET')">🌐 Internet</button>
-              <button id="reseauCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setReseauCanalFilter('REPRESENTANT')">👔 Représentant</button>
-              <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
-              <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
-            </div>
             <div id="reseauMagasinModeBar" class="hidden flex gap-1 mt-0.5 pl-2">
               <button id="reseauMagModeAll" class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('all')">Prélevé + Enlevé</button>
               <button id="reseauMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('preleve')">✅ Prélevé</button>
