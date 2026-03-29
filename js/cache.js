@@ -19,7 +19,7 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.2';
+const CACHE_VERSION  = 'v3.3';
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -242,7 +242,9 @@ export async function _saveSessionToIDB() {
       clientsMagasin:        [..._S.clientsMagasin],
       clientsMagasinFreq:    [..._S.clientsMagasinFreq],
       // ── Client data ──
-      ventesClientArticle:   _serializeNestedMap(_S.ventesClientArticle),
+      ventesClientArticle:      _serializeNestedMap(_S.ventesClientArticle),
+      ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
+      cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
       clientNomLookup:       _S.clientNomLookup,
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
@@ -339,7 +341,9 @@ export async function _restoreSessionFromIDB() {
     _S.clientsMagasin       = new Set(data.clientsMagasin || []);
     _S.clientsMagasinFreq   = new Map(data.clientsMagasinFreq || []);
 
-    _S.ventesClientArticle   = _deserializeNestedMap(data.ventesClientArticle || []);
+    _S.ventesClientArticle      = _deserializeNestedMap(data.ventesClientArticle      || []);
+    _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);
+    _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
     _S.clientNomLookup       = data.clientNomLookup       || {};
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
