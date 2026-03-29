@@ -1685,7 +1685,7 @@
           <div>
             <div class="flex items-center gap-2 mb-2">
               <div class="mb-1"><p class="text-xs font-bold t-secondary">🚫 Articles vendus par le réseau — absents de mes ventes</p><p class="text-[10px] t-tertiary">Ces articles sont vendus fréquemment ailleurs mais pas chez vous — à référencer ou commander</p></div>
-              <select id="benchMissedFamFilter" onchange="benchMissedFamChange()" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary ml-2"><option value="">Toutes familles</option></select>
+              <select id="benchMissedFamFilter" onchange="window._setReseauFamFilter(this.value)" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary ml-2"><option value="">Toutes familles</option></select>
               <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
             </div>
             <div class="overflow-x-auto">
