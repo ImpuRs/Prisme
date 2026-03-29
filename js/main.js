@@ -2213,7 +2213,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // ── Segments omnicanaux ───────────────────────────────────────────────
     if(hasOmni){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
-      for(const[,o]of _S.clientOmniScore){
+      for(const[cc,o]of _S.clientOmniScore){
+        if(!_passesComMetierFilter(cc))continue;
         if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
         else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
         else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
@@ -2231,8 +2232,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const rows=[];
       for(const[com,ccs]of _S.clientsByCommercial){
         if(!com||!ccs.size)continue;
+        if(_S._selectedCommercial&&com!==_S._selectedCommercial)continue;
         let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
         for(const cc of ccs){
+          if(_S._selectedMetier&&_S.chalandiseData?.get(cc)?.metier!==_S._selectedMetier)continue;
           const lastDate=_S.clientLastOrder?.get(cc);
           const arts=_S.ventesClientArticle?.get(cc);
           const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
@@ -2272,6 +2275,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const hors=[];
     for(const[cc,artMap]of _S.ventesClientArticle){
       if(_S.chalandiseData.has(cc))continue;
+      if(!_passesComMetierFilter(cc))continue;
       const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
       if(caPDV<200)continue;
       const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2306,6 +2310,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
+  function _passesComMetierFilter(cc){
+    if(_S._selectedCommercial){const s=_S.clientsByCommercial?.get(_S._selectedCommercial);if(s&&!s.has(cc))return false;}
+    if(_S._selectedMetier){const m=_S.chalandiseData?.get(cc)?.metier;if(m!==_S._selectedMetier)return false;}
+    return true;
+  }
+
   function _syncPDVToggles(){
     const ha=!!_S._showHorsAgence,hz=!!_S._showHorsZone;
     const btnHA=document.getElementById('sidebarBtnHorsAgence');
@@ -2330,6 +2340,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
       const horsRows=[];
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+        if(!_passesComMetierFilter(cc))continue;
         const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caHors<100)continue;
         const magMap=_S.ventesClientArticle.get(cc);
@@ -2364,6 +2375,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const hzRows=[];
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(_S.chalandiseData.has(cc))continue;
+        if(!_passesComMetierFilter(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<200)continue;
         const nom=_S.clientNomLookup?.[cc]||cc;
@@ -2393,6 +2405,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const topRows=[];
     if(!canal||canal==='MAGASIN'){
       for(const[cc,artMap]of _S.ventesClientArticle){
+        if(!_passesComMetierFilter(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2406,6 +2419,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!canal){
         for(const[cc,artMap]of _S.ventesClientHorsMagasin){
           if(_S.ventesClientArticle.has(cc))continue;
+          if(!_passesComMetierFilter(cc))continue;
           const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
           if(caHors<100)continue;
           const info=_S.chalandiseData?.get(cc);
@@ -2418,6 +2432,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
     }else{
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+        if(!_passesComMetierFilter(cc))continue;
         let caCanal=0;
         for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
         if(caCanal<100)continue;
@@ -2465,8 +2480,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
 
       // Reconquête
-      const reconq=(_S.reconquestCohort||[]).slice(0,10);
-      const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_S.reconquestCohort.length} anciens clients FID</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients avec historique PDV significatif (CA≥500€, ≥1 famille), silencieux depuis plus de 6 mois.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_S.chalandiseReady?'Aucun client éligible.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
+      const _reconqFull=(_S.reconquestCohort||[]).filter(r=>{
+        if(_S._selectedCommercial&&r.commercial!==_S._selectedCommercial)return false;
+        if(_S._selectedMetier&&r.metier!==_S._selectedMetier)return false;
+        return true;
+      });
+      const reconq=_reconqFull.slice(0,10);
+      const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} anciens clients FID</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients avec historique PDV significatif (CA≥500€, ≥1 famille), silencieux depuis plus de 6 mois.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_S.chalandiseReady?'Aucun client éligible.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
       _setEl('terrReconquete',reconqHtml);
 
       // Opportunités nettes
