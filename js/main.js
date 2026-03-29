@@ -3939,9 +3939,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
     const nbClientsPDV=_S.clientsMagasin.size;
-    // CA MAGASIN uniquement — ventesClientArticle est canal MAGASIN/myStore exclusivement
+    // CA MAGASIN uniquement depuis ventesParMagasin[myStore].byCanal.MAGASIN
+    // byCanal.MAGASIN est alimenté à line 1604 (MAGASIN-only, avoirs inclus, sans garde qté)
+    // Fallback sumCA si pas de colonne canal dans le fichier (canal='', byCanal absent)
+    const _storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
     let caPDVTotal=0;
-    for(const arts of _S.ventesClientArticle.values()){for(const d of arts.values())caPDVTotal+=d.sumCA||0;}
+    for(const v of Object.values(_storeData)){
+      caPDVTotal+=v.byCanal?.MAGASIN?(v.byCanal.MAGASIN.sumCA||0):(v.sumCA||0);
+    }
     const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
