@@ -870,14 +870,6 @@
               <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card flex-1">
               <span class="text-[10px] t-tertiary">€</span>
             </div>
-            <!-- Filtre période réseau [V3] -->
-            <hr class="b-default my-0.5">
-            <p class="text-[10px] font-bold text-cyan-800">📅 Période :</p>
-            <div class="flex gap-1" id="benchPeriodeChips">
-              <button onclick="_setBenchPeriode('12M',this)" class="bench-periode-chip text-[10px] py-0.5 px-2 rounded font-bold border border-cyan-300 i-info-bg c-action">12M</button>
-              <button onclick="_setBenchPeriode('6M',this)" class="bench-periode-chip text-[10px] py-0.5 px-2 rounded font-bold border b-default s-card t-secondary">6M</button>
-              <button onclick="_setBenchPeriode('YTD',this)" class="bench-periode-chip text-[10px] py-0.5 px-2 rounded font-bold border b-default s-card t-secondary">YTD</button>
-            </div>
             <button onclick="resetObsFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
           </div>
         </div>
@@ -1170,12 +1162,6 @@
       <div id="saisonWidget" class="mb-8 hidden">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
           <h2 class="text-lg font-extrabold text-amber-700 uppercase flex items-center gap-2">🌱 Préconisation du mois <span id="badgeSaison" class="badge bg-amber-500 text-white"></span></h2>
-          <div class="flex items-center gap-1">
-            <span class="text-[10px] text-amber-700 font-bold mr-1">Période :</span>
-            <button id="periodeChip12M" class="terr-canal-chip active" style="--chip-color:#d97706" onclick="setPeriodePreset('12M')">12 mois</button>
-            <button id="periodeChipYTD" class="terr-canal-chip" style="--chip-color:#d97706" onclick="setPeriodePreset('YTD')">Depuis janv.</button>
-            <button id="periodeChip6M" class="terr-canal-chip" style="--chip-color:#d97706" onclick="setPeriodePreset('6M')">6 mois</button>
-          </div>
         </div>
         <details id="colisDetail" class="i-info-bg rounded-xl border-t-4 border-cyan-500 mb-4">
           <summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:i-info-bg">
