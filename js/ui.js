@@ -144,6 +144,11 @@ export function switchTab(id) {
   const _CANAL_TABS = new Set(['action', 'territoire', 'bench', 'promo']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
+  // Titre sidebar par onglet
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', bench: 'Filtres Réseau', promo: 'Animation' };
+  const _st = _sidebarTitles[id] || 'Filtres';
+  const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
+  const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
