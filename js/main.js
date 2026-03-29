@@ -549,8 +549,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       },0);
     }
   }
+  function toggleTabPeriodDropdown(){
+    const dd=document.getElementById('tabPeriodDropdown');if(!dd)return;
+    buildPeriodFilter(); // refresh pills avant d'ouvrir
+    const open=dd.classList.toggle('hidden');
+    if(!open){
+      setTimeout(()=>{
+        document.addEventListener('click',function _closeTpd(e){
+          const container=document.getElementById('tabsFilterTitle');
+          if(!container||!container.contains(e.target)){dd.classList.add('hidden');document.removeEventListener('click',_closeTpd);}
+        });
+      },0);
+    }
+  }
   function applyPeriodFilter(startTs,endTs){
     const dd=document.getElementById('periodDropdown');if(dd)dd.classList.add('hidden');
+    const tdd=document.getElementById('tabPeriodDropdown');if(tdd)tdd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     if(_S._rawDataC&&_S._rawDataS){
@@ -610,18 +624,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(filteredDays<90)warnHtml=`<p class="text-[10px] c-caution font-bold mt-1.5">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`;
     }
     if(dd)dd.innerHTML=html+warnHtml;
-    // Update navbar button style for active filter vs full range
-    if(btn){
-      if(_S.periodFilterStart&&_S.periodFilterEnd){
-        const label=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
-          ?fmtDate(_S.periodFilterStart)
-          :`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
-        btn.textContent=`📅 ${label}`;
-        btn.style.cssText='color:#fde047;font-weight:800';
-      } else {
-        btn.style.cssText='';
-        updatePeriodAlert();
-      }
+    const tabDd=document.getElementById('tabPeriodDropdown');
+    if(tabDd)tabDd.innerHTML=html+warnHtml;
+    // Update navbar button + tab bar button
+    const tabBtn=document.getElementById('tabPeriodBtn');
+    const tabLabel=document.getElementById('tabPeriodLabel');
+    if(_S.periodFilterStart&&_S.periodFilterEnd){
+      const _l=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
+        ?fmtDate(_S.periodFilterStart)
+        :`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
+      if(btn){btn.textContent=`📅 ${_l}`;btn.style.cssText='color:#fde047;font-weight:800';}
+      if(tabLabel)tabLabel.textContent=_l;
+      if(tabBtn)tabBtn.classList.add('filtered');
+    } else {
+      if(btn)btn.style.cssText='';
+      updatePeriodAlert(); // resets tabPeriodLabel + tabBtn.filtered via ui.js
     }
     if(navPeriod)navPeriod.classList.remove('hidden');
   }
@@ -1578,10 +1595,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
       _S.globalJoursOuvres=joursOuvres;
       // VOLET 4: Period detection
+      let _autoYTD=false;
       if(minDateVente<Infinity&&maxDateVente>0){
         _S.consommePeriodMin=new Date(minDateVente);_S.consommePeriodMax=new Date(maxDateVente);
         const calJours=daysBetween(_S.consommePeriodMin,_S.consommePeriodMax);
         _S.consommeMoisCouverts=Math.round(calJours/30.5);
+        // [AUTO-YTD] consommé < 6 mois → forcer YTD pour éviter sparklines vides sur données courtes
+        if(!isRefilter&&_S.consommeMoisCouverts<6&&(_S._globalPeriodePreset||'12M')==='12M'){_S._globalPeriodePreset='YTD';_autoYTD=true;}
         if(!_S.periodFilterStart&&!_S.periodFilterEnd){_S.consommePeriodMinFull=_S.consommePeriodMin;_S.consommePeriodMaxFull=_S.consommePeriodMax;}
         updatePeriodAlert();
         buildPeriodFilter();
@@ -1701,6 +1721,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
+      if(_autoYTD){setPeriodePreset('YTD');showToast('📅 Période automatiquement ajustée à YTD (données < 6 mois)','info',4000);}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
@@ -3750,7 +3771,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     if (preset === '12M') return months;
     const mois = new Date().getMonth();
     if (preset === '6M') return Array.from({length: 6}, (_, i) => months[(mois - 5 + i + 12) % 12]);
-    if (preset === 'YTD') return months.slice(0, mois + 1);
+    if (preset === 'YTD') return months.slice(0, mois + 1); // mois 0..currentMonth = depuis new Date(year,0,1)
     return months;
   }
   window._getFilteredMonths = _getFilteredMonths;
@@ -4895,6 +4916,7 @@ window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
 window.togglePeriodDropdown = togglePeriodDropdown;
+window.toggleTabPeriodDropdown = toggleTabPeriodDropdown;
 window._onPurgeCache = _onPurgeCache;
 window._onReloadFiles = _onReloadFiles;
 window._clearCache = _clearCache;
