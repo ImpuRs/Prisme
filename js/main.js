@@ -3119,8 +3119,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // Store ranking [V3] — tri dynamique par _rankSortKey / _rankSortDir
     const showClientsZone=true;const chHdr=document.getElementById('benchClientsZoneHeader');if(chHdr)chHdr.style.display='';
     // Sync select UI avec l'état courant
-    {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'txMarge'))sel.value=_S._rankSortKey||'txMarge';}
-    const _rankKey=_S._rankSortKey||'txMarge';const _rankDir=-1;
+    {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'pdmBassin'))sel.value=_S._rankSortKey||'pdmBassin';}
+    const _rankKey=_S._rankSortKey||'pdmBassin';const _rankDir=1;
     const _nbCanauxActifs=(store)=>{const ca=_S.canalAgence[store]||{};return Math.max(1,Object.values(ca).filter(v=>(v.ca||0)>500).length);};
     const sorted=Object.entries(storePerf).sort((a,b)=>{let va=a[1][_rankKey]??0;let vb=b[1][_rankKey]??0;if(_rankKey==='freq'){va/=_nbCanauxActifs(a[0]);vb/=_nbCanauxActifs(b[0]);}return _rankDir*(vb-va);});
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
