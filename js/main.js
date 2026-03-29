@@ -567,17 +567,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const tdd=document.getElementById('tabPeriodDropdown');if(tdd)tdd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
-    if(_S._rawDataC&&_S._rawDataS){
-      // Préserver territoire + chalandise + bornes full-période à travers le reset
-      const _terr={territoireReady:_S.territoireReady,territoireLines:DataStore.territoireLines,terrDirectionData:_S.terrDirectionData,terrContribBySecteur:_S.terrContribBySecteur,terrContribByDirection:_S.terrContribByDirection};
-      const _chal={chalandiseData:_S.chalandiseData,chalandiseReady:_S.chalandiseReady,chalandiseMetiers:_S.chalandiseMetiers,clientsByMetier:_S.clientsByMetier,clientsByCommercial:_S.clientsByCommercial};
-      const _misc={periodFilterStart:_S.periodFilterStart,periodFilterEnd:_S.periodFilterEnd,consommePeriodMinFull:_S.consommePeriodMinFull,consommePeriodMaxFull:_S.consommePeriodMaxFull,_rawDataC:_S._rawDataC,_rawDataS:_S._rawDataS};
-      const _storeToKeep=_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||'';
-      resetAppState();resetPromo();
-      if(_storeToKeep)_S.selectedMyStore=_storeToKeep;
-      Object.assign(_S,_terr,_chal,_misc);
-      processDataFromRaw(_S._rawDataC,_S._rawDataS,{isRefilter:true});
-    }else{processData();}
+    _S._tabRendered={}; // invalider le cache lazy render pour forcer re-render sur tous les onglets
+    _S._terrCanalCache=new Map(); // invalider cache territoire (labels période affichés)
+    buildPeriodFilter(); // mettre à jour labels boutons + état pills
+    renderCurrentTab(); // re-render l'onglet actif uniquement, données en mémoire
   }
   function buildPeriodFilter(){
     const dd=document.getElementById('periodDropdown');
