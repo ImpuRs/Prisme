@@ -343,10 +343,10 @@ export function getSelectedSecteurs() {
 }
 
 // ── Benchmark multi-agences ───────────────────────────────────
-export function computeBenchmark(canaux = null) {
-  // Cache : inclut les canaux locaux Spectre Réseau (multi-sélection, invariant _globalCanal).
-  const _canauxKey = (canaux && canaux.size) ? [...canaux].sort().join(',') : '';
-  const _modeKey = (canaux && canaux.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : '';
+export function computeBenchmark(canal = null) {
+  // Cache : clé canal unique (string) + mode MAGASIN si applicable.
+  const _canauxKey = canal || '';
+  const _modeKey = canal === 'MAGASIN' ? (_S._reseauMagasinMode || 'all') : '';
   const _bKey = [
     _S.selectedMyStore || '',
     [..._S.selectedBenchBassin].sort().join(','),
@@ -368,10 +368,10 @@ export function computeBenchmark(canaux = null) {
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;
-  // Vue canal-filtrée de ventesParMagasin (tous canaux si canaux vide/null)
+  // Vue canal-filtrée : ventesParMagasinByCanal[store][canal] si canal fourni, sinon ventesParMagasin
   const vpm = {};
-  if (!canaux || !canaux.size) { Object.assign(vpm, _S.ventesParMagasin); }
-  else { for (const [store, canalMap] of Object.entries(_S.ventesParMagasinByCanal)) { const f = {}; for(const c of canaux){ const artMap = canalMap[c] || {}; const _m=c==='MAGASIN'?(_S._reseauMagasinMode||'all'):'all'; for(const [code, data] of Object.entries(artMap)){ if(!f[code])f[code]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0}; const _caSrc=_m==='preleve'?(data.sumPrelevee||0):_m==='enleve'?Math.max(0,(data.sumCA||0)-(data.sumPrelevee||0)):(data.sumCA||0); f[code].sumPrelevee+=data.sumPrelevee||0; f[code].sumCA+=_caSrc; f[code].countBL+=data.countBL||0; f[code].sumVMB+=data.sumVMB||0; }} if(Object.keys(f).length) vpm[store] = f; } }
+  if (!canal) { Object.assign(vpm, _S.ventesParMagasin); }
+  else { const _m = canal === 'MAGASIN' ? (_S._reseauMagasinMode || 'all') : 'all'; for (const [store, canalMap] of Object.entries(_S.ventesParMagasinByCanal || {})) { const artMap = canalMap[canal] || {}; const f = {}; for (const [code, data] of Object.entries(artMap)) { const _caSrc = _m === 'preleve' ? (data.sumPrelevee || 0) : _m === 'enleve' ? Math.max(0, (data.sumCA || 0) - (data.sumPrelevee || 0)) : (data.sumCA || 0); f[code] = { sumPrelevee: data.sumPrelevee || 0, sumCA: _caSrc, countBL: data.countBL || 0, sumVMB: data.sumVMB || 0 }; } if (Object.keys(f).length) vpm[store] = f; } }
   let myV = vpm[_S.selectedMyStore] || {};
   const bv = {};
   for (const store of cs) {
@@ -389,7 +389,7 @@ export function computeBenchmark(canaux = null) {
   }
   const totalArtsInBassin = Object.keys(bv).length || 1;
   const sp = {}; sp[_S.selectedMyStore] = { ref: 0, freq: 0, serv: 0, clientsZone: 0 };
-  const _isRefActive = (v) => (canaux && canaux.size) ? v.sumCA > 0 : v.sumPrelevee > 0;
+  const _isRefActive = (v) => canal ? v.sumCA > 0 : v.sumPrelevee > 0;
   for (const [k, v] of Object.entries(myV)) { if (_isRefActive(v)) sp[_S.selectedMyStore].ref++; sp[_S.selectedMyStore].freq += v.countBL; }
   sp[_S.selectedMyStore].serv = Math.round((sp[_S.selectedMyStore].ref / totalArtsInBassin) * 100);
   if (_S.chalandiseReady && _S.ventesClientsPerStore[_S.selectedMyStore]) sp[_S.selectedMyStore].clientsZone = [..._S.ventesClientsPerStore[_S.selectedMyStore]].filter(c => _S.chalandiseData.has(c)).length;
