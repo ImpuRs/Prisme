@@ -726,8 +726,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Équation commerciale
     const nbClientsPDV=_S.clientsMagasin.size;
     const storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
-    const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.byCanal?.MAGASIN?(v.byCanal.MAGASIN.sumCA||0):(v.sumCA||0)),0);
-    const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.byCanal?.MAGASIN?(v.byCanal.MAGASIN.sumVMB||0):(v.sumVMB||0)),0);
+    const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
+    const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
     const _nbPassagesExec=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0&&_nbPassagesExec>0?parseFloat((_nbPassagesExec/nbClientsPDV).toFixed(1)):null;
@@ -1589,8 +1589,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
         if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}}
-        // Accumule hors-MAGASIN dans ventesParMagasin : CA total tous canaux + breakdown byCanal
-        if(canal){const _rAHM=(getVal(row,'Article','Code')||'').toString();const _cHM=cleanCode(_rAHM);const _sHM=extractStoreCode(row)||'INCONNU';if(_cHM&&(_S.storesIntersection.has(_sHM)||!_S.storesIntersection.size)){const _qPHM=getQuantityColumn(row,'prél')||0;const _qEHM=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const _cPHM=getCaColumn(row,'prél')||0;const _cEHM=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);if(!_S.ventesParMagasin[_sHM])_S.ventesParMagasin[_sHM]={};if(!_S.ventesParMagasin[_sHM][_cHM])_S.ventesParMagasin[_sHM][_cHM]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};const _vHM=_S.ventesParMagasin[_sHM][_cHM];if(_qPHM>0)_vHM.sumPrelevee+=_qPHM;if(_qEHM>0)_vHM.sumEnleve+=_qEHM;_vHM.sumCA+=_cPHM+_cEHM;if(_qPHM>0||_qEHM>0)_vHM.countBL++;_vHM.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));if(!_vHM.byCanal)_vHM.byCanal={};if(!_vHM.byCanal[canal])_vHM.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bcHM=_vHM.byCanal[canal];if(_qPHM>0)_bcHM.sumPrelevee+=_qPHM;_bcHM.sumCA+=_cPHM+_cEHM;if(_qPHM>0||_qEHM>0)_bcHM.countBL++;_bcHM.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}}
         continue;
       }
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
@@ -3941,14 +3939,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
     const nbClientsPDV=_S.clientsMagasin.size;
-    // CA MAGASIN uniquement depuis ventesParMagasin[myStore].byCanal.MAGASIN
-    // byCanal.MAGASIN est alimenté à line 1604 (MAGASIN-only, avoirs inclus, sans garde qté)
-    // Fallback sumCA si pas de colonne canal dans le fichier (canal='', byCanal absent)
     const _storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
-    let caPDVTotal=0;
-    for(const v of Object.values(_storeData)){
-      caPDVTotal+=v.byCanal?.MAGASIN?(v.byCanal.MAGASIN.sumCA||0):(v.sumCA||0);
-    }
+    const caPDVTotal=Object.values(_storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
     // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
     const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
