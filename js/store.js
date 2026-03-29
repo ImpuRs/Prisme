@@ -15,6 +15,21 @@
 
 import { _S } from './state.js';
 
+// Filtre les lignes (territoireLines ou tout tableau avec .dateExp/.date/.dateCommande)
+// selon _S.periodFilterStart / _S.periodFilterEnd. O(n), retourne lines tel quel si aucun filtre.
+function _filterByPeriode(lines) {
+  const start = _S.periodFilterStart;
+  const end   = _S.periodFilterEnd;
+  if (!start && !end) return lines;
+  return lines.filter(l => {
+    const d = l.dateExp || l.date || l.dateCommande;
+    if (!d) return true;
+    if (start && d < start) return false;
+    if (end   && d > end)   return false;
+    return true;
+  });
+}
+
 export const DataStore = {
 
   // ── [CANAL-INVARIANT] Données enrichies stock + MIN/MAX + ABC/FMR ──────────
@@ -35,9 +50,11 @@ export const DataStore = {
   get selectedMyStore()       { return _S.selectedMyStore; },
   get selectedBenchBassin()   { return _S.selectedBenchBassin; },
 
-  // ── [CANAL-INVARIANT] Territoire (source brute gardée intentionnellement) ──
-  // Ne pas filtrer territoireLines ici — passer par byCanal() pour les vues filtrées.
-  get territoireLines()       { return _S.territoireLines; },
+  // ── [CANAL-INVARIANT] Territoire ─────────────────────────────────────────
+  // territoireLines : source brute non filtrée (pour presence checks, lookups, period-range detection)
+  // filteredTerritoireLines : filtrée par _S.periodFilterStart/End (pour KPI computation)
+  get territoireLines()         { return _S.territoireLines; },
+  get filteredTerritoireLines() { return _filterByPeriode(_S.territoireLines); },
 
   // ── [CANAL-INVARIANT] Clients / Chalandise ────────────────────────────────
   // Dualité PDV/hors-agence = feature métier (voir synthèse débat 2026-03-27)
@@ -63,9 +80,12 @@ export const DataStore = {
     const kpis = this.byCanal(_canal);
 
     // Dimension commercial — filtre terrLines par-dessus le filtre canal
-    const terrLines = _com
+    const terrLinesAfterCom = _com
       ? kpis.terrLines.filter(l => (l.commercial || '') === _com)
       : kpis.terrLines;
+
+    // Dimension période — filtre par periodFilterStart/End
+    const terrLines = _filterByPeriode(terrLinesAfterCom);
 
     // Dimension période — indices des mois actifs (pour sparklines / _getFilteredMonths)
     const mois = new Date().getMonth();
@@ -106,7 +126,7 @@ export const DataStore = {
       canal: _c || 'ALL',
       canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
       totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + (v.ca || 0), 0),
-      terrLines: _c ? _S.territoireLines.filter(l => l.canal === _c) : _S.territoireLines,
+      terrLines: _filterByPeriode(_c ? _S.territoireLines.filter(l => l.canal === _c) : _S.territoireLines),
       articleFacts: !hasTerritoire ? _S.articleCanalCA : null,
       finalData: _S.finalData,
       capabilities: {

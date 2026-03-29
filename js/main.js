@@ -2229,7 +2229,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function getKPIsByCanal(canal) {
     const _c = canal && canal !== 'ALL' ? canal : null;
     const hasTerritoire = _S.territoireReady && _S.territoireLines.length > 0;
-    const terrLines = _c ? DataStore.territoireLines.filter(l => l.canal === _c) : DataStore.territoireLines;
+    const terrLines = _c ? DataStore.filteredTerritoireLines.filter(l => l.canal === _c) : DataStore.filteredTerritoireLines;
     return {
       canal: _c || 'ALL',
       // Stats canal depuis canalAgence (déjà agrégé au parsing, accès O(1))
@@ -2508,7 +2508,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const blSetAll=new Set();
     const clientsMap={};
     const dirSet=new Set();
-    for(const l of DataStore.territoireLines){ // [Adapter Étape 5] — canal-invariant total
+    for(const l of DataStore.filteredTerritoireLines){ // [Adapter Étape 5] — canal-invariant total, période filtrée
       caTotal+=l.ca;blSetAll.add(l.bl);
       if(l.isSpecial)specialCA+=l.ca;
       else dirSet.add(l.direction);
@@ -2546,7 +2546,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_contribTitleEl){if(_canalGlobal)_contribTitleEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _contribTitleEl.textContent='🔗 Contributeurs agence';}
 
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-    setSafe('terrKpiLignes',DataStore.territoireLines.length.toLocaleString('fr')); // [Adapter Étape 5]
+    setSafe('terrKpiLignes',DataStore.filteredTerritoireLines.length.toLocaleString('fr')); // filtrées par période
     setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
     // CA Total KPI: show canal-filtered value + note when filter active
     setSafe('terrKpiCATotal',formatEuro(caTotalFiltered));
@@ -2569,7 +2569,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
-    const linesFiltered=DataStore.territoireLines.filter(l=>{ // [Adapter Étape 5]
+    const linesFiltered=DataStore.filteredTerritoireLines.filter(l=>{
       if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
       if(filterDir&&l.direction!==filterDir)return false;
@@ -2691,7 +2691,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
     const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const familles={};
-    for(const l of DataStore.territoireLines){ // [Adapter Étape 5]
+    for(const l of DataStore.filteredTerritoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
@@ -2736,7 +2736,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
     const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
@@ -2773,7 +2773,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
     const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.isSpecial)continue;
@@ -2806,7 +2806,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
     const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.direction!==direction)continue;
@@ -2856,7 +2856,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
     const _comSet=_com?(_S.clientsByCommercial.get(_com)||new Set()):null;
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(_cg&&l.canal!==_cg)continue;
       if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
       if(l.direction!==direction)continue;
@@ -2895,7 +2895,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   // VOLET 2bis: Build secteur + direction contributeurs aggregate maps
   function buildTerrContrib(){
     _S.terrContribBySecteur=new Map();_S.terrContribByDirection=new Map();
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(!l.secteur)continue;
       const dir=getSecteurDirection(l.secteur)||l.direction||'—';
       // Per-secteur
@@ -3065,7 +3065,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     const isStd=code=>/^\d{6}$/.test(code);
     const artMap={};
-    for(const l of DataStore.territoireLines){
+    for(const l of DataStore.filteredTerritoireLines){
       if(l.clientCode!==clientCode)continue;
       if(!artMap[l.code])artMap[l.code]={code:l.code,libelle:l.libelle,ca:0,qty:0,rayonStatus:l.rayonStatus,isSpecial:l.isSpecial||!isStd(l.code)};
       artMap[l.code].ca+=l.ca;artMap[l.code].qty+=1;
@@ -3133,7 +3133,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const selectedSecteursCSV=getSelectedSecteurs();
     const {activeFilters:{canal:_canalGlobalExp,commercial:_comExp}}=DataStore.byContext(); // [V3.2]
     const _comSetExp=_comExp?(_S.clientsByCommercial.get(_comExp)||new Set()):null;
-    const filtered=DataStore.territoireLines.filter(l=>{
+    const filtered=DataStore.filteredTerritoireLines.filter(l=>{
       if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
       if(_comSetExp&&(!l.clientCode||!_comSetExp.has(l.clientCode)))return false; // [V3.2]
       if(filterDir&&l.direction!==filterDir)return false;
