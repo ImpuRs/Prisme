@@ -5148,12 +5148,29 @@ function renderSidebarAgenceSelector() {
   if (stores.length < 2) { block.classList.add('hidden'); return; }
   block.classList.remove('hidden');
   const myStore = _S.selectedMyStore || '';
+  // Mettre à jour le label du titre (dropdown reste fermé)
+  const lbl = document.getElementById('agenceFilterLabel');
+  if (lbl) lbl.textContent = (myStore || 'Toutes') + ' ▼';
+  // Peupler la liste (sans forcer l'ouverture)
   list.innerHTML = stores.map(s => {
     const isMe = s === myStore;
     return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:0.7rem;font-weight:${isMe?'700':'600'};color:${isMe?'var(--c-action)':'var(--t-secondary,#94a3b8)'}" class="hover:s-card-alt"><input type="radio" name="sidebarStoreRadio" value="${s}" ${isMe?'checked':''} onchange="window._sidebarAgenceChange('${s}')" style="accent-color:var(--c-action);flex-shrink:0"><span>${s}</span></label>`;
   }).join('');
 }
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
+window._toggleAgenceDropdown = function() {
+  const dd = document.getElementById('agenceDropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+// Fermer le dropdown agence au clic en dehors
+document.addEventListener('click', function(e) {
+  const block = document.getElementById('sidebarAgenceBlock');
+  if (block && !block.contains(e.target)) {
+    const dd = document.getElementById('agenceDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+}, true);
 window._sidebarAgenceChange = function(store) {
   if (store === _S.selectedMyStore) return;
   _S.selectedMyStore = store;
