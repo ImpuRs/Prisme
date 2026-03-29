@@ -3368,24 +3368,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   // === OBSERVATOIRE HELPERS ===
-  // [V3] Overlay canal KPI cards — lecture agence uniquement, sans comparaison réseau
-  function toggleObsCanalBreakdown() {
-    const el = document.getElementById('obsCanalBreakdown');
-    if (!el) return;
-    if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
-    const canaux = ['MAGASIN','INTERNET','REPRESENTANT','DCS','AUTRE'];
-    const rows = canaux.map(canal => {
-      let ca = 0;
-      for (const [, cmap] of _S.articleCanalCA) ca += cmap.get(canal)?.ca || 0;
-      return ca > 0
-        ? `<div class="flex justify-between"><span class="t-secondary">${canal}</span><span class="font-bold">${formatEuro(ca)}</span></div>`
-        : '';
-    }).filter(Boolean);
-    el.innerHTML = (rows.length ? rows.join('') : '<p class="t-disabled">Aucune donnée canal disponible.</p>')
-      + '<p class="text-[10px] t-disabled italic mt-1">Source : mon agence uniquement — aucune comparaison réseau</p>';
-    el.classList.remove('hidden');
-  }
-
   function _obsNav(t){
     if(t==='silencieux'){
       switchTab('territoire');
@@ -4932,7 +4914,6 @@ window.onObsCompareChange = onObsCompareChange;
 window.onObsFilterChange = onObsFilterChange;
 window.resetObsFilters = resetObsFilters;
 window._setBenchPeriode = _setBenchPeriode;
-window.toggleObsCanalBreakdown = toggleObsCanalBreakdown;
 window._onPromoFamilleChange = _onPromoFamilleChange;
 window._applyPromoFilters = _applyPromoFilters;
 window.buildTerrContrib = buildTerrContrib;
