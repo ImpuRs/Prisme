@@ -120,7 +120,7 @@ export function switchTab(id) {
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Contextual panel title
-  const titles = { table: 'Filtres Articles', dash: 'Filtres Faisceau Stock', action: 'Ce matin', abc: 'Filtres Observatoire', clients: 'Filtres PRISME 360', territoire: 'Filtres PRISME 360', bench: 'Filtres Spectre Réseau', promo: 'Promo' };
+  const titles = { table: 'Filtres Articles', dash: 'Filtres Faisceau Stock', action: 'Ce matin', abc: 'Filtres Observatoire', clients: 'Filtres PRISME 360', territoire: 'Filtres PRISME 360', bench: 'Filtres Spectre Réseau', promo: 'Filtres Promo' };
   const titleEl = document.getElementById('filterPanelTitle');
   if (titleEl) titleEl.textContent = titles[id] || 'Filtres';
   // Masquer les filtres stock sur Ce matin (non pertinents)
