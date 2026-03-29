@@ -65,7 +65,7 @@ _S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRE
 _S._reseauCanaux = new Set(); // Filtre canal LOCAL à Spectre Réseau (multi-sélection) — n'affecte pas _globalCanal ni finalData
 _S._reseauMagasinMode = 'all'; // 'all' | 'preleve' | 'enleve' — sous-filtre MAGASIN dans Spectre Réseau
 _S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
-_S._rankSortKey = 'txMarge'; // [V3] tri classement agences : 'txMarge' | 'freq' | 'serv' | 'pdm'
+_S._rankSortKey = 'pdmBassin'; // [V3] tri classement agences : 'txMarge' | 'freq' | 'serv' | 'pdmBassin'
 _S._rankSortDir = -1;         // [V3] -1 = DESC, 1 = ASC
 _S.blCanalMap = new Map(); // BL → canal (built from consommé, passed to territoire worker)
 _S.articleCanalCA = new Map(); // [F1 fix] code → Map(canal → {ca, qteP, countBL}) — tous canaux, toutes agences filtrées
@@ -319,7 +319,7 @@ export function resetAppState() {
   _S.reseauNomades = []; _S.nomadesMissedArts = []; _S.reseauOrphelins = []; _S.reseauFuitesMetier = [];
 
   // Ranking réseau
-  _S._rankSortKey = 'txMarge'; _S._rankSortDir = -1;
+  _S._rankSortKey = 'pdmBassin'; _S._rankSortDir = -1;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
