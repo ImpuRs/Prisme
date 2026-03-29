@@ -810,6 +810,11 @@
               <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
               <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
             </div>
+            <div id="reseauMagasinModeBar" class="hidden flex gap-1 mt-0.5 pl-2">
+              <button id="reseauMagModeAll" class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('all')">Prélevé + Enlevé</button>
+              <button id="reseauMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('preleve')">✅ Prélevé</button>
+              <button id="reseauMagModeEnl" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('enleve')">✅ Enlevé</button>
+            </div>
             <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
             <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>

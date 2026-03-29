@@ -346,6 +346,7 @@ export function getSelectedSecteurs() {
 export function computeBenchmark(canaux = null) {
   // Cache : inclut les canaux locaux Spectre Réseau (multi-sélection, invariant _globalCanal).
   const _canauxKey = (canaux && canaux.size) ? [...canaux].sort().join(',') : '';
+  const _modeKey = (canaux && canaux.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : '';
   const _bKey = [
     _S.selectedMyStore || '',
     [..._S.selectedBenchBassin].sort().join(','),
@@ -354,6 +355,7 @@ export function computeBenchmark(canaux = null) {
     _S.selectedObsCompare || 'median',
     _S.chalandiseReady ? '1' : '0',
     _canauxKey,
+    _modeKey,
   ].join('|');
   if (_S._benchCache && _S._benchCache.key === _bKey) {
     _S.benchLists    = _S._benchCache.benchLists;
@@ -369,7 +371,7 @@ export function computeBenchmark(canaux = null) {
   // Vue canal-filtrée de ventesParMagasin (tous canaux si canaux vide/null)
   const vpm = {};
   if (!canaux || !canaux.size) { Object.assign(vpm, _S.ventesParMagasin); }
-  else { for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) { const f = {}; for (const [code, data] of Object.entries(artMap)) { let sp=0,sca=0,cbl=0,svmb=0; for(const c of canaux){const cd=data.byCanal?.[c];if(cd){sp+=cd.sumPrelevee||0;sca+=cd.sumCA||0;cbl+=cd.countBL||0;svmb+=cd.sumVMB||0;}} if(sca>0||cbl>0)f[code]={sumPrelevee:sp,sumCA:sca,countBL:cbl,sumVMB:svmb}; } vpm[store] = f; } }
+  else { for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) { const f = {}; for (const [code, data] of Object.entries(artMap)) { let sp=0,sca=0,cbl=0,svmb=0; for(const c of canaux){const cd=data.byCanal?.[c];if(cd){const _m=c==='MAGASIN'?(_S._reseauMagasinMode||'all'):'all';const _caSrc=_m==='preleve'?(cd.sumPrelevee||0):_m==='enleve'?Math.max(0,(cd.sumCA||0)-(cd.sumPrelevee||0)):(cd.sumCA||0);sp+=cd.sumPrelevee||0;sca+=_caSrc;cbl+=cd.countBL||0;svmb+=cd.sumVMB||0;}} if(sca>0||cbl>0)f[code]={sumPrelevee:sp,sumCA:sca,countBL:cbl,sumVMB:svmb}; } vpm[store] = f; } }
   let myV = vpm[_S.selectedMyStore] || {};
   const bv = {};
   for (const store of cs) {
