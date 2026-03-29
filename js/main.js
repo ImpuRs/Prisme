@@ -3995,30 +3995,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // A4: update phantom shortcut counter
     {const phantomEl=document.getElementById('shortcutPhantomCount');if(phantomEl&&_S.phantomArticles.length>0){phantomEl.textContent=_S.phantomArticles.length+' art. · '+formatEuro(_S.phantomArticles.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));}}
 
-    // V23: Show excluded parent refs count
-    const exclEl=document.getElementById('rupturesExcluded');
-    if(exclEl)exclEl.textContent=_S.parentRefsExcluded>0?`🚫 ${_S.parentRefsExcluded} réf. père exclues (sans mouvement)`:'';
-
-    // ★ V23/V24.2: Ruptures sorted by CA potentiel + priority score column
-    lstR.sort((a,b)=>b.sv-a.sv);
-    const totalCAPotPerdu=lstR.reduce((s,r)=>s+r.caPot,0);
-    // P1/P3: populate #rupturesSummary with critiques count
-    {const critiques=lstR.filter(r=>r.prioScore>=70).length;const summaryEl=document.getElementById('rupturesSummary');if(summaryEl)summaryEl.textContent=critiques>0?`dont ${critiques} 🔥 Critiques`:'';};
-    p=[];lstR.slice(0,50).forEach(i=>{
-      const maxScore=lstR.length>0?lstR[0].prioScore:1;
-      const barW=maxScore>0?Math.min(Math.round(i.prioScore/maxScore*100),100):0;
-      const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
-      // Color Covenant: rouge pour F/M (perte active), ambre pour R (rare)
-      const caColor=(i.fmrClass==='R')?'c-caution':'c-danger';
-      const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn i-danger-bg c-danger" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
-      const prioLbl=i.prioScore>=70?'<span class="text-[9px] font-bold c-danger">🔥 Critique</span>':i.prioScore>=40?'<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>':'<span class="text-[9px] t-disabled">📌 À surveiller</span>';
-      const minMaxFmt=`${i.ancienMin}/${i.ancienMax}`;
-      const dernSortieFmt=i.ageJours>=999?'—':`${i.ageJours}j`;
-      p.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] t-disabled ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5">${prioLbl}<div class="w-10 s-hover rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs ${caColor}">${caPerduFmt}</td><td class="py-2 px-2 text-center text-xs font-bold">${i.stockActuel}</td><td class="py-2 px-2 text-center text-xs t-secondary">${minMaxFmt}</td><td class="py-2 px-2 text-center text-xs t-disabled">${dernSortieFmt}</td>${diagCell}</tr>`);
-    });
-    document.getElementById('actionRuptures').innerHTML=p.join('')||'<tr><td colspan="8" class="text-center py-4 t-disabled text-xs">🎉 Aucune rupture</td></tr>';
-    const ruptTotEl=document.getElementById('actionRupturesTotal');
-    {const caPerduFooter=hasMulti?`💸 CA perdu estimé : ${formatEuro(totalCAPerdu)} (vs médiane réseau)`:totalCAPerdu>=100?`💸 CA historique des articles en rupture : ${formatEuro(totalCAPerdu)}`:`💸 CA perdu non estimable — historique insuffisant`;if(ruptTotEl)ruptTotEl.innerHTML=lstR.length>0?`<tr><td colspan="8" class="py-2 px-2 text-right text-xs font-extrabold c-danger border-t b-light">${caPerduFooter}</td></tr><tr><td colspan="8" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${lstR.slice(0,50).map(r=>r.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${Math.min(lstR.length,50)} codes</button></td></tr>`:'';};
+    // ★ V23/V24.2: Ruptures sorted by CA potentiel
+    lstR.sort((a,b)=>b.sv-a.sv);;
 
     // Other lists — no condit badges (V23: removed C24/B100 badges)
     function pL(l,id,lim=50){const el=document.getElementById(id);if(!el)return;const sorted=l.sort((a,b)=>b.sv-a.sv).slice(0,lim);const p=[];sorted.forEach(i=>{p.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td></tr>`);});el.innerHTML=p.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">🎉</td></tr>';if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="3" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}}
@@ -4049,6 +4027,27 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // renderCockpitBriefing(); — remplacé par bouton ☀️ Briefing du jour
     renderDecisionQueue();
     renderTabBadges();
+    // ★ Accordéon Ruptures dans Ce matin (déplacé depuis Mon Stock)
+    {const _rEl=document.getElementById('cockpitRupturesList');if(_rEl){
+      const _crit=lstR.filter(r=>r.prioScore>=70).length;
+      const _summTxt=_crit>0?`dont ${_crit} 🔥 Critiques`:'';
+      const _exclTxt=_S.parentRefsExcluded>0?`🚫 ${_S.parentRefsExcluded} réf. père exclues (sans mouvement)`:'';
+      const _maxScore=lstR.length>0?lstR[0].prioScore:1;
+      const _rows=[];lstR.slice(0,50).forEach(i=>{
+        const barW=_maxScore>0?Math.min(Math.round(i.prioScore/_maxScore*100),100):0;
+        const caPerduFmt=i.caPerdu>0?formatEuro(i.caPerdu):'—';
+        const caColor=(i.fmrClass==='R')?'c-caution':'c-danger';
+        const diagCell=`<td class="py-2 px-2 text-center"><button class="diag-btn i-danger-bg c-danger" onclick="openArticlePanel('${i.code}','cockpit')">🔍</button></td>`;
+        const prioLbl=i.prioScore>=70?'<span class="text-[9px] font-bold c-danger">🔥 Critique</span>':i.prioScore>=40?'<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>':'<span class="text-[9px] t-disabled">📌 À surveiller</span>';
+        const minMaxFmt=`${i.ancienMin}/${i.ancienMax}`;
+        const dernSortieFmt=i.ageJours>=999?'—':`${i.ageJours}j`;
+        _rows.push(`<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span><span class="text-[9px] t-disabled ml-1">(${i.joursRupture}j)</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-center"><div class="flex flex-col items-center gap-0.5">${prioLbl}<div class="w-10 s-hover rounded-full h-1"><div class="prio-bar ${prioClass(i.prioScore)} rounded-full" style="width:${barW}%"></div></div></div></td><td class="py-2 px-2 text-right font-extrabold text-xs ${caColor}">${caPerduFmt}</td><td class="py-2 px-2 text-center text-xs font-bold">${i.stockActuel}</td><td class="py-2 px-2 text-center text-xs t-secondary">${minMaxFmt}</td><td class="py-2 px-2 text-center text-xs t-disabled">${dernSortieFmt}</td>${diagCell}</tr>`);
+      });
+      const _tbody=_rows.join('')||'<tr><td colspan="8" class="text-center py-4 t-disabled text-xs">🎉 Aucune rupture</td></tr>';
+      const caPerduFooter=hasMulti?`💸 CA perdu estimé : ${formatEuro(totalCAPerdu)} (vs médiane réseau)`:totalCAPerdu>=100?`💸 CA historique des articles en rupture : ${formatEuro(totalCAPerdu)}`:`💸 CA perdu non estimable — historique insuffisant`;
+      const _tfoot=lstR.length>0?`<tr><td colspan="8" class="py-2 px-2 text-right text-xs font-extrabold c-danger border-t b-light">${caPerduFooter}</td></tr><tr><td colspan="8" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${lstR.slice(0,50).map(r=>r.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${Math.min(lstR.length,50)} codes</button></td></tr>`:'';
+      _rEl.innerHTML=`<details class="i-danger-bg rounded-xl border-t-4 border-red-600"><summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:i-danger-bg"><span class="font-bold c-danger flex items-center gap-2">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em><span class="badge bg-red-500 text-white">${lstR.length||0}</span>${_summTxt?`<span class="text-[10px] font-normal t-disabled">${_summTxt}</span>`:''}</span><span class="cockpit-link bg-red-200 c-danger" onclick="event.stopPropagation();showCockpitInTable('ruptures')">📋 Voir dans Articles</span></summary><div class="px-5 pb-5"><p class="text-[11px] c-danger mb-1 pt-2">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p>${_exclTxt?`<p class="text-[10px] c-danger mb-3">${_exclTxt}</p>`:''}<div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Priorité</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">Stock</th><th class="py-2 px-2 text-center">MIN/MAX</th><th class="py-2 px-2 text-center">Dern. sortie</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody>${_tbody}</tbody><tfoot>${_tfoot}</tfoot></table></div></div></details>`;
+    }}
     renderCockpitRupClients();
   }
 
@@ -4850,7 +4849,7 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
-window._setReseauCanalFilter = function(val){_S._reseauCanal=val;computeBenchmark(val||null);renderBenchmark();};
+window._setReseauCanalFilter = function(val){_S._reseauCanal=val;_S._benchCache=null;computeBenchmark(val||null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};

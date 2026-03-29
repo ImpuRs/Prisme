@@ -801,6 +801,16 @@
         <!-- GROUP Réseau: Le Réseau -->
         <div id="filterGroupBench" class="hidden">
           <div class="flex flex-col gap-1.5">
+            <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">Canal</p>
+            <div class="flex flex-wrap gap-1 mb-1">
+              <button id="reseauCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setReseauCanalFilter('')">Tous</button>
+              <button id="reseauCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauCanalFilter('MAGASIN')">🏪 Magasin</button>
+              <button id="reseauCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setReseauCanalFilter('INTERNET')">🌐 Internet</button>
+              <button id="reseauCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setReseauCanalFilter('REPRESENTANT')">👔 Représentant</button>
+              <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
+              <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
+            </div>
+            <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
             <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
             <!-- Checkboxes multi-agences -->
@@ -1111,17 +1121,6 @@
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3" id="compareCards"></div>
       </div>
-      <!-- Sprint 2: Ruptures actives (préconisations stock, anciennement dans Ce matin) -->
-      <div id="monStockRuptures" class="mb-8">
-        <h2 class="text-lg font-extrabold c-danger mb-3 uppercase flex items-center gap-2">🔴 Ruptures actives <span id="badgeUrgTotal" class="badge bg-red-600 text-white"></span></h2>
-        <details id="rupturesDetail" class="i-danger-bg rounded-xl border-t-4 border-red-600">
-          <summary class="flex items-center justify-between px-4 py-3 cursor-pointer hover:i-danger-bg">
-            <span class="font-bold c-danger flex items-center gap-2">🚨 Ruptures<em class="info-tip" data-tip="Articles avec fréquence ≥3 commandes/an et stock = 0. Triés par CA perdu estimé.">ℹ</em><span id="badgeRuptures" class="badge bg-red-500 text-white"></span><span id="rupturesSummary" class="text-[10px] font-normal t-disabled"></span></span>
-            <span class="cockpit-link bg-red-200 c-danger" onclick="event.stopPropagation();showCockpitInTable('ruptures')">📋 Voir dans Articles</span>
-          </summary>
-          <div class="px-5 pb-5"><p class="text-[11px] c-danger mb-1 pt-2">Fréq≥3 &amp; Stock≤0 — CA perdu estimé (joursRupture×conso/j×PU) ↓</p><p class="text-[10px] c-danger mb-3" id="rupturesExcluded"></p><div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0"><tr><th class="py-2 px-2">Code / Libellé</th><th class="py-2 px-2 text-center">Fréq</th><th class="py-2 px-2 text-center">Priorité</th><th class="py-2 px-2 text-right">CA perdu est.</th><th class="py-2 px-2 text-center">Stock</th><th class="py-2 px-2 text-center">MIN/MAX</th><th class="py-2 px-2 text-center">Dern. sortie</th><th class="py-2 px-2 text-center">🔍</th></tr></thead><tbody id="actionRuptures" class="divide-y divide-red-100"></tbody><tfoot id="actionRupturesTotal"></tfoot></table></div></div>
-        </details>
-      </div>
       <!-- Préconisation du mois : Colis à stocker + articles saisonniers -->
       <div id="saisonWidget" class="mb-8 hidden">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -1272,7 +1271,8 @@
       <!-- BRIEFING DU MATIN — remplacé par bouton ☀️ Briefing du jour -->
       <div id="cockpitBriefing" class="hidden mb-4" style="display:none!important"><div id="cockpitBriefingText"></div></div>
 
-      <!-- 4. 🔴 CLIENTS IMPACTÉS PAR RUPTURES (urgences commerciales — ruptures listes dans Mon Stock) -->
+      <!-- 4. 🔴 ACCORDÉON RUPTURES + CLIENTS IMPACTÉS -->
+      <div id="cockpitRupturesList" class="mb-3"></div>
       <div id="cockpitRupClients" class="mb-10"></div>
 
       <!-- Préconisations stock et saisonnalité → voir onglet Mon Stock (Sprint 2) -->
@@ -1604,15 +1604,6 @@
         </div>
         <!-- Hidden compat elements -->
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
-      </div>
-      <!-- Pills canal Spectre Réseau — filtre LOCAL (n'affecte pas _globalCanal ni finalData) -->
-      <div class="flex flex-wrap gap-1 mb-4">
-        <button id="reseauCanalAll" class="terr-canal-chip active" style="--chip-color:var(--c-action)" onclick="_setReseauCanalFilter('')">Tous</button>
-        <button id="reseauCanalMag" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauCanalFilter('MAGASIN')">🏪 Magasin</button>
-        <button id="reseauCanalNet" class="terr-canal-chip" style="--chip-color:#8b5cf6" onclick="_setReseauCanalFilter('INTERNET')">🌐 Internet</button>
-        <button id="reseauCanalRep" class="terr-canal-chip" style="--chip-color:#10b981" onclick="_setReseauCanalFilter('REPRESENTANT')">👔 Représentant</button>
-        <button id="reseauCanalDcs" class="terr-canal-chip" style="--chip-color:#f97316" onclick="_setReseauCanalFilter('DCS')">📦 DCS</button>
-        <button id="reseauCanalAut" class="terr-canal-chip" style="--chip-color:#94a3b8" onclick="_setReseauCanalFilter('AUTRE')">Autre</button>
       </div>
       <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
       <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border border-amber-300 rounded-lg text-xs font-semibold c-caution">
