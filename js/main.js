@@ -5145,8 +5145,8 @@ function renderSidebarAgenceSelector() {
   const list  = document.getElementById('sidebarAgenceList');
   if (!block || !list) return;
   const stores = Object.keys(_S.ventesParMagasin || {}).sort();
-  if (stores.length < 2) { block.classList.add('hidden'); return; }
-  block.classList.remove('hidden');
+  if (stores.length < 2) { block.style.display = 'none'; return; }
+  block.style.display = '';
   const myStore = _S.selectedMyStore || '';
   // Mettre à jour le label du titre (dropdown reste fermé)
   const lbl = document.getElementById('agenceFilterLabel');
@@ -5165,8 +5165,8 @@ window._toggleAgenceDropdown = function() {
 };
 // Fermer le dropdown agence au clic en dehors
 document.addEventListener('click', function(e) {
-  const block = document.getElementById('sidebarAgenceBlock');
-  if (block && !block.contains(e.target)) {
+  const wrap = document.getElementById('tabsFilterTitle');
+  if (wrap && !wrap.contains(e.target)) {
     const dd = document.getElementById('agenceDropdown');
     if (dd) dd.style.display = 'none';
   }
