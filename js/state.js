@@ -20,6 +20,7 @@ _S.debounceTimer = null; // timer UI — intentionnellement absent de resetAppSt
 
 // ── Store / ventes ──
 _S.ventesParMagasin = {};
+_S.ventesParMagasinByCanal = {}; // structure séparée multi-canal pour Spectre Réseau
 _S.stockParMagasin = {};
 _S.storesIntersection = new Set();
 _S.selectedMyStore = '';
@@ -223,7 +224,7 @@ export function resetAppState() {
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
-  _S.ventesParMagasin = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
+  _S.ventesParMagasin = {}; _S.ventesParMagasinByCanal = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
   _S.selectedMyStore = ''; _S.libelleLookup = {}; _S.articleFamille = {}; _S.articleUnivers = {};
 
   // Benchmark

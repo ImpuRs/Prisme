@@ -312,6 +312,18 @@ export function _diagClassifBadge(c) {
 
 // ── Decision Queue — génération (Sprint 1) ────────────────────
 // Produit 3–7 décisions triées par priorité de catégorie, puis impact€.
+// Retourne les codes clients actifs pour le canal donné.
+// '' ou 'MAGASIN' → ventesClientArticle ; autre canal → ventesClientHorsMagasin filtré.
+function _getClientsActifs(canal = '') {
+  if (!canal || canal === 'MAGASIN') {
+    return [..._S.ventesClientArticle.keys()];
+  } else {
+    return [..._S.ventesClientHorsMagasin.entries()]
+      .filter(([, arts]) => [...arts.values()].some(a => a.canal === canal))
+      .map(([cc]) => cc);
+  }
+}
+
 // L'ordre de catégorie est FIXE (rupture > client > dormants > anomalie).
 // Le tri par €  ne s'applique QU'À L'INTÉRIEUR d'une même catégorie.
 // Stocke le résultat dans _S.decisionQueueData.
@@ -476,10 +488,14 @@ export function generateDecisionQueue() {
   } // end if (_S.finalData.length) — block 4b
 
   // ── 5. Concentration Client — ICC (K1) ───────────────────────────────
+  const _iccCanal = _S._globalCanal || '';
   _S._iccData = null;
-  if (_S.ventesClientArticle.size > 0) {
+  const _iccSource = !_iccCanal || _iccCanal === 'MAGASIN'
+    ? _S.ventesClientArticle
+    : (() => { const m = new Map(); for(const cc of _getClientsActifs(_iccCanal)){ const arts=_S.ventesClientHorsMagasin.get(cc); if(arts){ const f=new Map(); for(const [code,d] of arts.entries()){ if(d.canal===_iccCanal) f.set(code,{sumCA:d.sumCA||0}); } if(f.size) m.set(cc,f); }} return m; })();
+  if (_iccSource.size > 0) {
     const caParClient = [];
-    for (const [cc, artMap] of _S.ventesClientArticle.entries()) {
+    for (const [cc, artMap] of _iccSource.entries()) {
       let ca = 0;
       for (const d of artMap.values()) ca += (d.sumCA || 0);
       if (ca > 0) caParClient.push({ code: cc, ca, nom: _S.clientNomLookup[cc] || cc });
@@ -547,7 +563,8 @@ export function generateDecisionQueue() {
   } // end if (_S.finalData.length) — block 6
 
   // ── 7. Clients silencieux à reconquérir (reconquestCohort) ──────────────
-  if (_S.reconquestCohort?.length > 0) {
+  // reconquestCohort dérivé de ventesClientArticle (MAGASIN) — ignoré si canal hors-MAGASIN
+  if (_S.reconquestCohort?.length > 0 && (!_S._globalCanal || _S._globalCanal === 'MAGASIN')) {
     const monthIdx = new Date().getMonth();
     let added = 0;
     for (const c of _S.reconquestCohort) {

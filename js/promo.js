@@ -205,30 +205,37 @@ function runPromoSearch(){
   // SECTION A: acheteurs tous canaux (MAGASIN + hors magasin + territoire)
   const buyerMap=new Map(); // cc → {nom,metier,commercial,ca,lastDate,canal}
 
-  // Source 1 : MAGASIN
-  for(const [cc,artMap] of DataStore.ventesClientArticle.entries()){
-    for(const code of artMap.keys()){
-      if(!matchedCodes.has(code))continue;
-      if(!buyerMap.has(cc)){
-        const info=_S.chalandiseData?.get(cc)||{};
-        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'PDV'});
+  const _gc = _S._globalCanal || '';
+
+  // Source 1 : MAGASIN — skippé si filtre canal non-MAGASIN
+  if(!_gc || _gc === 'MAGASIN'){
+    for(const [cc,artMap] of DataStore.ventesClientArticle.entries()){
+      for(const code of artMap.keys()){
+        if(!matchedCodes.has(code))continue;
+        if(!buyerMap.has(cc)){
+          const info=_S.chalandiseData?.get(cc)||{};
+          buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'PDV'});
+        }
+        buyerMap.get(cc).ca+=(artMap.get(code)?.sumCA||0);
       }
-      buyerMap.get(cc).ca+=(artMap.get(code)?.sumCA||0);
     }
   }
 
-  // Source 2 : hors magasin (WEB/REP/DCS)
-  for(const [cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
-    for(const [code,data] of artMap.entries()){
-      if(!matchedCodes.has(code))continue;
-      if(!buyerMap.has(cc)){
-        const info=_S.chalandiseData?.get(cc)||{};
-        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:data.canal});
+  // Source 2 : hors magasin (WEB/REP/DCS) — skippé si filtre canal MAGASIN
+  if(_gc !== 'MAGASIN'){
+    for(const [cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
+      for(const [code,data] of artMap.entries()){
+        if(!matchedCodes.has(code))continue;
+        if(_gc && data.canal !== _gc)continue; // filtre canal spécifique
+        if(!buyerMap.has(cc)){
+          const info=_S.chalandiseData?.get(cc)||{};
+          buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:data.canal});
+        }
+        buyerMap.get(cc).ca+=(data.ca||0);
+        // Marquer le canal si hors PDV
+        if(buyerMap.get(cc).canal==='PDV')buyerMap.get(cc).canal='MIXTE';
+        else buyerMap.get(cc).canal=data.canal;
       }
-      buyerMap.get(cc).ca+=(data.ca||0);
-      // Marquer le canal si hors PDV
-      if(buyerMap.get(cc).canal==='PDV')buyerMap.get(cc).canal='MIXTE';
-      else buyerMap.get(cc).canal=data.canal;
     }
   }
 
