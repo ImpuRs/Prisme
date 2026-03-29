@@ -1459,7 +1459,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(checked.length)return checked;
     return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   }
-  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
@@ -1734,7 +1734,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);}
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
@@ -3650,7 +3650,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _S.selectedObsCompare=document.getElementById('obsCompareSelect')?.value||'median';
     _updateObsCheckboxVisibility();
     const t0=performance.now();
-    computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
+    computeBenchmark(_S._globalCanal || null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -3658,7 +3658,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function onObsFilterChange(){
     _S.obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
     _S.obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
-    const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
   }
 
@@ -3667,7 +3667,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
     _setBenchPeriode('12M');
-    const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -4889,7 +4889,7 @@ window.onChalandiseSelected = async function(input) {
   await parseChalandise(input.files[0]);
   // Si les données sont déjà chargées, recalculer le benchmark avec la chalandise
   if (DataStore.finalData.length > 0 && _S.storesIntersection.size > 1) {
-    computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);
+    computeBenchmark(_S._globalCanal || null);
     renderBenchmark();
   }
 };
@@ -4915,7 +4915,7 @@ window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
 window._setReseauCanalFilter = function(val){if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val||'');};
-window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
+window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._globalCanal || null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};
