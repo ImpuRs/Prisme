@@ -3087,48 +3087,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
     renderObservatoire();
-    // ── Répartition par canal — toutes agences ──────────────────────────────
-    {
-      const _canalDiv=document.getElementById('benchCanalRepartition');
-      if(_canalDiv&&_S.ventesParMagasin){
-        const _CANAUX=['MAGASIN','INTERNET','REPRESENTANT','DCS','AUTRE'];
-        const _CL={'MAGASIN':'MAGASIN','INTERNET':'Internet','REPRESENTANT':'Représentant','DCS':'DCS','AUTRE':'Autre'};
-        const _myStore=_S.selectedMyStore||'';
-        const _stores=[..._S.storesIntersection||[]];
-        if(_myStore&&!_S.storesIntersection?.has(_myStore))_stores.push(_myStore);
-        // Agrégation par agence × canal
-        const _rows=_stores.map(store=>{
-          const _arts=_S.ventesParMagasin[store]||{};
-          const _byC={};let _tot=0;
-          for(const c of _CANAUX)_byC[c]=0;
-          for(const code of Object.keys(_arts)){
-            const _bc=_arts[code].byCanal||{};
-            for(const c of _CANAUX){const v=(_bc[c]?.sumCA||0);_byC[c]+=v;_tot+=v;}
-          }
-          return{store,byC:_byC,total:_tot};
-        }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
-        if(_rows.length>1){
-          const _fmt=v=>v>=1000?`${(v/1000).toFixed(1)}k€`:v>0?`${Math.round(v)}€`:'—';
-          let _th='<th class="px-3 py-2 text-left text-xs font-bold t-secondary">Agence</th>';
-          for(const c of _CANAUX)_th+=`<th class="px-3 py-2 text-right text-xs font-bold t-secondary">${_CL[c]}</th>`;
-          _th+='<th class="px-3 py-2 text-right text-xs font-bold t-secondary">Total</th>';
-          let _tbody='';
-          for(const r of _rows){
-            const _isMe=r.store===_myStore;
-            const _rCls=_isMe?'bg-cyan-50 dark:bg-cyan-900/20 font-semibold':'';
-            const _badge=_isMe?'<span class="ml-1 text-yellow-500">⭐</span>':'';
-            let _tds=`<td class="px-3 py-1.5 text-xs t-primary whitespace-nowrap">${r.store}${_badge}</td>`;
-            for(const c of _CANAUX){
-              const _v=r.byC[c];const _pct=r.total>0?(_v/r.total*100).toFixed(1):'0.0';
-              _tds+=`<td class="px-3 py-1.5 text-right text-xs t-secondary" title="${_pct}% du CA total de ${r.store}">${_fmt(_v)}</td>`;
-            }
-            _tds+=`<td class="px-3 py-1.5 text-right text-xs font-bold t-primary">${_fmt(r.total)}</td>`;
-            _tbody+=`<tr class="${_rCls} border-t b-default hover:s-hover">${_tds}</tr>`;
-          }
-          _canalDiv.innerHTML=`<details open class="s-card rounded-xl shadow-md border b-default mb-0 overflow-hidden"><summary class="px-5 py-3 s-card-alt border-b select-none flex items-center gap-2 hover:s-hover"><h3 class="font-extrabold t-primary text-sm">📡 Répartition par canal — toutes agences</h3></summary><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="s-card-alt"><tr>${_th}</tr></thead><tbody>${_tbody}</tbody></table></div></details>`;
-        } else {_canalDiv.innerHTML='';}
-      }
-    }
 const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=fl(over);
     // ── Famille filter + pagination pour Section A (missed) ──────────────────
     const _famSel=document.getElementById('benchMissedFamFilter');
@@ -3168,7 +3126,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
-    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>25?'c-ok':data.serv>=10?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const pdmB=data.pdmBassin!=null?data.pdmBassin+'%':'—';const pdmBColor=data.pdmBassin==null?'t-disabled':data.pdmBassin>=30?'c-ok':data.pdmBassin>=15?'c-caution':'c-danger';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${pdmBColor}" title="Part du CA total du bassin réalisée par cette agence">${pdmB}</td>`:'';p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
+    // ── Colonne "Canal actif" — visible uniquement si filtre canal actif ─────
+    const _hasCanalActif=_rcSet.size>0;
+    {const _ch=document.getElementById('benchCanalActifHeader');if(_ch){const _LM={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_ch.classList.toggle('hidden',!_hasCanalActif);if(_hasCanalActif)_ch.textContent=_rcSet.size===1?(_LM[[..._rcSet][0]]||[..._rcSet][0]):'Canaux actifs';}}
+    const _canalActifCA=(store)=>{if(!_S.ventesParMagasin)return 0;const _arts=_S.ventesParMagasin[store]||{};let _s=0;for(const code of Object.keys(_arts)){const _bc=_arts[code].byCanal||{};for(const c of _rcSet)_s+=(_bc[c]?.sumCA||0);}return _s;};
+    const _storeTotalCA=(store)=>{if(!_S.ventesParMagasin)return 0;const _arts=_S.ventesParMagasin[store]||{};let _s=0;for(const code of Object.keys(_arts)){for(const v of Object.values(_arts[code].byCanal||{}))_s+=(v?.sumCA||0);}return _s;};
+    const _fmtCA=v=>v>=1000?`${(v/1000).toFixed(1)}k€`:v>0?`${Math.round(v)}€`:'—';
+    p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>25?'c-ok':data.serv>=10?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const pdmB=data.pdmBassin!=null?data.pdmBassin+'%':'—';const pdmBColor=data.pdmBassin==null?'t-disabled':data.pdmBassin>=30?'c-ok':data.pdmBassin>=15?'c-caution':'c-danger';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${pdmBColor}" title="Part du CA total du bassin réalisée par cette agence">${pdmB}</td>`:'';let czCanal='';if(_hasCanalActif){const _ca=_canalActifCA(store);const _tot=_storeTotalCA(store);const _pct=_tot>0?(_ca/_tot*100).toFixed(1):'0.0';czCanal=`<td class="py-2 px-2 text-center text-xs font-bold t-primary" title="${_pct}% du CA total de ${store}">${_fmtCA(_ca)}</td>`;}p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'text-cyan-700 font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}${czCanal}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-cyan-500':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'text-cyan-700':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
     rT('benchStoreTable',p.join(''));
     const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
     renderHeatmapFamilleCommercial();
