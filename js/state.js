@@ -62,7 +62,7 @@ _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
 _S._hasStock = false; // true dès que le fichier Stock est chargé et parsé
 _S._globalCanal = ''; // [Feature C] '' = Tous | 'MAGASIN' | 'INTERNET' | 'REPRESENTANT' | 'DCS' | 'AUTRE'
-_S._reseauCanal = ''; // Filtre canal LOCAL à Spectre Réseau — n'affecte pas _globalCanal ni finalData
+_S._reseauCanaux = new Set(); // Filtre canal LOCAL à Spectre Réseau (multi-sélection) — n'affecte pas _globalCanal ni finalData
 _S._globalPeriodePreset = '12M'; // [Feature A] '12M' | '6M' | 'YTD' — filtre tendance/sparklines uniquement
 _S._rankSortKey = 'txMarge'; // [V3] tri classement agences : 'txMarge' | 'freq' | 'serv' | 'pdm'
 _S._rankSortDir = -1;         // [V3] -1 = DESC, 1 = ASC
@@ -237,7 +237,7 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanal = ''; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map();
   _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
