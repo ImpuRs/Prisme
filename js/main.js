@@ -2209,7 +2209,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const hasCom=_S.clientsByCommercial?.size>1;
     const hasOmni=_S.clientOmniScore?.size>0;
     if(!hasHors&&!hasCom&&!hasOmni){el.innerHTML='';return;}
-    let html='<div class="space-y-4 mt-2"><h2 class="text-xs font-extrabold t-secondary uppercase tracking-wider px-1 mb-2">📡 Omnicanalité &amp; Momentum</h2>';
+    let inner='';
     // ── Segments omnicanaux ───────────────────────────────────────────────
     if(hasOmni){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
@@ -2221,7 +2221,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       const total=nMono+nHybride+nDigital+nDormant||1;
       const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
-      html+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
+      inner+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
         [nMono,caMono,'Mono PDV','🏪','var(--c-ok)'],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'],[nDigital,caDigital,'Digital','📱','var(--c-caution)'],[nDormant,0,'Dormants','💤','var(--c-danger)']
       ].map(([n,ca,label,icon,color])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
     }
@@ -2256,11 +2256,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
           return`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')"><div class="flex items-start justify-between mb-2"><div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div><span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span></div><div class="flex h-1.5 rounded-full overflow-hidden mb-1.5"><div style="width:${pctR}%;background:var(--c-ok)"></div><div style="width:${pctA}%;background:var(--c-caution)"></div><div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div></div><div class="flex justify-between text-[9px]"><span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span><span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span><span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span></div>${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}</div>`;
         }).join('');
-        html+=`<div class="s-card rounded-xl border p-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3><button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div><p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j</p></div>`;
+        inner+=`<div class="s-card rounded-xl border p-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3><button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div><p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j</p></div>`;
       }
     }
-    html+='</div>';
-    el.innerHTML=html;
+    el.innerHTML=`<details class="s-card rounded-xl shadow-md border overflow-hidden mb-3"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">📡 Omnicanalité &amp; Momentum</h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-3 space-y-3">${inner}</div></details>`;
   }
 
   // ── Clients PDV hors zone — paginé, colonnes alignées sur _renderTopClientsPDV ──
