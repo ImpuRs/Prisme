@@ -103,6 +103,7 @@ export function expandImportZone() {
 // ── Canal global — pill selector ──────────────────────────────
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
+  // _reseauCanaux est indépendant — géré par _toggleReseauCanal
   // Invalider les caches
   _S._benchCache = null;
   _S._tabRendered = {};
@@ -111,7 +112,8 @@ export function _setGlobalCanal(canal) {
   document.querySelectorAll('#globalCanalFilter .canal-pill-btn').forEach(p => {
     p.classList.toggle('active', (p.dataset.canal || '') === canal);
   });
-  // Re-render onglet actif
+  // Recalculer le benchmark puis re-render onglet actif
+  if (typeof window.computeBenchmark === 'function') window.computeBenchmark(_S._globalCanal || null);
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;

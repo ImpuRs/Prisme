@@ -3203,6 +3203,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
     // ── Colonne "Canal actif" — visible uniquement si filtre canal actif ─────
     const _rcSet=_S._reseauCanaux||new Set();
+    // Sync pills canal Réseau
+    {const _isAll=_rcSet.size===0;document.querySelectorAll('[data-reseau-canal]').forEach(b=>b.classList.toggle('active',_rcSet.has(b.dataset.reseauCanal)));document.querySelectorAll('#reseauCanalBar .reseau-tous-btn').forEach(b=>b.classList.toggle('active',_isAll));}
     const _hasCanalActif=_rcSet.size>0;
     {const _ch=document.getElementById('benchCanalActifHeader');if(_ch){const _LM={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_ch.classList.toggle('hidden',!_hasCanalActif);if(_hasCanalActif)_ch.textContent=_rcSet.size===1?(_LM[[..._rcSet][0]]||[..._rcSet][0]):'Canaux actifs';}}
     const _canalActifCA=(store)=>{if(!_S.ventesParMagasinByCanal)return 0;const _cMap=_S.ventesParMagasinByCanal[store]||{};let _s=0;for(const c of _rcSet){const _arts=_cMap[c]||{};for(const code of Object.keys(_arts))_s+=(_arts[code]?.sumCA||0);}return _s;};
@@ -3543,15 +3545,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       </div>`;
     }).join('');
     if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
-    // Network diagnostic block
-    const diagEl=el('obsNetworkDiag');
-    if(diagEl&&kpis){
-      const calcPct=(key)=>{const me=kpis.mine[key]||0,c=kpis.compared[key]||0;return c>0?Math.round((me-c)/c*100):(me>0?100:0);};
-      const caE=calcPct('ca'),refE=calcPct('ref'),freqE=calcPct('freq');
-      const diag=generateNetworkDiagnostic(caE,refE,freqE);
-      const actHtml=diag.actions.map(a=>`<button onclick="_obsNav('${a.nav}')" class="text-[11px] font-semibold c-action underline hover:c-action bg-transparent border-none p-0 cursor-pointer">${a.label}</button>`).join('<span class="t-disabled mx-1">·</span>');
-      diagEl.innerHTML=`<div class="p-4 rounded-lg border-l-4 ${diag.border} ${diag.bg}"><div class="flex items-start gap-2"><span class="text-xl leading-none mt-0.5">${diag.icon}</span><div class="flex-1 min-w-0"><h4 class="font-bold text-sm t-primary">${diag.title}</h4><p class="text-xs t-secondary mt-1">${diag.message}</p>${diag.actions.length?`<div class="mt-2 flex flex-wrap gap-2">${actHtml}</div>`:''}</div></div></div>`;
-    }else if(diagEl){diagEl.innerHTML='';}
+    // Tooltip ℹ sur "KPI Comparatifs" — diagnostic réseau condensé
+    const _tipEl=el('kpiDiagTip');
+    if(_tipEl&&kpis){
+      const _pct=(key)=>{const me=kpis.mine[key]||0,c=kpis.compared[key]||0;return c>0?Math.round((me-c)/c*100):(me>0?100:0);};
+      const diag=generateNetworkDiagnostic(_pct('ca'),_pct('ref'),_pct('freq'));
+      _tipEl.dataset.tip=`${diag.icon} ${diag.title} — ${diag.message}`;
+    }
+    const diagEl=el('obsNetworkDiag');if(diagEl)diagEl.innerHTML='';
     // Families where I lose — apply min CA filter
     const minCA=_S.obsFilterMinCA||0;
     const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
@@ -5000,6 +5001,7 @@ window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
+window.computeBenchmark = computeBenchmark;
 
 window._setReseauCanalFilter = function(val){
   if(!val){_S._reseauCanaux=new Set();}
@@ -5012,6 +5014,18 @@ window._setReseauCanalFilter = function(val){
   _S._globalCanal=_S._reseauCanaux.size===1?[..._S._reseauCanaux][0]:'';
   _S._benchCache=null;
   computeBenchmark(_S._globalCanal||null);
+  renderBenchmark();
+};
+window._toggleReseauCanal = function(canal) {
+  if (!canal) { _S._reseauCanaux = new Set(); }
+  else {
+    if (!_S._reseauCanaux) _S._reseauCanaux = new Set();
+    if (_S._reseauCanaux.has(canal)) _S._reseauCanaux.delete(canal);
+    else _S._reseauCanaux.add(canal);
+  }
+  const canalParam = _S._reseauCanaux.size === 1 ? [..._S._reseauCanaux][0] : null;
+  _S._benchCache = null;
+  computeBenchmark(canalParam);
   renderBenchmark();
 };
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._globalCanal || null);renderBenchmark();};
@@ -5130,15 +5144,32 @@ function renderSidebarAgenceSelector() {
   const list  = document.getElementById('sidebarAgenceList');
   if (!block || !list) return;
   const stores = Object.keys(_S.ventesParMagasin || {}).sort();
-  if (stores.length < 2) { block.classList.add('hidden'); return; }
-  block.classList.remove('hidden');
+  if (stores.length < 2) { block.style.display = 'none'; return; }
+  block.style.display = '';
   const myStore = _S.selectedMyStore || '';
+  // Mettre à jour le label du titre (dropdown reste fermé)
+  const lbl = document.getElementById('agenceFilterLabel');
+  if (lbl) lbl.textContent = (myStore || 'Toutes') + ' ▼';
+  // Peupler la liste (sans forcer l'ouverture)
   list.innerHTML = stores.map(s => {
     const isMe = s === myStore;
     return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:0.7rem;font-weight:${isMe?'700':'600'};color:${isMe?'var(--c-action)':'var(--t-secondary,#94a3b8)'}" class="hover:s-card-alt"><input type="radio" name="sidebarStoreRadio" value="${s}" ${isMe?'checked':''} onchange="window._sidebarAgenceChange('${s}')" style="accent-color:var(--c-action);flex-shrink:0"><span>${s}</span></label>`;
   }).join('');
 }
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
+window._toggleAgenceDropdown = function() {
+  const dd = document.getElementById('agenceDropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+};
+// Fermer le dropdown agence au clic en dehors
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('tabsFilterTitle');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('agenceDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+}, true);
 window._sidebarAgenceChange = function(store) {
   if (store === _S.selectedMyStore) return;
   _S.selectedMyStore = store;
