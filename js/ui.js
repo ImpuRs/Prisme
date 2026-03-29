@@ -140,8 +140,8 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
-  // Filtre canal global — visible sur action/territoire/bench/promo uniquement
-  const _CANAL_TABS = new Set(['action', 'territoire', 'bench', 'promo']);
+  // Filtre canal global — visible sur action/territoire/promo uniquement (bench a son propre #reseauCanalBar)
+  const _CANAL_TABS = new Set(['action', 'territoire', 'promo']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
