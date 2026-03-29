@@ -428,6 +428,9 @@
     .tab-btn.active{color:var(--tab-text,var(--i-info-text));border-bottom-color:var(--tab-color,#3b82f6)}
     .tab-btn.active svg{stroke:var(--tab-color,#3b82f6)!important}
     .tab-btn svg{width:16px;height:16px;stroke:var(--c-muted);transition:stroke .2s ease;flex-shrink:0}
+    .canal-pill-btn{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid var(--b-default);background:var(--s-card-alt);color:var(--t-secondary);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+    .canal-pill-btn:hover{background:var(--s-hover);color:var(--t-primary)}
+    .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
     @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;position:sticky;top:0;height:100vh}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
@@ -673,6 +676,19 @@
         <button class="t-disabled hover:t-primary text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
+
+        <!-- CANAL GLOBAL — visible sur tous onglets sauf Faisceau Stock -->
+        <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            <button onclick="window._setGlobalCanal('')"           class="canal-pill-btn active" data-canal="">Tous</button>
+            <button onclick="window._setGlobalCanal('MAGASIN')"    class="canal-pill-btn" data-canal="MAGASIN">🏪 Magasin</button>
+            <button onclick="window._setGlobalCanal('INTERNET')"   class="canal-pill-btn" data-canal="INTERNET">🌐 Internet</button>
+            <button onclick="window._setGlobalCanal('REPRESENTANT')" class="canal-pill-btn" data-canal="REPRESENTANT">👔 Repré.</button>
+            <button onclick="window._setGlobalCanal('DCS')"        class="canal-pill-btn" data-canal="DCS">📦 DCS</button>
+            <button onclick="window._setGlobalCanal('AUTRE')"      class="canal-pill-btn" data-canal="AUTRE">Autre</button>
+          </div>
+        </div>
 
         <!-- GROUP Stock: Articles / Mon Stock / Cockpit / Radar -->
         <div id="filterGroupStock">

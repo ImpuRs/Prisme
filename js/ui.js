@@ -100,6 +100,21 @@ export function expandImportZone() {
   }
 }
 
+// ── Canal global — pill selector ──────────────────────────────
+export function _setGlobalCanal(canal) {
+  _S._globalCanal = canal;
+  // Sync active state sur les pills
+  document.querySelectorAll('#globalCanalFilter .canal-pill-btn').forEach(p => {
+    p.classList.toggle('active', (p.dataset.canal || '') === canal);
+  });
+  // Invalider le cache lazy render
+  _S._tabRendered = {};
+  _S._terrCanalCache = new Map();
+  // Re-render onglet actif
+  if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
+}
+if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
+
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
   window.scrollTo(0, 0);
@@ -122,6 +137,9 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
+  // Filtre canal global — masqué sur Faisceau Stock (finalData invariant canal)
+  const gcf = document.getElementById('globalCanalFilter');
+  if (gcf) gcf.classList.toggle('hidden', id === 'dash');
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
