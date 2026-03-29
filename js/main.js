@@ -4921,10 +4921,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.chalandiseReady && _S.clientLastOrder.size) { computeReconquestCohort(); computeOmniScores(); computeFamillesHors(); }
       // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
-      if (_S._selectedCommercial) {
-        const _comInput = document.getElementById('terrCommercialFilter');
-        if (_comInput) _comInput.value = _S._selectedCommercial;
-      }
+      const _comInput = document.getElementById('terrCommercialFilter');
+      if (_comInput && _S._selectedCommercial) _comInput.value = _S._selectedCommercial;
+      // Synchroniser le sous-onglet actif Clients
+      const _tab = _S._clientsActiveTab || 'priorites';
+      document.querySelectorAll('.clients-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === _tab));
       renderSidebarAgenceSelector();
       _S.currentPage=0;
       renderAll();
