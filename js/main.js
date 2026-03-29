@@ -2300,6 +2300,85 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=html;
   }
 
+  // ── Top clients PDV — canal-aware, paginé ────────────────────────────────
+  function _renderTopClientsPDV(){
+    const canal=_S._globalCanal||'';
+    const page=_S._clientsPDVPage||0; // 0=top5, >=1=paginated
+    const PDV_PAGE=20;
+    const nowMs=Date.now();
+    const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
+    const topRows=[];
+    if(!canal||canal==='MAGASIN'){
+      // Source MAGASIN : ventesClientArticle
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<100)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caPDV,caDelta:caHors,caTotal,lastDate});
+      }
+      // Canal Tous : inclure aussi les clients hors-MAGASIN uniquement
+      if(!canal){
+        for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+          if(_S.ventesClientArticle.has(cc))continue;
+          const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+          if(caHors<100)continue;
+          const info=_S.chalandiseData?.get(cc);
+          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+          topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caHors,caDelta:0,caTotal:caHors,lastDate:null});
+        }
+        topRows.sort((a,b)=>b.caTotal-a.caTotal);
+      }else{
+        topRows.sort((a,b)=>b.caPrimary-a.caPrimary);
+      }
+    }else{
+      // Source hors-MAGASIN : filtrer par canal
+      for(const[cc,artMap]of _S.ventesClientHorsMagasin){
+        let caCanal=0;
+        for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
+        if(caCanal<100)continue;
+        const magMap=_S.ventesClientArticle.get(cc);
+        const caMag=magMap?[...magMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caCanal,caDelta:caMag,caTotal:caCanal+caMag,lastDate});
+      }
+      topRows.sort((a,b)=>b.caPrimary-a.caPrimary);
+    }
+    const isMagCanal=!canal||canal==='MAGASIN';
+    const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
+    const colDelta=isMagCanal?'Delta hors':'Delta mag';
+    const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${topRows.length} clients · tous canaux`;
+    const el=document.getElementById('terrTopPDV');if(!el)return;
+    if(!topRows.length){el.innerHTML='';return;}
+    let displayRows,pagerHtml='';
+    if(page===0){
+      displayRows=topRows.slice(0,5);
+      if(topRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._topPDVExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${topRows.length} clients →</button></div>`;
+    }else{
+      const maxPage=Math.ceil(topRows.length/PDV_PAGE);
+      const cur=Math.max(1,Math.min(page,maxPage));
+      if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
+      displayRows=topRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
+      const prev=cur>1?`<button onclick="window._topPDVPage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+      const next=cur<maxPage?`<button onclick="window._topPDVPage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${topRows.length} clients</span></div>`;
+    }
+    const rows=displayRows.map(r=>{
+      const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+      const silence=daysSince!==null?`${daysSince}j`:'—';
+      const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+      const deltaColor=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
+      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+    }).join('');
+    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${subtitle}</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+  }
+
   function renderTerritoireTab(){
     // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
     {
@@ -2343,36 +2422,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const oppsHtml=opps.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🎯 Opportunités nettes <span class="text-[10px] font-normal t-disabled ml-1">${_S.opportuniteNette.length} clients avec familles manquantes</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Familles que les clients du même métier achètent chez vous — mais pas ce client. Le % = part des confrères qui achètent cette famille.</p><div class="flex flex-col gap-2">${opps.map(o=>{const fams=o.missingFams.map(f=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full i-info-bg c-action font-semibold">${f.fam} ${f.metierPct}%</span>`).join(' ');return`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${o.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${o.nom}</span><span class="text-[10px] t-tertiary">${o.metier||'—'}</span><span class="text-[10px] c-action font-bold">${o.commercial||'—'}</span></div><div class="flex flex-wrap gap-1 mt-1">${fams}</div><div class="text-[10px] t-tertiary mt-1">Potentiel : <strong class="c-action">${formatEuro(o.totalPotentiel)}</strong>/an · ${o.nbMissing} famille${o.nbMissing>1?'s':''}</div></div>`;}).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : ${_S.chalandiseReady?'Aucune opportunité nette calculée (chargez le Territoire pour le benchmark).':'Chargez la zone de chalandise + le Territoire pour calculer.'}</div>`;
       _setEl('terrOpportunites',oppsHtml);
 
-      // Top clients PDV
-      let topPDVHtml='';
-      if(_S.ventesClientArticle.size){
-        const topRows=[];
-        for(const[cc,artMap]of _S.ventesClientArticle){
-          const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-          if(caPDV<100)continue;
-          const horsMap=_S.ventesClientHorsMagasin.get(cc);
-          const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-          const caTotal=caPDV+caHors;
-          const lastDate=_S.clientLastOrder?.get(cc);
-          const info=_S.chalandiseData?.get(cc);
-          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-          topRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
-        }
-        topRows.sort((a,b)=>b.caPDV-a.caPDV);
-        const top=topRows.slice(0,20);
-        if(top.length){
-          const nowMs=Date.now();
-          const rows=top.map(r=>{
-            const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
-            const silence=daysSince!==null?`${daysSince}j`:'—';
-            const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-            const deltaColor=r.caHors>r.caPDV*0.5?'c-caution':r.caHors>r.caPDV*2?'c-danger':'t-tertiary';
-            return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${deltaColor}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-          }).join('');
-          topPDVHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-        }
-      }
-      _setEl('terrTopPDV',topPDVHtml);
+      // Top clients PDV — canal-aware, paginé
+      _renderTopClientsPDV();
 
       // Clients PDV hors zone
       let horsZoneHtml='';
@@ -4967,6 +5018,9 @@ window._setReseauCanalFilter = function(val){
   computeBenchmark(_cp);
   renderBenchmark();
 };
+window._topPDVExpand   = function(){_S._clientsPDVPage=1;_renderTopClientsPDV();};
+window._topPDVCollapse = function(){_S._clientsPDVPage=0;_renderTopClientsPDV();};
+window._topPDVPage     = function(dir){_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+dir);_renderTopClientsPDV();};
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }
   else {
