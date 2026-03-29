@@ -5005,12 +5005,15 @@ window._toggleReseauCanal = function(canal) {
     if (_S._reseauCanaux.has(canal)) _S._reseauCanaux.delete(canal);
     else _S._reseauCanaux.add(canal);
   }
+  // Afficher #reseauMagasinModeBar uniquement si MAGASIN est le seul canal sélectionné
+  const _rmb = document.getElementById('reseauMagasinModeBar');
+  if (_rmb) _rmb.classList.toggle('hidden', !(_S._reseauCanaux.size === 1 && _S._reseauCanaux.has('MAGASIN')));
   const canalParam = _S._reseauCanaux.size === 1 ? [..._S._reseauCanaux][0] : null;
   _S._benchCache = null;
   computeBenchmark(canalParam);
   renderBenchmark();
 };
-window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;const _cp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_cp);renderBenchmark();};
+window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;[['resMagModeAll','all'],['resMagModePrel','preleve'],['resMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});const _cp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_cp);renderBenchmark();};
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;_S._terrCanalCache=new Map();_S._tabRendered={};[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauUnderPage=0;_S._reseauMissedShowAll=false;_S._reseauUnderShowAll=false;renderBenchmark();};
 window._reseauShowAll = function(section){if(section==='missed'){_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;}else{_S._reseauUnderShowAll=true;_S._reseauUnderPage=0;}renderBenchmark();};
