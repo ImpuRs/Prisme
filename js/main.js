@@ -5006,7 +5006,19 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
-window._setReseauCanalFilter = function(val){if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val||'');};
+window._setReseauCanalFilter = function(val){
+  if(!val){_S._reseauCanaux=new Set();}
+  else{
+    if(!_S._reseauCanaux)_S._reseauCanaux=new Set();
+    if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);
+    else _S._reseauCanaux.add(val);
+  }
+  // Sync _globalCanal: premier canal du Set, ou '' si vide/multi
+  _S._globalCanal=_S._reseauCanaux.size===1?[..._S._reseauCanaux][0]:'';
+  _S._benchCache=null;
+  computeBenchmark(_S._globalCanal||null);
+  renderBenchmark();
+};
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._globalCanal || null);renderBenchmark();};
 window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauUnderPage=0;_S._reseauMissedShowAll=false;_S._reseauUnderShowAll=false;renderBenchmark();};
 window._reseauShowAll = function(section){if(section==='missed'){_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;}else{_S._reseauUnderShowAll=true;_S._reseauUnderPage=0;}renderBenchmark();};
