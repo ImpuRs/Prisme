@@ -840,6 +840,14 @@
         <!-- GROUP Réseau: Le Réseau -->
         <div id="filterGroupBench" class="hidden">
           <div class="flex flex-col gap-1.5">
+            <!-- Pills canal multi-sélection Réseau -->
+            <div id="reseauCanalBar" class="flex flex-wrap gap-1 pb-1 border-b b-default">
+              <button class="terr-canal-chip reseau-tous-btn active" style="--chip-color:#7c3aed" onclick="window._toggleReseauCanal('')">Tous</button>
+              <button class="terr-canal-chip" style="--chip-color:#7c3aed" data-reseau-canal="MAGASIN" onclick="window._toggleReseauCanal('MAGASIN')">🏪 Mag.</button>
+              <button class="terr-canal-chip" style="--chip-color:#0891b2" data-reseau-canal="INTERNET" onclick="window._toggleReseauCanal('INTERNET')">🌐 Web</button>
+              <button class="terr-canal-chip" style="--chip-color:#059669" data-reseau-canal="REPRESENTANT" onclick="window._toggleReseauCanal('REPRESENTANT')">👔 Rép.</button>
+              <button class="terr-canal-chip" style="--chip-color:#d97706" data-reseau-canal="DCS" onclick="window._toggleReseauCanal('DCS')">📦 DCS</button>
+            </div>
             <div id="reseauMagasinModeBar" class="hidden flex gap-1 mt-0.5 pl-2">
               <button id="reseauMagModeAll" class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('all')">Prélevé + Enlevé</button>
               <button id="reseauMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('preleve')">✅ Prélevé</button>

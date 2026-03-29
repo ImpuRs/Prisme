@@ -3203,6 +3203,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
     // ── Colonne "Canal actif" — visible uniquement si filtre canal actif ─────
     const _rcSet=_S._reseauCanaux||new Set();
+    // Sync pills canal Réseau
+    {const _isAll=_rcSet.size===0;document.querySelectorAll('[data-reseau-canal]').forEach(b=>b.classList.toggle('active',_rcSet.has(b.dataset.reseauCanal)));document.querySelectorAll('#reseauCanalBar .reseau-tous-btn').forEach(b=>b.classList.toggle('active',_isAll));}
     const _hasCanalActif=_rcSet.size>0;
     {const _ch=document.getElementById('benchCanalActifHeader');if(_ch){const _LM={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_ch.classList.toggle('hidden',!_hasCanalActif);if(_hasCanalActif)_ch.textContent=_rcSet.size===1?(_LM[[..._rcSet][0]]||[..._rcSet][0]):'Canaux actifs';}}
     const _canalActifCA=(store)=>{if(!_S.ventesParMagasinByCanal)return 0;const _cMap=_S.ventesParMagasinByCanal[store]||{};let _s=0;for(const c of _rcSet){const _arts=_cMap[c]||{};for(const code of Object.keys(_arts))_s+=(_arts[code]?.sumCA||0);}return _s;};
@@ -5013,6 +5015,18 @@ window._setReseauCanalFilter = function(val){
   _S._globalCanal=_S._reseauCanaux.size===1?[..._S._reseauCanaux][0]:'';
   _S._benchCache=null;
   computeBenchmark(_S._globalCanal||null);
+  renderBenchmark();
+};
+window._toggleReseauCanal = function(canal) {
+  if (!canal) { _S._reseauCanaux = new Set(); }
+  else {
+    if (!_S._reseauCanaux) _S._reseauCanaux = new Set();
+    if (_S._reseauCanaux.has(canal)) _S._reseauCanaux.delete(canal);
+    else _S._reseauCanaux.add(canal);
+  }
+  const canalParam = _S._reseauCanaux.size === 1 ? [..._S._reseauCanaux][0] : null;
+  _S._benchCache = null;
+  computeBenchmark(canalParam);
   renderBenchmark();
 };
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._globalCanal || null);renderBenchmark();};

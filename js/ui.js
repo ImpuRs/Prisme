@@ -103,6 +103,7 @@ export function expandImportZone() {
 // ── Canal global — pill selector ──────────────────────────────
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
+  // _reseauCanaux est indépendant — géré par _toggleReseauCanal
   // Invalider les caches
   _S._benchCache = null;
   _S._tabRendered = {};
