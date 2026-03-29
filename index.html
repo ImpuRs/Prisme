@@ -687,6 +687,16 @@
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
         <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
 
+        <!-- AGENCE — sélecteur multi-agences (visible quand storesIntersection > 1) -->
+        <div id="sidebarAgenceBlock" class="hidden pb-2 mb-1 border-b b-default">
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Agence</div>
+          <div id="sidebarAgenceList" class="flex flex-col gap-0.5 max-h-44 overflow-y-auto"></div>
+          <div class="flex gap-1 mt-1.5">
+            <button onclick="window._sidebarAgenceMonStore()" class="flex-1 text-[9px] py-1 px-2 rounded-lg font-bold border b-default s-card t-secondary hover:i-info-bg hover:text-cyan-700 transition-colors">Mon agence</button>
+            <button onclick="window._sidebarAgenceTout()" class="flex-1 text-[9px] py-1 px-2 rounded-lg font-bold border b-default s-card t-secondary hover:s-card-alt transition-colors">Tout sélectionner</button>
+          </div>
+        </div>
+
         <!-- CANAL GLOBAL — visible sur tous onglets sauf Faisceau Stock -->
         <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
           <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
