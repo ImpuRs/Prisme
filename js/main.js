@@ -2335,7 +2335,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const nowMs=Date.now();
     const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const el=document.getElementById('terrTopPDV');if(!el)return;
-    const toggleBtn=`<button onclick="window._toggleHorsAgence()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHors?'bg-indigo-600 border-indigo-500 text-white':'border-current t-disabled hover:t-primary'}">🌐 Hors agence</button>`;
+    const toggleBtn=`<button onclick="window.toggleWebColumn()" class="text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors cursor-pointer ${showHors?'bg-indigo-600 border-indigo-500 text-white':'border-current t-disabled hover:t-primary'}">🌐 Hors agence</button>`;
 
     if(showHors){
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
@@ -2351,7 +2351,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         horsRows.push({cc,nom,metier:info?.metier||'',caHors,caMag,canaux:[...canaux].join('/')});
       }
       horsRows.sort((a,b)=>b.caHors-a.caHors);
-      if(!horsRows.length){el.innerHTML='';return;}
+      if(!horsRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3>${toggleBtn}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></div>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=horsRows.slice(0,5);
@@ -2415,7 +2415,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
     const colDelta=isMagCanal?'Delta hors':'Delta mag';
     const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${topRows.length} clients · tous canaux`;
-    if(!topRows.length){el.innerHTML='';return;}
+    if(!topRows.length){el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center justify-between px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3>${toggleBtn}</div><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></div>`;return;}
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=topRows.slice(0,5);
@@ -5105,7 +5105,12 @@ window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
-window.toggleWebColumn = function(){const th=document.getElementById('thCanalWeb');if(!th)return;const wasHidden=th.classList.contains('hidden');th.classList.toggle('hidden');document.querySelectorAll('#tableBody tr td:nth-last-child(2)').forEach(td=>{td.classList.toggle('hidden',!wasHidden);});const btn=document.getElementById('btnHorsAgence');if(btn){btn.classList.toggle('bg-violet-500',wasHidden);btn.classList.toggle('text-white',wasHidden);btn.classList.toggle('t-secondary',!wasHidden);}};
+window.toggleWebColumn = function(){
+  _S._showHorsAgence=!_S._showHorsAgence;
+  _S._clientsPDVPage=0;
+  console.log('[DEBUG] toggleWebColumn, showHorsAgence:', _S._showHorsAgence, 'horsAgenceSize:', _S.ventesClientHorsMagasin?.size);
+  _renderTopClientsPDV();
+};
 window._cematinSearch = _cematinSearch;
 window.renderMesClients = renderMesClients;
 window._goCommercial = _goCommercial;
