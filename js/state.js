@@ -61,6 +61,7 @@ _S.terrContribByDirection = new Map();
 _S.pdvCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve' — toggle Top clients PDV
 _S._clientsPDVPage = 0; // 0=top5, >=1=page paginée (20/page)
 _S._showHorsAgence = false; // toggle "🌐 Hors agence" dans Top clients PDV
+_S._showHorsZone   = false; // toggle "⚠️ Hors zone" dans Top clients PDV
 _S._horsZonePage = 0; // 0=top5, >=1=page paginée (20/page) — Clients PDV hors zone
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
@@ -242,7 +243,7 @@ export function resetAppState() {
   _S.abcMatrixData = {};
 
   // Territoire
-  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S._reseauMagasinMode = 'all'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map(); _S._clientsPDVPage = 0; _S._showHorsAgence = false; _S._horsZonePage = 0;
+  _S.canalAgence = {}; _S.blConsommeSet = new Set(); _S.blPreleveeSet = new Set(); _S.pdvCanalFilter = 'all'; _S.terrClientsCanalFilter = 'all'; _S._globalCanal = ''; _S._globalPeriodePreset = '12M'; _S._reseauCanaux = new Set(); _S._reseauMagasinMode = 'all'; _S.blCanalMap = new Map(); _S.articleCanalCA = new Map(); _S.clientsMagasin = new Set(); _S.clientsMagasinFreq = new Map(); _S._clientsPDVPage = 0; _S._showHorsAgence = false; _S._showHorsZone = false; _S._horsZonePage = 0;
   _S.territoireLines = []; _S.territoireReady = false; _S.terrDirectionData = {};
   _S.terrContribBySecteur = new Map(); _S.terrContribByDirection = new Map();
 
