@@ -3396,7 +3396,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     html += '</tr></thead><tbody>';
     for (const art of list) {
       const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
-      html += `<tr class="border-b hover:i-caution-bg/40 cursor-pointer">`;
+      html += `<tr class="border-b hover:i-caution-bg/40 cursor-pointer" onclick="openNomadeArticleModal('${art.code}')" title="Voir le détail clients">`;
       html += `<td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${art.code}</td>`;
       html += `<td class="py-1.5 px-3 font-semibold t-primary">${lib}</td>`;
       html += `<td class="py-1.5 px-3 t-tertiary text-[11px]">${art.fam || '—'}</td>`;
@@ -3791,6 +3791,89 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const lines=[`Code\tLibellé\tFamille\tFréq Moi\t${compLabel}\tÉcart %\t${caLabel}`];
     for(const p of pepOther)lines.push(`${p.code}\t${p.lib}\t${p.fam}\t${p.myFreq}\t${p.compFreq}\t${p.ecartPct!==null?'+'+p.ecartPct+'%':'Absent'}\t${p.caComp}`);
     navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepOther.length} pépite${pepOther.length>1?'s':''} réseau copiée${pepOther.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
+  }
+
+  function openNomadeArticleModal(code) {
+    const art = (_S.nomadesMissedArts || []).find(a => a.code === code);
+    if (!art) return;
+    const overlay = document.getElementById('nomadeArticleOverlay');
+    const panel = document.getElementById('nomadeArticlePanel');
+    if (!overlay || !panel) return;
+    const lib = (_S.libelleLookup[code] || code).replace(/^\d{6} - /, '');
+    const myStoreCA = (_S.ventesParMagasin[_S.selectedMyStore] || {})[code]?.sumCA || 0;
+    const opportunite = Math.max(0, art.totalCaOther - myStoreCA);
+    const caParClient = art.nbClients > 0 ? Math.round(art.totalCaOther / art.nbClients) : 0;
+    // Per-client rows
+    let clientRows = '';
+    for (const cc of art.clientCodes) {
+      const nom = _S.clientNomLookup[cc] || (_S.chalandiseData?.get(cc)?.nom) || cc;
+      const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
+      clientRows += `<tr class="border-b b-light hover:i-caution-bg/30">
+        <td class="py-1.5 px-3 font-mono text-[11px] t-tertiary whitespace-nowrap">${cc}</td>
+        <td class="py-1.5 px-3 text-[12px] t-primary max-w-[200px] truncate" title="${nom.replace(/"/g,'&quot;')}">${nom}</td>
+        <td class="py-1.5 px-3 text-right font-bold c-caution whitespace-nowrap">${formatEuro(caParClient)}</td>
+        <td class="py-1.5 px-3 text-right whitespace-nowrap ${caMe > 0 ? 'c-ok' : 't-disabled'}">${caMe > 0 ? formatEuro(caMe) : '—'}</td>
+        <td class="py-1.5 px-3 text-center"><button class="diag-btn text-[11px] py-0.5 px-2" onclick="closeNomadeArticleModal();openClient360('${cc}')" title="Fiche client 360°">📞</button></td>
+      </tr>`;
+    }
+    panel.innerHTML = `
+      <button class="absolute top-3 right-4 text-2xl t-disabled hover:t-primary" onclick="closeNomadeArticleModal()" title="Fermer">✕</button>
+      <h2 class="text-base font-extrabold t-primary mb-1 pr-8">${lib}</h2>
+      <p class="text-[11px] t-tertiary mb-4"><span class="font-mono c-action">${code}</span> · ${art.fam || '—'}</p>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="s-panel-inner rounded-lg p-3 text-center">
+          <p class="text-[10px] t-tertiary mb-1">💰 CA chez toi</p>
+          <p class="text-base font-extrabold ${myStoreCA > 0 ? 'c-ok' : 't-disabled'}">${myStoreCA > 0 ? formatEuro(myStoreCA) : '—'}</p>
+        </div>
+        <div class="s-panel-inner rounded-lg p-3 text-center">
+          <p class="text-[10px] t-tertiary mb-1">💸 CA chez les autres</p>
+          <p class="text-base font-extrabold c-caution">${formatEuro(art.totalCaOther)} <span class="text-[10px] font-normal t-tertiary">(${art.totalBLOther} BL)</span></p>
+        </div>
+        <div class="s-panel-inner rounded-lg p-3 text-center">
+          <p class="text-[10px] t-tertiary mb-1">🎯 Opportunité</p>
+          <p class="text-base font-extrabold c-danger">${formatEuro(opportunite)}</p>
+        </div>
+      </div>
+      <h3 class="text-sm font-bold t-primary mb-2">👥 ${art.nbClients} client${art.nbClients > 1 ? 's' : ''} concerné${art.nbClients > 1 ? 's' : ''} <span class="text-[10px] font-normal t-disabled">(CA ailleurs estimé par client)</span></h3>
+      <div class="overflow-x-auto mb-4">
+        <table class="min-w-full text-xs">
+          <thead class="s-panel-inner t-inverse font-bold">
+            <tr>
+              <th class="py-1.5 px-3 text-left">Code</th>
+              <th class="py-1.5 px-3 text-left">Nom</th>
+              <th class="py-1.5 px-3 text-right">CA ailleurs</th>
+              <th class="py-1.5 px-3 text-right">CA chez moi</th>
+              <th class="py-1.5 px-3 text-center"></th>
+            </tr>
+          </thead>
+          <tbody>${clientRows}</tbody>
+        </table>
+      </div>
+      <div class="flex gap-3 flex-wrap justify-end pt-3 border-t b-default">
+        <button class="btn-secondary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal();openArticlePanel('${code}')">Voir fiche article</button>
+        <button class="btn-secondary text-xs px-3 py-1.5" onclick="_copyNomadeClientsClipboard('${code}')">Copier liste clients</button>
+        <button class="btn-primary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal()">Fermer</button>
+      </div>`;
+    overlay.classList.add('active');
+  }
+
+  function closeNomadeArticleModal() {
+    document.getElementById('nomadeArticleOverlay')?.classList.remove('active');
+  }
+
+  function _copyNomadeClientsClipboard(code) {
+    const art = (_S.nomadesMissedArts || []).find(a => a.code === code);
+    if (!art) return;
+    const lines = ['Code client\tNom\tCA ailleurs (estimé)\tCA chez moi'];
+    const caParClient = art.nbClients > 0 ? Math.round(art.totalCaOther / art.nbClients) : 0;
+    for (const cc of art.clientCodes) {
+      const nom = _S.clientNomLookup[cc] || _S.chalandiseData?.get(cc)?.nom || cc;
+      const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
+      lines.push(`${cc}\t${nom}\t${caParClient}\t${caMe}`);
+    }
+    navigator.clipboard?.writeText(lines.join('\n'))
+      .then(() => showToast('📋 Clients copiés', 'success'))
+      .catch(() => showToast('❌ Erreur copie', 'error'));
   }
 
   function copyNomadesMissedArts() {
@@ -4955,6 +5038,9 @@ window._diagV3FilterCategory = _diagV3FilterCategory;
 window.toggleReconquestFilter = toggleReconquestFilter;
 window.openArticlePanel = openArticlePanel;
 window.closeArticlePanel = closeArticlePanel;
+window.openNomadeArticleModal = openNomadeArticleModal;
+window.closeNomadeArticleModal = closeNomadeArticleModal;
+window._copyNomadeClientsClipboard = _copyNomadeClientsClipboard;
 window.openCmdPalette = openCmdPalette;
 window._cmdExec = _cmdExec;
 window._cmdMoveSelection = _cmdMoveSelection;
