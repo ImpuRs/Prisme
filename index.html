@@ -1681,10 +1681,10 @@
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();exportBenchList('missed')" class="text-[10px] s-card border b-default py-1 px-2 rounded font-bold hover:s-hover t-secondary">📥 CSV manquants</button><span class="acc-arrow t-tertiary">▶</span></div>
         </summary>
         <div class="p-4 space-y-4">
-          <!-- Section A : Absents de votre stock (missed) -->
+          <!-- Section A : Articles vendus par le réseau, absents de mes ventes -->
           <div>
             <div class="flex items-center gap-2 mb-2">
-              <p class="text-xs font-bold t-secondary">Section A — Absents de votre stock <span class="t-disabled font-normal">(vendus ≥ 50% réseau)</span></p>
+              <div class="mb-1"><p class="text-xs font-bold t-secondary">🚫 Articles vendus par le réseau — absents de mes ventes</p><p class="text-[10px] t-tertiary">Ces articles sont vendus fréquemment ailleurs mais pas chez vous — à référencer ou commander</p></div>
               <select id="benchMissedFamFilter" onchange="benchMissedFamChange()" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary ml-2"><option value="">Toutes familles</option></select>
               <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
             </div>
@@ -1703,9 +1703,9 @@
               </table>
             </div>
           </div>
-          <!-- Section B : Orphelins réseau (reseauOrphelins) -->
+          <!-- Section B : En stock chez moi, jamais vendu -->
           <div>
-            <p class="text-xs font-bold t-secondary mb-2">Section B — Présents chez ≥50% du réseau, absents ici <span class="t-disabled font-normal">(vérifier gamme)</span></p>
+            <div class="mb-2"><p class="text-xs font-bold t-secondary">📦 En stock chez moi — jamais vendu</p><p class="text-[10px] t-tertiary">Ces articles sont dans votre stock mais ne se vendent pas — vérifier l'emplacement rayon ou la mise en avant</p></div>
             <div id="reseauOrphelinsContainer"><p class="t-disabled text-sm">Chargement après analyse réseau…</p></div>
           </div>
         </div>
