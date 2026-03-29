@@ -103,17 +103,16 @@ export function expandImportZone() {
 // ── Canal global — pill selector ──────────────────────────────
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
-  // _reseauCanaux est indépendant — géré par _toggleReseauCanal
-  // Invalider les caches
-  _S._benchCache = null;
+  // _reseauCanaux est indépendant — aucune sync
   _S._tabRendered = {};
   _S._terrCanalCache = new Map();
-  // Sync active state sur les pills globales
-  document.querySelectorAll('#globalCanalFilter .canal-pill-btn').forEach(p => {
-    p.classList.toggle('active', (p.dataset.canal || '') === canal);
+  // Sync active state sur les pills globales (data-global-canal)
+  document.querySelectorAll('#globalCanalFilter [data-global-canal]').forEach(p => {
+    p.classList.toggle('active', (p.dataset.globalCanal || '') === canal);
   });
-  // Recalculer le benchmark puis re-render onglet actif
-  if (typeof window.computeBenchmark === 'function') window.computeBenchmark(_S._globalCanal || null);
+  // Sous-pills Prélevé/Enlevé — visibles uniquement si Magasin actif
+  const _mmBar = document.getElementById('globalMagasinModeBar');
+  if (_mmBar) _mmBar.classList.toggle('hidden', canal !== 'MAGASIN');
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;

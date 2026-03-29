@@ -3148,11 +3148,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
-    const _gc=_S._globalCanal||'';
-    // Sous-pills Prélevé/Enlevé — visibles seulement si canal MAGASIN sélectionné
-    {const _mmBar=document.getElementById('reseauMagasinModeBar');if(_mmBar){const _show=_gc==='MAGASIN';_mmBar.classList.toggle('hidden',!_show);if(_show){const _mm=_S._reseauMagasinMode||'all';[['reseauMagModeAll','all'],['reseauMagModePrel','preleve'],['reseauMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_mm===m);});}}}
-    // Libellé canal dynamique dans KPI Comparatifs
-    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};const _mm=_S._reseauMagasinMode||'all';const _mmSuffix=_gc==='MAGASIN'&&_mm!=='all'?(_mm==='preleve'?' (prélevé)':' (enlevé)'):'';_lEl.textContent=!_gc?'📡 Tous canaux':`📡 Canal ${_LMAP[_gc]||_gc} uniquement${_mmSuffix}`;}};
+    // Libellé canal dynamique dans KPI Comparatifs (basé sur _reseauCanaux)
+    {const _rcSet=_S._reseauCanaux||new Set();const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};if(_rcSet.size===0){_lEl.textContent='📡 Tous canaux';}else if(_rcSet.size===1){const _c=[..._rcSet][0];_lEl.textContent=`📡 Canal ${_LMAP[_c]||_c} uniquement`;}else{_lEl.textContent=`📡 ${_rcSet.size} canaux`;}};
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
@@ -4996,10 +4993,9 @@ window._setReseauCanalFilter = function(val){
     if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);
     else _S._reseauCanaux.add(val);
   }
-  // Sync _globalCanal: premier canal du Set, ou '' si vide/multi
-  _S._globalCanal=_S._reseauCanaux.size===1?[..._S._reseauCanaux][0]:'';
   _S._benchCache=null;
-  computeBenchmark(_S._globalCanal||null);
+  const _cp=_S._reseauCanaux.size===1?[..._S._reseauCanaux][0]:null;
+  computeBenchmark(_cp);
   renderBenchmark();
 };
 window._toggleReseauCanal = function(canal) {
@@ -5014,7 +5010,8 @@ window._toggleReseauCanal = function(canal) {
   computeBenchmark(canalParam);
   renderBenchmark();
 };
-window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._globalCanal || null);renderBenchmark();};
+window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;const _cp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_cp);renderBenchmark();};
+window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;_S._terrCanalCache=new Map();_S._tabRendered={};[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauUnderPage=0;_S._reseauMissedShowAll=false;_S._reseauUnderShowAll=false;renderBenchmark();};
 window._reseauShowAll = function(section){if(section==='missed'){_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;}else{_S._reseauUnderShowAll=true;_S._reseauUnderPage=0;}renderBenchmark();};
 window._reseauPage = function(section,dir){if(section==='missed'){const t=Math.max(1,Math.ceil((DataStore.benchLists.missed?.length||0)/10));_S._reseauMissedPage=Math.max(0,Math.min((_S._reseauMissedPage||0)+dir,t-1));}else{const t=Math.max(1,Math.ceil((DataStore.benchLists.under?.length||0)/10));_S._reseauUnderPage=Math.max(0,Math.min((_S._reseauUnderPage||0)+dir,t-1));}renderBenchmark();};

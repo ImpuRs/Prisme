@@ -699,16 +699,22 @@
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
         <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
 
-        <!-- CANAL GLOBAL — visible sur tous onglets sauf Faisceau Stock -->
+        <!-- CANAL GLOBAL — visible sur action/territoire/promo -->
         <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
           <div style="font-size:0.6rem;font-weight:700;letter-spacing:.08em;color:var(--t-tertiary,#94a3b8);text-transform:uppercase;margin-bottom:4px;padding:0 2px">Canal</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">
-            <button onclick="window._setGlobalCanal('')"           class="canal-pill-btn active" data-canal="">Tous</button>
-            <button onclick="window._setGlobalCanal('MAGASIN')"    class="canal-pill-btn" data-canal="MAGASIN">🏪 Magasin</button>
-            <button onclick="window._setGlobalCanal('INTERNET')"   class="canal-pill-btn" data-canal="INTERNET">🌐 Internet</button>
-            <button onclick="window._setGlobalCanal('REPRESENTANT')" class="canal-pill-btn" data-canal="REPRESENTANT">👔 Repré.</button>
-            <button onclick="window._setGlobalCanal('DCS')"        class="canal-pill-btn" data-canal="DCS">📦 DCS</button>
-            <button onclick="window._setGlobalCanal('AUTRE')"      class="canal-pill-btn" data-canal="AUTRE">Autre</button>
+            <button onclick="window._setGlobalCanal('')"             class="terr-canal-chip active" data-global-canal="" style="--chip-color:#6366f1">Tous</button>
+            <button onclick="window._setGlobalCanal('MAGASIN')"      class="terr-canal-chip" data-global-canal="MAGASIN" style="--chip-color:#7c3aed">🏪 Magasin</button>
+            <button onclick="window._setGlobalCanal('INTERNET')"     class="terr-canal-chip" data-global-canal="INTERNET" style="--chip-color:#0891b2">🌐 Internet</button>
+            <button onclick="window._setGlobalCanal('REPRESENTANT')" class="terr-canal-chip" data-global-canal="REPRESENTANT" style="--chip-color:#059669">👔 Repré.</button>
+            <button onclick="window._setGlobalCanal('DCS')"          class="terr-canal-chip" data-global-canal="DCS" style="--chip-color:#d97706">📦 DCS</button>
+            <button onclick="window._setGlobalCanal('AUTRE')"        class="terr-canal-chip" data-global-canal="AUTRE" style="--chip-color:#6b7280">Autre</button>
+          </div>
+          <!-- Sous-pills Prélevé/Enlevé — visibles quand Magasin actif -->
+          <div id="globalMagasinModeBar" class="hidden flex gap-1 mt-1 pl-1">
+            <button id="globalMagModeAll"  class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('all')">Pré. + Enl.</button>
+            <button id="globalMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('preleve')">✅ Prélevé</button>
+            <button id="globalMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setGlobalMagasinMode('enleve')">✅ Enlevé</button>
           </div>
         </div>
 
@@ -849,11 +855,7 @@
               <button class="terr-canal-chip" style="--chip-color:#0891b2" data-reseau-canal="INTERNET" onclick="window._toggleReseauCanal('INTERNET')">🌐 Web</button>
               <button class="terr-canal-chip" style="--chip-color:#059669" data-reseau-canal="REPRESENTANT" onclick="window._toggleReseauCanal('REPRESENTANT')">👔 Rép.</button>
               <button class="terr-canal-chip" style="--chip-color:#d97706" data-reseau-canal="DCS" onclick="window._toggleReseauCanal('DCS')">📦 DCS</button>
-            </div>
-            <div id="reseauMagasinModeBar" class="hidden flex gap-1 mt-0.5 pl-2">
-              <button id="reseauMagModeAll" class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('all')">Prélevé + Enlevé</button>
-              <button id="reseauMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('preleve')">✅ Prélevé</button>
-              <button id="reseauMagModeEnl" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="_setReseauMagasinMode('enleve')">✅ Enlevé</button>
+              <button class="terr-canal-chip" style="--chip-color:#6b7280" data-reseau-canal="AUTRE" onclick="window._toggleReseauCanal('AUTRE')">Autre</button>
             </div>
             <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
