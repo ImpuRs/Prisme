@@ -103,13 +103,16 @@ export function expandImportZone() {
 // ── Canal global — pill selector ──────────────────────────────
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
-  // Sync active state sur les pills
+  // Dériver _reseauCanaux depuis le canal global (single-select)
+  _S._reseauCanaux = canal ? new Set([canal]) : new Set();
+  // Invalider les caches
+  _S._benchCache = null;
+  _S._tabRendered = {};
+  _S._terrCanalCache = new Map();
+  // Sync active state sur les pills globales
   document.querySelectorAll('#globalCanalFilter .canal-pill-btn').forEach(p => {
     p.classList.toggle('active', (p.dataset.canal || '') === canal);
   });
-  // Invalider le cache lazy render
-  _S._tabRendered = {};
-  _S._terrCanalCache = new Map();
   // Re-render onglet actif
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }

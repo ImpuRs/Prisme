@@ -2218,9 +2218,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
   function _setTerrGlobalCanalFilter(val){
-    _S._globalCanal=val;
-    renderCanalAgence();
-    renderTerritoireTab();
+    if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val);
+    else{_S._globalCanal=val;renderCanalAgence();renderTerritoireTab();}
   }
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
@@ -2438,16 +2437,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
-    // Canal chip active state + warning — always updated regardless of data state
-    {const _cg=_S._globalCanal||'';const _cgLabels={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-    ['terrGlobalCanalAll','terrGlobalCanalMag','terrGlobalCanalNet','terrGlobalCanalRep','terrGlobalCanalDcs','terrGlobalCanalAut'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    const _cgId=_cg==='MAGASIN'?'terrGlobalCanalMag':_cg==='INTERNET'?'terrGlobalCanalNet':_cg==='REPRESENTANT'?'terrGlobalCanalRep':_cg==='DCS'?'terrGlobalCanalDcs':_cg==='AUTRE'?'terrGlobalCanalAut':'terrGlobalCanalAll';
-    const _cgEl=document.getElementById(_cgId);if(_cgEl)_cgEl.classList.add('active');
-    const _cwEl=document.getElementById('terrCanalFilterWarn');
-    if(_cwEl){_cwEl.classList.toggle('hidden',!_cg);if(_cg)_cwEl.innerHTML=`⚠️ Filtré : canal <strong>${_cgLabels[_cg]||_cg}</strong><br>CA et clients = ${_cgLabels[_cg]||_cg} uniquement<br>Contributeurs = tous canaux`;}
     // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
-    {const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
-    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}}
+    {const _cg=_S._globalCanal||'';const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
+    if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}
 
 // V1: Show V2 teaser when chalandise loaded but no BL territoire
     const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
@@ -3154,14 +3146,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
-    // Sync pills canal Spectre Réseau (multi-sélection)
-    const _rcSet=_S._reseauCanaux||new Set();
-    {const _all=document.getElementById('reseauCanalAll');if(_all)_all.classList.toggle('active',_rcSet.size===0);}
-    [['reseauCanalMag','MAGASIN'],['reseauCanalNet','INTERNET'],['reseauCanalRep','REPRESENTANT'],['reseauCanalDcs','DCS'],['reseauCanalAut','AUTRE']].forEach(([id,c])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_rcSet.has(c));});
-    // Sous-pills Prélevé/Enlevé — visibles seulement si MAGASIN est dans la sélection
-    {const _mmBar=document.getElementById('reseauMagasinModeBar');if(_mmBar){const _show=_rcSet.has('MAGASIN');_mmBar.classList.toggle('hidden',!_show);if(_show){const _mm=_S._reseauMagasinMode||'all';[['reseauMagModeAll','all'],['reseauMagModePrel','preleve'],['reseauMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_mm===m);});}}}
+    const _gc=_S._globalCanal||'';
+    // Sous-pills Prélevé/Enlevé — visibles seulement si canal MAGASIN sélectionné
+    {const _mmBar=document.getElementById('reseauMagasinModeBar');if(_mmBar){const _show=_gc==='MAGASIN';_mmBar.classList.toggle('hidden',!_show);if(_show){const _mm=_S._reseauMagasinMode||'all';[['reseauMagModeAll','all'],['reseauMagModePrel','preleve'],['reseauMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_mm===m);});}}}
     // Libellé canal dynamique dans KPI Comparatifs
-    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};const _mm=_S._reseauMagasinMode||'all';const _mmSuffix=_rcSet.has('MAGASIN')&&_mm!=='all'?(_mm==='preleve'?' (prélevé)':(` (enlevé)`)):'';_lEl.textContent=_rcSet.size===0?'📡 Tous canaux':_rcSet.size===1?`📡 Canal ${_LMAP[[..._rcSet][0]]||[..._rcSet][0]} uniquement${_mmSuffix}`:`📡 Canaux : ${[..._rcSet].map(c=>_LMAP[c]||c).join(' · ')}${_mmSuffix}`;}};
+    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};const _mm=_S._reseauMagasinMode||'all';const _mmSuffix=_gc==='MAGASIN'&&_mm!=='all'?(_mm==='preleve'?' (prélevé)':' (enlevé)'):'';_lEl.textContent=!_gc?'📡 Tous canaux':`📡 Canal ${_LMAP[_gc]||_gc} uniquement${_mmSuffix}`;}};
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
@@ -4924,7 +4913,7 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
-window._setReseauCanalFilter = function(val){if(!val){_S._reseauCanaux=new Set();}else{if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);else _S._reseauCanaux.add(val);}; _S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
+window._setReseauCanalFilter = function(val){if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val||'');};
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;_S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
