@@ -1384,7 +1384,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(checked.length)return checked;
     return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   }
-  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(){
@@ -1656,7 +1656,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._reseauCanal||null);}
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
@@ -3075,11 +3075,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
 
   function renderBenchmark(){
-    // Sync pills canal Spectre Réseau
-    const _rc=_S._reseauCanal||'';
-    ['reseauCanalAll','reseauCanalMag','reseauCanalNet','reseauCanalRep','reseauCanalDcs','reseauCanalAut'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
-    const _rcId=_rc==='MAGASIN'?'reseauCanalMag':_rc==='INTERNET'?'reseauCanalNet':_rc==='REPRESENTANT'?'reseauCanalRep':_rc==='DCS'?'reseauCanalDcs':_rc==='AUTRE'?'reseauCanalAut':'reseauCanalAll';
-    const _rcEl=document.getElementById(_rcId);if(_rcEl)_rcEl.classList.add('active');
+    // Sync pills canal Spectre Réseau (multi-sélection)
+    const _rcSet=_S._reseauCanaux||new Set();
+    {const _all=document.getElementById('reseauCanalAll');if(_all)_all.classList.toggle('active',_rcSet.size===0);}
+    [['reseauCanalMag','MAGASIN'],['reseauCanalNet','INTERNET'],['reseauCanalRep','REPRESENTANT'],['reseauCanalDcs','DCS'],['reseauCanalAut','AUTRE']].forEach(([id,c])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',_rcSet.has(c));});
+    // Libellé canal dynamique dans KPI Comparatifs
+    {const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_lEl.textContent=_rcSet.size===0?'📡 Tous canaux':_rcSet.size===1?`📡 Canal ${_LMAP[[..._rcSet][0]]||[..._rcSet][0]} uniquement`:`📡 Canaux : ${[..._rcSet].map(c=>_LMAP[c]||c).join(' · ')}`;}};
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
@@ -3587,7 +3588,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _S.selectedObsCompare=document.getElementById('obsCompareSelect')?.value||'median';
     _updateObsCheckboxVisibility();
     const t0=performance.now();
-    computeBenchmark(_S._reseauCanal||null);renderBenchmark();
+    computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -3595,7 +3596,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   function onObsFilterChange(){
     _S.obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
     _S.obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
-    const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
   }
 
@@ -3604,7 +3605,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
     _setBenchPeriode('12M');
-    const t0=performance.now();computeBenchmark(_S._reseauCanal||null);renderBenchmark();
+    const t0=performance.now();computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
     closeFilterDrawer();
   }
@@ -4826,7 +4827,7 @@ window.onChalandiseSelected = async function(input) {
   await parseChalandise(input.files[0]);
   // Si les données sont déjà chargées, recalculer le benchmark avec la chalandise
   if (DataStore.finalData.length > 0 && _S.storesIntersection.size > 1) {
-    computeBenchmark(_S._reseauCanal||null);
+    computeBenchmark(_S._reseauCanaux?.size?_S._reseauCanaux:null);
     renderBenchmark();
   }
 };
@@ -4851,7 +4852,7 @@ window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
 window.renderBenchmark = renderBenchmark;
 
-window._setReseauCanalFilter = function(val){_S._reseauCanal=val;_S._benchCache=null;computeBenchmark(val||null);renderBenchmark();};
+window._setReseauCanalFilter = function(val){if(!val){_S._reseauCanaux=new Set();}else{if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);else _S._reseauCanaux.add(val);}; _S._benchCache=null;computeBenchmark(_S._reseauCanaux.size?_S._reseauCanaux:null);renderBenchmark();};
 window.benchMissedFamChange = function(){_S._benchMissedShowAll=false;renderBenchmark();};
 window.benchMissedShowAll = function(v){_S._benchMissedShowAll=v;renderBenchmark();};
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._benchMissedShowAll=false;renderBenchmark();};

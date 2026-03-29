@@ -343,8 +343,9 @@ export function getSelectedSecteurs() {
 }
 
 // ── Benchmark multi-agences ───────────────────────────────────
-export function computeBenchmark(canal = null) {
-  // Cache : inclut le canal local Spectre Réseau (filtre local, invariant _globalCanal).
+export function computeBenchmark(canaux = null) {
+  // Cache : inclut les canaux locaux Spectre Réseau (multi-sélection, invariant _globalCanal).
+  const _canauxKey = (canaux && canaux.size) ? [...canaux].sort().join(',') : '';
   const _bKey = [
     _S.selectedMyStore || '',
     [..._S.selectedBenchBassin].sort().join(','),
@@ -352,12 +353,12 @@ export function computeBenchmark(canal = null) {
     _S.obsFilterMinCA || 0,
     _S.selectedObsCompare || 'median',
     _S.chalandiseReady ? '1' : '0',
-    canal || '',
+    _canauxKey,
   ].join('|');
   if (_S._benchCache && _S._benchCache.key === _bKey) {
     _S.benchLists    = _S._benchCache.benchLists;
     _S.benchFamEcarts = _S._benchCache.benchFamEcarts;
-    return; // ~0ms — invariant canal confirmé
+    return; // ~0ms — invariant canaux confirmé
   }
 
   const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
@@ -365,10 +366,10 @@ export function computeBenchmark(canal = null) {
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;
-  // Vue canal-filtrée de ventesParMagasin (identique si canal=null)
+  // Vue canal-filtrée de ventesParMagasin (tous canaux si canaux vide/null)
   const vpm = {};
-  if (!canal) { Object.assign(vpm, _S.ventesParMagasin); }
-  else { for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) { const f = {}; for (const [code, data] of Object.entries(artMap)) { const cd = data.byCanal?.[canal]; if (cd) f[code] = cd; } vpm[store] = f; } }
+  if (!canaux || !canaux.size) { Object.assign(vpm, _S.ventesParMagasin); }
+  else { for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) { const f = {}; for (const [code, data] of Object.entries(artMap)) { let sp=0,sca=0,cbl=0,svmb=0; for(const c of canaux){const cd=data.byCanal?.[c];if(cd){sp+=cd.sumPrelevee||0;sca+=cd.sumCA||0;cbl+=cd.countBL||0;svmb+=cd.sumVMB||0;}} if(sca>0||cbl>0)f[code]={sumPrelevee:sp,sumCA:sca,countBL:cbl,sumVMB:svmb}; } vpm[store] = f; } }
   let myV = vpm[_S.selectedMyStore] || {};
   const bv = {};
   for (const store of cs) {
