@@ -3149,7 +3149,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function renderBenchmark(){
     // Libellé canal dynamique dans KPI Comparatifs (basé sur _reseauCanaux)
-    {const _rcSet=_S._reseauCanaux||new Set();const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};if(_rcSet.size===0){_lEl.textContent='📡 Tous canaux';}else if(_rcSet.size===1){const _c=[..._rcSet][0];_lEl.textContent=`📡 Canal ${_LMAP[_c]||_c} uniquement`;}else{_lEl.textContent=`📡 ${_rcSet.size} canaux`;}};
+    {const _rl=_S._reseauCanaux||new Set();const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};if(_rl.size===0){_lEl.textContent='📡 Tous canaux';}else if(_rl.size===1){const _c=[..._rl][0];_lEl.textContent=`📡 Canal ${_LMAP[_c]||_c} uniquement`;}else{_lEl.textContent=`📡 ${_rl.size} canaux`;}}}
     // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
     const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
     // Render observatory sections
