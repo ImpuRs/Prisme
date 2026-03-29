@@ -1554,8 +1554,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
       _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
       const hasMulti=_S.storesIntersection.size>1;
-      if(hasMulti){const sel=document.getElementById('selectMyStore');sel.innerHTML='<option value="">—</option>';[..._S.storesIntersection].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});document.getElementById('storeSelector').classList.remove('hidden');document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;if(isRefilter&&_savedStoreBeforeReset&&_S.storesIntersection.has(_savedStoreBeforeReset)){_S.selectedMyStore=_savedStoreBeforeReset;sel.value=_savedStoreBeforeReset;btn.disabled=false;}else{const _saved=_preSelectedStore||localStorage.getItem('prisme_selectedStore');if(_saved&&_S.storesIntersection.has(_saved)){_S.selectedMyStore=_saved;sel.value=_saved;localStorage.setItem('prisme_selectedStore',_saved);btn.disabled=false;}else if(_S.storesIntersection.size===1){_S.selectedMyStore=[..._S.storesIntersection][0];sel.value=_S.selectedMyStore;localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);btn.disabled=false;}else{_S.selectedMyStore='';sel.value='';btn.disabled=false;hideLoading();showToast('⚠️ Sélectionnez votre agence dans "Mon Magasin" puis cliquez Recalculer','warning');throw new Error('NO_STORE_SELECTED');}}}
-      else{document.getElementById('storeSelector').classList.add('hidden');if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
+      document.getElementById('storeSelector').classList.add('hidden');
+      if(hasMulti){if(isRefilter&&_savedStoreBeforeReset&&_S.storesIntersection.has(_savedStoreBeforeReset)){_S.selectedMyStore=_savedStoreBeforeReset;}else{const _saved=_preSelectedStore||localStorage.getItem('prisme_selectedStore');if(_saved&&_S.storesIntersection.has(_saved)){_S.selectedMyStore=_saved;localStorage.setItem('prisme_selectedStore',_saved);}else{_S.selectedMyStore=[..._S.storesIntersection].sort()[0];localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);}}btn.disabled=false;}
+      else{if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
       if(isRefilter&&_savedStoreBeforeReset&&_S.storesIntersection.has(_savedStoreBeforeReset)){_S.selectedMyStore=_savedStoreBeforeReset;const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
       const useMulti=hasMulti&&_S.selectedMyStore;
 
@@ -1743,7 +1744,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
       document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
-      if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('navStore').classList.add('hidden');
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
@@ -1781,6 +1782,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _S.currentPage=0;renderAll();if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(_autoYTD){setPeriodePreset('YTD');showToast('📅 Période automatiquement ajustée à YTD (données < 6 mois)','info',4000);}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
+      renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(f3?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
       if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
@@ -4848,22 +4850,14 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // 2. Navbar (L2472-2476)
       document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';
       document.getElementById('navStats').classList.remove('hidden');
-      if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}
+      document.getElementById('navStore').classList.add('hidden');
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
 
       // 3. UI state (L2477-2483)
       document.body.classList.add('pilot-loaded');
+      document.getElementById('storeSelector').classList.add('hidden');
       const useMulti = _S.storesIntersection.size > 1;
-      // Rebuild sélecteur d'agence (non reproduit dans le parcours IDB)
-      if(useMulti){
-        const _sel=document.getElementById('selectMyStore');
-        _sel.innerHTML='<option value="">—</option>';
-        [..._S.storesIntersection].sort().forEach(s=>{const _o=document.createElement('option');_o.value=s;_o.textContent=s;_sel.appendChild(_o);});
-        _sel.value=_S.selectedMyStore;
-        document.getElementById('storeSelector').classList.remove('hidden');
-        document.getElementById('storeInfo').innerHTML=`✅ ${_S.storesIntersection.size} mag.`;
-      }
       if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}
       else{document.getElementById('btnTabBench').classList.add('hidden');}
       document.getElementById('btnTabTerritoire').classList.remove('hidden');
@@ -4881,6 +4875,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         const _comInput = document.getElementById('terrCommercialFilter');
         if (_comInput) _comInput.value = _S._selectedCommercial;
       }
+      renderSidebarAgenceSelector();
       _S.currentPage=0;
       renderAll();
       if(useMulti){
@@ -5129,7 +5124,40 @@ window.clipERP = clipERP;
 window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
-window.updateNavStore = function(){if(_S.selectedMyStore){document.getElementById('navStore').textContent=_S.selectedMyStore;document.getElementById('navStore').classList.remove('hidden');}};
+window.updateNavStore = function(){ renderSidebarAgenceSelector(); };
+function renderSidebarAgenceSelector() {
+  const block = document.getElementById('sidebarAgenceBlock');
+  const list  = document.getElementById('sidebarAgenceList');
+  if (!block || !list) return;
+  const stores = Object.keys(_S.ventesParMagasin || {}).sort();
+  if (stores.length < 2) { block.classList.add('hidden'); return; }
+  block.classList.remove('hidden');
+  const myStore = _S.selectedMyStore || '';
+  list.innerHTML = stores.map(s => {
+    const isMe = s === myStore;
+    return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:0.7rem;font-weight:${isMe?'700':'600'};color:${isMe?'var(--c-action)':'var(--t-secondary,#94a3b8)'}" class="hover:s-card-alt"><input type="radio" name="sidebarStoreRadio" value="${s}" ${isMe?'checked':''} onchange="window._sidebarAgenceChange('${s}')" style="accent-color:var(--c-action);flex-shrink:0"><span>${s}</span></label>`;
+  }).join('');
+}
+window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
+window._sidebarAgenceChange = function(store) {
+  if (store === _S.selectedMyStore) return;
+  _S.selectedMyStore = store;
+  localStorage.setItem('prisme_selectedStore', store);
+  const sel = document.getElementById('selectMyStore'); if (sel) sel.value = store;
+  processData();
+};
+window._sidebarAgenceMonStore = function() {
+  const stores = Object.keys(_S.ventesParMagasin || {}).sort();
+  const saved = localStorage.getItem('prisme_selectedStore') || '';
+  const target = (saved && stores.includes(saved)) ? saved : (stores[0] || '');
+  if (target && target !== _S.selectedMyStore) window._sidebarAgenceChange(target);
+};
+window._sidebarAgenceTout = function() {
+  _S.selectedMyStore = '';
+  const sel = document.getElementById('selectMyStore'); if (sel) sel.value = '';
+  renderSidebarAgenceSelector();
+  processData();
+};
 // Promo / Obs / Bench — fonctions HTML onclick non encore exposées
 window._clearPromoImport = _clearPromoImport;
 window._closePromoSuggest = _closePromoSuggest;
