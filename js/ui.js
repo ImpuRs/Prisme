@@ -140,9 +140,10 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
-  // Filtre canal global — masqué sur Faisceau Stock (finalData invariant canal)
+  // Filtre canal global — visible sur action/territoire/bench/promo uniquement
+  const _CANAL_TABS = new Set(['action', 'territoire', 'bench', 'promo']);
   const gcf = document.getElementById('globalCanalFilter');
-  if (gcf) gcf.classList.toggle('hidden', id === 'dash');
+  if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
