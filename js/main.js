@@ -2124,7 +2124,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
               ${rows.map(([fam,d])=>{
                 const taux=d.mag+d.hors>0?Math.round(d.hors/(d.mag+d.hors)*100):0;
                 const col=taux>=50?'c-danger':taux>=30?'c-caution':'t-primary';
-                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td><td class="py-1.5 px-3 text-right"><button class="btn-xs s-panel" onclick="openDiagnostic('${fam.replace(/'/g,"\\'")}','terrain')">🔍 Diagnostiquer</button></td></tr>`;
+                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td><td class="py-1.5 px-3 text-right"><button class="btn-xs s-hover" onclick="openDiagnostic('${fam.replace(/'/g,"\\'")}','terrain')">🔍 Diagnostiquer</button></td></tr>`;
               }).join('')}
             </tbody>
           </table>
