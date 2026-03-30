@@ -1395,12 +1395,12 @@
 
     <!-- TAB : TERRITOIRE (V24.4) -->
     <div id="tabTerritoire" class="tab-content hidden">
-      <!-- 5 blocs Clients PDV — migrés depuis Le Terrain (Sprint 6) -->
+      <!-- 5 blocs Commerce — ordre : Top5 (ouvert) → Reconquête → Opps → PDV → LivSansPDV -->
       <div id="terrTop5"></div>
-      <div id="terrTopPDV"></div>
-      <div id="terrHorsZone"></div>
       <div id="terrReconquete"></div>
       <div id="terrOpportunites"></div>
+      <div id="terrTopPDV"></div>
+      <div id="terrLivSansPDV"></div>
 
       <!-- Loading spinner -->
       <div id="terrLoadingSpinner" class="hidden text-center py-16">
@@ -1457,6 +1457,7 @@
 
       <!-- Cockpit Client — visible dès chalandise chargée -->
       <div id="terrCockpitClient" class="hidden mb-2"></div>
+      <div id="terrHorsZone"></div>
 
       <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
       <div id="terrDegradedBlock" class="hidden mt-2"></div>
