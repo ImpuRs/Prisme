@@ -220,7 +220,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const isRowSel=sel===com;
       const noResults=isRowSel&&d.ca===0&&d.actifs===0;
       const label=labelOverride||com;
-      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter(${escapeHtml(JSON.stringify(com))})">
+      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialFilter(this.dataset.com)">
         <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
         <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
         <td class="py-1.5 px-2 text-center ${d.actifs>0?'c-ok font-bold':'t-disabled'}">${d.actifs||'—'}</td>
