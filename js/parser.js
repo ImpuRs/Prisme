@@ -409,8 +409,7 @@ export function buildSecteurCheckboxes(secteurs) {
   if (!secteurs.length) { div.innerHTML = '<p class="text-gray-400 text-[10px] p-1">Aucun secteur trouvé</p>'; return; }
   let html = '';
   for (const s of secteurs) {
-    const dirLabel = getSecteurDirection(s);
-    const label = dirLabel ? `${s} (${dirLabel})` : s;
+    const label = s;
     html += `<label class="flex items-center gap-2 p-1.5 rounded hover:bg-violet-50 cursor-pointer text-xs">
       <input type="checkbox" value="${escapeHtml(s)}" checked onchange="onSecteurChange()" class="rounded">
       <span class="font-semibold">${escapeHtml(label)}</span>
