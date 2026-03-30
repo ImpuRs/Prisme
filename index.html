@@ -885,7 +885,7 @@
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
             </div>
             <hr class="b-default my-0.5">
-            <input type="text" id="obsFilterUnivers" list="listObsUnivers" oninput="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full" placeholder="🌐 Univers…"><datalist id="listObsUnivers"></datalist>
+            <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full"><option value="">🌐 Univers…</option></select>
             <div class="flex items-center gap-1">
               <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
               <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card flex-1">
