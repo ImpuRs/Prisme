@@ -207,15 +207,17 @@ export function _terrWorker() {
     const clientsMagasin = new Set(clientsMagasinArr);
     const stockMap = new Map(stockArr.map(r => [r.code, r]));
     const sample = rows[0] || {};
-    const findCol = s => Object.keys(sample).find(k => k.toLowerCase().includes(s.toLowerCase()));
+    const _norm = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const findCol = s => Object.keys(sample).find(k => _norm(k).includes(_norm(s)));
     const cClient = findCol('code client') || findCol('code et nom');
     const cNom = findCol('nom client') || findCol('nom');
     const cDir = findCol('direction');
     const cSecteur = findCol('secteur') || findCol('code secteur') || findCol('commercial');
-    const cBL = findCol('numéro de bl') || findCol('numero de bl') || findCol('n° bl') || findCol('bl');
+    const cBL = findCol('numero de bl') || findCol('n° bl') || findCol('num bl') || findCol('bl');
     const cArticle = findCol('article');
-    const cQty = findCol('quantité livrée') || findCol('quantite livree') || findCol('qté') || findCol('qte');
+    const cQty = findCol('quantite livree') || findCol('qte livree') || findCol('qte') || findCol('quantite');
     const cCA = findCol('ca');
+    const cDate = findCol("date d'expedition") || findCol('date expedition') || findCol('date exp') || findCol('expedition');
     if (!cArticle) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Article introuvable' }); return; }
     if (!cBL) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Numéro de BL introuvable' }); return; }
     const lines = []; const dirSet = new Set(); const secteurSet = new Set(); const CHUNK = 2000; const total = rows.length;
@@ -233,16 +235,20 @@ export function _terrWorker() {
         const secteur = (cSecteur ? row[cSecteur] || '' : '').toString().trim();
         const clientCodeRaw = (cClient ? row[cClient] || '' : '').toString().trim();
         const clientNom = (cNom ? row[cNom] || '' : '').toString().trim();
+        const rawDate = cDate ? row[cDate] : null;
+        const dateExp = rawDate instanceof Date ? rawDate : (rawDate ? new Date(rawDate) : null);
         const canal = bl ? (blCanalMapLocal.get(bl) || (blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
         const stockItem = stockMap.get(code);
         const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
-        const ccNum = extractClientCode(clientCodeRaw);
+        const ccRaw = extractClientCode(clientCodeRaw);
+        // Pad numeric codes to 6 digits (livraisons format exports integers)
+        const ccNum = /^\d+$/.test(ccRaw) && ccRaw.length < 6 ? ccRaw.padStart(6,'0') : ccRaw;
         const clientType = clientsMagasin.has(ccNum) ? 'mixte' : 'exterieur';
         const famItem = articleFamilleObj[code] || (stockItem ? stockItem.famille : '') || 'Non classé';
         const libelle = articleRaw.includes(' - ') ? articleRaw.split(' - ').slice(1).join(' - ').trim() : (libelleLookupObj[code] || code);
         if (!isSpecial) dirSet.add(direction);
         if (secteur) secteurSet.add(secteur);
-        lines.push({ code, libelle, direction, secteur, famille: famItem, bl, ca, canal, rayonStatus, clientCode: ccNum, clientNom, clientType, isSpecial });
+        lines.push({ code, libelle, direction, secteur, famille: famItem, bl, ca, canal, rayonStatus, clientCode: ccNum, clientNom, clientType, isSpecial, dateExp: dateExp ? dateExp.getTime() : null });
       }
       self.postMessage({ type: 'progress', cur: end, total });
     }
