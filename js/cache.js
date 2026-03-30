@@ -19,7 +19,7 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.3';
+const CACHE_VERSION  = 'v3.4';
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -277,7 +277,10 @@ export async function _saveSessionToIDB() {
       periodFilterStart:     _S.periodFilterStart ? _S.periodFilterStart.getTime() : null,
       periodFilterEnd:       _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
       // ── Filtres chalandise ──
+      clientsByCommercial:   [...(_S.clientsByCommercial||[])].map(([k,v])=>[k,[...v]]),
+      clientsByMetier:       [...(_S.clientsByMetier||[])].map(([k,v])=>[k,[...v]]),
       _selectedCommercial:   _S._selectedCommercial || '',
+      _selectedMetier:       _S._selectedMetier     || '',
       // ── Navigation sous-onglets ──
       _clientsActiveTab:     _S._clientsActiveTab   || 'priorites',
       // ── Benchmark (cache rendu) ──
@@ -387,7 +390,10 @@ export async function _restoreSessionFromIDB() {
     _S.metierFamBench  = data.metierFamBench  || {};
 
     // ── Filtres chalandise ──
+    _S.clientsByCommercial = new Map((data.clientsByCommercial||[]).map(([k,v])=>[k,new Set(v)]));
+    _S.clientsByMetier     = new Map((data.clientsByMetier||[]).map(([k,v])=>[k,new Set(v)]));
     if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
+    if (data._selectedMetier     !== undefined) _S._selectedMetier     = data._selectedMetier;
     // ── Navigation sous-onglets ──
     if (data._clientsActiveTab)  _S._clientsActiveTab  = data._clientsActiveTab;
 
