@@ -43,7 +43,8 @@ export async function parseChalandise(file) {
   const cClassif = findCol('classification') || findCol('classif');
   const cActivite = findCol('activité pdv zone') || findCol('activite pdv zone') || findCol('activité globale') || findCol('activite globale');
   const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
-  const cDirection = findCol('direction');
+  const findColExact = s => Object.keys(sample).find(k => k.toLowerCase() === s.toLowerCase());
+  const cDirection = findColExact('direction') || findCol('direction commerciale') || findCol('libellé direction') || findCol('libelle direction') || findCol('direction');
   const cSecteur = findCol('secteur') || findCol('code secteur');
   const cCommercial = findCol('commercial') || findCol('nom commercial');
   const cCP = findCol('code postal') || findCol('cp');
