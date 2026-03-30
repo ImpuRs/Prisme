@@ -1704,12 +1704,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       // [isRefilter] Patch obsKpis.mine depuis canalAgence (période-filtré)
       if(isRefilter&&_S.benchLists?.obsKpis){
-        const _ca=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0);
-        const _ref=new Set([...(_S.ventesClientArticle||new Map()).values()].flatMap(m=>[...m.keys()])).size;
-        const _freq=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||v.countBL||0),0);
-        const _bassinCA=_S.benchLists?.obsKpis?.compared?.ca||1;
-        const _pdm=_bassinCA>0?(_ca/_bassinCA*100):0;
-        _S.benchLists.obsKpis.mine={ca:_ca,ref:_ref||(_S.benchLists.obsKpis.mine?.ref||0),freq:_freq||(_S.benchLists.obsKpis.mine?.freq||0),pdm:_pdm||(_S.benchLists.obsKpis.mine?.pdm||0),txMarge:_S.benchLists.obsKpis.mine?.txMarge||0,serv:_S.benchLists.obsKpis.mine?.serv||0};
+        _S.benchLists.obsKpis.mine={
+          ca:Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0),
+          ref:_S.benchLists.obsKpis.mine?.ref||0,
+          freq:Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||0),0),
+          serv:_S.benchLists.obsKpis.mine?.serv||0,
+          pdm:_S.benchLists.obsKpis.mine?.pdm||0,
+          txMarge:_S.benchLists.obsKpis.mine?.txMarge||0
+        };
         _S._benchCache=null;
       }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
@@ -1865,7 +1867,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const CANAL_ORDER=['MAGASIN','REPRESENTANT','INTERNET','DCS','AUTRE'];
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
-    const _webDisplayCA=v=>Math.max(0,v.caE||0);
+    const _webDisplayCA=v=>Math.max(0,(v.caP||0)+(v.caE||0));
     const _activeCanal=_S._globalCanal||'';
     // La répartition n'a de sens qu'en vue tous canaux — masquer quand filtre actif
     if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
@@ -1908,7 +1910,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const dispCA=isWeb?_webDisplayCA(data):(data.ca||0);
       const pct=Math.round(dispCA/totalCA*100);
       const barW=Math.max(pct,2);
-      const _caP=isWeb?0:Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
+      const _caP=isWeb?0:Math.max(0,data.caP||0);const _caE=isWeb?Math.max(0,(data.caP||0)+(data.caE||0)):Math.max(0,data.caE||0);
       const prevCell=_caP>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(_caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=_caE>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(_caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
@@ -1931,7 +1933,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+='</tr>';
     }
     const totalP=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?0:Math.max(0,v.caP||0)),0);
-    const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
+    const totalE=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?Math.max(0,(v.caP||0)+(v.caE||0)):Math.max(0,v.caE||0)),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
     html+=`<td class="py-2 px-3 text-right">${formatEuro(totalP)}</td>`;
