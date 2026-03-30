@@ -157,7 +157,7 @@ export function switchTab(id) {
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
   // Filtre canal global — visible sur territoire/promo uniquement (bench a son propre #reseauCanalBar, action a ses propres chips)
-  const _CANAL_TABS = new Set(['territoire', 'promo']);
+  const _CANAL_TABS = new Set(['territoire']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
