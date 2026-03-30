@@ -1015,8 +1015,11 @@
     <div id="onboardingBlock" class="mb-3">
       <div class="flex items-center justify-between mb-2 pt-1">
         <div>
-          <h1 class="text-base font-extrabold t-primary leading-tight">PRISME — Votre copilote agence</h1>
-          <p class="text-[11px] t-disabled">Chargez vos fichiers ci-dessous pour commencer</p>
+          <h1 class="text-base font-extrabold t-primary leading-tight">PRISME</h1>
+          <p id="welcomeMsg" class="text-[11px] t-disabled"></p>
+          <script>
+            (function(){const h=new Date().getHours();const m=h<12?'Bonjour ! Chargez vos fichiers pour démarrer votre journée.':h<14?'Bon appétit ! Reprenez où vous en étiez.':h<18?'Bon après-midi ! Vos données vous attendent.':'Bonsoir ! Un dernier point avant de terminer ?';document.getElementById('welcomeMsg').textContent=m;})();
+          </script>
         </div>
         <button onclick="document.getElementById('glossaire').classList.remove('hidden');document.getElementById('glossaire').scrollIntoView({behavior:'smooth'})" class="text-[10px] c-action hover:c-action font-semibold underline shrink-0 ml-4">📖 Glossaire</button>
       </div>
@@ -1027,7 +1030,7 @@
           <div class="min-w-0">
             <p class="text-[9px] font-extrabold c-action uppercase tracking-widest leading-none mb-0.5">Obligatoire</p>
             <p class="text-[11px] font-extrabold c-action leading-tight">📊 Consommé + Stock</p>
-            <p class="text-[10px] c-action mt-0.5 leading-tight">Stock · Cockpit · ABC/FMR · MIN/MAX · Réseau</p>
+            <p class="text-[10px] c-action mt-0.5 leading-tight">Stock · ABC/FMR · MIN/MAX · Réseau</p>
           </div>
         </div>
         <div class="b-light rounded-lg px-3 py-2 flex items-start gap-2" style="background:var(--i-caution-bg,#fefce8)">
