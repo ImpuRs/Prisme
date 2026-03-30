@@ -126,19 +126,38 @@ export async function parseLivraisons(file) {
     }
 
     // Passe unique : livraisonsData + territoireLines
+    const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const sample = data[0] || {};
+    const findCol = s => Object.keys(sample).find(k => _norm(k).includes(_norm(s)));
+    const cCC      = findCol('code client');
+    const cNomC    = findCol('nom client');
+    const cSect    = findCol('secteur');
+    const cDir     = findCol('direction');
+    const cBL      = findCol('numero de bl') || findCol('n° bl') || findCol('bl');
+    const cArt     = findCol('article');
+    const cQty     = findCol('quantite livree') || findCol('qte livree') || findCol('quantite');
+    const cCA      = findCol('ca');
+    const cVMB     = findCol('vmb');
+    const cDate    = findCol("date d'expedition") || findCol('date expedition') || findCol('expedition');
+    console.log('[PRISME] parseLivraisons colonnes détectées:', { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate });
+    console.log('[PRISME] parseLivraisons rows:', data.length);
+    if (!cCC || !cBL || !cArt) {
+      showToast('❌ Livraisons : colonnes obligatoires introuvables (Code client / Numéro de BL / Article)', 'error');
+      return;
+    }
     const terrLines = [];
     const terrDirData = {};
     const secteurSet = new Set();
     for (const row of data) {
-      const cc = String(row['Code client'] || '').trim().padStart(6, '0');
+      const cc = String(row[cCC] || '').trim().padStart(6, '0');
       if (!cc || cc === '000000') continue;
-      const ca = parseFloat(String(row['CA'] || '0').replace(',', '.')) || 0;
-      const vmb = parseFloat(String(row['VMB'] || '0').replace(',', '.')) || 0;
-      const blNum = String(row['Numéro de BL'] || '').trim();
-      const articleStr = String(row['Article'] || '').trim();
+      const ca = parseFloat(String(row[cCA] || '0').replace(',', '.')) || 0;
+      const vmb = parseFloat(String(row[cVMB] || '0').replace(',', '.')) || 0;
+      const blNum = String(row[cBL] || '').trim();
+      const articleStr = String(row[cArt] || '').trim();
       const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
-      const qty = parseInt(row['Quantité livrée']) || 0;
-      const rawDate = row["Date d'expédition"];
+      const qty = parseInt(row[cQty]) || 0;
+      const rawDate = cDate ? row[cDate] : null;
       const dateObj = rawDate instanceof Date ? rawDate : (rawDate ? parseExcelDate(rawDate) : null);
 
       // — livraisonsData —
@@ -156,9 +175,9 @@ export async function parseLivraisons(file) {
 
       // — territoireLines —
       if (!codeArticle) continue;
-      const direction = String(row['Direction'] || '').trim() || 'Non défini';
-      const secteur = String(row['Secteur'] || '').trim();
-      const clientNom = String(row['Nom client'] || '').trim();
+      const direction = String(row[cDir] || '').trim() || 'Non défini';
+      const secteur = String(row[cSect] || '').trim();
+      const clientNom = String(row[cNomC] || '').trim();
       const isSpecial = !/^\d{6}$/.test(codeArticle);
       const stockItem = _S.finalData?.find(a => a.code === codeArticle);
       const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
