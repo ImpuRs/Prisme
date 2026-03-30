@@ -65,6 +65,20 @@ export function updateTerrProgress(cur, total) {
 }
 
 // ── Import zone collapse ──────────────────────────────────────
+const _statusBadgeMap = {
+  dropConsomme: 'statusConsomme',
+  dropStock: 'statusStock',
+  dropChalandise: 'statusChalandise',
+  dropLivraisons: 'statusLivraisons',
+  dropConsommeReseau: 'statusConsommeReseau',
+};
+
+export function _updateAnalyserBtn() {
+  const hasOblig = !!(document.getElementById('fileConsomme')?.files[0] || document.getElementById('fileStock')?.files[0]);
+  const btn = document.getElementById('btnCalculer');
+  if (btn) btn.disabled = !hasOblig;
+}
+
 export function onFileSelected(i, id) {
   if (i.files.length > 0 && DataStore.finalData.length > 0) {
     if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau fichier remplacera toutes les données. Continuer ?')) {
@@ -73,6 +87,9 @@ export function onFileSelected(i, id) {
     }
   }
   document.getElementById(id).classList.toggle('file-loaded', i.files.length > 0);
+  const badgeId = _statusBadgeMap[id];
+  if (badgeId) { const b = document.getElementById(badgeId); if (b) b.textContent = i.files.length > 0 ? '✅' : '⭕'; }
+  _updateAnalyserBtn();
 }
 
 export function collapseImportZone(nbFiles, store, nbArts, elapsed) {

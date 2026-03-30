@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
@@ -1526,6 +1526,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
   }
 
+  // Grise les onglets selon les fichiers chargés — appelé après chaque chargement complet
+  function _syncTabAccess(){
+    const hasStock=!!_S._hasStock;
+    const needsStock=['table','dash','abc'];
+    const needsConsomme=['territoire','promo'];
+    needsStock.forEach(tab=>{
+      const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
+      if(!hasStock){btn.classList.add('tab-locked');btn.title="Chargez l'État du Stock pour activer cet onglet";}
+      else{btn.classList.remove('tab-locked');if(btn.title.includes('Stock'))btn.title='';}
+    });
+    needsConsomme.forEach(tab=>{
+      const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
+      btn.classList.remove('tab-locked');btn.title='';
+    });
+  }
+
   // Univers dominant par client — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
   function _computeClientDominantUnivers(){
     const m=new Map();
@@ -1812,6 +1828,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
+      if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
@@ -5117,6 +5134,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       renderSidebarAgenceSelector();
       _S.currentPage=0;
       renderAll();
+      _syncTabAccess();
       if(useMulti){
         _buildObsUniversDropdown();
         buildBenchBassinSelect();
@@ -5216,6 +5234,11 @@ window.onLivraisonsSelected = async function(input) {
   await parseLivraisons(input.files[0]);
   // territoireLines, territoireReady, computeReconquestCohort et computeOpportuniteNette
   // sont déjà gérés dans parseLivraisons() — pas de post-traitement nécessaire ici
+};
+window.onConsommeReseauSelected = function(input) {
+  onFileSelected(input, 'dropConsommeReseau');
+  // Parsing réseau — sera implémenté dans une prochaine version
+  if (input.files?.[0]) showToast('📂 Fichier réseau chargé — traitement disponible dans la prochaine version', 'info', 4000);
 };
 window.onChalandiseSelected = async function(input) {
   onFileSelected(input, 'dropChalandise');
@@ -5368,6 +5391,7 @@ window._navigateToOverviewMetier = _navigateToOverviewMetier;
 window._togglePerdu24m = _togglePerdu24m;
 window._resetChalandiseFilters = _resetChalandiseFilters;
 window.onFileSelected = onFileSelected;
+window._updateAnalyserBtn = _updateAnalyserBtn;
 window._saveSessionToIDB = _saveSessionToIDB;
 window.onObsCompareChange = onObsCompareChange;
 window.onObsFilterChange = onObsFilterChange;
