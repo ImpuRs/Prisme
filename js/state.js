@@ -315,6 +315,8 @@ export function resetAppState() {
 
   // Livraisons
   _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0;
+  _S._livSansPDVPage = 1;
+  _S._oppNettePage = 1;
 
   // Client aggregation Worker
   _S.clientFamCA = {}; _S.metierFamBench = {};
