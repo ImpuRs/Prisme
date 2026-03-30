@@ -1614,8 +1614,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updatePipeline('stock','active');updatePipeline('consomme','active');
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
-      if(!isRefilter){_S.ventesParMagasinByCanal={};_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
+      const articleRaw={};_S.ventesParMagasin={};_S.ventesParMagasinByCanal={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
