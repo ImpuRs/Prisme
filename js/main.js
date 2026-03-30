@@ -1459,13 +1459,17 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
 
   // ★★★ MOTEUR PRINCIPAL ★★★
-  async function processData(){
+  async function processData(_storeOverride){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
     if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
+    // Gérer le sélecteur d'agence : si _storeOverride (depuis dropdown/sidebar), conserver ;
+    // sinon vider pour forcer l'affichage du choix si multi-agences
+    const _selStore=document.getElementById('selectMyStore');
+    if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
     resetPromo();
     showLoading('Lecture…','');await yieldToMain();
@@ -1477,7 +1481,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
-    await processDataFromRaw(dataC,dataS,{});
+    await processDataFromRaw(dataC,dataS,{storeOverride:_storeOverride||''});
     window._applyPeriodeMoisCourant();
   }
 
@@ -1577,7 +1581,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
-    const{isRefilter=false}=opts;
+    const{isRefilter=false,storeOverride=''}=opts;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
@@ -1595,11 +1599,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
         else{_S.storesIntersection=new Set(stC);}
         _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
-        const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
-        _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
+        const _explicitStore=storeOverride==='*'?'':storeOverride||(document.getElementById('selectMyStore').value||'').toUpperCase();
+        _S.selectedMyStore=_explicitStore;
         hasMulti=_S.storesIntersection.size>1;
         document.getElementById('storeSelector').classList.add('hidden');
-        if(hasMulti){const _saved=_preSelectedStore||localStorage.getItem('prisme_selectedStore');if(_saved&&_S.storesIntersection.has(_saved)){_S.selectedMyStore=_saved;localStorage.setItem('prisme_selectedStore',_saved);}else{const _selEl=document.getElementById('selectMyStore');if(_selEl){_selEl.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selEl.value='';}document.getElementById('storeSelector').classList.remove('hidden');btn.disabled=false;throw new Error('NO_STORE_SELECTED');}btn.disabled=false;}
+        if(hasMulti){if(storeOverride==='*'){_S.selectedMyStore='';/* tout sélectionner */}else if(_explicitStore&&_S.storesIntersection.has(_explicitStore)){_S.selectedMyStore=_explicitStore;localStorage.setItem('prisme_selectedStore',_explicitStore);}else{const _selEl=document.getElementById('selectMyStore');if(_selEl){_selEl.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selEl.value='';}document.getElementById('storeSelector').classList.remove('hidden');btn.disabled=false;throw new Error('NO_STORE_SELECTED');}btn.disabled=false;}
         else{if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
         useMulti=hasMulti&&_S.selectedMyStore;
       }else if(_savedStoreBeforeReset){const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
@@ -5477,7 +5481,7 @@ window._sidebarAgenceChange = function(store) {
   _S.selectedMyStore = store;
   localStorage.setItem('prisme_selectedStore', store);
   const sel = document.getElementById('selectMyStore'); if (sel) sel.value = store;
-  processData();
+  processData(store);
 };
 window._sidebarAgenceMonStore = function() {
   const stores = Object.keys(_S.ventesParMagasin || {}).sort();
@@ -5489,7 +5493,7 @@ window._sidebarAgenceTout = function() {
   _S.selectedMyStore = '';
   const sel = document.getElementById('selectMyStore'); if (sel) sel.value = '';
   renderSidebarAgenceSelector();
-  processData();
+  processData('*');
 };
 // Animation tab — fonctions HTML onclick
 window._animAnalyze = _animAnalyze;
