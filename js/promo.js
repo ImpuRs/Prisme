@@ -2334,7 +2334,7 @@ export function renderAnimationTab() {
 export function _animAnalyze() {
   const text = (document.getElementById('animInput') || {}).value || '';
   if (!text.trim()) return;
-  if (!_S.ventesClientArticle || !_S.ventesClientArticle.size) {
+  if (!DataStore.finalData.length && !_S.ventesClientArticle.size) {
     const counter = document.getElementById('animCounter');
     if (counter) { counter.textContent = '⚠ Chargez d\'abord un fichier Consommé'; counter.className = 'text-[10px] c-danger mt-1'; }
     return;
