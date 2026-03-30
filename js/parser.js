@@ -237,6 +237,8 @@ export async function parseLivraisons(file) {
     }
     showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients · ${terrLines.length} lignes terrain chargés`, 'success');
 
+    _S.territoireLines = _S.livraisonsData || [];
+    _S.territoireReady = true;
     window.computeReconquestCohort?.();
     window.computeOpportuniteNette?.();
     window.renderTerritoireTab?.();
