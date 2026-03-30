@@ -1494,7 +1494,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
-      if(!isRefilter){const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}}
+      let headersC=null;
+      if(!isRefilter){headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}}
 
       // ── Store detection — skipped for isRefilter (storesIntersection/selectedMyStore unchanged) ──
       _resetColCache();
@@ -1528,8 +1529,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
       let _cSStk=null,_cSValS=null; // pré-détectés avant la boucle stock
       // H2: détecter la colonne N° commande avant la boucle — éviter le collapse sur clé 'C'
-      const _hasCommandeCol=['numéro de commande','commande','n° commande','bl','numéro','n° bl'].some(c=>headersC.includes(c));
-      if(!_hasCommandeCol)showToast('⚠️ Colonne "N° commande" absente du fichier Consommé — le dédoublonnage BL est désactivé.','warning');
+      if(headersC){const _hasCommandeCol=['numéro de commande','commande','n° commande','bl','numéro','n° bl'].some(c=>headersC.includes(c));if(!_hasCommandeCol)showToast('⚠️ Colonne "N° commande" absente du fichier Consommé — le dédoublonnage BL est désactivé.','warning');}
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
       // V24.4: canalAgence/libelleLookup/articleCanalCA — period-independent, skip for isRefilter
