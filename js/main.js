@@ -1592,6 +1592,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       for(const c of Object.keys(_S.canalAgence)){_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;delete _S.canalAgence[c].blNums;}
       }
+      // Recalcul canalAgence période-filtré pour isRefilter
+      if(isRefilter){
+        _S.canalAgence={};const _tmpBLca={};
+        for(const row of dataC){
+          const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();if(!canal)continue;
+          const sk=extractStoreCode(row)||'INCONNU';if(_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore)continue;
+          const dateV=parseExcelDate(getVal(row,'Jour','Date'));
+          if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
+          if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
+          const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();
+          const caP=getCaColumn(row,'prél')||0;const caE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
+          if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:0,ca:0,caP:0,caE:0};
+          if(nc){if(!_tmpBLca[canal])_tmpBLca[canal]=new Set();if(!_tmpBLca[canal].has(nc)){_tmpBLca[canal].add(nc);_S.canalAgence[canal].bl++;}}
+          _S.canalAgence[canal].caP+=caP;_S.canalAgence[canal].caE+=caE;_S.canalAgence[canal].ca+=caP+caE;
+        }
+      }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
@@ -1740,7 +1756,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         }
       }
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;if(isRefilter){renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
