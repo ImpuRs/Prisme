@@ -776,10 +776,7 @@
               </div>
             </div>
             <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
-            <div class="flex gap-1">
-              <button onclick="exportTerritoireCSV()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold">↺ Reset</button>
-            </div>
+            <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
 
           <!-- Client search + famille filter (degraded mode) — always shown when Le Terrain is active -->
@@ -1562,7 +1559,10 @@
 
         <!-- 8. Top 100 articles — V2 (nécessite BL Territoire) -->
         <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-x-auto">
-          <h3 class="font-extrabold t-primary text-xs px-2 py-1.5 border-b">🏆 Top 100 articles (CA Legallais décroissant)</h3>
+          <div class="flex items-center justify-between px-2 py-1.5 border-b">
+            <h3 class="font-extrabold t-primary text-xs">🏆 Top 100 articles (CA Legallais décroissant)</h3>
+            <button onclick="exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+          </div>
           <div class="table-scroll">
             <table class="min-w-full text-xs">
               <thead class="s-panel-inner t-inverse sticky top-0">
