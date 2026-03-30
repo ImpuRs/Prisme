@@ -1556,6 +1556,25 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S._clientDominantUnivers=m;
   }
 
+
+  // caByArticleCanal — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
+  function _rebuildCaByArticleCanal(){
+    if(!_S.ventesClientHorsMagasin.size||!DataStore.finalData.length)return;
+    _S.caByArticleCanal=new Map();
+    for(const[,artMap] of _S.ventesClientHorsMagasin.entries()){
+      for(const[code,data] of artMap.entries()){
+        if(!_S.caByArticleCanal.has(code))_S.caByArticleCanal.set(code,{});
+        const entry=_S.caByArticleCanal.get(code);
+        entry[data.canal]=(entry[data.canal]||0)+data.sumCA;
+      }
+    }
+    for(const r of DataStore.finalData){
+      const c=_S.caByArticleCanal.get(r.code)||{};
+      r.caWeb=c.INTERNET||0;r.caRep=c.REPRESENTANT||0;r.caDcs=c.DCS||0;
+      r.caHorsMagasin=r.caWeb+r.caRep+r.caDcs;
+      r.nbClientsWeb=[..._S.ventesClientHorsMagasin.entries()].filter(([,m])=>m.has(r.code)).length;
+    }
+  }
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
     const{isRefilter=false}=opts;
@@ -1808,26 +1827,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
-      if (!isRefilter && _S.chalandiseReady) {
-        _S.caByArticleCanal = new Map();
-        for (const [, artMap] of _S.ventesClientHorsMagasin.entries()) {
-          for (const [code, data] of artMap.entries()) {
-            if (!_S.caByArticleCanal.has(code)) _S.caByArticleCanal.set(code, {});
-            const entry = _S.caByArticleCanal.get(code);
-            entry[data.canal] = (entry[data.canal] || 0) + data.sumCA;
-          }
-        }
-        for (const r of DataStore.finalData) {
-          const c = _S.caByArticleCanal.get(r.code) || {};
-          r.caWeb = c.INTERNET || 0;
-          r.caRep = c.REPRESENTANT || 0;
-          r.caDcs = c.DCS || 0;
-          r.caHorsMagasin = r.caWeb + r.caRep + r.caDcs;
-          r.nbClientsWeb = [..._S.ventesClientHorsMagasin.entries()]
-            .filter(([, m]) => m.has(r.code)).length;
-        }
-      }
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');}).catch(err=>console.warn('Client worker error:',err));}
+      if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
@@ -5125,6 +5126,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size) computeReconquestCohort();
       if (_S.chalandiseReady && _S.clientLastOrder.size) { computeOmniScores(); computeFamillesHors(); }
+      generateDecisionQueue();
+      if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
       // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
       if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
       // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
