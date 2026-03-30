@@ -1003,6 +1003,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
       if(_cockpitComSet&&!_cockpitComSet.has(cc))continue; // [V3.2] filtre commercial
+      if(!_passesClientViewFilter(cc))continue;
       // [Feature C] filtre canal : garder uniquement les clients ayant du CA sur ce canal via articleCanalCA
       if(_cockpitCanalFilter){
         const _ccArts=DataStore.ventesClientArticle.get(cc);
@@ -2221,7 +2222,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(hasOmni){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
       for(const[cc,o]of _S.clientOmniScore){
-        if(!_passesComMetierFilter(cc))continue;
+        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
         if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
         else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
         else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
@@ -2243,6 +2244,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
         for(const cc of ccs){
           if(_S._selectedMetier&&_S.chalandiseData?.get(cc)?.metier!==_S._selectedMetier)continue;
+          if(!_passesClientViewFilter(cc))continue;
           const lastDate=_S.clientLastOrder?.get(cc);
           const arts=_S.ventesClientArticle?.get(cc);
           const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
@@ -2282,7 +2284,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const hors=[];
     for(const[cc,artMap]of _S.ventesClientArticle){
       if(_S.chalandiseData.has(cc))continue;
-      if(!_passesComMetierFilter(cc))continue;
+      if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
       const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
       if(caPDV<200)continue;
       const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2323,6 +2325,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     return true;
   }
 
+  function _passesClientViewFilter(cc){
+    const view=_S._clientView||'tous';
+    if(view==='tous')return true;
+    if(view==='horszone')return!_S.chalandiseData?.has(cc);
+    if(view==='multicanaux'){
+      let caHors=0,caMag=0;
+      const horsArts=_S.ventesClientHorsMagasin?.get(cc);
+      const magArts=_S.ventesClientArticle?.get(cc);
+      if(horsArts)for(const d of horsArts.values())caHors+=d.sumCA||0;
+      if(magArts)for(const d of magArts.values())caMag+=d.sumCA||0;
+      return caHors>caMag;
+    }
+    return true; // potentiels/captes gérés par _clientPassesFilters via _selectedCrossStatus
+  }
+
   function _syncPDVToggles(){
     const view=_S._clientView||'tous';
     document.querySelectorAll('.client-view-btn').forEach(b=>{
@@ -2348,7 +2365,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
       const horsRows=[];
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesComMetierFilter(cc))continue;
+        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
         const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caHors<100)continue;
         const magMap=_S.ventesClientArticle.get(cc);
@@ -2383,7 +2400,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const hzRows=[];
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(_S.chalandiseData.has(cc))continue;
-        if(!_passesComMetierFilter(cc))continue;
+        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<200)continue;
         const nom=_S.clientNomLookup?.[cc]||cc;
@@ -2413,7 +2430,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const topRows=[];
     if(!canal||canal==='MAGASIN'){
       for(const[cc,artMap]of _S.ventesClientArticle){
-        if(!_passesComMetierFilter(cc))continue;
+        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2427,7 +2444,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!canal){
         for(const[cc,artMap]of _S.ventesClientHorsMagasin){
           if(_S.ventesClientArticle.has(cc))continue;
-          if(!_passesComMetierFilter(cc))continue;
+          if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
           const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
           if(caHors<100)continue;
           const info=_S.chalandiseData?.get(cc);
@@ -2440,7 +2457,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
     }else{
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesComMetierFilter(cc))continue;
+        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
         let caCanal=0;
         for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
         if(caCanal<100)continue;
@@ -2491,6 +2508,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _reconqFull=(_S.reconquestCohort||[]).filter(r=>{
         if(_S._selectedCommercial&&r.commercial!==_S._selectedCommercial)return false;
         if(_S._selectedMetier&&r.metier!==_S._selectedMetier)return false;
+        if(!_passesClientViewFilter(r.cc))return false;
         return true;
       });
       const reconq=_reconqFull.slice(0,10);
