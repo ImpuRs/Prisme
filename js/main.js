@@ -3950,6 +3950,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _S.obsFilterUnivers='';_S.obsFilterMinCA=0;
     const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
     const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
+    _buildObsUniversDropdown();
     _setBenchPeriode('12M');
     const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();
     document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
@@ -3964,10 +3965,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   function _buildObsUniversDropdown(){
-    const dl=document.getElementById('listObsUnivers');if(!dl)return;
+    const sel=document.getElementById('obsFilterUnivers');if(!sel||sel.tagName!=='SELECT')return;
     const univs=new Set();
     for(const v of Object.values(_S.articleUnivers))if(v)univs.add(v);
-    dl.innerHTML='';[...univs].sort().forEach(u=>{const o=document.createElement('option');o.value=u;dl.appendChild(o);});
+    const cur=_S.obsFilterUnivers||'';
+    sel.innerHTML='<option value="">🌐 Univers…</option>'+[...univs].sort().map(u=>`<option value="${u}"${u===cur?' selected':''}>${u}</option>`).join('');
   }
 
   function renderObsArticleSearch(){
