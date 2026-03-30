@@ -106,6 +106,7 @@ _S._selectedDepts = new Set();
 _S._selectedClassifs = new Set();
 _S._selectedStatuts = new Set();
 _S._selectedActivitesPDV = new Set();
+_S._selectedStatutDetaille = '';
 _S._selectedDirections = new Set();
 _S._selectedUnivers = new Set();
 _S._selectedCommercial = '';
@@ -284,7 +285,7 @@ export function resetAppState() {
   _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
-  _S._selectedActivitesPDV = new Set(); _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false;
+  _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false;
   _S._clientDominantUnivers = new Map();
   _S._clientsActiveTab = 'priorites';
   _S._hasStock = false;
