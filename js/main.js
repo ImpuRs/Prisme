@@ -2567,7 +2567,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     // ── Garde de cache territoire ─────────────────────────────────────────────
     // Clé inclut commercial (V3.2) : terrLines differ si commercial actif
-    const _secteurKey=[...getSelectedSecteurs()].sort().join(',');
+    const _secteurKey=[...(getSelectedSecteurs()||[])].sort().join(',');
     const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}|${filterDir}|${filterRayon}`;
     if(_S._terrCanalCache.has(_terrCacheKey)){
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
