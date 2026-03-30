@@ -13,8 +13,8 @@ import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, S
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, parseTerritoireFile, _terrWorker, launchTerritoireWorker, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, showTerritoireLoading, updateTerrProgress, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
+import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
+import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
@@ -1429,11 +1429,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
     resetPromo();
-    // V24.4: Kick off territoire parse immediately — runs in parallel with consommé+stock processing
-    const f3=document.getElementById('fileTerritoire').files[0];
-    _S.territoireReady=false;_S.territoireLines=[];_S.terrDirectionData={}; // producteur — _S direct
-    const terrParsePromise=f3?parseTerritoireFile(f3).catch(e=>{showToast('⚠️ Lecture territoire: '+e.message,'warning');return null;}):null;
-    if(f3){updatePipeline('territoire','pending');}
     showLoading('Lecture…','');await yieldToMain();
     let dataC,dataS;
     try{
@@ -1443,7 +1438,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
-    await processDataFromRaw(dataC,dataS,{f3,terrParsePromise});
+    await processDataFromRaw(dataC,dataS,{});
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -1494,7 +1489,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
-    const{f3=null,terrParsePromise=null,isRefilter=false}=opts;
+    const{isRefilter=false}=opts;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
@@ -1747,27 +1742,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
-    // Territoire — parse en background (premier chargement) ou re-rendu (refiltre période)
-    if(!isRefilter&&f3&&terrParsePromise){
-      showTerritoireLoading(true);
-      updatePipeline('territoire','active');
-      try{
-        const terrRaw=await terrParsePromise;
-        if(terrRaw&&terrRaw.length){
-          await launchTerritoireWorker(terrRaw,updateTerrProgress);
-          updatePipeline('territoire','done');
-          computePhantomArticles();
-          _S._terrCanalCache = new Map(); // invalidation : nouvelles données territoire
-          computeReconquestCohort();
-          computeOpportuniteNette();
-          renderTerritoireTab();
-          renderAll(); // refresh exec summary line 5
-          // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
-          if (_S.selectedMyStore) { _saveToCache(); _saveSessionToIDB(); } // Resauvegarder avec les données territoire
-        }else{showToast('⚠️ Fichier territoire vide ou non lisible','warning');}
-      }catch(e){showToast('⚠️ Fichier Territoire: '+e.message,'warning');updatePipeline('territoire','pending');}
-      finally{showTerritoireLoading(false);}
-    }else if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
+    if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
   }
 
 

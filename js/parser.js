@@ -107,7 +107,7 @@ export function onChalandiseSelected(input) {
   if (input.files && input.files[0]) parseChalandise(input.files[0]);
 }
 
-// ── Livraisons (5ème fichier optionnel) ─────────────────────────────────────
+// ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
 export async function parseLivraisons(file) {
   _S.livraisonsData = new Map();
   _S.livraisonsReady = false;
@@ -124,6 +124,11 @@ export async function parseLivraisons(file) {
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
       data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
     }
+
+    // Passe unique : livraisonsData + territoireLines
+    const terrLines = [];
+    const terrDirData = {};
+    const secteurSet = new Set();
     for (const row of data) {
       const cc = String(row['Code client'] || '').trim().padStart(6, '0');
       if (!cc || cc === '000000') continue;
@@ -134,27 +139,66 @@ export async function parseLivraisons(file) {
       const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
       const qty = parseInt(row['Quantité livrée']) || 0;
       const rawDate = row["Date d'expédition"];
-      const dateExp = rawDate instanceof Date ? rawDate : (rawDate ? parseExcelDate(rawDate) : null);
+      const dateObj = rawDate instanceof Date ? rawDate : (rawDate ? parseExcelDate(rawDate) : null);
+
+      // — livraisonsData —
       if (!_S.livraisonsData.has(cc)) {
         _S.livraisonsData.set(cc, { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null });
       }
       const d = _S.livraisonsData.get(cc);
-      d.ca += ca;
-      d.vmb += vmb;
+      d.ca += ca; d.vmb += vmb;
       if (blNum) d.bl.add(blNum);
       if (codeArticle) {
         if (!d.articles.has(codeArticle)) d.articles.set(codeArticle, { ca: 0, qty: 0 });
-        const a = d.articles.get(codeArticle);
-        a.ca += ca;
-        a.qty += qty;
+        const a = d.articles.get(codeArticle); a.ca += ca; a.qty += qty;
       }
-      if (dateExp && (!d.lastDate || dateExp > d.lastDate)) d.lastDate = dateExp;
+      if (dateObj && (!d.lastDate || dateObj > d.lastDate)) d.lastDate = dateObj;
+
+      // — territoireLines —
+      if (!codeArticle) continue;
+      const direction = String(row['Direction'] || '').trim() || 'Non défini';
+      const secteur = String(row['Secteur'] || '').trim();
+      const clientNom = String(row['Nom client'] || '').trim();
+      const isSpecial = !/^\d{6}$/.test(codeArticle);
+      const stockItem = _S.finalData?.find(a => a.code === codeArticle);
+      const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
+      const clientType = _S.clientsMagasin?.has(cc) ? 'mixte' : 'exterieur';
+      const famille = _S.articleFamille?.[codeArticle] || stockItem?.famille || 'Non classé';
+      const libelle = articleStr.includes(' - ') ? articleStr.split(' - ').slice(1).join(' - ').trim() : (_S.libelleLookup?.[codeArticle] || codeArticle);
+      if (secteur) secteurSet.add(secteur);
+      terrLines.push({ code: codeArticle, libelle, famille, direction, secteur, bl: blNum, ca, canal: 'EXTÉRIEUR',
+        clientCode: cc, clientNom, clientType, rayonStatus, isSpecial, commercial: '',
+        dateExp: dateObj ? dateObj.getTime() : null });
+
+      // — terrDirData (pour le tableau Directions dans l'onglet Terrain) —
+      if (!isSpecial) {
+        if (!terrDirData[direction]) terrDirData[direction] = { dir: direction, caTotal: 0, caMag: 0, caExt: 0, refSet: new Set(), absentSet: new Set(), familles: {} };
+        const td = terrDirData[direction];
+        td.caTotal += ca; td.caExt += ca;
+        td.refSet.add(codeArticle); if (rayonStatus === 'red') td.absentSet.add(codeArticle);
+        if (!td.familles[famille]) td.familles[famille] = { caTotal: 0, caMag: 0, caExt: 0 };
+        td.familles[famille].caTotal += ca; td.familles[famille].caExt += ca;
+      }
     }
+
     _S.livraisonsReady = _S.livraisonsData.size > 0;
     _S.livraisonsClientCount = _S.livraisonsData.size;
-    showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients chargés`, 'success');
-    if (typeof computeReconquestCohort === 'function') computeReconquestCohort();
-    if (typeof renderTerritoireTab === 'function') renderTerritoireTab();
+    _S.territoireLines = terrLines;
+    _S.terrDirectionData = terrDirData;
+    _S.territoireReady = terrLines.length > 0;
+    _S._terrCanalCache = new Map(); // invalidation cache territoire
+
+    // Secteurs — met à jour les checkboxes dans le filtre Terrain
+    buildSecteurCheckboxes([...secteurSet].sort());
+
+    showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients · ${terrLines.length} lignes terrain chargés`, 'success');
+
+    window.computeReconquestCohort?.();
+    window.computeOpportuniteNette?.();
+    window.computePhantomArticles?.();
+    window.renderTerritoireTab?.();
+    window.renderAll?.();
+    if (_S.selectedMyStore) window._saveSessionToIDB?.();
   } catch (e) {
     console.error('[PRISME] parseLivraisons error:', e);
     showToast('❌ Erreur lecture Livraisons : ' + e.message, 'error');
