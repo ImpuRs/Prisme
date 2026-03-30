@@ -1616,7 +1616,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updatePipeline('stock','active');updatePipeline('consomme','active');
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();if(!isRefilter)_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();if(!isRefilter)_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
       _S.ventesParMagasinByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
@@ -1727,7 +1727,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         _S._benchCache=null;
       }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
-      _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
+      if(!isRefilter)_S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // Univers dominant par client : somme CA par univers → univers avec le plus de CA
       _computeClientDominantUnivers();
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
