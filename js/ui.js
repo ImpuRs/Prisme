@@ -897,6 +897,8 @@ export function renderDecisionQueue() {
     anomalie_minmax:   { badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
     stock_synthesis:   { badgeClass: 'dq-action',  icon: '📦', impactClass: '' },
     captation:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
+    livres_sans_pdv:   { badgeClass: 'dq-action',  icon: '📦', impactClass: 'dq-medium' },
+    opps_nettes:       { badgeClass: 'dq-ok',      icon: '🎯', impactClass: 'dq-medium' },
   };
 
   // Trier par euros perdus estimés (impact) puis par score — DQ V4
@@ -965,6 +967,10 @@ export function dqFocus(idx) {
       break;
     case 'captation':
       switchTab('territoire');
+      break;
+    case 'livres_sans_pdv':
+    case 'opps_nettes':
+      switchTab('clients');
       break;
     case 'concentration':
       switchTab('territoire');

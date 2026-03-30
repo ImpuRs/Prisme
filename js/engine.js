@@ -332,7 +332,7 @@ export function generateDecisionQueue() {
 
   // Priorité de catégorie : 0 = plus urgent
   // alerte_prev < rupture : on peut encore agir, la rupture arrive dans X jours
-  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, captation: 4.5, stock_synthesis: 98 };
+  const TYPE_PRIORITY = { alerte_prev: 0, saisonnalite_prev: 0.3, rupture: 1, client: 2, client_silence: 2.1, livres_sans_pdv: 2.15, opps_nettes: 2.2, opportunite: 2.2, concentration: 2.5, dormants: 3, client_web_actif: 3.1, client_digital_drift: 3.2, famille_fuite: 3.15, fragilite: 3.5, erp_incoherence: 3.8, anomalie_minmax: 4, captation: 4.5, stock_synthesis: 98 };
 
   if (_S.finalData.length) {
   // ── 1a. Alertes prévisionnelles (couverture ≤8j, stock>0, W≥DQ_MIN_FREQ_ALERTE, PU≥DQ_MIN_PU_ALERTE) ──
@@ -562,65 +562,77 @@ export function generateDecisionQueue() {
   }
   } // end if (_S.finalData.length) — block 6
 
-  // ── 7. Clients silencieux à reconquérir (reconquestCohort) ──────────────
-  // reconquestCohort dérivé de ventesClientArticle (MAGASIN) — ignoré si canal hors-MAGASIN
-  if (_S.reconquestCohort?.length > 0 && (!_S._globalCanal || _S._globalCanal === 'MAGASIN')) {
-    const monthIdx = new Date().getMonth();
-    let added = 0;
-    for (const c of _S.reconquestCohort) {
-      if (added >= 2) break;
-      if (c.daysAgo < 45) continue;
-
-      // Contexte saisonnier — agréger les indices du mois courant pour les familles du client
-      let seasonSum = 0, seasonCount = 0;
-      const clientArts = _S.ventesClientArticle?.get(c.cc);
-      if (clientArts) {
-        const famsSeen = new Set();
-        for (const [code] of clientArts) {
-          const fam = _S.articleFamille?.[code];
-          if (!fam || famsSeen.has(fam)) continue;
-          famsSeen.add(fam);
-          const coeffs = _S.seasonalIndex?.[fam];
-          if (Array.isArray(coeffs) && coeffs.length === 12) { seasonSum += coeffs[monthIdx]; seasonCount++; }
-        }
-      }
-      const avgSeason = seasonCount > 0 ? seasonSum / seasonCount : 1.0;
-      const saisonnier = avgSeason < 0.85;
-
-      const silScore = Math.min(100, Math.round((c.daysAgo / 180) * 50 + Math.min(c.totalCA / 200, 50)));
-      const adjScore = saisonnier ? Math.max(1, Math.round(silScore * (avgSeason / 0.85))) : silScore;
+  // ── 7. Clients silencieux à reconquérir (crossingStats.fideles × CA_PDV × daysAgo) ──
+  if (_S.crossingStats?.fideles?.size > 0 && _S.clientLastOrder?.size > 0 && _S.ventesClientArticle?.size > 0
+      && (!_S._globalCanal || _S._globalCanal === 'MAGASIN')) {
+    const now7 = new Date();
+    const scored7 = [];
+    for (const cc of _S.crossingStats.fideles) {
+      const lastOrder = _S.clientLastOrder.get(cc);
+      if (!lastOrder) continue;
+      const daysAgo = Math.floor((now7 - lastOrder) / 864e5);
+      if (daysAgo <= 30) continue;
+      const arts = _S.ventesClientArticle.get(cc);
+      if (!arts?.size) continue;
+      let caPDV = 0;
+      for (const d of arts.values()) caPDV += d.sumCA || 0;
+      if (caPDV <= 0) continue;
+      const cc6 = cc.padStart(6, '0');
+      const info = _S.chalandiseData?.get(cc) || _S.chalandiseData?.get(cc6) || {};
+      const nom = info.nom || _S.clientNomLookup?.[cc] || _S.clientNomLookup?.[cc6] || cc;
+      const score = Math.min(100, Math.round((daysAgo / 180) * 50 + Math.min(caPDV / 200, 50)));
+      scored7.push({ cc, nom, caPDV, daysAgo, score, metier: info.metier || '' });
+    }
+    scored7.sort((a, b) => (b.caPDV * b.daysAgo) - (a.caPDV * a.daysAgo));
+    for (const c of scored7.slice(0, 2)) {
       decisions.push({
-        type: 'client_silence', code: c.cc, impact: c.totalCA, score: adjScore, saisonnier,
-        label: `Reconquérir\u00a0${c.nom}\u00a0— absent\u00a0${Math.round(c.daysAgo / 7)}\u00a0sem., ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ historique.`,
+        type: 'client_silence', code: c.cc, impact: c.caPDV, score: c.score,
+        label: `Reconquérir\u00a0${c.nom}\u00a0— silencieux\u00a0${c.daysAgo}j, CA\u00a0PDV\u00a0${Math.round(c.caPDV).toLocaleString('fr')}\u00a0€`,
         why: [
           `Dernier achat au comptoir\u00a0: il y a ${c.daysAgo}\u00a0jours.`,
-          `CA historique\u00a0: ${Math.round(c.totalCA).toLocaleString('fr')}\u00a0€ sur ${c.nbFamilles}\u00a0famille${c.nbFamilles > 1 ? 's' : ''}.`,
+          `CA PDV\u00a0: ${Math.round(c.caPDV).toLocaleString('fr')}\u00a0€.`,
           ...(c.metier ? [`Métier\u00a0: ${c.metier}.`] : []),
-          ...(saisonnier ? [`Activité saisonnière basse ce mois (indice\u00a0${(avgSeason * 100).toFixed(0)}%)\u00a0— silence potentiellement normal.`] : []),
         ],
       });
-      added++;
     }
   }
 
-  // ── 8. Opportunités nettes — familles manquantes vs pairs (opportuniteNette) ──
-  if (_S.opportuniteNette?.length > 0) {
-    let added = 0;
-    for (const o of _S.opportuniteNette) {
-      if (added >= 2) break;
-      if (o.totalPotentiel < 2000 || o.nbMissing < 3) continue;
-      const topFams = o.missingFams.slice(0, 3).map(m => m.fam).join(', ');
-      const oppScore = Math.min(100, Math.round(Math.min(o.totalPotentiel / 100, 50) + Math.min(o.nbMissing * 5, 50)));
+  // ── 7b. Livrés sans PDV — clients livrés n'ayant jamais acheté au comptoir ──
+  if (_S.livraisonsReady && _S.livraisonsSansPDV?.length > 0) {
+    const count7b = _S.livraisonsSansPDV.length;
+    const caTotal7b = _S.livraisonsSansPDV.reduce((s, r) => s + (r.caLivraison || 0), 0);
+    if (caTotal7b > 0) {
       decisions.push({
-        type: 'opportunite', code: o.cc, impact: o.totalPotentiel, score: oppScore,
-        label: `Proposer\u00a0à\u00a0${o.nom}\u00a0— ${o.nbMissing}\u00a0familles manquantes, potentiel\u00a0${Math.round(o.totalPotentiel).toLocaleString('fr')}\u00a0€.`,
+        type: 'livres_sans_pdv', impact: caTotal7b,
+        label: `${count7b}\u00a0client${count7b > 1 ? 's' : ''} livr\u00e9${count7b > 1 ? 's' : ''} n'ont jamais acheté au comptoir\u00a0— CA livraison\u00a0${Math.round(caTotal7b).toLocaleString('fr')}\u00a0€`,
         why: [
-          `Familles non encore achetées\u00a0: ${topFams}.`,
-          `${Math.round(o.missingFams[0]?.metierPct || 0)}% des ${o.metier} du bassin achètent ces familles.`,
-          ...(o.commercial ? [`Commercial\u00a0: ${o.commercial}.`] : []),
+          `${count7b} client${count7b > 1 ? 's' : ''} reçoivent des livraisons Legallais mais ne passent jamais au comptoir.`,
+          `Les inviter au PDV peut convertir ce CA en relation directe.`,
+          `Voir le détail dans l'onglet Commerce\u00a0> Livrés sans PDV.`,
         ],
       });
-      added++;
+    }
+  }
+
+  // ── 8. Opportunités nettes — résumé agrégé (opps_nettes) ────────────────
+  if (_S.opportuniteNette?.length > 0) {
+    const count8 = _S.opportuniteNette.length;
+    const totalCA8 = _S.opportuniteNette.reduce((s, o) => s + o.totalPotentiel, 0);
+    const totalFams8 = new Set();
+    for (const o of _S.opportuniteNette) {
+      for (const f of (o.missingFams || [])) totalFams8.add(f.famCode);
+    }
+    if (totalCA8 > 0) {
+      decisions.push({
+        type: 'opps_nettes', impact: totalCA8,
+        score: Math.min(100, Math.round(Math.min(totalCA8 / 500, 50) + Math.min(count8 * 2, 50))),
+        label: `${count8}\u00a0client${count8 > 1 ? 's' : ''} ach\u00e8tent\u00a0${totalFams8.size}\u00a0famille${totalFams8.size > 1 ? 's' : ''} en rayon ailleurs\u00a0— ${Math.round(totalCA8).toLocaleString('fr')}\u00a0€ potentiel`,
+        why: [
+          `Ces clients PDV achètent via d'autres canaux des familles présentes dans votre rayon.`,
+          `Proposer ces familles au comptoir peut rapatrier ${Math.round(totalCA8).toLocaleString('fr')}\u00a0€.`,
+          `Voir le détail dans l'onglet Commerce\u00a0> Opportunités nettes.`,
+        ],
+      });
     }
   }
 
