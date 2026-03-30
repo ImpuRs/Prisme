@@ -298,6 +298,7 @@ export async function _saveSessionToIDB() {
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
+    console.log('[PRISME] IDB save - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
     console.log('[PRISME] session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
   } catch (e) {
     console.warn('[PRISME] sauvegarde IndexedDB échouée :', e.message);
@@ -394,6 +395,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientsByMetier     = new Map((data.clientsByMetier||[]).map(([k,v])=>[k,new Set(v)]));
     if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
     if (data._selectedMetier     !== undefined) _S._selectedMetier     = data._selectedMetier;
+    console.log('[PRISME] IDB restore - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
     // ── Navigation sous-onglets ──
     if (data._clientsActiveTab)  _S._clientsActiveTab  = data._clientsActiveTab;
 
