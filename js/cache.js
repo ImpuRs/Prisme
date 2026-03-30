@@ -19,7 +19,7 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.5';
+const CACHE_VERSION  = 'v3.6';
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -299,6 +299,9 @@ export async function _saveSessionToIDB() {
       livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
       livraisonsReady:       _S.livraisonsReady || false,
       livraisonsClientCount: _S.livraisonsClientCount || 0,
+      // ── Raw Excel rows — nécessaires pour recalculer les agrégats sur une nouvelle période ──
+      _rawDataC:             _S._rawDataC || [],
+      _rawDataS:             _S._rawDataS || [],
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -412,6 +415,10 @@ export async function _restoreSessionFromIDB() {
     _S.livraisonsData = new Map((data.livraisonsData||[]).map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:new Set(v.bl),articles:new Map(v.articles),lastDate:v.lastDate?new Date(v.lastDate):null}]));
     _S.livraisonsReady = data.livraisonsReady || false;
     _S.livraisonsClientCount = data.livraisonsClientCount || 0;
+
+    // ── Raw Excel rows — permet le recalcul période post-restore ──
+    _S._rawDataC = data._rawDataC || [];
+    _S._rawDataS = data._rawDataS || [];
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
