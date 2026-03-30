@@ -806,7 +806,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
       }
     }
-    silencieuxList.sort((a,b)=>b.caPDV-a.caPDV);
+    silencieuxList.sort((a,b)=>{const dA=daysBetween(_S.clientLastOrder.get(a.cc),now);const dB=daysBetween(_S.clientLastOrder.get(b.cc),now);return dA-dB;});
     const silencieuxCount=silencieuxList.length;
     const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.caPDV,0);
     const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
@@ -1028,7 +1028,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(qClient&&!matchQuery(qClient,cc,nom))continue;
         silencieux.push({cc,nom,ca,d});
       }
-      silencieux.sort((a,b)=>b.d*b.ca-a.d*a.ca);
+      silencieux.sort((a,b)=>a.d-b.d);
     }
     const hasChal=_S.chalandiseReady;
     const banner=`<div class="mb-3 p-3 i-caution-bg border b-light rounded-lg text-xs c-caution">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
@@ -1118,7 +1118,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
     }
     // Silencieux: priorité aux gros clients silencieux depuis le plus longtemps
-    silencieux.sort((a,b)=>((b._daysSince||0)*(b.caPDVN||0))-((a._daysSince||0)*(a.caPDVN||0)));
+    silencieux.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0));
     urgences.sort((a,b)=>b._score-a._score);
     developper.sort((a,b)=>b._score-a._score);
     fideliser.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
