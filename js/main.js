@@ -1702,12 +1702,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // [isRefilter] Patch obsKpis.mine depuis canalAgence (période-filtré)
       if(isRefilter&&_S.benchLists?.obsKpis){
         const _ca=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0);
-        const _vmb=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.vmb||v.caP||0),0);
         const _ref=new Set([...(_S.ventesClientArticle||new Map()).values()].flatMap(m=>[...m.keys()])).size;
         const _freq=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||v.countBL||0),0);
         const _bassinCA=_S.benchLists?.obsKpis?.compared?.ca||1;
         const _pdm=_bassinCA>0?(_ca/_bassinCA*100):0;
-        _S.benchLists.obsKpis.mine={ca:_ca,ref:_ref||(_S.benchLists.obsKpis.mine?.ref||0),freq:_freq||(_S.benchLists.obsKpis.mine?.freq||0),pdm:_pdm||(_S.benchLists.obsKpis.mine?.pdm||0),txMarge:_ca>0?(_vmb/_ca*100):(_S.benchLists.obsKpis.mine?.txMarge||0),serv:_S.benchLists.obsKpis.mine?.serv||0};
+        _S.benchLists.obsKpis.mine={ca:_ca,ref:_ref||(_S.benchLists.obsKpis.mine?.ref||0),freq:_freq||(_S.benchLists.obsKpis.mine?.freq||0),pdm:_pdm||(_S.benchLists.obsKpis.mine?.pdm||0),txMarge:_S.benchLists.obsKpis.mine?.txMarge||0,serv:_S.benchLists.obsKpis.mine?.serv||0};
         _S._benchCache=null;
       }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
