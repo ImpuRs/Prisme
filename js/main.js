@@ -5215,6 +5215,19 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
           _S.canalAgence[canal].caP+=caP;_S.canalAgence[canal].caE+=caE;_S.canalAgence[canal].ca+=caP+caE;
         }
         console.log('[PRISME] canalAgence recalculé post-IDB restore pour période',_S.periodFilterStart?.toLocaleDateString('fr'),'-',_S.periodFilterEnd?.toLocaleDateString('fr'),JSON.stringify(_S.canalAgence));
+        // Patch obsKpis.mine depuis canalAgence recalculé (même logique que isRefilter L1706)
+        if(_S.benchLists?.obsKpis){
+          const _ca=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0);
+          _S.benchLists.obsKpis.mine={
+            ca:_ca,
+            ref:_S.benchLists.obsKpis.mine?.ref||0,
+            freq:Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||0),0),
+            serv:_S.benchLists.obsKpis.mine?.serv||0,
+            pdm:_S.benchLists.obsKpis.mine?.pdm||0,
+            txMarge:_S.benchLists.obsKpis.mine?.txMarge||0
+          };
+          _S._benchCache=null;
+        }
       }
       _S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}
 
