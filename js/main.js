@@ -220,7 +220,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const isRowSel=sel===com;
       const noResults=isRowSel&&d.ca===0&&d.actifs===0;
       const label=labelOverride||com;
-      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter('${escapeHtml(com)}')">
+      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" onclick="_onCommercialFilter(${escapeHtml(JSON.stringify(com))})">
         <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
         <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
         <td class="py-1.5 px-2 text-center ${d.actifs>0?'c-ok font-bold':'t-disabled'}">${d.actifs||'—'}</td>
@@ -3508,7 +3508,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     html += '<thead class="sticky top-0 s-panel-inner"><tr>';
     html += '<th class="py-1 px-2 text-left t-inverse font-bold sticky left-0 s-panel-inner z-10">Agence</th>';
     for (const fam of familles) {
-      html += `<th class="py-1 px-1 t-inverse-muted font-semibold text-center" style="writing-mode:vertical-rl;white-space:nowrap;max-height:100px;padding:6px 3px" title="${fam}">${fam.length > 18 ? fam.slice(0,16)+'…' : fam}</th>`;
+      html += `<th class="py-1 px-1 t-inverse-muted font-semibold text-center" style="writing-mode:vertical-rl;white-space:nowrap;max-height:100px;padding:6px 3px" title="${escapeHtml(fam)}">${escapeHtml(fam.length > 18 ? fam.slice(0,16)+'…' : fam)}</th>`;
     }
     html += '</tr></thead><tbody>';
     // [V3] Canal filter — myStore only via articleCanalCA, réseau reste tous canaux
@@ -3560,7 +3560,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     for (const cc of list.slice(0, 100)) {
       const nom = _S.clientNomLookup[cc] || '—';
       const info = _S.chalandiseData.get(cc) || {};
-      html += `<tr class="border-b b-light hover:i-info-bg"><td class="py-1 px-2 font-mono text-[10px]">${cc}</td><td class="py-1 px-2 font-semibold">${nom}${_unikLink(cc)}</td><td class="py-1 px-2 text-center">${_clientStatusBadge(cc, info)}</td></tr>`;
+      html += `<tr class="border-b b-light hover:i-info-bg"><td class="py-1 px-2 font-mono text-[10px]">${escapeHtml(cc)}</td><td class="py-1 px-2 font-semibold">${escapeHtml(nom)}${_unikLink(cc)}</td><td class="py-1 px-2 text-center">${_clientStatusBadge(cc, info)}</td></tr>`;
     }
     if (list.length > 100) html += `<tr><td colspan="3" class="py-2 px-2 text-center t-disabled text-[10px]">… et ${list.length - 100} autres</td></tr>`;
     html += '</tbody></table></div>';
@@ -3576,7 +3576,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-center">Nb agences</th><th class="py-1 px-2 text-center">Fréq. réseau</th></tr></thead><tbody>';
     for (const art of list) {
       const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
-      html += `<tr class="border-b b-light hover:i-caution-bg"><td class="py-1 px-2 font-mono text-[10px]">${art.code}</td><td class="py-1 px-2 font-semibold max-w-[200px] truncate" title="${lib}">${lib}</td><td class="py-1 px-2 text-[10px] t-tertiary">${art.fam || '—'}</td><td class="py-1 px-2 text-center font-bold c-danger">${art.nbStores}</td><td class="py-1 px-2 text-center t-secondary">${art.totalFreq}</td></tr>`;
+      html += `<tr class="border-b b-light hover:i-caution-bg"><td class="py-1 px-2 font-mono text-[10px]">${art.code}</td><td class="py-1 px-2 font-semibold max-w-[200px] truncate" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-tertiary">${escapeHtml(art.fam || '—')}</td><td class="py-1 px-2 text-center font-bold c-danger">${art.nbStores}</td><td class="py-1 px-2 text-center t-secondary">${art.totalFreq}</td></tr>`;
     }
     html += '</tbody></table></div>';
     el.innerHTML = html;
@@ -3595,7 +3595,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Métier</th><th class="py-1 px-2 text-center">Clients zone</th><th class="py-1 px-2 text-center">Actifs PDV</th><th class="py-1 px-2 text-center">Indice fuite</th></tr></thead><tbody>';
     for (const f of list) {
       const cls = f.indiceFuite >= 70 ? 'c-danger font-extrabold' : f.indiceFuite >= 40 ? 'c-caution font-bold' : 'c-ok';
-      html += `<tr class="border-b b-light hover:i-danger-bg"><td class="py-1 px-2 font-semibold">${f.metier}</td><td class="py-1 px-2 text-center">${f.total}</td><td class="py-1 px-2 text-center">${f.actifs}</td><td class="py-1 px-2 text-center ${cls}">${f.indiceFuite}%</td></tr>`;
+      html += `<tr class="border-b b-light hover:i-danger-bg"><td class="py-1 px-2 font-semibold">${escapeHtml(f.metier)}</td><td class="py-1 px-2 text-center">${f.total}</td><td class="py-1 px-2 text-center">${f.actifs}</td><td class="py-1 px-2 text-center ${cls}">${f.indiceFuite}%</td></tr>`;
     }
     html += '</tbody></table></div>';
     el.innerHTML = html;
