@@ -864,6 +864,8 @@ export function computeReconquestCohort() {
     for (const cc of candidates) {
       const lastDate = _S.clientLastOrder.get(cc);
       if (!lastDate) continue;
+      const _minCR = _S.consommePeriodMinFull || _S.consommePeriodMin;
+      if (_minCR && lastDate < _minCR) continue;
       const daysAgo = Math.round((now - lastDate) / 86400000);
       if (daysAgo < 60) continue;
       const artMap = _S.ventesClientArticle.get(cc);
