@@ -282,8 +282,8 @@ export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
   if (!clientMatchesUniversFilter(cc)) return false;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
-    clientMatchesActivitePDVFilter(info) && clientMatchesCommercialFilter(info) &&
-    clientMatchesMetierFilter(info);
+    clientMatchesStatutFilter(info) && clientMatchesActivitePDVFilter(info) &&
+    clientMatchesCommercialFilter(info) && clientMatchesMetierFilter(info);
 }
 
 // ── Diagnostic helpers ────────────────────────────────────────
