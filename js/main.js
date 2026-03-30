@@ -5056,7 +5056,17 @@ window.expandImportZone = expandImportZone;
 window.toggleSecteurDropdown = toggleSecteurDropdown;
 window.toggleAllSecteurs = toggleAllSecteurs;
 window.onSecteurChange = onSecteurChange;
-window.onLivraisonsSelected = function(input) { onLivraisonsSelected(input); };
+window.onLivraisonsSelected = async function(input) {
+  onFileSelected(input, 'dropLivraisons');
+  if (!input.files?.[0]) return;
+  await parseLivraisons(input.files[0]);
+  if (_S.livraisonsReady) {
+    _S.territoireLines = _S.livraisonsData;
+    _S.territoireReady = true;
+    computeReconquestCohort();
+    computeOpportuniteNette();
+  }
+};
 window.onChalandiseSelected = async function(input) {
   onFileSelected(input, 'dropChalandise');
   if (!input.files || !input.files[0]) return;
