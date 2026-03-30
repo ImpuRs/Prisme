@@ -272,8 +272,15 @@ export function clientMatchesMetierFilter(info) {
   return (info.metier || '') === _S._selectedMetier;
 }
 
-export function _clientPassesFilters(info) {
+export function clientMatchesUniversFilter(cc) {
+  if (!_S._selectedUnivers.size) return true;
+  const u = _S._clientDominantUnivers?.get(cc) || '';
+  return _S._selectedUnivers.has(u);
+}
+
+export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
+  if (!clientMatchesUniversFilter(cc)) return false;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesActivitePDVFilter(info) && clientMatchesCommercialFilter(info) &&
     clientMatchesMetierFilter(info);
