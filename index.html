@@ -793,20 +793,14 @@
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
             <hr class="b-default my-0.5">
             <p class="text-[10px] font-bold c-danger uppercase tracking-wide">🔗 Chalandise</p>
-            <!-- Cross filter buttons -->
-            <div id="terrCrossFilterRow" class="hidden flex flex-col gap-0.5">
-              <span class="text-[10px] font-bold t-secondary">🔀 Filtrer :</span>
-              <div class="flex flex-wrap gap-1">
-                <button id="btnCrossAll" onclick="_setCrossFilter('')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-panel-inner t-inverse b-dark">Tous</button>
-<button id="btnCrossPotentiels" onclick="_setCrossFilter('potentiel')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-danger-bg">🔴 Potentiels</button>
-                <button id="btnCrossCaptes" onclick="_setCrossFilter('capte')" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold s-card t-primary b-default hover:i-ok-bg">🟢 Captés</button>
-              </div>
-            </div>
-            <!-- Vue clients -->
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-1">Vue clients</p>
-            <div class="flex gap-1">
-              <button id="sidebarBtnHorsZone" onclick="window._toggleHorsZone()" class="flex-1 text-[10px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer b-default t-secondary hover:bg-amber-600 hover:border-amber-500 hover:text-white">⚠️ Hors zone</button>
-              <button id="sidebarBtnHorsAgence" onclick="window.toggleWebColumn()" class="flex-1 text-[10px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer b-default t-secondary hover:bg-indigo-600 hover:border-indigo-500 hover:text-white">🌐 Hors agence</button>
+            <!-- VUE CLIENTS unifiée -->
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Vue clients</p>
+            <div class="flex flex-wrap gap-1">
+              <button onclick="window._setClientView('tous')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-panel-inner t-inverse b-dark" data-view="tous">Tous</button>
+              <button onclick="window._setClientView('potentiels')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:i-danger-bg" data-view="potentiels">🔴 Potentiels</button>
+              <button onclick="window._setClientView('captes')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:i-ok-bg" data-view="captes">🟢 Captés</button>
+              <button onclick="window._setClientView('horszone')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-amber-600 hover:border-amber-500 hover:text-white" data-view="horszone">⚠️ Hors zone</button>
+              <button onclick="window._setClientView('multicanaux')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-indigo-600 hover:border-indigo-500 hover:text-white" data-view="multicanaux">🌐 Multi-canaux</button>
             </div>
             <!-- Métier -->
             <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>

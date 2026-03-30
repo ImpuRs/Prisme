@@ -1226,16 +1226,23 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   window.exportTop5CSV=exportTop5CSV;
   function _setCrossFilter(status){
     _S._selectedCrossStatus=status;
-    const map={btnCrossAll:'',btnCrossFideles:'fidele',btnCrossPotentiels:'potentiel',btnCrossCaptes:'capte'};
-    for(const[id,val] of Object.entries(map)){
-      const btn=document.getElementById(id);if(!btn)continue;
-      const active=val===status;
-      btn.classList.toggle('s-panel-inner',active);btn.classList.toggle('text-white',active);btn.classList.toggle('b-dark',active);
-      btn.classList.toggle('s-card',!active);btn.classList.toggle('b-default',!active);
-      btn.classList.toggle('t-primary',!active);
-    }
     _buildChalandiseOverview();
   }
+
+  window._setClientView=function(view){
+    _S._clientView=view;
+    _S._showHorsZone=(view==='horszone');
+    _S._showHorsAgence=(view==='multicanaux');
+    _S._selectedCrossStatus=view==='potentiels'?'potentiel':view==='captes'?'capte':'';
+    _S._clientsPDVPage=0;
+    document.querySelectorAll('.client-view-btn').forEach(b=>{
+      const active=b.dataset.view===view;
+      b.classList.toggle('s-panel-inner',active);b.classList.toggle('t-inverse',active);b.classList.toggle('b-dark',active);
+      b.classList.toggle('s-card',!active);b.classList.toggle('t-primary',!active);b.classList.toggle('b-default',!active);
+    });
+    _S._tabRendered&&(_S._tabRendered['territoire']=false);
+    renderTerritoireTab();
+  };
 
 
   // ── Cockpit Client CSV Export ──
@@ -2317,11 +2324,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function _syncPDVToggles(){
-    const ha=!!_S._showHorsAgence,hz=!!_S._showHorsZone;
-    const btnHA=document.getElementById('sidebarBtnHorsAgence');
-    const btnHZ=document.getElementById('sidebarBtnHorsZone');
-    if(btnHA){btnHA.className=btnHA.className.replace(/bg-\S+\s?|border-\S+\s?|text-white\s?/g,'').trim();if(ha){btnHA.classList.add('bg-indigo-600','border-indigo-500','text-white');}else{btnHA.classList.add('b-default','t-secondary');}}
-    if(btnHZ){btnHZ.className=btnHZ.className.replace(/bg-\S+\s?|border-\S+\s?|text-white\s?/g,'').trim();if(hz){btnHZ.classList.add('bg-amber-600','border-amber-500','text-white');}else{btnHZ.classList.add('b-default','t-secondary');}}
+    const view=_S._clientView||'tous';
+    document.querySelectorAll('.client-view-btn').forEach(b=>{
+      const active=b.dataset.view===view;
+      b.classList.toggle('s-panel-inner',active);b.classList.toggle('t-inverse',active);b.classList.toggle('b-dark',active);
+      b.classList.toggle('s-card',!active);b.classList.toggle('t-primary',!active);b.classList.toggle('b-default',!active);
+    });
   }
 
   // ── Top clients PDV — canal-aware, paginé, toggle hors agence ───────────
@@ -2525,7 +2533,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
-    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);const crossRow=document.getElementById('terrCrossFilterRow');if(crossRow)crossRow.classList.toggle('hidden',!hasCross);}
+    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
@@ -5087,8 +5095,8 @@ window._setReseauCanalFilter = function(val){
 window._topPDVExpand   = function(){_S._clientsPDVPage=1;_renderTopClientsPDV();};
 window._topPDVCollapse = function(){_S._clientsPDVPage=0;_renderTopClientsPDV();};
 window._topPDVPage     = function(dir){_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+dir);_renderTopClientsPDV();};
-window._toggleHorsAgence = function(){_S._showHorsAgence=!_S._showHorsAgence;_S._showHorsZone=false;_S._clientsPDVPage=0;_renderTopClientsPDV();};
-window._toggleHorsZone   = function(){_S._showHorsZone=!_S._showHorsZone;_S._showHorsAgence=false;_S._clientsPDVPage=0;_renderTopClientsPDV();};
+window._toggleHorsAgence = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
+window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
 window._horsZoneExpand   = function(){_S._horsZonePage=1;_renderHorsZone();};
 window._horsZoneCollapse = function(){_S._horsZonePage=0;_renderHorsZone();};
 window._horsZonePage     = function(dir){_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+dir);_renderHorsZone();};
@@ -5128,13 +5136,7 @@ window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
-window.toggleWebColumn = function(){
-  _S._showHorsAgence=!_S._showHorsAgence;
-  _S._showHorsZone=false;
-  _S._clientsPDVPage=0;
-  console.log('[DEBUG] toggleWebColumn, showHorsAgence:', _S._showHorsAgence, 'horsAgenceSize:', _S.ventesClientHorsMagasin?.size);
-  _renderTopClientsPDV();
-};
+window.toggleWebColumn = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window._cematinSearch = _cematinSearch;
 window.renderMesClients = renderMesClients;
 window._goCommercial = _goCommercial;
