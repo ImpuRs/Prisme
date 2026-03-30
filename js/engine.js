@@ -865,35 +865,35 @@ export function computeReconquestCohort() {
   }
 }
 
-// ── C1: Opportunité nette Client×Famille ──────────────────────
+// ── C1: Opportunité nette — articles achetés hors-AG22 qui sont en rayon ──
 export function computeOpportuniteNette() {
-  if (!_S.metierFamBench || !Object.keys(_S.metierFamBench).length) {
+  if (!_S.ventesClientHorsMagasin?.size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
+  const rayonSet = new Set(_S.finalData.map(r => r.code));
   const results = [];
-  for (const [cc, info] of _S.chalandiseData.entries()) {
-    if (!info.metier) continue;
-    const bench = _S.metierFamBench[info.metier];
-    if (!bench) continue;
-    const clientFams = _S.clientFamCA ? (_S.clientFamCA[cc] || {}) : {};
-    const totalMetierClients = _S.clientsByMetier.get(info.metier)?.size || 1;
-    if (totalMetierClients < 5) continue;
-    const missing = [];
-    for (const [fam, data] of Object.entries(bench)) {
-      if (clientFams[fam]) continue;
-      const pct = Math.round((data.nbClients / totalMetierClients) * 100);
-      if (pct < 50) continue;
-      missing.push({ fam, metierPct: pct, metierCA: Math.round(data.totalCA / data.nbClients) });
+  for (const [cc, artMap] of _S.ventesClientHorsMagasin.entries()) {
+    const articles = [];
+    let totalPotentiel = 0;
+    for (const [code, d] of artMap.entries()) {
+      if (!rayonSet.has(code)) continue;
+      const ca = d.sumCA || 0;
+      if (ca <= 0) continue;
+      articles.push({ code, ca, canal: d.canal || '' });
+      totalPotentiel += ca;
     }
-    if (missing.length === 0) continue;
-    missing.sort((a, b) => b.metierPct - a.metierPct);
-    const totalPotentiel = missing.reduce((s, m) => s + m.metierCA, 0);
+    if (totalPotentiel <= 0) continue;
+    articles.sort((a, b) => b.ca - a.ca);
+    const info = _S.chalandiseData?.get(cc) || {};
     results.push({
-      cc, nom: info.nom || _S.clientNomLookup[cc] || cc,
-      metier: info.metier, commercial: info.commercial || '',
-      missingFams: missing.slice(0, 5),
-      totalPotentiel, nbMissing: missing.length
+      cc,
+      nom: info.nom || _S.clientNomLookup?.[cc] || cc,
+      metier: info.metier || '',
+      commercial: info.commercial || '',
+      missingFams: [],
+      totalPotentiel,
+      articles
     });
   }
   results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
