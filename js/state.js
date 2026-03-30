@@ -194,6 +194,11 @@ _S.phantomArticles = [];
 // ── Cohorte reconquête ──
 _S.reconquestCohort = [];
 
+// ── Livraisons (5ème fichier optionnel) ──
+_S.livraisonsData = new Map();   // cc → { ca, vmb, bl:Set, articles:Map, lastDate }
+_S.livraisonsReady = false;
+_S.livraisonsClientCount = 0;
+
 // ── Client aggregation (Worker B1) ──
 _S.clientFamCA = {};       // cc → {fam → caTotal}
 _S.metierFamBench = {};    // metier → {fam → {nbClients, totalCA}}
@@ -306,6 +311,9 @@ export function resetAppState() {
 
   // Cohorte reconquête
   _S.reconquestCohort = [];
+
+  // Livraisons
+  _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0;
 
   // Client aggregation Worker
   _S.clientFamCA = {}; _S.metierFamBench = {};

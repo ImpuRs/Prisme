@@ -107,6 +107,65 @@ export function onChalandiseSelected(input) {
   if (input.files && input.files[0]) parseChalandise(input.files[0]);
 }
 
+// ── Livraisons (5ème fichier optionnel) ─────────────────────────────────────
+export async function parseLivraisons(file) {
+  _S.livraisonsData = new Map();
+  _S.livraisonsReady = false;
+  _S.livraisonsClientCount = 0;
+  try {
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+    let data;
+    if (isCSV) {
+      const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'windows-1252'); });
+      const sep = (text.split('\n')[0] || '').includes(';') ? ';' : ',';
+      data = parseCSVText(text, sep);
+    } else {
+      const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    }
+    for (const row of data) {
+      const cc = String(row['Code client'] || '').trim().padStart(6, '0');
+      if (!cc || cc === '000000') continue;
+      const ca = parseFloat(String(row['CA'] || '0').replace(',', '.')) || 0;
+      const vmb = parseFloat(String(row['VMB'] || '0').replace(',', '.')) || 0;
+      const blNum = String(row['Numéro de BL'] || '').trim();
+      const articleStr = String(row['Article'] || '').trim();
+      const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
+      const qty = parseInt(row['Quantité livrée']) || 0;
+      const rawDate = row["Date d'expédition"];
+      const dateExp = rawDate instanceof Date ? rawDate : (rawDate ? parseExcelDate(rawDate) : null);
+      if (!_S.livraisonsData.has(cc)) {
+        _S.livraisonsData.set(cc, { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null });
+      }
+      const d = _S.livraisonsData.get(cc);
+      d.ca += ca;
+      d.vmb += vmb;
+      if (blNum) d.bl.add(blNum);
+      if (codeArticle) {
+        if (!d.articles.has(codeArticle)) d.articles.set(codeArticle, { ca: 0, qty: 0 });
+        const a = d.articles.get(codeArticle);
+        a.ca += ca;
+        a.qty += qty;
+      }
+      if (dateExp && (!d.lastDate || dateExp > d.lastDate)) d.lastDate = dateExp;
+    }
+    _S.livraisonsReady = _S.livraisonsData.size > 0;
+    _S.livraisonsClientCount = _S.livraisonsData.size;
+    showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients chargés`, 'success');
+    if (typeof computeReconquestCohort === 'function') computeReconquestCohort();
+    if (typeof renderTerritoireTab === 'function') renderTerritoireTab();
+  } catch (e) {
+    console.error('[PRISME] parseLivraisons error:', e);
+    showToast('❌ Erreur lecture Livraisons : ' + e.message, 'error');
+  }
+}
+
+export function onLivraisonsSelected(input) {
+  onFileSelected(input, 'dropLivraisons');
+  if (input.files && input.files[0]) parseLivraisons(input.files[0]);
+}
+
 // ── Territoire file parsing (3ème fichier) ────────────────────
 export async function parseTerritoireFile(f) {
   return new Promise((res, rej) => {
