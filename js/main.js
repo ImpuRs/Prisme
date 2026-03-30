@@ -1829,7 +1829,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();if(isRefilter){_S._benchCache=null;computeBenchmark(_S._globalCanal||null);}renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
