@@ -171,6 +171,7 @@ export async function parseLivraisons(file) {
       const blNum = String(row[cBL] || '').trim();
       const articleStr = String(row[cArt] || '').trim();
       const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
+      if (!/^\d{6}$/.test(codeArticle)) continue;
       const qty = parseInt(row[cQty]) || 0;
       const rawDate = cDate ? row[cDate] : null;
       // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
