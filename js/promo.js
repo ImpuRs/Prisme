@@ -946,7 +946,7 @@ function _activatePromoImportAction(){
     const toast=document.createElement('div');
     toast.id=toastId;
     toast.className='fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg s-card border b-default text-sm font-semibold';
-    toast.innerHTML=`<span>🔄 Recherche <em>${prevTerms}</em> remplacée</span><button id="promoUndoBtn" class="text-xs font-bold c-action underline">Annuler</button>`;
+    toast.innerHTML=`<span>🔄 Recherche <em>${escapeHtml(prevTerms)}</em> remplacée</span><button id="promoUndoBtn" class="text-xs font-bold c-action underline">Annuler</button>`;
     document.body.appendChild(toast);
     const cleanup=()=>{toast.remove();};
     const timer=setTimeout(()=>{if(!undone)cleanup();},4000);
