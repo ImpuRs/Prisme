@@ -5148,7 +5148,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // 5. Activer Cockpit + replier l'import (L2487-2488)
       switchTab('action');
       collapseImportZone();
-      window._applyPeriodeMoisCourant();
+      // Positionner le filtre période sur le mois courant des données sans raw rows
+      // (ne pas passer par applyPeriodFilter/_applyPeriodeMoisCourant qui nécessite
+      // _S._rawDataC pour relancer processDataFromRaw — indisponible après restore IDB)
+      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);_S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}}
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
