@@ -1477,6 +1477,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
     await processDataFromRaw(dataC,dataS,{});
+    window._applyPeriodeMoisCourant();
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -5129,6 +5130,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // 5. Activer Cockpit + replier l'import (L2487-2488)
       switchTab('action');
       collapseImportZone();
+      window._applyPeriodeMoisCourant();
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
