@@ -882,45 +882,64 @@ export function computeReconquestCohort() {
 // mais qui achète via d'autres canaux/agences (ventesClientHorsMagasin) des articles
 // dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
-  if (!_S.ventesClientArticle?.size || !_S.finalData?.length) {
+  if (!_S.ventesClientHorsMagasin?.size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
-  // 1. rayonFamilles = familles présentes dans notre rayon
-  const rayonFamilles = new Set();
+  // 1. rayonFamSet = familles disponibles en rayon AG22
+  const rayonFamSet = new Set();
   for (const r of _S.finalData) {
     const fam = _S.articleFamille?.[r.code] || r.famille;
-    if (fam) rayonFamilles.add(fam);
+    if (fam) rayonFamSet.add(fam);
   }
   const results = [];
-  for (const [cc, myArts] of _S.ventesClientArticle.entries()) {
-    const hors = _S.ventesClientHorsMagasin?.get(cc);
-    if (!hors?.size) continue;
-    // 2a. mesFamilles = familles déjà achetées en AG22 par ce client
-    const mesFamilles = new Set();
-    for (const code of myArts.keys()) {
-      const fam = _S.articleFamille?.[code];
-      if (fam) mesFamilles.add(fam);
+  for (const [cc, horsArts] of _S.ventesClientHorsMagasin.entries()) {
+    if (!horsArts.size) continue;
+    // 2a. caParFamMoi = CA chez AG22 par famille pour ce client
+    const caParFamMoi = new Map();
+    const myArts = _S.ventesClientArticle?.get(cc);
+    if (myArts) {
+      for (const [code, d] of myArts.entries()) {
+        const fam = _S.articleFamille?.[code];
+        if (!fam) continue;
+        caParFamMoi.set(fam, (caParFamMoi.get(fam) || 0) + (d.sumCA || 0));
+      }
     }
-    // 2b. famMap = {famCode → {ca, nbArticles, canalBreakdown}}
+    // 2b. Agréger le CA hors par famille (familles du rayon uniquement)
     const famMap = new Map();
     const globalCanal = {};
-    for (const [code, d] of hors.entries()) {
-      const ca = d.sumCA || 0;
-      if (ca <= 0) continue;
+    for (const [code, d] of horsArts.entries()) {
+      const caHors = d.sumCA || 0;
+      if (caHors <= 0) continue;
       const fam = _S.articleFamille?.[code];
-      if (!fam || !rayonFamilles.has(fam) || mesFamilles.has(fam)) continue;
-      if (!famMap.has(fam)) famMap.set(fam, { ca: 0, nbArticles: 0, canalBreakdown: {} });
+      if (!fam || !rayonFamSet.has(fam)) continue;
+      if (!famMap.has(fam)) famMap.set(fam, { caHors: 0, nbArticles: 0, canalBreakdown: {} });
       const fd = famMap.get(fam);
-      fd.ca += ca; fd.nbArticles++;
-      const c = d.canal || 'AUTRE';
-      fd.canalBreakdown[c] = (fd.canalBreakdown[c] || 0) + ca;
-      globalCanal[c] = (globalCanal[c] || 0) + ca;
+      fd.caHors += caHors;
+      fd.nbArticles++;
+      const canal = d.canal || 'AUTRE';
+      fd.canalBreakdown[canal] = (fd.canalBreakdown[canal] || 0) + caHors;
+      globalCanal[canal] = (globalCanal[canal] || 0) + caHors;
     }
     if (!famMap.size) continue;
-    const missingFams = [...famMap.entries()]
-      .map(([famCode, fd]) => ({ famCode, fam: famLib(famCode) || famCode, ...fd }))
-      .sort((a, b) => b.ca - a.ca);
+    // 2c. Delta = caHors − caMoi — garder uniquement les familles où on achète plus ailleurs
+    const missingFams = [];
+    for (const [famCode, fd] of famMap.entries()) {
+      const caMoi = caParFamMoi.get(famCode) || 0;
+      const delta = fd.caHors - caMoi;
+      if (delta <= 0) continue; // client achète autant ou plus chez AG22
+      missingFams.push({
+        famCode,
+        fam: famLib(famCode) || famCode,
+        ca: delta,
+        caHors: fd.caHors,
+        caMoi,
+        nbArticles: fd.nbArticles,
+        canalBreakdown: fd.canalBreakdown,
+      });
+    }
+    if (!missingFams.length) continue;
+    missingFams.sort((a, b) => b.ca - a.ca);
     const totalPotentiel = missingFams.reduce((s, f) => s + f.ca, 0);
     const info = _S.chalandiseData?.get(cc) || {};
     results.push({
@@ -931,7 +950,7 @@ export function computeOpportuniteNette() {
       missingFams,
       totalPotentiel,
       canalBreakdown: globalCanal,
-      articlesManquants: []
+      articlesManquants: [],
     });
   }
   results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
