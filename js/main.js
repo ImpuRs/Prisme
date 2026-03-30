@@ -2525,8 +2525,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
     // terrDegradedBlock: degraded mode only
     const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
-    // Left panel: territory filters only with territoire data; famille filter in degraded mode
-    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
+    // terrFiltersBlock (search/direction/secteur/rayon) masqué — ces filtres article BL
+    // n'ont pas leur place dans le sidebar Commerce (livraisons remplace territoire)
+    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.add('hidden');
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
     // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
@@ -2558,7 +2559,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
 
     // Show all territory-only blocks
-    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrFiltersBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
+    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
