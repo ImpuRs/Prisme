@@ -589,6 +589,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   window._applyPeriodeMois=(yyyy_mm)=>{
     const[y,m]=yyyy_mm.split('-').map(Number);
     _applyPeriode(new Date(y,m-1,1),new Date(y,m,0,23,59,59));
+    renderAll();renderDecisionQueue();
   };
   window._applyPeriodeLibre=(sfx)=>{
     const sv=document.getElementById(`pdStart_${sfx}`)?.value;
@@ -596,23 +597,27 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(!sv||!ev)return;
     const[sy,sm]=sv.split('-').map(Number);const[ey,em]=ev.split('-').map(Number);
     _applyPeriode(new Date(sy,sm-1,1),new Date(ey,em,0,23,59,59));
+    renderAll();renderDecisionQueue();
   };
   window._applyPeriodeMoisCourant=()=>{
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     const y=maxD.getFullYear(),m=maxD.getMonth();
     _applyPeriode(new Date(y,m,1),new Date(y,m+1,0,23,59,59));
+    renderAll();renderDecisionQueue();
   };
   window._applyPeriodeMoisPrecedent=()=>{
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     const y=maxD.getFullYear(),m=maxD.getMonth();
     const py=m===0?y-1:y,pm=m===0?11:m-1;
     _applyPeriode(new Date(py,pm,1),new Date(py,pm+1,0,23,59,59));
+    renderAll();renderDecisionQueue();
   };
   window._applyPeriode3Mois=()=>{
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-2,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
+    renderAll();renderDecisionQueue();
   };
-  window._applyPeriodeQ=(sTs,eTs)=>applyPeriodFilter(sTs,eTs);
+  window._applyPeriodeQ=(sTs,eTs)=>{applyPeriodFilter(sTs,eTs);renderAll();renderDecisionQueue();};
 
   function buildPeriodFilter(){
     const navPeriod=document.getElementById('navPeriod');
