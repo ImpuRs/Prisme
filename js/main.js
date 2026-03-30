@@ -1699,6 +1699,20 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           _S.canalAgence[canal].caP+=caP;_S.canalAgence[canal].caE+=caE;_S.canalAgence[canal].ca+=caP+caE;
         }
       }
+      // [isRefilter] Patch obsKpis.mine directement depuis ventesParMagasin période-filtré
+      // ventesParMagasin est déjà reconstruit à ce stade — évite la dépendance au bloc useMulti
+      if(isRefilter&&_S.benchLists&&_S.selectedMyStore){
+        const _myVR=_S.ventesParMagasin[_S.selectedMyStore]||{};
+        let _rCA=0,_rRef=0,_rFreq=0,_rVMB=0;
+        for(const d of Object.values(_myVR)){_rCA+=d.sumCA||0;_rFreq+=d.countBL||0;_rVMB+=d.sumVMB||0;if((d.sumPrelevee||0)+(d.sumEnleve||0)>0)_rRef++;}
+        let _rBassinCA=_rCA;
+        for(const[s,sv] of Object.entries(_S.ventesParMagasin)){if(s===_S.selectedMyStore)continue;for(const d of Object.values(sv))_rBassinCA+=d.sumCA||0;}
+        const _rPdm=_rBassinCA>0?Math.round(_rCA/_rBassinCA*1000)/10:0;
+        const _rTxMarge=_rCA>0?Math.round(_rVMB/_rCA*1000)/10:null;
+        if(!_S.benchLists.obsKpis)_S.benchLists.obsKpis={mine:{},compared:{}};
+        Object.assign(_S.benchLists.obsKpis.mine,{ca:_rCA,ref:_rRef,freq:_rFreq,pdm:_rPdm,txMarge:_rTxMarge});
+        _S._benchCache=null;
+      }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // Univers dominant par client : somme CA par univers → univers avec le plus de CA
