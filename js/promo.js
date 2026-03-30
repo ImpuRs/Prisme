@@ -327,6 +327,14 @@ function runPromoSearch(){
   }
   _populatePromoFilterDropdowns();
   _renderSearchResults();
+  // Pavés article : uniquement si code unique 6 chiffres ciblé
+  if (terms.length === 1 && /^\d{6}$/.test(terms[0])) {
+    renderAnimCommerciale(terms[0]);
+    renderTendanceWeb(terms[0]);
+  } else {
+    document.getElementById('promoAnimBlock')?.classList.add('hidden');
+    document.getElementById('promoTendanceBlock')?.classList.add('hidden');
+  }
 }
 
 let _promoSfMap={}; // code → {famille, sousFamille}
@@ -1843,6 +1851,162 @@ function _dispatchNLQuery(intent,params,raw){
     case 'NOUVEAUX_CLIENTS':    _nlNouveauxClients();break;
     default:break;
   }
+}
+
+// ── Pavé Anim' Commerciale ────────────────────────────────────────────────
+function renderAnimCommerciale(code) {
+  const el = document.getElementById('promoAnimBlock'); if (!el) return;
+  const art = _S.finalData?.find(a => a.code === code);
+  const libelle = _S.libelleLookup?.[code] || art?.libelle || code;
+  if (!art) {
+    el.innerHTML = `<div class="text-xs t-disabled p-3 rounded-xl border b-default s-card">Article ${escapeHtml(code)} non référencé dans votre stock.</div>`;
+    el.classList.remove('hidden'); return;
+  }
+  const myStore = _S.selectedMyStore;
+  const myData = _S.ventesParMagasin?.[myStore]?.[code] || {};
+  const famille = famLib(_S.articleFamille?.[code] || art.famille || '');
+
+  // Réseau
+  const reseauRows = Object.entries(_S.ventesParMagasin || {})
+    .map(([store, arts]) => ({ store, d: arts[code] || null }))
+    .filter(r => r.d && (r.d.sumCA || 0) > 0)
+    .sort((a, b) => (b.d.sumCA || 0) - (a.d.sumCA || 0));
+
+  // Top 5 clients actifs PDV
+  const clientsActifs = [...(_S.articleClients?.get(code) || [])]
+    .map(cc => {
+      const d = _S.ventesClientArticle?.get(cc)?.get(code) || {};
+      return { cc, nom: _S.clientNomLookup?.[cc] || _S.chalandiseData?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
+    })
+    .sort((a, b) => b.ca - a.ca)
+    .slice(0, 5);
+
+  // Métier dominant parmi tous les acheteurs
+  const metierCount = {};
+  for (const cc of (_S.articleClients?.get(code) || [])) {
+    const m = _S.chalandiseData?.get(cc)?.metier; if (m) metierCount[m] = (metierCount[m] || 0) + 1;
+  }
+  const dominantMetier = Object.entries(metierCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+  const buyerSet = _S.articleClients?.get(code) || new Set();
+
+  // Top 5 potentiels (même métier, jamais acheté cet article)
+  const potentiels = [];
+  if (dominantMetier && _S.chalandiseReady) {
+    for (const [cc, info] of (_S.chalandiseData || new Map())) {
+      if (buyerSet.has(cc) || info.metier !== dominantMetier) continue;
+      potentiels.push({ nom: info.nom || cc, ca2025: info.ca2025 || 0 });
+      if (potentiels.length >= 20) break;
+    }
+    potentiels.sort((a, b) => b.ca2025 - a.ca2025);
+  }
+
+  let html = `<div class="space-y-3 p-3 rounded-xl border b-default s-card">`;
+  html += `<div class="font-bold text-sm t-primary">📦 ANIM' COMMERCIALE — <span class="t-secondary font-normal">${escapeHtml(libelle)}</span></div>`;
+  html += `<div class="text-[11px] t-tertiary">Code : ${escapeHtml(code)} · Famille : ${escapeHtml(famille)}</div>`;
+
+  // Mon agence
+  html += `<div class="rounded-lg border b-default s-panel-inner p-3">`;
+  html += `<div class="text-[11px] font-semibold t-secondary mb-1.5">🏪 Mon agence${myStore ? ` (${escapeHtml(myStore)})` : ''}</div>`;
+  html += `<div class="grid grid-cols-2 gap-x-6 gap-y-0.5 text-[11px]">`;
+  html += `<span class="t-tertiary">Stock actuel :</span><span class="t-primary font-medium">${art.stockActuel ?? '—'} u. · Empl. ${escapeHtml(art.emplacement || '—')}</span>`;
+  html += `<span class="t-tertiary">CA période :</span><span class="t-primary font-medium">${myData.sumCA ? formatEuro(myData.sumCA) : '—'} · ${myData.countBL || 0} BL</span>`;
+  html += `<span class="t-tertiary">Clients actifs :</span><span class="t-primary font-medium">${clientsActifs.length} client${clientsActifs.length !== 1 ? 's' : ''}</span>`;
+  html += `</div></div>`;
+
+  // Réseau
+  if (reseauRows.length) {
+    html += `<div class="rounded-lg border b-default s-panel-inner p-3">`;
+    html += `<div class="text-[11px] font-semibold t-secondary mb-2">🌐 Réseau (${reseauRows.length} agence${reseauRows.length !== 1 ? 's' : ''})</div>`;
+    html += `<table class="min-w-full text-[11px]"><thead><tr class="t-tertiary border-b b-light"><th class="text-left pb-1 pr-3">Agence</th><th class="text-right pb-1 pr-3">CA période</th><th class="text-right pb-1 pr-3">Fréq.</th><th class="text-right pb-1">Statut</th></tr></thead><tbody>`;
+    for (const { store, d } of reseauRows.slice(0, 8)) {
+      const isMine = store === myStore;
+      const statut = isMine ? (art.stockActuel > 0 ? '✅ En rayon' : '⚠️ Rupture') : '—';
+      html += `<tr class="${isMine ? 'font-semibold' : ''}"><td class="pr-3 py-0.5 t-primary">${escapeHtml(store)}${isMine ? ' ⭐' : ''}</td>`;
+      html += `<td class="pr-3 py-0.5 text-right t-secondary">${formatEuro(d.sumCA || 0)}</td>`;
+      html += `<td class="pr-3 py-0.5 text-right t-tertiary">${d.countBL || 0} BL</td>`;
+      html += `<td class="py-0.5 text-right t-tertiary">${statut}</td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+
+  // Clients actifs
+  if (clientsActifs.length) {
+    html += `<div class="text-[11px]"><div class="font-semibold t-secondary mb-1">👥 Clients qui achètent cet article chez moi :</div><div class="space-y-0.5">`;
+    for (const c of clientsActifs)
+      html += `<div class="flex justify-between px-2 py-0.5 rounded s-card-alt"><span class="t-primary">${escapeHtml(c.nom)}</span><span class="c-ok font-semibold">${formatEuro(c.ca)}</span></div>`;
+    html += `</div></div>`;
+  }
+
+  // Potentiels
+  if (potentiels.length) {
+    html += `<div class="text-[11px]"><div class="font-semibold t-secondary mb-1">🎯 Clients potentiels (${escapeHtml(dominantMetier)}, n'ont pas acheté cet article) :</div><div class="space-y-0.5">`;
+    for (const c of potentiels.slice(0, 5))
+      html += `<div class="flex justify-between px-2 py-0.5 rounded s-card-alt"><span class="t-primary">${escapeHtml(c.nom)}</span><span class="t-tertiary">${formatEuro(c.ca2025)} CA 2025</span></div>`;
+    html += `</div></div>`;
+  }
+
+  html += `</div>`;
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+}
+
+// ── Pavé Tendance Web ─────────────────────────────────────────────────────
+function renderTendanceWeb(code) {
+  const el = document.getElementById('promoTendanceBlock'); if (!el) return;
+  const canalData = _S.articleCanalCA?.get(code);
+  const inet = canalData?.get('INTERNET') || {};
+  const internetCA = inet.ca || 0;
+  const internetBL = inet.countBL || 0;
+  const totalCA = [...(canalData?.values() || [])].reduce((s, d) => s + (d.ca || 0), 0);
+  const partWeb = totalCA > 0 ? Math.round(internetCA / totalCA * 100) : 0;
+
+  if (internetCA === 0) {
+    el.innerHTML = `<div class="text-xs t-disabled p-3 rounded-xl border b-default s-card">📈 Aucun CA Internet enregistré pour cet article sur la période.</div>`;
+    el.classList.remove('hidden'); return;
+  }
+
+  const monthly = _S.articleMonthlySales?.[code] || new Array(12).fill(0);
+  const MONTHS = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+  const maxQty = Math.max(...monthly, 1);
+  const curMonth = new Date().getMonth();
+  const recentMonths = [];
+  for (let i = curMonth; i >= 0 && recentMonths.length < 4; i--)
+    if (monthly[i] > 0) recentMonths.unshift({ label: MONTHS[i], qty: monthly[i] });
+
+  // Tendance signal
+  let signal = '';
+  if (recentMonths.length >= 2) {
+    const last = recentMonths[recentMonths.length - 1].qty;
+    const prev = recentMonths[0].qty;
+    const pct = prev > 0 ? Math.round((last - prev) / prev * 100) : 0;
+    if (pct >= 15) signal = `⚡ Signal : le web monte (+${pct}%) pendant que le PDV stagne → vérifier emplacement rayon et mise en avant`;
+    else if (pct <= -15) signal = `📉 Tendance baissière (${pct}%) sur les derniers mois`;
+  }
+
+  const libelle = _S.libelleLookup?.[code] || code;
+  let html = `<div class="space-y-3 p-3 rounded-xl border b-default s-card">`;
+  html += `<div class="font-bold text-sm t-primary">📈 TENDANCE WEB — <span class="t-secondary font-normal">${escapeHtml(libelle)}</span></div>`;
+  html += `<div class="text-[11px] t-tertiary">Canal Internet : <span class="t-primary font-semibold">${formatEuro(internetCA)}</span> · ${internetBL} BL · Part web vs total : <span class="t-primary font-semibold">${partWeb}%</span></div>`;
+
+  if (recentMonths.length) {
+    html += `<div class="text-[11px]"><div class="font-semibold t-secondary mb-1.5">Évolution mensuelle (qtés PDV) :</div>`;
+    for (let i = 0; i < recentMonths.length; i++) {
+      const m = recentMonths[i];
+      const barW = Math.max(1, Math.round(m.qty / maxQty * 12));
+      const bar = '▓'.repeat(barW) + '░'.repeat(12 - barW);
+      const prev = i > 0 ? recentMonths[i - 1].qty : null;
+      const trendStr = prev != null && prev > 0
+        ? ` <span class="${m.qty >= prev ? 'c-ok' : 'c-danger'}">${m.qty >= prev ? '↗' : '↘'} ${Math.abs(Math.round((m.qty - prev) / prev * 100))}%</span>` : '';
+      html += `<div class="flex items-baseline gap-2 mb-0.5"><span class="t-tertiary w-10 shrink-0 font-mono text-[10px]">${m.label}</span><span class="font-mono t-secondary text-[10px]">${bar}</span><span class="t-primary ml-1">${m.qty} BL</span>${trendStr}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (signal) html += `<div class="text-[11px] font-semibold c-caution p-2 rounded s-card-alt border b-light">${escapeHtml(signal)}</div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+  el.classList.remove('hidden');
 }
 
 // ─────────────────────────────────────────────────────────────────────────
