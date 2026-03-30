@@ -24,6 +24,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_S._selectedActivitesPDV.size){_S._selectedActivitesPDV=new Set(all);_S._selectedActivitesPDV.delete(a);}else if(_S._selectedActivitesPDV.has(a)){_S._selectedActivitesPDV.delete(a);if(!_S._selectedActivitesPDV.size)_S._selectedActivitesPDV=new Set();}else{_S._selectedActivitesPDV.add(a);if(_S._selectedActivitesPDV.size>=all.size)_S._selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
+  function _toggleOverviewStatut(s,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())if(i.statut)all.add(_normalizeStatut(i.statut));if(!_S._selectedStatuts.size){_S._selectedStatuts=new Set(all);_S._selectedStatuts.delete(s);}else if(_S._selectedStatuts.has(s)){_S._selectedStatuts.delete(s);if(!_S._selectedStatuts.size)_S._selectedStatuts=new Set();}else{_S._selectedStatuts.add(s);if(_S._selectedStatuts.size>=all.size)_S._selectedStatuts=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewUnivers(u,event){if(event)event.preventDefault();const all=new Set(_S._clientDominantUnivers.values());if(!_S._selectedUnivers.size){_S._selectedUnivers=new Set(all);_S._selectedUnivers.delete(u);}else if(_S._selectedUnivers.has(u)){_S._selectedUnivers.delete(u);if(!_S._selectedUnivers.size)_S._selectedUnivers=new Set();}else{_S._selectedUnivers.add(u);if(_S._selectedUnivers.size>=all.size)_S._selectedUnivers=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-emerald-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
   function _getAllDepts(){const m={};for(const info of _S.chalandiseData.values()){const d=(info.cp||'').toString().slice(0,2);if(d&&d.trim())m[d]=(m[d]||0)+1;}return m;}
@@ -65,9 +66,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
   function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedUnivers=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
-  function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
-  function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
-  function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');document.getElementById('terrStatutPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');document.getElementById('terrStatutPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrStatutPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
+  function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';if(_S._selectedCommercial===val)_buildChalandiseOverview();}
   let _terrClientSearchTimer=null;
@@ -121,10 +123,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const aEl=document.getElementById('terrOverviewActPDVChips');
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_S._selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewActPDV('${aEsc}',event)" class="rounded"><span class="font-semibold">${a}</span></label>`;}).join('');
     const actLabelEl=document.getElementById('terrActPDVLabel');
-    if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._S._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
-    // FIDÉLITÉ chips (inline, même état que terrOverviewActPDVChips)
-    const fEl=document.getElementById('terrFideliteChips');
-    if(fEl)fEl.innerHTML=sortedActPDV.length?sortedActPDV.map(a=>{const sel=allA||_S._selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');const col=sel?'s-panel-inner t-inverse b-dark':'s-card t-primary b-default hover:s-card-alt';return`<button type="button" onclick="_toggleOverviewActPDV('${aEsc}',event)" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer ${col}">${a}</button>`;}).join(''):'<span class="text-[10px] t-disabled">— aucune donnée —</span>';
+    if(actLabelEl){if(allA)actLabelEl.textContent='PDV: toutes';else{const sel=[..._S._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'PDV: '+sel[0].split(' ')[0]:'PDV: '+sel.length+'/'+sortedActPDV.length;}}
+    // Statut global dropdown
+    const availStatuts=new Set();for(const i of _S.chalandiseData.values())if(i.statut)availStatuts.add(_normalizeStatut(i.statut));
+    const STATUT_ORDER=['Actif','Prospect','Inactif','Perdu'];
+    const sortedStatuts=[...STATUT_ORDER.filter(s=>availStatuts.has(s)),...[...availStatuts].filter(s=>!STATUT_ORDER.includes(s)).sort()];
+    const allSt=!_S._selectedStatuts.size;
+    const stEl=document.getElementById('terrStatutChips');
+    if(stEl)stEl.innerHTML=sortedStatuts.map(s=>{const sel=allSt||_S._selectedStatuts.has(s);const sEsc=s.replace(/'/g,"\\'");return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewStatut('${sEsc}',event)" class="rounded"><span class="font-semibold">${s}</span></label>`;}).join('');
+    const statutLabelEl=document.getElementById('terrStatutLabel');
+    if(statutLabelEl){if(allSt)statutLabelEl.textContent='Statut: tous';else{const sel=[..._S._selectedStatuts];statutLabelEl.textContent=sel.length===1?'Statut: '+sel[0]:'Statut: '+sel.length+'/'+sortedStatuts.length;}}
     // UNIVERS chips
     const availUnivers=new Set(_S._clientDominantUnivers.values());
     const UNIVERS_ORDER=['Consommables','Bâtiment','Outillage','Plomberie','Génie climatique','Électricité','EPI','Maintenance et équipements','Agencement ameublement'];
@@ -573,7 +581,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S._tabRendered={}; // invalider le cache lazy render pour forcer re-render sur tous les onglets
     _S._terrCanalCache=new Map(); // invalider cache territoire (labels période affichés)
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
-    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{renderAll();} // recalcul complet des agrégats sur la période filtrée
+    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{
+      // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
+      // Les agrégats période-dépendants (ventesClientArticle, canalAgence…) restent figés à la
+      // période de la dernière sauvegarde ; seul le rendu (labels, territoire, filtres) est mis à jour.
+      showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
+      renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();
+    } // recalcul complet des agrégats sur la période filtrée
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
@@ -5309,6 +5323,7 @@ window._setCrossFilter = _setCrossFilter;
 window._toggleDeptDropdown = _toggleDeptDropdown;
 window._toggleClassifDropdown = _toggleClassifDropdown;
 window._toggleActPDVDropdown = _toggleActPDVDropdown;
+window._toggleStatutDropdown = _toggleStatutDropdown;
 window._toggleStrategiqueFilter = _toggleStrategiqueFilter;
 window._onCommercialFilter = _onCommercialFilter;
 window._onTerrClientSearch = _onTerrClientSearch;
@@ -5446,6 +5461,7 @@ window._toggleOverviewL3        = _toggleOverviewL3;
 window._toggleOverviewL4        = _toggleOverviewL4;
 window._toggleOverviewClassif   = _toggleOverviewClassif;
 window._toggleOverviewActPDV    = _toggleOverviewActPDV;
+window._toggleOverviewStatut    = _toggleOverviewStatut;
 window._toggleOverviewUnivers   = _toggleOverviewUnivers;
 window._toggleDept              = _toggleDept;
 window.toggleTerrDir            = toggleTerrDir;
