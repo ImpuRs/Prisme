@@ -993,12 +993,12 @@ export function computeOmniScores() {
     const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
     const lastPDV = _S.clientLastOrder?.get(cc);
     const silenceDays = lastPDV ? Math.round((now - lastPDV) / 86400000) : 999;
-    // Segment
+    // Segment — seuil strict caHors=0 pour Mono (aligné sur Top PDV seuil 100€)
     let segment;
-    if (silenceDays > 180 && caHors < 100) segment = 'dormant';
-    else if (caHors > 100 && (caPDV < 50 || caHors > caPDV * 1.5)) segment = 'digital';
-    else if (caHors > 100 && caPDV > 0) segment = 'hybride';
-    else segment = 'mono';
+    if (silenceDays > 180 && caHors === 0) segment = 'dormant';
+    else if (caHors > 0 && (caPDV < 50 || caHors > caPDV * 1.5)) segment = 'digital';
+    else if (caHors > 0 && caPDV > 0) segment = 'hybride';
+    else segment = 'mono'; // caHors === 0 ET actif ≤ 180j
     // Score 0-100 : ancrage PDV (40) + fréquence (30) + récence (30)
     const total = caPDV + caHors;
     let score = 0;
