@@ -1003,7 +1003,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
       if(_cockpitComSet&&!_cockpitComSet.has(cc))continue; // [V3.2] filtre commercial
-      if(!_passesClientViewFilter(cc))continue;
+      if(!_passesAllFilters(cc))continue;
       // [Feature C] filtre canal : garder uniquement les clients ayant du CA sur ce canal via articleCanalCA
       if(_cockpitCanalFilter){
         const _ccArts=DataStore.ventesClientArticle.get(cc);
@@ -2222,7 +2222,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(hasOmni){
       let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
       for(const[cc,o]of _S.clientOmniScore){
-        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+        if(!_passesAllFilters(cc))continue;
         if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
         else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
         else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
@@ -2243,8 +2243,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         if(_S._selectedCommercial&&com!==_S._selectedCommercial)continue;
         let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
         for(const cc of ccs){
-          if(_S._selectedMetier&&_S.chalandiseData?.get(cc)?.metier!==_S._selectedMetier)continue;
-          if(!_passesClientViewFilter(cc))continue;
+          if(!_passesAllFilters(cc))continue;
           const lastDate=_S.clientLastOrder?.get(cc);
           const arts=_S.ventesClientArticle?.get(cc);
           const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
@@ -2284,7 +2283,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const hors=[];
     for(const[cc,artMap]of _S.ventesClientArticle){
       if(_S.chalandiseData.has(cc))continue;
-      if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+      if(!_passesAllFilters(cc))continue;
       const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
       if(caPDV<200)continue;
       const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2319,25 +2318,24 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
-  function _passesComMetierFilter(cc){
+  function _passesAllFilters(cc){
+    // 1. Commercial
     if(_S._selectedCommercial){const s=_S.clientsByCommercial?.get(_S._selectedCommercial);if(s&&!s.has(cc))return false;}
+    // 2. Métier
     if(_S._selectedMetier){const m=_S.chalandiseData?.get(cc)?.metier;if(m!==_S._selectedMetier)return false;}
-    return true;
-  }
-
-  function _passesClientViewFilter(cc){
+    // 3. Vue clients
     const view=_S._clientView||'tous';
-    if(view==='tous')return true;
-    if(view==='horszone')return!_S.chalandiseData?.has(cc);
-    if(view==='multicanaux'){
-      let caHors=0,caMag=0;
-      const horsArts=_S.ventesClientHorsMagasin?.get(cc);
-      const magArts=_S.ventesClientArticle?.get(cc);
-      if(horsArts)for(const d of horsArts.values())caHors+=d.sumCA||0;
-      if(magArts)for(const d of magArts.values())caMag+=d.sumCA||0;
-      return caHors>caMag;
-    }
-    return true; // potentiels/captes gérés par _clientPassesFilters via _selectedCrossStatus
+    if(view==='potentiels'&&_S.chalandiseData?.has(cc))return false;
+    if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
+    if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
+    if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
+    // 4. Département
+    if(_S._selectedDepts?.size>0){const cp=_S.chalandiseData?.get(cc)?.cp;if(cp&&!_S._selectedDepts.has(cp.slice(0,2)))return false;}
+    // 5. Classification
+    if(_S._selectedClassifs?.size>0){const classif=_S.chalandiseData?.get(cc)?.classif;if(classif&&!_S._selectedClassifs.has(classif))return false;}
+    // 6. Stratégique uniquement
+    if(_S._filterStrategiqueOnly){const met=_S.chalandiseData?.get(cc)?.metier;if(!METIERS_STRATEGIQUES.includes(met))return false;}
+    return true;
   }
 
   function _syncPDVToggles(){
@@ -2365,7 +2363,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
       const horsRows=[];
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+        if(!_passesAllFilters(cc))continue;
         const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caHors<100)continue;
         const magMap=_S.ventesClientArticle.get(cc);
@@ -2400,7 +2398,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const hzRows=[];
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(_S.chalandiseData.has(cc))continue;
-        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+        if(!_passesAllFilters(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<200)continue;
         const nom=_S.clientNomLookup?.[cc]||cc;
@@ -2430,7 +2428,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const topRows=[];
     if(!canal||canal==='MAGASIN'){
       for(const[cc,artMap]of _S.ventesClientArticle){
-        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+        if(!_passesAllFilters(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -2444,7 +2442,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!canal){
         for(const[cc,artMap]of _S.ventesClientHorsMagasin){
           if(_S.ventesClientArticle.has(cc))continue;
-          if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+          if(!_passesAllFilters(cc))continue;
           const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
           if(caHors<100)continue;
           const info=_S.chalandiseData?.get(cc);
@@ -2457,7 +2455,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
     }else{
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesComMetierFilter(cc)||!_passesClientViewFilter(cc))continue;
+        if(!_passesAllFilters(cc))continue;
         let caCanal=0;
         for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
         if(caCanal<100)continue;
@@ -2506,9 +2504,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Reconquête
       const _reconqFull=(_S.reconquestCohort||[]).filter(r=>{
-        if(_S._selectedCommercial&&r.commercial!==_S._selectedCommercial)return false;
-        if(_S._selectedMetier&&r.metier!==_S._selectedMetier)return false;
-        if(!_passesClientViewFilter(r.cc))return false;
+        if(!_passesAllFilters(r.cc))return false;
         return true;
       });
       const reconq=_reconqFull.slice(0,10);
