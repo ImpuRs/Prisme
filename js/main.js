@@ -573,7 +573,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S._tabRendered={}; // invalider le cache lazy render pour forcer re-render sur tous les onglets
     _S._terrCanalCache=new Map(); // invalider cache territoire (labels période affichés)
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
-    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{renderAll();} // recalcul complet des agrégats sur la période filtrée
+    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{
+      // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
+      // Les agrégats période-dépendants (ventesClientArticle, canalAgence…) restent figés à la
+      // période de la dernière sauvegarde ; seul le rendu (labels, territoire, filtres) est mis à jour.
+      showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
+      renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();
+    } // recalcul complet des agrégats sur la période filtrée
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
