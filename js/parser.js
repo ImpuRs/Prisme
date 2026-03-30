@@ -568,11 +568,14 @@ export function computeBenchmark(canal = null) {
             const _caSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumPrelevee || 0)
               : (selCanal === 'MAGASIN' && _m === 'enleve') ? ((data.sumCA || 0) - (data.sumPrelevee || 0))
               : (data.sumCA || 0);
+            const _vmbSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumVMBPrel || 0)
+              : (selCanal === 'MAGASIN' && _m === 'enleve') ? ((data.sumVMB || 0) - (data.sumVMBPrel || 0))
+              : (data.sumVMB || 0);
             if (!f[code]) f[code] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
             f[code].sumPrelevee += (data.sumPrelevee || 0);
             f[code].sumCA += _caSrc;
             f[code].countBL += (data.countBL || 0);
-            f[code].sumVMB += (data.sumVMB || 0);
+            f[code].sumVMB += _vmbSrc;
           }
         }
         if (Object.keys(f).length) vpm[store] = f;
