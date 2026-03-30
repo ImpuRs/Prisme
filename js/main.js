@@ -1758,6 +1758,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           updatePipeline('territoire','done');
           computePhantomArticles();
           _S._terrCanalCache = new Map(); // invalidation : nouvelles données territoire
+          computeReconquestCohort();
+          computeOpportuniteNette();
           renderTerritoireTab();
           renderAll(); // refresh exec summary line 5
           // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
