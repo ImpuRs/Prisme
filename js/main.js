@@ -1907,7 +1907,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const dispCA=isWeb?_webDisplayCA(data):(data.ca||0);
       const pct=Math.round(dispCA/totalCA*100);
       const barW=Math.max(pct,2);
-      const _caP=isWeb?0:Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
+      const _caP=Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
       const prevCell=_caP>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(_caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=_caE>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(_caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
@@ -1929,7 +1929,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?0:Math.max(0,v.caP||0)),0);
+    const totalP=entries.reduce((s,[,v])=>s+Math.max(0,v.caP||0),0);
     const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
