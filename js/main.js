@@ -5060,12 +5060,8 @@ window.onLivraisonsSelected = async function(input) {
   onFileSelected(input, 'dropLivraisons');
   if (!input.files?.[0]) return;
   await parseLivraisons(input.files[0]);
-  if (_S.livraisonsReady) {
-    _S.territoireLines = _S.livraisonsData;
-    _S.territoireReady = true;
-    computeReconquestCohort();
-    computeOpportuniteNette();
-  }
+  // territoireLines, territoireReady, computeReconquestCohort et computeOpportuniteNette
+  // sont déjà gérés dans parseLivraisons() — pas de post-traitement nécessaire ici
 };
 window.onChalandiseSelected = async function(input) {
   onFileSelected(input, 'dropChalandise');
