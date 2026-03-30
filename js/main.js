@@ -2489,6 +2489,35 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const now=new Date();
       const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
 
+      // ── Top 5 priorités reconquête (scoring CA_PDV × daysAgo) ──
+      const top5ReconqHtml=(()=>{
+        const fideles=_S.crossingStats?.fideles;
+        if(!fideles?.size||!_S.clientLastOrder?.size)return'';
+        const today=new Date();
+        const scored=[];
+        for(const cc of fideles){
+          const lastOrder=_S.clientLastOrder.get(cc);
+          if(!lastOrder)continue;
+          const daysAgo=Math.floor((today-lastOrder)/864e5);
+          if(daysAgo<=30)continue;
+          const arts=_S.ventesClientArticle?.get(cc);
+          if(!arts?.size)continue;
+          let caPDV=0;
+          for(const d of arts.values())caPDV+=d.sumCA||0;
+          if(caPDV<=0)continue;
+          const score=Math.round(caPDV*daysAgo);
+          const cc6=cc.padStart(6,'0');
+          const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
+          const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
+          scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
+        }
+        if(!scored.length)return'';
+        scored.sort((a,b)=>b.score-a.score);
+        const top5=scored.slice(0,5);
+        const cards=top5.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${c.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button onclick="event.stopPropagation();openClient360('${c.cc}','reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${c.metier||'—'}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${c.commercial||'—'}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
+        return`<details class="mb-3 s-card rounded-xl border overflow-hidden" style="border-color:#e11d48"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm" style="color:#e11d48">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
+      })();
+
       // ── Section 1 : À reconquérir (anciens fidèles silencieux) ──
       const _reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
       const reconq=_reconqFull.slice(0,10);
@@ -2505,7 +2534,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         const moreHtml=_livAll.length>10?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${_livAll.length-10} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${_livAll.slice(10).map(_mkRow).join('')}</tbody></table></div></details>`:'';
         return`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">${_livAll.length} clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
       })();
-      _setEl('terrReconquete', reconqHtml + livSansPDVHtml);
+      _setEl('terrReconquete', top5ReconqHtml + reconqHtml + livSansPDVHtml);
 
       // Opportunités nettes — accordéon + tableau paginé
       _setEl('terrOpportunites',(()=>{const _OPP_PAGE=20;const _gc=_S._globalCanal||'';const _oppAll=(_S.opportuniteNette||[]).filter(o=>!_gc||(o.canalBreakdown&&(o.canalBreakdown[_gc]||0)>0));const _oppMaxP=Math.max(1,Math.ceil(_oppAll.length/_OPP_PAGE));const _oppCur=Math.max(1,Math.min(_S._oppNettePage||1,_oppMaxP));if(_S._oppNettePage!==_oppCur)_S._oppNettePage=_oppCur;const _oppSlice=_oppAll.slice((_oppCur-1)*_OPP_PAGE,_oppCur*_OPP_PAGE);const _oppPrev=_oppCur>1?`<button onclick="window._oppNettePage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;const _oppNext=_oppCur<_oppMaxP?`<button onclick="window._oppNettePage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;const _oppPager=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><span class="text-[10px] t-disabled">${_oppAll.length} clients</span><div class="flex items-center gap-1">${_oppPrev}<span class="text-[11px] t-secondary">Page ${_oppCur}/${_oppMaxP}</span>${_oppNext}</div><span class="text-[10px] t-disabled">${(_oppCur-1)*_OPP_PAGE+1}–${Math.min(_oppCur*_OPP_PAGE,_oppAll.length)}</span></div>`;const _oppTotalCA=_oppAll.reduce((s,o)=>s+o.totalPotentiel,0);const _oppInner=_oppAll.length?`<div class="overflow-x-auto"><table class="w-full text-[11px] border-collapse"><thead><tr class="s-card-alt border-b"><th class="text-left px-3 py-2 font-semibold t-secondary">Client</th><th class="text-left px-3 py-2 font-semibold t-secondary">Métier</th><th class="text-left px-3 py-2 font-semibold t-secondary">Familles manquantes</th><th class="text-right px-3 py-2 font-semibold t-secondary">CA potentiel</th><th class="text-left px-3 py-2 font-semibold t-secondary">Canal</th></tr></thead><tbody>${_oppSlice.map(o=>{const cp=Object.entries(o.canalBreakdown||{}).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';const arts=o.missingFams.slice(0,3).map(f=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full i-info-bg c-action font-semibold">${f.fam} · ${formatEuro(f.ca)}</span>`).join(' ')+(o.missingFams.length>3?` <span class="text-[9px] t-disabled">+${o.missingFams.length-3}</span>`:'');return`<tr class="border-b b-default hover:i-info-bg cursor-pointer transition-colors" onclick="openClient360('${o.cc}','clients')"><td class="px-3 py-2 font-semibold t-primary">${o.nom}</td><td class="px-3 py-2 t-secondary">${o.metier||'—'}</td><td class="px-3 py-2">${arts}</td><td class="px-3 py-2 text-right font-bold c-action">${formatEuro(o.totalPotentiel)}</td><td class="px-3 py-2 t-secondary text-[10px]">${cp}</td></tr>`;}).join('')}</tbody></table></div>${_oppPager}`:`<div class="p-4 text-[12px] t-secondary">🎯 <strong>Opportunités</strong> : Données insuffisantes pour calculer les opportunités.</div>`;return `<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🎯 Opportunités nettes <span class="text-[10px] font-normal t-disabled ml-1">${_oppAll.length} clients · ${formatEuro(_oppTotalCA)} rapatriable</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${_oppInner}</details>`;})());
@@ -4516,6 +4545,35 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.cc}','clients')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c.reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
 
+    // ── Top 5 priorités reconquête (scoring CA_PDV × daysAgo) ──
+    const top5ReconqHtml=(()=>{
+      const fideles=_S.crossingStats?.fideles;
+      if(!fideles?.size||!_S.clientLastOrder?.size)return'';
+      const today=new Date();
+      const scored=[];
+      for(const cc of fideles){
+        const lastOrder=_S.clientLastOrder.get(cc);
+        if(!lastOrder)continue;
+        const daysAgo=Math.floor((today-lastOrder)/864e5);
+        if(daysAgo<=30)continue;
+        const arts=_S.ventesClientArticle?.get(cc);
+        if(!arts?.size)continue;
+        let caPDV=0;
+        for(const d of arts.values())caPDV+=d.sumCA||0;
+        if(caPDV<=0)continue;
+        const score=Math.round(caPDV*daysAgo);
+        const cc6=cc.padStart(6,'0');
+        const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
+        const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
+        scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
+      }
+      if(!scored.length)return'';
+      scored.sort((a,b)=>b.score-a.score);
+      const top5=scored.slice(0,5);
+      const cards=top5.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${c.cc}','reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${c.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button onclick="event.stopPropagation();openClient360('${c.cc}','reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${c.metier||'—'}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${c.commercial||'—'}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
+      return`<details class="mb-3 s-card rounded-xl border overflow-hidden" style="border-color:#e11d48"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm" style="color:#e11d48">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
+    })();
+
     // ── S2a: Reconquête — anciens fidèles silencieux ──────────────────
     const reconq=(_S.reconquestCohort||[]).slice(0,10);
     const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${(_S.reconquestCohort||[]).length} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}${(_S.reconquestCohort||[]).length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${(_S.reconquestCohort||[]).length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`}</details>`;
@@ -4764,7 +4822,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _setEl('clientsTopPDV',topPDVHtml);
     _setEl('clientsHorsZone',horsZoneHtml);
     _setEl('clientsDigitaux',digitauxHtml);
-    _setEl('clientsReconquete', reconqHtml + livSPDVHtml);
+    _setEl('clientsReconquete', top5ReconqHtml + reconqHtml + livSPDVHtml);
     _setEl('clientsOpportunites',oppsHtml);
   }
 
