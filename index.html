@@ -1773,9 +1773,14 @@
               </table>
             </div>
           </div>
-          <!-- Section B : En stock chez moi, jamais vendu -->
+          <!-- Section B : En stock chez moi — sous-exploités vs réseau (benchmark) -->
           <div>
-            <div class="mb-2"><p class="text-xs font-bold t-secondary">📦 En stock chez moi — jamais vendu</p><p class="text-[10px] t-tertiary">Ces articles sont dans votre stock mais ne se vendent pas — vérifier l'emplacement rayon ou la mise en avant</p></div>
+            <div class="mb-2"><p class="text-xs font-bold t-secondary">📦 En stock chez moi — sous-exploités vs réseau</p><p class="text-[10px] t-tertiary">Ces articles sont dans votre stock mais se vendent moins que dans le reste du réseau</p></div>
+            <div id="reseauSousExploitesContainer"><p class="t-disabled text-sm">Chargement après analyse benchmark…</p></div>
+          </div>
+          <!-- Section C : Absents chez moi — orphelins réseau (worker) -->
+          <div class="mt-4">
+            <div class="mb-2"><p class="text-xs font-bold t-secondary">🔍 Absents chez moi — vendus par le réseau</p><p class="text-[10px] t-tertiary">Ces articles sont vendus par ≥ 50% des agences du réseau mais absents de cette agence</p></div>
             <div id="reseauOrphelinsContainer"><p class="t-disabled text-sm">Chargement après analyse réseau…</p></div>
           </div>
         </div>
