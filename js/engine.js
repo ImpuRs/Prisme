@@ -865,45 +865,61 @@ export function computeReconquestCohort() {
   }
 }
 
-// ── C1: Opportunité nette — articles achetés ailleurs par des clients AG22 ──
+// ── C1: Opportunité nette — par FAMILLE, clients AG22 qui achètent ailleurs ──
 // Définition : client présent dans ventesClientArticle (il achète chez nous),
 // mais qui achète via d'autres canaux/agences (ventesClientHorsMagasin) des articles
-// qu'on a en rayon (rayonSet) ET qu'il ne nous achète PAS déjà.
+// dont la FAMILLE est présente dans notre rayon ET qu'il ne nous achète PAS dans cette famille.
 export function computeOpportuniteNette() {
   if (!_S.ventesClientArticle?.size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
-  const rayonSet = new Set(_S.finalData.map(r => r.code));
+  // 1. rayonFamilles = familles présentes dans notre rayon
+  const rayonFamilles = new Set();
+  for (const r of _S.finalData) {
+    const fam = _S.articleFamille?.[r.code] || r.famille;
+    if (fam) rayonFamilles.add(fam);
+  }
   const results = [];
   for (const [cc, myArts] of _S.ventesClientArticle.entries()) {
     const hors = _S.ventesClientHorsMagasin?.get(cc);
     if (!hors?.size) continue;
-    const mesArticles = new Set(myArts.keys());
-    const articlesManquants = [];
-    const canalBreakdown = {};
-    let totalPotentiel = 0;
+    // 2a. mesFamilles = familles déjà achetées en AG22 par ce client
+    const mesFamilles = new Set();
+    for (const code of myArts.keys()) {
+      const fam = _S.articleFamille?.[code];
+      if (fam) mesFamilles.add(fam);
+    }
+    // 2b. famMap = {famCode → {ca, nbArticles, canalBreakdown}}
+    const famMap = new Map();
+    const globalCanal = {};
     for (const [code, d] of hors.entries()) {
-      if (!rayonSet.has(code) || mesArticles.has(code)) continue;
       const ca = d.sumCA || 0;
       if (ca <= 0) continue;
-      articlesManquants.push({ code, ca, canal: d.canal || '' });
-      totalPotentiel += ca;
+      const fam = _S.articleFamille?.[code];
+      if (!fam || !rayonFamilles.has(fam) || mesFamilles.has(fam)) continue;
+      if (!famMap.has(fam)) famMap.set(fam, { ca: 0, nbArticles: 0, canalBreakdown: {} });
+      const fd = famMap.get(fam);
+      fd.ca += ca; fd.nbArticles++;
       const c = d.canal || 'AUTRE';
-      canalBreakdown[c] = (canalBreakdown[c] || 0) + ca;
+      fd.canalBreakdown[c] = (fd.canalBreakdown[c] || 0) + ca;
+      globalCanal[c] = (globalCanal[c] || 0) + ca;
     }
-    if (!articlesManquants.length) continue;
-    articlesManquants.sort((a, b) => b.ca - a.ca);
+    if (!famMap.size) continue;
+    const missingFams = [...famMap.entries()]
+      .map(([famCode, fd]) => ({ famCode, fam: famLib(famCode) || famCode, ...fd }))
+      .sort((a, b) => b.ca - a.ca);
+    const totalPotentiel = missingFams.reduce((s, f) => s + f.ca, 0);
     const info = _S.chalandiseData?.get(cc) || {};
     results.push({
       cc,
       nom: info.nom || _S.clientNomLookup?.[cc] || cc,
       metier: info.metier || '',
       commercial: info.commercial || '',
-      articlesManquants,
+      missingFams,
       totalPotentiel,
-      canalBreakdown,
-      missingFams: []
+      canalBreakdown: globalCanal,
+      articlesManquants: []
     });
   }
   results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
