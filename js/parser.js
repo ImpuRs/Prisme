@@ -39,9 +39,11 @@ export async function parseChalandise(file) {
   const cNom = findCol('nom client') || findCol('nom');
   const cMetier = findCol('libellé court métier') || findCol('libelle court metier') || findCol('métier') || findCol('metier');
   const cStatut = findCol('statut actuel général') || findCol('statut actuel general') || findCol('statut');
+  const cStatutDetaille = findCol('statut actuel détaillé') || findCol('statut actuel detaille');
   const cClassif = findCol('classification') || findCol('classif');
   const cActivite = findCol('activité pdv zone') || findCol('activite pdv zone') || findCol('activité globale') || findCol('activite globale');
   const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
+  const cDirection = findCol('direction');
   const cSecteur = findCol('secteur') || findCol('code secteur');
   const cCommercial = findCol('commercial') || findCol('nom commercial');
   const cCP = findCol('code postal') || findCol('cp');
@@ -49,6 +51,13 @@ export async function parseChalandise(file) {
   const cCA2025 = findCol('ca 2025') || findCol('ca n-1') || findCol('ca n');
   const cCA2026 = findCol('ca 2026') || findCol('ca n');
   const cCaPDVN = findCol('ca pdv zone n') || findCol('ca pdv n') || findCol('ca pdv');
+  const cCaEnleveN = findCol('ca enlevé n pdv') || findCol('ca enleve n pdv');
+  const cCaPreleveN = findCol('ca prélevé n pdv') || findCol('ca preleve n pdv');
+  const cTournee = findCol('libellé tournée') || findCol('libelle tournee') || findCol('tournée') || findCol('tournee');
+  const cSolvabilite = findCol('libellé solvabilité') || findCol('libelle solvabilite') || findCol('solvabilité') || findCol('solvabilite');
+  const cCodeAPE = findCol('code ape');
+  const cLibelleAPE = findCol('libellé ape') || findCol('libelle ape');
+  const cEffectifs = findCol('effectifs client') || findCol('effectif');
   if (!cCode) { showToast('⚠️ Colonne "Code client" introuvable dans le fichier Chalandise', 'error'); return; }
 
   _S.chalandiseData = new Map();
@@ -59,21 +68,31 @@ export async function parseChalandise(file) {
     if (!cc) continue;
     const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
     if (metier) metiersSet.add(metier);
+    const _p = s => parseFloat((s||'').toString().replace(/\s/g,'').replace(',','.')) || 0;
     _S.chalandiseData.set(cc, {
       nom: (cNom ? row[cNom] || '' : '').toString().trim(),
       metier,
       statut: (cStatut ? row[cStatut] || '' : '').toString().trim(),
+      statutDetaille: (cStatutDetaille ? row[cStatutDetaille] || '' : '').toString().trim(),
       classification: (cClassif ? row[cClassif] || '' : '').toString().trim(),
       activitePDV: (cActivite ? row[cActivite] || '' : '').toString().trim(),
       activiteGlobale: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
       activite: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
+      direction: (cDirection ? row[cDirection] || '' : '').toString().trim(),
       secteur: (cSecteur ? row[cSecteur] || '' : '').toString().trim(),
       commercial: (cCommercial ? row[cCommercial] || '' : '').toString().trim(),
       cp: (cCP ? row[cCP] || '' : '').toString().trim(),
       ville: (cVille ? row[cVille] || '' : '').toString().trim(),
-      ca2025: parseFloat((cCA2025 ? row[cCA2025] || '' : '').toString().replace(/\s/g, '').replace(',', '.')) || 0,
-      ca2026: parseFloat((cCA2026 ? row[cCA2026] || '' : '').toString().replace(/\s/g, '').replace(',', '.')) || 0,
-      caPDVN: parseFloat((cCaPDVN ? row[cCaPDVN] || '' : '').toString().replace(/\s/g, '').replace(',', '.')) || 0,
+      tournee: (cTournee ? row[cTournee] || '' : '').toString().trim(),
+      solvabilite: (cSolvabilite ? row[cSolvabilite] || '' : '').toString().trim(),
+      codeAPE: (cCodeAPE ? row[cCodeAPE] || '' : '').toString().trim(),
+      libelleAPE: (cLibelleAPE ? row[cLibelleAPE] || '' : '').toString().trim(),
+      effectifs: (cEffectifs ? row[cEffectifs] || '' : '').toString().trim(),
+      ca2025: _p(cCA2025 ? row[cCA2025] : ''),
+      ca2026: _p(cCA2026 ? row[cCA2026] : ''),
+      caPDVN: _p(cCaPDVN ? row[cCaPDVN] : ''),
+      caEnleveN: _p(cCaEnleveN ? row[cCaEnleveN] : ''),
+      caPreleveN: _p(cCaPreleveN ? row[cCaPreleveN] : ''),
     });
   }
   _S.chalandiseMetiers = [...metiersSet].sort();
