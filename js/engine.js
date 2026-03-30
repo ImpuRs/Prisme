@@ -259,7 +259,12 @@ export function clientMatchesStatutFilter(info) {
 
 export function clientMatchesActivitePDVFilter(info) {
   if (!_S._selectedActivitesPDV.size) return true;
-  return _S._selectedActivitesPDV.has(info.statutDetaille || info.activitePDV || '');
+  return _S._selectedActivitesPDV.has(info.activitePDV || '');
+}
+
+export function clientMatchesStatutDetailleFilter(info) {
+  if (!_S._selectedStatutDetaille) return true;
+  return (info.statutDetaille || '') === _S._selectedStatutDetaille;
 }
 
 export function clientMatchesDirectionFilter(info) {
@@ -287,9 +292,9 @@ export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
   if (!clientMatchesUniversFilter(cc)) return false;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
-    clientMatchesStatutFilter(info) && clientMatchesActivitePDVFilter(info) &&
-    clientMatchesDirectionFilter(info) && clientMatchesCommercialFilter(info) &&
-    clientMatchesMetierFilter(info);
+    clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
+    clientMatchesActivitePDVFilter(info) && clientMatchesDirectionFilter(info) &&
+    clientMatchesCommercialFilter(info) && clientMatchesMetierFilter(info);
 }
 
 // ── Diagnostic helpers ────────────────────────────────────────
