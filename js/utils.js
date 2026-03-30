@@ -13,6 +13,11 @@ export function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+export function formatLocalYMD(d) {
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 // ── Recherche normalisée ───────────────────────────────────────
 // Supprime les accents et met en minuscules pour la comparaison.
 export function normalizeStr(str) {

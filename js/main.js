@@ -10,7 +10,7 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
@@ -1336,7 +1336,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const sel=document.getElementById('excl-sel-'+cc);const reason=sel?sel.value:'Pas pertinent';
     const allClients=[...(_S._cockpitExportData?.silencieux||[]),...(_S._cockpitExportData?.urgences||[]),...(_S._cockpitExportData?.developper||[]),...(_S._cockpitExportData?.fideliser||[])];
     const clientData=allClients.find(c=>c.code===cc)||{code:cc,nom};
-    _S.excludedClients.set(cc,{reason,date:new Date().toISOString().slice(0,10),by:_S.selectedMyStore||'',category:catKey,nom,clientData});
+    _S.excludedClients.set(cc,{reason,date:formatLocalYMD(new Date()),by:_S.selectedMyStore||'',category:catKey,nom,clientData});
     _saveExclusions();
     showToast(`👁️ ${nom} masqué — ${reason}`,'info');
     _buildCockpitClient();
@@ -1639,7 +1639,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
       if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=(getVal(row,'Numéro de commande','commande','N° commande')||'').toString().trim();if(_nc3)commandesPDV.add(_nc3);}
-      if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+dateV.toISOString().slice(0,10));}
+      if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+formatLocalYMD(dateV));}
       if(cc2&&dateV&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const prev=_S.clientLastOrder.get(cc2);if(!prev||dateV>prev)_S.clientLastOrder.set(cc2,dateV);}
       // V2 Phase 2: _S.articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=(getVal(row,'Code et nom client','Code client','Client')||'').toString();
@@ -3628,8 +3628,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
       html += `<tr class="border-b hover:i-caution-bg/40 cursor-pointer" onclick="openNomadeArticleModal('${art.code}')" title="Voir le détail clients">`;
       html += `<td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${art.code}</td>`;
-      html += `<td class="py-1.5 px-3 font-semibold t-primary">${lib}</td>`;
-      html += `<td class="py-1.5 px-3 t-tertiary text-[11px]">${art.fam || '—'}</td>`;
+      html += `<td class="py-1.5 px-3 font-semibold t-primary">${escapeHtml(lib)}</td>`;
+      html += `<td class="py-1.5 px-3 t-tertiary text-[11px]">${escapeHtml(art.fam || '—')}</td>`;
       html += `<td class="py-1.5 px-3 text-center font-extrabold c-danger">${art.nbClients}</td>`;
       html += `<td class="py-1.5 px-3 text-right font-bold c-caution">${art.totalCaOther > 0 ? formatEuro(art.totalCaOther) : '—'}</td>`;
       html += `<td class="py-1.5 px-3 text-right t-secondary">${art.totalBLOther || '—'}</td>`;
