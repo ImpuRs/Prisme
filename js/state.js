@@ -311,6 +311,7 @@ export function resetAppState() {
 
   // Cohorte reconquête
   _S.reconquestCohort = [];
+  _S.livraisonsSansPDV = [];
 
   // Livraisons
   _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0;

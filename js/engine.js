@@ -820,54 +820,49 @@ export function computeHealthScore() {
 // Clients perdus (>6 mois sans commande) avec historique CA significatif
 export function computeReconquestCohort() {
   _S.reconquestCohort = [];
-  if (!_S.chalandiseReady || !_S.clientLastOrder.size) return;
+  _S.livraisonsSansPDV = [];
   const now = new Date();
-  const SIX_MONTHS = 180 * 86400000;
-  const cohort = [];
-  for (const [cc, lastDate] of _S.clientLastOrder.entries()) {
-    if ((now - lastDate) < SIX_MONTHS) continue;
-    const info = _S.chalandiseData.get(cc);
-    if (!info) continue;
-    const artMap = _S.ventesClientArticle.get(cc);
-    if (!artMap || artMap.size === 0) continue;
-    const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0);
-    if (totalCA < 500) continue;
-    const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
-    const daysAgo = Math.round((now - lastDate) / 86400000);
-    const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
-    cohort.push({ cc, nom: info.nom || cc, metier: info.metier || '', commercial: info.commercial || '', totalCA, nbFamilles, daysAgo, score });
-  }
-  // ── Livraisons : clients livrés mais silencieux au comptoir ──
-  if (_S.livraisonsReady && _S.livraisonsData?.size) {
-    const seenCc = new Set(cohort.map(r => r.cc));
-    for (const [cc, livData] of _S.livraisonsData) {
-      if (seenCc.has(cc)) continue; // déjà dans la cohorte chalandise
-      if (livData.ca <= 0) continue;
-      const lastPDV = _S.clientLastOrder.get(cc);
-      const silencePDV = lastPDV ? Math.floor((now - lastPDV) / 86400000) : 999;
-      if (silencePDV <= 60) continue; // encore actif au comptoir
+
+  // ── Section 1 : anciens fidèles silencieux (> 60j, CA > 0 dans consommé) ──
+  // Source : crossingStats.fideles si disponible, sinon clientLastOrder × ventesClientArticle
+  const fidelesSet = _S.crossingStats?.fideles;
+  const candidates = fidelesSet?.size
+    ? [...fidelesSet]
+    : (_S.clientLastOrder.size ? [..._S.clientLastOrder.keys()] : []);
+  if (candidates.length) {
+    const cohort = [];
+    for (const cc of candidates) {
+      const lastDate = _S.clientLastOrder.get(cc);
+      if (!lastDate) continue;
+      const daysAgo = Math.round((now - lastDate) / 86400000);
+      if (daysAgo < 60) continue;
       const artMap = _S.ventesClientArticle.get(cc);
-      const caPDV = artMap ? [...artMap.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
-      const nom = _S.chalandiseData.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc;
-      const metier = _S.chalandiseData.get(cc)?.metier || '';
-      const commercial = _S.chalandiseData.get(cc)?.commercial || '';
-      const daysAgo = silencePDV < 999 ? silencePDV : null;
-      cohort.push({
-        cc, nom, metier, commercial,
-        totalCA: caPDV,
-        nbFamilles: 0,
-        daysAgo: daysAgo ?? 999,
-        score: Math.round(livData.ca * (silencePDV / 60)),
-        source: 'livraison',
-        caLivraison: livData.ca,
-        nbBLLivraison: livData.bl.size,
-        lastLivraison: livData.lastDate,
-      });
+      if (!artMap || artMap.size === 0) continue;
+      const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0);
+      if (totalCA <= 0) continue;
+      const info = _S.chalandiseData.get(cc);
+      const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
+      const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
+      cohort.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier || '', commercial: info?.commercial || '', totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
     }
+    cohort.sort((a, b) => b.score - a.score);
+    _S.reconquestCohort = cohort;
   }
 
-  cohort.sort((a, b) => b.score - a.score);
-  _S.reconquestCohort = cohort;
+  // ── Section 2 : livrés sans PDV (jamais dans ventesClientArticle) ──
+  if (_S.livraisonsReady && _S.livraisonsData?.size) {
+    const sansPDV = [];
+    for (const [cc, livData] of _S.livraisonsData) {
+      if (livData.ca <= 0) continue;
+      const artMap = _S.ventesClientArticle.get(cc);
+      if (artMap && artMap.size > 0) continue; // a déjà acheté au comptoir
+      const info = _S.chalandiseData.get(cc);
+      const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
+      sansPDV.push({ cc, nom, metier: info?.metier || '', commercial: info?.commercial || '', caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
+    }
+    sansPDV.sort((a, b) => b.caLivraison - a.caLivraison);
+    _S.livraisonsSansPDV = sansPDV;
+  }
 }
 
 // ── C1: Opportunité nette Client×Famille ──────────────────────
