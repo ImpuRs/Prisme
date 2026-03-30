@@ -195,7 +195,6 @@ export async function parseLivraisons(file) {
 
     window.computeReconquestCohort?.();
     window.computeOpportuniteNette?.();
-    window.computePhantomArticles?.();
     window.renderTerritoireTab?.();
     window.renderAll?.();
     if (_S.selectedMyStore) window._saveSessionToIDB?.();

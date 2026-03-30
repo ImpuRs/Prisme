@@ -2144,7 +2144,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   // A4: Fantômes de rayon — en stock mais que personne n'achète au comptoir
   function computePhantomArticles(){
-    _S.phantomArticles=[];_S.cockpitLists.phantom.clear();
+    _S.phantomArticles=[];if(!_S.cockpitLists?.phantom)return;_S.cockpitLists.phantom.clear();
     if(!DataStore.finalData.length)return;
     // soldAtPDV = articles vendus en MAGASIN uniquement (ventesClientArticle = canal MAGASIN)
     // _S.articleClients agrège tous canaux — utiliser ventesClientArticle (filtré MAGASIN) à la place
