@@ -955,22 +955,6 @@ export function _renderNoStockPlaceholder(ongletNom) {
 
 // ── Tab Badges — numériques sur les onglets ───────────────────
 export function renderTabBadges() {
-  // Badge "Ce matin" : nb items DQ critiques
-  const dqItems = (_S.decisionQueueData || []);
-  const criticalTypes = new Set(['rupture', 'alerte_prev', 'erp_incoherence', 'saisonnalite_prev']);
-  const critCount = dqItems.filter(d => criticalTypes.has(d.type)).length;
-  const actionBadge = document.getElementById('navActionBadge');
-  if (actionBadge) {
-    if (critCount > 0) {
-      actionBadge.textContent = critCount > 9 ? '9+' : critCount;
-      actionBadge.classList.remove('hidden');
-      // Color: red if rupture present, amber otherwise
-      const hasRupture = dqItems.some(d => d.type === 'rupture' || d.type === 'alerte_prev');
-      actionBadge.style.background = hasRupture ? '#dc2626' : '#d97706';
-    } else {
-      actionBadge.classList.add('hidden');
-    }
-  }
 
   // Badge "Mes clients" : clients silencieux >90j avec CA PDV
   const clientsBadge = document.getElementById('navClientsBadge');
