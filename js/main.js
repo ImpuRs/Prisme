@@ -1616,7 +1616,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updatePipeline('stock','active');updatePipeline('consomme','active');
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.ventesParMagasinByCanal={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      // isRefilter : préserver les canaux hors-MAGASIN dans ventesParMagasinByCanal (period-independent, non reconstruits par isRefilter)
+      if(isRefilter){for(const sk of Object.keys(_S.ventesParMagasinByCanal)){if(_S.ventesParMagasinByCanal[sk]?.MAGASIN)delete _S.ventesParMagasinByCanal[sk].MAGASIN;}}else{_S.ventesParMagasinByCanal={};}
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
