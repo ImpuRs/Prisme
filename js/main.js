@@ -5124,8 +5124,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       buildPeriodFilter();
       computeClientCrossing();
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
-      if (_S.clientLastOrder.size) computeReconquestCohort();
-      if (_S.chalandiseReady && _S.clientLastOrder.size) { computeOmniScores(); computeFamillesHors(); }
+      if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
+      if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { computeOmniScores(); computeFamillesHors(); }
       generateDecisionQueue();
       if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
       // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
@@ -5146,6 +5146,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         renderBenchmark();
         launchReseauWorker().then(()=>{
           renderNomadesMissedArts();
+          renderReseauOrphelins();
         }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
       }
       if(_S.territoireReady){renderTerritoireTab();}
