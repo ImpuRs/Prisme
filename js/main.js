@@ -562,7 +562,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _S._tabRendered={}; // invalider le cache lazy render pour forcer re-render sur tous les onglets
     _S._terrCanalCache=new Map(); // invalider cache territoire (labels période affichés)
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
-    renderAll(); // re-render tous les onglets après changement de période
+    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{renderAll();} // recalcul complet des agrégats sur la période filtrée
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
