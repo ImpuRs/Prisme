@@ -670,6 +670,64 @@ export function _cematinSearch(q) {
   if (typeof window.runPromoSearch === 'function') window.runPromoSearch();
 }
 
+// ── Clients silencieux >60j — affichage inline dans Ce matin ──
+export function showSilencieux60() {
+  const el = document.getElementById('cematinResults');
+  if (!el) return;
+  const now = Date.now();
+  const clients = [];
+  (_S.clientLastOrder || new Map()).forEach((lastDate, cc) => {
+    const days = Math.round((now - (lastDate instanceof Date ? lastDate.getTime() : +lastDate)) / 86400000);
+    if (days < 60) return;
+    const chal = _S.chalandiseData?.get(cc);
+    // CA PDV : chalandise en priorité, sinon somme ventesClientArticle
+    let ca = chal?.caPDVN || 0;
+    if (!ca) {
+      const artMap = _S.ventesClientArticle?.get(cc);
+      if (artMap) artMap.forEach(v => { ca += (v.sumCAPrelevee || v.sumCA || 0); });
+    }
+    const nom = _S.clientNomLookup?.[cc] || chal?.nom || cc;
+    clients.push({ cc, nom, days, ca });
+  });
+  clients.sort((a, b) => b.ca - a.ca);
+  if (!clients.length) {
+    el.innerHTML = `<div class="s-card rounded-xl p-4 text-sm t-secondary">✅ Aucun client silencieux depuis plus de 60 jours.</div>`;
+    el.classList.remove('hidden');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+  const shown = clients.slice(0, 30);
+  const rows = shown.map(c => {
+    const cls = c.days > 90 ? 'c-danger' : 'c-caution';
+    return `<tr class="border-t b-light cursor-pointer hover:s-hover" onclick="openClient360('${c.cc}','silencieux60')">
+      <td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td>
+      <td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td>
+      <td class="py-1 px-2 text-right font-bold text-[11px] ${c.ca > 0 ? 'c-ok' : 't-disabled'}">${c.ca > 0 ? formatEuro(c.ca) : '—'}</td>
+      <td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.days}j</td>
+    </tr>`;
+  }).join('');
+  const subtitle = clients.length > 30 ? `30 affichés sur ${clients.length} · triés par CA PDV` : `${clients.length} client${clients.length > 1 ? 's' : ''} · triés par CA PDV`;
+  el.innerHTML = `<div class="i-caution-bg rounded-xl border-t-4 border-amber-400 overflow-hidden">
+    <div class="flex items-center gap-2 p-3 border-b b-light">
+      <span>🤫</span>
+      <h4 class="font-extrabold text-sm flex-1">Clients silencieux &gt;60j <span class="badge bg-amber-500 text-white ml-1">${clients.length}</span></h4>
+      <button onclick="document.getElementById('cematinResults').classList.add('hidden')" class="text-[10px] t-disabled hover:t-primary px-1">✕</button>
+    </div>
+    <p class="text-[10px] t-tertiary px-3 pt-1 pb-2">${subtitle}</p>
+    <table class="min-w-full">
+      <thead class="s-hover"><tr>
+        <th class="py-1 px-2 text-left text-[10px] t-secondary font-semibold">Code</th>
+        <th class="py-1 px-2 text-left text-[10px] t-secondary font-semibold">Nom</th>
+        <th class="py-1 px-2 text-right text-[10px] t-secondary font-semibold">CA PDV</th>
+        <th class="py-1 px-2 text-center text-[10px] t-secondary font-semibold">Silence</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+  el.classList.remove('hidden');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // ── Feature 2: Signal Ambiant ─────────────────────────────────
 // Barre 3px en haut de l'écran reflétant l'état de santé du stock
 export function updateAmbientSignal() {
