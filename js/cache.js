@@ -229,6 +229,7 @@ export async function _saveSessionToIDB() {
       // ── Core ──
       finalData:             _S.finalData,
       ventesParMagasin:      _S.ventesParMagasin,
+      ventesParMagasinByCanal: _S.ventesParMagasinByCanal,
       stockParMagasin:       _S.stockParMagasin,
       storesIntersection:    [..._S.storesIntersection],
       libelleLookup:         _S.libelleLookup,
