@@ -1243,6 +1243,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
     _S._tabRendered&&(_S._tabRendered['territoire']=false);
     renderTerritoireTab();
+    setTimeout(()=>document.getElementById('terrTopPDV')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
   };
 
 
@@ -2234,8 +2235,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
       const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
       inner+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
-        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)'],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'],[nDigital,caDigital,'Digital','📱','var(--c-caution)'],[nDormant,0,'Dormants','💤','var(--c-danger)']
-      ].map(([n,ca,label,icon,color])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border cursor-help" title="${_segTips[label]||''}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
+        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')"],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._setClientView('multicanaux')"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._setClientView('multicanaux')"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._setClientView('dormants')"]
+      ].map(([n,ca,label,icon,color,onclick])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border cursor-pointer hover:brightness-95 transition-all" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
     }
     // ── Momentum commercial ───────────────────────────────────────────────
     if(hasCom){
@@ -2332,6 +2333,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
     if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
     if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
+    if(view==='dormants'){const lastDate=_S.clientLastOrder?.get(cc);const silence=lastDate?Math.round((Date.now()-lastDate)/86400000):999;if(silence<=180)return false;}
     // 4. Département
     if(_S._selectedDepts?.size>0){const cp=_S.chalandiseData?.get(cc)?.cp;if(cp&&!_S._selectedDepts.has(cp.slice(0,2)))return false;}
     // 5. Classification
