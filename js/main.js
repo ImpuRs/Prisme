@@ -1701,8 +1701,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       // [isRefilter] Patch obsKpis.mine depuis canalAgence (période-filtré)
       if(isRefilter&&_S.benchLists?.obsKpis){
+        const _ca=Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0);
+        console.log('[DEBUG obsKpis] canalAgence=',JSON.stringify(_S.canalAgence),'ca=',_ca);
         _S.benchLists.obsKpis.mine={
-          ca:Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0),
+          ca:_ca,
           ref:_S.benchLists.obsKpis.mine?.ref||0,
           freq:Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||0),0),
           serv:_S.benchLists.obsKpis.mine?.serv||0,
