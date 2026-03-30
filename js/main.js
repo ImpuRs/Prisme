@@ -1689,6 +1689,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
       // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
       {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
+      // Re-parse livraisons — même raison : resetAppState l'a effacée si chargée avant Analyser
+      {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady)await parseLivraisons(fL);}
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
       // Guard: warn if all stock values are 0 (likely bad export)
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
