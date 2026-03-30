@@ -2027,28 +2027,39 @@ function _parseAnimationInput(text) {
   const artCodes = new Set();
   const famCodes = new Set();
   const unknowns = [];
+  const brandMatches = []; // {term, count} pour affichage compteur
   const knownFamCodes = new Set(Object.values(_S.articleFamille || {}));
+  const lookup = _S.libelleLookup || {};
   for (const tok of tokens) {
     if (/^\d{6}$/.test(tok)) {
-      if (_S.libelleLookup && _S.libelleLookup[tok]) artCodes.add(tok);
+      if (lookup[tok]) artCodes.add(tok);
       else unknowns.push(tok);
     } else {
       const tokNorm = normalizeStr(tok);
-      let found = false;
+      // Passe 1 : famille exacte ou libellé famille
+      let foundFam = false;
       for (const fc of knownFamCodes) {
-        const fcNorm = normalizeStr(fc);
-        const libNorm = normalizeStr(famLib(fc));
-        const labelNorm = normalizeStr(famLabel(fc));
-        if (fcNorm === tokNorm || libNorm === tokNorm || labelNorm === tokNorm ||
-            (tokNorm.length >= 3 && (labelNorm.includes(tokNorm) || libNorm.includes(tokNorm)))) {
+        if (normalizeStr(fc) === tokNorm || normalizeStr(famLib(fc)) === tokNorm ||
+            normalizeStr(famLabel(fc)) === tokNorm ||
+            (tokNorm.length >= 3 && (normalizeStr(famLabel(fc)).includes(tokNorm) || normalizeStr(famLib(fc)).includes(tokNorm)))) {
           famCodes.add(fc);
-          found = true;
+          foundFam = true;
         }
       }
-      if (!found) unknowns.push(tok);
+      if (foundFam) continue;
+      // Passe 2 : marque/mot-clé dans libellé article (insensible casse)
+      if (tokNorm.length >= 3) {
+        let count = 0;
+        for (const [code, lib] of Object.entries(lookup)) {
+          if (count >= 200) break;
+          if (normalizeStr(lib).includes(tokNorm)) { artCodes.add(code); count++; }
+        }
+        if (count > 0) { brandMatches.push({ term: tok, count }); continue; }
+      }
+      unknowns.push(tok);
     }
   }
-  return { artCodes, famCodes, unknowns };
+  return { artCodes, famCodes, unknowns, brandMatches };
 }
 
 function _computeAnimKPIs(artCodes, famCodes) {
@@ -2328,13 +2339,14 @@ export function _animAnalyze() {
     if (counter) { counter.textContent = '⚠ Chargez d\'abord un fichier Consommé'; counter.className = 'text-[10px] c-danger mt-1'; }
     return;
   }
-  const { artCodes, famCodes, unknowns } = _parseAnimationInput(text);
+  const { artCodes, famCodes, unknowns, brandMatches } = _parseAnimationInput(text);
   _animResult = { artCodes, famCodes, unknowns, _acheteurs: null, _cibles: null };
   const counter = document.getElementById('animCounter');
   if (counter) {
     const parts = [];
-    if (artCodes.size) parts.push(`${artCodes.size} article${artCodes.size > 1 ? 's' : ''}`);
     if (famCodes.size) parts.push(`${famCodes.size} famille${famCodes.size > 1 ? 's' : ''}`);
+    if (brandMatches.length) brandMatches.forEach(m => parts.push(`${m.count} article${m.count > 1 ? 's' : ''} "${m.term}"${m.count >= 200 ? ' (limité à 200)' : ''}`));
+    else if (artCodes.size) parts.push(`${artCodes.size} article${artCodes.size > 1 ? 's' : ''}`);
     if (unknowns.length) parts.push(`${unknowns.length} inconnu${unknowns.length > 1 ? 's' : ''}`);
     counter.textContent = parts.join(' · ') || 'Aucune référence reconnue';
     counter.className = `text-[10px] mt-1 ${(!artCodes.size && !famCodes.size) ? 'c-danger' : 't-tertiary'}`;
