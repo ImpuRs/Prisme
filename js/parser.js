@@ -109,6 +109,7 @@ export function onChalandiseSelected(input) {
 
 // ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
 export async function parseLivraisons(file) {
+  console.log('[PRISME] parseLivraisons démarré:', file?.name, file?.size, 'bytes');
   _S.livraisonsData = new Map();
   _S.livraisonsReady = false;
   _S.livraisonsClientCount = 0;
@@ -122,26 +123,34 @@ export async function parseLivraisons(file) {
     } else {
       const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      console.log('[PRISME] parseLivraisons sheets:', wb.SheetNames);
       data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
     }
+    console.log('[PRISME] parseLivraisons headers:', Object.keys(data[0] || {}));
+    console.log('[PRISME] parseLivraisons rows:', data.length, '— row[0]:', data[0]);
 
     // Passe unique : livraisonsData + territoireLines
     const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const sample = data[0] || {};
-    const findCol = s => Object.keys(sample).find(k => _norm(k).includes(_norm(s)));
+    // exact-match en priorité, puis includes (évite faux positifs sur 'ca' / 'bl')
+    const findCol = s => {
+      const ns = _norm(s);
+      return Object.keys(sample).find(k => _norm(k) === ns)
+          || Object.keys(sample).find(k => _norm(k).includes(ns));
+    };
     const cCC      = findCol('code client');
     const cNomC    = findCol('nom client');
     const cSect    = findCol('secteur');
     const cDir     = findCol('direction');
-    const cBL      = findCol('numero de bl') || findCol('n° bl') || findCol('bl');
+    const cBL      = findCol('numero de bl') || findCol('n° bl') || findCol('numero bl');
     const cArt     = findCol('article');
     const cQty     = findCol('quantite livree') || findCol('qte livree') || findCol('quantite');
     const cCA      = findCol('ca');
     const cVMB     = findCol('vmb');
     const cDate    = findCol("date d'expedition") || findCol('date expedition') || findCol('expedition');
-    console.log('[PRISME] parseLivraisons colonnes détectées:', { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate });
-    console.log('[PRISME] parseLivraisons rows:', data.length);
+    console.log('[PRISME] parseLivraisons cols:', { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate });
     if (!cCC || !cBL || !cArt) {
+      console.warn('[PRISME] parseLivraisons: colonnes obligatoires manquantes', { cCC, cBL, cArt });
       showToast('❌ Livraisons : colonnes obligatoires introuvables (Code client / Numéro de BL / Article)', 'error');
       return;
     }
@@ -158,7 +167,8 @@ export async function parseLivraisons(file) {
       const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
       const qty = parseInt(row[cQty]) || 0;
       const rawDate = cDate ? row[cDate] : null;
-      const dateObj = rawDate instanceof Date ? rawDate : (rawDate ? parseExcelDate(rawDate) : null);
+      // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
+      const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
 
       // — livraisonsData —
       if (!_S.livraisonsData.has(cc)) {
