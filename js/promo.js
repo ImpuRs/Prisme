@@ -8,7 +8,7 @@
 'use strict';
 
 import { METIERS_STRATEGIQUES } from './constants.js';
-import { cleanCode, formatEuro, readExcel, escapeHtml, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
+import { cleanCode, formatEuro, readExcel, escapeHtml, formatLocalYMD, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { computeSPC, _clientPassesFilters } from './engine.js';
@@ -433,7 +433,7 @@ function exportTourneeCSV() {
       ville: info.ville||'',
       metier: info.metier||c.metier||'',
       commercial: info.commercial||c.commercial||'',
-      lastOrderStr: lastOrder ? lastOrder.toISOString().slice(0,10) : '—',
+      lastOrderStr: lastOrder ? formatLocalYMD(lastOrder) : '—',
       toPitch,
       ca: c.ca || c.famCA || 0
     };
