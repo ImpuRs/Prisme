@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -24,6 +24,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
   function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_S._selectedActivitesPDV.size){_S._selectedActivitesPDV=new Set(all);_S._selectedActivitesPDV.delete(a);}else if(_S._selectedActivitesPDV.has(a)){_S._selectedActivitesPDV.delete(a);if(!_S._selectedActivitesPDV.size)_S._selectedActivitesPDV=new Set();}else{_S._selectedActivitesPDV.add(a);if(_S._selectedActivitesPDV.size>=all.size)_S._selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
+  function _toggleOverviewUnivers(u,event){if(event)event.preventDefault();const all=new Set(_S._clientDominantUnivers.values());if(!_S._selectedUnivers.size){_S._selectedUnivers=new Set(all);_S._selectedUnivers.delete(u);}else if(_S._selectedUnivers.has(u)){_S._selectedUnivers.delete(u);if(!_S._selectedUnivers.size)_S._selectedUnivers=new Set();}else{_S._selectedUnivers.add(u);if(_S._selectedUnivers.size>=all.size)_S._selectedUnivers=new Set();}_buildChalandiseOverview();}
   function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-emerald-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
   function _getAllDepts(){const m={};for(const info of _S.chalandiseData.values()){const d=(info.cp||'').toString().slice(0,2);if(d&&d.trim())m[d]=(m[d]||0)+1;}return m;}
   function _buildDeptFilter(){
@@ -62,7 +63,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     _buildDeptFilter();_buildChalandiseOverview();
   }
-  function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
+  function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedUnivers=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
   function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrClassifPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
   function _toggleClassifDropdown(){const p=document.getElementById('terrClassifPanel');if(!p)return;const closing=!p.classList.contains('hidden');document.getElementById('terrDeptPanel')?.classList.add('hidden');document.getElementById('terrActPDVPanel')?.classList.add('hidden');p.classList.toggle('hidden',closing);}
@@ -121,6 +122,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(aEl)aEl.innerHTML=sortedActPDV.map(a=>{const sel=allA||_S._selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewActPDV('${aEsc}',event)" class="rounded"><span class="font-semibold">${a}</span></label>`;}).join('');
     const actLabelEl=document.getElementById('terrActPDVLabel');
     if(actLabelEl){if(allA)actLabelEl.textContent='Activité: toutes';else{const sel=[..._S._selectedActivitesPDV];actLabelEl.textContent=sel.length===1?'Activité: '+sel[0].split(' ')[0]:'Activité: '+sel.length+'/'+sortedActPDV.length;}}
+    // FIDÉLITÉ chips (inline, même état que terrOverviewActPDVChips)
+    const fEl=document.getElementById('terrFideliteChips');
+    if(fEl)fEl.innerHTML=sortedActPDV.length?sortedActPDV.map(a=>{const sel=allA||_S._selectedActivitesPDV.has(a);const aEsc=a.replace(/'/g,"\\'").replace(/"/g,'&quot;');const col=sel?'s-panel-inner t-inverse b-dark':'s-card t-primary b-default hover:s-card-alt';return`<button type="button" onclick="_toggleOverviewActPDV('${aEsc}',event)" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer ${col}">${a}</button>`;}).join(''):'<span class="text-[10px] t-disabled">— aucune donnée —</span>';
+    // UNIVERS chips
+    const availUnivers=new Set(_S._clientDominantUnivers.values());
+    const UNIVERS_ORDER=['Consommables','Bâtiment','Outillage','Plomberie','Génie climatique','Électricité','EPI','Maintenance et équipements','Agencement ameublement'];
+    const sortedUnivers=[...UNIVERS_ORDER.filter(u=>availUnivers.has(u)),...[...availUnivers].filter(u=>!UNIVERS_ORDER.includes(u)).sort()];
+    const allU=!_S._selectedUnivers.size;
+    const uEl=document.getElementById('terrUniversChips');
+    if(uEl)uEl.innerHTML=sortedUnivers.length?sortedUnivers.map(u=>{const sel=allU||_S._selectedUnivers.has(u);const uEsc=u.replace(/'/g,"\\'");const col=sel?'s-panel-inner t-inverse b-dark':'s-card t-primary b-default hover:s-card-alt';return`<button type="button" onclick="_toggleOverviewUnivers('${uEsc}',event)" class="text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer ${col}">${u}</button>`;}).join(''):'<span class="text-[10px] t-disabled">— aucune donnée —</span>';
     // Populate métier filter datalist (filtered by stratégique toggle)
     const metInput=document.getElementById('terrMetierFilter');
     const metList=document.getElementById('terrMetierList');
@@ -229,7 +240,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
     for(const[cc,info] of _S.chalandiseData.entries()){
       totalClients++;
-      if(!_clientPassesFilters(info))continue;
+      if(!_clientPassesFilters(info,cc))continue;
       // Exclude perdus >24m when toggle is OFF
       const is24plus=_isPerdu24plus(info);
       if(is24plus&&!_S._includePerdu24m){totalExcluded24m++;continue;}
@@ -309,7 +320,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _renderOverviewL2(el,direction){
     const metierMap={};
     for(const[cc,info] of _S.chalandiseData.entries()){
-      if(!_clientPassesFilters(info))continue;
+      if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
       if(dir!==direction)continue;
@@ -365,7 +376,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _renderOverviewL3(el,direction,metier){
     const sectMap={};
     for(const[cc,info] of _S.chalandiseData.entries()){
-      if(!_clientPassesFilters(info))continue;
+      if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
       if(dir!==direction)continue;
@@ -434,7 +445,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     limit=limit||20;
     const clients=[];
     for(const[cc,info] of _S.chalandiseData.entries()){
-      if(!_clientPassesFilters(info))continue;
+      if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
       if(dir!==direction)continue;
@@ -997,7 +1008,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const {activeFilters:{canal:_cockpitCanalFilter,commercial:_cockpitCom}}=DataStore.byContext(); // [V3.2]
     const _cockpitComSet=_cockpitCom?(_S.clientsByCommercial.get(_cockpitCom)||new Set()):null;
     for(const[cc,info] of _S.chalandiseData.entries()){
-      if(!_clientPassesFilters(info))continue;
+      if(!_clientPassesFilters(info,cc))continue;
       if(_qClient&&!matchQuery(_qClient,cc,info.nom||''))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
@@ -1610,6 +1621,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
+      // Univers dominant par client : somme CA par univers → univers avec le plus de CA
+      {const _univMap=new Map();for(const[cc,artMap] of _S.ventesClientArticle.entries()){const univCA={};for(const[code,v] of artMap.entries()){const u=_S.articleUnivers[code];if(u)univCA[u]=(univCA[u]||0)+(v.sumCA||0);}let maxU='',maxCA=0;for(const[u,ca] of Object.entries(univCA)){if(ca>maxCA){maxCA=ca;maxU=u;}}if(maxU)_univMap.set(cc,maxU);}_S._clientDominantUnivers=_univMap;}
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
       // Garde-fou canaux hors MAGASIN
@@ -5431,6 +5444,10 @@ window.exportExclusionsJSON     = exportExclusionsJSON;
 window._toggleOverviewL2        = _toggleOverviewL2;
 window._toggleOverviewL3        = _toggleOverviewL3;
 window._toggleOverviewL4        = _toggleOverviewL4;
+window._toggleOverviewClassif   = _toggleOverviewClassif;
+window._toggleOverviewActPDV    = _toggleOverviewActPDV;
+window._toggleOverviewUnivers   = _toggleOverviewUnivers;
+window._toggleDept              = _toggleDept;
 window.toggleTerrDir            = toggleTerrDir;
 window.toggleTerrDirStatus      = toggleTerrDirStatus;
 window.toggleTerrFam            = toggleTerrFam;

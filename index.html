@@ -792,12 +792,15 @@
             <!-- VUE CLIENTS unifiée -->
             <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Vue clients</p>
             <div class="flex flex-wrap gap-1">
-              <button onclick="window._setClientView('tous')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-panel-inner t-inverse b-dark" data-view="tous">Tous</button>
-              <button onclick="window._setClientView('potentiels')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:i-danger-bg" data-view="potentiels">🔴 Potentiels</button>
-              <button onclick="window._setClientView('captes')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:i-ok-bg" data-view="captes">🟢 Captés</button>
               <button onclick="window._setClientView('horszone')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-amber-600 hover:border-amber-500 hover:text-white" data-view="horszone">⚠️ Hors zone</button>
               <button onclick="window._setClientView('multicanaux')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-indigo-600 hover:border-indigo-500 hover:text-white" data-view="multicanaux">🌐 Multi-canaux</button>
             </div>
+            <!-- FIDÉLITÉ chips — peuplés dynamiquement par _buildOverviewFilterChips() -->
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-0.5">Fidélité PDV</p>
+            <div id="terrFideliteChips" class="flex flex-wrap gap-1"></div>
+            <!-- UNIVERS chips — peuplés dynamiquement par _buildOverviewFilterChips() -->
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-0.5">Univers</p>
+            <div id="terrUniversChips" class="flex flex-wrap gap-1"></div>
             <!-- Métier -->
             <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
             <!-- Commercial -->
