@@ -109,10 +109,10 @@ export function onChalandiseSelected(input) {
 
 // ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
 export async function parseLivraisons(file) {
-  console.log('[PRISME] parseLivraisons démarré:', file?.name, file?.size, 'bytes');
   _S.livraisonsData = new Map();
   _S.livraisonsReady = false;
   _S.livraisonsClientCount = 0;
+  _S._livraisonsDebug = { step: 'init', file: file?.name, size: file?.size };
   try {
     const isCSV = file.name.toLowerCase().endsWith('.csv');
     let data;
@@ -123,11 +123,14 @@ export async function parseLivraisons(file) {
     } else {
       const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-      console.log('[PRISME] parseLivraisons sheets:', wb.SheetNames);
+      _S._livraisonsDebug.sheets = wb.SheetNames;
       data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
     }
-    console.log('[PRISME] parseLivraisons headers:', Object.keys(data[0] || {}));
-    console.log('[PRISME] parseLivraisons rows:', data.length, '— row[0]:', data[0]);
+    const headersFound = Object.keys(data[0] || {});
+    _S._livraisonsDebug.step = 'parsed';
+    _S._livraisonsDebug.rowCount = data.length;
+    _S._livraisonsDebug.headersFound = headersFound;
+    _S._livraisonsDebug.row0 = data[0];
 
     // Passe unique : livraisonsData + territoireLines
     const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -148,10 +151,13 @@ export async function parseLivraisons(file) {
     const cCA      = findCol('ca');
     const cVMB     = findCol('vmb');
     const cDate    = findCol("date d'expedition") || findCol('date expedition') || findCol('expedition');
-    console.log('[PRISME] parseLivraisons cols:', { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate });
+    const colsFound = { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate };
+    _S._livraisonsDebug.step = 'cols';
+    _S._livraisonsDebug.colsFound = colsFound;
     if (!cCC || !cBL || !cArt) {
-      console.warn('[PRISME] parseLivraisons: colonnes obligatoires manquantes', { cCC, cBL, cArt });
-      showToast('❌ Livraisons : colonnes obligatoires introuvables (Code client / Numéro de BL / Article)', 'error');
+      _S._livraisonsDebug.step = 'guard_failed';
+      _S._livraisonsDebug.guardReason = `manquant: ${!cCC?'cCC ':''} ${!cBL?'cBL ':''} ${!cArt?'cArt':''}`.trim();
+      showToast(`❌ Livraisons : colonnes introuvables — inspectez _S._livraisonsDebug dans la console`, 'error');
       return;
     }
     const terrLines = [];
@@ -215,11 +221,20 @@ export async function parseLivraisons(file) {
     _S.territoireLines = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;
-    _S._terrCanalCache = new Map(); // invalidation cache territoire
+    _S._terrCanalCache = new Map();
+
+    _S._livraisonsDebug.step = 'done';
+    _S._livraisonsDebug.livraisonsSize = _S.livraisonsData.size;
+    _S._livraisonsDebug.terrLinesCount = terrLines.length;
+    _S._livraisonsDebug.skippedZero = data.length - _S.livraisonsData.size - terrLines.length; // indicatif
 
     // Secteurs — met à jour les checkboxes dans le filtre Terrain
     buildSecteurCheckboxes([...secteurSet].sort());
 
+    if (!_S.livraisonsReady) {
+      showToast(`⚠️ Livraisons : 0 client chargé sur ${data.length} lignes — inspectez _S._livraisonsDebug`, 'error');
+      return;
+    }
     showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients · ${terrLines.length} lignes terrain chargés`, 'success');
 
     window.computeReconquestCohort?.();
