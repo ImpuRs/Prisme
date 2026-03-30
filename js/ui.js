@@ -17,12 +17,12 @@ import { _nlInterpret, _nlRenderResults } from './nl.js';
 
 
 // ── Toast notifications ───────────────────────────────────────
-export function showToast(message, type = 'info') {
+export function showToast(message, type = 'info', _duration, {html = false} = {}) {
   const container = document.getElementById('toastContainer'); if (!container) return;
   const toast = document.createElement('div');
   const colors = { success: 'i-ok-bg border-emerald-500 c-ok', error: 'i-danger-bg border-red-500 c-danger', warning: 'i-caution-bg border-amber-500 c-caution', info: 'i-info-bg border-blue-500 c-action' };
   toast.className = `p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type] || colors.info}`;
-  toast.innerHTML = message;
+  if (html) toast.innerHTML = message; else toast.textContent = message;
   container.appendChild(toast);
   setTimeout(() => { toast.classList.replace('toast-enter', 'toast-leave'); setTimeout(() => toast.remove(), 300); }, 3500);
 }
