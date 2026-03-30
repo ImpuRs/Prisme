@@ -2730,7 +2730,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
-    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){_sv('terrSumFideles',_S.crossingStats.fideles.size.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_S.crossingStats.captes.size.toLocaleString('fr-FR'));}_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);}
+    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){
+      // Compter captes/fideles filtrés par les filtres chalandise actifs
+      let _fCaptes=0,_fFideles=0;
+      const _hasFilters=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille;
+      if(_hasFilters){
+        for(const cc of _S.crossingStats.captes){const info=_S.chalandiseData.get(cc);if(info&&_clientPassesFilters(info,cc))_fCaptes++;}
+        for(const cc of _S.crossingStats.fideles){const info=_S.chalandiseData.get(cc);if(!info||_clientPassesFilters(info,cc))_fFideles++;}
+      }else{_fCaptes=_S.crossingStats.captes.size;_fFideles=_S.crossingStats.fideles.size;}
+      _sv('terrSumFideles',_fFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_fCaptes.toLocaleString('fr-FR'));
+    }_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
