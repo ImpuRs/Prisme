@@ -1282,7 +1282,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     });
     _S._tabRendered&&(_S._tabRendered['territoire']=false);
     renderTerritoireTab();
-    setTimeout(()=>document.getElementById('terrTopPDV')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
   };
 
 
