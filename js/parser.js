@@ -548,25 +548,35 @@ export function computeBenchmark(canal = null) {
   const n = cs.length;
   // Vue canal-filtrée : ventesParMagasinByCanal agrégé par canaux sélectionnés, sinon ventesParMagasin
   const vpm = {};
-  if (!_canauxSet.size) { Object.assign(vpm, _S.ventesParMagasin); }
-  else {
-    const _m = (_canauxSet.size === 1 && _canauxSet.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : 'all';
-    for (const [store, canalMap] of Object.entries(_S.ventesParMagasinByCanal || {})) {
-      const f = {};
-      for (const selCanal of _canauxSet) {
-        const artMap = canalMap[selCanal] || {};
-        for (const [code, data] of Object.entries(artMap)) {
-          const _caSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumPrelevee || 0)
-            : (selCanal === 'MAGASIN' && _m === 'enleve') ? Math.max(0, (data.sumCA || 0) - (data.sumPrelevee || 0))
-            : (data.sumCA || 0);
-          if (!f[code]) f[code] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-          f[code].sumPrelevee += (data.sumPrelevee || 0);
-          f[code].sumCA += _caSrc;
-          f[code].countBL += (data.countBL || 0);
-          f[code].sumVMB += (data.sumVMB || 0);
+  // "Tous" (empty set) : agréger TOUS les canaux depuis ventesParMagasinByCanal
+  // (ventesParMagasin ne contient que MAGASIN, donc insuffisant pour "Tous canaux")
+  {
+    const _useAll = !_canauxSet.size;
+    const _m = (!_useAll && _canauxSet.size === 1 && _canauxSet.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : 'all';
+    const _byCanal = _S.ventesParMagasinByCanal || {};
+    const _hasMultiCanal = Object.values(_byCanal).some(cm => Object.keys(cm).length > 1);
+    if (_useAll && !_hasMultiCanal) {
+      // Fallback : pas de données multi-canal, utiliser ventesParMagasin
+      Object.assign(vpm, _S.ventesParMagasin);
+    } else {
+      for (const [store, canalMap] of Object.entries(_byCanal)) {
+        const f = {};
+        const canaux = _useAll ? Object.keys(canalMap) : [..._canauxSet];
+        for (const selCanal of canaux) {
+          const artMap = canalMap[selCanal] || {};
+          for (const [code, data] of Object.entries(artMap)) {
+            const _caSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumPrelevee || 0)
+              : (selCanal === 'MAGASIN' && _m === 'enleve') ? Math.max(0, (data.sumCA || 0) - (data.sumPrelevee || 0))
+              : (data.sumCA || 0);
+            if (!f[code]) f[code] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
+            f[code].sumPrelevee += (data.sumPrelevee || 0);
+            f[code].sumCA += _caSrc;
+            f[code].countBL += (data.countBL || 0);
+            f[code].sumVMB += (data.sumVMB || 0);
+          }
         }
+        if (Object.keys(f).length) vpm[store] = f;
       }
-      if (Object.keys(f).length) vpm[store] = f;
     }
   }
   let myV = vpm[_S.selectedMyStore] || {};
