@@ -2489,21 +2489,21 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const now=new Date();
       const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
 
-      // Reconquête
-      const _reconqFull=(_S.reconquestCohort||[]).filter(r=>{
-        if(!_passesAllFilters(r.cc))return false;
-        return true;
-      });
+      // ── Section 1 : À reconquérir (anciens fidèles silencieux) ──
+      const _reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
       const reconq=_reconqFull.slice(0,10);
-      const _reconqCard=r=>{
-        const silBadge=r.daysAgo&&r.daysAgo<999?`<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span>`:'';
-        const livBadge=r.source==='livraison'?`<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-900 text-amber-300 font-bold">📦 livré</span>`:'';
-        const livLine=r.source==='livraison'?`<span>CA livraison <strong class="t-primary">${formatEuro(r.caLivraison)}</strong></span><span>${r.nbBLLivraison} BL livrés</span>`:`<span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span>`;
-        return`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span>${silBadge}${livBadge}</div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span>${livLine}<span class="c-action">${r.commercial||'—'}</span></div></div>`;
-      };
-      const _reconqEmpty=!_S.chalandiseReady&&!_S.livraisonsReady?'Chargez la zone de chalandise ou le fichier Livraisons pour calculer la cohorte.':_S.chalandiseReady?'Aucun client éligible.':'Aucun client livraison silencieux (&gt;90j) détecté.';
-      const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} clients</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients silencieux au comptoir : anciens FID (silence &gt;6 mois, CA≥500€) + clients livrés sans passage PDV depuis &gt;90j.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}</div></div></div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_reconqEmpty}</div>`;
-      _setEl('terrReconquete',reconqHtml);
+      const _reconqCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`;
+      const reconqHtml=reconq.length
+        ?`<div class="mb-3 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} anciens fidèles</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dans crossingStats.fideles avec silence PDV &gt;60j et CA&gt;0 dans le consommé.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}</div></div></div>`
+        :`<div class="mb-3 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>À reconquérir</strong> : ${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`;
+
+      // ── Section 2 : Livrés sans PDV ──
+      const _livSansPDV=(_S.livraisonsSansPDV||[]).slice(0,10);
+      const _livCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-900 text-amber-300 font-bold">📦 livré</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA livraison <strong class="t-primary">${formatEuro(r.caLivraison)}</strong></span><span>${r.nbBL} BL</span><span class="c-action">${r.commercial||'—'}</span></div></div>`;
+      const livSansPDVHtml=_livSansPDV.length
+        ?`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">${_S.livraisonsSansPDV.length} clients</span></h3></div><div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dans le fichier Livraisons qui n'ont jamais acheté au comptoir. Triés par CA livraison.</p><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${_livSansPDV.map(_livCard).join('')}</div></div></div>`
+        :(_S.livraisonsReady?`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">📦 <strong>Livrés sans PDV</strong> : Tous les clients livrés ont déjà acheté au comptoir.</div>`:'');
+      _setEl('terrReconquete', reconqHtml + livSansPDVHtml);
 
       // Opportunités nettes
       const opps=(_S.opportuniteNette||[]).slice(0,8);
@@ -4515,13 +4515,20 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.cc}','clients')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c.reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
 
-    // ── S2: Reconquête (top 10) ──────────────────────────────────────
+    // ── S2a: Reconquête — anciens fidèles silencieux ──────────────────
     const reconq=(_S.reconquestCohort||[]).slice(0,10);
-    const reconqHtml=reconq.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
-      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_S.reconquestCohort.length} anciens clients FID</span></h3></div>
-      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients avec historique PDV significatif (CA≥500€, ≥1 famille), silencieux depuis plus de 6 mois.</p>
+    const reconqHtml=reconq.length?`<div class="mb-3 s-card rounded-xl border overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_S.reconquestCohort.length} anciens fidèles</span></h3></div>
+      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Anciens clients FID silencieux depuis &gt;60j avec CA&gt;0 dans le consommé.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div>
-    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>Reconquête</strong> : ${_S.chalandiseReady?'Aucun client éligible.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
+    </div>`:`<div class="mb-3 p-4 s-card rounded-xl border text-[12px] t-secondary">🔄 <strong>À reconquérir</strong> : ${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`;
+    // ── S2b: Livrés sans PDV ─────────────────────────────────────────
+    const _livSPDV=(_S.livraisonsSansPDV||[]).slice(0,10);
+    const livSPDVHtml=_livSPDV.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">${_S.livraisonsSansPDV.length} clients</span></h3></div>
+      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients livrés n'ayant jamais acheté au comptoir. Triés par CA livraison.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${_livSPDV.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" onclick="openClient360('${r.cc}','clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${r.nom}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-900 text-amber-300 font-bold">📦 livré</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${r.metier||'—'}</span><span>CA livraison <strong class="t-primary">${formatEuro(r.caLivraison)}</strong></span><span>${r.nbBL} BL</span><span class="c-action">${r.commercial||'—'}</span></div></div>`).join('')}</div></div>
+    </div>`:(_S.livraisonsReady?`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">📦 <strong>Livrés sans PDV</strong> : Tous les clients livrés ont déjà acheté au comptoir.</div>`:'');
 
     // ── S3: Opportunités nettes (top 8) ──────────────────────────────
     const opps=(_S.opportuniteNette||[]).slice(0,8);
@@ -4765,7 +4772,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _setEl('clientsTopPDV',topPDVHtml);
     _setEl('clientsHorsZone',horsZoneHtml);
     _setEl('clientsDigitaux',digitauxHtml);
-    _setEl('clientsReconquete',reconqHtml);
+    _setEl('clientsReconquete', reconqHtml + livSPDVHtml);
     _setEl('clientsOpportunites',oppsHtml);
   }
 
