@@ -789,14 +789,17 @@
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
             <hr class="b-default my-0.5">
-            <!-- VUE CLIENTS unifiée -->
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Vue clients</p>
+
+            <!-- BLOC 1 : CLIENTS PDV -->
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Clients PDV</p>
             <div class="flex flex-wrap gap-1">
               <button onclick="window._setClientView('horszone')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-amber-600 hover:border-amber-500 hover:text-white" data-view="horszone">⚠️ Hors zone</button>
               <button onclick="window._setClientView('multicanaux')" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-indigo-600 hover:border-indigo-500 hover:text-white" data-view="multicanaux">🌐 Multi-canaux</button>
             </div>
-            <!-- FIDÉLITÉ — 3 groupes <select> -->
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-0.5">Fidélité</p>
+
+            <!-- BLOC 2 : ACTIVITÉ -->
+            <hr class="b-default my-0">
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Activité</p>
             <select id="terrActPDVSelect" onchange="window._onActPDVSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
               <option value="">Activité PDV Zone: toutes</option>
             </select>
@@ -806,7 +809,20 @@
             <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
               <option value="">Statut actuel: tous</option>
             </select>
-            <!-- DIRECTION dropdown -->
+            <div id="terrClassifDropdownWrap">
+              <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
+              </button>
+              <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
+                <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+              </div>
+            </div>
+
+            <!-- BLOC 3 : ORGANISATION -->
+            <hr class="b-default my-0">
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Organisation</p>
+            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
+            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
             <div id="terrDirectionDropdownWrap">
               <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
                 <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
@@ -815,41 +831,29 @@
                 <div id="terrDirectionChips" class="space-y-0.5"></div>
               </div>
             </div>
-            <!-- UNIVERS <select> -->
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-0.5">Univers</p>
             <select id="terrUniversSelect" onchange="window._onUniversSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
               <option value="">Univers: tous</option>
             </select>
-            <!-- Métier -->
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
-            <!-- Commercial -->
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
-            <!-- Stratégique -->
             <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-            <!-- Advanced filters -->
-            <div id="terrAdvancedFilters" class="flex flex-col gap-1">
-              <div id="terrDeptDropdownWrap">
-                <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                  <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
-                </button>
-                <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
-                  <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
-                </div>
+
+            <!-- BLOC 4 : GÉOGRAPHIE -->
+            <hr class="b-default my-0">
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Géographie</p>
+            <div id="terrDeptDropdownWrap">
+              <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
+              </button>
+              <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
+                <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
               </div>
-              <div id="terrClassifDropdownWrap">
-                <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                  <span id="terrClassifLabel">Classif: toutes</span><span class="t-disabled text-[9px]">▼</span>
-                </button>
-                <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
-                  <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
-                </div>
-              </div>
-              <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
-                <span class="t-secondary font-semibold">Inclure perdus &gt;24m</span>
-              </label>
             </div>
+            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
+              <span class="t-secondary font-semibold">Inclure perdus &gt;24m</span>
+            </label>
+
             <!-- Reset -->
+            <hr class="b-default my-0">
             <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
         </div>
