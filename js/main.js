@@ -1466,6 +1466,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
+    _restoreExclusions();
     resetPromo();
     showLoading('Lecture…','');await yieldToMain();
     let dataC,dataS;
@@ -5122,7 +5123,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       buildPeriodFilter();
       computeClientCrossing();
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
-      if (_S.chalandiseReady && _S.clientLastOrder.size) { computeReconquestCohort(); computeOmniScores(); computeFamillesHors(); }
+      if (_S.clientLastOrder.size) computeReconquestCohort();
+      if (_S.chalandiseReady && _S.clientLastOrder.size) { computeOmniScores(); computeFamillesHors(); }
       // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
       if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
       // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
@@ -5151,7 +5153,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // Positionner le filtre période sur le mois courant des données sans raw rows
       // (ne pas passer par applyPeriodFilter/_applyPeriodeMoisCourant qui nécessite
       // _S._rawDataC pour relancer processDataFromRaw — indisponible après restore IDB)
-      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);_S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}}
+      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD&&!_S.periodFilterStart&&!_S.periodFilterEnd){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}_S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
