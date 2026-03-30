@@ -1702,16 +1702,24 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
           _S.canalAgence[canal].caP+=caP;_S.canalAgence[canal].caE+=caE;_S.canalAgence[canal].ca+=caP+caE;
         }
       }
-      // [isRefilter] Patch obsKpis.mine directement depuis ventesParMagasin période-filtré
-      // ventesParMagasin est déjà reconstruit à ce stade — évite la dépendance au bloc useMulti
-      if(isRefilter&&_S.benchLists&&_S.selectedMyStore){
-        const _myVR=_S.ventesParMagasin[_S.selectedMyStore]||{};
-        let _rCA=0,_rRef=0,_rFreq=0,_rVMB=0;
-        for(const d of Object.values(_myVR)){_rCA+=d.sumCA||0;_rFreq+=d.countBL||0;_rVMB+=d.sumVMB||0;if((d.sumPrelevee||0)+(d.sumEnleve||0)>0)_rRef++;}
-        let _rBassinCA=_rCA;
-        for(const[s,sv] of Object.entries(_S.ventesParMagasin)){if(s===_S.selectedMyStore)continue;for(const d of Object.values(sv))_rBassinCA+=d.sumCA||0;}
-        const _rPdm=_rBassinCA>0?Math.round(_rCA/_rBassinCA*1000)/10:0;
-        const _rTxMarge=_rCA>0?Math.round(_rVMB/_rCA*1000)/10:null;
+      // [isRefilter] Patch obsKpis.mine depuis canalAgence + ventesClientArticle (période-filtrés)
+      // Source : canalAgence (recalculé ci-dessus), pas ventesParMagasin (clé agence incertaine)
+      if(isRefilter&&_S.benchLists){
+        // ca = somme CA tous canaux
+        const _rCA=Object.values(_S.canalAgence).reduce((s,v)=>s+(v.ca||0),0);
+        // freq = somme BL distincts tous canaux
+        const _rFreq=Object.values(_S.canalAgence).reduce((s,v)=>s+(v.bl||0),0);
+        // ref = nb codes articles distincts ayant été prélevés (ventesClientArticle = MAGASIN période-filtré)
+        const _rCodes=new Set();
+        for(const artMap of _S.ventesClientArticle.values()){for(const[code,d] of artMap.entries()){if((d.sumPrelevee||0)>0)_rCodes.add(code);}}
+        const _rRef=_rCodes.size;
+        // pdm = CA agence / CA bassin total (ventesParMagasin somme toutes agences, fallback = 0)
+        let _rBassinCA=0;
+        for(const sv of Object.values(_S.ventesParMagasin)){for(const d of Object.values(sv))_rBassinCA+=d.sumCA||0;}
+        const _rPdm=_rBassinCA>0?Math.round(_rCA/_rBassinCA*1000)/10:(_S.benchLists.obsKpis?.mine?.pdm??0);
+        // txMarge : VMB/CA depuis ventesParMagasin si disponible, sinon conserver valeur existante
+        let _rTxMarge=_S.benchLists.obsKpis?.mine?.txMarge??null;
+        if(_S.selectedMyStore){const _vR=Object.values(_S.ventesParMagasin[_S.selectedMyStore]||{});if(_vR.length){const _vCA=_vR.reduce((s,d)=>s+(d.sumCA||0),0);const _vVMB=_vR.reduce((s,d)=>s+(d.sumVMB||0),0);if(_vCA>0)_rTxMarge=Math.round(_vVMB/_vCA*1000)/10;}}
         if(!_S.benchLists.obsKpis)_S.benchLists.obsKpis={mine:{},compared:{}};
         Object.assign(_S.benchLists.obsKpis.mine,{ca:_rCA,ref:_rRef,freq:_rFreq,pdm:_rPdm,txMarge:_rTxMarge});
         _S._benchCache=null;
