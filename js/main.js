@@ -156,8 +156,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(dirEl)dirEl.innerHTML=sortedDirections.map(d=>{const sel=allDir||_S._selectedDirections.has(d);const dEsc=d.replace(/'/g,"\\'");return`<label class="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded cursor-pointer hover:s-card-alt"><input type="checkbox" ${sel?'checked':''} onchange="_toggleOverviewDirection('${dEsc}',event)" class="rounded"><span class="font-semibold">${d}</span></label>`;}).join('');
     const dirLabelEl=document.getElementById('terrDirectionLabel');
     if(dirLabelEl){if(allDir)dirLabelEl.textContent='Direction: toutes';else{const sel=[..._S._selectedDirections];dirLabelEl.textContent=sel.length===1?'Direction: '+sel[0]:('Direction: '+sel.length+'/'+sortedDirections.length);}}
-    // Univers <select>
-    const availUnivers=new Set(_S._clientDominantUnivers.values());
+    // Univers <select> — source prioritaire : _clientDominantUnivers (valeurs calculées) ;
+    // fallback : articleUnivers (disponible dès le chargement du consommé)
+    const availUnivers=_S._clientDominantUnivers.size>0
+      ?new Set(_S._clientDominantUnivers.values())
+      :new Set(Object.values(_S.articleUnivers).filter(Boolean));
     const UNIVERS_ORDER=['Consommables','Bâtiment','Outillage','Plomberie','Génie climatique','Électricité','EPI','Maintenance et équipements','Agencement ameublement'];
     const sortedUnivers=[...UNIVERS_ORDER.filter(u=>availUnivers.has(u)),...[...availUnivers].filter(u=>!UNIVERS_ORDER.includes(u)).sort()];
     const curUnivers=[..._S._selectedUnivers][0]||'';
@@ -1523,6 +1526,19 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
   }
 
+  // Univers dominant par client — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
+  function _computeClientDominantUnivers(){
+    const m=new Map();
+    for(const[cc,artMap] of _S.ventesClientArticle.entries()){
+      const univCA={};
+      for(const[code,v] of artMap.entries()){const u=_S.articleUnivers[code];if(u)univCA[u]=(univCA[u]||0)+(v.sumCA||0);}
+      let maxU='',maxCA=0;
+      for(const[u,ca] of Object.entries(univCA)){if(ca>maxCA){maxCA=ca;maxU=u;}}
+      if(maxU)m.set(cc,maxU);
+    }
+    _S._clientDominantUnivers=m;
+  }
+
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
     const{isRefilter=false}=opts;
@@ -1648,7 +1664,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // Univers dominant par client : somme CA par univers → univers avec le plus de CA
-      {const _univMap=new Map();for(const[cc,artMap] of _S.ventesClientArticle.entries()){const univCA={};for(const[code,v] of artMap.entries()){const u=_S.articleUnivers[code];if(u)univCA[u]=(univCA[u]||0)+(v.sumCA||0);}let maxU='',maxCA=0;for(const[u,ca] of Object.entries(univCA)){if(ca>maxCA){maxCA=ca;maxU=u;}}if(maxU)_univMap.set(cc,maxU);}_S._clientDominantUnivers=_univMap;}
+      _computeClientDominantUnivers();
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
       _S.blConsommeSet=new Set(Object.keys(_S.blData));
       // Garde-fou canaux hors MAGASIN
@@ -5090,6 +5106,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       computeClientCrossing();
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.chalandiseReady && _S.clientLastOrder.size) { computeReconquestCohort(); computeOmniScores(); computeFamillesHors(); }
+      // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
+      if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
       // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
       const _comInput = document.getElementById('terrCommercialFilter');
       if (_comInput && _S._selectedCommercial) _comInput.value = _S._selectedCommercial;
