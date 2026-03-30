@@ -813,6 +813,15 @@
                 <div id="terrStatutChips" class="space-y-0.5"></div>
               </div>
             </div>
+            <!-- DIRECTION dropdown -->
+            <div id="terrDirectionDropdownWrap">
+              <button type="button" onclick="_toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
+              </button>
+              <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
+                <div id="terrDirectionChips" class="space-y-0.5"></div>
+              </div>
+            </div>
             <!-- UNIVERS chips — peuplés dynamiquement par _buildOverviewFilterChips() -->
             <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mt-0.5">Univers</p>
             <div id="terrUniversChips" class="flex flex-wrap gap-1"></div>
