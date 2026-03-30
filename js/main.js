@@ -342,6 +342,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     _buildCockpitClient();
     // [Feature B] Vue par commercial
     _renderCommercialSummary();
+    // Mettre à jour la vue Canal avec les filtres actifs
+    renderCanalAgence();
   }
   // Level 2: Métiers for a Direction
   function _toggleOverviewL2(dirEnc,idx){
@@ -1854,7 +1856,26 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _activeCanal=_S._globalCanal||'';
     // La répartition n'a de sens qu'en vue tous canaux — masquer quand filtre actif
     if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
-    const entries=CANAL_ORDER.map(c=>[c,_S.canalAgence[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
+    // Filtrage client-aware : recalculer CA local si des filtres Commerce sont actifs
+    const _filterActive=_S.chalandiseReady&&(_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille);
+    let _canalData=_S.canalAgence;
+    const _subtitleEl=document.getElementById('canalAgenceSubtitle');
+    if(_filterActive){
+      const _local={};let _nbF=0;
+      for(const[cc,info] of _S.chalandiseData.entries()){
+        if(!_clientPassesFilters(info,cc))continue;
+        _nbF++;
+        const _mag=_S.ventesClientArticle.get(cc);
+        if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}
+        const _hors=_S.ventesClientHorsMagasin.get(cc);
+        if(_hors){for(const d of _hors.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caE+=_ca;}}
+      }
+      _canalData=_local;
+      if(_subtitleEl)_subtitleEl.textContent=`Filtré sur ${_nbF.toLocaleString('fr-FR')} client${_nbF>1?'s':''}`;
+    }else{
+      if(_subtitleEl)_subtitleEl.textContent='CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé';
+    }
+    const entries=CANAL_ORDER.map(c=>[c,_canalData[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
     const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
