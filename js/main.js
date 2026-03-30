@@ -795,9 +795,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Articles réseau manquants
     const manquants=_S.benchLists.missed||[];
     const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
-    // Clients silencieux >30j
+    // Clients silencieux >30j mais dans le périmètre du consommé (pas les anciens hors-fichier)
     const now=new Date();const silencieuxList=[];
+    const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+      if(_minConsomme&&lastDate<_minConsomme)continue;
       if(daysBetween(lastDate,now)>30){
         const artData=DataStore.ventesClientArticle.get(cc);
         const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
@@ -1015,7 +1017,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Silencieux >30j — MAGASIN uniquement (clientLastOrder est MAGASIN-based)
     const silencieux=[];
     if(!_isNonMagasin){
+      const _minC2=_S.consommePeriodMinFull||_S.consommePeriodMin;
       for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+        if(_minC2&&lastDate<_minC2)continue;
         const d=daysBetween(lastDate,_today);if(d<=30)continue;
         const artMap=_clientArtMap.get(cc);if(!artMap)continue;
         let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
@@ -1074,7 +1078,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const actPDV=(info.activitePDV||'').toLowerCase();
       const pdvInactif=actPDV.includes('inactif');
       const lastOrder=_S.clientLastOrder.get(cc)||null;
-      const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
+      const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
+      const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
+      const daysSinceLastOrder=_lastOrderValid?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
       const clientArtData=DataStore.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
       const _contratCadre=false;
