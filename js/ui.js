@@ -294,8 +294,11 @@ export function updatePeriodAlert() {
   }
   const stockBanner = document.getElementById('stockMonoBanner');
   if (stockBanner) {
-    if (_S.storeCountConsomme > 1 && _S.storeCountStock <= 1) {
+    if (_S.storeCountConsomme > 1 && _S._hasStock && _S.storeCountStock <= 1) {
       stockBanner.textContent = '⚠️ Fichier Stock mono-agence détecté — chargez un export Stock multi-agences pour activer le Réseau et le benchmark.';
+      stockBanner.classList.add('active');
+    } else if (_S.storeCountConsomme > 1 && !_S._hasStock) {
+      stockBanner.textContent = '📊 Consommé multi-agences chargé — ajoutez le Stock pour activer Vue 360 et les analyses articles.';
       stockBanner.classList.add('active');
     } else {
       stockBanner.classList.remove('active');
