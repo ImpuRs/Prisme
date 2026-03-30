@@ -865,35 +865,45 @@ export function computeReconquestCohort() {
   }
 }
 
-// ── C1: Opportunité nette — articles achetés hors-AG22 qui sont en rayon ──
+// ── C1: Opportunité nette — articles achetés ailleurs par des clients AG22 ──
+// Définition : client présent dans ventesClientArticle (il achète chez nous),
+// mais qui achète via d'autres canaux/agences (ventesClientHorsMagasin) des articles
+// qu'on a en rayon (rayonSet) ET qu'il ne nous achète PAS déjà.
 export function computeOpportuniteNette() {
-  if (!_S.ventesClientHorsMagasin?.size || !_S.finalData?.length) {
+  if (!_S.ventesClientArticle?.size || !_S.finalData?.length) {
     _S.opportuniteNette = [];
     return;
   }
   const rayonSet = new Set(_S.finalData.map(r => r.code));
   const results = [];
-  for (const [cc, artMap] of _S.ventesClientHorsMagasin.entries()) {
-    const articles = [];
+  for (const [cc, myArts] of _S.ventesClientArticle.entries()) {
+    const hors = _S.ventesClientHorsMagasin?.get(cc);
+    if (!hors?.size) continue;
+    const mesArticles = new Set(myArts.keys());
+    const articlesManquants = [];
+    const canalBreakdown = {};
     let totalPotentiel = 0;
-    for (const [code, d] of artMap.entries()) {
-      if (!rayonSet.has(code)) continue;
+    for (const [code, d] of hors.entries()) {
+      if (!rayonSet.has(code) || mesArticles.has(code)) continue;
       const ca = d.sumCA || 0;
       if (ca <= 0) continue;
-      articles.push({ code, ca, canal: d.canal || '' });
+      articlesManquants.push({ code, ca, canal: d.canal || '' });
       totalPotentiel += ca;
+      const c = d.canal || 'AUTRE';
+      canalBreakdown[c] = (canalBreakdown[c] || 0) + ca;
     }
-    if (totalPotentiel <= 0) continue;
-    articles.sort((a, b) => b.ca - a.ca);
+    if (!articlesManquants.length) continue;
+    articlesManquants.sort((a, b) => b.ca - a.ca);
     const info = _S.chalandiseData?.get(cc) || {};
     results.push({
       cc,
       nom: info.nom || _S.clientNomLookup?.[cc] || cc,
       metier: info.metier || '',
       commercial: info.commercial || '',
-      missingFams: [],
+      articlesManquants,
       totalPotentiel,
-      articles
+      canalBreakdown,
+      missingFams: []
     });
   }
   results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
