@@ -19,7 +19,7 @@ const EXCL_KEY       = 'PRISME_EXCLUSIONS';
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.4';
+const CACHE_VERSION  = 'v3.5';
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -294,6 +294,10 @@ export async function _saveSessionToIDB() {
       // ── Opportunité nette & reconquête (C1) ──
       opportuniteNette:      _S.opportuniteNette,
       reconquestCohort:      _S.reconquestCohort,
+      // ── Livraisons (5ème fichier) ──
+      livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
+      livraisonsReady:       _S.livraisonsReady || false,
+      livraisonsClientCount: _S.livraisonsClientCount || 0,
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -402,6 +406,11 @@ export async function _restoreSessionFromIDB() {
     // ── Opportunité nette & reconquête (C1) ──
     _S.opportuniteNette  = data.opportuniteNette  || [];
     _S.reconquestCohort  = data.reconquestCohort  || [];
+
+    // ── Livraisons (5ème fichier) ──
+    _S.livraisonsData = new Map((data.livraisonsData||[]).map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:new Set(v.bl),articles:new Map(v.articles),lastDate:v.lastDate?new Date(v.lastDate):null}]));
+    _S.livraisonsReady = data.livraisonsReady || false;
+    _S.livraisonsClientCount = data.livraisonsClientCount || 0;
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');

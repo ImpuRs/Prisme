@@ -837,6 +837,35 @@ export function computeReconquestCohort() {
     const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
     cohort.push({ cc, nom: info.nom || cc, metier: info.metier || '', commercial: info.commercial || '', totalCA, nbFamilles, daysAgo, score });
   }
+  // ── Livraisons : clients livrés mais silencieux au comptoir ──
+  if (_S.livraisonsReady && _S.livraisonsData?.size) {
+    const seenCc = new Set(cohort.map(r => r.cc));
+    for (const [cc, livData] of _S.livraisonsData) {
+      if (seenCc.has(cc)) continue; // déjà dans la cohorte chalandise
+      if (livData.ca <= 0) continue;
+      const lastPDV = _S.clientLastOrder.get(cc);
+      const silencePDV = lastPDV ? Math.floor((now - lastPDV) / 86400000) : 999;
+      if (silencePDV <= 90) continue; // encore actif au comptoir
+      const artMap = _S.ventesClientArticle.get(cc);
+      const caPDV = artMap ? [...artMap.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
+      const nom = _S.chalandiseData.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc;
+      const metier = _S.chalandiseData.get(cc)?.metier || '';
+      const commercial = _S.chalandiseData.get(cc)?.commercial || '';
+      const daysAgo = silencePDV < 999 ? silencePDV : null;
+      cohort.push({
+        cc, nom, metier, commercial,
+        totalCA: caPDV,
+        nbFamilles: 0,
+        daysAgo: daysAgo ?? 999,
+        score: Math.round(livData.ca * (silencePDV / 90)),
+        source: 'livraison',
+        caLivraison: livData.ca,
+        nbBLLivraison: livData.bl.size,
+        lastLivraison: livData.lastDate,
+      });
+    }
+  }
+
   cohort.sort((a, b) => b.score - a.score);
   _S.reconquestCohort = cohort;
 }
