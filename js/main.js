@@ -5196,9 +5196,27 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       switchTab('action');
       collapseImportZone();
       // Positionner le filtre période sur le mois courant des données sans re-traitement
-      // (les agrégats en cache correspondent déjà à la période sauvegardée ;
-      // _S._rawDataC est désormais disponible pour un éventuel changement de période ultérieur)
-      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD&&!_S.periodFilterStart&&!_S.periodFilterEnd){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}_S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}
+      // _S._rawDataC est désormais disponible pour recalcul canalAgence sur la bonne période
+      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD&&!_S.periodFilterStart&&!_S.periodFilterEnd){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}
+      // ── Recalcul canalAgence filtré sur la période restaurée (même logique que isRefilter L1690) ──
+      if(_S._rawDataC&&_S._rawDataC.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
+        _resetColCache();
+        _S.canalAgence={};const _tmpBLca={};
+        for(const row of _S._rawDataC){
+          const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();if(!canal)continue;
+          const sk=extractStoreCode(row)||'INCONNU';if(_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore)continue;
+          const dateV=parseExcelDate(getVal(row,'Jour','Date'));
+          if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
+          if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
+          const nc=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();
+          const caP=getCaColumn(row,'prél')||0;const caE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);
+          if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:0,ca:0,caP:0,caE:0};
+          if(nc){if(!_tmpBLca[canal])_tmpBLca[canal]=new Set();if(!_tmpBLca[canal].has(nc)){_tmpBLca[canal].add(nc);_S.canalAgence[canal].bl++;}}
+          _S.canalAgence[canal].caP+=caP;_S.canalAgence[canal].caE+=caE;_S.canalAgence[canal].ca+=caP+caE;
+        }
+        console.log('[PRISME] canalAgence recalculé post-IDB restore pour période',_S.periodFilterStart?.toLocaleDateString('fr'),'-',_S.periodFilterEnd?.toLocaleDateString('fr'),JSON.stringify(_S.canalAgence));
+      }
+      _S._tabRendered={};_S._terrCanalCache=new Map();buildPeriodFilter();renderCanalAgence();renderCurrentTab();renderIRABanner();renderDecisionQueue();}
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
