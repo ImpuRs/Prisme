@@ -845,7 +845,7 @@ export function computeReconquestCohort() {
       if (livData.ca <= 0) continue;
       const lastPDV = _S.clientLastOrder.get(cc);
       const silencePDV = lastPDV ? Math.floor((now - lastPDV) / 86400000) : 999;
-      if (silencePDV <= 90) continue; // encore actif au comptoir
+      if (silencePDV <= 60) continue; // encore actif au comptoir
       const artMap = _S.ventesClientArticle.get(cc);
       const caPDV = artMap ? [...artMap.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
       const nom = _S.chalandiseData.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc;
@@ -857,7 +857,7 @@ export function computeReconquestCohort() {
         totalCA: caPDV,
         nbFamilles: 0,
         daysAgo: daysAgo ?? 999,
-        score: Math.round(livData.ca * (silencePDV / 90)),
+        score: Math.round(livData.ca * (silencePDV / 60)),
         source: 'livraison',
         caLivraison: livData.ca,
         nbBLLivraison: livData.bl.size,
