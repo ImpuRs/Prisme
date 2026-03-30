@@ -868,7 +868,7 @@ export function computeReconquestCohort() {
       if (daysAgo < 60) continue;
       const artMap = _S.ventesClientArticle.get(cc);
       if (!artMap || artMap.size === 0) continue;
-      const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0);
+      const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCAAll || d.sumCA || 0), 0);
       if (totalCA <= 0) continue;
       const info = _S.chalandiseData.get(cc);
       const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
