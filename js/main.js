@@ -19,7 +19,7 @@ import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onRelo
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès depuis nl.js et console DevTools
-import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
+import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults, renderAnimationTab, _animAnalyze, _animClear, _animInputChange, _animSetCanal, _animApplyFilters, _animResetFilters, _animExportA, _animExportC } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume } from './diagnostic.js';
 
   function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
@@ -5015,7 +5015,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       case 'clients':
         renderMesClients();
         break;
-      // 'promo' needs no render call
+      case 'promo':
+        renderAnimationTab();
+        break;
     }
     _S._tabRendered[id]=true;
   }
@@ -5488,6 +5490,15 @@ window._sidebarAgenceTout = function() {
   renderSidebarAgenceSelector();
   processData();
 };
+// Animation tab — fonctions HTML onclick
+window._animAnalyze = _animAnalyze;
+window._animClear = _animClear;
+window._animInputChange = _animInputChange;
+window._animSetCanal = _animSetCanal;
+window._animApplyFilters = _animApplyFilters;
+window._animResetFilters = _animResetFilters;
+window._animExportA = _animExportA;
+window._animExportC = _animExportC;
 // Promo / Obs / Bench — fonctions HTML onclick non encore exposées
 window._clearPromoImport = _clearPromoImport;
 window._closePromoSuggest = _closePromoSuggest;

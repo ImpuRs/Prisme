@@ -895,22 +895,28 @@
           </div>
         </div>
 
-        <!-- GROUP Promo -->
+        <!-- GROUP Promo / Animation -->
         <div id="filterGroupPromo" class="hidden">
-          <p class="text-[10px] font-bold c-caution uppercase tracking-wide mb-2">Affiner les résultats</p>
+          <p class="text-[10px] font-bold c-caution uppercase tracking-wide mb-2">Animation — Filtres</p>
           <div class="flex flex-col gap-1.5">
-            <select id="promoFilterFamille" onchange="_onPromoFamilleChange()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes les familles</option></select>
-            <select id="promoFilterSousFamille" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes sous-familles</option></select>
-            <select id="promoFilterMetier" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les métiers</option></select>
-            <select id="promoFilterCommercial" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous les commerciaux</option></select>
-            <select id="promoFilterClassif" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Toutes classifications</option></select>
-            <select id="promoFilterDept" onchange="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full"><option value="">Tous départements</option></select>
-            <input id="promoFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_applyPromoFilters()" class="py-1 px-2 border rounded-lg text-xs w-full">
-            <label class="flex items-center gap-2 text-xs cursor-pointer py-0.5">
-              <input type="checkbox" id="promoFilterStrat" onchange="_applyPromoFilters()" class="accent-orange-500">
-              ⭐ Stratégiques uniquement
-            </label>
-            <button onclick="_resetPromoFilters()" class="text-[10px] t-disabled hover:t-secondary text-left mt-1">↺ Réinitialiser les filtres</button>
+            <div>
+              <p class="text-[10px] font-semibold t-tertiary mb-1">Canal</p>
+              <div class="flex flex-wrap gap-1">
+                <button class="terr-canal-chip active" data-anim-canal="" style="--chip-color:#6366f1" onclick="_animSetCanal('')">Tous</button>
+                <button class="terr-canal-chip" data-anim-canal="MAGASIN" style="--chip-color:#7c3aed" onclick="_animSetCanal('MAGASIN')">🏪 Mag.</button>
+                <button class="terr-canal-chip" data-anim-canal="INTERNET" style="--chip-color:#0891b2" onclick="_animSetCanal('INTERNET')">🌐 Web</button>
+                <button class="terr-canal-chip" data-anim-canal="REPRESENTANT" style="--chip-color:#059669" onclick="_animSetCanal('REPRESENTANT')">👔 Rep.</button>
+                <button class="terr-canal-chip" data-anim-canal="DCS" style="--chip-color:#d97706" onclick="_animSetCanal('DCS')">📦 DCS</button>
+              </div>
+            </div>
+            <hr class="b-default my-0.5">
+            <input id="animFilterMetier" type="text" placeholder="🔧 Métier…" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs w-full s-card">
+            <input id="animFilterCommercial" type="text" placeholder="👔 Commercial…" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs w-full s-card">
+            <div class="flex items-center gap-1">
+              <input id="animFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs flex-1 s-card">
+              <span class="text-[10px] t-tertiary">€</span>
+            </div>
+            <button onclick="_animResetFilters()" class="text-[10px] t-disabled hover:t-secondary text-left mt-1">↺ Réinitialiser</button>
           </div>
         </div>
 
@@ -1884,226 +1890,84 @@
 
     </div>
 
-    <!-- TAB 7 : PROMO -->
+    <!-- TAB 7 : ANIMATION — Pilotage multi-références -->
     <div id="tabPromo" class="hidden tab-content flex flex-col" style="height:calc(100vh - 88px)">
 
-      <!-- ZONE ENTRÉES — fixe, ne scrolle jamais -->
-      <div id="promoEntries" class="flex gap-4 p-4 border-b b-default s-card shrink-0">
-
-        <!-- Entrée A : Recherche libre -->
-        <div class="flex-1 min-w-0">
-          <div class="text-[10px] font-bold t-tertiary uppercase mb-1">
-            🔍 Cibler un article ou une famille
+      <!-- ZONE 1 — SAISIE -->
+      <div class="shrink-0 p-4 border-b b-default s-card">
+        <div class="flex gap-3 items-start">
+          <div class="flex-1 min-w-0">
+            <div class="text-[10px] font-bold t-tertiary uppercase mb-1">📋 Références brochure — collez vos codes ou libellés</div>
+            <textarea id="animInput" rows="2"
+              placeholder="571103, 374144, Outillage à main, 308975…"
+              class="w-full text-sm px-3 py-2 rounded-lg border b-default s-card t-primary focus:border-blue-400 outline-none resize-none"
+              oninput="_animInputChange()"></textarea>
+            <div id="animCounter" class="text-[10px] t-tertiary mt-1"></div>
           </div>
-          <div class="flex gap-2 items-center">
-            <div class="relative flex-1">
-              <input id="promoSearchInput" type="text"
-                placeholder="Bosch, Milwaukee, coupe, 394285…"
-                class="w-full text-sm px-3 py-2 rounded-lg border b-default s-card t-primary focus:border-blue-400 outline-none"
-                oninput="_onPromoInput()"
-                onkeydown="_promoSuggestKeydown(event)"
-                onblur="_closePromoSuggest()">
-              <div id="promoSuggestBox"
-                class="hidden absolute z-50 left-0 right-0 top-full mt-1 s-card border b-default rounded-lg shadow-lg overflow-hidden">
-              </div>
-            </div>
-            <button onclick="runPromoSearch()"
-              class="shrink-0 text-sm font-bold py-2 px-4 rounded-lg text-white"
+          <div class="flex flex-col gap-1 shrink-0 pt-5">
+            <button onclick="_animAnalyze()"
+              class="text-sm font-bold py-2 px-4 rounded-lg text-white whitespace-nowrap"
               style="background:var(--c-caution)">
-              🎯 Cibler
+              🎯 Analyser la sélection
             </button>
-            <button onclick="exportPromoCSV()" id="promoExportBtn"
-              class="hidden shrink-0 text-[11px] font-bold py-2 px-3 rounded-lg border b-default t-secondary hover:s-hover">
-              📥 CSV
-            </button>
-            <button onclick="copyPromoClipboard()" id="promoCopyBtn"
-              class="hidden shrink-0 text-[11px] font-bold py-2 px-3 rounded-lg border b-default t-secondary hover:s-hover">
-              📋 Copier
-            </button>
-          </div>
-          <div id="promoMatchInfo" class="hidden text-[10px] t-tertiary mt-1"></div>
-        </div>
-
-        <!-- Séparateur -->
-        <div class="w-px bg-slate-200 dark:bg-slate-700 shrink-0 self-stretch"></div>
-
-        <!-- Entrée B : Import opération promo -->
-        <div class="flex-1 min-w-0">
-          <div class="text-[10px] font-bold t-tertiary uppercase mb-1">
-            📋 Opération promo — charger un fichier
-          </div>
-          <div class="flex gap-2 items-center flex-wrap">
-            <label class="shrink-0 text-[11px] font-semibold py-1.5 px-3 rounded-lg border b-default s-card cursor-pointer hover:s-hover t-secondary">
-              📎 Choisir fichier
-              <input type="file" id="promoImportFile" accept=".xlsx,.csv"
-                class="hidden" onchange="_onPromoImportFileChange(this)">
-            </label>
-            <span id="promoImportFileName" class="text-[10px] t-tertiary truncate max-w-[140px]">
-              Aucun fichier
-            </span>
-            <button onclick="runPromoImport()"
-              class="shrink-0 text-sm font-bold py-2 px-4 rounded-lg text-white"
-              style="background:var(--p-orange-500)">
-              🎯 Analyser
-            </button>
-            <button onclick="_clearPromoImport()"
-              class="shrink-0 text-[11px] t-disabled hover:t-secondary">
+            <button onclick="_animClear()"
+              class="text-[11px] t-disabled hover:t-secondary text-center py-1">
               ✕ Effacer
             </button>
-            <button onclick="exportPromoImportCSV()" id="promoImportExportBtn"
-              class="hidden shrink-0 text-[11px] font-bold py-1.5 px-3 rounded border b-default t-secondary hover:s-hover">
-              📥 CSV opération
-            </button>
           </div>
-          <div id="promoImportOpName" class="text-[10px] t-tertiary mt-1"></div>
         </div>
-
       </div>
 
-      <!-- ZONE CORPS — scroll naturel -->
-      <div id="promoBody" class="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
+      <!-- ZONE 2 — KPIs bandeau -->
+      <div id="animKPIs" class="hidden shrink-0 px-4 py-2 border-b b-default s-card-alt">
+        <div id="animKPIContent" class="flex flex-wrap gap-4 items-center text-[11px]"></div>
+      </div>
 
-        <!-- Résultats recherche libre -->
-        <div id="promoSearchResults" class="hidden space-y-4">
+      <!-- ZONE 3 — 3 Pavés -->
+      <div id="animPaves" class="hidden flex-1 overflow-y-auto p-4 min-h-0">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-full">
 
-          <!-- NL Search results -->
-          <div id="promoNLResult" class="hidden"></div>
-
-          <!-- Section A -->
-          <div>
-            <div class="flex items-center gap-2 mb-2 cursor-pointer"
-                 onclick="_togglePromoSection('A')">
-              <span class="text-sm font-bold">
-                🟢 Déjà acheteurs — tous canaux
-              </span>
-              <span id="promoCountA" class="text-[10px] t-tertiary font-semibold"></span>
-              <span id="promoArrowA" class="text-[10px] t-disabled ml-auto">▼</span>
+          <!-- Pavé A — Qui achète ? -->
+          <div class="s-card rounded-xl border b-default flex flex-col">
+            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
+              <span class="text-sm font-bold">🟢 Qui achète ?</span>
+              <span id="animCountA" class="text-[10px] t-tertiary ml-auto"></span>
+              <button onclick="_animExportA()" class="text-[10px] font-bold py-0.5 px-2 rounded border b-default t-secondary hover:s-hover ml-1">CSV</button>
             </div>
-            <div id="promoBodyA" class="space-y-1.5"></div>
+            <div id="animBodyA" class="flex-1 overflow-y-auto min-h-0"></div>
           </div>
 
-          <!-- Section B -->
-          <div>
-            <div class="flex items-center gap-2 mb-2 cursor-pointer"
-                 onclick="_togglePromoSection('B')">
-              <span class="text-sm font-bold">
-                🔴 Actifs Legallais — jamais en comptoir
-              </span>
-              <span id="promoCountB" class="text-[10px] t-tertiary font-semibold"></span>
-              <span id="promoArrowB" class="text-[10px] t-disabled ml-auto">▼</span>
+          <!-- Pavé B — Mix canaux -->
+          <div class="s-card rounded-xl border b-default flex flex-col">
+            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
+              <span class="text-sm font-bold">📊 Mix canaux &amp; réseau</span>
+              <span id="animCountB" class="text-[10px] t-tertiary ml-auto"></span>
             </div>
-            <div id="promoBodyB" class="space-y-1.5"></div>
+            <div id="animBodyB" class="flex-1 overflow-y-auto min-h-0"></div>
           </div>
 
-          <!-- Section C -->
-          <div>
-            <div class="flex items-center gap-2 mb-2 cursor-pointer"
-                 onclick="_togglePromoSection('C')">
-              <span class="text-sm font-bold">
-                🟡 Prospects métier
-              </span>
-              <span id="promoCountC" class="text-[10px] t-tertiary font-semibold"></span>
-              <span id="promoArrowC" class="text-[10px] t-disabled ml-auto">▼</span>
+          <!-- Pavé C — Clients à cibler -->
+          <div class="s-card rounded-xl border b-default flex flex-col">
+            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
+              <span class="text-sm font-bold">🎯 Clients à cibler</span>
+              <span id="animCountC" class="text-[10px] t-tertiary ml-auto"></span>
+              <button onclick="_animExportC()" class="text-[10px] font-bold py-0.5 px-2 rounded border b-default t-secondary hover:s-hover ml-1">CSV</button>
             </div>
-            <div id="promoBodyC" class="space-y-1.5"></div>
-          </div>
-
-          <!-- Pavés article : Anim' Commerciale + Tendance Web -->
-          <div id="promoAnimBlock" class="hidden"></div>
-          <div id="promoTendanceBlock" class="hidden"></div>
-
-          <!-- Barre export -->
-          <div class="flex gap-2 pt-2 border-t b-light">
-            <button onclick="exportTourneeCSV()"
-              class="text-sm font-bold py-2 px-4 rounded-lg border b-default s-card hover:s-hover t-secondary">
-              📄 Fiche tournée CSV
-            </button>
+            <div id="animBodyC" class="flex-1 overflow-y-auto min-h-0"></div>
           </div>
 
         </div>
+      </div>
 
-        <!-- Résultats import opération -->
-        <div id="promoImportResults" class="hidden space-y-4">
-
-          <div id="promoImportSummaryBar"
-            class="text-[11px] t-tertiary px-3 py-2 s-card-alt rounded-lg border b-default">
-          </div>
-
-          <!-- Section D -->
-          <div>
-            <div class="flex items-center gap-2 mb-2 cursor-pointer"
-                 onclick="_togglePromoImportSection('D')">
-              <span class="text-sm font-bold c-ok">
-                🟢 Articles vendus au comptoir
-              </span>
-              <span id="promoImportCountD"
-                class="text-[10px] t-tertiary font-semibold"></span>
-              <span id="promoImportArrowD"
-                class="text-[10px] t-disabled ml-auto">▼</span>
-            </div>
-            <div id="promoImportBodyD">
-              <table class="min-w-full text-[11px]">
-                <thead class="s-card-alt">
-                  <tr>
-                    <th class="py-1 px-2 text-left font-bold t-tertiary">Code</th>
-                    <th class="py-1 px-2 text-left font-bold t-tertiary">Libellé</th>
-                    <th class="py-1 px-2 text-center font-bold t-tertiary">Qté</th>
-                    <th class="py-1 px-2 text-right font-bold t-tertiary">CA Magasin</th>
-                    <th class="py-1 px-2 text-center font-bold t-tertiary">Clients</th>
-                    <th class="py-1 px-2 text-center font-bold t-tertiary">Stock</th>
-                  </tr>
-                </thead>
-                <tbody id="promoImportTableD"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Section E -->
-          <div>
-            <div class="flex items-center gap-2 mb-2 cursor-pointer"
-                 onclick="_togglePromoImportSection('E')">
-              <span class="text-sm font-bold c-danger">
-                🔴 Articles non vendus
-              </span>
-              <span id="promoImportCountE"
-                class="text-[10px] t-tertiary font-semibold"></span>
-              <span id="promoImportArrowE"
-                class="text-[10px] t-disabled ml-auto">▼</span>
-            </div>
-            <div id="promoImportBodyE">
-              <table class="min-w-full text-[11px]">
-                <thead class="s-card-alt">
-                  <tr>
-                    <th class="py-1 px-2 text-left font-bold t-tertiary">Code</th>
-                    <th class="py-1 px-2 text-left font-bold t-tertiary">Libellé</th>
-                    <th class="py-1 px-2 text-center font-bold t-tertiary">Rayon</th>
-                    <th class="py-1 px-2 text-center font-bold t-tertiary">Stock</th>
-                    <th class="py-1 px-2 text-left font-bold t-tertiary">Famille</th>
-                  </tr>
-                </thead>
-                <tbody id="promoImportTableE"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Section F — groupée par commercial -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-sm font-bold c-caution">
-                👥 Clients à relancer
-              </span>
-              <span id="promoImportCountF"
-                class="text-[10px] t-tertiary font-semibold"></span>
-            </div>
-            <div id="promoImportBodyF" class="space-y-3"></div>
-          </div>
-
-          <!-- Action appels -->
-          <div id="promoImportActionBtn" class="hidden"></div>
-
+      <!-- État vide initial -->
+      <div id="animEmpty" class="flex-1 flex items-center justify-center">
+        <div class="text-center t-tertiary p-8">
+          <p class="text-3xl mb-3">📋</p>
+          <p class="text-sm font-semibold">Collez vos références de brochure</p>
+          <p class="text-[11px] mt-1">Codes articles, familles, libellés — séparés par virgule ou retour à la ligne</p>
+          <p class="text-[10px] mt-3 t-disabled">Ex : 571103, 374144, Outillage à main, 308975</p>
         </div>
-
-      </div><!-- fin promoBody -->
+      </div>
 
     </div><!-- fin tabPromo -->
 
