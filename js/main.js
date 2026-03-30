@@ -2550,6 +2550,20 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     }
 
+    // ── Vue toggle pills (👥 Clients / 📊 Canal) ────────────────────────────
+    {
+      const _cv=_S._commerceView||'clients';
+      const _isCanal=_cv==='canal';
+      const _pillsEl=document.getElementById('terrViewPills');
+      if(_pillsEl){
+        _pillsEl.classList.remove('hidden');
+        const _pb=(label,view)=>{const act=_cv===view;return`<button onclick="_S._commerceView='${view}';renderTerritoireTab()" class="text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors${act?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default hover:s-hover'}">${label}</button>`;};
+        _pillsEl.innerHTML=_pb('👥 Vue Clients','clients')+_pb('📊 Vue Canal','canal');
+      }
+      ['terrTop5','terrReconquete','terrOpportunites','terrTopPDV','terrLivSansPDV','terrCockpitClient','terrHorsZone'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=_isCanal?'none':'';});
+      ['terrCanalBlock','terrFamilleCanal','terrAnalyseAccordion'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=_isCanal?'':'none';});
+    }
+
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
     const hasChal=DataStore.chalandiseReady;
