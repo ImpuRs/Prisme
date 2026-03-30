@@ -1494,24 +1494,25 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
-      const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();
-      if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}
-      if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}
+      if(!isRefilter){const headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}}
 
-      const stC=new Set(),stS=new Set();
-      for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
-      _resetColCache();// colonnes stock ≠ colonnes consommé — purge le cache _CC pour éviter faux lookup
-      if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
-      else{_S.storesIntersection=new Set(stC);} // consommé seul : toutes agences du consommé
-      _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
-      const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
-      _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
-      const hasMulti=_S.storesIntersection.size>1;
-      document.getElementById('storeSelector').classList.add('hidden');
-      if(hasMulti){if(isRefilter&&_savedStoreBeforeReset&&_S.storesIntersection.has(_savedStoreBeforeReset)){_S.selectedMyStore=_savedStoreBeforeReset;}else{const _saved=_preSelectedStore||localStorage.getItem('prisme_selectedStore');if(_saved&&_S.storesIntersection.has(_saved)){_S.selectedMyStore=_saved;localStorage.setItem('prisme_selectedStore',_saved);}else{const _selEl=document.getElementById('selectMyStore');if(_selEl){_selEl.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selEl.value='';}document.getElementById('storeSelector').classList.remove('hidden');btn.disabled=false;throw new Error('NO_STORE_SELECTED');}}btn.disabled=false;}
-      else{if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
-      if(isRefilter&&_savedStoreBeforeReset&&_S.storesIntersection.has(_savedStoreBeforeReset)){_S.selectedMyStore=_savedStoreBeforeReset;const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
-      const useMulti=hasMulti&&_S.selectedMyStore;
+      // ── Store detection — skipped for isRefilter (storesIntersection/selectedMyStore unchanged) ──
+      _resetColCache();
+      let hasMulti=_S.storesIntersection.size>1,useMulti=hasMulti&&_S.selectedMyStore;
+      if(!isRefilter){
+        const stC=new Set(),stS=new Set();
+        for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
+        if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
+        else{_S.storesIntersection=new Set(stC);}
+        _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
+        const _preSelectedStore=(document.getElementById('selectMyStore').value||'').toUpperCase()||localStorage.getItem('prisme_selectedStore')||'';
+        _S.selectedMyStore=(document.getElementById('selectMyStore').value||'').toUpperCase();
+        hasMulti=_S.storesIntersection.size>1;
+        document.getElementById('storeSelector').classList.add('hidden');
+        if(hasMulti){const _saved=_preSelectedStore||localStorage.getItem('prisme_selectedStore');if(_saved&&_S.storesIntersection.has(_saved)){_S.selectedMyStore=_saved;localStorage.setItem('prisme_selectedStore',_saved);}else{const _selEl=document.getElementById('selectMyStore');if(_selEl){_selEl.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selEl.value='';}document.getElementById('storeSelector').classList.remove('hidden');btn.disabled=false;throw new Error('NO_STORE_SELECTED');}btn.disabled=false;}
+        else{if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
+        useMulti=hasMulti&&_S.selectedMyStore;
+      }else if(_savedStoreBeforeReset){const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
 
       const stockKeys=Object.keys(dataS[0]||{});
       const colFamille=stockKeys.find(k=>k.toLowerCase()==='famille')||stockKeys.find(k=>k.toLowerCase().startsWith('famille'));
@@ -1520,7 +1521,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updatePipeline('stock','active');updatePipeline('consomme','active');
       _resetColCache(); // colonnes consommé différentes du stock
       updateProgress(45,100,'Ventes…',dataC.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.ventesParMagasinByCanal={};_S.blData={};_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientsMagasin=new Set();_S.clientsMagasinFreq=new Map();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.clientNomLookup={};_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.clientLastOrder=new Map();_S.ventesClientsPerStore={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      if(!isRefilter){_S.ventesParMagasinByCanal={};_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
       const monthlySales={}; // B3: code → [12 mois qtés]
       let minDateVente=Infinity,maxDateVente=0;let passagesUniques=new Set(),commandesPDV=new Set();
@@ -1530,7 +1532,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_hasCommandeCol)showToast('⚠️ Colonne "N° commande" absente du fichier Consommé — le dédoublonnage BL est désactivé.','warning');
 
       for(let i=0;i<dataC.length;i+=CHUNK_SIZE){const end=Math.min(i+CHUNK_SIZE,dataC.length);for(let j=i;j<end;j++){const row=dataC[j];const canal=(getVal(row,'Canal','Canal commande','Commande')||'').toString().trim().toUpperCase();
-      // V24.4: capture canal data BEFORE filtering (for _S.canalAgence)
+      // V24.4: canalAgence/libelleLookup/articleCanalCA — period-independent, skip for isRefilter
+      if(!isRefilter){
       if(canal){const _sk_canal=extractStoreCode(row)||'INCONNU';const _storeMatch=!_S.selectedMyStore||_sk_canal==='INCONNU'||_sk_canal===_S.selectedMyStore;if(_storeMatch){const nc2=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim();const _bl2=(getVal(row,'Numéro de BL','Numéro BL','N° BL')||'').toString().trim();if(nc2||_bl2){if(!_S.canalAgence[canal])_S.canalAgence[canal]={bl:new Set(),blNums:new Set(),ca:0,caP:0,caE:0};if(nc2)_S.canalAgence[canal].bl.add(nc2);if(_bl2&&_bl2!==nc2)_S.canalAgence[canal].blNums.add(_bl2);}}}
       {const _ra0=(getVal(row,'Article','Code')||'').toString();const _c0=cleanCode(_ra0);if(_c0&&!_S.libelleLookup[_c0]){const _s0=_ra0.indexOf(' - ');if(_s0>0)_S.libelleLookup[_c0]=_ra0.substring(_s0+3).trim();}}
       // Accumulation CA par canal (prélevé + enlevé) — avant le continue pour capturer tous les canaux
@@ -1538,11 +1541,12 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // [F1 fix] articleCanalCA — tous canaux, filtré par agence, construit ici dans la boucle existante
       {const _cf1=cleanCode((getVal(row,'Article','Code')||'').toString());if(_cf1){const _qteP_acc=getQuantityColumn(row,'prél')||0;if(_caP3+_caE3>0||_qteP_acc>0){if(!_S.articleCanalCA.has(_cf1))_S.articleCanalCA.set(_cf1,new Map());const _acm=_S.articleCanalCA.get(_cf1);if(!_acm.has(canal))_acm.set(canal,{ca:0,qteP:0,countBL:0});const _ace=_acm.get(canal);_ace.ca+=_caP3+_caE3;_ace.qteP+=_qteP_acc;_ace.countBL++;}}}
       }}
+      } // end !isRefilter for period-independent blocks
       // Accumulation CA tous canaux par client — avant le filtre canal (pour "Tous canaux" dans Top clients PDV)
       {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAP=getCaColumn(row,'prél')||0;const _caAE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const _caAT=_caAP+_caAE;const _qteAP=getQuantityColumn(row,'prél')||0;const _qteAE=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);if(_caAT>0||_qteAP>0||_qteAE>0){if(!_S.ventesClientArticle.has(_ccA))_S.ventesClientArticle.set(_ccA,new Map());const _amA=_S.ventesClientArticle.get(_ccA);if(!_amA.has(_codeA))_amA.set(_codeA,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});_amA.get(_codeA).sumCAAll+=_caAT;}}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
-        // Canaux hors MAGASIN → ventesClientHorsMagasin (tous canaux, pas de liste hardcodée)
-        if(canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}if(codeArt&&(skHors==='INCONNU'||_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=getQuantityColumn(row,'prél')||0;_vpmc.countBL++;_vpmc.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0);}}
+        // Canaux hors MAGASIN — accumulation period-independent, skipped for isRefilter
+        if(!isRefilter&&canal){const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';if(cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}if(codeArt&&(skHors==='INCONNU'||_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=getQuantityColumn(row,'prél')||0;_vpmc.countBL++;_vpmc.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0);}}
         continue;
       }
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
@@ -1578,15 +1582,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       if(!useMulti||sk===_S.selectedMyStore){if(!articleRaw[code])articleRaw[code]={tpp:0,tpn:0,te:0,bls:{},cbl:0};const a=articleRaw[code];if(qteP>0)a.tpp+=qteP;if(qteP<0)a.tpn+=qteP;if(qteE>0)a.te+=qteE;const nc=(_hasCommandeCol?(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||''):('__r'+j)).toString().trim()||('__r'+j);if(!a.bls[nc]){a.bls[nc]={p:Math.max(qteP,0),e:Math.max(qteE,0)};a.cbl++;}else{const ex=a.bls[nc];if(Math.max(qteP,0)>ex.p)ex.p=Math.max(qteP,0);if(Math.max(qteE,0)>ex.e)ex.e=Math.max(qteE,0);}
       if(qteP>0||qteE>0){const blNum=nc;if(!_S.blData[blNum])_S.blData[blNum]={codes:new Set(),familles:new Set()};_S.blData[blNum].codes.add(code);if(_famCode)_S.blData[blNum].familles.add(famLib(_famCode));if(qteP>0)_S.blPreleveeSet.add(blNum);}}}updateProgress(45+Math.round(i/dataC.length*20),100);await yieldToMain();}
-      // Build blCanalMap (BL → canal) before converting bl sets to counts
-      // Keys = numéros de commande (nc2) ET numéros de BL (blNums) pour couvrir les deux formats
+      // Build blCanalMap + convert canalAgence bl sets — skipped for isRefilter (canalAgence unchanged)
+      if(!isRefilter){
       _S.blCanalMap = new Map();
       for(const [canal, data] of Object.entries(_S.canalAgence)){
         if(data.bl instanceof Set){for(const bl of data.bl)_S.blCanalMap.set(bl, canal);}
         if(data.blNums instanceof Set){for(const bl of data.blNums)_S.blCanalMap.set(bl, canal);}
       }
-      // V24.4: convert _S.canalAgence bl sets to counts (blNums n'est pas affiché — supprimé)
       for(const c of Object.keys(_S.canalAgence)){_S.canalAgence[c].bl=_S.canalAgence[c].bl.size;delete _S.canalAgence[c].blNums;}
+      }
       // Fidèles PDV : fréquence MAGASIN par client (nb BL distincts)
       _S.clientsMagasinFreq=new Map([..._clientMagasinBLsTemp].map(([cc,bls])=>[cc,bls.size]));
       // V24.4: build _S.blConsommeSet ONCE here (before territoire processing)
@@ -1598,8 +1602,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`, 'success', 6000);
       }
       updatePipeline('consomme','done');
-      // B3: Moteur saisonnier — agrégation par famille
-      _computeSeasonalIndex(monthlySales);
+      // B3: Moteur saisonnier — skipped for isRefilter (stock-derived, period-independent)
+      if(!isRefilter){_computeSeasonalIndex(monthlySales);}
 
       const synth=_buildSynthFromRaw(articleRaw);
 
@@ -1624,7 +1628,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _S.ventesAnalysis={refParBL:totalBLs>0?(sumRefParBL/totalBLs).toFixed(1):0,famParBL:totalBLs>0?(sumFamParBL/totalBLs).toFixed(1):0,totalBL:totalBLs,refActives:Object.values(synth).filter(s=>s.sumP>0||s.sumE>0).length,attractivite:famBLcount,nbPassages:passagesUniques.size,txMarge:_caCalc>0?_vmbCalc/_caCalc*100:null,vmc:commandesPDV.size>0?_caCalc/commandesPDV.size:null};
 
       let familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();
-      if(dataS && dataS.length){ // ── bloc stock — ignoré en mode consommé seul ─────────────
+      if(!isRefilter && dataS && dataS.length){ // ── bloc stock — skipped for isRefilter (stock unchanged) ──
       updatePipeline('stock','active');
       _resetColCache(); // colonnes stock différentes du consommé
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
@@ -1686,16 +1690,19 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
-      // Re-parse chalandise AVANT le benchmark — resetAppState l'a effacée si elle était chargée avant Analyser
-      {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
-      // Re-parse livraisons — même raison : resetAppState l'a effacée si chargée avant Analyser
-      {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady)await parseLivraisons(fL);}
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
-      // Guard: warn if all stock values are 0 (likely bad export)
-      if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
-      updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
-      updateProgress(95,100,'Affichage…');await yieldToMain();
-      populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
+      // Re-parse chalandise/livraisons + benchmark — skipped for isRefilter (period-independent)
+      if(!isRefilter){
+        {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady)await parseChalandise(f4);}
+        {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady)await parseLivraisons(fL);}
+        if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
+      }
+      // ABC/FMR, selects — skipped for isRefilter (finalData unchanged)
+      if(!isRefilter){
+        if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
+        updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
+        updateProgress(95,100,'Affichage…');await yieldToMain();
+        populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
+      }
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
       document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
@@ -1703,18 +1710,16 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
-      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      // Territoire + Clients PDV tabs visibles dès que le consommé est chargé (indépendants du stock)
-      const _terrBtn=document.getElementById('btnTabTerritoire');
-      _terrBtn.classList.remove('hidden'); // consommé suffit pour Le Terrain
-      const _clientsBtn=document.getElementById('btnTabClients');
-      if(_clientsBtn)_clientsBtn.classList.remove('hidden');
-      // Show/hide placeholder message inside territoire tab
-      const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
+      if(!isRefilter){
+        if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
+        const _terrBtn=document.getElementById('btnTabTerritoire');_terrBtn.classList.remove('hidden');
+        const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
+        const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
+      }
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
-      // Précalcul caByArticleCanal (conditionné à chalandise)
-      if (_S.chalandiseReady) {
+      // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
+      if (!isRefilter && _S.chalandiseReady) {
         _S.caByArticleCanal = new Map();
         for (const [, artMap] of _S.ventesClientHorsMagasin.entries()) {
           for (const [code, data] of artMap.entries()) {
@@ -1739,8 +1744,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('action');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
-      // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
-      if (_S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); } // Sauvegarder après le chargement principal
+      // IDB save — skipped for isRefilter (only saves on full load)
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
