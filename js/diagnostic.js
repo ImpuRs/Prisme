@@ -231,7 +231,7 @@ function _renderClient360(clientCode,source){
   let tabsHtml='';
   if(tabs.length){
     const firstTab=tabs[0].id;
-    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" onclick="_c360SwitchTab('${escapeHtml(clientCode)}','${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
+    const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" onclick="_c360SwitchTab(${escapeHtml(JSON.stringify(clientCode))},${escapeHtml(JSON.stringify(t.id))})" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
 
     const iciRows=iciArts.map(([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
@@ -270,7 +270,7 @@ function _renderClient360(clientCode,source){
   }
 
   // ── COPIER RÉSUMÉ ────────────────────────────────────────────────
-  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button onclick="_c360CopyResume('${escapeHtml(clientCode)}')" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
+  const copyBtn=`<div class="mt-3 pt-3 border-t b-dark flex justify-end"><button onclick="_c360CopyResume(${escapeHtml(JSON.stringify(clientCode))})" class="text-[10px] t-disabled hover:t-inverse border b-dark px-3 py-1 rounded font-bold">📋 Copier résumé</button></div>`;
 
   return header+actionBar+summaryBar+tabsHtml+copyBtn;
 }
