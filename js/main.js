@@ -800,7 +800,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       if(daysBetween(lastDate,now)>30){
         const artData=DataStore.ventesClientArticle.get(cc);
-        const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
         if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
       }
     }
@@ -1018,7 +1018,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       for(const[cc,lastDate] of _S.clientLastOrder.entries()){
         const d=daysBetween(lastDate,_today);if(d<=30)continue;
         const artMap=_clientArtMap.get(cc);if(!artMap)continue;
-        let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCA||0);
+        let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
         if(ca<=0)continue;
         const nom=_S.clientNomLookup[cc]||cc;
         if(qClient&&!matchQuery(qClient,cc,nom))continue;
@@ -1076,7 +1076,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const lastOrder=_S.clientLastOrder.get(cc)||null;
       const daysSinceLastOrder=lastOrder?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
-      const clientArtData=DataStore.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+      const clientArtData=DataStore.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
       const _contratCadre=false;
       const finalScore=_clientUrgencyScore(cc,info);
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_contratCadre};
