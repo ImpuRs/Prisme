@@ -1499,21 +1499,29 @@
         </div>
       </div>
 
-      <!-- 2. ALERTE — Clients silencieux (action prioritaire) -->
+      <!-- 2. Silencieux — 30-60j sans commande PDV -->
       <div id="terrSilencieux" class="mb-3"></div>
 
-      <!-- 3. Top clients PDV -->
+      <!-- 3. Perdus — >60j sans commande PDV -->
+      <div id="terrPerdus" class="mb-3"></div>
+
+      <!-- 4. À capter — Actifs Legallais, jamais venus en agence -->
+      <div id="terrACapter" class="mb-3"></div>
+
+      <!-- 5. Opportunités nettes -->
+      <div id="terrOpportunites"></div>
+
+      <!-- 6. Top clients PDV -->
       <div id="terrTopPDV"></div>
 
-      <!-- 4. Cockpit Client (capter, développer, fidéliser) -->
-      <div id="terrCockpitClient" class="hidden mb-2"></div>
-
-      <!-- Blocs complémentaires -->
-      <div id="terrTop5"></div>
-      <div id="terrReconquete"></div>
-      <div id="terrOpportunites"></div>
-      <div id="terrLivSansPDV"></div>
+      <!-- Cockpit Client (legacy container, hidden) -->
+      <div id="terrCockpitClient" class="hidden"></div>
       <div id="terrHorsZone"></div>
+
+      <!-- Legacy blocs kept for compatibility -->
+      <div id="terrTop5" class="hidden"></div>
+      <div id="terrReconquete" class="hidden"></div>
+      <div id="terrLivSansPDV" class="hidden"></div>
 
       <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
       <div id="terrDegradedBlock" class="hidden mt-2"></div>
