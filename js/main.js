@@ -3594,7 +3594,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'pdmBassin'))sel.value=_S._rankSortKey||'pdmBassin';}
     const _rankKey=_S._rankSortKey||'pdmBassin';const _rankDir=_S._rankSortDir===-1||_S._rankSortDir===1?_S._rankSortDir:-1;
     const _nbCanauxActifs=(store)=>{const ca=_S.canalAgence[store]||{};return Math.max(1,Object.values(ca).filter(v=>(v.ca||0)>500).length);};
-    const sorted=Object.entries(storePerf).sort((a,b)=>{let va=a[1][_rankKey]??0;let vb=b[1][_rankKey]??0;if(_rankKey==='freq'){va/=_nbCanauxActifs(a[0]);vb/=_nbCanauxActifs(b[0]);}return _rankDir*(vb-va);});
+    const sorted=Object.entries(storePerf).sort((a,b)=>{let va=a[1][_rankKey]??0;let vb=b[1][_rankKey]??0;if(_rankKey==='freq'){va/=_nbCanauxActifs(a[0]);vb/=_nbCanauxActifs(b[0]);}return _rankDir*(va-vb);});
     const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
     const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
     const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
