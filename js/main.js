@@ -2480,6 +2480,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(_S._selectedClassifs?.size>0){const classif=_S.chalandiseData?.get(cc)?.classif;if(classif&&!_S._selectedClassifs.has(classif))return false;}
     // 6. Stratégique uniquement
     if(_S._filterStrategiqueOnly){const met=_S.chalandiseData?.get(cc)?.metier;if(!METIERS_STRATEGIQUES.includes(met))return false;}
+    // 7. Distance km
+    if(_S._distanceMaxKm>0&&_S._agenceCoords){const info2=_S.chalandiseData?.get(cc);if(info2){const d=info2.distanceKm;if(d!=null&&d>_S._distanceMaxKm)return false;}}
     return true;
   }
 
