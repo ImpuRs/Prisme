@@ -1253,9 +1253,11 @@
       <!-- 0. ★ ÉQUATION COMMERCIALE ★ — canal-aware -->
       <div id="cockpitEquation" class="hidden mb-4"></div>
 
+      <!-- 0b. ★ HEALTH SCORE ★ -->
+      <div id="healthScoreBadge" class="hidden mb-3"></div>
+
       <!-- 0a. Barre d'actions PRISME -->
       <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
-        <button onclick="window.runBriefingJour()" style="padding:7px 18px;border-radius:20px;background:var(--c-ok,#22c55e);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">☀️ Briefing du jour</button>
         <button onclick="window.generatePrismeChips()" style="padding:7px 18px;border-radius:20px;background:var(--accent,#f97316);color:#fff;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;">🎲 Générer mon PRISME</button>
       </div>
       <div class="flex flex-wrap gap-1.5 mb-3 px-0.5">
@@ -1315,9 +1317,6 @@
       <!-- 2. ★ IRA — Indice de Risque Agence ★ -->
       <div id="iraBanner" class="hidden mb-3"></div>
 
-      <!-- 2b. ★ HEALTH SCORE (compact) ★ -->
-      <div id="healthScoreBadge" class="hidden mb-3"></div>
-
       <!-- 3. ★ FILE DE DÉCISION ★ -->
       <div id="decisionQueue" class="hidden mb-4">
         <div class="flex items-center gap-2 mb-2">
@@ -1330,8 +1329,6 @@
         <div id="dqFooter" class="hidden"></div>
       </div>
 
-      <!-- BRIEFING DU MATIN — remplacé par bouton ☀️ Briefing du jour -->
-      <div id="cockpitBriefing" class="hidden mb-4" style="display:none!important"><div id="cockpitBriefingText"></div></div>
     </div>
 
     <!-- TAB : CE MATIN (V4) — now empty, kept for backwards compat -->
