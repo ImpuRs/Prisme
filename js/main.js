@@ -2640,49 +2640,161 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     el.innerHTML=`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
   }
 
+  // ── _computeTop5Reconq — scored reconquest priority list (shared) ────
+  function _computeTop5Reconq(){
+    const fideles=_S.crossingStats?.fideles;
+    if(!fideles?.size||!_S.clientLastOrder?.size)return[];
+    const today=new Date();
+    const scored=[];
+    for(const cc of fideles){
+      const lastOrder=_S.clientLastOrder.get(cc);
+      if(!lastOrder)continue;
+      const daysAgo=Math.floor((today-lastOrder)/864e5);
+      if(daysAgo<=30)continue;
+      const arts=_S.ventesClientArticle?.get(cc);
+      if(!arts?.size)continue;
+      let caPDV=0;
+      for(const d of arts.values())caPDV+=d.sumCA||0;
+      if(caPDV<=0)continue;
+      const score=Math.round(caPDV*daysAgo);
+      const cc6=cc.padStart(6,'0');
+      const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
+      const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
+      scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
+    }
+    scored.sort((a,b)=>b.score-a.score);
+    return scored.slice(0,5);
+  }
+
+  // ── computeTerritoireKPIs — pure data for renderTerritoireTab ────────
+  function computeTerritoireKPIs(){
+    const top5Reconq=_computeTop5Reconq();
+    const reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
+    const reconq=reconqFull.slice(0,10);
+    const livSansPDV=_S.livraisonsSansPDV||[];
+    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
+    const hasChal=DataStore.chalandiseReady;
+    const hasData=DataStore.finalData.length>0;
+    const hasConsomme=_S.ventesClientArticle.size>0;
+    const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
+    let crossCaptes=0,crossFideles=0,crossPotentiels=0;
+    const hasCross=!!_S.crossingStats;
+    if(hasCross){
+      const _hasF=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille;
+      if(_hasF){
+        for(const cc of _S.crossingStats.captes){const info=_S.chalandiseData.get(cc);if(info&&_clientPassesFilters(info,cc))crossCaptes++;}
+        for(const cc of _S.crossingStats.fideles){const info=_S.chalandiseData.get(cc);if(!info||_clientPassesFilters(info,cc))crossFideles++;}
+      }else{crossCaptes=_S.crossingStats.captes.size;crossFideles=_S.crossingStats.fideles.size;}
+      crossPotentiels=_S.crossingStats.potentiels.size;
+    }
+    return{top5Reconq,reconqFull,reconq,livSansPDV,hasTerr,hasChal,hasData,hasConsomme,degraded,hasCross,crossCaptes,crossFideles,crossPotentiels};
+  }
+
+  // ── computeClientsKPIs — pure data for renderMesClients ──────────────
+  function computeClientsKPIs(){
+    const now=new Date();
+    let top5=[];
+    if(_S._top5Semaine?.length){
+      top5=_S._top5Semaine;
+    }else if(_S.clientLastOrder.size){
+      const cands=[];
+      for(const [cc,lastDate] of _S.clientLastOrder.entries()){
+        const daysSince=Math.round((now-lastDate)/86400000);
+        if(daysSince<30)continue;
+        const info=_S.chalandiseData.get(cc);
+        if(!info)continue;
+        const artMap=_S.ventesClientArticle.get(cc);
+        const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        const ca=Math.max((info.ca2025||0)+caPDV,1);
+        const score=(daysSince/30)*Math.sqrt(ca);
+        const hmCount=(_S.ventesClientHorsMagasin.get(cc)||new Map()).size;
+        const parts=[];
+        if(daysSince>0)parts.push(`${daysSince}j silence`);
+        if(info.ca2025>0)parts.push(`CA ${formatEuro(info.ca2025)}/an`);
+        else if(caPDV>0)parts.push(`CA PDV ${formatEuro(caPDV)}/an`);
+        if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
+        cands.push({cc,nom:info.nom||cc,commercial:info.commercial||'',metier:info.metier||'',score:Math.round(score),reason:parts.join(' · ')||'À contacter'});
+      }
+      cands.sort((a,b)=>b.score-a.score);
+      top5=cands.slice(0,5);
+    }
+    const top5Reconq=_computeTop5Reconq();
+    const reconqAll=_S.reconquestCohort||[];
+    const reconq=reconqAll.slice(0,10);
+    const reconqTotal=reconqAll.length;
+    const livSansPDV=_S.livraisonsSansPDV||[];
+    const topPDVRows=[];
+    if(_S.ventesClientArticle.size){
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<100)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
+      }
+      topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
+    }
+    const horsZone=[];
+    if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+      for(const[cc,artMap]of _S.ventesClientArticle){
+        if(_S.chalandiseData.has(cc))continue;
+        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caPDV<200)continue;
+        const horsMap=_S.ventesClientHorsMagasin.get(cc);
+        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caPDV+caHors;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const nom=_S.clientNomLookup?.[cc]||cc;
+        horsZone.push({cc,nom,caPDV,caHors,caTotal,lastDate});
+      }
+      horsZone.sort((a,b)=>b.caPDV-a.caPDV);
+    }
+    const digitaux=[];
+    if(_S.ventesClientHorsMagasin?.size&&_S.ventesClientArticle?.size){
+      for(const[cc,horArts]of _S.ventesClientHorsMagasin){
+        const pdvArts=_S.ventesClientArticle.get(cc);
+        if(!pdvArts?.size)continue;
+        const lastPDV=_S.clientLastOrder?.get(cc);
+        if(!lastPDV)continue;
+        const pdvSilence=Math.round((now-lastPDV)/86400000);
+        if(pdvSilence<90)continue;
+        let caHors=0;const canalCA={};
+        for(const[,v]of horArts){caHors+=v.sumCA||0;canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
+        if(caHors<200)continue;
+        const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+        let caPDV=0;for(const[,v]of pdvArts)caPDV+=v.sumCA||0;
+        const info=_S.chalandiseData?.get(cc);
+        digitaux.push({cc,nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||'',pdvSilence,caPDV,caHors,mainCanal});
+      }
+      digitaux.sort((a,b)=>b.caPDV-a.caPDV);
+    }
+    return{top5,top5Reconq,reconq,reconqTotal,livSansPDV,topPDVRows,horsZone,digitaux};
+  }
+
   function renderTerritoireTab(){
+    const k=computeTerritoireKPIs();
     // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
     {
-      const now=new Date();
       const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
 
-      // ── Top 5 priorités reconquête (scoring CA_PDV × daysAgo) ──
-      const top5ReconqHtml=(()=>{
-        const fideles=_S.crossingStats?.fideles;
-        if(!fideles?.size||!_S.clientLastOrder?.size)return'';
-        const today=new Date();
-        const scored=[];
-        for(const cc of fideles){
-          const lastOrder=_S.clientLastOrder.get(cc);
-          if(!lastOrder)continue;
-          const daysAgo=Math.floor((today-lastOrder)/864e5);
-          if(daysAgo<=30)continue;
-          const arts=_S.ventesClientArticle?.get(cc);
-          if(!arts?.size)continue;
-          let caPDV=0;
-          for(const d of arts.values())caPDV+=d.sumCA||0;
-          if(caPDV<=0)continue;
-          const score=Math.round(caPDV*daysAgo);
-          const cc6=cc.padStart(6,'0');
-          const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
-          const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
-          scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
-        }
-        if(!scored.length)return'';
-        scored.sort((a,b)=>b.score-a.score);
-        const top5=scored.slice(0,5);
-        const cards=top5.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
+      // ── Top 5 priorités reconquête ──
+      const top5ReconqHtml=k.top5Reconq.length?(()=>{
+        const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
         return`<details open class="mb-3 s-card rounded-xl border overflow-hidden" style="border-color:#e11d48"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm" style="color:#e11d48">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
-      })();
+      })():'';
 
       // ── Section 1 : À reconquérir (anciens fidèles silencieux) ──
-      const _reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
-      const reconq=_reconqFull.slice(0,10);
+      const _reconqFull=k.reconqFull;
+      const reconq=k.reconq;
       const _reconqCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`;
       const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}${_reconqFull.length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${_reconqFull.length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`}</details>`;
 
       // ── Section 2 : Livrés sans PDV — accordéon, top 10 + "Voir tous" ──
-      const _livAll=_S.livraisonsSansPDV||[];
+      const _livAll=k.livSansPDV;
       const livSansPDVHtml=(()=>{
         if(!_livAll.length)return _S.livraisonsReady?`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">0 clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>`:'';
         const _mkRow=r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
@@ -2718,11 +2830,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
 
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
-    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
-    const hasChal=DataStore.chalandiseReady;
-    const hasData=DataStore.finalData.length>0;
-    const hasConsomme=_S.ventesClientArticle.size>0;
-    const degraded=!hasTerr&&!hasChal&&(hasData||hasConsomme);
+    const{hasTerr,hasChal,hasData,hasConsomme,degraded}=k;
     // terrNoChalandise: only when truly nothing loaded
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
     // terrDegradedBlock: degraded mode only
@@ -2744,16 +2852,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
-    {const hasCross=!!_S.crossingStats;const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(hasCross){
-      // Compter captes/fideles filtrés par les filtres chalandise actifs
-      let _fCaptes=0,_fFideles=0;
-      const _hasFilters=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille;
-      if(_hasFilters){
-        for(const cc of _S.crossingStats.captes){const info=_S.chalandiseData.get(cc);if(info&&_clientPassesFilters(info,cc))_fCaptes++;}
-        for(const cc of _S.crossingStats.fideles){const info=_S.chalandiseData.get(cc);if(!info||_clientPassesFilters(info,cc))_fFideles++;}
-      }else{_fCaptes=_S.crossingStats.captes.size;_fFideles=_S.crossingStats.fideles.size;}
-      _sv('terrSumFideles',_fFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',_S.crossingStats.potentiels.size.toLocaleString('fr-FR'));_sv('terrSumCaptes',_fCaptes.toLocaleString('fr-FR'));
-    }_sh('terrSumSubPotentiel',hasCross&&_S.crossingStats.potentiels.size>0);_sh('terrSumSubCaptes',hasCross&&_S.crossingStats.captes.size>0);_sh('terrSumSubFideles',hasCross&&_S.crossingStats.fideles.size>0);}
+    {const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(k.hasCross){
+      _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));_sv('terrSumCaptes',k.crossCaptes.toLocaleString('fr-FR'));
+    }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubCaptes',k.hasCross&&k.crossCaptes>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
@@ -4692,34 +4793,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
       return;
     }
-    const now=new Date();
-
-    // ── S1: Top 5 priorités semaine ──────────────────────────────────
-    let top5=[];
-    if(_S._top5Semaine?.length){
-      top5=_S._top5Semaine;
-    } else if(_S.clientLastOrder.size){
-      const cands=[];
-      for(const [cc,lastDate] of _S.clientLastOrder.entries()){
-        const daysSince=Math.round((now-lastDate)/86400000);
-        if(daysSince<30)continue;
-        const info=_S.chalandiseData.get(cc);
-        if(!info)continue;
-        const artMap=_S.ventesClientArticle.get(cc);
-        const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-        const ca=Math.max((info.ca2025||0)+caPDV,1);
-        const score=(daysSince/30)*Math.sqrt(ca);
-        const hmCount=(_S.ventesClientHorsMagasin.get(cc)||new Map()).size;
-        const parts=[];
-        if(daysSince>0)parts.push(`${daysSince}j silence`);
-        if(info.ca2025>0)parts.push(`CA ${formatEuro(info.ca2025)}/an`);
-        else if(caPDV>0)parts.push(`CA PDV ${formatEuro(caPDV)}/an`);
-        if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
-        cands.push({cc,nom:info.nom||cc,commercial:info.commercial||'',metier:info.metier||'',score:Math.round(score),reason:parts.join(' · ')||'À contacter'});
-      }
-      cands.sort((a,b)=>b.score-a.score);
-      top5=cands.slice(0,5);
-    }
+    const k=computeClientsKPIs();
+    const top5=k.top5;
     const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2">
       <div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233">
         <div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3>
@@ -4729,40 +4804,17 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><span class="font-bold text-sm flex-1">${escapeHtml(c.nom)}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${escapeHtml(c.reason)}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${escapeHtml(c.commercial||'—')}</span></div>`).join('')}</div>
     </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
 
-    // ── Top 5 priorités reconquête (scoring CA_PDV × daysAgo) ──
-    const top5ReconqHtml=(()=>{
-      const fideles=_S.crossingStats?.fideles;
-      if(!fideles?.size||!_S.clientLastOrder?.size)return'';
-      const today=new Date();
-      const scored=[];
-      for(const cc of fideles){
-        const lastOrder=_S.clientLastOrder.get(cc);
-        if(!lastOrder)continue;
-        const daysAgo=Math.floor((today-lastOrder)/864e5);
-        if(daysAgo<=30)continue;
-        const arts=_S.ventesClientArticle?.get(cc);
-        if(!arts?.size)continue;
-        let caPDV=0;
-        for(const d of arts.values())caPDV+=d.sumCA||0;
-        if(caPDV<=0)continue;
-        const score=Math.round(caPDV*daysAgo);
-        const cc6=cc.padStart(6,'0');
-        const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
-        const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
-        scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
-      }
-      if(!scored.length)return'';
-      scored.sort((a,b)=>b.score-a.score);
-      const top5=scored.slice(0,5);
-      const cards=top5.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
+    // ── Top 5 priorités reconquête ──
+    const top5ReconqHtml=k.top5Reconq.length?(()=>{
+      const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:#4c0519;color:#fda4af">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto text-[9px] px-2 py-0.5 rounded-full font-semibold" style="background:#be123c;color:#fff">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
       return`<details class="mb-3 s-card rounded-xl border overflow-hidden" style="border-color:#e11d48"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm" style="color:#e11d48">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
-    })();
+    })():'';
 
     // ── S2a: Reconquête — anciens fidèles silencieux ──────────────────
-    const reconq=(_S.reconquestCohort||[]).slice(0,10);
-    const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${(_S.reconquestCohort||[]).length} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`).join('')}${(_S.reconquestCohort||[]).length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${(_S.reconquestCohort||[]).length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`}</details>`;
+    const reconq=k.reconq;
+    const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${k.reconqTotal} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`).join('')}${k.reconqTotal>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${k.reconqTotal-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`}</details>`;
     // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
-    const _livAllB=_S.livraisonsSansPDV||[];
+    const _livAllB=k.livSansPDV;
     const livSPDVHtml=(()=>{
       if(!_livAllB.length)return _S.livraisonsReady?`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">0 clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>`:'';
       const _mkRow=r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
@@ -4840,20 +4892,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
     let topPDVHtml='';
-    if(_S.ventesClientArticle.size){
-      const topRows=[];
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caPDV<100)continue;
-        const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caPDV+caHors;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
-      }
-      topRows.sort((a,b)=>b.caPDV-a.caPDV);
+    {const topRows=k.topPDVRows;
       const top=topRows.slice(0,20);
       if(top.length){
         const now=Date.now();
@@ -4872,21 +4911,8 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
     let horsZoneHtml='';
-    if(_S.chalandiseReady&&_S.ventesClientArticle.size){
+    {const hors=k.horsZone;
       const nowMs=Date.now();
-      const hors=[];
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        if(_S.chalandiseData.has(cc))continue;
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caPDV<200)continue;
-        const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caPDV+caHors;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const nom=_S.clientNomLookup?.[cc]||cc;
-        hors.push({cc,nom,caPDV,caHors,caTotal,lastDate});
-      }
-      hors.sort((a,b)=>b.caPDV-a.caPDV);
       if(hors.length){
         const rows=hors.slice(0,20).map(r=>{
           const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
@@ -4901,29 +4927,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     // ── Section 4b : Clients devenus digitaux ────────────────────────────
     let digitauxHtml='';
-    if(_S.ventesClientHorsMagasin?.size&&_S.ventesClientArticle?.size){
-      const now=new Date();
-      const digitaux=[];
-      for(const[cc,horArts]of _S.ventesClientHorsMagasin){
-        const pdvArts=_S.ventesClientArticle.get(cc);
-        if(!pdvArts?.size)continue;
-        const lastPDV=_S.clientLastOrder?.get(cc);
-        if(!lastPDV)continue;
-        const pdvSilence=Math.round((now-lastPDV)/86400000);
-        if(pdvSilence<90)continue;
-        let caHors=0;const canalCA={};
-        for(const[,v]of horArts){caHors+=v.sumCA||0;canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
-        if(caHors<200)continue;
-        const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
-        let caPDV=0;for(const[,v]of pdvArts)caPDV+=v.sumCA||0;
-        const info=_S.chalandiseData?.get(cc);
-        digitaux.push({cc,nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||'',pdvSilence,caPDV,caHors,mainCanal});
-      }
-      digitaux.sort((a,b)=>b.caPDV-a.caPDV);
-      const top=digitaux.slice(0,8);
-      if(top.length){
+    {const digitaux=k.digitaux;
+      const _digTop=digitaux.slice(0,8);
+      if(_digTop.length){
         const cIcon=c=>c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
-        const cards=top.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${r.cc}','digitaux')">
+        const cards=_digTop.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${r.cc}','digitaux')">
   <div class="flex items-start justify-between mb-1">
     <div class="min-w-0"><div class="text-[11px] font-bold t-primary truncate">${r.nom}</div><div class="text-[9px] t-disabled">${r.metier||'—'}</div></div>
     <span class="text-[9px] shrink-0 ml-2" style="color:var(--c-caution)">${r.pdvSilence}j sans PDV</span>
