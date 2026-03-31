@@ -282,7 +282,7 @@ function _renderFamilleCommercial(data) {
       </div>
       <div id="laboFamDetail${idx}" class="hidden px-3 pb-2">
         <div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled border-b b-light">
-          <th class="text-left py-1 pr-2">Code</th><th class="text-left py-1 pr-2">Client</th><th class="text-left py-1 pr-2">Métier</th><th class="text-left py-1 pr-2">Famille manquante</th><th class="text-center py-1 pr-2">Taux réseau</th><th class="text-right py-1">CA estimé</th>
+          <th class="text-left py-1 pr-2">Code</th><th class="text-left py-1 pr-2">Client</th><th class="text-left py-1 pr-2">Métier</th><th class="text-left py-1 pr-2">Famille manquante</th><th class="text-center py-1 pr-2">Pénétration métier</th><th class="text-right py-1">CA estimé</th>
         </tr></thead><tbody>${detailRows}</tbody></table></div>
       </div>
     </div>`;
