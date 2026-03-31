@@ -84,31 +84,31 @@ function _renderCommercialSilencieux(data) {
 
     const detailRows = atRisk.map(c => {
       const bucketBadge = c.bucket === 'silencieux'
-        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Silencieux</span>'
-        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Perdu</span>';
-      return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
-        <td class="py-1 pr-2 font-mono t-disabled">${_unikLink(c.cc)}</td>
-        <td class="py-1 pr-2 t-primary">${escapeHtml(c.nom)}</td>
-        <td class="py-1 pr-2 t-secondary">${escapeHtml(c.metier)}</td>
+        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full border" style="color:var(--c-caution);border-color:var(--b-dark);background:var(--i-warn-dark-bg)">Silencieux</span>'
+        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full border" style="color:var(--c-danger);border-color:var(--b-dark);background:var(--i-error-dark-bg)">Perdu</span>';
+      return `<tr class="text-[10px] border-b" style="border-color:var(--b-dark)">
+        <td class="py-1 pr-2 font-mono t-inverse-muted">${_unikLink(c.cc)}</td>
+        <td class="py-1 pr-2 t-inverse">${escapeHtml(c.nom)}</td>
+        <td class="py-1 pr-2 t-inverse-muted">${escapeHtml(c.metier)}</td>
         <td class="py-1 pr-2 text-center">${bucketBadge}</td>
-        <td class="py-1 pr-2 text-right t-disabled">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
-        <td class="py-1 text-right font-bold t-primary">${formatEuro(c.ca)}</td>
+        <td class="py-1 pr-2 text-right t-inverse-muted">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
+        <td class="py-1 text-right font-bold t-inverse">${formatEuro(c.ca)}</td>
       </tr>`;
     }).join('');
 
     return `<tr class="text-[11px] b-light border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30" onclick="window._laboToggleDetail(${idx})" style="border-left:3px solid ${borderColor}">
       <td class="py-2 px-2 font-bold t-primary">${escapeHtml(r.commercial)}</td>
-      <td class="py-2 text-center">${r.nbActifs}</td>
+      <td class="py-2 text-center t-primary">${r.nbActifs}</td>
       <td class="py-2 text-center font-bold" style="color:var(--c-caution)">${r.nbSilencieux || '—'}</td>
       <td class="py-2 text-center font-bold" style="color:var(--c-danger)">${r.nbPerdus || '—'}</td>
       <td class="py-2 text-center t-disabled">${r.nbJamais || '—'}</td>
-      <td class="py-2 text-right font-bold">${formatEuro(caRisque)}</td>
+      <td class="py-2 text-right font-bold t-primary">${formatEuro(caRisque)}</td>
       <td class="py-2 text-center">${atRisk.length ? `<button onclick="event.stopPropagation();window._laboCopyERP(${idx})" class="text-[9px] px-1.5 py-0.5 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Copier codes ERP">📋</button>` : ''}</td>
     </tr>
     <tr id="laboDetail${idx}" class="hidden">
       <td colspan="7" class="p-0">
         <div class="px-4 py-2 s-panel-inner">
-          <table class="w-full"><thead><tr class="text-[9px] t-disabled border-b b-light">
+          <table class="w-full"><thead><tr class="text-[9px] t-inverse-muted border-b" style="border-color:var(--b-dark)">
             <th class="text-left py-1 pr-2">Code</th><th class="text-left py-1 pr-2">Nom</th><th class="text-left py-1 pr-2">Métier</th><th class="text-center py-1 pr-2">Statut</th><th class="text-right py-1 pr-2">Jours</th><th class="text-right py-1">CA</th>
           </tr></thead><tbody>${detailRows}</tbody></table>
         </div>
