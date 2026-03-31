@@ -10,7 +10,7 @@
 'use strict';
 import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm } from './utils.js';
 
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
@@ -292,13 +292,21 @@ export function clientMatchesUniversFilter(cc) {
   return _S._selectedUnivers.has(u);
 }
 
+export function clientMatchesDistanceFilter(info) {
+  if (!_S._distanceMaxKm || !_S._agenceCoords) return true;
+  const d = info.distanceKm;
+  if (d == null) return true; // pas de coordonnées → ne pas exclure
+  return d <= _S._distanceMaxKm;
+}
+
 export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
   if (!clientMatchesUniversFilter(cc)) return false;
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
     clientMatchesActivitePDVFilter(info) && clientMatchesDirectionFilter(info) &&
-    clientMatchesCommercialFilter(info) && clientMatchesMetierFilter(info);
+    clientMatchesCommercialFilter(info) && clientMatchesMetierFilter(info) &&
+    clientMatchesDistanceFilter(info);
 }
 
 // ── Diagnostic helpers ────────────────────────────────────────

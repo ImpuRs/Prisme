@@ -158,3 +158,27 @@ export const FAMILLE_LOOKUP = {
 
 // Codes hors catalogue standard — affichés sans code préfixe
 export const FAMILLE_HORS_CATALOGUE = new Set(['00','12','22','30','31','32','94']);
+
+// CP agences Legallais — source : adresses physiques agences
+export const AGENCE_CP = {
+  'AG22': '14000', // Caen (siège)
+  'AG24': '14000', // Caen
+  'AG93': '91300', // Massy
+  'AG94': '94200', // Ivry-sur-Seine
+  'AG02': '92000', // Nanterre
+  'AG95': '95500', // Gonesse
+  'AG44': '44800', // Saint-Herblain (Nantes)
+  'AG33': '33700', // Mérignac (Bordeaux)
+  'AG31': '31100', // Toulouse
+  'AG13': '13015', // Marseille
+  'AG69': '69007', // Lyon
+  'AG06': '06200', // Nice
+  'AG67': '67000', // Strasbourg
+  'AG59': '59000', // Lille
+  'AG35': '35000', // Rennes
+  'AG45': '45000', // Orléans
+  'AG76': '76600', // Le Havre
+  'AG50': '50000', // Saint-Lô
+  'AG61': '61000', // Alençon
+  'AG27': '27000', // Évreux
+};

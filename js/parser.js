@@ -10,8 +10,8 @@
 //        qui restent dans index.html/ui.js — fonctionne car scope global
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib } from './utils.js';
+import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
 
 
@@ -97,6 +97,8 @@ export async function parseChalandise(file) {
     });
   }
   _S.chalandiseMetiers = [...metiersSet].sort();
+  // ── Distance km — calcul Haversine CP client vs CP agence ──
+  _computeChalandiseDistances();
   // Build metier and commercial indexes
   _S.clientsByMetier.clear();
   _S.clientsByCommercial.clear();
@@ -125,6 +127,38 @@ export async function parseChalandise(file) {
 export function onChalandiseSelected(input) {
   onFileSelected(input, 'dropChalandise');
   if (input.files && input.files[0]) parseChalandise(input.files[0]);
+}
+
+// ── Chargement table CP → coordonnées GPS ──────────────────────
+export async function loadCpCoords() {
+  if (_S._cpCoords) return;
+  try {
+    const r = await fetch('js/cp-coords.json');
+    if (r.ok) _S._cpCoords = await r.json();
+  } catch (e) { console.warn('[PRISME] cp-coords.json non chargé:', e.message); }
+}
+
+// ── Calcul distances Haversine sur chalandiseData ──────────────
+export function _computeChalandiseDistances() {
+  if (!_S._cpCoords || !_S.chalandiseData.size) return;
+  // Résoudre les coordonnées de l'agence
+  const agenceCp = AGENCE_CP[_S.selectedMyStore] || '';
+  const agCoords = agenceCp ? _S._cpCoords[agenceCp] : null;
+  _S._agenceCoords = agCoords || null;
+  if (!agCoords) return;
+  const [aLat, aLon] = agCoords;
+  let computed = 0;
+  for (const [, info] of _S.chalandiseData) {
+    const cp = (info.cp || '').toString().replace(/\s/g, '');
+    const coords = cp ? _S._cpCoords[cp] : null;
+    if (coords) {
+      info.distanceKm = Math.round(haversineKm(aLat, aLon, coords[0], coords[1]));
+      computed++;
+    } else {
+      info.distanceKm = null;
+    }
+  }
+  if (computed) console.log(`[PRISME] Distances calculées : ${computed}/${_S.chalandiseData.size} clients`);
 }
 
 // ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
