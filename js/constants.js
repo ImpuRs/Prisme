@@ -162,13 +162,14 @@ export const FAMILLE_HORS_CATALOGUE = new Set(['00','12','22','30','31','32','94
 // CP agences Legallais — codes vus dans le consommé multi-agences
 export const AGENCE_CP = {
   'AG22': '91300', // Massy
-  'AG93': '93100', // Montreuil
-  'AG94': '94200', // Ivry-sur-Seine
-  'AG02': '92000', // Nanterre
-  'AG11': '11000', // Carcassonne
+  'AG02': '78200', // Mantes-la-Jolie
+  'AG03': '93200', // Saint-Denis
+  'AG05': '75011', // Paris 11
+  'AG11': '59000', // Lille
+  'AG16': '75009', // Paris 9
   'AG51': '51100', // Reims
-  'AG03': '03000', // Moulins
-  'AG05': '05000', // Gap
   'AG67': '67000', // Strasbourg
   'AG92': '92000', // Nanterre
+  'AG94': '94200', // Ivry
+  'AG93': '93160', // Noisy-le-Sec
 };
