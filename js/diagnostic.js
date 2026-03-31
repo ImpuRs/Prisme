@@ -60,13 +60,27 @@ function _renderClient360(clientCode,source){
   const nom=_S.clientNomLookup[clientCode]||info.nom||clientCode;
   const artMap=DataStore.ventesClientArticle?.get(clientCode);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
-  const lastOrder=_S.clientLastOrder?.get(clientCode);
+  const lastOrderMag=_S.clientLastOrder?.get(clientCode);
+  const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
+  // All-channels last order: check MAGASIN + territory lines
+  let lastOrder=lastOrderMag||null;
+  let lastOrderCanal='MAGASIN';
+  if(hasTerr){
+    let bestTerrDate=null,bestTerrCanal='';
+    for(const l of DataStore.territoireLines){
+      if(l.clientCode!==clientCode||!l.dateExp)continue;
+      if(!bestTerrDate||l.dateExp>bestTerrDate){bestTerrDate=l.dateExp;bestTerrCanal=l.canal||'';}
+    }
+    if(bestTerrDate){
+      const terrDate=new Date(bestTerrDate);
+      if(!lastOrder||terrDate>lastOrder){lastOrder=terrDate;lastOrderCanal=bestTerrCanal;}
+    }
+  }
   const today=new Date();
   const daysSince=lastOrder?Math.round((today-lastOrder)/86400000):null;
   const ca2025=info.ca2025||0;
   const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
   const hasChal=_S.chalandiseReady;
-  const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
 
   // ── Classification + badge statut ───────────────────────────────
   const classif=_normalizeClassifLocal(info.classification);
@@ -148,7 +162,9 @@ function _renderClient360(clientCode,source){
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
     const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j</p><p class="text-[10px] t-inverse-muted">${silLabel}</p></div>`);
+    const CANAL_ICONS={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
+    const canalSuffix=lastOrderCanal&&lastOrderCanal!=='MAGASIN'?` · ${CANAL_ICONS[lastOrderCanal]||lastOrderCanal}`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j${canalSuffix}</p><p class="text-[10px] t-inverse-muted">${silLabel}</p></div>`);
   }
   const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   if(spc!==null){
@@ -163,7 +179,7 @@ function _renderClient360(clientCode,source){
   const iciArts=artMap?[...artMap.entries()].sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,20):[];
 
   const ailleursMap=new Map();
-  if(horsMag)for(const[code,d]of horsMag.entries()){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=d.ca;}
+  if(horsMag)for(const[code,d]of horsMag.entries()){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=d.sumCA;}
   if(hasTerr)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
 
