@@ -2697,7 +2697,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function renderTerritoireTab(){
-    renderCockpitEquation();
     const k=computeTerritoireKPIs();
     // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
     {
@@ -4353,24 +4352,56 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
-    const nbClientsPDV=_S.ventesClientArticle.size;
-    const _storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
-    const caPDVTotal=Object.values(_storeData).reduce((s,v)=>s+(v.sumCA||0),0);
-    const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
-    // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
-    const freqPDV=nbClientsPDV>0?(nbPassages/nbClientsPDV).toFixed(1):0;
-    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):0;
-    if(!nbClientsPDV&&!caPDVTotal){el.classList.add('hidden');return;}
+    const canal=_S._globalCanal||'';
+    const CANAL_ICONS={MAGASIN:'🏪',INTERNET:'🌐',REPRESENTANT:'🤝',DCS:'📦'};
+    const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
+    let nbClients=0,ca=0,nbBL=0,canalLabel='tous canaux',canalIcon='📊';
+    if(!canal){
+      // Tous canaux — somme de tous les canaux
+      for(const c of Object.values(_S.canalAgence||{})){ca+=c.ca||0;nbBL+=c.bl||0;}
+      // Clients distincts tous canaux = union de clientLastOrderByCanal keys + clientsMagasin
+      const allClients=new Set(_S.clientsMagasin||[]);
+      if(_S.clientLastOrderByCanal)for(const[cc,cMap]of _S.clientLastOrderByCanal)if(cMap.size>0)allClients.add(cc);
+      nbClients=allClients.size;
+    }else{
+      // Canal spécifique
+      const cData=_S.canalAgence?.[canal];
+      ca=cData?.ca||0;nbBL=cData?.bl||0;
+      canalLabel=CANAL_LABELS[canal]||canal;canalIcon=CANAL_ICONS[canal]||'📊';
+      if(canal==='MAGASIN'){nbClients=_S.ventesClientArticle.size;}
+      else{
+        let cnt=0;if(_S.clientLastOrderByCanal)for(const[,cMap]of _S.clientLastOrderByCanal)if(cMap.has(canal))cnt++;
+        nbClients=cnt;
+      }
+    }
+    if(!nbClients&&!ca){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
-    document.getElementById('eqClients').textContent=nbClientsPDV.toLocaleString('fr');
-    document.getElementById('eqFreq').textContent=freqPDV;
-    document.getElementById('eqPanier').textContent=caParClient>0?caParClient.toLocaleString('fr')+' €':'—';
-    document.getElementById('eqCA').textContent=caPDVTotal>0?formatEuro(caPDVTotal):'—';
-    const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;const vmc=_S.ventesAnalysis?_S.ventesAnalysis.vmc:null;
-    const extraEl=document.getElementById('eqExtra');
-    if(extraEl){const parts=[];if(txMarge>0)parts.push('Tx\u00a0marge\u00a0: <strong>'+txMarge.toFixed(2)+'%</strong>');if(vmc>0)parts.push('VMC\u00a0: <strong>'+Math.round(vmc).toLocaleString('fr')+'\u00a0€</strong>');extraEl.innerHTML=parts.length?parts.join('\u00a0\u00a0·\u00a0\u00a0'):'';extraEl.classList.toggle('hidden',!parts.length);}
-    const src=document.getElementById('eqSource');
-    if(src){const pS=_S.periodFilterStart||_S.consommePeriodMin;const pE=_S.periodFilterEnd||_S.consommePeriodMax;const periodStr=(pS&&pE&&pS.getMonth()===pE.getMonth()&&pS.getFullYear()===pE.getFullYear())?fmtDate(pS):`${fmtDate(pS)} → ${fmtDate(pE)}`;src.textContent=`Source : Consommé canal MAGASIN · ${periodStr}`;}
+    const freq=nbClients>0?(nbBL/nbClients).toFixed(1):'—';
+    const caClient=nbClients>0?Math.round(ca/nbClients):0;
+    const txMarge=_S.ventesAnalysis?.txMarge;const vmc=_S.ventesAnalysis?.vmc;
+    const extraParts=[];if(txMarge>0)extraParts.push(`Tx\u00a0marge\u00a0: <strong>${txMarge.toFixed(2)}%</strong>`);if(vmc>0)extraParts.push(`VMC\u00a0: <strong>${Math.round(vmc).toLocaleString('fr')}\u00a0€</strong>`);
+    const pS=_S.periodFilterStart||_S.consommePeriodMin;const pE=_S.periodFilterEnd||_S.consommePeriodMax;
+    const periodStr=(pS&&pE)?((pS.getMonth()===pE.getMonth()&&pS.getFullYear()===pE.getFullYear())?fmtDate(pS):`${fmtDate(pS)} → ${fmtDate(pE)}`):'';
+    const caLabel=canal?`💰 CA ${canalLabel}`:'💰 CA Total';
+    el.innerHTML=`<div class="flex items-center justify-center gap-3 py-3 s-card rounded-xl border shadow-sm flex-wrap">
+      <div class="text-center px-4 py-2 s-card-alt rounded-lg">
+        <p class="text-[10px] font-bold t-tertiary uppercase">${canalIcon} Clients ${canalLabel}</p>
+        <p class="text-xl font-extrabold t-primary">${nbClients.toLocaleString('fr')}</p>
+      </div>
+      <span class="text-2xl t-disabled font-light">×</span>
+      <div class="flex items-center gap-2 px-4 py-2 s-card-alt rounded-lg">
+        <div class="text-center"><p class="text-[10px] font-bold t-tertiary uppercase">📊 Passages/client</p><p class="text-xl font-extrabold t-primary">${freq}</p></div>
+        <span class="text-lg t-disabled">×</span>
+        <div class="text-center"><p class="text-[10px] font-bold t-tertiary uppercase">🛒 CA / client</p><p class="text-xl font-extrabold t-primary">${caClient>0?caClient.toLocaleString('fr')+' €':'—'}</p></div>
+      </div>
+      <span class="text-2xl t-disabled font-light">=</span>
+      <div class="text-center px-4 py-2 i-info-bg rounded-lg b-light">
+        <p class="text-[10px] font-bold c-action uppercase">${caLabel}</p>
+        <p class="text-xl font-extrabold c-action">${ca>0?formatEuro(ca):'—'}</p>
+      </div>
+    </div>
+    ${extraParts.length?`<p class="text-[11px] t-tertiary text-center mt-0.5">${extraParts.join('\u00a0\u00a0·\u00a0\u00a0')}</p>`:''}
+    <p class="text-[10px] t-disabled text-center mt-1">Source : Consommé ${canal?'canal '+canalLabel:'tous canaux'}${periodStr?' · '+periodStr:''}</p>`;
   }
 
   function renderDashboardAndCockpit(){
@@ -5027,6 +5058,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         break;
       case 'prisme':
       case 'action':
+        renderCockpitEquation();
         renderDashboardAndCockpit();
         generateDecisionQueue();
         renderHealthScore();
