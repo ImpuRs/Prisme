@@ -1444,14 +1444,15 @@
       </div>
     </div>
 
-    <!-- TAB : TERRITOIRE (V24.4) -->
+    <!-- TAB : TERRITOIRE (V24.4) — Commerce -->
     <div id="tabTerritoire" class="tab-content hidden">
-      <!-- 5 blocs Commerce — ordre : Top5 (ouvert) → Reconquête → Opps → PDV → LivSansPDV -->
-      <div id="terrTop5"></div>
-      <div id="terrReconquete"></div>
-      <div id="terrOpportunites"></div>
-      <div id="terrTopPDV"></div>
-      <div id="terrLivSansPDV"></div>
+
+      <!-- 2a. Placeholder — chalandise not loaded yet -->
+      <div id="terrNoChalandise" class="hidden mb-2 p-2 i-danger-bg border-2 border-dashed border-rose-300 rounded-xl text-center">
+        <p class="text-xl mb-1">🗺️</p>
+        <p class="c-danger font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
+        <p class="c-danger text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
+      </div>
 
       <!-- Loading spinner -->
       <div id="terrLoadingSpinner" class="hidden text-center py-16">
@@ -1463,15 +1464,8 @@
         <p id="terrProgressText" class="text-violet-500 text-xs font-mono mt-1">0%</p>
       </div>
 
-      <!-- 2a. Placeholder — chalandise not loaded yet -->
-      <div id="terrNoChalandise" class="hidden mb-2 p-2 i-danger-bg border-2 border-dashed border-rose-300 rounded-xl text-center">
-        <p class="text-xl mb-1">🗺️</p>
-        <p class="c-danger font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
-        <p class="c-danger text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
-      </div>
-
-      <!-- Summary KPI bar — visible dès chalandise chargée -->
-      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3">
+      <!-- 1. KPI bar — sticky en haut, contexte de travail -->
+      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff)">
         <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif. Le total est l'ensemble de la zone.">
           <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
           <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
@@ -1496,7 +1490,7 @@
         </div>
       </div>
 
-      <!-- [Feature C] Bandeau dégradé canal : filtre canal actif mais pas de BL Territoire -->
+      <!-- [Feature C] Bandeau dégradé canal -->
       <div id="canalDegradedBanner" class="hidden mb-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-xl flex items-start gap-2.5">
         <span class="text-xl flex-shrink-0 mt-0.5">📊</span>
         <div>
@@ -1505,14 +1499,24 @@
         </div>
       </div>
 
-      <!-- Cockpit Client — visible dès chalandise chargée -->
+      <!-- 2. ALERTE — Clients silencieux (action prioritaire) -->
+      <div id="terrSilencieux" class="mb-3"></div>
+
+      <!-- 3. Top clients PDV -->
+      <div id="terrTopPDV"></div>
+
+      <!-- 4. Cockpit Client (capter, développer, fidéliser) -->
       <div id="terrCockpitClient" class="hidden mb-2"></div>
+
+      <!-- Blocs complémentaires -->
+      <div id="terrTop5"></div>
+      <div id="terrReconquete"></div>
+      <div id="terrOpportunites"></div>
+      <div id="terrLivSansPDV"></div>
       <div id="terrHorsZone"></div>
 
       <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
       <div id="terrDegradedBlock" class="hidden mt-2"></div>
-
-      <!-- 2c. Département filter — moved inside terrChalandiseOverview -->
 
     </div>
 
