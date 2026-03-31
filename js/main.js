@@ -768,8 +768,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const ok=v=>v!==null&&v!==undefined&&!isNaN(v)&&v!=='';
     const euro=v=>ok(v)&&v>0?formatEuro(v):null;
     const pct=v=>ok(v)?`${Math.round(v)}%`:null;
-    // Équation commerciale
-    const nbClientsPDV=_S.clientsMagasin.size;
+    // Équation commerciale — nbClients depuis ventesClientArticle (period-filtered)
+    const nbClientsPDV=_S.ventesClientArticle.size;
     const storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
     const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
@@ -4303,7 +4303,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
-    const nbClientsPDV=_S.clientsMagasin.size;
+    const nbClientsPDV=_S.ventesClientArticle.size;
     const _storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
     const caPDVTotal=Object.values(_storeData).reduce((s,v)=>s+(v.sumCA||0),0);
     const nbPassages=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
