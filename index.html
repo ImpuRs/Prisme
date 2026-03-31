@@ -394,7 +394,8 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:var(--s-page);border-right:1px solid var(--b-default);overflow-y:auto}
+    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:var(--s-page);border-right:1px solid var(--b-default);overflow:hidden}
+    #filterPanelContent{scrollbar-width:thin}
     #tabsContainer{position:sticky;top:0;z-index:50;background:var(--s-page);border-bottom:1px solid var(--b-default);box-shadow:var(--shadow-sm);display:none;align-items:stretch}
     body.pilot-loaded #tabsContainer{display:flex}
     /* First launch — hide everything except onboarding + import */
@@ -682,7 +683,7 @@
         <span id="sidebarGroupTitle" class="text-sm font-extrabold t-primary">Filtres</span>
         <button class="t-disabled hover:t-primary text-xl leading-none font-bold" onclick="closeFilterDrawer()">✕</button>
       </div>
-      <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1">
+      <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
 
         <!-- CANAL GLOBAL — visible sur action/territoire/promo -->
