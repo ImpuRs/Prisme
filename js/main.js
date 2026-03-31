@@ -13,7 +13,7 @@ import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, S
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker } from './parser.js';
+import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, renderCockpitBriefing, renderDecisionQueue, dqFocus, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, dqDismiss, clearDqDismissed, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
@@ -70,7 +70,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     _buildDeptFilter();_buildChalandiseOverview();
   }
-  function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._selectedDirections=new Set();_S._selectedUnivers=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';const aSel=document.getElementById('terrActPDVSelect');if(aSel)aSel.value='';const sdSel=document.getElementById('terrStatutDetailleSelect');if(sdSel)sdSel.value='';const stSel=document.getElementById('terrStatutSelect');if(stSel)stSel.value='';const uSel=document.getElementById('terrUniversSelect');if(uSel)uSel.value='';_buildDeptFilter();_buildChalandiseOverview();}
+  function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._selectedDirections=new Set();_S._selectedUnivers=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;_S._distanceMaxKm=0;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';const aSel=document.getElementById('terrActPDVSelect');if(aSel)aSel.value='';const sdSel=document.getElementById('terrStatutDetailleSelect');if(sdSel)sdSel.value='';const stSel=document.getElementById('terrStatutSelect');if(stSel)stSel.value='';const uSel=document.getElementById('terrUniversSelect');if(uSel)uSel.value='';const dSlider=document.getElementById('distKmSlider');if(dSlider){dSlider.value=0;}const dLabel=document.getElementById('distKmLabel');if(dLabel)dLabel.textContent='∞';_buildDeptFilter();_buildChalandiseOverview();}
   // ── Territory overview: Direction → Métier → Secteur → Clients ──
   const _closeAllDropPanels=(...except)=>{['terrDeptPanel','terrClassifPanel','terrActPDVPanel','terrStatutPanel','terrDirectionPanel'].forEach(id=>{if(!except.includes(id))document.getElementById(id)?.classList.add('hidden');});};
   function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDeptPanel');p.classList.toggle('hidden',closing);}
@@ -80,6 +80,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
   function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
   function _onCommercialFilter(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';if(_S._selectedCommercial===val)_buildChalandiseOverview();}
+  function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_buildChalandiseOverview();}
   let _terrClientSearchTimer=null;
   function _onTerrClientSearch(){
     clearTimeout(_terrClientSearchTimer);
@@ -1871,6 +1872,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       }
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
+      if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderDecisionQueue();renderIRABanner();renderTabBadges();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
@@ -5102,6 +5104,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   }
 
   // ── Restauration de session au démarrage ─────────────────────
+  // Charger la table CP → coordonnées GPS en arrière-plan (non bloquant)
+  loadCpCoords();
+
   (async function _initFromCache() {
     // Pré-remplir le sélecteur d'agence depuis localStorage si une valeur est sauvegardée
     const _savedStore = localStorage.getItem('prisme_selectedStore');
@@ -5188,6 +5193,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       updatePeriodAlert();
       buildPeriodFilter();
       computeClientCrossing();
+      if (_S.chalandiseReady) _computeChalandiseDistances();
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
       if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { computeOmniScores(); computeFamillesHors(); }
@@ -5461,6 +5467,7 @@ window._onStatutSelect = _onStatutSelect;
 window._onUniversSelect = _onUniversSelect;
 window._toggleStrategiqueFilter = _toggleStrategiqueFilter;
 window._onCommercialFilter = _onCommercialFilter;
+window._onDistanceSlider = _onDistanceSlider;
 window._onTerrClientSearch = _onTerrClientSearch;
 window._onMetierFilter = _onMetierFilter;
 window._navigateToOverviewMetier = _navigateToOverviewMetier;
