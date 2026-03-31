@@ -58,7 +58,9 @@ function _renderClient360(clientCode,source){
   // ── Données client ──────────────────────────────────────────────
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientNomLookup[clientCode]||info.nom||clientCode;
-  const artMap=DataStore.ventesClientArticle?.get(clientCode);
+  const artMapPeriod=DataStore.ventesClientArticle?.get(clientCode);
+  const artMapFull=_S.ventesClientArticleFull?.get(clientCode);
+  const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
   // All-channels last order: prefer clientLastOrderAll (built from consommé, all canals)
@@ -152,8 +154,8 @@ function _renderClient360(clientCode,source){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
     const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
     const CANAL_ICONS={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
-    const canalSuffix=lastOrderCanal&&lastOrderCanal!=='MAGASIN'?` · ${CANAL_ICONS[lastOrderCanal]||lastOrderCanal}`:'';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j${canalSuffix}</p><p class="text-[10px] t-inverse-muted">${silLabel}</p></div>`);
+    const canalSuffix=lastOrderCanal?` · ${CANAL_ICONS[lastOrderCanal]||lastOrderCanal}`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j</p><p class="text-[10px] t-inverse-muted">${silLabel}${canalSuffix}</p></div>`);
   }
   const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   if(spc!==null){
@@ -296,12 +298,15 @@ function _c360SwitchTab(clientCode,tabId){
 function _c360CopyResume(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
   const nom=_S.clientNomLookup?.[clientCode]||info.nom||clientCode;
-  const artMap=DataStore.ventesClientArticle?.get(clientCode);
+  const _artP=DataStore.ventesClientArticle?.get(clientCode);
+  const _artF=_S.ventesClientArticleFull?.get(clientCode);
+  const artMap=_artP||(_artF?.size?_artF:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
   const caHors=horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
   const ca2025=info.ca2025||0;
-  const lastOrder=_S.clientLastOrder?.get(clientCode);
+  const allOrder=_S.clientLastOrderAll?.get(clientCode);
+  const lastOrder=allOrder?.date||_S.clientLastOrder?.get(clientCode)||null;
   const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
