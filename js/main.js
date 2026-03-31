@@ -1034,226 +1034,87 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _buildCockpitClient(){
     const el=document.getElementById('terrCockpitClient');if(!el)return;
     const silEl=document.getElementById('terrSilencieux');
-    if(!_S.chalandiseReady){el.classList.add('hidden');if(silEl)silEl.innerHTML='';return;}
+    const perduEl=document.getElementById('terrPerdus');
+    const capEl=document.getElementById('terrACapter');
+    if(!_S.chalandiseReady){el.classList.add('hidden');if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
     el.classList.remove('hidden');
-    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
-    const _qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
-    let searchResultsHtml='';
-    // Categorize & score clients
-    const silencieux=[],urgences=[],developper=[],fideliser=[];
+    // ── Collect 3 categories from chalandise ──
+    const silencieux=[],perdus=[],jamaisVenus=[];
     const _today=new Date();
-    const {activeFilters:{canal:_cockpitCanalFilter,commercial:_cockpitCom}}=DataStore.byContext(); // [V3.2]
+    const {activeFilters:{commercial:_cockpitCom}}=DataStore.byContext();
     const _cockpitComSet=_cockpitCom?(_S.clientsByCommercial.get(_cockpitCom)||new Set()):null;
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info,cc))continue;
-      if(_qClient&&!matchQuery(_qClient,cc,info.nom||''))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
       if(!_passesClientCrossFilter(cc))continue;
       if(_S.excludedClients.has(cc))continue;
-      if(_cockpitComSet&&!_cockpitComSet.has(cc))continue; // [V3.2] filtre commercial
+      if(_cockpitComSet&&!_cockpitComSet.has(cc))continue;
       if(!_passesAllFilters(cc))continue;
-      const pdvActif=_isPDVActif(cc);
-      const globActif=_isGlobalActif(info);
-      const classif=_normalizeClassif(info.classification);
-      const isPotPlus=classif.includes('Pot+');
-      const perdu=_isPerdu(info);
-      const prospect=_isProspect(info);
-      const actPDV=(info.activitePDV||'').toLowerCase();
-      const pdvInactif=actPDV.includes('inactif');
+      const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
+      const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
       const lastOrder=_S.clientLastOrder.get(cc)||null;
       const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
       const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
-      const daysSinceLastOrder=_lastOrderValid?daysBetween(lastOrder,_today):null;
-      const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30&&daysSinceLastOrder<=60;
-      const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
-      const _contratCadre=false;
-      const finalScore=_clientUrgencyScore(cc,info);
-      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_contratCadre};
-      // Silencieux : toujours collectés, indépendamment du filtre canal
-      if(isSilent&&caPDVN>0){silencieux.push(c);continue;}
-      // Filtre canal : ne s'applique qu'aux autres catégories (urgences, développer, fidéliser)
-      if(_cockpitCanalFilter){
-        const _ccArts2=DataStore.ventesClientArticle.get(cc);
-        const _ccArtsHors2=_S.ventesClientHorsMagasin.get(cc);
-        const _allCodes2=[...(_ccArts2?.keys()||[]),...(_ccArtsHors2?.keys()||[])];
-        const _hasCanal2=_allCodes2.some(artCode=>(_S.articleCanalCA.get(artCode)?.get(_cockpitCanalFilter)?.ca||0)>0);
-        if(!_hasCanal2)continue;
-      }
-      if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
-      else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
-      else if(pdvActif&&classif==='FID Pot+')fideliser.push(c);
+      const daysSince=_lastOrderValid?daysBetween(lastOrder,_today):null;
+      const caLeg=info.ca2025||0;
+      const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2025:caLeg,caPDVN,ville:info.ville||'',_strat:_isMetierStrategique(info.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
+      // 1. Silencieux : 30-60j sans commande MAGASIN, avec CA PDV
+      if(daysSince!==null&&daysSince>30&&daysSince<=60&&caPDVN>0){silencieux.push(c);continue;}
+      // 2. Perdus : >60j sans commande MAGASIN (anciens clients PDV)
+      if(daysSince!==null&&daysSince>60&&caPDVN>0){perdus.push(c);continue;}
+      // 3. Jamais venus en PDV : CA Legallais >0, absent de clientsMagasin
+      if(caLeg>0&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
     }
-    // ── Search results block — shows ALL matching clients regardless of category ──
-    if(_qClient){
-      const srList=[];const srSeen=new Set();const _srFullMap=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle;
-      for(const[cc,info] of _S.chalandiseData.entries()){
-        if(!matchQuery(_qClient,cc,info.nom||''))continue;
-        srSeen.add(cc);
-        const artData=_srFullMap.get(cc);
-        const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-        srList.push({code:cc,nom:info.nom||'',metier:info.metier||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ville:info.ville||'',ca2025:info.ca2025||0,caPDVN});
-      }
-      for(const[cc,nom] of Object.entries(_S.clientNomLookup)){
-        if(srSeen.has(cc))continue;
-        if(!matchQuery(_qClient,cc,nom||''))continue;
-        const artData=_srFullMap.get(cc);
-        const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-        srList.push({code:cc,nom:nom||'',metier:'',statut:'',classification:'',commercial:'',ville:'',ca2025:0,caPDVN});
-      }
-      srList.sort((a,b)=>(b.caPDVN+b.ca2025)-(a.caPDVN+a.ca2025));
-      if(srList.length){
-        const rows=srList.slice(0,50).map(c=>`<tr class="border-t b-light hover:i-info-bg cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'reseau')"><td class="py-1 px-2 font-mono text-[10px] t-tertiary">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-[11px] font-semibold">${escapeHtml(c.nom)}${_unikLink(c.code)}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.statut?escapeHtml(c.statut):'—'}</td><td class="py-1 px-2 text-right text-[11px] font-bold ${c.caPDVN>0?'c-ok':'t-disabled'}">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td><td class="py-1 px-2 text-right text-[11px] font-bold ${c.ca2025>0?'c-caution':'t-disabled'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td></tr>`).join('');
-        const more=srList.length>50?srList.length-50:0;
-        searchResultsHtml=`<div class="mb-4 s-card rounded-xl shadow-md border overflow-hidden"><div class="p-3 border-b i-info-bg flex items-center gap-2"><h3 class="font-extrabold t-primary text-sm flex-1">🔍 Résultats — "${escapeHtml(_qClient)}" (${srList.length})</h3></div><div class="overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Statut</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-right">CA Legallais</th></tr></thead><tbody>${rows}</tbody></table></div>${more>0?`<p class="text-[10px] t-disabled p-2 border-t">${more} résultat(s) supplémentaire(s) non affiché(s)</p>`:''}</div>`;
-      }else{
-        searchResultsHtml=`<div class="mb-4 s-card rounded-xl shadow-md border p-4 text-sm t-tertiary">🔍 Aucun client trouvé pour "<strong>${escapeHtml(_qClient)}</strong>".</div>`;
-      }
-    }
-    // Silencieux: priorité aux gros clients silencieux depuis le plus longtemps
-    silencieux.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0));
-    urgences.sort((a,b)=>b._score-a._score);
-    developper.sort((a,b)=>b._score-a._score);
-    fideliser.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
+    silencieux.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
+    perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
+    jamaisVenus.sort((a,b)=>(b.ca2025||0)-(a.ca2025||0));
+    _S._cockpitExportData={silencieux,perdus,jamaisVenus};
+    // ── Helpers ──
     const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
     const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
-    // Dynamic reason functions
-    function _silRaison(c){
-      const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
-      if(c._daysSince>45)return`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`;
-      return`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
-    }
-    function _silColor(c){return c._daysSince>45?'c-danger':'c-caution';}
-    function _urgRaison(c){
-      const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
-      if(c._globActif&&!c._pdvActif)return`Jamais venu en agence — ${caFmt} chez Legallais à capter`;
-      if(c._perdu)return`Ancien client PDV perdu — ${caFmt} à récupérer`;
-      return`Actif Legallais hors agence — ${caFmt} de potentiel`;
-    }
-    function _devRaison(c){
-      const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
-      const classif=_normalizeClassif(c.classification);
-      if(c._perdu&&classif==='FID Pot+')return`Ancien client fidèle à reconquérir — ${caFmt} en jeu`;
-      if(c._perdu)return`Client perdu à reconquérir — ${caFmt} de CA historique`;
-      if(c._prospect&&classif==='FID Pot+')return`Prospect FID+ à fort potentiel — ${caFmt} estimé`;
-      if(c._prospect)return`Prospect — ${caFmt} de CA Legallais estimé`;
-      return`Potentiel à développer — ${caFmt}`;
-    }
-    function _fidRaison(c){
-      if(_normalizeClassif(c.classification)==='FID Pot+')return'Top client en agence — à fidéliser absolument';
-      return'Bon client PDV à entretenir';
-    }
-    // Cache reasons + export data
-    silencieux.forEach(c=>c._reason=_silRaison(c));
-    urgences.forEach(c=>c._reason=_urgRaison(c));
-    developper.forEach(c=>c._reason=_devRaison(c));
-    fideliser.forEach(c=>c._reason=_fidRaison(c));
-    _S._cockpitExportData={silencieux,urgences,developper,fideliser};
-    // B2: SPC badge
-    function _spcBadge(spc){if(spc==null)return'';const color=spc>=70?'c-danger font-extrabold':spc>=40?'c-caution font-bold':'t-disabled';return`<span class="text-[10px] ${color} ml-1" title="Score Potentiel Client (SPC)">${spc}</span>`;}
-    // A5: Badges alertes inline client (inactif / rupture / reconquête)
-    function _clientBadges(cc){
-      let badges='';
-      const lastOrder=_S.clientLastOrder.get(cc);
-      if(lastOrder){const daysAgo=Math.round((new Date()-lastOrder)/86400000);if(daysAgo>60)badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-caution-bg c-caution">⏰ ${daysAgo}j</span> `;}
-      const artMap=DataStore.ventesClientArticle.get(cc);
-      if(artMap&&_S.cockpitLists.ruptures&&_S.cockpitLists.ruptures.size>0){for(const code of artMap.keys()){if(_S.cockpitLists.ruptures.has(code)){badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span> `;break;}}}
-      if(_S.reconquestCohort.some(r=>r.cc===cc))badges+=`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span> `;
-      return badges;
-    }
-    // Card renderer
-    function _clientCard(c,raisonFn,scoreColor,hoverBg,catKey){
+    function _clientCard(c,reason,scoreColor){
       const caLeg=c.ca2025>0?formatEuro(c.ca2025):'—';
-      const sc=typeof scoreColor==='function'?scoreColor(c):scoreColor;
-      const artMap=DataStore.ventesClientArticle.get(c.code);
-      const _rupture=artMap&&_S.cockpitLists.ruptures?.size>0&&[...artMap.keys()].some(code=>_S.cockpitLists.ruptures.has(code));
-      const _reconquete=_S.reconquestCohort.some(r=>r.cc===c.code);
       const horsMag=_S.ventesClientHorsMagasin.get(c.code);
-      const _badgePrincipal=c._daysSince>30
-        ?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">⏰ ${c._daysSince}j</span>`
-        :_rupture?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">📦 Rupture</span>`
-        :_reconquete?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300">🔄 Reconquête</span>`
-        :'';
       const _icones=[horsMag?.size>0?'🌐':'',c._strat?'⭐':''].filter(Boolean).join(' ');
-      const raison=(raisonFn(c)||'').slice(0,60);
       const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';
-      return`<div id="cockpit-card-${escapeHtml(c.code)}" class="relative p-3 rounded-lg border s-card ${hoverBg} cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><button data-cc="${escapeHtml(c.code)}" data-nom="${escapeHtml(c.nom||c.code)}" data-cat="${escapeHtml(catKey)}" onclick="event.stopPropagation();_showExcludePrompt(this.dataset.cc,this.dataset.nom,this.dataset.cat)" class="absolute top-2 right-2 t-disabled hover:c-danger hover:i-danger-bg w-5 h-5 flex items-center justify-center rounded font-bold text-[11px] transition-colors" title="Masquer ce client">✕</button><div class="pr-5"><div class="flex items-center flex-wrap gap-1.5"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="font-bold text-[11px] t-inverse-muted">${caLeg}</span>${_badgePrincipal}${_icones?`<span class="text-[11px]">${_icones}</span>`:''}</div><p class="text-[11px] ${sc} font-bold mt-1">→ ${escapeHtml(raison)}</p><p class="text-[10px] t-tertiary mt-1">${[lastOrderFmt,c.commercial?`Commercial : ${escapeHtml(c.commercial)}`:''].filter(Boolean).join(' · ')}</p></div></div>`;
+      const daysBadge=c._daysSince>30?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">⏰ ${c._daysSince}j</span>`:'';
+      return`<div class="relative p-3 rounded-lg border s-card hover:i-info-bg cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div><div class="flex items-center flex-wrap gap-1.5"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="font-bold text-[11px] t-inverse-muted">${caLeg}</span>${daysBadge}${_icones?`<span class="text-[11px]">${_icones}</span>`:''}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${escapeHtml(reason)}</p><p class="text-[10px] t-tertiary mt-1">${[lastOrderFmt,c.commercial?`Commercial : ${escapeHtml(c.commercial)}`:''].filter(Boolean).join(' · ')}</p></div></div>`;
     }
-    // Full table renderer (revealed by "Voir tous")
-    function _fullTable(clients,sortField,listId){
-      const usePDV=sortField==='caPDVN';
-      let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto" style="max-height:400px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-center w-10">Classif.</th><th class="py-1.5 px-2 text-right">${usePDV?'CA Magasin Zone':'CA Legallais'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
-      for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=usePDV?(caVal>0?'c-ok':'t-disabled'):(caVal>0?'c-caution':'t-disabled');t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'reseau')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span>${_crossBadge(c.code)} <span class="font-semibold">${escapeHtml(c.nom)}</span>${_unikLink(c.code)}${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}${_clientStatusBadge(c.code,c)}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-center text-[10px]">${_classifShort(c.classification)}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
-      t+=`</tbody></table></div>`;
-      return t;
+    function _fullTable(clients,caField,listId){
+      const usePDV=caField==='caPDVN';
+      let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">${usePDV?'CA Magasin':'CA Legallais'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
+      for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=caVal>0?(usePDV?'c-ok':'c-caution'):'t-disabled';t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span> <span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
+      t+=`</tbody></table></div>`;return t;
     }
-    // Excluded clients bandeau for a block
-    function _excludedBandeau(listId){
-      const excl=[..._S.excludedClients.entries()].filter(([,v])=>v.category===listId);
-      if(!excl.length)return'';
-      const n=excl.length;
-      const exclListId=`${listId}-excl-detail`;
-      const rows=excl.map(([cc,v])=>`<div class="flex items-center gap-2 s-card-alt rounded px-2 py-1"><span class="font-mono t-disabled shrink-0">${cc}</span><span class="flex-1 font-semibold truncate">${v.nom||cc}</span><span class="t-disabled italic shrink-0">${v.reason}</span><button onclick="_unexcludeClient('${cc}')" class="c-action hover:underline font-bold shrink-0">Réintégrer</button></div>`).join('');
-      return`<div class="mt-3 pt-2 border-t b-default"><div class="flex items-center gap-2 text-[10px] t-tertiary flex-wrap">👁️ <span>${n} client${n>1?'s':''} masqué${n>1?'s':''}</span><button onclick="_toggleExcludedList('${exclListId}')" class="c-action hover:underline">Voir</button><span>·</span><button onclick="_unexcludeAll('${listId}')" class="c-action hover:underline">Tout réafficher</button></div><div id="${exclListId}" style="display:none" class="mt-1.5 space-y-1 text-[10px]">${rows}</div></div>`;
-    }
-    // Block renderer: Top 10 cards + optional full list — collapsible accordion
-    function renderBlock(title,subtitle,emoji,bgColor,borderColor,hoverBg,scoreColor,clients,sortField,raisonFn,listId,topN=10){
-      const top10=clients.slice(0,topN);
+    function renderBlock(title,emoji,bgColor,borderColor,scoreColor,clients,caField,raisonFn,listId,topN=10){
       const total=clients.length;
       const isOpen=listId==='cockpit-sil-full';
       const arrow=isOpen?'▼':'▶';
       const bodyDisplay=isOpen?'':'display:none';
-      if(!total){
-        return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs t-disabled px-4 pb-4">${emptyMsg}</p>${_excludedBandeau(listId)}</div></div>`;
-      }
+      if(!total)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs t-disabled px-4 pb-4">${emptyMsg}</p></div></div>`;
       let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}">`;
       html+=`<div class="flex items-center gap-2 p-4 pb-1 flex-wrap cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
       html+=`<div id="${listId}-body" style="${bodyDisplay}">`;
-      html+=`<p class="text-[10px] t-tertiary px-4 pt-1 pb-3">${subtitle.replace('{total}',total)}</p>`;
-      html+=`<div class="space-y-2 px-4">`;
-      for(const c of top10)html+=_clientCard(c,raisonFn,scoreColor,hoverBg,listId);
+      html+=`<div class="space-y-2 px-4 py-3">`;
+      for(const c of clients.slice(0,topN))html+=_clientCard(c,raisonFn(c),scoreColor);
       html+=`</div>`;
-      if(total>topN){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold c-action hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,sortField,listId);}
-      html+=_excludedBandeau(listId);
+      if(total>topN){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold c-action hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,caField,listId);}
       html+=`</div></div>`;
       return html;
     }
-    // Summary banner
-    const silBit=silencieux.length>0?`<span class="c-danger">🚨 ${silencieux.length} silencieux</span> · `:'';
-    const banner=`<div class="mb-3 px-4 py-2 s-card-alt border rounded-lg text-[11px] font-semibold t-primary">Sur votre sélection : ${silBit}<span class="c-danger">🔴 ${urgences.length} à capter</span> · <span class="c-caution">🟠 ${developper.length} à développer</span> · <span class="c-ok">🟢 ${fideliser.length} à fidéliser</span></div>`;
-    const nbLegAilleurs=urgences.filter(c=>c.ca2025>0).length;
-    const nbProspectsPurs=urgences.length-nbLegAilleurs;
-    const urgSubtitle=`${nbLegAilleurs>0?`🏪 ${nbLegAilleurs} actifs Legallais hors PDV`:''}${nbLegAilleurs>0&&nbProspectsPurs>0?' · ':''}${nbProspectsPurs>0?`🔍 ${nbProspectsPurs} prospects à qualifier`:''} · {total} clients au total`;
-    // ── Top 5 priorités de la semaine ────────────────────────────────
-    // Score = (daysSince/30) × sqrt(CA Legallais + CA Magasin)
-    // Pondère l'urgence par la durée de silence et amortit les outliers CA.
-    // Candidats : silencieux (30<daysSince≤60) + urgences (actifs Legallais hors PDV)
-    function _top5Score(c){
-      const days=(c._daysSince||0);
-      const ca=Math.max((c.ca2025||0)+(c.caPDVN||0),1);
-      return(days/30)*Math.sqrt(ca);
+    // ── Reason functions ──
+    function _silRaison(c){
+      const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
+      return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`:`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
     }
-    function _top5Reason(c){
-      const hm=_S.ventesClientHorsMagasin.get(c.code);
-      const hmCount=hm?.size||0;
-      const parts=[];
-      if(c._daysSince>0)parts.push(`${c._daysSince}j silence`);
-      if(c.ca2025>0)parts.push(`CA ${formatEuro(c.ca2025)}/an Legallais`);
-      else if(c.caPDVN>0)parts.push(`CA ${formatEuro(c.caPDVN)}/an agence`);
-      if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
-      return parts.join(' · ')||'À contacter';
-    }
-    const _top5Candidates=[];
-    for(const c of silencieux){if(c._daysSince>30)_top5Candidates.push(c);}
-    for(const c of urgences){if(c.ca2025>0)_top5Candidates.push(c);}
-    _top5Candidates.sort((a,b)=>_top5Score(b)-_top5Score(a));
-    const top5=[];const seen=new Set();
-    for(const c of _top5Candidates){if(top5.length>=5)break;if(!seen.has(c.code)){top5.push({...c,_top5reason:_top5Reason(c),_top5score:Math.round(_top5Score(c))});seen.add(c.code);}}
-    _S._top5Semaine=top5;
-    const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2"><div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233"><div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3><p class="text-[10px] t-tertiary mt-0.5">Clients silencieux (30–60j), classés par CA × durée de silence</p></div><div class="flex items-center gap-2">${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la chalandise pour plus de précision</span>`}<button onclick="exportTop5CSV()" class="text-[10px] border px-2 py-0.5 rounded font-bold" style="color:#0891b2;border-color:#0891b233">📥 CSV</button></div></div><div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.code}','cockpit')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c._top5reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c._top5score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div></div>`:'';
-    // Render silencieux + top5 into separate terrSilencieux block
-    if(silEl)silEl.innerHTML=top5Html+renderBlock('ALERTE — Clients silencieux','Clients réguliers sans commande MAGASIN depuis 30 à 60 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
-    // Render cockpit (capter, développer, fidéliser) into terrCockpitClient
-    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires sur votre zone de chalandise${hasTerr?' et le territoire':''} <span class="t-disabled cursor-help" title="CA Legallais = CA global tous canaux · CA Magasin Zone = achats dans votre PDV (source chalandise)">ⓘ</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Magasin · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV',urgSubtitle,'🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full',20)}</div></div></div>`;
+    function _perduRaison(c){return`${c._daysSince}j sans commande PDV — ${c.caPDVN>0?formatEuro(c.caPDVN)+' de CA historique':'ancien client à reconquérir'}`;}
+    function _capRaison(c){return`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`;}
+    // ── Render into 3 separate blocks ──
+    if(silEl)silEl.innerHTML=renderBlock('⏰ Silencieux — 30 à 60 jours sans commande PDV','⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
+    if(perduEl)perduEl.innerHTML=renderBlock('🔴 Perdus — Plus de 60 jours sans commande PDV','🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
+    if(capEl)capEl.innerHTML=renderBlock('🎯 À capter — Actifs Legallais, jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');
+    // terrCockpitClient now unused as wrapper — hide it
+    el.classList.add('hidden');
   }
   function exportTop5CSV(){
     const top5=_S._top5Semaine||[];
@@ -1308,7 +1169,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
   function exportCockpitCSV(catKey){
     if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-    const map={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-urg-full':['À capter',_S._cockpitExportData.urgences],'cockpit-dev-full':['Développer',_S._cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_S._cockpitExportData.fideliser]};
+    const map={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['À capter',_S._cockpitExportData.jamaisVenus]};
     const entry=map[catKey];if(!entry)return;
     const[catLabel,clients]=entry;
     const rows=clients.map(c=>_cockpitRowCSV(catLabel,c,'Non',''));
@@ -1319,7 +1180,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
   function exportCockpitCSVAll(){
     if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-    const catMap={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-urg-full':['À capter',_S._cockpitExportData.urgences],'cockpit-dev-full':['Développer',_S._cockpitExportData.developper],'cockpit-fid-full':['Fidéliser',_S._cockpitExportData.fideliser]};
+    const catMap={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['À capter',_S._cockpitExportData.jamaisVenus]};
     const rows=[];
     for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
     const date=new Date().toISOString().slice(0,10);
