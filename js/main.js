@@ -1643,14 +1643,17 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       {const _cf1=cleanCode((getVal(row,'Article','Code')||'').toString());if(_cf1){const _qteP_acc=getQuantityColumn(row,'prél')||0;if(_caP3+_caE3>0||_qteP_acc>0){if(!_S.articleCanalCA.has(_cf1))_S.articleCanalCA.set(_cf1,new Map());const _acm=_S.articleCanalCA.get(_cf1);if(!_acm.has(canal))_acm.set(canal,{ca:0,qteP:0,countBL:0});const _ace=_acm.get(canal);_ace.ca+=_caP3+_caE3;_ace.qteP+=_qteP_acc;_ace.countBL++;}}}
       }}
       } // end !isRefilter for period-independent blocks
+      // Parse date une seule fois — réutilisé par sumCAAll, filtre hors-MAGASIN, et filtre MAGASIN plus bas
+      const dateV=parseExcelDate(getVal(row,'Jour','Date'));
       // Accumulation CA tous canaux par client — avant le filtre canal (pour "Tous canaux" dans Top clients PDV)
+      // Filtre période appliqué pour ne compter que les clients de la période active
+      if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
       {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAP=getCaColumn(row,'prél')||0;const _caAE=(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const _caAT=_caAP+_caAE;const _qteAP=getQuantityColumn(row,'prél')||0;const _qteAE=(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);if(_caAT>0||_qteAP>0||_qteAE>0){if(!_S.ventesClientArticle.has(_ccA))_S.ventesClientArticle.set(_ccA,new Map());const _amA=_S.ventesClientArticle.get(_ccA);if(!_amA.has(_codeA))_amA.set(_codeA,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});_amA.get(_codeA).sumCAAll+=_caAT;}}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN — filtre période + accumulation ventesParMagasinByCanal
         if(canal){
-          const _dateHM=parseExcelDate(getVal(row,'Jour','Date'));
-          if(_S.periodFilterStart&&_dateHM&&_dateHM<_S.periodFilterStart){continue;}
-          if(_S.periodFilterEnd&&_dateHM&&_dateHM>_S.periodFilterEnd){continue;}
+          if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart){continue;}
+          if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd){continue;}
           const cc=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const codeArt=cleanCode((getVal(row,'Article','Code')||'').toString());const caLigne=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);const qteLigne=(getQuantityColumn(row,'prél')||0)+(getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev')||0);const skHors=extractStoreCode(row)||'INCONNU';
           // ventesClientHorsMagasin — skip for isRefilter
           if(!isRefilter&&cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}
@@ -1662,7 +1665,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const rawArt=(getVal(row,'Article','Code')||'').toString();const store=extractStoreCode(row),code=cleanCode(rawArt);const qteP=getQuantityColumn(row,'prél');const qteE=getQuantityColumn(row,'enlév')||getQuantityColumn(row,'enlev');const caP=getCaColumn(row,'prél');const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev');const sk=store||'INCONNU';
       if(code&&!_S.libelleLookup[code]){const si=rawArt.indexOf(' - ');if(si>0)_S.libelleLookup[code]=rawArt.substring(si+3).trim();}
       const famConso=(getVal(row,'Famille')||getVal(row,'Univers')||'').toString().trim();const _codeFamConso=(getVal(row,'Code famille','Code Famille')||'').toString().trim();const _famCode=_codeFamConso||extractFamCode(famConso);if(_famCode&&code)_S.articleFamille[code]=_famCode;const _uv2=(getVal(row,'Univers')||'').toString().trim();const _cf2=_codeFamConso||'';const univConso=_uv2||(_cf2?FAM_LETTER_UNIVERS[_cf2[0].toUpperCase()]||'Inconnu':'');if(univConso&&code)_S.articleUnivers[code]=univConso;
-      const dateV=parseExcelDate(getVal(row,'Jour','Date'));if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
+      if(dateV){const ts=dateV.getTime();if(ts<minDateVente)minDateVente=ts;if(ts>maxDateVente)maxDateVente=ts;}
       if(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)continue;
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       // B3: monthly sales accumulation
