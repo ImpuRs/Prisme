@@ -2850,8 +2850,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal)sumBar.classList.add('hidden');
     // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
     {const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(k.hasCross){
-      _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));_sv('terrSumCaptes',k.crossCaptes.toLocaleString('fr-FR'));
-    }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubCaptes',k.hasCross&&k.crossCaptes>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
+      _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));
+    }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
