@@ -1030,7 +1030,61 @@ export function dqFocus(idx) {
 // ── Health Score — fusionné dans renderIRABanner, ce bloc est inactif ──
 export function renderHealthScore() {
   const el = document.getElementById('healthScoreBadge');
-  if (el) el.classList.add('hidden');
+  if (!el) return;
+  const fd = _S.finalData;
+  if (!fd || !fd.length) { el.classList.add('hidden'); return; }
+  // ── Compute health dimensions (0-100 each) ──
+  const totalRefs = fd.length;
+  const ruptures = fd.filter(r => r.stockActuel <= 0 && r.W >= 3 && !r.isParent).length;
+  const dormants = fd.filter(r => r.ageJours >= (_S.DORMANT_DAYS || 180) && r.stockActuel > 0 && r.W <= 1).length;
+  const sansMin = fd.filter(r => r.ancienMin === 0 && r.W >= 3).length;
+  const surstock = fd.filter(r => r.ancienMax > 0 && r.stockActuel > r.ancienMax * 2).length;
+  // Taux de service = refs actives (W≥1) sans rupture / refs actives total
+  const actives = fd.filter(r => r.W >= 1 && !r.isParent);
+  const activesOk = actives.filter(r => r.stockActuel > 0).length;
+  const txService = actives.length > 0 ? Math.round(activesOk / actives.length * 100) : 100;
+  // Score composite : pondéré
+  const rupPct = totalRefs > 0 ? ruptures / totalRefs * 100 : 0;
+  const dormPct = totalRefs > 0 ? dormants / totalRefs * 100 : 0;
+  const sansMinPct = actives.length > 0 ? sansMin / actives.length * 100 : 0;
+  const surstockPct = totalRefs > 0 ? surstock / totalRefs * 100 : 0;
+  // Health = 100 - penalties
+  const score = Math.max(0, Math.min(100, Math.round(
+    txService * 0.4 +
+    Math.max(0, 100 - rupPct * 10) * 0.25 +
+    Math.max(0, 100 - dormPct * 3) * 0.15 +
+    Math.max(0, 100 - sansMinPct * 5) * 0.1 +
+    Math.max(0, 100 - surstockPct * 5) * 0.1
+  )));
+  const color = score >= 75 ? 'var(--c-ok)' : score >= 50 ? 'var(--c-caution)' : 'var(--c-danger)';
+  const label = score >= 75 ? 'Bonne santé' : score >= 50 ? 'À surveiller' : 'Critique';
+  const icon = score >= 75 ? '💚' : score >= 50 ? '🟡' : '🔴';
+  // ── Render ──
+  const dims = [
+    { label: 'Taux de service', val: txService + '%', ok: txService >= 95 },
+    { label: 'Ruptures', val: ruptures, ok: ruptures <= 5 },
+    { label: 'Dormants', val: dormants, ok: dormants <= totalRefs * 0.05 },
+    { label: 'Sans MIN', val: sansMin, ok: sansMin <= 3 },
+    { label: 'Surstock', val: surstock, ok: surstock <= totalRefs * 0.03 },
+  ];
+  const pills = dims.map(d =>
+    `<span class="text-[10px] px-2 py-0.5 rounded-full border ${d.ok ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-orange-300 text-orange-700 bg-orange-50'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
+  ).join('');
+  el.innerHTML = `<div class="flex items-center gap-4 py-3 px-4 s-card rounded-xl border shadow-sm flex-wrap">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">${icon}</span>
+      <div>
+        <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Santé Stock</p>
+        <p class="text-xl font-extrabold" style="color:${color}">${score}<span class="text-sm font-normal t-disabled">/100</span></p>
+      </div>
+      <div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-2">
+        <div class="h-full rounded-full" style="width:${score}%;background:${color}"></div>
+      </div>
+      <span class="text-[10px] font-bold" style="color:${color}">${label}</span>
+    </div>
+    <div class="flex flex-wrap gap-1.5 ml-auto">${pills}</div>
+  </div>`;
+  el.classList.remove('hidden');
 }
 
 // ── No-stock placeholder ──────────────────────────────────────
