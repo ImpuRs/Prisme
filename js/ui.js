@@ -169,9 +169,9 @@ export function switchTab(id) {
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
-  if (csb) csb.classList.toggle('hidden', id !== 'prisme' && id !== 'action');
+  if (csb) csb.classList.toggle('hidden', id !== 'action');
   const css = document.getElementById('cematinSearchBlock');
-  if (css) css.classList.toggle('hidden', id !== 'prisme' && id !== 'action');
+  if (css) css.classList.toggle('hidden', id !== 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
