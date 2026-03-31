@@ -263,7 +263,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     _buildCockpitClient();
     _buildDeptFilter();
     _buildOverviewFilterChips();
-    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
     // Aggregate by direction commerciale — FIXED columns
     const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
     for(const[cc,info] of _S.chalandiseData.entries()){
@@ -2133,7 +2132,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
     });
     const terrOverview=document.getElementById('terrChalandiseOverview');
-    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal||!hasTerr);
+    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
     const comBlock=document.getElementById('commercialSummaryBlock');
     if(comBlock)comBlock.classList.toggle('hidden',!hasTerr&&!hasChal);
   }
@@ -2184,8 +2183,9 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     _S._omniSegmentFilter=savedSeg;
     const total=nMono+nHybride+nDigital+nDormant||1;
     const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
-    const _nExclMag=[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length;
-    const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
+    const _fullPDV=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;
+    const _nExclMag=[..._fullPDV.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length;
+    const _totalTip=`${total} clients analysés = union MAGASIN (${_fullPDV.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
     const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
     const af=_S._omniSegmentFilter||'';
     const segLabels={mono:'Mono PDV',hybride:'Hybrides',digital:'Digital',dormant:'Dormants'};
