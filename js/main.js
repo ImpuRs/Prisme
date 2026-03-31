@@ -1275,6 +1275,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       b.classList.toggle('s-panel-inner',active);b.classList.toggle('t-inverse',active);b.classList.toggle('b-dark',active);
       b.classList.toggle('s-card',!active);b.classList.toggle('t-primary',!active);b.classList.toggle('b-default',!active);
     });
+    // Capturer l'état ouvert/fermé du panneau Top PDV avant re-render
+    const _det=document.querySelector('#terrTopPDV details');
+    if(_det)_S._topPDVOpen=_det.open;
     _S._tabRendered&&(_S._tabRendered['territoire']=false);
     renderTerritoireTab();
   };
@@ -2370,7 +2373,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
       const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
       inner+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
-        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')"],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._setClientView('multicanaux')"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._setClientView('multicanaux')"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._setClientView('dormants')"]
+        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')"],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._toggleHorsAgence()"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._toggleHorsAgence()"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._toggleDormants()"]
       ].map(([n,ca,label,icon,color,onclick])=>n>0?`<div class="flex flex-col items-center p-2 s-card rounded-xl border cursor-pointer hover:brightness-95 transition-all" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`:'').join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
     }
     // ── Momentum commercial ───────────────────────────────────────────────
@@ -2497,6 +2500,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const nowMs=Date.now();
     const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
     const el=document.getElementById('terrTopPDV');if(!el)return;
+    // Capturer l'état ouvert/fermé avant re-render
+    const _detCur=el.querySelector('details');
+    if(_detCur)_S._topPDVOpen=_detCur.open;
+    const _openAttr=_S._topPDVOpen!==false?' open':'';
     _syncPDVToggles();
 
     if(showHors){
@@ -2514,7 +2521,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         horsRows.push({cc,nom,metier:info?.metier||'',caHors,caMag,canaux:[...canaux].join('/')});
       }
       horsRows.sort((a,b)=>b.caHors-a.caHors);
-      if(!horsRows.length){el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></details>`;return;}
+      if(!horsRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></details>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=horsRows.slice(0,5);
@@ -2529,7 +2536,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-danger text-[11px]">${formatEuro(r.caHors)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.caMag>0?formatEuro(r.caMag):'—'}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled">${r.canaux||'—'}</td></tr>`).join('');
-      el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
+      el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
       return;
     }
 
@@ -2545,7 +2552,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         hzRows.push({cc,nom,caPDV});
       }
       hzRows.sort((a,b)=>b.caPDV-a.caPDV);
-      if(!hzRows.length){el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></details>`;return;}
+      if(!hzRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></details>`;return;}
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=hzRows.slice(0,5);
@@ -2560,7 +2567,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled font-mono">${r.cc}</td></tr>`).join('');
-      el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
+      el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
       return;
     }
 
@@ -2615,7 +2622,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _subtitleTip=isMagCanal
       ?`Clients PDV avec CA ≥ 100 €, après tous les filtres actifs (commercial, métier, vue…). Total brut MAGASIN : ${_S.ventesClientArticle.size} clients. Clients exclusivement PDV (sans hors-agence) : ${[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length}.`
       :`Clients avec CA ≥ 100 € sur ce canal, après tous les filtres actifs.`;
-    if(!topRows.length){el.innerHTML=`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></details>`;return;}
+    if(!topRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></details>`;return;}
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=topRows.slice(0,5);
@@ -2636,7 +2643,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _dc=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
       return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
     }).join('');
-    el.innerHTML=`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
+    el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
   }
 
   // ── _computeTop5Reconq — scored reconquest priority list (shared) ────
@@ -5371,6 +5378,7 @@ window._setReseauCanalFilter = function(val){
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
+window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }
