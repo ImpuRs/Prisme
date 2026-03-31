@@ -4207,14 +4207,18 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       const coeff = _S.seasonalIndex[r.famille]?.[mois];
       // Seulement les mois à forte saisonnalité (coeff > 1) — évite le bruit en basse saison
       if (!coeff || coeff <= 1.05) continue;
-      const saisonMin = Math.ceil(r.nouveauMin * coeff);
+      let saisonMin = Math.ceil(r.nouveauMin * coeff);
+      // Plafonnement articles chers — évite recommandations absurdes (8 Kärcher à 300€)
+      const px=r.prixUnitaire||0;
+      if(px>HIGH_PRICE){saisonMin=Math.min(saisonMin,Math.max(r.stockActuel+1,2));}
+      else if(px>50){saisonMin=Math.min(saisonMin,Math.max(Math.ceil(r.nouveauMin*1.5),3));}
       if (r.stockActuel < saisonMin) {
         const qteCde = saisonMin - r.stockActuel;
         candidats.push({
           code: r.code, libelle: r.libelle, famille: r.famille,
           nouveauMin: r.nouveauMin, saisonMin,
-          stockActuel: r.stockActuel, coeff,
-          qteCde, vaEuro: qteCde * (r.prixUnitaire || 0),
+          stockActuel: r.stockActuel, coeff, prixUnitaire: px,
+          qteCde, vaEuro: qteCde * px,
         });
       }
     }
