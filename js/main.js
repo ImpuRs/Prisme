@@ -2175,6 +2175,9 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     const el=document.getElementById('terrSegmentsOmni');
     if(!el)return;
     if(!_S.clientOmniScore?.size){el.innerHTML='';return;}
+    // Count segments WITHOUT the segment filter itself (to show totals always)
+    const savedSeg=_S._omniSegmentFilter;
+    _S._omniSegmentFilter='';
     let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
     for(const[cc,o]of _S.clientOmniScore){
       if(!_passesAllFilters(cc))continue;
@@ -2183,14 +2186,18 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
       else{nDormant++;}
     }
+    _S._omniSegmentFilter=savedSeg;
     const total=nMono+nHybride+nDigital+nDormant||1;
     const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
     const _nExclMag=[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length;
     const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
     const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
+    const af=_S._omniSegmentFilter||'';
+    const segLabels={mono:'Mono PDV',hybride:'Hybrides',digital:'Digital',dormant:'Dormants'};
+    const filterLabel=af?`<div class="mt-2 text-[10px]"><span class="cursor-pointer hover:underline" style="color:var(--c-action)" onclick="window._toggleOmniSegment('')">✕ Filtre actif : ${segLabels[af]||af}</span></div>`:'';
     el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
-      [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')",''],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._toggleHorsAgence()","multicanaux"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._toggleHorsAgence()","multicanaux"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._toggleDormants()","dormants"]
-    ].map(([n,ca,label,icon,color,onclick,viewKey])=>{if(!n)return'';const isActive=viewKey&&_S._clientView===viewKey;return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`;}).join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
+      [nMono,caMono,'Mono PDV','🏪','var(--c-ok)','mono'],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)','hybride'],[nDigital,caDigital,'Digital','📱','var(--c-caution)','digital'],[nDormant,0,'Dormants','💤','var(--c-danger)','dormant']
+    ].map(([n,ca,label,icon,color,segKey])=>{if(!n)return'';const isActive=af===segKey;return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="window._toggleOmniSegment('${segKey}')"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold ${isActive?'t-inverse':'t-primary'}">${n}</span><span class="text-[9px] ${isActive?'t-inverse-muted':'t-disabled'}">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`;}).join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div>${filterLabel}</div>`;
   }
 
   // ── Clients PDV hors zone — paginé, colonnes alignées sur _renderTopClientsPDV ──
@@ -2258,6 +2265,8 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     if(_S._filterStrategiqueOnly){const met=_S.chalandiseData?.get(cc)?.metier;if(!METIERS_STRATEGIQUES.includes(met))return false;}
     // 7. Distance km
     if(_S._distanceMaxKm>0&&_S._agenceCoords){const info2=_S.chalandiseData?.get(cc);if(info2){const d=info2.distanceKm;if(d!=null&&d>_S._distanceMaxKm)return false;}}
+    // 8. Segment omnicanal
+    if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
     return true;
   }
 
@@ -5042,6 +5051,7 @@ window._setReseauCanalFilter = function(val){
 window._toggleHorsAgence = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
 window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
+window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;renderCurrentTab();};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }

@@ -65,6 +65,7 @@ _S._showHorsAgence = false; // dérivé de _clientView
 _S._showHorsZone   = false; // dérivé de _clientView
 _S._horsZonePage = 0; // 0=top5, >=1=page paginée (20/page) — Clients PDV hors zone
 _S._clientView = 'tous'; // 'tous' | 'potentiels' | 'captes' | 'horszone' | 'multicanaux'
+_S._omniSegmentFilter = ''; // '' | 'mono' | 'hybride' | 'digital' | 'dormant'
 _S.terrClientsCanalFilter = 'all'; // 'all' | 'magasin' | 'preleve'
 _S._clientsActiveTab = 'priorites'; // 'priorites' | 'horsagence' | 'commercial'
 _S._hasStock = false; // true dès que le fichier Stock est chargé et parsé
