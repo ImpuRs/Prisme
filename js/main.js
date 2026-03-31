@@ -1487,9 +1487,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
+    // Scan rapide date max du consommé pour positionner le filtre période AVANT le parse
+    {let _maxTs=0;for(let i=0;i<dataC.length;i++){const _d=parseExcelDate(getVal(dataC[i],'Jour','Date'));if(_d){const _t=_d.getTime();if(_t>_maxTs)_maxTs=_t;}}
+    if(_maxTs){const _maxD=new Date(_maxTs);const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}}
     await processDataFromRaw(dataC,dataS,{storeOverride:_storeOverride||''});
-    // Positionner période sur le mois courant sans re-parse (évite double processDataFromRaw)
-    {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}buildPeriodFilter();}
+    buildPeriodFilter();
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
