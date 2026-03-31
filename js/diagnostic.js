@@ -60,22 +60,11 @@ function _renderClient360(clientCode,source){
   const nom=_S.clientNomLookup[clientCode]||info.nom||clientCode;
   const artMap=DataStore.ventesClientArticle?.get(clientCode);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
-  const lastOrderMag=_S.clientLastOrder?.get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
-  // All-channels last order: check MAGASIN + territory lines
-  let lastOrder=lastOrderMag||null;
-  let lastOrderCanal='MAGASIN';
-  if(hasTerr){
-    let bestTerrDate=null,bestTerrCanal='';
-    for(const l of DataStore.territoireLines){
-      if(l.clientCode!==clientCode||!l.dateExp)continue;
-      if(!bestTerrDate||l.dateExp>bestTerrDate){bestTerrDate=l.dateExp;bestTerrCanal=l.canal||'';}
-    }
-    if(bestTerrDate){
-      const terrDate=new Date(bestTerrDate);
-      if(!lastOrder||terrDate>lastOrder){lastOrder=terrDate;lastOrderCanal=bestTerrCanal;}
-    }
-  }
+  // All-channels last order: prefer clientLastOrderAll (built from consommé, all canals)
+  const allOrder=_S.clientLastOrderAll?.get(clientCode);
+  const lastOrder=allOrder?.date||_S.clientLastOrder?.get(clientCode)||null;
+  const lastOrderCanal=allOrder?.canal||'MAGASIN';
   const today=new Date();
   const daysSince=lastOrder?Math.round((today-lastOrder)/86400000):null;
   const ca2025=info.ca2025||0;
