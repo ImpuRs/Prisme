@@ -372,14 +372,6 @@
     details>summary{list-style:none;cursor:pointer}
     details>summary::-webkit-details-marker{display:none}
     .diag-reconquest-active{background:rgba(239,68,68,0.3)!important;border-color:#ef4444!important;color:#fca5a5!important;box-shadow:0 0 0 1px rgba(239,68,68,0.3)}
-    /* Promo auto-suggest */
-    #promoSuggestBox{border-radius:var(--r-lg);box-shadow:var(--shadow-lg)}
-    .promo-sug-group{padding:var(--sp-1) var(--sp-3) 2px;font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:var(--t-disabled);background:var(--s-card-alt);text-transform:uppercase;letter-spacing:.05em}
-    .promo-sug-item{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);cursor:pointer;border-top:1px solid var(--b-light);transition:background .08s}
-    .promo-sug-item:hover,.promo-sug-item.promo-sug-sel{background:var(--i-caution-bg)}
-    .promo-sug-icon{font-size:var(--fs-base);flex-shrink:0;line-height:1.4}
-    .promo-sug-label{font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--t-primary);line-height:1.3}
-    .promo-sug-sub{font-size:var(--fs-xs);color:var(--t-disabled);margin-top:1px}
     /* Command Palette */
     #cmdPalette{transition:opacity .15s ease}
     .cmd-group-header{padding:var(--sp-1) var(--sp-4) var(--sp-1);font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:var(--t-disabled);text-transform:uppercase;letter-spacing:.06em;background:var(--s-card-alt);border-bottom:1px solid var(--b-light);position:sticky;top:0}
@@ -540,21 +532,6 @@
     /* U4 — Anneau focus clavier */
     :focus-visible{outline:2px solid var(--c-action);outline-offset:2px}
 
-  /* Promo refactor — accordion client */
-  .promo-client-accordion { display: none; }
-  .promo-client-accordion.open { display: block; }
-  .promo-acc-tab {
-    font-size: 11px; font-weight: 600;
-    padding: 3px 10px; border-radius: 6px;
-    border: 1px solid transparent;
-    color: var(--t-tertiary); cursor: pointer;
-    background: none;
-  }
-  .promo-acc-tab.active {
-    background: var(--i-info-bg);
-    color: var(--c-action);
-    border-color: var(--p-blue-300);
-  }
   </style>
 </head>
 <body class="s-page t-primary relative">
@@ -671,7 +648,7 @@
       <button data-tab="territoire" onclick="switchTab('territoire')" class="tab-btn" id="btnTabTerritoire" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Commerce</span></button>
       <button data-tab="omni" onclick="switchTab('omni')" class="tab-btn" id="btnTabOmni" style="--tab-color:#7c3aed;--tab-bg:#7c3aed1F;--tab-text:#4c1d95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span>Omnicanalité</span></button>
       <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Réseau</span></button>
-      <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn" style="--tab-color:#D4537E;--tab-bg:#ED93B11F;--tab-text:#72243E"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l10 10-6 6L4 10V4z"/><circle cx="8.5" cy="8.5" r="1.5" fill="#D4537E" stroke="none"/></svg><span>Animation</span></button>
+
       <button data-tab="labo" onclick="switchTab('labo')" class="tab-btn active" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Labo</span></button>
     </div>
   </div>
@@ -894,30 +871,6 @@
           </div>
         </div>
 
-        <!-- GROUP Promo / Animation -->
-        <div id="filterGroupPromo" class="hidden">
-          <p class="text-[10px] font-bold c-caution uppercase tracking-wide mb-2">Animation — Filtres</p>
-          <div class="flex flex-col gap-1.5">
-            <div>
-              <p class="text-[10px] font-semibold t-tertiary mb-1">Canal</p>
-              <div class="flex flex-wrap gap-1">
-                <button class="terr-canal-chip active" data-anim-canal="" style="--chip-color:#6366f1" onclick="_animSetCanal('')">Tous</button>
-                <button class="terr-canal-chip" data-anim-canal="MAGASIN" style="--chip-color:#7c3aed" onclick="_animSetCanal('MAGASIN')">🏪 Mag.</button>
-                <button class="terr-canal-chip" data-anim-canal="INTERNET" style="--chip-color:#0891b2" onclick="_animSetCanal('INTERNET')">🌐 Web</button>
-                <button class="terr-canal-chip" data-anim-canal="REPRESENTANT" style="--chip-color:#059669" onclick="_animSetCanal('REPRESENTANT')">👔 Rep.</button>
-                <button class="terr-canal-chip" data-anim-canal="DCS" style="--chip-color:#d97706" onclick="_animSetCanal('DCS')">📦 DCS</button>
-              </div>
-            </div>
-            <hr class="b-default my-0.5">
-            <input id="animFilterMetier" type="text" placeholder="🔧 Métier…" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs w-full s-card">
-            <input id="animFilterCommercial" type="text" placeholder="👔 Commercial…" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs w-full s-card">
-            <div class="flex items-center gap-1">
-              <input id="animFilterCAMin" type="number" min="0" placeholder="CA min (€)" oninput="_animApplyFilters()" class="py-1 px-2 border rounded-lg text-xs flex-1 s-card">
-              <span class="text-[10px] t-tertiary">€</span>
-            </div>
-            <button onclick="_animResetFilters()" class="text-[10px] t-disabled hover:t-secondary text-left mt-1">↺ Réinitialiser</button>
-          </div>
-        </div>
 
       </div><!-- /filterPanelContent -->
     </aside>
@@ -1799,86 +1752,6 @@
 
     </div>
 
-    <!-- TAB 7 : ANIMATION — Pilotage multi-références -->
-    <div id="tabPromo" class="hidden tab-content flex flex-col" style="height:calc(100vh - 88px)">
-
-      <!-- ZONE 1 — SAISIE -->
-      <div class="shrink-0 p-4 border-b b-default s-card">
-        <div class="flex gap-3 items-start">
-          <div class="flex-1 min-w-0">
-            <div class="text-[10px] font-bold t-tertiary uppercase mb-1">📋 Références brochure — collez vos codes ou libellés</div>
-            <textarea id="animInput" rows="2"
-              placeholder="571103, 374144, Outillage à main, 308975…"
-              class="w-full text-sm px-3 py-2 rounded-lg border b-default s-card t-primary focus:border-blue-400 outline-none resize-none"
-              oninput="_animInputChange()"></textarea>
-            <div id="animCounter" class="text-[10px] t-tertiary mt-1"></div>
-          </div>
-          <div class="flex flex-col gap-1 shrink-0 pt-5">
-            <button onclick="_animAnalyze()"
-              class="text-sm font-bold py-2 px-4 rounded-lg text-white whitespace-nowrap"
-              style="background:var(--c-caution)">
-              🎯 Analyser la sélection
-            </button>
-            <button onclick="_animClear()"
-              class="text-[11px] t-disabled hover:t-secondary text-center py-1">
-              ✕ Effacer
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ZONE 2 — KPIs bandeau -->
-      <div id="animKPIs" class="hidden shrink-0 px-4 py-2 border-b b-default s-card-alt">
-        <div id="animKPIContent" class="flex flex-wrap gap-4 items-center text-[11px]"></div>
-      </div>
-
-      <!-- ZONE 3 — 3 Pavés -->
-      <div id="animPaves" class="hidden flex-1 overflow-y-auto p-4 min-h-0">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-full">
-
-          <!-- Pavé A — Qui achète ? -->
-          <div class="s-card rounded-xl border b-default flex flex-col">
-            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
-              <span class="text-sm font-bold">🟢 Qui achète ?</span>
-              <span id="animCountA" class="text-[10px] t-tertiary ml-auto"></span>
-              <button onclick="_animExportA()" class="text-[10px] font-bold py-0.5 px-2 rounded border b-default t-secondary hover:s-hover ml-1">CSV</button>
-            </div>
-            <div id="animBodyA" class="flex-1 overflow-y-auto min-h-0"></div>
-          </div>
-
-          <!-- Pavé B — Mix canaux -->
-          <div class="s-card rounded-xl border b-default flex flex-col">
-            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
-              <span class="text-sm font-bold">📊 Mix canaux &amp; réseau</span>
-              <span id="animCountB" class="text-[10px] t-tertiary ml-auto"></span>
-            </div>
-            <div id="animBodyB" class="flex-1 overflow-y-auto min-h-0"></div>
-          </div>
-
-          <!-- Pavé C — Clients à cibler -->
-          <div class="s-card rounded-xl border b-default flex flex-col">
-            <div class="px-3 py-2 border-b b-default flex items-center gap-2 shrink-0">
-              <span class="text-sm font-bold">🎯 Clients à cibler</span>
-              <span id="animCountC" class="text-[10px] t-tertiary ml-auto"></span>
-              <button onclick="_animExportC()" class="text-[10px] font-bold py-0.5 px-2 rounded border b-default t-secondary hover:s-hover ml-1">CSV</button>
-            </div>
-            <div id="animBodyC" class="flex-1 overflow-y-auto min-h-0"></div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- État vide initial -->
-      <div id="animEmpty" class="flex-1 flex items-center justify-center">
-        <div class="text-center t-tertiary p-8">
-          <p class="text-3xl mb-3">📋</p>
-          <p class="text-sm font-semibold">Collez vos références de brochure</p>
-          <p class="text-[11px] mt-1">Codes articles, familles, libellés — séparés par virgule ou retour à la ligne</p>
-          <p class="text-[10px] mt-3 t-disabled">Ex : 571103, 374144, Outillage à main, 308975</p>
-        </div>
-      </div>
-
-    </div><!-- fin tabPromo -->
 
     <div id="tabLabo" class="tab-content hidden">
       <!-- Rendu dynamique par renderLaboTab() -->
