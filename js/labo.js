@@ -84,20 +84,20 @@ function _renderCommercialSilencieux(data) {
 
     const detailRows = atRisk.map(c => {
       const bucketBadge = c.bucket === 'silencieux'
-        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">Silencieux</span>'
-        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">Perdu</span>';
+        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Silencieux</span>'
+        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Perdu</span>';
       return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
         <td class="py-1 pr-2 font-mono t-disabled">${_unikLink(c.cc)}</td>
-        <td class="py-1 pr-2">${escapeHtml(c.nom)}</td>
-        <td class="py-1 pr-2">${escapeHtml(c.metier)}</td>
+        <td class="py-1 pr-2 t-primary">${escapeHtml(c.nom)}</td>
+        <td class="py-1 pr-2 t-secondary">${escapeHtml(c.metier)}</td>
         <td class="py-1 pr-2 text-center">${bucketBadge}</td>
         <td class="py-1 pr-2 text-right t-disabled">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
-        <td class="py-1 text-right font-bold">${formatEuro(c.ca)}</td>
+        <td class="py-1 text-right font-bold t-primary">${formatEuro(c.ca)}</td>
       </tr>`;
     }).join('');
 
     return `<tr class="text-[11px] b-light border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30" onclick="window._laboToggleDetail(${idx})" style="border-left:3px solid ${borderColor}">
-      <td class="py-2 px-2 font-bold">${escapeHtml(r.commercial)}</td>
+      <td class="py-2 px-2 font-bold t-primary">${escapeHtml(r.commercial)}</td>
       <td class="py-2 text-center">${r.nbActifs}</td>
       <td class="py-2 text-center font-bold" style="color:var(--c-caution)">${r.nbSilencieux || '—'}</td>
       <td class="py-2 text-center font-bold" style="color:var(--c-danger)">${r.nbPerdus || '—'}</td>
@@ -249,19 +249,19 @@ function _renderFamilleCommercial(data) {
     const detailRows = r.opportunites.map(o => {
       return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
         <td class="py-1 pr-2">${_unikLink(o.cc)}</td>
-        <td class="py-1 pr-2">${escapeHtml(o.nom)}</td>
-        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner">${escapeHtml(o.metier)}</span></td>
-        <td class="py-1 pr-2 font-bold">${escapeHtml(o.famLib)}</td>
+        <td class="py-1 pr-2 t-primary">${escapeHtml(o.nom)}</td>
+        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner t-secondary">${escapeHtml(o.metier)}</span></td>
+        <td class="py-1 pr-2 font-bold t-primary">${escapeHtml(o.famLib)}</td>
         <td class="py-1 pr-2 text-center t-disabled">${Math.round(o.tauxReseau * 100)}%</td>
-        <td class="py-1 text-right font-bold">${formatEuro(o.caEstime)}</td>
+        <td class="py-1 text-right font-bold t-primary">${formatEuro(o.caEstime)}</td>
       </tr>`;
     }).join('');
 
     return `<div class="s-card rounded-xl border mb-2">
       <div class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded-t-xl" onclick="window._laboToggleFamDetail(${idx})">
         <div class="flex items-center gap-2">
-          <span class="text-[11px] font-bold">${escapeHtml(r.commercial)}</span>
-          <span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-bold">${r.opportunites.length} opportunité${r.opportunites.length > 1 ? 's' : ''}</span>
+          <span class="text-[11px] font-bold t-primary">${escapeHtml(r.commercial)}</span>
+          <span class="text-[9px] px-2 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-action)">${r.opportunites.length} opportunité${r.opportunites.length > 1 ? 's' : ''}</span>
         </div>
         <span class="text-[11px] font-bold" style="color:var(--c-action)">${formatEuro(r.totalCA)} potentiel</span>
       </div>
