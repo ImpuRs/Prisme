@@ -4162,63 +4162,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     URL.revokeObjectURL(link.href);
   }
 
-  // ── Performance par emplacement ──
-  function renderPerfEmplacement(){
-    const el=document.getElementById('perfEmplacementBlock');if(!el)return;
-    const data=DataStore.finalData;if(!data.length){el.classList.add('hidden');return;}
-    const map={};
-    for(const r of data){
-      const emp=r.emplacement||'(vide)';
-      if(!map[emp])map[emp]={ca:0,valStock:0,nbRef:0,clients:new Set(),sumW:0};
-      const e=map[emp];e.ca+=(r.caAnnuel||0);e.valStock+=(r.valeurStock||0);e.nbRef++;e.sumW+=(r.W||0);
-      const buyers=_S.articleClients?.get(r.code);if(buyers)for(const cc of buyers)e.clients.add(cc);
-    }
-    const rows=Object.entries(map).map(([emp,e])=>({emp,ca:e.ca,valStock:e.valStock,nbRef:e.nbRef,nbClients:e.clients.size,rotMoy:e.nbRef>0?e.sumW/e.nbRef:0,rendement:e.valStock>0?e.ca/e.valStock:0}));
-    if(!rows.length){el.classList.add('hidden');return;}
-    el.classList.remove('hidden');
-    _S._perfEmpData=rows;_S._perfEmpSort={col:'ca',asc:false};
-    _renderPerfEmpTable();
-  }
-  function _renderPerfEmpTable(){
-    const el=document.getElementById('perfEmplacementBlock');if(!el)return;
-    const rows=_S._perfEmpData;if(!rows||!rows.length)return;
-    const {col,asc}=_S._perfEmpSort||{col:'ca',asc:false};
-    const sorted=[...rows].sort((a,b)=>{const va=a[col],vb=b[col];if(typeof va==='string')return asc?va.localeCompare(vb):vb.localeCompare(va);return asc?va-vb:vb-va;});
-    const arrow=(c)=>col===c?(asc?'▲':'▼'):'';
-    const th=(label,key,align)=>`<th class="py-2 px-3 ${align} text-[10px] cursor-pointer select-none hover:c-action" onclick="_sortPerfEmp('${key}')">${label} ${arrow(key)}</th>`;
-    let html=`<div class="s-card p-5 rounded-xl shadow-md border">
-      <h3 class="font-bold mb-4 border-b pb-2 flex items-center gap-2">📍 Performance par emplacement <span class="text-[10px] t-disabled font-normal">${sorted.length} emplacements</span></h3>
-      <div class="list-scroll" style="max-height:400px"><table class="min-w-full text-xs">
-      <thead class="s-card-alt t-tertiary uppercase sticky top-0"><tr>
-        ${th('Emplacement','emp','text-left')}${th('CA','ca','text-right')}${th('Val. stock','valStock','text-right')}${th('Réf.','nbRef','text-center')}${th('Clients','nbClients','text-center')}${th('Rotation','rotMoy','text-center')}${th('Rendement','rendement','text-center')}
-      </tr></thead><tbody class="divide-y font-semibold">`;
-    for(const r of sorted){
-      const rdCol=r.rendement>=2?'c-ok':r.rendement>=1?'c-caution':'c-danger';
-      const rdFmt=r.rendement>=10?r.rendement.toFixed(0)+'×':r.rendement.toFixed(1)+'×';
-      html+=`<tr class="hover:i-info-bg cursor-pointer" onclick="_filterByEmplacement('${escapeHtml(r.emp)}')">
-        <td class="py-2 px-3 font-semibold">${escapeHtml(r.emp)}</td>
-        <td class="py-2 px-3 text-right">${r.ca>0?formatEuro(r.ca):'—'}</td>
-        <td class="py-2 px-3 text-right t-secondary">${r.valStock>0?formatEuro(r.valStock):'—'}</td>
-        <td class="py-2 px-3 text-center">${r.nbRef}</td>
-        <td class="py-2 px-3 text-center">${r.nbClients||'—'}</td>
-        <td class="py-2 px-3 text-center t-secondary">${r.rotMoy.toFixed(1)}</td>
-        <td class="py-2 px-3 text-center font-bold ${rdCol}">${rdFmt}</td>
-      </tr>`;
-    }
-    html+=`</tbody></table></div></div>`;
-    el.innerHTML=html;
-  }
-  window._sortPerfEmp=function(col){
-    if(!_S._perfEmpSort)return;
-    if(_S._perfEmpSort.col===col)_S._perfEmpSort.asc=!_S._perfEmpSort.asc;
-    else{_S._perfEmpSort.col=col;_S._perfEmpSort.asc=col==='emp';}
-    _renderPerfEmpTable();
-  };
-  window._filterByEmplacement=function(emp){
-    const sel=document.getElementById('filterEmplacement');
-    if(sel){sel.value=emp==='(vide)'?'':emp;onFilterChange();switchTab('table');}
-  };
-
   function renderCockpitEquation(){
     const el=document.getElementById('cockpitEquation');if(!el)return;
     const canal=_S._globalCanal||'';
@@ -4402,7 +4345,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     renderCockpitEquation();
     // Feature D — Préconisation saisonnière (projection du mois courant, zéro structure _S)
     renderSaisonWidget();
-    renderPerfEmplacement();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
     // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
