@@ -577,18 +577,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     row.insertAdjacentElement('afterend',tr);
   }
   // ── Filtre période global ──
-  function togglePeriodDropdown(){
-    const dd=document.getElementById('periodDropdown');if(!dd)return;
-    const open=dd.classList.toggle('hidden');
-    if(!open){
-      setTimeout(()=>{
-        document.addEventListener('click',function _closePd(e){
-          const nav=document.getElementById('navPeriod');
-          if(!nav||!nav.contains(e.target)){dd.classList.add('hidden');document.removeEventListener('click',_closePd);}
-        });
-      },0);
-    }
-  }
+  function togglePeriodDropdown(){ toggleTabPeriodDropdown(); }
   function toggleTabPeriodDropdown(){
     const dd=document.getElementById('tabPeriodDropdown');if(!dd)return;
     buildPeriodFilter(); // refresh pills avant d'ouvrir
@@ -603,7 +592,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
   }
   function applyPeriodFilter(startTs,endTs){
-    const dd=document.getElementById('periodDropdown');if(dd)dd.classList.add('hidden');
     const tdd=document.getElementById('tabPeriodDropdown');if(tdd)tdd.classList.add('hidden');
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
@@ -668,9 +656,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   window._applyPeriodeQ=(sTs,eTs)=>{applyPeriodFilter(sTs,eTs);};
 
   function buildPeriodFilter(){
-    const navPeriod=document.getElementById('navPeriod');
+    const tabBlock=document.getElementById('tabPeriodBlock');
     const{mois,trimestres}=_buildPeriodeOptions();
-    if(!mois.length){if(navPeriod)navPeriod.classList.add('hidden');return;}
+    if(!mois.length){if(tabBlock)tabBlock.style.display='none';return;}
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     const ps=_S.periodFilterStart?_S.periodFilterStart.getTime():null;
     const pe=_S.periodFilterEnd?_S.periodFilterEnd.getTime():null;
@@ -727,23 +715,23 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   </div>
 </div>${warnHtml}`;
     }
-    const dd=document.getElementById('periodDropdown');if(dd)dd.innerHTML=buildHtml('nav');
     const tabDd=document.getElementById('tabPeriodDropdown');if(tabDd)tabDd.innerHTML=buildHtml('tab');
-    // Update navbar button + tab bar button
-    const btn=document.getElementById('navPeriodBtn');
-    const tabBtn=document.getElementById('tabPeriodBtn');
+    // Update sidebar period label
     const tabLabel=document.getElementById('tabPeriodLabel');
     if(ps&&pe){
       const _l=_S.periodFilterStart.getMonth()===_S.periodFilterEnd.getMonth()&&_S.periodFilterStart.getFullYear()===_S.periodFilterEnd.getFullYear()
         ?fmtDate(_S.periodFilterStart):`${fmtDate(_S.periodFilterStart)} → ${fmtDate(_S.periodFilterEnd)}`;
-      if(btn){btn.textContent=`📅 ${_l}`;btn.style.cssText='color:#fde047;font-weight:800';}
-      if(tabLabel)tabLabel.textContent=_l;
-      if(tabBtn)tabBtn.classList.add('filtered');
+      if(tabLabel){tabLabel.textContent=_l+' ▼';tabLabel.classList.add('filtered');}
     }else{
-      if(btn)btn.style.cssText='';
+      if(tabLabel){
+        const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
+        const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+        tabLabel.textContent=(minD&&maxD?`${fmtDate(minD)} → ${fmtDate(maxD)}`:'—')+' ▼';
+        tabLabel.classList.remove('filtered');
+      }
       updatePeriodAlert();
     }
-    if(navPeriod)navPeriod.classList.remove('hidden');
+    if(tabBlock)tabBlock.style.display='';
   }
   // ── Reporting ──
   function generateReportText(){
@@ -1857,7 +1845,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const elapsed=((performance.now()-t0)/1000).toFixed(1);
       document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
       document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
-      document.getElementById('navStore').classList.add('hidden');
+      const _navSt=document.getElementById('navStore');if(_navSt){_navSt.textContent=_S.selectedMyStore||'';_navSt.classList.toggle('hidden',!_S.selectedMyStore);}
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
@@ -5185,7 +5173,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       // 2. Navbar (L2472-2476)
       document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';
       document.getElementById('navStats').classList.remove('hidden');
-      document.getElementById('navStore').classList.add('hidden');
+      const _navSt2=document.getElementById('navStore');if(_navSt2){_navSt2.textContent=_S.selectedMyStore||'';_navSt2.classList.toggle('hidden',!_S.selectedMyStore);}
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
 
@@ -5515,57 +5503,13 @@ window.clipERP = clipERP;
 window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
-window.updateNavStore = function(){ renderSidebarAgenceSelector(); };
 function renderSidebarAgenceSelector() {
-  const block = document.getElementById('sidebarAgenceBlock');
-  const list  = document.getElementById('sidebarAgenceList');
-  if (!block || !list) return;
-  const stores = Object.keys(_S.ventesParMagasin || {}).sort();
-  if (stores.length < 2) { block.style.display = 'none'; return; }
-  block.style.display = '';
-  const myStore = _S.selectedMyStore || '';
-  // Mettre à jour le label du titre (dropdown reste fermé)
-  const lbl = document.getElementById('agenceFilterLabel');
-  if (lbl) lbl.textContent = (myStore || 'Toutes') + ' ▼';
-  // Peupler la liste (sans forcer l'ouverture)
-  list.innerHTML = stores.map(s => {
-    const isMe = s === myStore;
-    return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:0.7rem;font-weight:${isMe?'700':'600'};color:${isMe?'var(--c-action)':'var(--t-secondary,#94a3b8)'}" class="hover:s-card-alt"><input type="radio" name="sidebarStoreRadio" value="${s}" ${isMe?'checked':''} onchange="window._sidebarAgenceChange('${s}')" style="accent-color:var(--c-action);flex-shrink:0"><span>${s}</span></label>`;
-  }).join('');
+  // Navbar: static agence code display (no dropdown)
+  const navSt = document.getElementById('navStore');
+  if (navSt) { navSt.textContent = _S.selectedMyStore || ''; navSt.classList.toggle('hidden', !_S.selectedMyStore); }
 }
+window.updateNavStore = renderSidebarAgenceSelector;
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
-window._toggleAgenceDropdown = function() {
-  const dd = document.getElementById('agenceDropdown');
-  if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? '' : 'none';
-};
-// Fermer le dropdown agence au clic en dehors
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('tabsFilterTitle');
-  if (wrap && !wrap.contains(e.target)) {
-    const dd = document.getElementById('agenceDropdown');
-    if (dd) dd.style.display = 'none';
-  }
-}, true);
-window._sidebarAgenceChange = function(store) {
-  if (store === _S.selectedMyStore) return;
-  _S.selectedMyStore = store;
-  localStorage.setItem('prisme_selectedStore', store);
-  const sel = document.getElementById('selectMyStore'); if (sel) sel.value = store;
-  processData(store);
-};
-window._sidebarAgenceMonStore = function() {
-  const stores = Object.keys(_S.ventesParMagasin || {}).sort();
-  const saved = localStorage.getItem('prisme_selectedStore') || '';
-  const target = (saved && stores.includes(saved)) ? saved : (stores[0] || '');
-  if (target && target !== _S.selectedMyStore) window._sidebarAgenceChange(target);
-};
-window._sidebarAgenceTout = function() {
-  _S.selectedMyStore = '';
-  const sel = document.getElementById('selectMyStore'); if (sel) sel.value = '';
-  renderSidebarAgenceSelector();
-  processData('*');
-};
 // Animation tab — fonctions HTML onclick
 window._animAnalyze = _animAnalyze;
 window._animClear = _animClear;
