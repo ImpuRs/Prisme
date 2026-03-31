@@ -139,13 +139,13 @@ function _renderCommercialSilencieux(data) {
       const bucketBadge = c.bucket === 'silencieux'
         ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Silencieux</span>'
         : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Perdu</span>';
-      return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
-        <td class="py-1 pr-2 font-mono t-disabled">${_unikLink(c.cc)}</td>
-        <td class="py-1 pr-2 t-primary">${escapeHtml(c.nom)}</td>
-        <td class="py-1 pr-2 t-secondary">${escapeHtml(c.metier)}</td>
+      return `<tr class="text-[10px] border-b" style="border-color:var(--b-dark)">
+        <td class="py-1 pr-2 font-mono t-inverse-muted">${_unikLink(c.cc)}</td>
+        <td class="py-1 pr-2 t-inverse">${escapeHtml(c.nom)}</td>
+        <td class="py-1 pr-2 t-inverse-muted">${escapeHtml(c.metier)}</td>
         <td class="py-1 pr-2 text-center">${bucketBadge}</td>
-        <td class="py-1 pr-2 text-right t-disabled">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
-        <td class="py-1 text-right font-bold t-primary">${formatEuro(c.ca)}</td>
+        <td class="py-1 pr-2 text-right t-inverse-muted">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
+        <td class="py-1 text-right font-bold t-inverse">${formatEuro(c.ca)}</td>
       </tr>`;
     }).join('');
 
@@ -315,7 +315,7 @@ function _renderFamilleCommercial(data) {
       return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
         <td class="py-1 pr-2">${_unikLink(o.cc)}</td>
         <td class="py-1 pr-2 t-primary">${escapeHtml(o.nom)}</td>
-        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner">${escapeHtml(o.metier)}</span></td>
+        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner t-inverse-muted">${escapeHtml(o.metier)}</span></td>
         <td class="py-1 pr-2 font-bold t-primary">${escapeHtml(o.famLib)}</td>
         <td class="py-1 pr-2 text-center t-disabled">${Math.round(o.tauxReseau * 100)}%</td>
         <td class="py-1 text-right font-bold t-primary">${formatEuro(o.caEstime)}</td>
