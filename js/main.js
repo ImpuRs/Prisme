@@ -789,7 +789,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       if(_minConsomme&&lastDate<_minConsomme)continue;
-      if(daysBetween(lastDate,now)>30){
+      const _dSil=daysBetween(lastDate,now);
+      if(_dSil>30&&_dSil<=60){
         const artData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
         const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
         if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
@@ -903,7 +904,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     // Clients silencieux
     if(silencieuxCount>0){
-      let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis plus de 30 jours`;
+      let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis 30 à 60 jours`;
       if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA Magasin cumulé)`;
       p+='.';
       const silTop5=silencieuxList.slice(0,5);
@@ -1009,7 +1010,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _minC2=_S.consommePeriodMinFull||_S.consommePeriodMin;
       for(const[cc,lastDate] of _S.clientLastOrder.entries()){
         if(_minC2&&lastDate<_minC2)continue;
-        const d=daysBetween(lastDate,_today);if(d<=30)continue;
+        const d=daysBetween(lastDate,_today);if(d<=30||d>60)continue;
         const artMap=_clientArtMap.get(cc);if(!artMap)continue;
         let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
         if(ca<=0)continue;
@@ -1023,7 +1024,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const banner=`<div class="mb-3 p-3 i-caution-bg border b-light rounded-lg text-xs c-caution">💡 <strong>Chargez la Zone de Chalandise</strong> pour débloquer l'analyse métier, la captation et les prospects.</div>`;
     let html=hasChal?'':banner;
     if(!hasChal&&silencieux.length){
-      const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>90?'c-danger':c.d>60?'c-caution':'c-caution';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
+      const rows=silencieux.slice(0,20).map(c=>{const cls=c.d>45?'c-danger':'c-caution';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}${_unikLink(c.cc)}</td><td class="py-1 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(c.ca)}</td><td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.d}j</td></tr>`;}).join('');
       html+=`<div class="i-danger-bg rounded-xl border-t-4 border-rose-500 mb-3 overflow-hidden"><div class="flex items-center gap-2 p-3 border-b b-light"><span>🚨</span><h4 class="font-extrabold text-sm flex-1">Clients silencieux <span class="badge bg-rose-500 text-white ml-1">${silencieux.length}</span></h4></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA Magasin</th><th class="py-1.5 px-2 text-center">Sans commande</th></tr></thead><tbody>${rows}</tbody></table>${silencieux.length>20?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${silencieux.length-20} autres</p>`:''}</div></div>`;
     }
     if(!hasChal&&!silencieux.length)html+=`<p class="text-center t-disabled text-sm py-8">Aucun client trouvé${qClient?' pour "'+qClient+'"':''}.</p>`;
@@ -1050,14 +1051,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(_S.excludedClients.has(cc))continue;
       if(_cockpitComSet&&!_cockpitComSet.has(cc))continue; // [V3.2] filtre commercial
       if(!_passesAllFilters(cc))continue;
-      // [Feature C] filtre canal : garder uniquement les clients ayant du CA sur ce canal via articleCanalCA
-      if(_cockpitCanalFilter){
-        const _ccArts=DataStore.ventesClientArticle.get(cc);
-        const _ccArtsHors=_S.ventesClientHorsMagasin.get(cc);
-        const _allCodes=[...(_ccArts?.keys()||[]),...(_ccArtsHors?.keys()||[])];
-        const _hasCanal=_allCodes.some(artCode=>(_S.articleCanalCA.get(artCode)?.get(_cockpitCanalFilter)?.ca||0)>0);
-        if(!_hasCanal)continue;
-      }
       const pdvActif=_isPDVActif(cc);
       const globActif=_isGlobalActif(info);
       const classif=_normalizeClassif(info.classification);
@@ -1070,13 +1063,22 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
       const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
       const daysSinceLastOrder=_lastOrderValid?daysBetween(lastOrder,_today):null;
-      const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
+      const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30&&daysSinceLastOrder<=60;
       const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
       const _contratCadre=false;
       const finalScore=_clientUrgencyScore(cc,info);
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_contratCadre};
-      if(isSilent&&caPDVN>0)silencieux.push(c);
-      else if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
+      // Silencieux : toujours collectés, indépendamment du filtre canal
+      if(isSilent&&caPDVN>0){silencieux.push(c);continue;}
+      // Filtre canal : ne s'applique qu'aux autres catégories (urgences, développer, fidéliser)
+      if(_cockpitCanalFilter){
+        const _ccArts2=DataStore.ventesClientArticle.get(cc);
+        const _ccArtsHors2=_S.ventesClientHorsMagasin.get(cc);
+        const _allCodes2=[...(_ccArts2?.keys()||[]),...(_ccArtsHors2?.keys()||[])];
+        const _hasCanal2=_allCodes2.some(artCode=>(_S.articleCanalCA.get(artCode)?.get(_cockpitCanalFilter)?.ca||0)>0);
+        if(!_hasCanal2)continue;
+      }
+      if(globActif&&(pdvInactif||!pdvActif)&&isPotPlus)urgences.push(c);
       else if((perdu&&isPotPlus)||(prospect&&isPotPlus))developper.push(c);
       else if(pdvActif&&classif==='FID Pot+')fideliser.push(c);
     }
@@ -1116,11 +1118,10 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // Dynamic reason functions
     function _silRaison(c){
       const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
-      if(c._daysSince>90)return`Pas de commande depuis ${c._daysSince}j — client à risque (${caPDVFmt} CA Magasin)`;
-      if(c._daysSince>60)return`Silencieux depuis ${c._daysSince}j — à relancer (${caPDVFmt} CA Magasin)`;
+      if(c._daysSince>45)return`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`;
       return`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
     }
-    function _silColor(c){return c._daysSince>90?'c-danger':c._daysSince>60?'c-caution':'c-caution';}
+    function _silColor(c){return c._daysSince>45?'c-danger':'c-caution';}
     function _urgRaison(c){
       const caFmt=c.ca2025>0?formatEuro(c.ca2025):'—';
       if(c._globActif&&!c._pdvActif)return`Jamais venu en agence — ${caFmt} chez Legallais à capter`;
@@ -1224,7 +1225,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // ── Top 5 priorités de la semaine ────────────────────────────────
     // Score = (daysSince/30) × sqrt(CA Legallais + CA Magasin)
     // Pondère l'urgence par la durée de silence et amortit les outliers CA.
-    // Candidats : silencieux (daysSince>30) + urgences (actifs Legallais hors PDV)
+    // Candidats : silencieux (30<daysSince≤60) + urgences (actifs Legallais hors PDV)
     function _top5Score(c){
       const days=(c._daysSince||0);
       const ca=Math.max((c.ca2025||0)+(c.caPDVN||0),1);
@@ -1247,8 +1248,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const top5=[];const seen=new Set();
     for(const c of _top5Candidates){if(top5.length>=5)break;if(!seen.has(c.code)){top5.push({...c,_top5reason:_top5Reason(c),_top5score:Math.round(_top5Score(c))});seen.add(c.code);}}
     _S._top5Semaine=top5;
-    const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2"><div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233"><div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3><p class="text-[10px] t-tertiary mt-0.5">Clients silencieux depuis >30j, classés par CA × durée de silence</p></div><div class="flex items-center gap-2">${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la chalandise pour plus de précision</span>`}<button onclick="exportTop5CSV()" class="text-[10px] border px-2 py-0.5 rounded font-bold" style="color:#0891b2;border-color:#0891b233">📥 CSV</button></div></div><div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.code}','cockpit')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c._top5reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c._top5score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div></div>`:'';
-    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires sur votre zone de chalandise${hasTerr?' et le territoire':''} <span class="t-disabled cursor-help" title="CA Legallais = CA global tous canaux · CA Magasin Zone = achats dans votre PDV (source chalandise)">ⓘ</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers de votre agence sans commande depuis plus de 30 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Magasin · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV',urgSubtitle,'🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full',20)}</div></div></div>`;
+    const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2"><div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233"><div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3><p class="text-[10px] t-tertiary mt-0.5">Clients silencieux (30–60j), classés par CA × durée de silence</p></div><div class="flex items-center gap-2">${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la chalandise pour plus de précision</span>`}<button onclick="exportTop5CSV()" class="text-[10px] border px-2 py-0.5 rounded font-bold" style="color:#0891b2;border-color:#0891b233">📥 CSV</button></div></div><div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" onclick="openClient360('${c.code}','cockpit')"><span class="font-bold text-sm flex-1">${c.nom}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${c._top5reason}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c._top5score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${c.commercial||'—'}</span></div>`).join('')}</div></div>`:'';
+    el.innerHTML=searchResultsHtml+`<div class="s-card rounded-xl shadow-md border overflow-hidden"><div class="p-4 border-b s-card-alt"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-extrabold t-primary flex-1">👥 Cockpit Client</h3><button onclick="exportCockpitCSVAll()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Exporter tout</button><button onclick="exportExclusionsJSON()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📤 Exclusions</button><button onclick="document.getElementById('importExclusionsInput').click()" class="text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 Importer</button></div><p class="text-[10px] t-tertiary mt-0.5">Actions prioritaires sur votre zone de chalandise${hasTerr?' et le territoire':''} <span class="t-disabled cursor-help" title="CA Legallais = CA global tous canaux · CA Magasin Zone = achats dans votre PDV (source chalandise)">ⓘ</span></p></div><div class="p-4">${banner}<div class="grid grid-cols-1 gap-4">${renderBlock('ALERTE — Clients silencieux','Clients réguliers sans commande MAGASIN depuis 30 à 60 jours · {total} clients','🚨','i-danger-bg','border-rose-500','hover:i-danger-bg',_silColor,silencieux,'caPDVN',_silRaison,'cockpit-sil-full')}${renderBlock('À DÉVELOPPER — Top 10 priorités','Triés par potentiel · {total} clients dans cette catégorie','🟠','i-caution-bg','border-orange-500','hover:i-caution-bg','c-caution',developper,'ca2025',_devRaison,'cockpit-dev-full')}${renderBlock('À FIDÉLISER — Top 10 bons clients','Triés par CA Magasin · {total} clients dans cette catégorie','🟢','i-ok-bg','border-green-500','hover:i-ok-bg','c-ok',fideliser,'caPDVN',_fidRaison,'cockpit-fid-full')}${renderBlock('À CAPTER — Actifs Legallais hors PDV',urgSubtitle,'🔴','i-danger-bg','border-red-500','hover:i-danger-bg','c-danger',urgences,'ca2025',_urgRaison,'cockpit-urg-full',20)}</div></div></div>`;
   }
   function exportTop5CSV(){
     const top5=_S._top5Semaine||[];
@@ -4793,7 +4794,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2">
       <div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233">
         <div><h3 class="font-extrabold text-sm" style="color:#0891b2">⚡ Top 5 — Priorités cette semaine</h3>
-        <p class="text-[10px] t-tertiary mt-0.5">Clients silencieux depuis >30j, classés par CA × durée de silence</p></div>
+        <p class="text-[10px] t-tertiary mt-0.5">Clients silencieux (30–60j), classés par CA × durée de silence</p></div>
         ${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la zone de chalandise pour plus de précision</span>`}
       </div>
       <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><span class="font-bold text-sm flex-1">${escapeHtml(c.nom)}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${escapeHtml(c.reason)}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0" style="color:#0891b2">${escapeHtml(c.commercial||'—')}</span></div>`).join('')}</div>
