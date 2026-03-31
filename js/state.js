@@ -391,6 +391,7 @@ export function resetAppState() {
   _S._laboSeuilPenetration = 0.20;
   _S._laboSilData = null;
   _S._laboFamData = null;
+  _S._laboStockData = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
