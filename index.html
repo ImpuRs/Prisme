@@ -1461,23 +1461,22 @@
 
       <!-- Summary KPI bar — visible dès chalandise chargée -->
       <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3">
-        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px]">
+        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif. Le total est l'ensemble de la zone.">
           <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
           <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
           <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
         </div>
         <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px]">
+        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px] cursor-help" title="Parmi ces clients zone, ceux qui ont un CA Legallais tous canaux confondus (source : chalandise).">
           <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
           <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
           <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
         </div>
         <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px]">
+        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px] cursor-help" title="Parmi ces clients zone, ceux qui ont achet&#233; au moins une fois en magasin (comptoir) sur la p&#233;riode du consomm&#233;. Les &#171;hors zone&#187; sont des clients actifs en PDV mais absents de votre chalandise.">
           <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
           <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
           <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
-          <p id="terrSumSubCaptes" class="text-[9px] c-ok mt-0.5 hidden">🟢 <span id="terrSumCaptes">0</span> captés zone</p>
           <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
         </div>
         <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
