@@ -2224,7 +2224,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         <p class="text-sm font-bold t-primary mb-1">🔵 Canal filtré : ${_canalLabel}</p>
         <p class="text-2xl font-extrabold c-action">${formatEuro(_canalCA)} <span class="text-sm font-normal t-tertiary">CA ${_canalLabel} total</span></p>
         ${_subHtml}
-        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></p>
+        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setGlobalCanal('')">Voir tous les canaux</button></p>
       </div>`;
     }else{
       html=`<div class="mb-3 p-3 s-card rounded-xl border">
@@ -2314,10 +2314,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
-  function _setTerrGlobalCanalFilter(val){
-    if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val);
-    else{_S._globalCanal=val;renderCanalAgence();renderTerritoireTab();}
-  }
+
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
   // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
@@ -2438,15 +2435,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=hors.slice(0,5);
-      if(hors.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._horsZoneExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hors.length} clients →</button></div>`;
+      if(hors.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_horsZoneExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hors.length} clients →</button></div>`;
     }else{
       const maxPage=Math.ceil(hors.length/HZ_PAGE);
       const cur=Math.max(1,Math.min(page,maxPage));
       if(_S._horsZonePage!==cur)_S._horsZonePage=cur;
       displayRows=hors.slice((cur-1)*HZ_PAGE,cur*HZ_PAGE);
-      const prev=cur>1?`<button onclick="window._horsZonePage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-      const next=cur<maxPage?`<button onclick="window._horsZonePage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._horsZoneCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hors.length} clients</span></div>`;
+      const prev=cur>1?`<button data-action="_horsZonePage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+      const next=cur<maxPage?`<button data-action="_horsZonePage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_horsZoneCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hors.length} clients</span></div>`;
     }
     const rows=displayRows.map(r=>{
       const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
@@ -2519,15 +2516,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=horsRows.slice(0,5);
-        if(horsRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._topPDVExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${horsRows.length} clients →</button></div>`;
+        if(horsRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${horsRows.length} clients →</button></div>`;
       }else{
         const maxPage=Math.ceil(horsRows.length/PDV_PAGE);
         const cur=Math.max(1,Math.min(page,maxPage));
         if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
         displayRows=horsRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-        const prev=cur>1?`<button onclick="window._topPDVPage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-        const next=cur<maxPage?`<button onclick="window._topPDVPage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
+        const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+        const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-danger text-[11px]">${formatEuro(r.caHors)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.caMag>0?formatEuro(r.caMag):'—'}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled">${r.canaux||'—'}</td></tr>`).join('');
       el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
@@ -2550,15 +2547,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       let displayRows,pagerHtml='';
       if(page===0){
         displayRows=hzRows.slice(0,5);
-        if(hzRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._topPDVExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hzRows.length} clients →</button></div>`;
+        if(hzRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hzRows.length} clients →</button></div>`;
       }else{
         const maxPage=Math.ceil(hzRows.length/PDV_PAGE);
         const cur=Math.max(1,Math.min(page,maxPage));
         if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
         displayRows=hzRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-        const prev=cur>1?`<button onclick="window._topPDVPage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-        const next=cur<maxPage?`<button onclick="window._topPDVPage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
+        const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+        const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
       }
       const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled font-mono">${r.cc}</td></tr>`).join('');
       el.innerHTML=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
@@ -2620,15 +2617,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     let displayRows,pagerHtml='';
     if(page===0){
       displayRows=topRows.slice(0,5);
-      if(topRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button onclick="window._topPDVExpand()" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${topRows.length} clients →</button></div>`;
+      if(topRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${topRows.length} clients →</button></div>`;
     }else{
       const maxPage=Math.ceil(topRows.length/PDV_PAGE);
       const cur=Math.max(1,Math.min(page,maxPage));
       if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
       displayRows=topRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-      const prev=cur>1?`<button onclick="window._topPDVPage(-1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-      const next=cur<maxPage?`<button onclick="window._topPDVPage(1)" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button onclick="window._topPDVCollapse()" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${topRows.length} clients</span></div>`;
+      const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
+      const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
+      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${topRows.length} clients</span></div>`;
     }
     const rows=displayRows.map(r=>{
       const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
@@ -3577,13 +3574,13 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // Detail tables (elements removed from DOM — render only if still present)
     const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
     let p=[];for(const m of fMPage){const dc=m.myStock>0?'c-ok':'c-danger';const di=m.myStock>0?'🟢':'🔴';const dt=m.myStock>0?'Visibilité?':'Référencer';const mLib=escapeHtml(m.lib||'');p.push(`<tr class="border-b hover:i-danger-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${mLib}">${mLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-danger">${m.bassinFreq}</td><td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td><td class="py-1.5 px-2 text-right font-bold ${m.myStock>0?'c-ok':'c-danger'}">${m.myStock}</td><td class="py-1.5 px-2 text-center ${dc} text-[9px] font-bold">${di} ${dt}</td></tr>`);}
-    if(!_mShowAll&&fMFiltered.length>_TOP5)p.push(`<tr><td colspan="5" class="text-center py-3"><button onclick="window._reseauShowAll('missed')" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fMFiltered.length} articles →</button></td></tr>`);
-    else if(_mShowAll&&_totalMissedPages>1)p.push(`<tr><td colspan="5" class="text-center py-2"><div class="inline-flex items-center gap-2 text-xs"><button onclick="window._reseauPage('missed',-1)" ${_curMissedPage===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_curMissedPage+1} sur ${_totalMissedPages}</span><button onclick="window._reseauPage('missed',1)" ${_curMissedPage>=_totalMissedPages-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></td></tr>`);
+    if(!_mShowAll&&fMFiltered.length>_TOP5)p.push(`<tr><td colspan="5" class="text-center py-3"><button data-action="_reseauShowAll" data-section="missed" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fMFiltered.length} articles →</button></td></tr>`);
+    else if(_mShowAll&&_totalMissedPages>1)p.push(`<tr><td colspan="5" class="text-center py-2"><div class="inline-flex items-center gap-2 text-xs"><button data-action="_reseauPage" data-section="missed" data-dir="-1" ${_curMissedPage===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_curMissedPage+1} sur ${_totalMissedPages}</span><button data-action="_reseauPage" data-section="missed" data-dir="1" ${_curMissedPage>=_totalMissedPages-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></td></tr>`);
     rT('benchMissedTable',p.join('')||'<tr><td colspan="5" class="text-center py-4 t-disabled">🎉</td></tr>');
     p=[];for(const o of fO){const oLib=escapeHtml(o.lib||'');p.push(`<tr class="border-b hover:i-ok-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${oLib}">${oLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-ok">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-ok font-extrabold text-xs">${(o.ratio*100).toFixed(0)}%🚀</td></tr>`);}
     rT('benchOverTable',p.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled">—</td></tr>');
     // Section B : benchLists.under filtré par famille, top 5 par défaut, bouton voir tout paginé
-    {const _UP=10;const _uShowAll=!!_S._reseauUnderShowAll;const _tUP=Math.max(1,Math.ceil(fUFiltered.length/_UP));if((_S._reseauUnderPage||0)>=_tUP)_S._reseauUnderPage=0;const _cUP=_S._reseauUnderPage||0;const fUPage=_uShowAll?fUFiltered.slice(_cUP*_UP,(_cUP+1)*_UP):fUFiltered.slice(0,5);let _uHtml='';if(!fUFiltered.length){_uHtml='<p class="t-disabled text-sm p-4">Aucun article sous-exploité détecté.</p>';}else{const _uRows=fUPage.map(o=>{const uLib=escapeHtml(o.lib||'');return`<tr class="border-b hover:i-caution-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${uLib}">${uLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-caution">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-caution font-bold text-xs">${(o.ratio*100).toFixed(0)}%</td></tr>`;}).join('');const _uFoot=!_uShowAll&&fUFiltered.length>5?`<div class="text-center py-3"><button onclick="window._reseauShowAll('under')" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fUFiltered.length} articles →</button></div>`:_uShowAll&&_tUP>1?`<div class="text-center mt-2"><div class="inline-flex items-center gap-2 text-xs"><button onclick="window._reseauPage('under',-1)" ${_cUP===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_cUP+1} sur ${_tUP}</span><button onclick="window._reseauPage('under',1)" ${_cUP>=_tUP-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></div>`:'';_uHtml=`<p class="text-[11px] t-tertiary mb-2"><strong>${fUFiltered.length}</strong> article${fUFiltered.length>1?'s':''} vendus par le réseau, sous-exploités ici.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code / Libellé</th><th class="py-1 px-2 text-center">Moi (prél.)</th><th class="py-1 px-2 text-center">Moy réseau</th><th class="py-1 px-2 text-right">Ratio</th></tr></thead><tbody>${_uRows}</tbody></table></div>${_uFoot}`;}const _uEl=document.getElementById('reseauSousExploitesContainer');if(_uEl)_uEl.innerHTML=_uHtml;}
+    {const _UP=10;const _uShowAll=!!_S._reseauUnderShowAll;const _tUP=Math.max(1,Math.ceil(fUFiltered.length/_UP));if((_S._reseauUnderPage||0)>=_tUP)_S._reseauUnderPage=0;const _cUP=_S._reseauUnderPage||0;const fUPage=_uShowAll?fUFiltered.slice(_cUP*_UP,(_cUP+1)*_UP):fUFiltered.slice(0,5);let _uHtml='';if(!fUFiltered.length){_uHtml='<p class="t-disabled text-sm p-4">Aucun article sous-exploité détecté.</p>';}else{const _uRows=fUPage.map(o=>{const uLib=escapeHtml(o.lib||'');return`<tr class="border-b hover:i-caution-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${uLib}">${uLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-caution">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-caution font-bold text-xs">${(o.ratio*100).toFixed(0)}%</td></tr>`;}).join('');const _uFoot=!_uShowAll&&fUFiltered.length>5?`<div class="text-center py-3"><button data-action="_reseauShowAll" data-section="under" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fUFiltered.length} articles →</button></div>`:_uShowAll&&_tUP>1?`<div class="text-center mt-2"><div class="inline-flex items-center gap-2 text-xs"><button data-action="_reseauPage" data-section="under" data-dir="-1" ${_cUP===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_cUP+1} sur ${_tUP}</span><button data-action="_reseauPage" data-section="under" data-dir="1" ${_cUP>=_tUP-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></div>`:'';_uHtml=`<p class="text-[11px] t-tertiary mb-2"><strong>${fUFiltered.length}</strong> article${fUFiltered.length>1?'s':''} vendus par le réseau, sous-exploités ici.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code / Libellé</th><th class="py-1 px-2 text-center">Moi (prél.)</th><th class="py-1 px-2 text-center">Moy réseau</th><th class="py-1 px-2 text-right">Ratio</th></tr></thead><tbody>${_uRows}</tbody></table></div>${_uFoot}`;}const _uEl=document.getElementById('reseauSousExploitesContainer');if(_uEl)_uEl.innerHTML=_uHtml;}
     // Forces & Faiblesses
     const _obsMode=_S.selectedObsCompare||'median';const _isMedian=_obsMode==='median';const _obsLabel=_isMedian?'méd.':_obsMode;
     p=[];let sousPerf=0;if(familyPerf&&familyPerf.length){const _fpSorted=[...familyPerf].sort((a,b)=>b.ecart-a.ecart);for(let fpi=0;fpi<_fpSorted.length;fpi++){const fp=_fpSorted[fpi];const compVal=_isMedian?fp.med:(()=>{const sv=_S.ventesParMagasin[_obsMode]||{};let freq=0;for(const[code,data]of Object.entries(sv)){if(!/^\d{6}$/.test(code))continue;if(_S.obsFilterUnivers&&_S.articleUnivers[code]!==_S.obsFilterUnivers)continue;if(famLib(_S.articleFamille[code]||'')===fp.fam)freq+=data.countBL;}return freq;})();const compEcart=_isMedian?fp.ecart:(compVal>0?Math.round((fp.my-compVal)/compVal*100):fp.ecart);const pctMed=compVal>0?Math.round((fp.my/compVal)*100):null;const isS=fp.ecart>20,isW=fp.ecart<-20,isCrit=pctMed!==null&&pctMed<50;const icon=isS?'💪':isW?'⚠️':'➡️';const bg=isS?'i-ok-bg':isCrit?'i-danger-bg':isW?'i-caution-bg':'';const medColor=pctMed===null?'t-disabled':pctMed>=100?'c-ok font-extrabold':pctMed>=50?'c-caution font-bold':'c-danger font-extrabold';const medStr=pctMed!==null?pctMed+'%':'—';if(isCrit)sousPerf++;const perfDot=pctMed===null?'<span class="t-disabled font-bold" aria-label="non disponible">—</span>':pctMed>=100?'<span class="c-ok font-extrabold text-base" title="Au-dessus de la médiane" aria-label="au-dessus de la médiane">▲</span>':'<span class="c-danger font-extrabold text-base" title="En-dessous de la médiane" aria-label="en-dessous de la médiane">▼</span>';const famHtml=escapeHtml(fp.fam);const famAttr=fp.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');const fpId='fp_'+fpi;const diagBtn=isCrit?`<button class="diag-btn i-danger-bg c-danger hover:i-danger-bg mt-2" data-fam="${famAttr}" onclick="event.stopPropagation();openDiagnostic(this.dataset.fam,'bench')">🔍 Diag.</button>`:'';const diagBtnRow=isCrit?`<button class="diag-btn i-danger-bg c-danger hover:i-danger-bg text-[9px] py-0.5 px-1.5" data-fam="${famAttr}" onclick="event.stopPropagation();openDiagnostic(this.dataset.fam,'bench')" title="Diagnostiquer cette famille">🔍</button>`:perfDot;const top5Html=fp.topArticles&&fp.topArticles.length?`<table class="w-full text-[11px] mt-2 border-t b-default pt-1"><thead><tr><th class="text-left py-1 px-1 t-tertiary font-semibold">Article</th><th class="text-right py-1 px-1 t-tertiary font-semibold">Moi</th><th class="text-right py-1 px-1 t-tertiary font-semibold">${_obsLabel}</th><th class="text-right py-1 px-1 t-tertiary font-semibold">% ${_obsLabel}</th></tr></thead><tbody>${fp.topArticles.map(a=>{const compBL=_isMedian?a.med:((_S.ventesParMagasin[_obsMode]||{})[a.code]?.countBL||0);const compPct=compBL>0?Math.round(a.my/compBL*100):null;const pc=compPct===null?'t-disabled':compPct>=100?'c-ok font-bold':compPct>=50?'c-caution font-bold':'c-danger font-bold';return`<tr class="border-b b-light"><td class="py-1 px-1 t-primary max-w-0 truncate"><span class="font-mono t-disabled text-[10px] mr-1">${a.code}</span>${escapeHtml(a.lib||'')}</td><td class="py-1 px-1 text-right font-bold whitespace-nowrap">${a.my}</td><td class="py-1 px-1 text-right t-tertiary whitespace-nowrap">${compBL||'—'}</td><td class="py-1 px-1 text-right whitespace-nowrap ${pc}">${compPct!==null?compPct+'%':'—'}</td></tr>`;}).join('')}</tbody></table>`:'';const _fpCaTheo=Math.round((_S.benchLists._myPoids||0)*((_S.benchLists._bassinFamCATot||{})[fp.fam]||0));const _fpCaMe=Math.round((_S.benchLists._myFamCA||{})[fp.fam]||0);const _fpEcartTheo=_fpCaMe-_fpCaTheo;const _fpEcartColor=_fpEcartTheo>=0?'c-ok':'c-danger';const _fpCaMedBase=Math.round((_S.benchLists._bassinFamCAMed||{})[fp.fam]||0);const _fpCaEcart=_fpCaMe-_fpCaMedBase;const _fpEcartCaColor=_fpCaEcart>=0?'c-ok':'c-danger';const _fpEcartCaStr=_fpCaMedBase>0?((_fpCaEcart>=0?'+':'')+formatEuro(_fpCaEcart)):'—';const detailHtml=`<div class="flex flex-wrap gap-4 text-[11px]"><span class="t-tertiary">Nb ventes Moi : <strong>${fp.my}</strong></span><span class="t-tertiary">Nb ventes ${_obsLabel} : <strong>${compVal}</strong></span><span class="t-tertiary">Écart vs ${_obsLabel} : <span class="${medColor}">${compEcart>0?'+':''}${compEcart.toFixed(0)}%</span></span><span class="t-tertiary">% ${_obsLabel} : <span class="${medColor}">${medStr}</span></span>${_fpCaTheo>0?`<span class="t-tertiary">CA Moi : <strong class="c-action">${formatEuro(_fpCaMe)}</strong> · CA Théo. : <strong>${formatEuro(_fpCaTheo)}</strong> · Écart : <strong class="${_fpEcartColor}">${_fpEcartTheo>=0?'+':''}${formatEuro(_fpEcartTheo)}</strong></span>`:''}</div>${top5Html}${diagBtn}`;const _fpPdm=fp.pdm!=null?`<td class="py-1.5 px-2 text-center text-xs font-bold ${fp.pdm>=20?'c-ok':fp.pdm>=10?'c-caution':'c-danger'}">${fp.pdm}%</td>`:`<td class="py-1.5 px-2 text-center text-xs t-disabled">—</td>`;p.push(`<tr class="border-b ${bg} cursor-pointer hover:opacity-90 transition-colors" onclick="toggleObsFamily('${fpId}')"><td class="py-1.5 px-2 text-[11px] font-semibold"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${icon} ${famHtml}</td><td class="py-1.5 px-2 text-right ${medColor} text-xs">${medStr}</td>${_fpPdm}<td class="py-1.5 px-2 text-center text-xs font-bold ${_fpEcartCaColor} whitespace-nowrap">${_fpEcartCaStr}</td></tr><tr id="${fpId}" class="hidden ${bg}"><td colspan="4"><div class="px-3 py-2">${detailHtml}</div></td></tr>`);}}
@@ -5355,7 +5352,6 @@ window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
-window._setTerrGlobalCanalFilter = _setTerrGlobalCanalFilter;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
@@ -5383,16 +5379,10 @@ window._setReseauCanalFilter = function(val){
   computeBenchmark(_S._reseauCanaux);
   renderBenchmark();
 };
-window._topPDVExpand   = function(){_S._clientsPDVPage=1;_renderTopClientsPDV();};
-window._topPDVCollapse = function(){_S._clientsPDVPage=0;_renderTopClientsPDV();};
-window._topPDVPage     = function(dir){_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+dir);_renderTopClientsPDV();};
-window._livSansPDVPage = function(dir){_S._livSansPDVPage=Math.max(1,(_S._livSansPDVPage||1)+dir);renderTerritoireTab();};
-window._oppNettePage   = function(dir){_S._oppNettePage=Math.max(1,(_S._oppNettePage||1)+dir);renderTerritoireTab();};
+// (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
-window._horsZoneExpand   = function(){_S._horsZonePage=1;_renderHorsZone();};
-window._horsZoneCollapse = function(){_S._horsZonePage=0;_renderHorsZone();};
-window._horsZonePage     = function(dir){_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+dir);_renderHorsZone();};
+// (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }
   else {
@@ -5410,8 +5400,7 @@ window._toggleReseauCanal = function(canal) {
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('bench');[['resMagModeAll','all'],['resMagModePrel','preleve'],['resMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});computeBenchmark(_S._reseauCanaux||new Set());renderBenchmark();};
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauUnderPage=0;_S._reseauMissedShowAll=false;_S._reseauUnderShowAll=false;renderBenchmark();};
-window._reseauShowAll = function(section){if(section==='missed'){_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;}else{_S._reseauUnderShowAll=true;_S._reseauUnderPage=0;}renderBenchmark();};
-window._reseauPage = function(section,dir){if(section==='missed'){const t=Math.max(1,Math.ceil((DataStore.benchLists.missed?.length||0)/10));_S._reseauMissedPage=Math.max(0,Math.min((_S._reseauMissedPage||0)+dir,t-1));}else{const t=Math.max(1,Math.ceil((DataStore.benchLists.under?.length||0)/10));_S._reseauUnderPage=Math.max(0,Math.min((_S._reseauUnderPage||0)+dir,t-1));}renderBenchmark();};
+// (moved to ACTION_REGISTRY: _reseauShowAll, _reseauPage)
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._reseauMissedPage=0;_S._reseauMissedShowAll=false;renderBenchmark();};
 window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
@@ -5661,3 +5650,29 @@ function initBenchListeners() {
   }, true);
 }
 initBenchListeners();
+
+// ── ACTION_REGISTRY — delegated click handler ─────────────────────────
+// Remplace les onclick="window.xxx()" inline par data-action="xxx".
+// Les handlers reçoivent (el, event) et lisent data-* pour les arguments.
+const ACTION_REGISTRY = {
+  // Pagination — Top clients PDV
+  _topPDVExpand:   ()=>{_S._clientsPDVPage=1;_renderTopClientsPDV();},
+  _topPDVCollapse: ()=>{_S._clientsPDVPage=0;_renderTopClientsPDV();},
+  _topPDVPage:     (el)=>{_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+parseInt(el.dataset.dir));_renderTopClientsPDV();},
+  // Pagination — Hors zone
+  _horsZoneExpand:   ()=>{_S._horsZonePage=1;_renderHorsZone();},
+  _horsZoneCollapse: ()=>{_S._horsZonePage=0;_renderHorsZone();},
+  _horsZonePage:     (el)=>{_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+parseInt(el.dataset.dir));_renderHorsZone();},
+  // Pagination — Opportunités nettes
+  _oppNettePage: (el)=>{_S._oppNettePage=Math.max(1,(_S._oppNettePage||1)+parseInt(el.dataset.dir));renderTerritoireTab();},
+  // Pagination — Réseau (missed / under)
+  _reseauShowAll: (el)=>{const s=el.dataset.section;if(s==='missed'){_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;}else{_S._reseauUnderShowAll=true;_S._reseauUnderPage=0;}renderBenchmark();},
+  _reseauPage: (el)=>{const s=el.dataset.section,dir=parseInt(el.dataset.dir);if(s==='missed'){const t=Math.max(1,Math.ceil((DataStore.benchLists.missed?.length||0)/10));_S._reseauMissedPage=Math.max(0,Math.min((_S._reseauMissedPage||0)+dir,t-1));}else{const t=Math.max(1,Math.ceil((DataStore.benchLists.under?.length||0)/10));_S._reseauUnderPage=Math.max(0,Math.min((_S._reseauUnderPage||0)+dir,t-1));}renderBenchmark();},
+};
+
+document.addEventListener('click', (e)=>{
+  const el=e.target.closest('[data-action]');
+  if(!el)return;
+  const handler=ACTION_REGISTRY[el.dataset.action];
+  if(handler){e.preventDefault();handler(el,e);}
+});
