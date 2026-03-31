@@ -1092,12 +1092,13 @@ export function computeReseauHeatmap() {
 export function computeOmniScores() {
   const scores = new Map();
   const now = new Date();
+  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
   const allCc = new Set([
-    ...(_S.ventesClientArticle?.keys() || []),
+    ...(_fullPDV?.keys() || []),
     ...(_S.ventesClientHorsMagasin?.keys() || [])
   ]);
   for (const cc of allCc) {
-    const pdvArts = _S.ventesClientArticle?.get(cc);
+    const pdvArts = _fullPDV?.get(cc);
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
     let caPDV = 0;
     if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
