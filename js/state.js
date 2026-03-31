@@ -140,6 +140,7 @@ _S.cannauxHorsMagasin = new Set();
 // CA agrégé par article et par canal (précalculé après chalandise)
 _S.caByArticleCanal = new Map();
 _S.clientLastOrder = new Map(); // Map<clientCode, Date> — dernière commande PDV
+_S.clientLastOrderAll = new Map(); // Map<clientCode, {date:Date, canal:string}> — tous canaux
 _S.clientNomLookup = {};
 _S.ventesClientsPerStore = {};
 _S.articleClients = new Map();
@@ -305,7 +306,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
