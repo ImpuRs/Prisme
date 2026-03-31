@@ -1077,8 +1077,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||_useByCanal)){silencieux.push(c);continue;}
       // 2. Perdus : >60j sans commande sur le canal filtré
       if(daysSince!==null&&daysSince>60&&(caPDVN>0||_useByCanal)){perdus.push(c);continue;}
-      // 3. Jamais venus en PDV : CA Legallais >0, absent de clientsMagasin (only when no specific canal filter or MAGASIN)
-      if(!_useByCanal&&caLeg>0&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
+      // 3. Jamais venus en PDV : client zone non capté (absent de clientsMagasin)
+      if(!_useByCanal&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
     }
     silencieux.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
     perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
@@ -1124,13 +1124,13 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`:`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
     }
     function _perduRaison(c){return`${c._daysSince}j sans commande ${_canalLabel} — ${c.caPDVN>0?formatEuro(c.caPDVN)+' de CA historique':'ancien client à reconquérir'}`;}
-    function _capRaison(c){return`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`;}
+    function _capRaison(c){return c.ca2025>0?`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`:`Client zone — jamais passé au comptoir`;}
     // ── Render into 3 separate blocks ──
     const _silTitle=`⏰ Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
     const _perduTitle=`🔴 Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
     if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
     if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
-    if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 À capter — Actifs Legallais, jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
+    if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 À capter — Jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
     // terrCockpitClient now unused as wrapper — hide it
     el.classList.add('hidden');
   }
