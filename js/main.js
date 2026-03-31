@@ -2269,7 +2269,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     };
   }
 
-  // ── Omnicanalité & Momentum — Le Terrain Sprint 5 ────────────────────────
+  // ── Omnicanalité — Le Terrain Sprint 5 ───────────────────────────────────
   function _buildTerrOmniBlock(){
     const el=document.getElementById('terrOmniBlock');
     if(!el)return;
@@ -2297,43 +2297,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
         [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')",''],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._toggleHorsAgence()","multicanaux"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._toggleHorsAgence()","multicanaux"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._toggleDormants()","dormants"]
       ].map(([n,ca,label,icon,color,onclick,viewKey])=>{if(!n)return'';const isActive=viewKey&&_S._clientView===viewKey;return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`;}).join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
     }
-    // ── Momentum commercial ───────────────────────────────────────────────
-    if(hasCom){
-      const now=new Date();
-      const rows=[];
-      for(const[com,ccs]of _S.clientsByCommercial){
-        if(!com||!ccs.size)continue;
-        if(_S._selectedCommercial&&com!==_S._selectedCommercial)continue;
-        let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
-        for(const cc of ccs){
-          if(!_passesAllFilters(cc))continue;
-          const lastDate=_S.clientLastOrder?.get(cc);
-          const arts=_S.ventesClientArticle?.get(cc);
-          const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-          if(!lastDate){nbUnknown++;continue;}
-          const d=Math.round((now-lastDate)/86400000);
-          if(d<30){nbRecent++;caActif+=ca;}
-          else if(d<90){nbAtRisk++;caActif+=ca;}
-          else{nbSilent++;caRisque+=ca;}
-        }
-        const nbTotal=ccs.size-nbUnknown;if(nbTotal===0)continue;
-        const momentum=Math.round((nbRecent*2+nbAtRisk)/(nbTotal*2)*100);
-        rows.push({com,nbRecent,nbAtRisk,nbSilent,nbTotal,caActif,caRisque,momentum});
-      }
-      rows.sort((a,b)=>a.momentum-b.momentum||b.caRisque-a.caRisque);
-      if(rows.length){
-        const cards=rows.map(r=>{
-          const pctR=Math.round(r.nbRecent/r.nbTotal*100),pctA=Math.round(r.nbAtRisk/r.nbTotal*100),pctS=Math.max(0,100-pctR-pctA);
-          const mColor=r.momentum>=65?'var(--c-ok)':r.momentum>=35?'var(--c-caution)':'var(--c-danger)';
-          const mLabel=r.momentum>=65?'⬆ Dynamique':r.momentum>=35?'➡ Stable':'⬇ En recul';
-          const comShort=r.com.includes(' - ')?r.com.split(' - ').slice(1).join(' '):r.com;
-          const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          return`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')"><div class="flex items-start justify-between mb-2"><div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div><span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span></div><div class="flex h-1.5 rounded-full overflow-hidden mb-1.5"><div style="width:${pctR}%;background:var(--c-ok)"></div><div style="width:${pctA}%;background:var(--c-caution)"></div><div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div></div><div class="flex justify-between text-[9px]"><span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span><span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span><span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span></div>${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}</div>`;
-        }).join('');
-        inner+=`<div class="s-card rounded-xl border p-4"><div class="flex items-center justify-between mb-2"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3><button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div><p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j</p></div>`;
-      }
-    }
-    el.innerHTML=`<details class="s-card rounded-xl shadow-md border overflow-hidden mb-3"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">📡 Omnicanalité &amp; Momentum</h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-3 space-y-3">${inner}</div></details>`;
+    el.innerHTML=`<details class="s-card rounded-xl shadow-md border overflow-hidden mb-3"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">📡 Omnicanalité</h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-3 space-y-3">${inner}</div></details>`;
   }
 
   // ── Clients PDV hors zone — paginé, colonnes alignées sur _renderTopClientsPDV ──
@@ -4903,66 +4867,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       }
     }
 
-    // ── Section 5 : Momentum commercial → déplacé vers Le Terrain (Sprint 5) ─
-    let momentumHtml='';
-    if(false&&_S.clientsByCommercial?.size>1){
-      const now=new Date();
-      const rows=[];
-      for(const[com,ccs]of _S.clientsByCommercial){
-        if(!com||!ccs.size)continue;
-        let nbRecent=0,nbAtRisk=0,nbSilent=0,nbUnknown=0,caActif=0,caRisque=0;
-        for(const cc of ccs){
-          const lastDate=_S.clientLastOrder?.get(cc);
-          const arts=_S.ventesClientArticle?.get(cc);
-          const ca=arts?[...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-          if(!lastDate){nbUnknown++;continue;}
-          const d=Math.round((now-lastDate)/86400000);
-          if(d<30){nbRecent++;caActif+=ca;}
-          else if(d<90){nbAtRisk++;caActif+=ca;}
-          else{nbSilent++;caRisque+=ca;}
-        }
-        const nbTotal=ccs.size-nbUnknown;
-        if(nbTotal===0)continue;
-        const momentum=Math.round((nbRecent*2+nbAtRisk)/(nbTotal*2)*100);
-        rows.push({com,nbRecent,nbAtRisk,nbSilent,nbTotal,caActif,caRisque,momentum});
-      }
-      rows.sort((a,b)=>a.momentum-b.momentum||b.caRisque-a.caRisque);// croissant : les en recul en premier
-      const cards=rows.map(r=>{
-        const pctR=Math.round(r.nbRecent/r.nbTotal*100);
-        const pctA=Math.round(r.nbAtRisk/r.nbTotal*100);
-        const pctS=Math.max(0,100-pctR-pctA);
-        const mColor=r.momentum>=65?'var(--c-ok)':r.momentum>=35?'var(--c-caution)':'var(--c-danger)';
-        const mLabel=r.momentum>=65?'⬆\uFE0F Dynamique':r.momentum>=35?'➡\uFE0F Stable':'⬇\uFE0F En recul';
-        const comShort=r.com.includes(' - ')?r.com.split(' - ').slice(1).join(' '):r.com;
-        const safeQ=r.com.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        return `<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="_goCommercial('${safeQ}')">
-  <div class="flex items-start justify-between mb-2">
-    <div><div class="text-[11px] font-bold t-primary">${comShort}</div><div class="text-[9px] t-disabled">${r.nbTotal} clients · score\u00a0${r.momentum}</div></div>
-    <span class="text-[9px] font-bold shrink-0" style="color:${mColor}">${mLabel}</span>
-  </div>
-  <div class="flex h-1.5 rounded-full overflow-hidden mb-1.5">
-    <div style="width:${pctR}%;background:var(--c-ok)"></div>
-    <div style="width:${pctA}%;background:var(--c-caution)"></div>
-    <div style="width:${pctS}%;background:var(--c-danger);opacity:0.5"></div>
-  </div>
-  <div class="flex justify-between text-[9px]">
-    <span class="text-emerald-500">${r.nbRecent}\u00a0actifs</span>
-    <span class="text-amber-500">${r.nbAtRisk}\u00a0à\u00a0risque</span>
-    <span style="color:var(--c-danger)">${r.nbSilent}\u00a0silencieux</span>
-  </div>
-  ${r.caRisque>500?`<div class="mt-1 text-[9px] t-disabled">CA\u00a0à\u00a0risque\u00a0: <strong style="color:var(--c-danger)">${formatEuro(r.caRisque)}</strong></div>`:''}
-</div>`;
-      }).join('');
-      if(cards)momentumHtml=`<div class="mb-5">
-  <div class="flex items-center justify-between mb-2">
-    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider">📈 Momentum commercial</h3>
-    <button onclick="_exportTourneeCSV()" class="text-[9px] px-2.5 py-1 rounded-lg s-card border b-light t-disabled hover:t-primary transition-colors">📥 Plan de visite CSV</button>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>
-  <p class="text-[9px] t-disabled mt-2">Cliquer sur un commercial pour filtrer dans Le Terrain · 🟢\u00a0&lt;30j · 🟡\u00a030-90j · 🔴\u00a0&gt;90j sans commande PDV</p>
-</div>`;
-    }
-
     const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
     _setEl('clientsTop5',top5Html);
     _setEl('clientsTopPDV',topPDVHtml);
@@ -4972,50 +4876,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _setEl('clientsOpportunites',oppsHtml);
   }
 
-  function _goCommercial(commercial){
-    _S._selectedCommercial=commercial;
-    const inp=document.getElementById('terrCommercialFilter');
-    if(inp)inp.value=commercial;
-    switchTab('territoire');
-    if(typeof renderTerritoireTab==='function')renderTerritoireTab();
-  }
-
-  function _exportTourneeCSV(){
-    const now=new Date();
-    const rows=[];
-    for(const[cc,arts]of(_S.ventesClientArticle||new Map())){
-      const lastPDV=_S.clientLastOrder?.get(cc);
-      const silenceDays=lastPDV?Math.round((now-lastPDV)/86400000):999;
-      if(silenceDays<30)continue; // actifs récents : pas besoin de visite urgente
-      let caPDV=0;for(const[,v]of arts)caPDV+=v.sumCA||0;
-      if(caPDV<100)continue;
-      const omni=_S.clientOmniScore?.get(cc);
-      const caHors=omni?.caHors||0;
-      const info=_S.chalandiseData?.get(cc);
-      const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-      const priorite=silenceDays>90?'URGENT':silenceDays>60?'À RELANCER':'SURVEILLER';
-      rows.push({
-        code:cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',
-        dernierPDV:lastPDV?lastPDV.toLocaleDateString('fr-FR'):'',
-        silenceDays,caPDV:Math.round(caPDV),caHors:Math.round(caHors),
-        omniScore:omni?.score||0,segment:omni?.segment||'',priorite
-      });
-    }
-    rows.sort((a,b)=>{
-      const p={'URGENT':0,'À RELANCER':1,'SURVEILLER':2};
-      const pa=p[a.priorite]??3,pb=p[b.priorite]??3;
-      if(pa!==pb)return pa-pb;
-      return(b.caPDV+b.caHors)-(a.caPDV+a.caHors);
-    });
-    const header=['Code','Nom','Métier','Commercial','Dernier PDV','Silence (j)','CA PDV','CA Digital','Score Omni','Segment','Priorité'];
-    const escape=v=>`"${String(v===null||v===undefined?'':v).replace(/"/g,'""')}"`;
-    const csv=[header,...rows.map(r=>[r.code,r.nom,r.metier,r.commercial,r.dernierPDV,r.silenceDays,r.caPDV,r.caHors,r.omniScore,r.segment,r.priorite])].map(row=>row.map(escape).join(';')).join('\n');
-    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-    a.download=`plan-visite-${(_S.selectedMyStore||'agence').replace(/\s+/g,'-')}-${now.toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
-  }
-  window._exportTourneeCSV=_exportTourneeCSV;
 
   // ── Sous-onglet Clients PDV (vue unique) ─────────────────────────────────
   function _switchClientsTab(){
@@ -5394,7 +5254,6 @@ window.toggleWebColumn = function(){window._setClientView(_S._clientView==='mult
 window._cematinSearch = _cematinSearch;
 window.showSilencieux60 = showSilencieux60;
 window.renderMesClients = renderMesClients;
-window._goCommercial = _goCommercial;
 window.renderCurrentTab = renderCurrentTab;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
