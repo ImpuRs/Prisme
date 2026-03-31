@@ -9,6 +9,7 @@ import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeS
 import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { calcPriorityScore } from './engine.js';
+import { computeCommercialSilencieux, computeFamilleCommercial } from './labo.js';
 
 // ── NL Search — interpréteur de requêtes françaises ─────────────────────────
 
@@ -107,6 +108,8 @@ export function _nlInterpret(q) {
   if (/prepar.{0,10}saison|stock.{0,8}vs.{0,8}saison|sous.{0,8}appro.{0,8}saison|saison.{0,10}(stock|insuffis|manque)|appro.{0,8}saison/.test(raw)) return _nlQ_SaisonVsStock();
   if (e.metier && /top.{0,8}fam|famille.{0,8}(top|princip|clef|cle|domin)|principale.{0,8}fam|quoi.{0,8}achete|que.{0,8}achete/.test(raw)) return _nlQ_TopFamillesMetier(e.metier);
   if (/vue.{0,8}macro|omnicanal.{0,8}(bilan|vue|synthese)|tous.{0,8}canaux.{0,8}(bilan|synthese|vue)|part.{0,8}(voix|canal|de.{0,5}voix)|bilan.{0,8}canaux/.test(raw)) return _nlQ_OmnicanalMacro();
+  if (/silenci.{0,10}(par|commercial)|commercial.{0,10}silenci|perdu.{0,10}(par|commercial)|commercial.{0,10}perdu|quel.{0,10}commercial.{0,10}(plus|perdu)|portefeuille.{0,10}commercial/.test(raw)) return _nlQ_LaboCommercialSilencieux();
+  if (/opportunit.{0,10}(par|commercial)|famille.{0,10}manquante|commercial.{0,10}famille|couverture.{0,10}famille.{0,10}commercial|qui.{0,8}ne.{0,8}vend.{0,8}pas/.test(raw)) return _nlQ_LaboFamilleCommercial();
   return null;
 }
 
@@ -3510,6 +3513,48 @@ export function runBriefingJour() {
   _nlRenderResults(_nlQ_BriefingJour());
 }
 window.runBriefingJour = runBriefingJour;
+
+// ── Labo NL handlers ─────────────────────────────────────────────────────────
+
+function _nlQ_LaboCommercialSilencieux() {
+  const data = computeCommercialSilencieux();
+  if (!data.length) return { title: 'Portefeuille commercial', html: '<p class="text-xs t-disabled">Aucune donnée chalandise chargée.</p>' };
+  // Find worst commercial
+  const worst = data[0]; // already sorted by CA at risk
+  const totalSil = data.reduce((s, r) => s + r.nbSilencieux, 0);
+  const totalPerdus = data.reduce((s, r) => s + r.nbPerdus, 0);
+  const rows = data.slice(0, 8).map(r => {
+    const caRisque = r.caSilencieux + r.caPerdus;
+    return `<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-bold">${r.commercial}</td><td class="py-1 text-center">${r.nbActifs}</td><td class="py-1 text-center" style="color:var(--c-caution)">${r.nbSilencieux}</td><td class="py-1 text-center" style="color:var(--c-danger)">${r.nbPerdus}</td><td class="py-1 text-right font-bold">${formatEuro(caRisque)}</td></tr>`;
+  }).join('');
+  const caWorst = formatEuro(worst.caSilencieux + worst.caPerdus);
+  return {
+    title: `Portefeuille commercial — ${totalSil} silencieux, ${totalPerdus} perdus`,
+    html: `<p class="text-[10px] t-secondary mb-2">${worst.commercial} a ${worst.nbSilencieux} client${worst.nbSilencieux > 1 ? 's' : ''} silencieux et ${worst.nbPerdus} perdu${worst.nbPerdus > 1 ? 's' : ''} (${caWorst} en jeu). C'est le portefeuille le plus à risque.</p>
+    <div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Commercial</th><th class="text-center">Actifs</th><th class="text-center">Silenc.</th><th class="text-center">Perdus</th><th class="text-right">CA en jeu</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer: 'Voir l\'onglet Labo pour le détail par client.'
+  };
+}
+
+function _nlQ_LaboFamilleCommercial() {
+  const data = computeFamilleCommercial();
+  if (!data.resultsByCommercial.length) return { title: 'Opportunités familles', html: '<p class="text-xs t-disabled">Aucune opportunité détectée.</p>' };
+  const top = data.resultsByCommercial[0];
+  const totalOpp = data.resultsByCommercial.reduce((s, r) => s + r.opportunites.length, 0);
+  const totalCA = data.resultsByCommercial.reduce((s, r) => s + r.totalCA, 0);
+  const rows = data.resultsByCommercial.slice(0, 8).map(r =>
+    `<tr class="text-[10px] b-light border-b"><td class="py-1 pr-2 font-bold">${r.commercial}</td><td class="py-1 text-center">${r.opportunites.length}</td><td class="py-1 text-right font-bold">${formatEuro(r.totalCA)}</td></tr>`
+  ).join('');
+  // Top opportunity detail
+  const topOpp = top.opportunites[0];
+  const insight = topOpp ? `${top.commercial} : ${topOpp.nom} (${topOpp.metier}) n'achète pas de ${topOpp.famLib}. CA estimé : ${formatEuro(topOpp.caEstime)}/an.` : '';
+  return {
+    title: `${totalOpp} opportunités terrain — ${formatEuro(totalCA)} potentiel`,
+    html: `${insight ? `<p class="text-[10px] t-secondary mb-2">${insight}</p>` : ''}
+    <div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Commercial</th><th class="text-center">Opportunités</th><th class="text-right">CA potentiel</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+    footer: 'Voir l\'onglet Labo pour le détail par client et famille.'
+  };
+}
 
 // Pré-afficher 6 chips dès le chargement initial
 document.addEventListener('DOMContentLoaded', () => generatePrismeChips());

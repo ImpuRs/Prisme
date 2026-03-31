@@ -672,6 +672,7 @@
       <button data-tab="omni" onclick="switchTab('omni')" class="tab-btn" id="btnTabOmni" style="--tab-color:#7c3aed;--tab-bg:#7c3aed1F;--tab-text:#4c1d95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span>Omnicanalité</span></button>
       <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Réseau</span></button>
       <button data-tab="promo" onclick="switchTab('promo')" class="tab-btn" style="--tab-color:#D4537E;--tab-bg:#ED93B11F;--tab-text:#72243E"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6l10 10-6 6L4 10V4z"/><circle cx="8.5" cy="8.5" r="1.5" fill="#D4537E" stroke="none"/></svg><span>Animation</span></button>
+      <button data-tab="labo" onclick="switchTab('labo')" class="tab-btn" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Labo</span></button>
     </div>
   </div>
   </div><!-- /#stickyHeader -->
@@ -1959,6 +1960,10 @@
       </div>
 
     </div><!-- fin tabPromo -->
+
+    <div id="tabLabo" class="tab-content hidden">
+      <!-- Rendu dynamique par renderLaboTab() -->
+    </div>
 
   </div><!-- /container -->
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
