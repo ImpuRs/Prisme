@@ -147,6 +147,10 @@ export function _isGlobalActif(info) {
 }
 
 export function _isPDVActif(cc) {
+  // clientsMagasin covers the full consommé period (period-invariant),
+  // while ventesClientArticle is filtered to the active period.
+  // Captation KPI must reflect the full period, not just the filtered month.
+  if (_S.clientsMagasin && _S.clientsMagasin.size > 0) return _S.clientsMagasin.has(cc);
   const art = _S.ventesClientArticle.get(cc);
   return art && art.size > 0;
 }
