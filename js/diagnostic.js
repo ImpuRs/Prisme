@@ -153,9 +153,16 @@ function _renderClient360(clientCode,source){
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
     const silLabel=daysSince>=30?'Silencieux':daysSince>=15?'À surveiller':'Actif récemment';
-    const CANAL_ICONS={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
-    const canalSuffix=lastOrderCanal?` · ${CANAL_ICONS[lastOrderCanal]||lastOrderCanal}`:'';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Dernière commande</p><p class="text-lg font-extrabold ${silCol}">${daysSince}j</p><p class="text-[10px] t-inverse-muted">${silLabel}${canalSuffix}</p></div>`);
+    const CANAL_ICONS={INTERNET:'🌐',REPRESENTANT:'🤝',DCS:'📦',MAGASIN:'🏪'};
+    const CANAL_LABELS={INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',MAGASIN:'Magasin'};
+    const CANAL_ORDER=['MAGASIN','INTERNET','REPRESENTANT','DCS'];
+    const canalMap=_S.clientLastOrderByCanal?.get(clientCode);
+    const canalRows=[];
+    if(canalMap&&canalMap.size>0){
+      for(const c of CANAL_ORDER){const d=canalMap.get(c);if(!d)continue;const dj=Math.round((today-d)/86400000);const dc=dj>=60?'c-danger':dj>=30?'c-caution':'c-ok';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${CANAL_ICONS[c]||''} ${CANAL_LABELS[c]||c}</span><span class="text-[11px] font-bold ${dc}">${dj}j</span></div>`);}
+    }
+    if(!canalRows.length){const ic=CANAL_ICONS[lastOrderCanal]||'';canalRows.push(`<div class="flex items-center justify-between gap-2"><span class="text-[10px] t-inverse-muted">${ic} ${CANAL_LABELS[lastOrderCanal]||lastOrderCanal}</span><span class="text-[11px] font-bold ${silCol}">${daysSince}j</span></div>`);}
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
   }
   const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   if(spc!==null){
