@@ -487,7 +487,7 @@ export function _serializeCockpitLists(cl) {
 }
 
 export function _deserializeCockpitLists(cl) {
-  const setKeys = new Set(['ruptures', 'fantomes', 'anomalies', 'saso', 'dormants', 'fins', 'top20', 'nouveautes', 'colisrayon']);
+  const setKeys = new Set(['ruptures', 'fantomes', 'sansemplacement', 'anomalies', 'saso', 'dormants', 'fins', 'top20', 'nouveautes', 'colisrayon', 'stockneg', 'fragiles', 'phantom']);
   const out = {};
   for (const [k, v] of Object.entries(cl)) out[k] = (setKeys.has(k) && Array.isArray(v)) ? new Set(v) : v;
   return out;
