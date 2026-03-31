@@ -263,7 +263,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     _buildCockpitClient();
     _buildDeptFilter();
     _buildOverviewFilterChips();
-    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0; // [Adapter Étape 5]
     // Aggregate by direction commerciale — FIXED columns
     const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
     for(const[cc,info] of _S.chalandiseData.entries()){
@@ -2133,7 +2132,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
     });
     const terrOverview=document.getElementById('terrChalandiseOverview');
-    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal||!hasTerr);
+    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
     const comBlock=document.getElementById('commercialSummaryBlock');
     if(comBlock)comBlock.classList.toggle('hidden',!hasTerr&&!hasChal);
   }
