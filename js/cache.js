@@ -252,6 +252,7 @@ export async function _saveSessionToIDB() {
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
       clientLastOrderAll:   [..._S.clientLastOrderAll].map(([k, v]) => [k, { date: v.date instanceof Date ? v.date.getTime() : v.date, canal: v.canal }]),
+      clientLastOrderByCanal: [..._S.clientLastOrderByCanal].map(([cc, cMap]) => [cc, [...cMap].map(([c, d]) => [c, d instanceof Date ? d.getTime() : d])]),
       clientNomLookup:       _S.clientNomLookup,
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
@@ -364,6 +365,7 @@ export async function _restoreSessionFromIDB() {
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
     _S.clientLastOrderAll    = new Map((data.clientLastOrderAll || []).map(([k, v]) => [k, v ? { date: new Date(v.date), canal: v.canal || 'MAGASIN' } : { date: null, canal: 'MAGASIN' }]));
+    _S.clientLastOrderByCanal = new Map((data.clientLastOrderByCanal || []).map(([cc, arr]) => [cc, new Map((arr || []).map(([c, d]) => [c, d ? new Date(d) : null]))]));
     _S.clientNomLookup       = data.clientNomLookup       || {};
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
     _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
