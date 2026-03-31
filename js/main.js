@@ -3641,29 +3641,11 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   window.onBenchBassinChange = onBenchBassinChange;
   window.recalcBenchmarkInstant = recalcBenchmarkInstant;
 
-  // ── Badge divergence navbar ────────────────────────────────────────────────
-  function _updateNavBenchBadge() {
-    const badge = document.getElementById('navBenchBadge');
-    if (!badge) return;
-    const fe = _S.benchFamEcarts || {};
-    let count = 0;
-    for (const [, v] of Object.entries(fe)) {
-      if (v.sigma > 0 && v.my < v.mean - 2 * v.sigma) count++;
-    }
-    if (count > 0) {
-      badge.textContent = count;
-      badge.classList.remove('hidden');
-    } else {
-      badge.classList.add('hidden');
-    }
-  }
-
   // ── Heatmap réseau : CSS Grid 20 familles × N agences ─────────────────────
   function renderReseauHeatmap() {
     const container = document.getElementById('reseauHeatmapContainer');
     if (!container) return;
     computeReseauHeatmap();
-    _updateNavBenchBadge();
     const d = _S.reseauHeatmapData;
     if (!d || !d.familles.length) {
       container.innerHTML = '<p class="t-disabled text-sm p-4">Pas assez de données réseau pour la heatmap (nécessite ≥ 2 agences).</p>';
