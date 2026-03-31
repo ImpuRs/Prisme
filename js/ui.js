@@ -149,8 +149,8 @@ export function switchTab(id) {
     if (!_S._tabRendered[id] && (DataStore.finalData.length > 0 || _S.ventesClientArticle?.size > 0)) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
-  const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
-  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni') ? 'territoire' : id === 'promo' ? 'promo' : 'stock';
+  const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench' };
+  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni') ? 'territoire' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
@@ -163,7 +163,7 @@ export function switchTab(id) {
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
@@ -426,7 +426,6 @@ const _CMD_ACTIONS = [
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('territoire'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
   { kw: ['mes clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Mes clients', fn: () => { switchTab('clients'); } },
-  { kw: ['promo'], icon: '🎯', label: 'Onglet Promo', fn: () => { switchTab('promo'); } },
   { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
@@ -683,12 +682,8 @@ export function _cematinSearch(q) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return;
   }
-  // Fallback → Promo
+  // Fallback — no NL match found
   _nlRenderResults(null);
-  const promoInput = document.getElementById('promoSearchInput');
-  if (promoInput) promoInput.value = q.trim();
-  switchTab('promo');
-  if (typeof window.runPromoSearch === 'function') window.runPromoSearch();
 }
 
 // ── Clients silencieux >60j — affichage inline dans Ce matin ──
