@@ -178,40 +178,40 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     const comList=document.getElementById('terrCommercialList');
     if(comInput&&comList){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${escapeHtml(c)}">`).join('');if(_S._selectedCommercial)comInput.value=_S._selectedCommercial;}
   }
-  // [Feature B / V3.2] Vue par commercial — CA, actifs/perdus/prospects, top 3 familles
-  // Jointure à la volée : chalandiseData × ventesClientArticle (ou ventesClientHorsMagasin si canal hors-MAGASIN)
-  // [V3.2] Lit canal depuis DataStore.byContext() (API unifiée)
+  // [Feature B / V3.2] Vue par commercial — CA agence, Nb clients
+  // Réactif à tous les filtres : canal, segment omnicanal, géographie, métier, classif, etc.
   function _renderCommercialSummary(){
     const el=document.getElementById('commercialSummaryBlock');if(!el)return;
     if(!_S.chalandiseReady||!_S.clientsByCommercial.size){el.classList.add('hidden');return;}
     const _ctx=DataStore.byContext();
     const canal=_ctx.activeFilters.canal;
     const isHors=canal&&canal!=='MAGASIN';
-    const famMap=new Map(DataStore.finalData.map(r=>[r.code,famLib(r.famille)||'Autre']));
     const comData={};
     for(const[cc,info] of _S.chalandiseData.entries()){
+      if(!_clientPassesFilters(info,cc))continue;
+      if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+      // Segment omnicanal filter
+      if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)continue;}
       const com=info.commercial||'-';
-      if(!comData[com])comData[com]={ca:0,actifs:0,perdus:0,prospects:0,familles:{}};
+      if(!comData[com])comData[com]={ca:0,nb:0};
       const d=comData[com];
-      if(_isProspect(info))d.prospects++;
-      else if(_isPerdu(info)&&!_isPDVActif(cc))d.perdus++;
-      else d.actifs++;
+      d.nb++;
       if(isHors){
         const hm=_S.ventesClientHorsMagasin.get(cc);
-        if(hm)for(const[code,v] of hm.entries()){if(v.canal!==canal)continue;const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
-      }else{
+        if(hm)for(const v of hm.values()){if(v.canal===canal)d.ca+=v.sumCA||0;}
+      }else if(canal==='MAGASIN'||!canal){
         const am=DataStore.ventesClientArticle.get(cc);
-        if(am)for(const[code,v] of am.entries()){const ca=v.sumCA||0;d.ca+=ca;const fam=famMap.get(code)||'Autre';d.familles[fam]=(d.familles[fam]||0)+ca;}
+        if(am)for(const v of am.values())d.ca+=v.sumCA||0;
       }
     }
-    // Separate unassigned ("-") from named commercials
     const unassigned=comData['-'];
-    const mainList=Object.entries(comData).filter(([com,d])=>com!=='-'&&d.actifs+d.perdus+d.prospects>0).sort((a,b)=>b[1].ca-a[1].ca);
-    const totalCount=mainList.length+(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0)?1:0);
+    const mainList=Object.entries(comData).filter(([com,d])=>com!=='-'&&d.nb>0).sort((a,b)=>b[1].ca-a[1].ca);
+    const totalCount=mainList.length+(unassigned&&unassigned.nb>0?1:0);
     if(!totalCount){el.classList.add('hidden');return;}
     el.classList.remove('hidden');
     const sel=_ctx.activeFilters.commercial;
     const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'}[canal]||canal):'';
+    const segLabel=_S._omniSegmentFilter?({mono:'Mono PDV',hybride:'Hybrides',digital:'Digital',dormant:'Dormants'}[_S._omniSegmentFilter]||''):'';
     const PAGE=15;
     const isOpen=el.dataset.open==='1';
     const showAll=el.dataset.showAll==='1';
@@ -219,30 +219,24 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     const summaryLine=`${totalCount} commercial${totalCount>1?'s':''} · ${totalCA>0?formatEuro(totalCA):'—'}`;
     const visibleMain=showAll?mainList:mainList.slice(0,PAGE);
     function rowHtml(com,d,labelOverride){
-      const top3=Object.entries(d.familles).filter(([,ca])=>ca>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([f])=>f).join(' · ');
       const isRowSel=sel===com;
-      const noResults=isRowSel&&d.ca===0&&d.actifs===0;
       const label=labelOverride||com;
-      let r=`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialFilter(this.dataset.com)">
+      return`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialFilter(this.dataset.com)">
         <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
         <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
-        <td class="py-1.5 px-2 text-center ${d.actifs>0?'c-ok font-bold':'t-disabled'}">${d.actifs||'—'}</td>
-        <td class="py-1.5 px-2 text-center ${d.perdus>0?'c-caution':'t-disabled'}">${d.perdus||'—'}</td>
-        <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
-        <td class="py-1.5 px-2 text-[10px] t-secondary max-w-[200px] truncate" title="${escapeHtml(top3)}">${top3||'—'}</td>
+        <td class="py-1.5 px-2 text-center font-bold t-primary">${d.nb}</td>
       </tr>`;
-      if(noResults)r+=`<tr><td colspan="6" class="py-2 px-3 text-[11px] c-danger font-semibold">⚠️ Aucun résultat pour <strong>${escapeHtml(label)}</strong>${canalLabel?' sur canal '+canalLabel:''}.</td></tr>`;
-      return r;
     }
     let rows='';
     for(const[com,d] of visibleMain)rows+=rowHtml(com,d);
     const remaining=mainList.length-PAGE;
-    if(!showAll&&remaining>0)rows+=`<tr><td colspan="6" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
-    if(unassigned&&(unassigned.actifs+unassigned.perdus+unassigned.prospects>0))rows+=rowHtml('-',unassigned,'Non assigné');
+    if(!showAll&&remaining>0)rows+=`<tr><td colspan="3" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
+    if(unassigned&&unassigned.nb>0)rows+=rowHtml('-',unassigned,'Non assigné');
+    const filterTags=[canalLabel,segLabel].filter(Boolean).join(' · ');
     let html=`<details ${isOpen?'open':''} class="s-card rounded-xl shadow-md border overflow-hidden mb-3" ontoggle="document.getElementById('commercialSummaryBlock').dataset.open=this.open?'1':'0'">
       <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
         <h3 class="font-extrabold t-primary text-xs flex items-center gap-1.5">
-          👤 Vue par commercial${canalLabel?` — <span class="c-action">${canalLabel}</span>`:''}
+          👤 Vue par commercial${filterTags?` — <span class="c-action">${filterTags}</span>`:''}
           <span class="font-normal t-disabled">(${totalCount})</span>
         </h3>
         <div class="flex items-center gap-2">
@@ -255,10 +249,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       <thead class="s-panel-inner t-inverse"><tr>
         <th class="py-1.5 px-2 text-left">Commercial</th>
         <th class="py-1.5 px-2 text-right">CA agence</th>
-        <th class="py-1.5 px-2 text-center">Actifs</th>
-        <th class="py-1.5 px-2 text-center">Perdus</th>
-        <th class="py-1.5 px-2 text-center">Prospects</th>
-        <th class="py-1.5 px-2 text-left">Top 3 familles</th>
+        <th class="py-1.5 px-2 text-center">Nb clients</th>
       </tr></thead><tbody>${rows}</tbody></table></div>
     </details>`;
     el.innerHTML=html;
@@ -1801,21 +1792,25 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     // La répartition n'a de sens qu'en vue tous canaux — masquer quand filtre actif
     if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
     // Filtrage client-aware : recalculer CA local si des filtres Commerce sont actifs
-    const _filterActive=_S.chalandiseReady&&(_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille);
+    const _filterActive=_S.chalandiseReady&&(_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille||_S._omniSegmentFilter);
     let _canalData=_S.canalAgence;
     const _subtitleEl=document.getElementById('canalAgenceSubtitle');
     if(_filterActive){
       const _local={};let _nbF=0;
       for(const[cc,info] of _S.chalandiseData.entries()){
         if(!_clientPassesFilters(info,cc))continue;
+        if(_S._omniSegmentFilter){const _seg=_S.clientOmniScore?.get(cc)?.segment;if(_seg!==_S._omniSegmentFilter)continue;}
         _nbF++;
         const _mag=_S.ventesClientArticle.get(cc);
         if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}
         const _hors=_S.ventesClientHorsMagasin.get(cc);
         if(_hors){for(const d of _hors.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caE+=_ca;}}
       }
+      // Segment filter: also count clients NOT in chalandise but in clientOmniScore
+      if(_S._omniSegmentFilter&&_S.clientOmniScore){for(const[cc,o]of _S.clientOmniScore){if(_S.chalandiseData.has(cc))continue;if(o.segment!==_S._omniSegmentFilter)continue;_nbF++;const _mag=_S.ventesClientArticle.get(cc);if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}const _hors2=_S.ventesClientHorsMagasin.get(cc);if(_hors2){for(const d of _hors2.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caE+=_ca;}}}}
       _canalData=_local;
-      if(_subtitleEl)_subtitleEl.textContent=`Filtré sur ${_nbF.toLocaleString('fr-FR')} client${_nbF>1?'s':''}`;
+      const _segLbl=_S._omniSegmentFilter?({mono:'Mono PDV',hybride:'Hybrides',digital:'Digital',dormant:'Dormants'}[_S._omniSegmentFilter]||''):'';
+      if(_subtitleEl)_subtitleEl.textContent=`Filtré sur ${_nbF.toLocaleString('fr-FR')} client${_nbF>1?'s':''}${_segLbl?' · '+_segLbl:''}`;
     }else{
       if(_subtitleEl)_subtitleEl.textContent='CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé';
     }
@@ -2140,7 +2135,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal||!hasTerr);
     const comBlock=document.getElementById('commercialSummaryBlock');
-    if(comBlock)comBlock.classList.toggle('hidden',!hasTerr);
+    if(comBlock)comBlock.classList.toggle('hidden',!hasTerr&&!hasChal);
   }
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
