@@ -157,21 +157,21 @@ export function switchTab(id) {
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'action');
+  if (gf) gf.classList.toggle('hidden', id === 'prisme' || id === 'action');
   // Filtre canal global — visible sur territoire/promo uniquement (bench a son propre #reseauCanalBar, action a ses propres chips)
   const _CANAL_TABS = new Set(['territoire', 'omni']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation' };
+  const _sidebarTitles = { prisme: 'PRISME', action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
-  if (csb) csb.classList.toggle('hidden', id !== 'action');
+  if (csb) csb.classList.toggle('hidden', id !== 'prisme' && id !== 'action');
   const css = document.getElementById('cematinSearchBlock');
-  if (css) css.classList.toggle('hidden', id !== 'action');
+  if (css) css.classList.toggle('hidden', id !== 'prisme' && id !== 'action');
 }
 
 // ── Filter drawer (mobile) ─────────────────────────────────────
@@ -430,7 +430,7 @@ const _CMD_ACTIONS = [
   { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
-  { kw: ['ce matin','matin','cockpit','actions','urgences','file de décision','dq'], icon: '🌅', label: 'Onglet Ce matin', fn: () => { switchTab('action'); } },
+  { kw: ['ce matin','matin','cockpit','actions','urgences','file de décision','dq','prisme'], icon: '🌅', label: 'Onglet PRISME', fn: () => { switchTab('prisme'); } },
   { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('dash'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
@@ -635,7 +635,7 @@ export function _cmdBuildResults(q) {
       sub: nlPreview.title,
       badge: 'Ce matin',
       badgeCls: 'bg-amber-100 text-amber-700',
-      fn: () => { switchTab('action'); setTimeout(() => _cematinSearch(q), 80); }
+      fn: () => { switchTab('prisme'); setTimeout(() => _cematinSearch(q), 80); }
     }]});
   }
 
@@ -1609,13 +1609,13 @@ document.addEventListener('keydown', function(e) {
   // / : focus barre NL search (Ce matin)
   if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
     const si = document.getElementById('cematinSearchInput');
-    if (si) { e.preventDefault(); switchTab('action'); si.focus(); si.select(); }
+    if (si) { e.preventDefault(); switchTab('prisme'); si.focus(); si.select(); }
     return;
   }
 
   // 1–7 : switcher d'onglet (uniquement sans modificateur)
   if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    const TAB_MAP = { '1': 'table', '2': 'dash', '3': 'action', '4': 'abc', '5': 'clients', '6': 'territoire', '7': 'bench' };
+    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'dash', '4': 'abc', '5': 'clients', '6': 'territoire', '7': 'bench' };
     const tab = TAB_MAP[e.key];
     if (tab) {
       const btn = document.querySelector(`[data-tab="${tab}"]`);
