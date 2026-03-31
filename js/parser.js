@@ -134,7 +134,11 @@ export async function loadCpCoords() {
   if (_S._cpCoords) return;
   try {
     const r = await fetch('js/cp-coords.json');
-    if (r.ok) _S._cpCoords = await r.json();
+    if (r.ok) {
+      _S._cpCoords = await r.json();
+      // Si chalandise déjà chargée (restauration IDB), calculer les distances maintenant
+      if (_S.chalandiseData?.size) _computeChalandiseDistances();
+    }
   } catch (e) { console.warn('[PRISME] cp-coords.json non chargé:', e.message); }
 }
 
