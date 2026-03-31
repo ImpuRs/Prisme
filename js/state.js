@@ -386,6 +386,11 @@ export function resetAppState() {
   _S.famillesHors = [];
   _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();
+
+  // Labo
+  _S._laboSeuilPenetration = 0.20;
+  _S._laboSilData = null;
+  _S._laboFamData = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────

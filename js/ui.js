@@ -163,7 +163,7 @@ export function switchTab(id) {
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { prisme: 'PRISME', action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation' };
+  const _sidebarTitles = { prisme: 'PRISME', action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
