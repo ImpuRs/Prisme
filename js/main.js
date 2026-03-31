@@ -1043,6 +1043,11 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const _today=new Date();
     const {activeFilters:{commercial:_cockpitCom}}=DataStore.byContext();
     const _cockpitComSet=_cockpitCom?(_S.clientsByCommercial.get(_cockpitCom)||new Set()):null;
+    // ── Canal-aware date source ──
+    const _canal=_S._globalCanal||'';
+    const _useByCanal=_canal&&_canal!=='MAGASIN'; // specific non-MAGASIN canal
+    const _useMagOnly=_canal==='MAGASIN';
+    // _useByCanal=false & _useMagOnly=false → '' (Tous) → clientLastOrderAll
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
@@ -1052,18 +1057,28 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       if(!_passesAllFilters(cc))continue;
       const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
       const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
-      const lastOrder=_S.clientLastOrder.get(cc)||null;
+      // Pick last order date based on canal filter
+      let lastOrder=null;
+      if(_useMagOnly){
+        lastOrder=_S.clientLastOrder.get(cc)||null;
+      }else if(_useByCanal){
+        const cMap=_S.clientLastOrderByCanal.get(cc);
+        lastOrder=cMap?cMap.get(_canal)||null:null;
+      }else{
+        const allInfo=_S.clientLastOrderAll.get(cc);
+        lastOrder=allInfo?allInfo.date:null;
+      }
       const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
       const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
       const daysSince=_lastOrderValid?daysBetween(lastOrder,_today):null;
       const caLeg=info.ca2025||0;
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2025:caLeg,caPDVN,ville:info.ville||'',_strat:_isMetierStrategique(info.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
-      // 1. Silencieux : 30-60j sans commande MAGASIN, avec CA PDV
-      if(daysSince!==null&&daysSince>30&&daysSince<=60&&caPDVN>0){silencieux.push(c);continue;}
-      // 2. Perdus : >60j sans commande MAGASIN (anciens clients PDV)
-      if(daysSince!==null&&daysSince>60&&caPDVN>0){perdus.push(c);continue;}
-      // 3. Jamais venus en PDV : CA Legallais >0, absent de clientsMagasin
-      if(caLeg>0&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
+      // 1. Silencieux : 30-60j sans commande sur le canal filtré
+      if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||_useByCanal)){silencieux.push(c);continue;}
+      // 2. Perdus : >60j sans commande sur le canal filtré
+      if(daysSince!==null&&daysSince>60&&(caPDVN>0||_useByCanal)){perdus.push(c);continue;}
+      // 3. Jamais venus en PDV : CA Legallais >0, absent de clientsMagasin (only when no specific canal filter or MAGASIN)
+      if(!_useByCanal&&caLeg>0&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
     }
     silencieux.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
     perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
@@ -1102,17 +1117,20 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       html+=`</div></div>`;
       return html;
     }
-    // ── Reason functions ──
+    // ── Reason functions (canal-aware labels) ──
+    const _canalLabel=_useMagOnly?'Magasin':_useByCanal?_canal:'tous canaux';
     function _silRaison(c){
       const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
       return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`:`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
     }
-    function _perduRaison(c){return`${c._daysSince}j sans commande PDV — ${c.caPDVN>0?formatEuro(c.caPDVN)+' de CA historique':'ancien client à reconquérir'}`;}
+    function _perduRaison(c){return`${c._daysSince}j sans commande ${_canalLabel} — ${c.caPDVN>0?formatEuro(c.caPDVN)+' de CA historique':'ancien client à reconquérir'}`;}
     function _capRaison(c){return`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`;}
     // ── Render into 3 separate blocks ──
-    if(silEl)silEl.innerHTML=renderBlock('⏰ Silencieux — 30 à 60 jours sans commande PDV','⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
-    if(perduEl)perduEl.innerHTML=renderBlock('🔴 Perdus — Plus de 60 jours sans commande PDV','🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
-    if(capEl)capEl.innerHTML=renderBlock('🎯 À capter — Actifs Legallais, jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');
+    const _silTitle=`⏰ Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
+    const _perduTitle=`🔴 Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
+    if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
+    if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
+    if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 À capter — Actifs Legallais, jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
     // terrCockpitClient now unused as wrapper — hide it
     el.classList.add('hidden');
   }
@@ -1522,7 +1540,9 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Parse date une seule fois — réutilisé par sumCAAll, filtre hors-MAGASIN, et filtre MAGASIN plus bas
       const dateV=parseExcelDate(getVal(row,'Jour','Date'));
       // clientLastOrderAll — tous canaux, period-independent, avant le split canal
-      if(!isRefilter&&dateV){const _ccAll=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _skAll=extractStoreCode(row)||'INCONNU';if(_ccAll&&(!_S.selectedMyStore||_skAll==='INCONNU'||_skAll===_S.selectedMyStore)){const prev=_S.clientLastOrderAll.get(_ccAll);if(!prev||dateV>prev.date)_S.clientLastOrderAll.set(_ccAll,{date:dateV,canal:canal||'MAGASIN'});}}
+      if(!isRefilter&&dateV){const _ccAll=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _skAll=extractStoreCode(row)||'INCONNU';if(_ccAll&&(!_S.selectedMyStore||_skAll==='INCONNU'||_skAll===_S.selectedMyStore)){const prev=_S.clientLastOrderAll.get(_ccAll);if(!prev||dateV>prev.date)_S.clientLastOrderAll.set(_ccAll,{date:dateV,canal:canal||'MAGASIN'});
+      // clientLastOrderByCanal — dernière commande par canal
+      const _cByC=canal||'MAGASIN';if(!_S.clientLastOrderByCanal.has(_ccAll))_S.clientLastOrderByCanal.set(_ccAll,new Map());const _cMap=_S.clientLastOrderByCanal.get(_ccAll);const _prevC=_cMap.get(_cByC);if(!_prevC||dateV>_prevC)_cMap.set(_cByC,dateV);}}
       // Accumulation CA tous canaux par client dans _tempCAAll (fusionné après la boucle)
       // Ne PAS créer d'entrée dans ventesClientArticle ici — seules les lignes MAGASIN (L1686) le font
       if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
