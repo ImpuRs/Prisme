@@ -433,7 +433,7 @@
     .canal-pill-btn{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid var(--b-default);background:var(--s-card-alt);color:var(--t-secondary);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
     .canal-pill-btn:hover{background:var(--s-hover);color:var(--t-primary)}
     .canal-pill-btn.active{background:var(--i-info-bg,#dbeafe);color:var(--i-info-text,#1d4ed8);border-color:var(--i-info-text,#3b82f6)}
-    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;position:sticky;top:0;height:100vh}#filterDrawerBtn{display:none!important}}
+    @media(min-width:1024px){body.pilot-loaded #filterPanel{display:flex;height:100%}#filterDrawerBtn{display:none!important}}
     #mainContent{flex:1;min-width:0;overflow-y:auto;background:var(--s-page);isolation:isolate}
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
     details>summary{position:relative}
