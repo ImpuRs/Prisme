@@ -789,7 +789,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       if(_minConsomme&&lastDate<_minConsomme)continue;
       if(daysBetween(lastDate,now)>30){
-        const artData=DataStore.ventesClientArticle.get(cc);
+        const artData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
         const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
         if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
       }
@@ -800,7 +800,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
     // Clients à capter
     let clientsACapter=0;
-    if(_S.chalandiseReady){for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!DataStore.ventesClientArticle.has(cc))clientsACapter++;}}
+    if(_S.chalandiseReady){const _fullClientSet=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fullClientSet.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
     // Fichiers
     const fichiersList=['Consommé','État du Stock'];
     if(_S.territoireReady)fichiersList.push('Le Terrain');
@@ -1070,7 +1070,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
       const daysSinceLastOrder=_lastOrderValid?daysBetween(lastOrder,_today):null;
       const isSilent=daysSinceLastOrder!==null&&daysSinceLastOrder>30;
-      const clientArtData=DataStore.ventesClientArticle.get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
+      const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
       const _contratCadre=false;
       const finalScore=_clientUrgencyScore(cc,info);
       const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2026:info.ca2026||0,ca2025:info.ca2025||0,caPDVN,ville:info.ville||'',statut:info.statut||'',activite:info.activite||'',activiteGlobale:info.activiteGlobale||'',_pdvActif:pdvActif,_strat:_isMetierStrategique(info.metier),_score:finalScore,_globActif:globActif,_perdu:perdu,_prospect:prospect,_isSilent:isSilent,_daysSince:daysSinceLastOrder,_lastOrderDate:lastOrder,_isCentral:_contratCadre};
@@ -1081,18 +1081,18 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     }
     // ── Search results block — shows ALL matching clients regardless of category ──
     if(_qClient){
-      const srList=[];const srSeen=new Set();
+      const srList=[];const srSeen=new Set();const _srFullMap=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle;
       for(const[cc,info] of _S.chalandiseData.entries()){
         if(!matchQuery(_qClient,cc,info.nom||''))continue;
         srSeen.add(cc);
-        const artData=DataStore.ventesClientArticle.get(cc);
+        const artData=_srFullMap.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         srList.push({code:cc,nom:info.nom||'',metier:info.metier||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ville:info.ville||'',ca2025:info.ca2025||0,caPDVN});
       }
       for(const[cc,nom] of Object.entries(_S.clientNomLookup)){
         if(srSeen.has(cc))continue;
         if(!matchQuery(_qClient,cc,nom||''))continue;
-        const artData=DataStore.ventesClientArticle.get(cc);
+        const artData=_srFullMap.get(cc);
         const caPDVN=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
         srList.push({code:cc,nom:nom||'',metier:'',statut:'',classification:'',commercial:'',ville:'',ca2025:0,caPDVN});
       }
@@ -1486,6 +1486,8 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     // 1) Parse complet sur toute la période — W, V, MIN/MAX, ABC/FMR invariants
     _S.periodFilterStart=null;_S.periodFilterEnd=null;
     await processDataFromRaw(dataC,dataS,{storeOverride:_storeOverride||''});
+    // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
+    _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
     // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
     //    pour recalculer les agrégats d'affichage (CA, clients, marge) sur ce mois uniquement
     const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
@@ -5224,6 +5226,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD&&!_S.periodFilterStart&&!_S.periodFilterEnd){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}
       invalidateCache('tab', 'terr');buildPeriodFilter();
       // ── Recalcul complet des agrégats période-dépendants (canalAgence, ventesParMagasin, etc.) ──
+      // Snapshot full-period ventesClientArticle avant refilter (IDB contient la version complète)
+      if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
+        _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+      }
       if(_S._rawDataC&&_S._rawDataC.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
         await processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});
       }else{

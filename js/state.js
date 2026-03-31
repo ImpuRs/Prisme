@@ -127,6 +127,8 @@ _S._clientDominantUnivers = new Map(); // cc → univers dominant (par CA)
 // ── Client data ──
 // Achats comptoir : cc → Map(codeArticle → ClientArticleFact) — myStore, canal MAGASIN uniquement
 _S.ventesClientArticle = new Map();
+// Snapshot période-invariante (toute la période consommé) — pour cockpit/silencieux/Top 5
+_S.ventesClientArticleFull = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesClientHorsMagasin = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
@@ -299,7 +301,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise
