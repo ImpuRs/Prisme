@@ -2224,7 +2224,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
         <p class="text-sm font-bold t-primary mb-1">🔵 Canal filtré : ${_canalLabel}</p>
         <p class="text-2xl font-extrabold c-action">${formatEuro(_canalCA)} <span class="text-sm font-normal t-tertiary">CA ${_canalLabel} total</span></p>
         ${_subHtml}
-        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setTerrGlobalCanalFilter('')">Voir tous les canaux</button></p>
+        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setGlobalCanal('')">Voir tous les canaux</button></p>
       </div>`;
     }else{
       html=`<div class="mb-3 p-3 s-card rounded-xl border">
@@ -2314,10 +2314,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   }
 
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
-  function _setTerrGlobalCanalFilter(val){
-    if(typeof window._setGlobalCanal==='function')window._setGlobalCanal(val);
-    else{_S._globalCanal=val;renderCanalAgence();renderTerritoireTab();}
-  }
+
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
   // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
@@ -5355,7 +5352,6 @@ window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
-window._setTerrGlobalCanalFilter = _setTerrGlobalCanalFilter;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window.computeReconquestCohort = computeReconquestCohort;
