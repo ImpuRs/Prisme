@@ -1451,7 +1451,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     if(checked.length)return checked;
     return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
   }
-  function recalcBenchmarkInstant(){const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;}
+  function recalcBenchmarkInstant(){
+    // Sync _S.selectedBenchBassin from checkboxes before recomputing
+    const checked=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>checked.push(cb.value));
+    const all=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
+    _S.selectedBenchBassin=checked.length===all.length?new Set():new Set(checked);
+    _S._benchCache=null;
+    const t0=performance.now();computeBenchmark(_S._globalCanal||null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
+  }
 
   // ★★★ MOTEUR PRINCIPAL ★★★
   async function processData(_storeOverride){
