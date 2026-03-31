@@ -1,13 +1,66 @@
 // © 2026 Jawad El Barkaoui — Tous droits réservés
 // PRISME — labo.js
 // Onglet Labo : prototypes de croisements analytiques
-// Croisement #5 : Commercial × Silencieux
-// Croisement #1 : Famille × Commercial (inférence réseau)
+// Tile-based UI with lazy computation
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, famLib, _doCopyCode, _copyCodeBtn, escapeHtml } from './utils.js';
 import { _unikLink, _clientPassesFilters } from './engine.js';
+
+// ═══════════════════════════════════════════════════════════════
+// NL Chips for "Générer mon PRISME" tile
+// ═══════════════════════════════════════════════════════════════
+
+const _NL_CHIPS = [
+  { q: 'taux de service', label: 'taux de service' },
+  { q: 'stock dormant', label: 'stock dormant' },
+  { q: 'ruptures top clients', label: 'ruptures top clients' },
+  { q: 'top 10 clients web', label: 'top 10 clients web' },
+  { q: 'articles sans min max', label: 'articles sans min max' },
+  { q: 'nouveau client ce mois', label: 'nouveau client' },
+  { q: 'clients hors agence 3000 euros', label: 'hors agence >3000€' },
+  { q: 'familles sous la mediane reseau', label: 'familles sous médiane' },
+  { q: 'clients devenus digitaux', label: 'clients devenus digitaux' },
+  { q: 'clients hybrides', label: 'clients hybrides' },
+  { q: 'familles fuyantes hors agence', label: 'familles fuyantes' },
+  { q: 'heatmap fuites par metier', label: 'heatmap fuites × métier' },
+  { q: 'fuites par commercial', label: 'fuites par commercial' },
+  { q: 'alerte saisonnière mois prochain', label: '🌡️ alerte saisonnière' },
+  { q: 'synthèse commerciaux tous portefeuilles', label: '👥 synthèse commerciaux' },
+  { q: 'radar familles scatter pdv fuyant', label: '🫧 radar familles' },
+  { q: 'incohérences ERP min max calibrage', label: '⚠️ incohérences ERP' },
+  { q: 'dérive min max erp écart', label: '📐 dérive MIN/MAX' },
+  { q: 'concentration risque client ICC', label: '🎯 concentration client' },
+  { q: 'score fidélité clients top fidèles à risque', label: '💎 fidélité clients' },
+  { q: 'panier moyen VMC par métier', label: '🧺 panier par métier' },
+  { q: 'évolution familles mois précédent delta tendance', label: '📈 évolution familles' },
+  { q: 'prévision rupture stock J-30 va tomber', label: '⏱️ ruptures prévues' },
+  { q: 'relance clients à appeler priorité', label: '📞 relance clients' },
+  { q: 'nouveautés à calibrer sans ERP min max', label: '🔧 nouveautés ERP' },
+  { q: 'comment je me positionne vs réseau benchmark', label: '🏆 position réseau' },
+  { q: 'dormants récupérables achetés ailleurs hors PDV', label: '♻️ dormants récup.' },
+  { q: 'ruptures répétées chroniques toujours en rupture', label: '🔄 ruptures chroniques' },
+  { q: 'qualité données fiabilité couverture', label: '🔬 qualité données' },
+  { q: 'stock sous min ERP réassort urgent', label: '📉 sous MIN ERP' },
+  { q: 'cross-sell familles achetées ensemble co-achats', label: '🔗 cross-sell familles' },
+  { q: 'articles à solder vieux stock surplus', label: '🗑️ à solder' },
+  { q: 'répartition canal par famille web internet', label: '📡 canaux par famille' },
+  { q: 'briefing du jour synthèse ce matin résumé', label: '☀️ briefing du jour' },
+  { q: 'clients potentiels famille manque pas acheteurs', label: '🎯 potentiel famille' },
+  { q: 'couverture famille jours de stock restant durée', label: '📅 couverture jours' },
+  { q: 'clients gagnés vs perdus solde bilan', label: '⚖️ gagnés vs perdus' },
+  { q: 'profil client achats articles fiche', label: '👤 profil client' },
+  { q: 'où je surperforme familles gagnantes vs réseau', label: '🏅 surperformance' },
+  { q: 'stock sécurité marge délai réassort', label: '🛡️ stock sécurité' },
+  { q: 'pivot métiers familles qui achète quoi tableau', label: '🔢 pivot métier' },
+  { q: 'articles qui montent top movers croissance article', label: '🚀 top movers' },
+  { q: 'clients par département répartition géo', label: '🗺️ répartition géo' },
+  { q: 'clients les plus engagés score RFM engagement', label: '💪 engagement clients' },
+  { q: 'articles sur-stockés excès stock max trop', label: '📦 sur-stockés' },
+  { q: 'préparation saison stock vs saisonnier sous-appro', label: '🌊 saison vs stock' },
+  { q: 'vue macro omnicanal tous canaux bilan part de voix', label: '🌐 omnicanal macro' },
+];
 
 // ═══════════════════════════════════════════════════════════════
 // #5 — Commercial × Silencieux
@@ -84,15 +137,15 @@ function _renderCommercialSilencieux(data) {
 
     const detailRows = atRisk.map(c => {
       const bucketBadge = c.bucket === 'silencieux'
-        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full border" style="color:var(--c-caution);border-color:var(--b-dark);background:var(--i-warn-dark-bg)">Silencieux</span>'
-        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full border" style="color:var(--c-danger);border-color:var(--b-dark);background:var(--i-error-dark-bg)">Perdu</span>';
-      return `<tr class="text-[10px] border-b" style="border-color:var(--b-dark)">
-        <td class="py-1 pr-2 font-mono t-inverse-muted">${_unikLink(c.cc)}</td>
-        <td class="py-1 pr-2 t-inverse">${escapeHtml(c.nom)}</td>
-        <td class="py-1 pr-2 t-inverse-muted">${escapeHtml(c.metier)}</td>
+        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Silencieux</span>'
+        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Perdu</span>';
+      return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
+        <td class="py-1 pr-2 font-mono t-disabled">${_unikLink(c.cc)}</td>
+        <td class="py-1 pr-2 t-primary">${escapeHtml(c.nom)}</td>
+        <td class="py-1 pr-2 t-secondary">${escapeHtml(c.metier)}</td>
         <td class="py-1 pr-2 text-center">${bucketBadge}</td>
-        <td class="py-1 pr-2 text-right t-inverse-muted">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
-        <td class="py-1 text-right font-bold t-inverse">${formatEuro(c.ca)}</td>
+        <td class="py-1 pr-2 text-right t-disabled">${c.daysSince != null ? c.daysSince + 'j' : '—'}</td>
+        <td class="py-1 text-right font-bold t-primary">${formatEuro(c.ca)}</td>
       </tr>`;
     }).join('');
 
@@ -258,14 +311,11 @@ function _renderFamilleCommercial(data) {
   </div>`;
 
   const cards = resultsByCommercial.map((r, idx) => {
-    const top5 = r.opportunites.slice(0, 5);
-    const hasMore = r.opportunites.length > 5;
-
     const detailRows = r.opportunites.map(o => {
       return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
         <td class="py-1 pr-2">${_unikLink(o.cc)}</td>
         <td class="py-1 pr-2 t-primary">${escapeHtml(o.nom)}</td>
-        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner t-secondary">${escapeHtml(o.metier)}</span></td>
+        <td class="py-1 pr-2"><span class="text-[9px] px-1.5 py-0.5 rounded-full border b-light s-panel-inner">${escapeHtml(o.metier)}</span></td>
         <td class="py-1 pr-2 font-bold t-primary">${escapeHtml(o.famLib)}</td>
         <td class="py-1 pr-2 text-center t-disabled">${Math.round(o.tauxReseau * 100)}%</td>
         <td class="py-1 text-right font-bold t-primary">${formatEuro(o.caEstime)}</td>
@@ -275,7 +325,7 @@ function _renderFamilleCommercial(data) {
     return `<div class="s-card rounded-xl border mb-2">
       <div class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded-t-xl" onclick="window._laboToggleFamDetail(${idx})">
         <div class="flex items-center gap-2">
-          <span class="text-[11px] font-bold t-primary">${escapeHtml(r.commercial)}</span>
+          <span class="text-[11px] font-bold">${escapeHtml(r.commercial)}</span>
           <span class="text-[9px] px-2 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-action)">${r.opportunites.length} opportunité${r.opportunites.length > 1 ? 's' : ''}</span>
         </div>
         <span class="text-[11px] font-bold" style="color:var(--c-action)">${formatEuro(r.totalCA)} potentiel</span>
@@ -292,7 +342,58 @@ function _renderFamilleCommercial(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Render Labo Tab
+// Quick scan for tile subtitles (lightweight)
+// ═══════════════════════════════════════════════════════════════
+
+function _quickScanSilencieux() {
+  if (!_S.clientsByCommercial?.size) return { n: 0, ca: 0 };
+  const now = Date.now();
+  let n = 0, ca = 0;
+  for (const [, ccSet] of _S.clientsByCommercial) {
+    for (const cc of ccSet) {
+      const info = _S.chalandiseData?.get(cc);
+      if (info && !_clientPassesFilters(info)) continue;
+      let lastDate = null;
+      const canalMap = _S.clientLastOrderByCanal?.get(cc);
+      if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+      if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
+      const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+      if (daysSince !== null && daysSince > 30) {
+        n++;
+        const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
+        if (artMap) { for (const d of artMap.values()) ca += (d.sumCA || 0); }
+      }
+    }
+  }
+  return { n, ca };
+}
+
+function _quickScanFamille() {
+  // Use cached data if available, else return placeholder
+  if (_S._laboFamData) {
+    const { resultsByCommercial } = _S._laboFamData;
+    const totalOpp = resultsByCommercial.reduce((s, r) => s + r.opportunites.length, 0);
+    const totalCA = resultsByCommercial.reduce((s, r) => s + r.totalCA, 0);
+    return { n: totalOpp, ca: totalCA };
+  }
+  return { n: '?', ca: 0 };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Shuffle helper
+// ═══════════════════════════════════════════════════════════════
+
+function _shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Render Labo Tab — Tile-based UI
 // ═══════════════════════════════════════════════════════════════
 
 export function renderLaboTab() {
@@ -311,77 +412,119 @@ export function renderLaboTab() {
     return;
   }
 
-  // Compute
-  const silencieuxData = computeCommercialSilencieux();
-  const familleData = computeFamilleCommercial();
+  // Render tile grid
+  _renderTileGrid(el);
+}
 
-  // Summary stats
-  const totalSil = silencieuxData.reduce((s, r) => s + r.nbSilencieux, 0);
-  const totalPerdus = silencieuxData.reduce((s, r) => s + r.nbPerdus, 0);
-  const totalCaRisque = silencieuxData.reduce((s, r) => s + r.caSilencieux + r.caPerdus, 0);
-  const totalOpp = familleData.resultsByCommercial.reduce((s, r) => s + r.opportunites.length, 0);
-  const totalCaPotentiel = familleData.resultsByCommercial.reduce((s, r) => s + r.totalCA, 0);
+function _renderTileGrid(el) {
+  const silScan = _quickScanSilencieux();
+  const famScan = _quickScanFamille();
 
-  el.innerHTML = `
-    <!-- Sub-tab navigation -->
-    <div class="flex gap-1 mb-3 border-b b-light pb-1">
-      <button id="laboSubSil" onclick="window._laboSwitchSub('sil')" class="text-[11px] px-3 py-1.5 rounded-t font-bold border-b-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-colors">
-        Commercial × Silencieux
-        ${totalSil + totalPerdus > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-danger)">${totalSil + totalPerdus}</span>` : ''}
-      </button>
-      <button id="laboSubFam" onclick="window._laboSwitchSub('fam')" class="text-[11px] px-3 py-1.5 rounded-t font-bold border-b-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-colors">
-        Famille × Commercial
-        ${totalOpp > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-action)">${totalOpp}</span>` : ''}
-      </button>
+  const silSubtitle = `${silScan.n} clients à risque · ${formatEuro(silScan.ca)} en jeu`;
+  const famSubtitle = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
+
+  el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('sil')">
+      <div class="text-lg mb-1">🔀</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Commercial × Silencieux</div>
+      <div class="text-[10px] t-secondary" id="laboTileSilSub">${silSubtitle}</div>
     </div>
-
-    <!-- KPI banner -->
-    <div id="laboKpiBanner" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-      <div class="s-card rounded-xl p-2 text-center"><div class="text-lg font-bold" style="color:var(--c-caution)">${totalSil}</div><div class="text-[9px] t-disabled">Silencieux 30-60j</div></div>
-      <div class="s-card rounded-xl p-2 text-center"><div class="text-lg font-bold" style="color:var(--c-danger)">${totalPerdus}</div><div class="text-[9px] t-disabled">Perdus &gt;60j</div></div>
-      <div class="s-card rounded-xl p-2 text-center"><div class="text-lg font-bold c-danger">${formatEuro(totalCaRisque)}</div><div class="text-[9px] t-disabled">CA en jeu</div></div>
-      <div class="s-card rounded-xl p-2 text-center"><div class="text-lg font-bold" style="color:var(--c-action)">${formatEuro(totalCaPotentiel)}</div><div class="text-[9px] t-disabled">Potentiel familles</div></div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('fam')">
+      <div class="text-lg mb-1">🧬</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Famille × Commercial</div>
+      <div class="text-[10px] t-secondary" id="laboTileFamSub">${famSubtitle}</div>
     </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('prisme')">
+      <div class="text-lg mb-1">🎲</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Générer mon PRISME</div>
+      <div class="text-[10px] t-secondary">6 analyses aléatoires</div>
+    </div>
+  </div>
+  <div id="laboTileContent" class="hidden"></div>`;
+}
 
-    <!-- Content panels -->
-    <div id="laboContentSil" class="s-card rounded-xl border p-3">${_renderCommercialSilencieux(silencieuxData)}</div>
-    <div id="laboContentFam" class="s-card rounded-xl border p-3 hidden">${_renderFamilleCommercial(familleData)}</div>
-  `;
+// ═══════════════════════════════════════════════════════════════
+// Tile open / back handlers
+// ═══════════════════════════════════════════════════════════════
 
-  // Cache computed data for clipboard
-  _S._laboSilData = silencieuxData;
-  _S._laboFamData = familleData;
+window._laboOpenTile = function(tile) {
+  const grid = document.getElementById('laboTileGrid');
+  const content = document.getElementById('laboTileContent');
+  if (!grid || !content) return;
 
-  // Activate first sub-tab
-  window._laboSwitchSub('sil');
+  grid.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+
+  if (tile === 'sil') {
+    const silencieuxData = computeCommercialSilencieux();
+    _S._laboSilData = silencieuxData;
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderCommercialSilencieux(silencieuxData)}</div>`;
+  } else if (tile === 'fam') {
+    const familleData = computeFamilleCommercial();
+    _S._laboFamData = familleData;
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderFamilleCommercial(familleData)}</div>`;
+  } else if (tile === 'prisme') {
+    const picked = _shuffleArray(_NL_CHIPS).slice(0, 6);
+    const chips = picked.map(c => {
+      const safeQ = c.q.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return `<button onclick="window._laboRunChip('${safeQ}')" class="text-[10px] px-3 py-1.5 rounded-full s-card border b-light t-secondary hover:t-primary hover:border-[var(--c-action)] transition-colors">${escapeHtml(c.label)}</button>`;
+    }).join('');
+    content.innerHTML = backBtn +
+      `<div class="flex flex-wrap gap-2 mb-4">${chips}</div>` +
+      `<div id="laboPrismeResults"></div>`;
+  }
+};
+
+window._laboBackToTiles = function() {
+  const el = document.getElementById('tabLabo');
+  if (!el) return;
+  _renderTileGrid(el);
+};
+
+window._laboRunChip = function(q) {
+  const resultsEl = document.getElementById('laboPrismeResults');
+  if (!resultsEl) return;
+  // Import _nlInterpret via window (exposed by ui.js)
+  let result = null;
+  if (typeof window._nlInterpret === 'function') {
+    result = window._nlInterpret(q);
+  } else if (typeof window._cematinSearch === 'function') {
+    window._cematinSearch(q);
+    return;
+  }
+  if (!result) { resultsEl.innerHTML = '<p class="text-xs t-disabled p-2">Aucun résultat pour cette requête.</p>'; return; }
+  resultsEl.innerHTML = `<div class="s-card rounded-xl border p-3 mt-2">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[11px] font-bold t-primary">${result.title}</span>
+    </div>
+    ${result.html}
+    ${result.footer ? `<div class="mt-2 text-[9px] t-disabled">${result.footer}</div>` : ''}
+  </div>`;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Update tile subtitles (called after data parse)
+// ═══════════════════════════════════════════════════════════════
+
+export function updateLaboTiles() {
+  const grid = document.getElementById('laboTileGrid');
+  if (!grid) return; // tiles not visible
+
+  const silScan = _quickScanSilencieux();
+  const famScan = _quickScanFamille();
+
+  const silSub = document.getElementById('laboTileSilSub');
+  if (silSub) silSub.textContent = `${silScan.n} clients à risque · ${formatEuro(silScan.ca)} en jeu`;
+
+  const famSub = document.getElementById('laboTileFamSub');
+  if (famSub) famSub.textContent = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Global handlers
 // ═══════════════════════════════════════════════════════════════
-
-window._laboSwitchSub = function(sub) {
-  const silBtn = document.getElementById('laboSubSil');
-  const famBtn = document.getElementById('laboSubFam');
-  const silContent = document.getElementById('laboContentSil');
-  const famContent = document.getElementById('laboContentFam');
-  if (!silBtn || !famBtn) return;
-
-  const activeClass = 'border-amber-500 text-amber-600';
-  const inactiveClass = 'border-transparent';
-
-  if (sub === 'sil') {
-    silBtn.className = silBtn.className.replace(inactiveClass, activeClass);
-    famBtn.className = famBtn.className.replace(activeClass, inactiveClass);
-    if (silContent) silContent.classList.remove('hidden');
-    if (famContent) famContent.classList.add('hidden');
-  } else {
-    famBtn.className = famBtn.className.replace(inactiveClass, activeClass);
-    silBtn.className = silBtn.className.replace(activeClass, inactiveClass);
-    if (famContent) famContent.classList.remove('hidden');
-    if (silContent) silContent.classList.add('hidden');
-  }
-};
 
 window._laboToggleDetail = function(idx) {
   const row = document.getElementById('laboDetail' + idx);
@@ -411,6 +554,9 @@ window._laboUpdateSeuil = function(val) {
   // Re-compute famille section
   const famData = computeFamilleCommercial(_S._laboSeuilPenetration);
   _S._laboFamData = famData;
-  const famContent = document.getElementById('laboContentFam');
-  if (famContent) famContent.innerHTML = _renderFamilleCommercial(famData);
+  const famContent = document.getElementById('laboTileContent');
+  if (famContent && !famContent.classList.contains('hidden')) {
+    const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+    famContent.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderFamilleCommercial(famData)}</div>`;
+  }
 };
