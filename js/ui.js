@@ -10,7 +10,7 @@
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
 import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
-import { _S } from './state.js';
+import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, computeHealthScore } from './engine.js';
 import { _nlInterpret, _nlRenderResults } from './nl.js';
@@ -121,8 +121,7 @@ export function expandImportZone() {
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
   // _reseauCanaux est indépendant — aucune sync
-  _S._tabRendered = {};
-  _S._terrCanalCache = new Map();
+  invalidateCache('tab', 'terr');
   // Sync active state sur les pills globales (data-global-canal)
   document.querySelectorAll('#globalCanalFilter [data-global-canal]').forEach(p => {
     p.classList.toggle('active', (p.dataset.globalCanal || '') === canal);
@@ -225,7 +224,7 @@ export function renderAll() {
   _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator();
   renderTable(true); // articles always re-renders (exception: not behind lazy flag)
-  _S._tabRendered = {}; // invalidate all tab caches (filter or data changed)
+  invalidateCache('tab'); // invalidate all tab caches (filter or data changed)
   renderCurrentTab(); // render only the currently active non-articles tab
   updateAmbientSignal();
   // Wrap glossary terms in <th> headers (idempotent — skips already-processed elements)
