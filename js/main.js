@@ -3639,6 +3639,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     recalcBenchmarkInstant();
   }
   window.onBenchBassinChange = onBenchBassinChange;
+  window.recalcBenchmarkInstant = recalcBenchmarkInstant;
 
   // ── Badge divergence navbar ────────────────────────────────────────────────
   function _updateNavBenchBadge() {
