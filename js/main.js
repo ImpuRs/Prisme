@@ -1476,10 +1476,15 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
-    // Scan rapide date max du consommé pour positionner le filtre période AVANT le parse
-    {let _maxTs=0;for(let i=0;i<dataC.length;i++){const _d=parseExcelDate(getVal(dataC[i],'Jour','Date'));if(_d){const _t=_d.getTime();if(_t>_maxTs)_maxTs=_t;}}
-    if(_maxTs){const _maxD=new Date(_maxTs);const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}}
+    // 1) Parse complet sur toute la période — W, V, MIN/MAX, ABC/FMR invariants
+    _S.periodFilterStart=null;_S.periodFilterEnd=null;
     await processDataFromRaw(dataC,dataS,{storeOverride:_storeOverride||''});
+    // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
+    //    pour recalculer les agrégats d'affichage (CA, clients, marge) sur ce mois uniquement
+    const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+    if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
+      await processDataFromRaw(dataC,dataS,{isRefilter:true});
+    }
     buildPeriodFilter();
   }
 
