@@ -150,7 +150,7 @@ export function switchTab(id) {
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench', promo: 'filterGroupPromo' };
-  const activeGroup = id === 'bench' ? 'bench' : id === 'territoire' ? 'territoire' : id === 'promo' ? 'promo' : 'stock';
+  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni') ? 'territoire' : id === 'promo' ? 'promo' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
@@ -159,11 +159,11 @@ export function switchTab(id) {
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'action');
   // Filtre canal global — visible sur territoire/promo uniquement (bench a son propre #reseauCanalBar, action a ses propres chips)
-  const _CANAL_TABS = new Set(['territoire']);
+  const _CANAL_TABS = new Set(['territoire', 'omni']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', bench: 'Filtres Réseau', promo: 'Animation' };
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', promo: 'Animation' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
