@@ -163,10 +163,12 @@ export function computeFamilleCommercial(seuil) {
     const totalClients = clientSet.size;
     if (totalClients < 3) continue; // ignore les métiers avec très peu de clients
     const famCount = new Map();
+    let clientsWithArts = 0;
 
     for (const cc of clientSet) {
       const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
       if (!artMap) continue;
+      clientsWithArts++;
       const famsVues = new Set();
       for (const code of artMap.keys()) {
         const fam = _getFamFromArticle(code);
@@ -175,10 +177,12 @@ export function computeFamilleCommercial(seuil) {
       for (const fam of famsVues) famCount.set(fam, (famCount.get(fam) || 0) + 1);
     }
 
+    if (clientsWithArts < 3) continue; // pas assez de données actives pour inférer
+
     const famillesAttendues = new Map();
     for (const [fam, count] of famCount) {
-      const taux = count / totalClients;
-      if (taux >= seuilPct) famillesAttendues.set(fam, { nbClients: count, totalClients, taux });
+      const taux = count / clientsWithArts;
+      if (taux >= seuilPct) famillesAttendues.set(fam, { nbClients: count, totalClients: clientsWithArts, taux });
     }
     if (famillesAttendues.size > 0) metierFamillesMap.set(metier, famillesAttendues);
   }
@@ -312,11 +316,11 @@ export function renderLaboTab() {
     <div class="flex gap-1 mb-3 border-b b-light pb-1">
       <button id="laboSubSil" onclick="window._laboSwitchSub('sil')" class="text-[11px] px-3 py-1.5 rounded-t font-bold border-b-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-colors">
         Commercial × Silencieux
-        ${totalSil + totalPerdus > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">${totalSil + totalPerdus}</span>` : ''}
+        ${totalSil + totalPerdus > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-danger)">${totalSil + totalPerdus}</span>` : ''}
       </button>
       <button id="laboSubFam" onclick="window._laboSwitchSub('fam')" class="text-[11px] px-3 py-1.5 rounded-t font-bold border-b-2 border-transparent hover:bg-gray-100 dark:hover:bg-gray-800/40 transition-colors">
         Famille × Commercial
-        ${totalOpp > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">${totalOpp}</span>` : ''}
+        ${totalOpp > 0 ? `<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light font-bold" style="color:var(--c-action)">${totalOpp}</span>` : ''}
       </button>
     </div>
 
