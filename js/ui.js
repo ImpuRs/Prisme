@@ -150,7 +150,7 @@ export function switchTab(id) {
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench' };
-  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni') ? 'territoire' : 'stock';
+  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni' || id === 'labo') ? 'territoire' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
