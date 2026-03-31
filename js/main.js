@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, ONLINE_FAM_MIN_CA_HORS, ONLINE_FAM_MIN_CA_TOTAL, ONLINE_FAM_MIN_CLIENTS } from './constants.js';
+import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
@@ -2099,104 +2099,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     }
   }
 
-  function _renderFamilleCanal(){
-    const el=document.getElementById('terrFamilleCanal');if(!el)return;
-    const caMag=_S.canalAgence['MAGASIN']?.ca||0;
-    const caWeb=_S.canalAgence['INTERNET']?.ca||0;
-    const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
-    const caDcs=_S.canalAgence['DCS']?.ca||0;
-    const caAutre=_S.canalAgence['AUTRE']?.ca||0;
-    const caHors=caWeb+caRep+caDcs+caAutre;
-    const caTotal=caMag+caHors;
-    const tauxObs=caTotal>0?Math.round(caHors/caTotal*100):0;
-    const _rfCanal=_S._globalCanal||'';
-    let html;
-    if(_rfCanal){
-      // [Feature C] filtre canal actif : afficher uniquement la ligne du canal sélectionné
-      const _canalLabels={MAGASIN:'Magasin',INTERNET:'Web',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-      const _canalData=_S.canalAgence[_rfCanal]||{ca:0,caP:0,caE:0};
-      const _canalCA=_rfCanal==='MAGASIN'?(_canalData.ca||0):Math.max(0,_canalData.caE||0);
-      const _canalLabel=_canalLabels[_rfCanal]||_rfCanal;
-      let _subHtml='';
-      if(_rfCanal==='MAGASIN'&&_canalCA>0){
-        const _caP=Math.max(0,_canalData.caP||0);const _caE=Math.max(0,_canalData.caE||0);
-        const _pctP=Math.round(_caP/_canalCA*100);const _pctE=Math.round(_caE/_canalCA*100);
-        _subHtml=`<div class="flex gap-4 mt-2 text-xs"><span class="t-secondary">Prélevé : <strong class="t-primary">${formatEuro(_caP)}</strong> <span class="t-disabled">(${_pctP}%)</span></span><span class="t-secondary">Enlevé : <strong class="t-primary">${formatEuro(_caE)}</strong> <span class="t-disabled">(${_pctE}%)</span></span></div>`;
-      }
-      html=`<div class="mb-3 p-3 s-card rounded-xl border">
-        <p class="text-sm font-bold t-primary mb-1">🔵 Canal filtré : ${_canalLabel}</p>
-        <p class="text-2xl font-extrabold c-action">${formatEuro(_canalCA)} <span class="text-sm font-normal t-tertiary">CA ${_canalLabel} total</span></p>
-        ${_subHtml}
-        <p class="text-[10px] t-disabled mt-1">Filtre actif — seul le canal <strong>${_canalLabel}</strong> est affiché · <button class="underline cursor-pointer" onclick="_setGlobalCanal('')">Voir tous les canaux</button></p>
-      </div>`;
-    }else{
-      html=`<div class="mb-3 p-3 s-card rounded-xl border">
-        <p class="text-sm font-bold t-primary mb-1">📡 Omnicanalité zone
-          <span class="text-[10px] font-normal t-disabled ml-1" title="Calculé sur les clients identifiés dans votre chalandise. Le taux réel peut être inférieur si des clients importants sont hors zone.">ⓘ</span>
-        </p>
-        <p class="text-2xl font-extrabold c-action">${tauxObs}% <span class="text-sm font-normal t-tertiary">du CA identifié passe hors agence</span></p>
-        <p class="text-[10px] t-disabled mt-1">MAGASIN ${formatEuro(caMag)} · WEB ${formatEuro(caWeb)} · REP ${formatEuro(caRep)} · DCS ${formatEuro(caDcs)}${caAutre>0?' · AUTRE '+formatEuro(caAutre):''}</p>
-      </div>`;
-    }
-    if(_S.chalandiseReady&&_S.caByArticleCanal.size){
-      const famCanal={};
-      for(const r of DataStore.finalData){
-        if(!r.famille)continue;
-        const _fk=famLib(r.famille);
-        if(!famCanal[_fk])famCanal[_fk]={mag:0,hors:0};
-        famCanal[_fk].mag+=r.caAnnuel||0;
-        famCanal[_fk].hors+=r.caHorsMagasin||0;
-      }
-      // Compter les clients distincts par famille (via ventesClientHorsMagasin)
-      const artFamMap=new Map();
-      for(const r of DataStore.finalData){if(r.famille&&r.code)artFamMap.set(r.code,famLib(r.famille));}
-      const famClients={};
-      for(const[cc,artMap] of _S.ventesClientHorsMagasin.entries()){
-        const famsSeen=new Set();
-        for(const code of artMap.keys()){
-          const fk=artFamMap.get(code);
-          if(fk&&!famsSeen.has(fk)){famsSeen.add(fk);if(!famClients[fk])famClients[fk]=new Set();famClients[fk].add(cc);}
-        }
-      }
-      const rows=Object.entries(famCanal)
-        .filter(([fk,d])=>d.hors>=ONLINE_FAM_MIN_CA_HORS&&(d.mag+d.hors)>=ONLINE_FAM_MIN_CA_TOTAL&&(famClients[fk]?.size||0)>=ONLINE_FAM_MIN_CLIENTS)
-        .sort((a,b)=>{
-          const ta=a[1].mag+a[1].hors>0?a[1].hors/(a[1].mag+a[1].hors):0;
-          const tb=b[1].mag+b[1].hors>0?b[1].hors/(b[1].mag+b[1].hors):0;
-          return tb-ta;
-        })
-        .slice(0,5);
-      if(rows.length){
-        html+=`<div class="s-card rounded-xl border overflow-hidden">
-          <div class="px-3 py-2 border-b s-card-alt flex items-center gap-2">
-            <span class="font-bold text-sm t-primary">Familles à fort achat en ligne</span>
-            <span class="text-[10px] t-disabled" title="Source : clients de la zone de chalandise uniquement.">ⓘ</span>
-          </div>
-          <table class="min-w-full text-xs">
-            <thead class="s-panel-inner t-inverse">
-              <tr>
-                <th class="py-1.5 px-3 text-left">Famille</th>
-                <th class="py-1.5 px-3 text-right">CA Magasin</th>
-                <th class="py-1.5 px-3 text-right">CA Hors agence</th>
-                <th class="py-1.5 px-3 text-right">Taux observé <span class="font-normal t-disabled" title="Part du CA hors agence sur le total identifié (zone chalandise)">ⓘ</span></th>
-                <th class="py-1.5 px-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(([fam,d])=>{
-                const taux=d.mag+d.hors>0?Math.round(d.hors/(d.mag+d.hors)*100):0;
-                const col=taux>=50?'c-danger':taux>=30?'c-caution':'t-primary';
-                return`<tr class="border-t b-light hover:s-card"><td class="py-1.5 px-3 font-semibold">${fam}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.mag)}</td><td class="py-1.5 px-3 text-right">${formatEuro(d.hors)}</td><td class="py-1.5 px-3 text-right font-bold ${col}">${taux}%</td><td class="py-1.5 px-3 text-right"><button class="btn-xs s-hover" onclick="openDiagnostic('${fam.replace(/'/g,"\\'")}','terrain')">🔍 Diagnostiquer</button></td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
-      }
-    }else if(!_S.chalandiseReady){
-      html+=`<p class="text-[10px] t-disabled mt-2">Chargez la chalandise pour le détail par famille et par client.</p>`;
-    }
-    el.innerHTML=html;
-  }
 
   // Close secteur dropdown on outside click
   document.addEventListener('click',function(e){
@@ -2223,7 +2125,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
   function renderOmniTab(){
     renderCanalAgence();
     _renderSegmentsOmnicanaux();
-    _renderFamilleCanal();
     // Populate territory accordion content (Direction, Top 100, Contributeurs, etc.)
     // renderTerritoireTab also populates Commerce tab elements — harmless cross-tab render
     renderTerritoireTab();
@@ -2915,7 +2816,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     renderInsightsBanner();
 
     // ── Stockage cache territoire ─────────────────────────────────────────
-    // Captures les innerHTML APRÈS le rendu complet, avant _renderFamilleCanal()
+    // Captures les innerHTML APRÈS le rendu complet
     const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
     const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
     _S._terrCanalCache.set(_terrCacheKey,{
