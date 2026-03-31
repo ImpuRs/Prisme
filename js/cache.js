@@ -155,6 +155,9 @@ export function _onReloadFiles() {
   document.getElementById('cacheBanner').classList.add('hidden');
   document.getElementById('importZone')?.classList.remove('hidden');
   document.getElementById('onboardingBlock')?.classList.remove('hidden');
+  if (_S.storesIntersection && _S.storesIntersection.size > 1) {
+    document.getElementById('storeSelector')?.classList.remove('hidden');
+  }
   if (_S.finalData.length > 0) {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }

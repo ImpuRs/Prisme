@@ -303,15 +303,14 @@ export function updatePeriodAlert() {
       stockBanner.classList.remove('active');
     }
   }
-  const btn = document.getElementById('navPeriodBtn');
-  const navPeriod = document.getElementById('navPeriod');
-  if (btn) { btn.textContent = `${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`; }
-  if (navPeriod) navPeriod.classList.remove('hidden');
-  // Tab bar period button — reset to full range label
+  // Sidebar period label — reset to full range
   const tabLabel = document.getElementById('tabPeriodLabel');
-  if (tabLabel) tabLabel.textContent = `${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`;
-  const tabBtn = document.getElementById('tabPeriodBtn');
-  if (tabBtn) tabBtn.classList.remove('filtered');
+  if (tabLabel) {
+    tabLabel.textContent = `${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)} ▼`;
+    tabLabel.classList.remove('filtered');
+  }
+  const tabBlock = document.getElementById('tabPeriodBlock');
+  if (tabBlock) tabBlock.style.display = '';
 }
 
 export function renderInsightsBanner() {
