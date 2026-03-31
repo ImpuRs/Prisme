@@ -2326,6 +2326,29 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
   function _setTerrClientsCanalFilter(val){_S.terrClientsCanalFilter=val;renderTerritoireTab();}
 
 
+  // ── Onglet Omnicanalité — canal, famille×canal, segments, analyse territoire ──
+  function renderOmniTab(){
+    renderCanalAgence();
+    _renderFamilleCanal();
+    _buildTerrOmniBlock();
+    // Populate territory accordion content (Direction, Top 100, Contributeurs, etc.)
+    // renderTerritoireTab also populates Commerce tab elements — harmless cross-tab render
+    renderTerritoireTab();
+    // Analyse territoire accordion visibility
+    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
+    const hasChal=_S.chalandiseReady;
+    const terrNeedBlock=document.getElementById('terrNeedTerrBlock');
+    if(terrNeedBlock)terrNeedBlock.classList.toggle('hidden',hasTerr);
+    // Show/hide territoire-dependent blocks inside accordion
+    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{
+      const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
+    });
+    const terrOverview=document.getElementById('terrChalandiseOverview');
+    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal||!hasTerr);
+    const comBlock=document.getElementById('commercialSummaryBlock');
+    if(comBlock)comBlock.classList.toggle('hidden',!hasTerr);
+  }
+
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
   // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
   // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
@@ -2828,19 +2851,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
 
     }
 
-    // ── Vue toggle pills (👥 Clients / 📊 Canal) ────────────────────────────
-    {
-      const _cv=_S._commerceView||'clients';
-      const _isCanal=_cv==='canal';
-      const _pillsEl=document.getElementById('terrViewPills');
-      if(_pillsEl){
-        _pillsEl.classList.remove('hidden');
-        const _pb=(label,view)=>{const act=_cv===view;return`<button onclick="_S._commerceView='${view}';renderTerritoireTab()" class="text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors${act?' s-panel-inner t-inverse b-dark':' s-card t-primary b-default hover:s-hover'}">${label}</button>`;};
-        _pillsEl.innerHTML=_pb('👥 Vue Clients','clients')+_pb('📊 Vue Canal','canal');
-      }
-      ['terrTop5','terrReconquete','terrOpportunites','terrTopPDV','terrLivSansPDV','terrCockpitClient','terrHorsZone'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=_isCanal?'none':'';});
-      ['terrCanalBlock','terrFamilleCanal','terrAnalyseAccordion'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=_isCanal?'':'none';});
-    }
+    // Commerce tab always shows clients view (canal moved to Omnicanalité tab)
 
     // [Adapter Étape 5] — DataStore.territoireLines / .finalData : canal-invariants
     const{hasTerr,hasChal,hasData,hasConsomme,degraded}=k;
@@ -2857,8 +2868,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
     {const _cg=_S._globalCanal||'';const _kpi=getKPIsByCanal(_cg);const _degBanner=document.getElementById('canalDegradedBanner');
     if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}
 
-// V1: Show V2 teaser when chalandise loaded but no BL territoire
-    const noTerrEl=document.getElementById('terrNeedTerrBlock');if(noTerrEl)noTerrEl.classList.toggle('hidden',hasTerr||!hasChal);
     // Show chalandise overview + left panel filters if chalandise loaded
     _buildChalandiseOverview();
     const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
@@ -2869,22 +2878,14 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));
     }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
-    _buildTerrOmniBlock();
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
-      // Chalandise-only mode: show canal + chalandise overview
-      ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
-      _renderFamilleCanal();
       _buildDegradedCockpit();
-      _buildTerrOmniBlock();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
     const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
     const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
-
-    // Show all territory-only blocks
-    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('hidden');});
 
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
@@ -2909,7 +2910,7 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
       // Éléments non-texte
       const _ccEl=document.getElementById('terrKpiCouvertureInfo');if(_ccEl)_ccEl.classList.toggle('hidden',!_canalGlobal);
       const _ctEl=document.getElementById('terrContribTitle');if(_ctEl){if(_canalGlobal)_ctEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _ctEl.textContent='🔗 Contributeurs agence';}
-      renderInsightsBanner();_renderFamilleCanal();
+      renderInsightsBanner();
       return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
     }
 
@@ -3078,8 +3079,6 @@ import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagActio
             'terrKpiClients','terrKpiClientsSub','terrSpecialKPIText'].map(id=>[id,_gt(id)]),
     });
 
-    _renderFamilleCanal();
-    _buildTerrOmniBlock();
   }
 
   // Toggle direction row — shows famille breakdown (lazy)
@@ -5083,8 +5082,10 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         renderABCTab();
         break;
       case 'territoire':
-        renderCanalAgence();
         renderTerritoireTab();
+        break;
+      case 'omni':
+        renderOmniTab();
         break;
       case 'bench':
         renderBenchmark();
