@@ -136,22 +136,6 @@ function _getFamFromArticle(code) {
   return _S.articleFamille?.[code] || '';
 }
 
-function _estimerCAFamille(metier, famCode) {
-  const clients = _S.clientsByMetier?.get(metier);
-  if (!clients) return 0;
-  let totalCA = 0, count = 0;
-  for (const cc of clients) {
-    const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
-    if (!artMap) continue;
-    let clientCA = 0;
-    for (const [code, data] of artMap) {
-      if (_getFamFromArticle(code) === famCode) clientCA += (data.sumCA || 0);
-    }
-    if (clientCA > 0) { totalCA += clientCA; count++; }
-  }
-  return count > 0 ? totalCA / count : 0;
-}
-
 export function computeFamilleCommercial(seuil) {
   if (!_S.clientsByCommercial?.size || !_S.clientsByMetier?.size) return { metierFamillesMap: new Map(), resultsByCommercial: [] };
 
@@ -187,6 +171,32 @@ export function computeFamilleCommercial(seuil) {
     if (famillesAttendues.size > 0) metierFamillesMap.set(metier, famillesAttendues);
   }
 
+  // Pré-calcul du CA moyen par métier×famille (une seule passe)
+  const _caCacheMF = new Map();
+  for (const [metier, clientSet] of _S.clientsByMetier) {
+    const famTotals = new Map();
+    for (const cc of clientSet) {
+      const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
+      if (!artMap) continue;
+      const famCA = new Map();
+      for (const [code, data] of artMap) {
+        const fam = _getFamFromArticle(code);
+        if (fam && fam !== 'Non Classé') {
+          famCA.set(fam, (famCA.get(fam) || 0) + (data.sumCA || 0));
+        }
+      }
+      for (const [fam, ca] of famCA) {
+        if (!famTotals.has(fam)) famTotals.set(fam, { totalCA: 0, count: 0 });
+        const f = famTotals.get(fam);
+        f.totalCA += ca;
+        f.count++;
+      }
+    }
+    for (const [fam, f] of famTotals) {
+      _caCacheMF.set(metier + '|' + fam, f.count > 0 ? f.totalCA / f.count : 0);
+    }
+  }
+
   // Étape 2 : détection des écarts par commercial
   const resultsByCommercial = [];
   for (const [commercial, ccSet] of _S.clientsByCommercial) {
@@ -197,17 +207,18 @@ export function computeFamilleCommercial(seuil) {
       if (!info?.metier) continue;
       if (!_clientPassesFilters(info)) continue;
 
+      // FIX Bug 2 : exiger que le client ait des achats
+      const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
+      if (!artMap || artMap.size === 0) continue;
+
       const famillesAttendues = metierFamillesMap.get(info.metier);
       if (!famillesAttendues) continue;
 
       // Familles effectivement achetées
-      const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
       const famsAchetees = new Set();
-      if (artMap) {
-        for (const code of artMap.keys()) {
-          const fam = _getFamFromArticle(code);
-          if (fam) famsAchetees.add(fam);
-        }
+      for (const code of artMap.keys()) {
+        const fam = _getFamFromArticle(code);
+        if (fam) famsAchetees.add(fam);
       }
 
       // Écart
@@ -219,7 +230,7 @@ export function computeFamilleCommercial(seuil) {
             familleManquante: fam,
             famLib: famLib(fam) || fam,
             tauxReseau: stats.taux,
-            caEstime: _estimerCAFamille(info.metier, fam)
+            caEstime: _caCacheMF.get(info.metier + '|' + fam) || 0
           });
         }
       }
