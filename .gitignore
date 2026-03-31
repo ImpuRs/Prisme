@@ -12,6 +12,7 @@ Thumbs.db
 *.csv
 *.json
 !package.json
+!js/cp-coords.json
 
 # Temp
 *.tmp
