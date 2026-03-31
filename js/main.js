@@ -2222,8 +2222,8 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
   // ── Onglet Omnicanalité — canal, famille×canal, segments, analyse territoire ──
   function renderOmniTab(){
     renderCanalAgence();
+    _renderSegmentsOmnicanaux();
     _renderFamilleCanal();
-    _buildTerrOmniBlock();
     // Populate territory accordion content (Direction, Top 100, Contributeurs, etc.)
     // renderTerritoireTab also populates Commerce tab elements — harmless cross-tab render
     renderTerritoireTab();
@@ -2269,35 +2269,27 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     };
   }
 
-  // ── Omnicanalité — Le Terrain Sprint 5 ───────────────────────────────────
-  function _buildTerrOmniBlock(){
-    const el=document.getElementById('terrOmniBlock');
+  // ── Segments omnicanaux — affiché au-dessus de Familles à fort achat en ligne ──
+  function _renderSegmentsOmnicanaux(){
+    const el=document.getElementById('terrSegmentsOmni');
     if(!el)return;
-    const hasHors=_S.ventesClientHorsMagasin?.size>0;
-    const hasCom=_S.clientsByCommercial?.size>1;
-    const hasOmni=_S.clientOmniScore?.size>0;
-    if(!hasHors&&!hasCom&&!hasOmni){el.innerHTML='';return;}
-    let inner='';
-    // ── Segments omnicanaux ───────────────────────────────────────────────
-    if(hasOmni){
-      let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
-      for(const[cc,o]of _S.clientOmniScore){
-        if(!_passesAllFilters(cc))continue;
-        if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
-        else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
-        else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
-        else{nDormant++;}
-      }
-      const total=nMono+nHybride+nDigital+nDormant||1;
-      const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
-      const _nExclMag=[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length;
-      const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
-      const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
-      inner+=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
-        [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')",''],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._toggleHorsAgence()","multicanaux"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._toggleHorsAgence()","multicanaux"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._toggleDormants()","dormants"]
-      ].map(([n,ca,label,icon,color,onclick,viewKey])=>{if(!n)return'';const isActive=viewKey&&_S._clientView===viewKey;return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`;}).join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
+    if(!_S.clientOmniScore?.size){el.innerHTML='';return;}
+    let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
+    for(const[cc,o]of _S.clientOmniScore){
+      if(!_passesAllFilters(cc))continue;
+      if(o.segment==='mono'){nMono++;caMono+=o.caPDV||0;}
+      else if(o.segment==='hybride'){nHybride++;caHybride+=(o.caPDV||0)+(o.caHors||0);}
+      else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV||0;}
+      else{nDormant++;}
     }
-    el.innerHTML=`<details class="s-card rounded-xl shadow-md border overflow-hidden mb-3"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">📡 Omnicanalité</h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-3 space-y-3">${inner}</div></details>`;
+    const total=nMono+nHybride+nDigital+nDormant||1;
+    const pctM=Math.round(nMono/total*100),pctH=Math.round(nHybride/total*100),pctD=Math.round(nDigital/total*100),pctDor=Math.max(0,100-pctM-pctH-pctD);
+    const _nExclMag=[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length;
+    const _totalTip=`${total} clients analysés = union MAGASIN (${_S.ventesClientArticle.size}) + hors-agence, après filtres actifs. Clients exclusivement PDV (caHors = 0 €) : ${_nExclMag}. Mono PDV = caHors strict = 0 €, actifs ≤ 180 j — aligné sur le tableau Top PDV (seuil 100 €).`;
+    const _segTips={'Mono PDV':`Aucun achat hors-agence (caHors = 0 €) ET actifs ≤ 180 j de silence. Critère strict aligné sur le tableau Top PDV (seuil 100 €). (${nMono} sur ${total} analysés)`,'Hybrides':`CA PDV > 0 ET CA hors-agence > 0 € et non dominant (caHors ≤ caPDV × 1,5). Acheteurs mixtes PDV + digital.`,'Digital':`CA hors-agence > 0 € et dominant (caHors > caPDV × 1,5 ou CA PDV < 50 €). Acheteurs principalement en ligne ou via rep.`,'Dormants':`Silence > 180 jours ET aucun achat hors-agence (caHors = 0 €). Clients inactifs sur tous les canaux.`};
+    el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${[
+      [nMono,caMono,'Mono PDV','🏪','var(--c-ok)',"window._setClientView('tous')",''],[nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)',"window._toggleHorsAgence()","multicanaux"],[nDigital,caDigital,'Digital','📱','var(--c-caution)',"window._toggleHorsAgence()","multicanaux"],[nDormant,0,'Dormants','💤','var(--c-danger)',"window._toggleDormants()","dormants"]
+    ].map(([n,ca,label,icon,color,onclick,viewKey])=>{if(!n)return'';const isActive=viewKey&&_S._clientView===viewKey;return`<div class="flex flex-col items-center p-2 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${_segTips[label]||''}" onclick="${onclick}"><span class="text-base leading-none mb-1">${icon}</span><span class="text-[13px] font-extrabold t-primary">${n}</span><span class="text-[9px] t-disabled">${label}</span>${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}</div>`;}).join('')}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctM}%;background:var(--c-ok)"></div><div style="width:${pctH}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctD}%;background:var(--c-caution)"></div><div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4"></div></div></div>`;
   }
 
   // ── Clients PDV hors zone — paginé, colonnes alignées sur _renderTopClientsPDV ──
@@ -4744,69 +4736,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
 
     // ── S3: Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
     const oppsHtml = renderOppNetteTable();
-
-    // ── S3b : Segments omnicanaux → déplacé vers Le Terrain (Sprint 5) ─────
-    let omniHtml='';
-    if(false&&_S.clientOmniScore?.size){
-      let nMono=0,nHybride=0,nDigital=0,nDormant=0,caMono=0,caHybride=0,caDigital=0,caDormant=0;
-      for(const[,o]of _S.clientOmniScore){
-        if(o.segment==='mono'){nMono++;caMono+=o.caPDV;}
-        else if(o.segment==='hybride'){nHybride++;caHybride+=o.caPDV+o.caHors;}
-        else if(o.segment==='digital'){nDigital++;caDigital+=o.caPDV;}
-        else if(o.segment==='dormant'){nDormant++;caDormant+=o.caPDV;}
-      }
-      const total=nMono+nHybride+nDigital+nDormant||1;
-      const pill=(n,ca,label,icon,color)=>n>0?`<div class="flex flex-col items-center p-2.5 s-card rounded-xl border cursor-pointer hover:s-hover transition-all" onclick="_cematinSearch('clients ${label.toLowerCase().replace(' ','+')}')">
-  <span class="text-[16px] leading-none mb-1">${icon}</span>
-  <span class="text-[13px] font-extrabold t-primary">${n}</span>
-  <span class="text-[9px] t-disabled">${label}</span>
-  ${ca>0?`<span class="text-[9px] font-bold mt-0.5" style="color:${color}">${formatEuro(ca)}</span>`:''}
-</div>`:'';
-      const pills=[
-        pill(nMono,caMono,'Mono PDV','🏪','var(--c-ok)'),
-        pill(nHybride,caHybride,'Hybrides','🔀','var(--c-info,#3b82f6)'),
-        pill(nDigital,caDigital,'Digital','📱','var(--c-caution)'),
-        pill(nDormant,caDormant,'Dormants','💤','var(--c-danger)'),
-      ].filter(Boolean).join('');
-      if(pills){
-        const pctMono=Math.round(nMono/total*100);
-        const pctH=Math.round(nHybride/total*100);
-        const pctD=Math.round(nDigital/total*100);
-        const pctDor=Math.max(0,100-pctMono-pctH-pctD);
-        omniHtml=`<div class="mb-5">
-  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled">${total} clients analysés</span></h3>
-  <div class="grid grid-cols-4 gap-2 mb-2">${pills}</div>
-  <div class="flex h-1.5 rounded-full overflow-hidden">
-    <div style="width:${pctMono}%;background:var(--c-ok)" title="Mono PDV ${pctMono}%"></div>
-    <div style="width:${pctH}%;background:var(--c-info,#3b82f6)" title="Hybrides ${pctH}%"></div>
-    <div style="width:${pctD}%;background:var(--c-caution)" title="Digital ${pctD}%"></div>
-    <div style="width:${pctDor}%;background:var(--c-danger);opacity:0.4" title="Dormants"></div>
-  </div>
-  <p class="text-[9px] t-disabled mt-1.5">Cliquer sur un segment pour filtrer dans Ce matin · 🏪\u00a0PDV seul · 🔀\u00a0PDV+digital · 📱\u00a0digital dominant · 💤\u00a0silence &gt;180j</p>
-</div>`;
-      }
-    }
-
-    // ── S4: Actifs hors agence → déplacé vers Le Terrain (Sprint 5) ─────────
-    const horsAgence=[];
-    if(false)for(const [cc,artMap] of _S.ventesClientHorsMagasin.entries()){
-      const totalHors=[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0);
-      if(totalHors<500)continue;
-      const pdvMap=_S.ventesClientArticle.get(cc);
-      const totalPDV=pdvMap?[...pdvMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-      if(totalPDV>totalHors)continue; // déjà bien capté
-      const info=_S.chalandiseData.get(cc);
-      const nom=info?.nom||_S.clientNomLookup[cc]||cc;
-      const canaux=new Set([...artMap.values()].map(d=>d.canal).filter(Boolean));
-      horsAgence.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',totalHors,totalPDV,canaux:[...canaux].join('/')});
-    }
-    horsAgence.sort((a,b)=>b.totalHors-a.totalHors);
-    const ha10=horsAgence.slice(0,10);
-    const haHtml=ha10.length?`<div class="mb-5 s-card rounded-xl border overflow-hidden">
-      <div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🌐 Actifs hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsAgence.length} clients avec CA hors&gt;PDV</span></h3></div>
-      <div class="p-4"><p class="text-[10px] t-tertiary mb-3">Clients dont le CA hors-agence dépasse le CA en magasin — signal de captation partielle à convertir.</p>
-      <table class="w-full text-xs"><thead><tr class="t-tertiary text-left"><th class="pb-1 font-semibold">Client</th><th class="pb-1 font-semibold text-right">Hors agence</th><th class="pb-1 font-semibold text-right">Magasin</th><th class="pb-1 font-semibold text-right">Canal</th><th class="pb-1 font-semibold text-right">Commercial</th></tr></thead><tbody class="divide-y b-light">${ha10.map(c=>`<tr class="s-hover cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 font-bold">${escapeHtml(c.nom)}<span class="text-[9px] t-disabled font-normal ml-1">${escapeHtml(c.metier||'')}</span></td><td class="py-1.5 text-right font-bold c-danger">${formatEuro(c.totalHors)}</td><td class="py-1.5 text-right t-tertiary">${c.totalPDV>0?formatEuro(c.totalPDV):'—'}</td><td class="py-1.5 text-right t-disabled">${escapeHtml(c.canaux)}</td><td class="py-1.5 text-right c-action font-semibold">${escapeHtml(c.commercial||'—')}</td></tr>`).join('')}</tbody></table></div>
-    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">🌐 <strong>Hors agence</strong> : ${_S.ventesClientHorsMagasin.size?'Aucun client avec CA hors agence dépassant le PDV.':'Chargez le fichier Terrain pour détecter les achats hors agence.'}</div>`;
 
     // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
     let topPDVHtml='';
