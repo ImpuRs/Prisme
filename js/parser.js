@@ -12,7 +12,7 @@
 'use strict';
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP } from './constants.js';
 import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib } from './utils.js';
-import { _S, resetAppState } from './state.js';
+import { _S, resetAppState, invalidateCache } from './state.js';
 
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
@@ -242,7 +242,7 @@ export async function parseLivraisons(file) {
     _S.territoireLines = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;
-    _S._terrCanalCache = new Map();
+    invalidateCache('terr');
 
     _S._livraisonsDebug.step = 'done';
     _S._livraisonsDebug.livraisonsSize = _S.livraisonsData.size;
@@ -517,11 +517,11 @@ export function getSelectedSecteurs() {
 }
 
 // ── Benchmark multi-agences ───────────────────────────────────
-export function computeBenchmark(canal = null) {
-  // Normalise : accepte un Set, un Array, un string, ou null
-  const _canauxSet = canal instanceof Set ? canal
-    : Array.isArray(canal) ? new Set(canal)
-    : canal ? new Set([canal])
+export function computeBenchmark(canaux = new Set()) {
+  // Normalise : accepte un Set, un Array, un string, ou null → toujours Set
+  const _canauxSet = canaux instanceof Set ? canaux
+    : Array.isArray(canaux) ? new Set(canaux)
+    : canaux ? new Set([canaux])
     : new Set();
   const _canauxKey = _canauxSet.size ? [..._canauxSet].sort().join('+') : '';
   const _modeKey = _canauxSet.size === 1 && _canauxSet.has('MAGASIN') ? (_S._reseauMagasinMode || 'all') : '';

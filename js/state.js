@@ -226,6 +226,35 @@ _S.reseauOrphelins = [];      // articles ≥50% stores absents chez moi (top 50
 _S.reseauFuitesMetier = [];   // {metier, total, actifs, indiceFuite%} — si chalandise
 _S._activeReseauWorker = null;
 
+// ── Propriétés anciennement non déclarées (Sprint 0 — stabilisation) ──
+_S._commerceView = 'clients';       // 'clients' | 'familles' — vue commerce terrain
+_S._missedSortCol = 'freq';         // tri articles manquants réseau
+_S._missedSortDir = 'desc';         // direction tri missed
+_S._rawDataC = [];                  // données brutes consommé (pour refilter période)
+_S._rawDataS = [];                  // données brutes stock (pour refilter période)
+_S._reseauMissedFamFilter = '';     // filtre famille missed réseau
+_S._reseauMissedPage = 0;           // pagination missed réseau
+_S._reseauMissedShowAll = false;    // mode "voir tout" missed
+_S._reseauUnderPage = 0;            // pagination under réseau
+_S._reseauUnderShowAll = false;     // mode "voir tout" under
+_S._top5Semaine = [];               // top 5 articles de la semaine
+_S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
+_S._dqRenderedItems = [];           // snapshot decision queue rendus (pour dqFocus)
+_S._iraDiagData = null;             // données diagnostic IRA banner
+_S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
+_S._livraisonsDebug = {};           // debug info parsing livraisons
+_S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
+
+// ── Invalidation centralisée des caches ──────────────────────────
+// Scopes : 'all' (défaut) | 'tab' | 'terr' | 'bench'
+// Combine : invalidateCache('tab', 'terr') pour invalider tab + territoire
+export function invalidateCache(...scopes) {
+  const all = scopes.length === 0 || scopes.includes('all');
+  if (all || scopes.includes('tab'))   _S._tabRendered = {};
+  if (all || scopes.includes('terr'))  _S._terrCanalCache = new Map();
+  if (all || scopes.includes('bench')) _S._benchCache = null;
+}
+
 // ── Reset session — appeler en début de processData() ──────────
 // CONVENTION : toute nouvelle variable _S.xxx DOIT être déclarée ICI (init)
 // ET dans resetAppState() ci-dessous. Oublier le reset = bug silencieux au re-chargement.
@@ -296,14 +325,8 @@ export function resetAppState() {
   // Navigation overview
   _S._overviewOpenL2 = null; _S._overviewOpenL3 = null;
 
-  // Lazy tab render cache
-  _S._tabRendered = {};
-
-  // Cache territoire canal
-  _S._terrCanalCache = new Map();
-
-  // Cache benchmark
-  _S._benchCache = null;
+  // Caches (invalidation centralisée)
+  invalidateCache('all');
 
   // Decision Queue
   _S.decisionQueueData = [];
@@ -343,6 +366,18 @@ export function resetAppState() {
 
   // Ranking réseau
   _S._rankSortKey = 'pdmBassin'; _S._rankSortDir = -1;
+
+  // Propriétés anciennement non déclarées (Sprint 0)
+  _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
+  _S._rawDataC = []; _S._rawDataS = [];
+  _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
+  _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
+  _S._top5Semaine = [];
+  _S.clientOmniScore = new Map();
+  _S._dqRenderedItems = []; _S._iraDiagData = null;
+  _S.famillesHors = [];
+  _S._livraisonsDebug = {};
+  _S._metierStrategiques = new Set();
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
