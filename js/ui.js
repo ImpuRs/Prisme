@@ -168,6 +168,9 @@ export function switchTab(id) {
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
+  // Alertes stock pills — visibles uniquement sur Analyse du stock
+  const sap = document.getElementById('stockAlertPills');
+  if (sap) sap.classList.toggle('hidden', id !== 'dash');
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
