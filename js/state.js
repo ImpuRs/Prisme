@@ -40,6 +40,7 @@ _S.reseauHeatmapData = null;        // {familles[], agences[], matrix{}} — hea
 // ── Cockpit ──
 _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()};
 _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
+_S.cockpitCounts = {};
 _S.blData = {};
 _S.parentRefsExcluded = 0;
 _S.globalJoursOuvres = 250;
@@ -291,7 +292,7 @@ export function resetAppState() {
   _S.selectedBenchBassin = new Set(); _S.benchFamEcarts = {}; _S.reseauHeatmapData = null;
 
   // Cockpit
-  _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} };
+  _S.cockpitLists = {ruptures:new Set(),fantomes:new Set(),sansemplacement:new Set(),anomalies:new Set(),saso:new Set(),dormants:new Set(),fins:new Set(),top20:new Set(),nouveautes:new Set(),colisrayon:new Set(),stockneg:new Set(),fragiles:new Set(),phantom:new Set()}; _S.ventesAnalysis = { refParBL: 0, famParBL: 0, totalBL: 0, refActives: 0, attractivite: {} }; _S.cockpitCounts = {};
   _S.blData = {}; _S.parentRefsExcluded = 0; _S.globalJoursOuvres = 250;
 
   // ABC/FMR

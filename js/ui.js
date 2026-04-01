@@ -138,6 +138,7 @@ if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
+  if (id === 'abc') id = 'dash'; // abc fusionné dans dash
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -157,13 +158,13 @@ export function switchTab(id) {
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'action');
+  if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
   // Filtre canal global — visible sur territoire/omni uniquement
   const _CANAL_TABS = new Set(['territoire', 'omni']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Analyse', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Analyse du stock', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
@@ -426,7 +427,7 @@ const _CMD_ACTIONS = [
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('territoire'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
   { kw: ['mes clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Mes clients', fn: () => { switchTab('clients'); } },
-  { kw: ['radar','abc','fmr','matrice'], icon: '📡', label: 'Onglet Radar (ABC/FMR)', fn: () => { switchTab('abc'); } },
+  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Analyse du stock (ABC/FMR)', fn: () => { switchTab('dash'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
   { kw: ['labo','croisement','commercial','silencieux','opportunités','prisme'], icon: '🧪', label: 'Onglet Labo', fn: () => { switchTab('labo'); } },
@@ -1065,11 +1066,11 @@ export function renderHealthScore() {
   const pills = dims.map(d =>
     `<span class="text-[10px] px-2 py-0.5 rounded-full border ${d.ok ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-orange-300 text-orange-700 bg-orange-50'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
   ).join('');
-  el.innerHTML = `<div class="flex items-center gap-4 py-3 px-4 s-card rounded-xl border shadow-sm flex-wrap">
+  const healthHtml = `<div class="flex items-center gap-4 py-3 px-4 s-card rounded-xl border shadow-sm flex-wrap">
     <div class="flex items-center gap-2">
       <span class="text-2xl">${icon}</span>
       <div>
-        <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Santé Stock</p>
+        <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
         <p class="text-xl font-extrabold" style="color:${color}">${score}<span class="text-sm font-normal t-disabled">/100</span></p>
       </div>
       <div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-2">
@@ -1079,7 +1080,13 @@ export function renderHealthScore() {
     </div>
     <div class="flex flex-wrap gap-1.5 ml-auto">${pills}</div>
   </div>`;
+  el.innerHTML = healthHtml;
   el.classList.remove('hidden');
+  // Also populate accordion content + inline summary
+  const hsc = document.getElementById('healthScoreContent');
+  if (hsc) hsc.innerHTML = healthHtml;
+  const hsi = document.getElementById('healthScoreInline');
+  if (hsi) hsi.textContent = `${score}/100 — ${label}`;
 }
 
 // ── No-stock placeholder ──────────────────────────────────────
@@ -1665,7 +1672,7 @@ document.addEventListener('keydown', function(e) {
 
   // 1–7 : switcher d'onglet (uniquement sans modificateur)
   if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'dash', '4': 'abc', '5': 'clients', '6': 'territoire', '7': 'bench' };
+    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'dash', '4': 'clients', '5': 'territoire', '6': 'bench', '7': 'animation' };
     const tab = TAB_MAP[e.key];
     if (tab) {
       const btn = document.querySelector(`[data-tab="${tab}"]`);

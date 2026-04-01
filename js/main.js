@@ -1426,7 +1426,7 @@ import { loadCatalogueMarques, renderAnimationTab } from './animation.js';
   // Grise les onglets selon les fichiers chargés — appelé après chaque chargement complet
   function _syncTabAccess(){
     const hasStock=!!_S._hasStock;
-    const needsStock=['table','dash','abc'];
+    const needsStock=['table','dash'];
     const needsConsomme=['territoire'];
     needsStock.forEach(tab=>{
       const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
@@ -2941,19 +2941,15 @@ import { loadCatalogueMarques, renderAnimationTab } from './animation.js';
         ${moreHtml}
       </details>`;
     }).join('');
-    const borderStyle = enriched ? 'border-color: var(--c-action, #8b5cf6)' : '';
-    el.innerHTML = `<details class="s-card rounded-xl border overflow-hidden" style="${borderStyle}">
-      <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-        <h3 class="font-extrabold text-sm t-primary">
-          📦 Recommandations stock
-          <span class="text-[10px] font-normal t-disabled ml-1">${totalRecos} articles · ${formatEuro(totalCA)} CA</span>
-          ${modeBadge}
-          <span class="labo-info-tip ml-1" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ<span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span></span>
-        </h3>
-        <span class="acc-arrow t-disabled">▶</span>
-      </summary>
-      <div>${dirsHtml}</div>
-    </details>`;
+    // Update inline summary
+    const _recoInline = document.getElementById('recoStockInline');
+    if (_recoInline) _recoInline.textContent = `${totalRecos.toLocaleString('fr-FR')} articles · ${formatEuro(totalCA)}`;
+
+    el.innerHTML = `<div class="flex items-center gap-2 mb-3">
+      ${modeBadge}
+      <span class="labo-info-tip" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ<span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span></span>
+    </div>
+    <div>${dirsHtml}</div>`;
   }
 
   window._exportRecoCSV = function(direction) {
@@ -3042,33 +3038,23 @@ import { loadCatalogueMarques, renderAnimationTab } from './animation.js';
 
     const infoTip = `${nbGhosts} articles en stock sans aucune vente sur la période de calcul (W=0). Ils n'apparaissent pas dans la matrice ABC/FMR. ${stockPositif} ont du stock physique pour ${formatEuro(valeurTotale)} immobilisés.`;
 
+    // Update inline summary
+    const _ghostInline = document.getElementById('ghostCountInline');
+    if (_ghostInline) _ghostInline.textContent = `${nbGhosts.toLocaleString('fr-FR')} articles · ${formatEuro(valeurTotale)}`;
+
     el.innerHTML = `
-      <details class="s-card rounded-xl shadow-md border overflow-hidden">
-        <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-          <h3 class="font-extrabold text-sm t-primary">
-            👻 Articles fantômes
-            <span class="text-[10px] font-normal t-disabled ml-1">${nbGhosts} articles · ${formatEuro(valeurTotale)} immobilisés · ${pctGhosts}% du stock</span>
-            <span class="labo-info-tip ml-1" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ
-              <span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span>
-            </span>
-          </h3>
-          <span class="acc-arrow t-disabled">▶</span>
+      <div class="flex gap-3 mb-4">${tilesHtml}</div>
+      <div class="flex flex-wrap gap-1 mb-4">${statutsHtml}</div>
+      <details class="border rounded-lg overflow-hidden">
+        <summary class="px-3 py-2 text-[11px] font-bold t-primary cursor-pointer select-none hover:s-hover">
+          📊 Top 10 familles fantomes
         </summary>
-        <div class="p-4">
-          <div class="flex gap-3 mb-4">${tilesHtml}</div>
-          <div class="flex flex-wrap gap-1 mb-4">${statutsHtml}</div>
-          <details class="border rounded-lg overflow-hidden">
-            <summary class="px-3 py-2 text-[11px] font-bold t-primary cursor-pointer select-none hover:s-hover">
-              📊 Top 10 familles fantômes
-            </summary>
-            <table class="min-w-full">
-              <thead class="s-panel-inner t-inverse text-[10px]">
-                <tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">Articles</th><th class="py-1.5 px-2 text-right">Valeur stock</th></tr>
-              </thead>
-              <tbody>${famHtml}</tbody>
-            </table>
-          </details>
-        </div>
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">Articles</th><th class="py-1.5 px-2 text-right">Valeur stock</th></tr>
+          </thead>
+          <tbody>${famHtml}</tbody>
+        </table>
       </details>
     `;
   }
@@ -4352,27 +4338,38 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const chipSaison = document.getElementById('dashChipSaison');
     if (chipSaison) chipSaison.textContent = candidats.length > 0 ? candidats.length : '0';
     {const chipSaisonCont=document.getElementById('chipSaison');if(chipSaisonCont)chipSaisonCont.title=candidats.length>0?`${candidats.length} articles sous seuil saisonnier ce mois de ${nomsMois[mois]}`:'Aucun article sous seuil ce mois';}
+    // Update cockpitCounts + pills
+    if(_S.cockpitCounts){_S.cockpitCounts.saison=candidats.length;_renderStockPills();}
     el.classList.remove('hidden');
-    // Section articles saisonniers — masquée si aucun candidat
+    // Section articles saisonniers
     const artSection = document.getElementById('saisonArtSection');
-    if (artSection) artSection.classList.toggle('hidden', candidats.length === 0);
-
-    const tbody = document.getElementById('saisonTableBody');
-    if (!tbody) return;
-    if (candidats.length === 0) {
-      return;
+    if (artSection) {
+      if (candidats.length === 0) { artSection.innerHTML = ''; }
+      else {
+        const _isPeriodFiltered = _S.periodFilterStart || _S.periodFilterEnd;
+        const saisonRows = candidats.slice(0, 30).map(r => {
+          const coeffPct = '+' + Math.round((r.coeff - 1) * 100) + '%';
+          return `<tr class="hover:bg-amber-50 text-xs">
+            <td class="py-2 px-2 font-mono text-[11px]">${escapeHtml(r.code)}</td>
+            <td class="py-2 px-2 truncate max-w-[180px]" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</td>
+            <td class="py-2 px-2 text-center t-secondary">${r.stockActuel}</td>
+            <td class="py-2 px-2 text-center font-bold text-amber-700">${r.saisonMin} <span class="text-[9px] font-normal text-amber-500">(${coeffPct})</span></td>
+            <td class="py-2 px-2 text-center font-bold text-amber-600">+${r.qteCde}</td>
+            <td class="py-2 px-2 text-right font-bold">${r.vaEuro > 0 ? formatEuro(r.vaEuro) : '—'}</td>
+          </tr>`;
+        }).join('');
+        artSection.innerHTML = `
+          <p class="text-[11px] text-amber-600 mb-1 italic">Indicatif uniquement — stock sous le seuil saisonnier pour ce mois.</p>
+          ${_isPeriodFiltered?'<p class="text-[11px] text-orange-600 font-semibold mb-3">⚠️ MIN/MAX non recalcules sur cette periode.</p>':''}
+          <div class="bg-amber-50 p-5 rounded-xl border-t-4 border-amber-400">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-amber-800 flex items-center gap-1">📅 ${nomsMois[mois]} — Articles sous seuil saisonnier</h3>
+              <button onclick="exportSaisonCSV()" class="text-[11px] bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded hover:bg-amber-300 transition-colors">⬇️ Export CSV</button>
+            </div>
+            <div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-amber-100 text-amber-800 sticky top-0"><tr><th class="py-2 px-2 text-left">Code</th><th class="py-2 px-2 text-left">Libelle</th><th class="py-2 px-2 text-center">Stock</th><th class="py-2 px-2 text-center">Seuil mois</th><th class="py-2 px-2 text-center">A commander</th><th class="py-2 px-2 text-right">Valeur est.</th></tr></thead><tbody class="divide-y divide-amber-100">${saisonRows}</tbody></table></div>
+          </div>`;
+      }
     }
-    tbody.innerHTML = candidats.slice(0, 30).map(r => {
-      const coeffPct = '+' + Math.round((r.coeff - 1) * 100) + '%';
-      return `<tr class="hover:bg-amber-50 text-xs">
-        <td class="py-2 px-2 font-mono text-[11px]">${escapeHtml(r.code)}</td>
-        <td class="py-2 px-2 truncate max-w-[180px]" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</td>
-        <td class="py-2 px-2 text-center t-secondary">${r.stockActuel}</td>
-        <td class="py-2 px-2 text-center font-bold text-amber-700">${r.saisonMin} <span class="text-[9px] font-normal text-amber-500">(${coeffPct})</span></td>
-        <td class="py-2 px-2 text-center font-bold text-amber-600">+${r.qteCde}</td>
-        <td class="py-2 px-2 text-right font-bold">${r.vaEuro > 0 ? formatEuro(r.vaEuro) : '—'}</td>
-      </tr>`;
-    }).join('');
   }
 
   function exportSaisonCSV() {
@@ -4570,14 +4567,23 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     pL(lstFa,'actionFantomes');pL(lstA,'actionAnomalies');pL(lstS,'actionSaso');pL(lstD,'actionDormant');pL(lstFi,'actionFin');pL(lstB,'actionBestSellers',20);pL(lstN,'actionNouveaute');pL(lstStockNeg,'actionStockneg');
     // Custom renderer for Colis à stocker: stock=0 → 📦 Mettre en rayon, stock>0 → 👁️ Vérifier visibilité
     (function(){
-      const el=document.getElementById('actionColisRayon');if(!el)return;
+      const colisContainer=document.getElementById('colisDetail');
       const sorted=[...lstColis].sort((a,b)=>(a.i2>0?1:0)-(b.i2>0?1:0)||b.sv-a.sv).slice(0,50);
-      const rows=sorted.map(i=>{
-        const actionLbl=i.i2===0?'<span class="text-cyan-700 font-bold">📦 Mettre en rayon</span>':'<span class="c-caution font-bold">👁️ Vérifier visibilité</span>';
-        return `<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
-      });
-      el.innerHTML=rows.join('')||'<tr><td colspan="4" class="text-center py-4 t-disabled text-xs">🎉</td></tr>';
-      if(sorted.length>1){const table=el.closest('table');if(table){let tf=table.querySelector('tfoot');if(!tf){tf=document.createElement('tfoot');table.appendChild(tf);}tf.innerHTML=`<tr><td colspan="4" class="py-1 px-2 text-right"><button onclick="event.stopPropagation();_copyAllCodesDirect(this,this.dataset.codes)" data-codes="${sorted.map(i=>i.code).join(',')}" class="text-[10px] t-disabled hover:t-primary s-card border b-default rounded px-1.5 py-0.5">📋 Copier ${sorted.length} codes</button></td></tr>`;}}
+      if(colisContainer&&sorted.length>0){
+        const rows=sorted.map(i=>{
+          const actionLbl=i.i2===0?'<span class="text-cyan-700 font-bold">📦 Mettre en rayon</span>':'<span class="c-caution font-bold">👁️ Vérifier visibilite</span>';
+          return `<tr class="border-b hover:s-card/60"><td class="py-2 px-2 text-[11px] font-semibold"><div class="flex items-center gap-0.5"><span class="font-mono t-tertiary text-[10px]">${i.code}</span>${_copyCodeBtn(i.code)}</div><span class="leading-tight" title="${i.lib}">${i.lib}</span></td><td class="py-2 px-2 text-center font-bold text-xs">${i.i1}</td><td class="py-2 px-2 text-right font-extrabold text-xs">${i.i2}</td><td class="py-2 px-2 text-center text-[10px] whitespace-nowrap">${actionLbl}</td></tr>`;
+        });
+        colisContainer.innerHTML=`<div class="i-info-bg rounded-xl border-t-4 border-cyan-500">
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="font-bold t-primary flex items-center gap-2">📦→🏪 Colis a stocker <span class="badge bg-cyan-500 text-white">${sorted.length}</span></span>
+            <span class="cockpit-link bg-cyan-200 text-cyan-800 cursor-pointer" onclick="showCockpitInTable('colisrayon');switchTab('table')">📋 Voir dans Articles</span>
+          </div>
+          <div class="px-5 pb-5"><p class="text-[11px] t-secondary mb-3">≥5 enleves, 0 preleve — 📦 stock=0 a mettre en rayon · 👁️ stock>0 a rendre visible.</p>
+            <div class="list-scroll"><table class="min-w-full text-xs"><thead class="i-info-bg t-secondary sticky top-0"><tr><th class="py-2 px-2">Code / Libelle</th><th class="py-2 px-2 text-center">Colis</th><th class="py-2 px-2 text-right">Stock</th><th class="py-2 px-2 text-center">Action</th></tr></thead><tbody id="actionColisRayon" class="divide-y b-light">${rows.join('')}</tbody></table></div>
+          </div>
+        </div>`;
+      } else if(colisContainer){colisContainer.innerHTML='';}
     })();
 
     renderCockpitEquation();
@@ -4592,6 +4598,43 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     renderIRABanner();
     renderTabBadges();
     renderCockpitRupClients();
+
+    // ── Sidebar pills + inline summaries (fusion Stock+Analyse) ──
+    _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:0,saso:lstS.length,colis:lstColis.length,rupClients:0};
+    // rupClients count
+    {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
+    _renderStockPills();
+    // Inline summaries
+    {const _si=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
+    _si('valeurStockInline',`${formatEuro(totalValue)} · ${dataSource.length.toLocaleString('fr-FR')} ref.`);
+    _si('rupClientsInline',_S.cockpitCounts.rupClients>0?`${_S.cockpitCounts.rupClients} clients`:'');
+    }
+  }
+
+  function _renderStockPills(){
+    const el=document.getElementById('stockPillsContainer');
+    if(!el)return;
+    const c=_S.cockpitCounts||{};
+    const pills=[
+      {icon:'🔴',label:'Ruptures',count:c.ruptures||0,color:'#dc2626',cockpit:'ruptures'},
+      {icon:'📉',label:'Stock negatif',count:c.stockneg||0,color:'#4f46e5',cockpit:'stockneg'},
+      {icon:'📍',label:'Sans emplacement',count:c.sansemplacement||0,color:'#4f46e5',cockpit:'sansemplacement'},
+      {icon:'⚠️',label:'Anomalies',count:c.anomalies||0,color:'#ea580c',cockpit:'anomalies'},
+      {icon:'💤',label:'Dormants',count:c.dormants||0,color:'#ea580c',cockpit:'dormants'},
+      {icon:'📁',label:'Fins de serie',count:c.fins||0,color:'#6b7280',cockpit:'fins'},
+      {icon:'🌸',label:'Saisonnalite',count:c.saison||0,color:'#d97706',cockpit:null},
+      {icon:'📦',label:'Excedent ERP',count:c.saso||0,color:'#7c3aed',cockpit:'saso'},
+      {icon:'📦→🏪',label:'Colis a stocker',count:c.colis||0,color:'#0891b2',cockpit:'colisrayon'},
+      {icon:'👥',label:'Clients impactes',count:c.rupClients||0,color:'#dc2626',cockpit:null},
+    ];
+    el.innerHTML=pills.map(p=>{
+      const grayed=p.count===0?'opacity-40':'';
+      const onclick=p.cockpit?`onclick="showCockpitInTable('${p.cockpit}');switchTab('table')"`:'';
+      return `<div class="flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer hover:s-hover transition-colors ${grayed}" ${onclick}>
+        <span class="text-[10px] flex items-center gap-1.5"><span>${p.icon}</span><span class="font-semibold" style="color:${p.color}">${p.label}</span></span>
+        <span class="text-[11px] font-extrabold" style="color:${p.color}">${p.count}</span>
+      </div>`;
+    }).join('');
   }
 
   function renderCockpitRupClients(){
@@ -4614,8 +4657,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     }
     if(!rupClients.length){el.innerHTML='';return;}
     const rows=rupClients.slice(0,10).map(c=>`<tr class="border-t b-light"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td><td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td><td class="py-1 px-2 text-center font-bold c-danger text-[11px]">${c.nbRup}</td><td class="py-1 px-2 text-right text-[11px] ${c.caRup>0?'c-caution font-bold':'t-disabled'}">${c.caRup>0?formatEuro(c.caRup):'—'}</td></tr>`).join('');
-    const _rupTable=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacté</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
-    el.innerHTML=`<details class="i-caution-bg rounded-xl border-t-4 border-orange-400 overflow-hidden"><summary class="flex items-center gap-2 p-3 border-b b-light cursor-pointer list-none"><span>🔴</span><h4 class="font-extrabold text-sm flex-1">Clients impactés par ruptures <span class="badge bg-orange-400 text-white ml-1">${rupClients.length}</span></h4><span class="text-[10px] t-disabled">▼</span></summary>${_rupTable}</details>`;
+    el.innerHTML=`<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-card-alt t-secondary font-bold text-[10px]"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-center">Articles en rupture</th><th class="py-1.5 px-2 text-right">CA impacte</th></tr></thead><tbody>${rows}</tbody></table>${rupClients.length>10?`<p class="text-[10px] t-disabled px-3 py-1.5">… et ${rupClients.length-10} autres</p>`:''}</div>`;
   }
 
   // ★ BADGES FILTRES ACTIFS
@@ -4904,11 +4946,9 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
         return;
       case 'dash':
         renderDashboardAndCockpit();
+        renderABCTab();
         renderHealthScore();
         renderTabBadges();
-        break;
-      case 'abc':
-        renderABCTab();
         break;
       case 'territoire':
         renderTerritoireTab();
