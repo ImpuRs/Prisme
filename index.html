@@ -1227,7 +1227,7 @@
     <div id="tabAbc" class="tab-content hidden">
       <div class="mb-4 flex items-start justify-between">
         <div>
-          <h2 class="text-xl font-extrabold text-indigo-700">📡 Analyse — ABC / FMR</h2>
+          <h2 class="text-xl font-extrabold text-indigo-700">📡 Analyse — ABC / FMR <span id="abcCountBadge" class="text-[11px] font-normal t-disabled"></span></h2>
           <p class="text-xs t-tertiary mt-1">ABC = valeur de rotation (Prélevé × Prix unitaire) · FMR = fréquence (W = nb commandes/an) · Articles actifs uniquement (W≥1)</p>
         </div>
       </div>
@@ -1248,25 +1248,7 @@
           <li class="flex items-start gap-2"><span class="font-extrabold c-action w-5 flex-shrink-0">5.</span><span><strong class="c-action">💡 CF/CM — Consommables fréquents.</strong> Petit prix mais indispensables au comptoir. Vérifiez que le MIN est suffisant pour ne jamais rompre.</span></li>
         </ol>
       </div>
-      <div class="mt-4 p-5 i-ok-bg border b-default rounded-xl">
-        <h4 class="font-extrabold c-ok mb-3 text-sm">💡 Comment progresser ?</h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs t-primary">
-          <div>
-            <p class="font-bold t-primary mb-2">Pour faire monter un article :</p>
-            <ul class="space-y-1.5 list-disc list-inside">
-              <li><span class="font-semibold">C → B → A :</span> Améliorer la visibilité rayon, vérifier l'emplacement, proposer en vente additionnelle</li>
-              <li><span class="font-semibold">R → M → F :</span> Vérifier qu'il n'est pas en rupture chronique (pas de vente ≠ pas de demande)</li>
-            </ul>
-          </div>
-          <div>
-            <p class="font-bold t-primary mb-2">Pour nettoyer :</p>
-            <ul class="space-y-1.5 list-disc list-inside">
-              <li><span class="font-semibold">CR avec stock &gt; 0 :</span> Solder, brader, ou retourner au dépôt</li>
-              <li><span class="font-semibold">CR sans stock :</span> Déréférencer dans l'ERP (MIN/MAX à 0)</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      <div id="ghostArticlesBlock" class="mt-6"></div>
       <!-- Recommandations stock par direction (progressif : réseau seul ou enrichi livraisons) -->
       <div id="terrRecoStockBlock" class="mt-6"></div>
       <!-- V24.4: Attractivité par Famille -->
