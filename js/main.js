@@ -3009,27 +3009,32 @@ import { renderAnimationTab } from './animation.js';
     const topFam = Object.entries(famCount).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
 
     const ageTiles = [
-      { label: '< 90 jours', sublabel: 'Nouveautés sans vente', n: age0_90, val: val0_90, color: 'var(--c-ok)', bg: '#dcfce7' },
-      { label: '90j — 1 an', sublabel: 'En voie de dormance', n: age90_365, val: val90_365, color: 'var(--c-caution)', bg: '#fef9c3' },
-      { label: '> 1 an', sublabel: 'Dormants confirmés', n: age365plus, val: val365plus, color: 'var(--c-danger)', bg: '#fee2e2' },
+      { label: '< 90 jours', sublabel: 'Nouveautés sans vente', n: age0_90, val: val0_90, color: 'var(--c-ok)', bg: '#dcfce7', ageKey: 'fresh' },
+      { label: '90j — 1 an', sublabel: 'En voie de dormance', n: age90_365, val: val90_365, color: 'var(--c-caution)', bg: '#fef9c3', ageKey: '' },
+      { label: '> 1 an', sublabel: 'Dormants confirmés', n: age365plus, val: val365plus, color: 'var(--c-danger)', bg: '#fee2e2', ageKey: 'critical' },
     ];
 
-    const tilesHtml = ageTiles.map(t => `
-      <div class="flex-1 p-3 rounded-xl border text-center" style="background:${t.bg}">
+    const tilesHtml = ageTiles.map(t => {
+      const ageJs = t.ageKey ? `document.getElementById('filterAge').value='${t.ageKey}';updateActiveAgeIndicator();` : '';
+      return `
+      <div class="flex-1 p-3 rounded-xl border text-center cursor-pointer hover:brightness-95 transition-all" style="background:${t.bg}"
+        onclick="showCockpitInTable('phantom');${ageJs}_S.currentPage=0;renderTable(false);" title="→ Filtrer les articles fantômes ${t.label}">
         <div class="text-2xl font-extrabold" style="color:${t.color}">${t.n.toLocaleString('fr-FR')}</div>
         <div class="text-[10px] font-bold" style="color:${t.color}">${t.label}</div>
         <div class="text-[9px] t-disabled mt-1">${t.sublabel}</div>
         <div class="text-[10px] font-bold mt-1 t-primary">${formatEuro(t.val)}</div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
-    const famHtml = topFam.map(([fam, d]) => `
-      <tr class="border-b b-light hover:s-hover text-[11px]">
+    const famHtml = topFam.map(([fam, d]) => {
+      const safeFam = fam.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return `
+      <tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="document.getElementById('filterFamille').value='${safeFam}';showCockpitInTable('phantom');" title="→ Filtrer fantômes ${escapeHtml(fam)}">
         <td class="py-1.5 px-2 font-semibold">${escapeHtml(fam)}</td>
         <td class="py-1.5 px-2 text-right font-bold">${d.n}</td>
         <td class="py-1.5 px-2 text-right">${formatEuro(d.val)}</td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     const statutsHtml = Object.entries(statuts)
       .sort((a, b) => b[1] - a[1])
