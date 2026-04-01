@@ -648,6 +648,292 @@ window._laboFilterEmp=function(emp){
 };
 
 // ═══════════════════════════════════════════════════════════════
+// #7 — Client × Saisonnalité
+// ═══════════════════════════════════════════════════════════════
+
+const SAISON_TOP_N = 3; // un mois est "haut" s'il est dans le top 3 des 12 mois
+let _saisonData = null, _saisonMonth = null, _saisonSearch = '', _saisonPage = 20;
+
+function _getSaisonTargetMonth(offset) {
+  return (new Date().getMonth() + (offset || 0)) % 12;
+}
+
+/** Retourne les indices des top N mois pour un profil saisonnier [12] */
+function _topMonths(profile) {
+  return profile.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, SAISON_TOP_N).map(x => x.i);
+}
+
+export function computeClientSaisonnier(monthOffset) {
+  const mois = _getSaisonTargetMonth(monthOffset || 0);
+  const fd = DataStore.finalData;
+  if (!fd.length) return [];
+
+  const seasonIdx = _S.seasonalIndex;
+  if (!seasonIdx || !Object.keys(seasonIdx).length) return [];
+
+  // Phase 1 : filtrer les articles dont le mois cible est un mois "haut"
+  const seasonalArticles = new Map(); // code → {article, caMoyenGlobal}
+  for (const r of fd) {
+    if (!r.code || !r.famille) continue;
+    const profile = seasonIdx[r.famille];
+    if (!profile) continue;
+    const tops = _topMonths(profile);
+    if (!tops.includes(mois)) continue;
+    seasonalArticles.set(r.code, r);
+  }
+
+  if (!seasonalArticles.size) return [];
+
+  // Source : ventesClientArticleFull pour "qui a déjà acheté"
+  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  // Source : ventesClientArticle (filtré période courante) pour "a-t-il acheté CE MOIS"
+  const _currentPDV = _S.ventesClientArticle;
+
+  // Phase 2 : pour chaque article saisonnier, croiser avec les clients
+  const opps = [];
+  for (const [code, article] of seasonalArticles) {
+    // Clients ayant déjà acheté cet article (historique complet)
+    const clientsForArt = _S.articleClients?.get(code);
+    if (!clientsForArt?.size) continue;
+
+    for (const cc of clientsForArt) {
+      // Filtre chalandise
+      const info = _S.chalandiseData?.get(cc);
+      if (info && !_clientPassesFilters(info, cc)) continue;
+      // Si pas chalandise et filtres actifs, exclure
+      if (!info) {
+        const _hasChalFilter = _S._selectedDepts?.size > 0 || _S._selectedClassifs?.size > 0 || _S._selectedStatuts?.size > 0 || _S._selectedActivitesPDV?.size > 0 || _S._selectedDirections?.size > 0 || _S._selectedUnivers?.size > 0 || _S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._selectedStatutDetaille;
+        if (_hasChalFilter) continue;
+      }
+
+      // Vérifier si le client N'A PAS acheté cet article ce mois (période courante)
+      const currentArts = _currentPDV?.get(cc);
+      if (currentArts?.has(code)) continue; // déjà commandé ce mois
+
+      // CA moyen mensuel de cet article pour ce client
+      const fullArts = _fullPDV?.get(cc);
+      const artData = fullArts?.get(code);
+      if (!artData) continue;
+      const montantPotentiel = artData.sumCA || 0;
+      if (montantPotentiel <= 0) continue;
+
+      // Badge client
+      const now = Date.now();
+      let lastDate = null;
+      const canalMap = _S.clientLastOrderByCanal?.get(cc);
+      if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+      if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
+      const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+      let badge = 'perdu';
+      if (daysSince !== null && daysSince <= 30) badge = 'actif';
+      else if (daysSince !== null && daysSince <= 60) badge = 'silencieux';
+
+      const profile = seasonIdx[article.famille];
+
+      opps.push({
+        cc,
+        nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
+        code,
+        libelle: article.libelle || _S.libelleLookup?.[code] || code,
+        famille: famLib(article.famille) || article.famille,
+        profile,
+        montantPotentiel,
+        lastDate,
+        daysSince,
+        badge
+      });
+    }
+  }
+
+  opps.sort((a, b) => b.montantPotentiel - a.montantPotentiel);
+  return opps;
+}
+
+function _miniRibbon(profile, highlightMonth) {
+  if (!profile || profile.length !== 12) return '';
+  const max = Math.max(...profile);
+  const MOIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  const bars = profile.map((v, i) => {
+    const h = max > 0 ? Math.round(v / max * 18) : 0;
+    const fill = i === highlightMonth ? 'var(--c-action)' : 'var(--t-disabled)';
+    return `<rect x="${i * 6}" y="${18 - h}" width="4" height="${h}" rx="0.5" fill="${fill}"/>`;
+  }).join('');
+  const labels = MOIS.map((l, i) => {
+    const fill = i === highlightMonth ? 'var(--c-action)' : 'var(--t-disabled)';
+    return `<text x="${i * 6 + 2}" y="26" text-anchor="middle" font-size="3.5" fill="${fill}">${l}</text>`;
+  }).join('');
+  return `<svg width="72" height="28" viewBox="0 0 72 28" class="inline-block">${bars}${labels}</svg>`;
+}
+
+function _renderClientSaisonnier(opps, monthOffset) {
+  const mois = _getSaisonTargetMonth(monthOffset || 0);
+  const MOIS_NOMS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const moisLabel = MOIS_NOMS[mois];
+  const isThis = (monthOffset || 0) === 0;
+
+  // Filtre recherche locale
+  let filtered = opps;
+  if (_saisonSearch) {
+    const q = _saisonSearch.toLowerCase();
+    filtered = opps.filter(o => o.cc.toLowerCase().includes(q) || o.nom.toLowerCase().includes(q) || o.code.toLowerCase().includes(q) || o.libelle.toLowerCase().includes(q));
+  }
+
+  const totalMontant = filtered.reduce((s, o) => s + o.montantPotentiel, 0);
+
+  // Toggle
+  const toggleHtml = `<div class="flex items-center gap-2 mb-3">
+    <button onclick="window._laboSaisonToggle(0)" class="text-[10px] px-3 py-1 rounded-full border ${isThis ? 's-panel-inner font-bold t-primary b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[new Date().getMonth()]}</button>
+    <button onclick="window._laboSaisonToggle(1)" class="text-[10px] px-3 py-1 rounded-full border ${!isThis ? 's-panel-inner font-bold t-primary b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[(new Date().getMonth() + 1) % 12]}</button>
+    <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
+  </div>`;
+
+  // Search
+  const searchHtml = `<div class="mb-3">
+    <input type="text" value="${escapeHtml(_saisonSearch)}" oninput="window._laboSaisonFilter(this.value)" placeholder="Rechercher client ou article…" class="text-[11px] px-3 py-1.5 rounded-lg border b-light s-card t-primary w-full" style="max-width:320px">
+  </div>`;
+
+  if (!filtered.length) {
+    return toggleHtml + searchHtml + '<p class="text-xs t-disabled p-4">Aucune opportunité saisonnière détectée pour ce mois.</p>';
+  }
+
+  // Pagination
+  const shown = filtered.slice(0, _saisonPage);
+  const hasMore = filtered.length > _saisonPage;
+
+  const rows = shown.map(o => {
+    const badgeHtml = o.badge === 'actif'
+      ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-ok)">Actif</span>'
+      : o.badge === 'silencieux'
+        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Silencieux</span>'
+        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Perdu</span>';
+    const lastStr = o.daysSince != null ? o.daysSince + 'j' : '—';
+    return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
+      <td class="py-1.5 pr-2 font-mono t-inverse-muted">${_unikLink(o.cc)}</td>
+      <td class="py-1.5 pr-2 t-primary">${escapeHtml(o.nom)}</td>
+      <td class="py-1.5 pr-2 font-mono t-inverse-muted">${escapeHtml(o.code)}</td>
+      <td class="py-1.5 pr-2 t-inverse">${escapeHtml(o.libelle)}</td>
+      <td class="py-1.5 pr-2 t-inverse-muted text-[9px]">${escapeHtml(o.famille)}</td>
+      <td class="py-1.5 pr-2">${_miniRibbon(o.profile, mois)}</td>
+      <td class="py-1.5 pr-2 text-right font-bold t-primary">${formatEuro(o.montantPotentiel)}</td>
+      <td class="py-1.5 pr-2 text-right t-inverse-muted">${lastStr}</td>
+      <td class="py-1.5 text-center">${badgeHtml}</td>
+    </tr>`;
+  }).join('');
+
+  const table = `<div class="overflow-x-auto"><table class="w-full">
+    <thead><tr class="text-[9px] t-disabled border-b b-light">
+      <th class="text-left py-1 pr-2">Code client</th>
+      <th class="text-left py-1 pr-2">Nom</th>
+      <th class="text-left py-1 pr-2">Code article</th>
+      <th class="text-left py-1 pr-2">Désignation</th>
+      <th class="text-left py-1 pr-2">Famille</th>
+      <th class="text-left py-1 pr-2">Saisonnalité</th>
+      <th class="text-right py-1 pr-2">CA potentiel</th>
+      <th class="text-right py-1 pr-2">Dernière cde</th>
+      <th class="text-center py-1">Statut</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  const moreBtn = hasMore ? `<div class="text-center mt-2"><button onclick="window._laboSaisonMore()" class="text-[10px] px-4 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">Voir plus (${filtered.length - _saisonPage} restantes)</button></div>` : '';
+
+  // Export buttons
+  const exportHtml = `<div class="flex items-center gap-2 mt-3">
+    <button onclick="window._laboSaisonCopyERP()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📋 Copier codes ERP</button>
+    <button onclick="window._laboSaisonExportCSV()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 Export CSV</button>
+  </div>`;
+
+  return toggleHtml + searchHtml + table + moreBtn + exportHtml;
+}
+
+function _quickScanSaisonnier() {
+  const seasonIdx = _S.seasonalIndex;
+  if (!seasonIdx || !Object.keys(seasonIdx).length) return { n: 0, ca: 0 };
+
+  const mois = new Date().getMonth();
+  const fd = DataStore.finalData;
+  let seasonalCodes = 0;
+  for (const r of fd) {
+    if (!r.code || !r.famille) continue;
+    const profile = seasonIdx[r.famille];
+    if (!profile) continue;
+    const tops = _topMonths(profile);
+    if (tops.includes(mois)) seasonalCodes++;
+  }
+
+  // Use cached data if available
+  if (_saisonData && _saisonMonth === mois) {
+    return { n: _saisonData.length, ca: _saisonData.reduce((s, o) => s + o.montantPotentiel, 0) };
+  }
+  return { n: seasonalCodes > 0 ? '?' : 0, ca: 0 };
+}
+
+function _rerenderSaisonView() {
+  const content = document.getElementById('laboTileContent');
+  if (!content || content.classList.contains('hidden') || !_saisonData) return;
+  const offset = _saisonMonth === _getSaisonTargetMonth(1) ? 1 : 0;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderClientSaisonnier(_saisonData, offset)}</div>`;
+}
+
+window._laboSaisonToggle = function(offset) {
+  _saisonData = computeClientSaisonnier(offset);
+  _saisonMonth = _getSaisonTargetMonth(offset);
+  _saisonPage = 20;
+  _saisonSearch = '';
+  const content = document.getElementById('laboTileContent');
+  if (!content) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderClientSaisonnier(_saisonData, offset)}</div>`;
+};
+
+window._laboSaisonFilter = function(val) {
+  _saisonSearch = val || '';
+  _saisonPage = 20;
+  _rerenderSaisonView();
+};
+
+window._laboSaisonMore = function() {
+  _saisonPage += 20;
+  _rerenderSaisonView();
+};
+
+window._laboSaisonCopyERP = function() {
+  if (!_saisonData?.length) return;
+  let filtered = _saisonData;
+  if (_saisonSearch) {
+    const q = _saisonSearch.toLowerCase();
+    filtered = _saisonData.filter(o => o.cc.toLowerCase().includes(q) || o.nom.toLowerCase().includes(q) || o.code.toLowerCase().includes(q) || o.libelle.toLowerCase().includes(q));
+  }
+  const codes = [...new Set(filtered.map(o => o.code))].join('\n');
+  navigator.clipboard.writeText(codes).then(() => {
+    const btn = document.querySelector('[onclick*="laboSaisonCopyERP"]');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✓ Copié'; setTimeout(() => btn.textContent = orig, 1500); }
+  });
+};
+
+window._laboSaisonExportCSV = function() {
+  if (!_saisonData?.length) return;
+  let filtered = _saisonData;
+  if (_saisonSearch) {
+    const q = _saisonSearch.toLowerCase();
+    filtered = _saisonData.filter(o => o.cc.toLowerCase().includes(q) || o.nom.toLowerCase().includes(q) || o.code.toLowerCase().includes(q) || o.libelle.toLowerCase().includes(q));
+  }
+  const sep = ';';
+  const header = ['Code client', 'Nom client', 'Code article', 'Désignation', 'Famille', 'CA potentiel', 'Dernière cde (j)', 'Statut'].join(sep);
+  const rows = filtered.map(o => [
+    o.cc, `"${(o.nom || '').replace(/"/g, '""')}"`, o.code, `"${(o.libelle || '').replace(/"/g, '""')}"`,
+    `"${(o.famille || '').replace(/"/g, '""')}"`, (o.montantPotentiel || 0).toFixed(2),
+    o.daysSince != null ? o.daysSince : '', o.badge
+  ].join(sep));
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Saisonnalite_${_S.selectedMyStore || 'AG'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+// ═══════════════════════════════════════════════════════════════
 // Shuffle helper
 // ═══════════════════════════════════════════════════════════════
 
@@ -690,10 +976,13 @@ function _renderTileGrid(el) {
   const stockScan = _quickScanFamilleStock();
   const empScan = _quickScanEmplacement();
 
+  const saisonScan = _quickScanSaisonnier();
+
   const silSubtitle = `${silScan.n} clients à risque · ${formatEuro(silScan.ca)} en jeu`;
   const famSubtitle = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
   const stockSubtitle = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
   const empSubtitle = empScan.n > 0 ? `${empScan.n} emplacements · rendement moyen ${empScan.avg>=10?empScan.avg.toFixed(0):empScan.avg.toFixed(1)}×` : 'Cliquez pour analyser';
+  const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités saisonnières ce mois` : 'Aucun pic saisonnier ce mois';
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('sil')">
@@ -715,6 +1004,11 @@ function _renderTileGrid(el) {
       <div class="text-lg mb-1">📍</div>
       <div class="text-[13px] font-bold t-primary mb-1">Emplacement × Performance</div>
       <div class="text-[10px] t-secondary" id="laboTileEmpSub">${empSubtitle}</div>
+    </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('saison')">
+      <div class="text-lg mb-1">🌡️</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Client × Saisonnalité</div>
+      <div class="text-[10px] t-secondary" id="laboTileSaisonSub">${saisonSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('prisme')">
       <div class="text-lg mb-1">🎲</div>
@@ -755,6 +1049,12 @@ window._laboOpenTile = function(tile) {
     _empData = computePerfEmplacement();
     _empSort = {col:'ca',asc:false};
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderPerfEmpTable(_empData)}</div>`;
+  } else if (tile === 'saison') {
+    _saisonData = computeClientSaisonnier(0);
+    _saisonMonth = _getSaisonTargetMonth(0);
+    _saisonPage = 20;
+    _saisonSearch = '';
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderClientSaisonnier(_saisonData, 0)}</div>`;
   } else if (tile === 'prisme') {
     const picked = _shuffleArray(_NL_CHIPS).slice(0, 6);
     const chips = picked.map(c => {
@@ -818,6 +1118,10 @@ export function updateLaboTiles() {
   const empScan = _quickScanEmplacement();
   const empSub = document.getElementById('laboTileEmpSub');
   if (empSub) empSub.textContent = empScan.n > 0 ? `${empScan.n} emplacements · rendement moyen ${empScan.avg>=10?empScan.avg.toFixed(0):empScan.avg.toFixed(1)}×` : 'Cliquez pour analyser';
+
+  const saisonScan = _quickScanSaisonnier();
+  const saisonSub = document.getElementById('laboTileSaisonSub');
+  if (saisonSub) saisonSub.textContent = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités saisonnières ce mois` : 'Aucun pic saisonnier ce mois';
 }
 
 // ═══════════════════════════════════════════════════════════════
