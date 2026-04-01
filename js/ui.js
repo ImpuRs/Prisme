@@ -163,7 +163,7 @@ export function switchTab(id) {
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Vue 360', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Stock', abc: 'Filtres Analyse', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
@@ -300,7 +300,7 @@ export function updatePeriodAlert() {
       stockBanner.textContent = '⚠️ Fichier Stock mono-agence détecté — chargez un export Stock multi-agences pour activer le Réseau et le benchmark.';
       stockBanner.classList.add('active');
     } else if (_S.storeCountConsomme > 1 && !_S._hasStock) {
-      stockBanner.textContent = '📊 Consommé multi-agences chargé — ajoutez le Stock pour activer Vue 360 et les analyses articles.';
+      stockBanner.textContent = '📊 Consommé multi-agences chargé — ajoutez le Stock pour activer l\'onglet Analyse et les analyses articles.';
       stockBanner.classList.add('active');
     } else {
       stockBanner.classList.remove('active');
