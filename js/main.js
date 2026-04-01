@@ -2251,26 +2251,25 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
   }
 
   function _passesAllFilters(cc){
-    // 1. Commercial
-    if(_S._selectedCommercial){const s=_S.clientsByCommercial?.get(_S._selectedCommercial);if(s&&!s.has(cc))return false;}
-    // 2. Métier
-    if(_S._selectedMetier){const m=_S.chalandiseData?.get(cc)?.metier;if(m!==_S._selectedMetier)return false;}
-    // 3. Vue clients
+    // Delegate all chalandise filters to _clientPassesFilters (engine.js)
+    // which handles: dept, classif, statut, statutDetaillé, activitéPDV,
+    // direction, commercial, métier, stratégique, univers, distance
+    const info=_S.chalandiseData?.get(cc);
+    if(info){
+      if(!_clientPassesFilters(info,cc))return false;
+    }else{
+      // Client not in chalandise — exclude if any chalandise filter is active
+      const _hasChalFilter=_S._selectedDepts?.size>0||_S._selectedClassifs?.size>0||_S._selectedStatuts?.size>0||_S._selectedActivitesPDV?.size>0||_S._selectedDirections?.size>0||_S._selectedUnivers?.size>0||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly||_S._selectedStatutDetaille||(_S._distanceMaxKm>0&&_S._agenceCoords);
+      if(_hasChalFilter)return false;
+    }
+    // Vue clients (specific to _passesAllFilters, not in _clientPassesFilters)
     const view=_S._clientView||'tous';
     if(view==='potentiels'&&_S.chalandiseData?.has(cc))return false;
     if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
     if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
     if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
     if(view==='dormants'){const lastDate=_S.clientLastOrder?.get(cc);const silence=lastDate?Math.round((Date.now()-lastDate)/86400000):999;if(silence<=180)return false;}
-    // 4. Département
-    if(_S._selectedDepts?.size>0){const cp=_S.chalandiseData?.get(cc)?.cp;if(cp&&!_S._selectedDepts.has(cp.slice(0,2)))return false;}
-    // 5. Classification
-    if(_S._selectedClassifs?.size>0){const classif=_S.chalandiseData?.get(cc)?.classif;if(classif&&!_S._selectedClassifs.has(classif))return false;}
-    // 6. Stratégique uniquement
-    if(_S._filterStrategiqueOnly){const met=_S.chalandiseData?.get(cc)?.metier;if(!METIERS_STRATEGIQUES.includes(met))return false;}
-    // 7. Distance km
-    if(_S._distanceMaxKm>0&&_S._agenceCoords){const info2=_S.chalandiseData?.get(cc);if(info2){const d=info2.distanceKm;if(d!=null&&d>_S._distanceMaxKm)return false;}}
-    // 8. Segment omnicanal
+    // Segment omnicanal (specific to _passesAllFilters)
     if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
     return true;
   }
