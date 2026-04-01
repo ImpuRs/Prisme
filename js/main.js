@@ -2974,6 +2974,104 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     URL.revokeObjectURL(link.href);
   };
 
+  function _renderGhostArticles() {
+    const el = document.getElementById('ghostArticlesBlock');
+    if (!el) return;
+    const fd = DataStore.finalData;
+    if (!fd.length) { el.innerHTML = ''; return; }
+
+    const ghosts = fd.filter(r => !r.abcClass && !r.fmrClass);
+    if (!ghosts.length) { el.innerHTML = ''; return; }
+
+    const total = fd.length;
+    const nbGhosts = ghosts.length;
+    const pctGhosts = Math.round(nbGhosts / total * 100);
+
+    let age0_90 = 0, age90_365 = 0, age365plus = 0;
+    let val0_90 = 0, val90_365 = 0, val365plus = 0;
+    let stockPositif = 0, valeurTotale = 0;
+
+    const statuts = {};
+    const famCount = {};
+
+    for (const r of ghosts) {
+      const val = (r.stockActuel || 0) * (r.prixUnitaire || 0);
+      if ((r.stockActuel || 0) > 0) { stockPositif++; valeurTotale += val; }
+      const age = r.ageJours || 0;
+      if (age <= 90) { age0_90++; val0_90 += val; }
+      else if (age <= 365) { age90_365++; val90_365 += val; }
+      else { age365plus++; val365plus += val; }
+      const st = r.statut || 'Inconnu';
+      statuts[st] = (statuts[st] || 0) + 1;
+      const fam = famLib(r.famille) || 'Non classé';
+      if (!famCount[fam]) famCount[fam] = { n: 0, val: 0 };
+      famCount[fam].n++;
+      famCount[fam].val += val;
+    }
+
+    const topFam = Object.entries(famCount).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+
+    const ageTiles = [
+      { label: '< 90 jours', sublabel: 'Nouveautés sans vente', n: age0_90, val: val0_90, color: 'var(--c-ok)', bg: '#dcfce7' },
+      { label: '90j — 1 an', sublabel: 'En voie de dormance', n: age90_365, val: val90_365, color: 'var(--c-caution)', bg: '#fef9c3' },
+      { label: '> 1 an', sublabel: 'Dormants confirmés', n: age365plus, val: val365plus, color: 'var(--c-danger)', bg: '#fee2e2' },
+    ];
+
+    const tilesHtml = ageTiles.map(t => `
+      <div class="flex-1 p-3 rounded-xl border text-center" style="background:${t.bg}">
+        <div class="text-2xl font-extrabold" style="color:${t.color}">${t.n.toLocaleString('fr-FR')}</div>
+        <div class="text-[10px] font-bold" style="color:${t.color}">${t.label}</div>
+        <div class="text-[9px] t-disabled mt-1">${t.sublabel}</div>
+        <div class="text-[10px] font-bold mt-1 t-primary">${formatEuro(t.val)}</div>
+      </div>
+    `).join('');
+
+    const famHtml = topFam.map(([fam, d]) => `
+      <tr class="border-b b-light hover:s-hover text-[11px]">
+        <td class="py-1.5 px-2 font-semibold">${escapeHtml(fam)}</td>
+        <td class="py-1.5 px-2 text-right font-bold">${d.n}</td>
+        <td class="py-1.5 px-2 text-right">${formatEuro(d.val)}</td>
+      </tr>
+    `).join('');
+
+    const statutsHtml = Object.entries(statuts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([st, n]) => `<span class="text-[9px] px-2 py-0.5 rounded-full border b-light">${escapeHtml(st)} (${n})</span>`)
+      .join(' ');
+
+    const infoTip = `${nbGhosts} articles en stock sans aucune vente sur la période de calcul (W=0). Ils n'apparaissent pas dans la matrice ABC/FMR. ${stockPositif} ont du stock physique pour ${formatEuro(valeurTotale)} immobilisés.`;
+
+    el.innerHTML = `
+      <details class="s-card rounded-xl shadow-md border overflow-hidden">
+        <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+          <h3 class="font-extrabold text-sm t-primary">
+            👻 Articles fantômes
+            <span class="text-[10px] font-normal t-disabled ml-1">${nbGhosts} articles · ${formatEuro(valeurTotale)} immobilisés · ${pctGhosts}% du stock</span>
+            <span class="labo-info-tip ml-1" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ
+              <span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span>
+            </span>
+          </h3>
+          <span class="acc-arrow t-disabled">▶</span>
+        </summary>
+        <div class="p-4">
+          <div class="flex gap-3 mb-4">${tilesHtml}</div>
+          <div class="flex flex-wrap gap-1 mb-4">${statutsHtml}</div>
+          <details class="border rounded-lg overflow-hidden">
+            <summary class="px-3 py-2 text-[11px] font-bold t-primary cursor-pointer select-none hover:s-hover">
+              📊 Top 10 familles fantômes
+            </summary>
+            <table class="min-w-full">
+              <thead class="s-panel-inner t-inverse text-[10px]">
+                <tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">Articles</th><th class="py-1.5 px-2 text-right">Valeur stock</th></tr>
+              </thead>
+              <tbody>${famHtml}</tbody>
+            </table>
+          </details>
+        </div>
+      </details>
+    `;
+  }
+
   // Toggle direction row — shows famille breakdown (lazy)
   function toggleTerrDir(rowId,encDir){
     const row=document.getElementById(rowId);if(!row)return;
@@ -4633,7 +4731,12 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const isFiltered=globalFilters.length>0;
     const badge=document.getElementById('radarFilterBadge');
     if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
+    // Count badge: classified vs total
+    const _allFd=DataStore.finalData;const _nbClassified=_allFd.filter(r=>r.abcClass&&r.fmrClass).length;
+    const _countBadge=document.getElementById('abcCountBadge');
+    if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
     _renderRecoStock();
+    _renderGhostArticles();
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
