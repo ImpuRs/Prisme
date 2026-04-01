@@ -73,8 +73,9 @@ export function _nlInterpret(q) {
   if (/heatmap.{0,10}(fuit|fam|metier)|fuit.{0,10}(metier|par)|famille.{0,10}metier|metier.{0,10}fuit/.test(raw)) return _nlQ_HeatmapFuites();
   if (/fuyant|famille.{0,10}hors|hors.{0,10}famille|echap|fugit/.test(raw))                  return _nlQ_FamillesHors();
   if (/hybri(de|d)/.test(raw))                                                               return _nlQ_OmniSegment('hybride');
-  if (/mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('mono');
-  if (/full.{0,6}digital|100.{0,5}digital|tout.{0,6}digital/.test(raw))                     return _nlQ_OmniSegment('digital');
+  if (/pur.{0,5}comptoir|mono.{0,10}(comptoir|pdv|magasin)|fidele.{0,10}(pdv|comptoir)|que.{0,5}comptoir/.test(raw)) return _nlQ_OmniSegment('purComptoir');
+  if (/pur.{0,5}hors|hors.{0,5}magasin.{0,5}pur/.test(raw))                                return _nlQ_OmniSegment('purHors');
+  if (/full.{0,6}omni|4.{0,3}canaux|omnicanal.{0,6}(complet|full|total)/.test(raw))         return _nlQ_OmniSegment('full');
   if (/segment.{0,10}omni|omnicanal/.test(raw))                                              return _nlQ_OmniSegment(null);
   if (/saison.{0,15}(prochain|next|futur|mois|alerte|risque)|prochain.{0,10}mois.{0,10}saison|pic.{0,10}saison|alerte.{0,10}saison/.test(raw)) return _nlQ_SaisonProchainMois();
   if (/synthese.{0,12}commercial|commercial.{0,12}(synthese|tableau|score|bilan|recap|portrait|classement)|portefeuille.{0,10}(synthese|bilan|global|tous)|tous.{0,8}commercial/.test(raw)) return _nlQ_SyntheseCommercial();
@@ -380,8 +381,8 @@ function _nlQ_ConcentrationClient() {
     // Risk: silence or digital drift
     let risk = 'ok';
     if (silenceDays !== null && silenceDays > 90) risk = 'silencieux';
-    else if (segment === 'digital') risk = 'digital';
-    else if (segment === 'dormant') risk = 'dormant';
+    else if (segment === 'purHors') risk = 'digital';
+    else if (segment === 'purComptoir' && silenceDays !== null && silenceDays > 180) risk = 'dormant';
     return { cc: r.cc, nom, metier, ca: Math.round(r.ca), pct, silenceDays, segment, risk };
   });
 
@@ -756,9 +757,9 @@ function _nlQ_FamillesSousMediane() {
 function _nlQ_OmniSegment(segment) {
   const scores = _S.clientOmniScore;
   if (!scores?.size) return { title:'Segments omnicanaux', html:'<p class="text-xs t-disabled">Chargez la chalandise + fichiers ventes pour calculer les segments omnicanaux.</p>' };
-  const LABELS = { mono:'Mono PDV 🏪', hybride:'Hybrides 🔀', digital:'Digital 📱', dormant:'Dormants 💤' };
-  const COLOR = { mono:'var(--c-ok)', hybride:'var(--c-info,#3b82f6)', digital:'var(--c-caution)', dormant:'var(--c-danger)' };
-  const segs = segment ? [segment] : ['mono','hybride','digital','dormant'];
+  const LABELS = { purComptoir:'Pur Comptoir 🏪', purHors:'Pur Hors-Magasin 📦', hybride:'Hybride 🔀', full:'Full Omnicanal ⭐' };
+  const COLOR = { purComptoir:'var(--c-ok)', purHors:'var(--c-danger)', hybride:'var(--c-info,#3b82f6)', full:'var(--c-caution)' };
+  const segs = segment ? [segment] : ['purComptoir','purHors','hybride','full'];
   const rows = [];
   for (const seg of segs) {
     const list = [];
@@ -776,14 +777,14 @@ function _nlQ_OmniSegment(segment) {
 <td class="py-1 pr-2 text-right">${o.caPDV>0?formatEuro(o.caPDV):'—'}</td>
 <td class="py-1 pr-2 text-right">${o.caHors>0?formatEuro(o.caHors):'—'}</td>
 <td class="py-1 pr-2 text-right t-disabled">${o.silenceDays<999?o.silenceDays+'j':'—'}</td>
-<td class="py-1 text-right font-bold">${o.score}</td>
+<td class="py-1 text-right font-bold">${o.nbCanaux||o.score}</td>
 </tr>`).join('');
     rows.push(headerRow + dataRows);
   }
   const title = segment ? `${LABELS[segment]} — ${[...scores.values()].filter(o=>o.segment===segment).length} clients` : `Segments omnicanaux — ${scores.size} clients`;
   return { title,
-    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-right pr-2">CA PDV</th><th class="text-right pr-2">CA digital</th><th class="text-right pr-2">Silence</th><th class="text-right">Score</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
-    footer:'Score = ancrage PDV (40) + fréquence (30) + récence (30) · Cliquer pour fiche client 360°' };
+    html:`<div class="overflow-x-auto"><table class="w-full"><thead><tr class="text-[9px] t-disabled"><th class="text-left pr-2">Client</th><th class="text-right pr-2">CA PDV</th><th class="text-right pr-2">CA hors</th><th class="text-right pr-2">Silence</th><th class="text-right">Canaux</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
+    footer:'Canaux = nombre de canaux distincts (MAGASIN, INTERNET, REPRÉSENTANT, DCS…) · Cliquer pour fiche client 360°' };
 }
 
 function _nlQ_FamillesHors() {
@@ -1071,7 +1072,7 @@ function _nlQ_SyntheseCommercial() {
       const omni = _S.clientOmniScore?.get(cc);
       if (omni) {
         caFuyant += (omni.caHors || 0);
-        if (omni.segment === 'digital') nbDigital++;
+        if (omni.segment === 'purHors') nbDigital++;
         scoreSum += omni.score;
         scoreCount++;
       }

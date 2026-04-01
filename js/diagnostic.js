@@ -196,13 +196,10 @@ function _renderClient360(clientCode,source){
     const famsHors=new Map();
     if(horsMag)for(const[code,d]of horsMag){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;if(!famsHors.has(f))famsHors.set(f,{ca:0,canal:d.canal||''});famsHors.get(f).ca+=d.sumCA||0;}
     const total=omni.caPDV+omni.caHors;
-    const pdvShare=total>0?omni.caPDV/total:0;
-    const pdvScorePart=Math.round(pdvShare*40);
-    const freqScorePart=Math.round(Math.min(omni.nbBL/12,1)*30);
-    const recencyScorePart=Math.round(Math.max(0,1-omni.silenceDays/180)*30);
-    const SEG={mono:{icon:'🏪',label:'Mono PDV',color:'var(--c-ok)',desc:'Fidèle au comptoir — peu d\'activité digitale.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'Actif au comptoir ET en ligne — profil omnicanal.'},digital:{icon:'📱',label:'Digital',color:'var(--c-caution)',desc:'CA digital dominant — à reconvertir au comptoir.'},dormant:{icon:'💤',label:'Dormant',color:'var(--c-danger)',desc:'Silence prolongé sans activité digitale significative.'}};
-    const seg=SEG[omni.segment]||SEG.mono;
-    const scoreColor=omni.score>=65?'var(--c-ok)':omni.score>=35?'var(--c-caution)':'var(--c-danger)';
+    const nbCanaux=omni.nbCanaux||omni.score||1;
+    const SEG={purComptoir:{icon:'🏪',label:'Pur Comptoir',color:'var(--c-ok)',desc:'Uniquement MAGASIN — 1 canal.'},purHors:{icon:'📦',label:'Pur Hors-Magasin',color:'var(--c-danger)',desc:'Jamais au comptoir — uniquement DCS/Internet/Représentant.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'MAGASIN + 1 ou 2 autres canaux.'},full:{icon:'⭐',label:'Full Omnicanal',color:'var(--c-caution)',desc:'4+ canaux distincts — client pleinement omnicanal.'}};
+    const seg=SEG[omni.segment]||SEG.purComptoir;
+    const scoreColor=omni.score>=4?'var(--c-ok)':omni.score>=2?'var(--c-caution)':'var(--c-danger)';
     const barRow=(label,val,max,color)=>`<div class="flex items-center gap-2 mb-1"><span class="text-[9px] t-inverse-muted w-20 shrink-0">${label}</span><div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div style="width:${Math.round(val/max*100)}%;background:${color}" class="h-full rounded-full"></div></div><span class="text-[9px] font-bold t-inverse w-10 text-right">${val}/${max}</span></div>`;
     const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
@@ -211,11 +208,10 @@ function _renderClient360(clientCode,source){
     omniContent=`<div class="p-3">
   <div class="flex items-start gap-3 mb-4">
     <div class="flex-1">
-      <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] t-inverse-muted uppercase tracking-wide">Score Omni</span><span class="text-[24px] font-extrabold leading-none" style="color:${scoreColor}">${omni.score}</span><span class="text-[10px] t-inverse-muted">/100</span></div>
-      <div class="h-2 rounded-full bg-white/10 overflow-hidden mb-3"><div style="width:${omni.score}%;background:${scoreColor}" class="h-full rounded-full"></div></div>
-      ${barRow('Ancrage PDV',pdvScorePart,40,'var(--c-ok)')}
-      ${barRow('Fréquence',freqScorePart,30,'var(--c-info,#3b82f6)')}
-      ${barRow('Récence',recencyScorePart,30,'var(--c-caution)')}
+      <div class="flex items-center gap-2 mb-1.5"><span class="text-[10px] t-inverse-muted uppercase tracking-wide">Canaux</span><span class="text-[24px] font-extrabold leading-none" style="color:${scoreColor}">${omni.nbCanaux||omni.score}</span><span class="text-[10px] t-inverse-muted">canal${(omni.nbCanaux||omni.score)>1?'x':''}</span></div>
+      <div class="h-2 rounded-full bg-white/10 overflow-hidden mb-3"><div style="width:${Math.min(nbCanaux/4*100,100)}%;background:${scoreColor}" class="h-full rounded-full"></div></div>
+      ${barRow('CA PDV',omni.caPDV>0?1:0,1,'var(--c-ok)')}
+      ${barRow('CA hors-agence',omni.caHors>0?1:0,1,'var(--c-info,#3b82f6)')}
     </div>
     <div class="text-center p-3 rounded-xl border b-dark s-panel-inner min-w-[90px]">
       <div class="text-[22px]">${seg.icon}</div>
@@ -318,7 +314,7 @@ function _c360CopyResume(clientCode){
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
   const omni=_S.clientOmniScore?.get(clientCode);
-  const SEG_LABEL={mono:'Mono PDV 🏪',hybride:'Hybride 🔀',digital:'Digital 📱',dormant:'Dormant 💤'};
+  const SEG_LABEL={purComptoir:'Pur Comptoir 🏪',purHors:'Pur Hors-Magasin 📦',hybride:'Hybride 🔀',full:'Full Omnicanal ⭐'};
   const total=(omni?.caPDV||0)+(omni?.caHors||0);
   const pctDigital=total>0?Math.round((omni?.caHors||0)/total*100):0;
   // Canal dominant hors-agence
@@ -344,7 +340,7 @@ function _c360CopyResume(clientCode){
     `CA Magasin : ${formatEuro(caPDV)}${ca2025>0?` · CA Legallais 2025 : ${formatEuro(ca2025)}`:''}`,
     caHors>0?`CA Digital : ${formatEuro(caHors)}${total>0?` (${pctDigital}%)`:''} · Canal : ${CANAL_TEXT[mainCanal]||mainCanal||'—'}`:'',
     daysSince!==null?`Dernière commande PDV : il y a ${daysSince}j${priorite}`:'',
-    omni?`Score Omni : ${omni.score}/100 · Segment : ${SEG_LABEL[omni.segment]||omni.segment}`:'',
+    omni?`Canaux : ${omni.nbCanaux||omni.score} · Segment : ${SEG_LABEL[omni.segment]||omni.segment}`:'',
     `─────────────────────────────────────────────`,
     fuyantes.length?`Familles fuyantes (hors agence, pas au PDV) :`:'',
     ...fuyantes.map(([r,ca])=>`  - ${famLib(r)||r} : ${formatEuro(ca)}`),
