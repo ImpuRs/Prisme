@@ -395,6 +395,8 @@ export function resetAppState() {
   _S._laboStockData = null;
   _S._squeletteScan = null;
   _S._squeletteFull = null;
+  _S._clienteleMetier = null;
+  _S._clienteleData = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
