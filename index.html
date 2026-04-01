@@ -1124,36 +1124,14 @@
         <span id="dashDeadStock"></span><span id="dashDeadPct"></span><span id="dashSurstock"></span><span id="dashSurstockPct"></span><span id="dashCapalin"></span><span id="dashCapalinCount"></span><span id="dashServiceRate"></span><span id="dashServiceDetail"></span><span id="dashCAPerdu"></span><span id="dashCAPerduCount"></span>
       </div>
 
-      <!-- 1. Sante Stock (toujours visible) -->
-      <div class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 s-card-alt border-b">
-          <h3 class="font-extrabold text-sm t-primary">💚 Sante Stock <span id="healthScoreInline" class="text-[11px] font-normal t-disabled ml-1"></span></h3>
-        </div>
-        <div class="p-4" id="healthScoreContent"></div>
+      <!-- 1. Bandeau Sante + Valeur Stock (toujours visible) -->
+      <div id="stockHeroBanner" class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
+        <div class="p-4" id="stockHeroContent"></div>
       </div>
-
-      <!-- 2. Valeur Stock -->
-      <details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
-        <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-          <h3 class="font-extrabold text-sm t-primary">📦 Valeur Stock <span id="valeurStockInline" class="text-[11px] font-normal t-disabled ml-1"></span></h3>
-          <span class="acc-arrow t-disabled">▶</span>
-        </summary>
-        <div class="p-4">
-          <div id="valeurStockBlock">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl px-6 py-5 text-white shadow-xl cursor-pointer select-none hover:opacity-95 transition-opacity" onclick="switchTab('table')" title="→ Voir tous les articles">
-              <div class="flex items-end justify-between gap-4 flex-wrap">
-                <div>
-                  <h4 class="text-blue-100 text-[11px] font-bold uppercase mb-1 flex items-center gap-1">📦 Valeur stock<em class="info-tip" data-tip="Somme des PRMP × quantite en stock pour tous les articles en rayon.">ℹ</em></h4>
-                  <p id="dashTotalValue" class="text-4xl font-extrabold tracking-tight">0€</p>
-                  <p id="dashTotalCount" class="text-blue-200 text-[11px] mt-1"></p>
-                  <p id="dashDispoHero" class="text-blue-200 text-[11px] mt-0.5" title="Taux de disponibilite">✅ Dispo. —</p>
-                </div>
-                <p class="text-blue-200 text-[9px] font-semibold self-start mt-1">→ Articles</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </details>
+      <!-- Compat: IDs used by existing JS renderers -->
+      <span id="healthScoreContent" class="hidden"></span>
+      <span id="healthScoreInline" class="hidden"></span>
+      <span id="valeurStockInline" class="hidden"></span>
 
       <!-- 3. Matrice ABC/FMR -->
       <details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">

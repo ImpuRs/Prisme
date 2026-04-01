@@ -4513,7 +4513,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     // Fins de stock avec min=0/max=0 (déréférencés sans prix) — hors du garde prixUnitaire>0
     if(r.stockActuel>0&&!finCodes.has(r.code)){const _sl=r.statut.toLowerCase();if(_sl.includes('fin de stock')||_sl.includes('fin de série')||_sl.includes('fin de serie')){finCodes.add(r.code);lstFi.push({code:r.code,lib:r.libelle,i1:r.stockActuel,i2:formatEuro(lv),sv:lv,condit:null});_S.cockpitLists.fins.add(r.code);}}}
 
-    document.getElementById('dashTotalValue').textContent=formatEuro(totalValue);document.getElementById('dashTotalCount').textContent=dataSource.length.toLocaleString('fr')+' réf.';
+    {const _dtv=document.getElementById('dashTotalValue');if(_dtv)_dtv.textContent=formatEuro(totalValue);const _dtc=document.getElementById('dashTotalCount');if(_dtc)_dtc.textContent=dataSource.length.toLocaleString('fr')+' réf.';}
     document.getElementById('dashDeadStock').textContent=formatEuro(dormantStock);document.getElementById('dashDeadPct').textContent=pct(dormantStock,totalValue);
     document.getElementById('dashSurstock').textContent=formatEuro(activeSurstock);document.getElementById('dashSurstockPct').textContent=pct(activeSurstock,totalValue);
     document.getElementById('dashCapalin').textContent=formatEuro(capalinOverflow);document.getElementById('dashCapalinCount').textContent=capalinCount+' art.';
@@ -4531,7 +4531,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _bT('badgeUrgTotal',`${lstR.length} article${lstR.length!==1?'s':''} en rupture stock zéro + ${lstA.length} article${lstA.length!==1?'s':''} actif${lstA.length!==1?'s':''} sans paramétrage MIN/MAX ERP`);}
     // Sprint 2: chips Mon Stock V2
     sB('dashChipRuptures',lstR.length);sB('dashChipDormants',lstD.length);sB('dashChipAnomalies',lstA.length);sB('dashChipStockneg',lstStockNeg.length);
-    {const dh=document.getElementById('dashDispoHero');if(dh){dh.textContent=`✅ Dispo. ${sr}%`;dh.title=`${serviceOk}/${serviceTotal} articles F+M en stock`;}}
     // Tooltips dynamiques chips
     {const _setT=(id,t)=>{const e=document.getElementById(id);if(e)e.title=t;};
     const _crit=lstR.filter(r=>r.prioScore>=70).length;
@@ -4595,16 +4594,65 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     renderIRABanner();
     renderTabBadges();
 
-    // ── Sidebar pills + inline summaries (fusion Stock+Analyse) ──
+    // ── Bandeau hero Santé + Valeur Stock ──
+    {const heroEl=document.getElementById('stockHeroContent');
+    if(heroEl){
+      // Read health score data from renderHealthScore (already computed)
+      const fd=dataSource;const _totalRefs=fd.length;
+      const _rup=fd.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent).length;
+      const _dorm=fd.filter(r=>r.ageJours>=(_S.DORMANT_DAYS||180)&&r.stockActuel>0&&r.W<=1).length;
+      const _sansMin=fd.filter(r=>r.ancienMin===0&&r.W>=3).length;
+      const _surst=fd.filter(r=>r.ancienMax>0&&r.stockActuel>r.ancienMax*2).length;
+      const _actives=fd.filter(r=>r.W>=1&&!r.isParent);
+      const _activesOk=_actives.filter(r=>r.stockActuel>0).length;
+      const _txSvc=_actives.length>0?Math.round(_activesOk/_actives.length*100):100;
+      const _rupPct=_totalRefs>0?_rup/_totalRefs*100:0;
+      const _dormPct=_totalRefs>0?_dorm/_totalRefs*100:0;
+      const _sansMinPct=_actives.length>0?_sansMin/_actives.length*100:0;
+      const _surstPct=_totalRefs>0?_surst/_totalRefs*100:0;
+      const _score=Math.max(0,Math.min(100,Math.round(_txSvc*0.4+Math.max(0,100-_rupPct*10)*0.25+Math.max(0,100-_dormPct*3)*0.15+Math.max(0,100-_sansMinPct*5)*0.1+Math.max(0,100-_surstPct*5)*0.1)));
+      const _col=_score>=75?'var(--c-ok)':_score>=50?'var(--c-caution)':'var(--c-danger)';
+      const _lbl=_score>=75?'Bonne santé':_score>=50?'À surveiller':'Critique';
+      const _ico=_score>=75?'💚':_score>=50?'🟡':'🔴';
+      const _dims=[
+        {label:'Taux de service',val:_txSvc+'%',ok:_txSvc>=95},
+        {label:'Ruptures',val:_rup,ok:_rup<=5},
+        {label:'Dormants',val:_dorm,ok:_dorm<=_totalRefs*0.05},
+        {label:'Sans MIN',val:_sansMin,ok:_sansMin<=3},
+        {label:'Surstock',val:_surst,ok:_surst<=_totalRefs*0.03},
+      ];
+      const _pills=_dims.map(d=>`<span class="text-[10px] px-2 py-0.5 rounded-full border ${d.ok?'border-emerald-300 text-emerald-700 bg-emerald-50':'border-orange-300 text-orange-700 bg-orange-50'}">${d.label} : <strong>${typeof d.val==='number'?d.val.toLocaleString('fr'):d.val}</strong></span>`).join('');
+      heroEl.innerHTML=`
+        <div class="flex flex-wrap items-center gap-6">
+          <div class="flex items-center gap-3 min-w-[200px]">
+            <span class="text-3xl">${_ico}</span>
+            <div>
+              <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
+              <p class="text-2xl font-extrabold" style="color:${_col}">${_score}<span class="text-sm font-normal t-disabled">/100</span></p>
+            </div>
+            <div class="flex flex-col items-center gap-0.5 ml-1">
+              <div class="w-20 h-2.5 rounded-full bg-gray-200 overflow-hidden">
+                <div class="h-full rounded-full" style="width:${_score}%;background:${_col}"></div>
+              </div>
+              <span class="text-[9px] font-bold" style="color:${_col}">${_lbl}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 cursor-pointer select-none hover:opacity-80" onclick="switchTab('table')" title="→ Voir tous les articles">
+            <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl px-5 py-3 text-white shadow-lg">
+              <p class="text-[9px] font-bold uppercase text-blue-200 mb-0.5">Valeur stock</p>
+              <p class="text-xl font-extrabold tracking-tight">${formatEuro(totalValue)}</p>
+              <p class="text-blue-200 text-[10px] mt-0.5">${dataSource.length.toLocaleString('fr')} réf. · ✅ Dispo. ${sr}%</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-3">${_pills}</div>`;
+    }}
+
+    // ── Sidebar pills ──
     const _saisonCount=Object.keys(_S.seasonalIndex).length>0?_getSaisonCandidats().length:0;
     _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:_saisonCount,saso:lstS.length,colis:lstColis.length,rupClients:0};
-    // rupClients count
     {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
     _renderStockPills();
-    // Inline summaries
-    {const _si=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
-    _si('valeurStockInline',`${formatEuro(totalValue)} · ${dataSource.length.toLocaleString('fr-FR')} ref.`);
-    }
   }
 
   function _renderStockPills(){
