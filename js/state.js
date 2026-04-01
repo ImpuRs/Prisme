@@ -254,6 +254,12 @@ _S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCan
 _S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
 
+// ── Catalogue marques (Animation) ──
+_S.catalogueMarques = null;    // Map<code, marque> — chargé une fois au boot
+_S.marqueArticles = null;      // Map<marque, Set<code>>
+_S.marquesList = [];           // string[] sorted — autocomplétion
+_S._animationData = null;      // cache du dernier computeAnimation
+
 // ── Invalidation centralisée des caches ──────────────────────────
 // Scopes : 'all' (défaut) | 'tab' | 'terr' | 'bench'
 // Combine : invalidateCache('tab', 'terr') pour invalider tab + territoire
@@ -397,6 +403,9 @@ export function resetAppState() {
   _S._squeletteFull = null;
   _S._clienteleMetier = null;
   _S._clienteleData = null;
+
+  // Animation
+  _S._animationData = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────

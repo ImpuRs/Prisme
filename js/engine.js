@@ -1712,3 +1712,185 @@ export function computeMaClientele(metierFilter, distanceKm) {
     nbArticlesEnStock: totalEnStock.size,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Animation — préparation d'animations commerciales par marque
+// ═══════════════════════════════════════════════════════════════
+
+export function computeAnimation(marque) {
+  if (!marque || !_S.marqueArticles?.has(marque)) return null;
+
+  const marqueArticles = _S.marqueArticles.get(marque); // Set<code>
+  const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+
+  // ═══ 1. ARTICLES — classifier chaque article de la marque ═══
+  const articles = [];
+  for (const code of marqueArticles) {
+    const normCode = code.replace(/^0+/, '').padStart(6, '0');
+    const stock = stockMap.get(normCode);
+    const famille = _S.articleFamille?.[normCode] || '';
+    const libelle = _S.libelleLookup?.[normCode] || normCode;
+
+    // Status stock
+    let stockStatus, stockActuel = null;
+    if (stock) {
+      stockActuel = stock.stockActuel || 0;
+      stockStatus = stockActuel > 0 ? 'enStock' : 'rupture';
+    } else {
+      stockStatus = 'absent';
+    }
+
+    // Vendu dans mon agence ?
+    const myData = vpm[myStore]?.[normCode];
+    const caAgence = myData?.sumCA || 0;
+    const blAgence = myData?.countBL || 0;
+
+    // Vendu dans le réseau ?
+    let nbAgencesReseau = 0, caReseau = 0;
+    for (const [store, arts] of Object.entries(vpm)) {
+      if (store === myStore) continue;
+      if (arts[normCode]?.countBL > 0) { nbAgencesReseau++; caReseau += arts[normCode].sumCA || 0; }
+    }
+
+    // Nb clients qui achètent cet article chez moi
+    let nbClients = 0;
+    const clientsAcheteurs = [];
+    if (_S.ventesClientArticle) {
+      for (const [cc, artMap] of _S.ventesClientArticle) {
+        if (artMap.has(normCode)) {
+          nbClients++;
+          clientsAcheteurs.push(cc);
+        }
+      }
+    }
+
+    articles.push({
+      code: normCode, libelle, famille,
+      famLabel: famLib(famille) || famille,
+      stockStatus, stockActuel,
+      caAgence, blAgence,
+      nbAgencesReseau, caReseau,
+      nbClients, clientsAcheteurs
+    });
+  }
+
+  // Trier : en stock d'abord, puis rupture, puis absent. Par CA agence décroissant.
+  const stockOrder = { enStock: 0, rupture: 1, absent: 2 };
+  articles.sort((a, b) => stockOrder[a.stockStatus] - stockOrder[b.stockStatus] || b.caAgence - a.caAgence);
+
+  // Stats articles
+  const nbEnStock = articles.filter(a => a.stockStatus === 'enStock').length;
+  const nbRupture = articles.filter(a => a.stockStatus === 'rupture').length;
+  const nbAbsent = articles.filter(a => a.stockStatus === 'absent').length;
+  const nbVendusReseau = articles.filter(a => a.nbAgencesReseau > 0).length;
+
+  // Par famille
+  const famMap = new Map();
+  for (const a of articles) {
+    const fam = a.famLabel || 'Non classé';
+    if (!famMap.has(fam)) famMap.set(fam, { articles: [], enStock: 0, absent: 0, rupture: 0 });
+    const f = famMap.get(fam);
+    f.articles.push(a);
+    if (a.stockStatus === 'enStock') f.enStock++;
+    else if (a.stockStatus === 'rupture') f.rupture++;
+    else f.absent++;
+  }
+  const familles = [...famMap.entries()]
+    .map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.articles.length - a.articles.length);
+
+  // ═══ 2. CLIENTS — qui achète cette marque + qui devrait ═══
+
+  // Clients acheteurs (ont acheté au moins 1 article de la marque)
+  const clientSet = new Set();
+  for (const a of articles) {
+    for (const cc of a.clientsAcheteurs) clientSet.add(cc);
+  }
+
+  const clientsActifs = [];
+  for (const cc of clientSet) {
+    const chal = _S.chalandiseData?.get(cc);
+    const vca = _S.ventesClientArticle?.get(cc);
+    let caMarque = 0, nbArticlesMarque = 0;
+    if (vca) {
+      for (const a of articles) {
+        const d = vca.get(a.code);
+        if (d) { caMarque += d.sumCA || 0; nbArticlesMarque++; }
+      }
+    }
+    clientsActifs.push({
+      cc,
+      nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+      metier: chal?.metier || '',
+      commercial: chal?.commercial || '',
+      cp: chal?.cp || '',
+      caMarque,
+      nbArticlesMarque,
+      type: 'acheteur'
+    });
+  }
+  clientsActifs.sort((a, b) => b.caMarque - a.caMarque);
+
+  // Clients prospects : même métier que les acheteurs, mais n'achètent pas la marque
+  const clientsProspects = [];
+  if (hasChal) {
+    const metiersAcheteurs = new Set();
+    for (const c of clientsActifs) {
+      if (c.metier) metiersAcheteurs.add(c.metier);
+    }
+
+    for (const metier of metiersAcheteurs) {
+      const metierClients = _S.clientsByMetier?.get(metier);
+      if (!metierClients) continue;
+      for (const cc of metierClients) {
+        if (clientSet.has(cc)) continue; // déjà acheteur
+        const chal = _S.chalandiseData.get(cc);
+        const vca = _S.ventesClientArticle?.get(cc);
+        const caTotalPDV = vca ? [...vca.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
+
+        clientsProspects.push({
+          cc,
+          nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+          metier: chal?.metier || '',
+          commercial: chal?.commercial || '',
+          cp: chal?.cp || '',
+          caTotalPDV,
+          type: 'prospect'
+        });
+      }
+    }
+    clientsProspects.sort((a, b) => b.caTotalPDV - a.caTotalPDV);
+  }
+
+  // Clients reconquête : acheteurs avec lastOrder > 60j
+  const clientsReconquete = [];
+  for (const c of clientsActifs) {
+    const lastDate = _S.clientLastOrder?.get(c.cc);
+    if (!lastDate) continue;
+    const daysSince = Math.round((Date.now() - lastDate) / 86400000);
+    if (daysSince > 60) {
+      clientsReconquete.push({ ...c, daysSince, type: 'reconquete' });
+    }
+  }
+  clientsReconquete.sort((a, b) => b.caMarque - a.caMarque);
+
+  return {
+    marque,
+    nbArticlesTotal: articles.length,
+    nbEnStock, nbRupture, nbAbsent, nbVendusReseau,
+    articles,
+    familles,
+    clients: {
+      acheteurs: clientsActifs,
+      prospects: clientsProspects.slice(0, 100),
+      reconquete: clientsReconquete,
+    },
+    totalClientsActifs: clientsActifs.length,
+    totalProspects: clientsProspects.length,
+    totalReconquete: clientsReconquete.length,
+    caMarqueAgence: clientsActifs.reduce((s, c) => s + c.caMarque, 0),
+  };
+}
