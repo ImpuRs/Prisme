@@ -38,7 +38,7 @@ export async function loadCatalogueMarques() {
     // Detect format: new indexed format has M/F/A keys
     if (data.M && data.F && data.A) {
       const marques = data.M;   // string[]
-      const familles = data.F;  // [libFam, sousFam][]
+      const familles = data.F;  // [codeFam, libFam, codeSousFam, libSousFam][]
       const articles = data.A;  // {code: [mIdx, fIdx, designation]}
 
       for (const [rawCode, entry] of Object.entries(articles)) {
@@ -52,8 +52,11 @@ export async function loadCatalogueMarques() {
 
         if (designation) _S.catalogueDesignation.set(code, designation);
         if (familles[fIdx]) {
-          const [libFam, sousFam] = familles[fIdx];
-          _S.catalogueFamille.set(code, { libFam: libFam || '', sousFam: sousFam || '' });
+          const fam = familles[fIdx];
+          _S.catalogueFamille.set(code, {
+            codeFam: fam[0] || '', libFam: fam[1] || '',
+            codeSousFam: fam[2] || '', sousFam: fam[3] || ''
+          });
         }
       }
     } else {
