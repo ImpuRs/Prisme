@@ -1261,3 +1261,190 @@ export function computeRecoStock() {
     }))
     .sort((a, b) => b.totalCA - a.totalCA);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SQUELETTE — Plan de Stock Stratégique par direction
+// Croise 4 sources : réseau, chalandise, hors-zone, livraisons
+// ═══════════════════════════════════════════════════════════════
+
+const FAM_UNIVERS_TO_DIR = {
+  'A': 'DV SECOND OEUVRE', 'B': 'DV SECOND OEUVRE', 'C': 'DV MAINTENANCE',
+  'R': 'DV MAINTENANCE', 'E': 'DV MAINTENANCE', 'G': 'DV PLOMBERIE',
+  'M': 'DV MAINTENANCE', 'O': 'DV MAINTENANCE', 'L': 'DV PLOMBERIE'
+};
+
+export function computeSquelette(directionFilter) {
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+
+  const articleData = new Map();
+  const _ensure = (code) => {
+    if (!articleData.has(code)) {
+      articleData.set(code, {
+        code,
+        libelle: _S.libelleLookup?.[code] || code,
+        famille: _S.articleFamille?.[code] || '',
+        univers: _S.articleUnivers?.[code] || '',
+        sources: new Set(),
+        nbAgencesReseau: 0, caReseau: 0,
+        nbClientsZone: 0, caClientsZone: 0,
+        nbClientsHorsZone: 0, caClientsHorsZone: 0,
+        nbBLLivraisons: 0, caLivraisons: 0,
+        direction: '',
+        enStock: false, stockActuel: 0, emplacement: '', statut: '',
+        abcClass: '', fmrClass: '', caAgence: 0,
+      });
+    }
+    return articleData.get(code);
+  };
+
+  // ── Source 1 : Réseau ──
+  for (const [store, arts] of Object.entries(vpm)) {
+    if (store === myStore) continue;
+    for (const [code, data] of Object.entries(arts)) {
+      if (!/^\d{6}$/.test(code) || data.countBL <= 0) continue;
+      const a = _ensure(code);
+      a.nbAgencesReseau++;
+      a.caReseau += data.sumCA || 0;
+      a.sources.add('reseau');
+    }
+  }
+
+  // ── Source 2 : Chalandise (clients zone) ──
+  if (hasChal) {
+    const chalClients = new Set(_S.chalandiseData.keys());
+    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+      if (!chalClients.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        if (!/^\d{6}$/.test(code)) continue;
+        const a = _ensure(code);
+        a.nbClientsZone++;
+        a.caClientsZone += data.sumCA || 0;
+        a.sources.add('chalandise');
+      }
+    }
+  }
+
+  // ── Source 3 : Clients hors-zone ──
+  {
+    const chalClients = hasChal ? new Set(_S.chalandiseData.keys()) : new Set();
+    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+      if (chalClients.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        if (!/^\d{6}$/.test(code)) continue;
+        const a = _ensure(code);
+        a.nbClientsHorsZone++;
+        a.caClientsHorsZone += data.sumCA || 0;
+        a.sources.add('horsZone');
+      }
+    }
+  }
+
+  // ── Source 4 : Livraisons ──
+  if (hasTerr) {
+    const artBLCount = new Map();
+    for (const l of _S.territoireLines) {
+      if (l.isSpecial) continue;
+      if (!artBLCount.has(l.code)) artBLCount.set(l.code, new Set());
+      artBLCount.get(l.code).add(l.bl);
+      const a = _ensure(l.code);
+      a.caLivraisons += l.ca;
+      a.direction = a.direction || l.direction;
+      a.sources.add('livraisons');
+    }
+    for (const [code, blSet] of artBLCount) {
+      const a = articleData.get(code);
+      if (a) a.nbBLLivraisons = blSet.size;
+    }
+  }
+
+  // ── Enrichir stock + CA agence ──
+  for (const r of (_S.finalData || [])) {
+    const a = _ensure(r.code);
+    a.enStock = (r.stockActuel || 0) > 0;
+    a.stockActuel = r.stockActuel || 0;
+    a.emplacement = r.emplacement || '';
+    a.statut = r.statut || '';
+    a.abcClass = r.abcClass || '';
+    a.fmrClass = r.fmrClass || '';
+    if (!a.famille) a.famille = r.famille || '';
+  }
+  const myArts = vpm[myStore] || {};
+  for (const [code, data] of Object.entries(myArts)) {
+    const a = articleData.get(code);
+    if (a) a.caAgence = data.sumCA || 0;
+  }
+  // Direction fallback via famille
+  for (const [, a] of articleData) {
+    if (!a.direction && a.famille) {
+      const letter = (a.famille.match(/^[A-Z]/)?.[0]) || '';
+      a.direction = FAM_UNIVERS_TO_DIR[letter] || 'NON CLASSÉ';
+    }
+  }
+
+  // ── Score composite + classification ──
+  for (const [, a] of articleData) {
+    let score = 0;
+    if (a.nbAgencesReseau >= 3) score += 40;
+    else if (a.nbAgencesReseau >= 1) score += 15;
+    if (a.nbClientsZone >= 5) score += 30;
+    else if (a.nbClientsZone >= 2) score += 15;
+    else if (a.nbClientsZone >= 1) score += 5;
+    if (a.nbClientsHorsZone >= 3) score += 20;
+    else if (a.nbClientsHorsZone >= 1) score += 8;
+    if (a.nbBLLivraisons >= 50) score += 30;
+    else if (a.nbBLLivraisons >= 10) score += 20;
+    else if (a.nbBLLivraisons >= 3) score += 10;
+    const nbSources = a.sources.size;
+    if (nbSources >= 4) score *= 1.5;
+    else if (nbSources >= 3) score *= 1.3;
+    else if (nbSources >= 2) score *= 1.1;
+    a.score = Math.round(score);
+
+    if (a.enStock) {
+      if (a.sources.size === 0 && a.caAgence === 0) a.classification = 'challenger';
+      else if (a.score >= 40 || a.sources.size >= 2) a.classification = 'socle';
+      else a.classification = 'surveiller';
+    } else {
+      if (a.score >= 50 && a.sources.size >= 2) a.classification = 'implanter';
+      else if (a.score >= 25) a.classification = 'potentiel';
+      else a.classification = 'bruit';
+    }
+  }
+
+  // ── Grouper par direction ──
+  const results = [];
+  for (const [, a] of articleData) {
+    if (a.classification === 'bruit') continue;
+    if (directionFilter && a.direction !== directionFilter) continue;
+    results.push(a);
+  }
+  const byDir = new Map();
+  for (const a of results) {
+    const dir = a.direction || 'NON CLASSÉ';
+    if (!byDir.has(dir)) byDir.set(dir, { direction: dir, socle: [], implanter: [], challenger: [], surveiller: [], potentiel: [] });
+    byDir.get(dir)[a.classification].push(a);
+  }
+  for (const [, d] of byDir) {
+    d.socle.sort((a, b) => b.score - a.score);
+    d.implanter.sort((a, b) => b.score - a.score);
+    d.challenger.sort((a, b) => a.score - b.score);
+    d.surveiller.sort((a, b) => b.score - a.score);
+    d.potentiel.sort((a, b) => b.score - a.score);
+  }
+
+  return {
+    directions: [...byDir.values()].sort((a, b) =>
+      (b.implanter.length + b.challenger.length) - (a.implanter.length + a.challenger.length)
+    ),
+    totals: {
+      socle: results.filter(a => a.classification === 'socle').length,
+      implanter: results.filter(a => a.classification === 'implanter').length,
+      challenger: results.filter(a => a.classification === 'challenger').length,
+      surveiller: results.filter(a => a.classification === 'surveiller').length,
+      potentiel: results.filter(a => a.classification === 'potentiel').length,
+    }
+  };
+}

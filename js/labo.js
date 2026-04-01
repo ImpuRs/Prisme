@@ -6,7 +6,7 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, famLib, _doCopyCode, _copyCodeBtn, escapeHtml } from './utils.js';
-import { _unikLink, _clientPassesFilters } from './engine.js';
+import { _unikLink, _clientPassesFilters, computeSquelette } from './engine.js';
 import { DataStore } from './store.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -973,6 +973,235 @@ window._laboSaisonExportCSV = function() {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// #8 — SQUELETTE — Plan de Stock Stratégique
+// ═══════════════════════════════════════════════════════════════
+
+let _sqFilterClassif = '', _sqFilterDir = '', _sqPageMap = {};
+
+const CLASSIF_BADGE = {
+  socle:      { label: 'Socle',      bg: '#dcfce7', color: '#166534', icon: '🟢' },
+  implanter:  { label: 'Implanter',  bg: '#dbeafe', color: '#1e40af', icon: '🔵' },
+  challenger: { label: 'Challenger', bg: '#fee2e2', color: '#991b1b', icon: '🔴' },
+  potentiel:  { label: 'Potentiel',  bg: '#fef9c3', color: '#854d0e', icon: '🟡' },
+  surveiller: { label: 'Surveiller', bg: '#f1f5f9', color: '#475569', icon: '👁' }
+};
+
+function _sourceBar(a) {
+  const s = a.sources;
+  const seg = (key, color, label) =>
+    `<span title="${label}" style="display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:1px;background:${s.has(key) ? color : 'var(--s-muted,#e2e8f0)'};opacity:${s.has(key) ? 1 : 0.2}"></span>`;
+  return `<span class="inline-flex items-center">
+    ${seg('reseau', 'var(--c-info,#3b82f6)', 'Réseau')}
+    ${seg('chalandise', 'var(--c-ok,#22c55e)', 'Chalandise')}
+    ${seg('horsZone', 'var(--c-caution,#f59e0b)', 'Hors-zone')}
+    ${seg('livraisons', 'var(--c-action,#8b5cf6)', 'Livraisons')}
+  </span>`;
+}
+
+function _classifBadge(classif) {
+  const b = CLASSIF_BADGE[classif];
+  if (!b) return '';
+  return `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>`;
+}
+
+function _quickScanSquelette() {
+  if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length) return { n: '?', impl: 0, chall: 0 };
+  if (_S._squeletteScan) return _S._squeletteScan;
+  const data = computeSquelette();
+  if (!data) return { n: '?', impl: 0, chall: 0 };
+  _S._squeletteScan = {
+    n: data.totals.implanter + data.totals.challenger + data.totals.socle,
+    impl: data.totals.implanter,
+    chall: data.totals.challenger
+  };
+  return _S._squeletteScan;
+}
+
+function _renderSquelette(data) {
+  if (!data || !data.directions.length) return '<p class="text-xs t-disabled p-4">Données insuffisantes pour calculer le squelette.</p>';
+
+  const t = data.totals;
+
+  // KPI badges (filterable)
+  const _badge = (key, n) => {
+    const b = CLASSIF_BADGE[key];
+    const active = _sqFilterClassif === key;
+    return `<button onclick="window._laboSqFilterClassif('${key}')" class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}" style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">
+      <span class="text-base leading-none">${b.icon}</span>
+      <span class="text-[13px] font-extrabold ${active ? 't-inverse' : 't-primary'}">${n}</span>
+      <span class="text-[9px] ${active ? 't-inverse-muted' : 't-disabled'}">${b.label}</span>
+    </button>`;
+  };
+
+  const kpiHtml = `<div class="grid grid-cols-5 gap-2 mb-3">
+    ${_badge('socle', t.socle)}${_badge('implanter', t.implanter)}${_badge('challenger', t.challenger)}${_badge('potentiel', t.potentiel)}${_badge('surveiller', t.surveiller)}
+  </div>`;
+
+  // Direction filter
+  const dirs = data.directions.map(d => d.direction);
+  const dirOptions = ['<option value="">Toutes les directions</option>', ...dirs.map(d => `<option value="${escapeHtml(d)}" ${_sqFilterDir === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)].join('');
+  const dirFilterHtml = `<div class="mb-3 flex items-center gap-2">
+    <select onchange="window._laboSqFilterDir(this.value)" class="text-[11px] px-2 py-1.5 rounded-lg border b-light s-card t-primary">${dirOptions}</select>
+    <span class="text-[9px] t-disabled">${data.directions.length} directions · 4 sources croisées</span>
+  </div>`;
+
+  // Source legend
+  const legendHtml = `<div class="flex items-center gap-3 mb-3 text-[9px] t-disabled">
+    <span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:var(--c-info,#3b82f6)"></span> Réseau
+    <span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:var(--c-ok,#22c55e)"></span> Chalandise
+    <span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:var(--c-caution,#f59e0b)"></span> Hors-zone
+    <span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:var(--c-action,#8b5cf6)"></span> Livraisons
+  </div>`;
+
+  // Directions accordions
+  const filteredDirs = _sqFilterDir ? data.directions.filter(d => d.direction === _sqFilterDir) : data.directions;
+
+  const dirsHtml = filteredDirs.map((d, idx) => {
+    // Merge all articles for this direction
+    let allArts = [...d.socle, ...d.implanter, ...d.challenger, ...d.potentiel, ...d.surveiller];
+    if (_sqFilterClassif) allArts = allArts.filter(a => a.classification === _sqFilterClassif);
+    if (!allArts.length) return '';
+    allArts.sort((a, b) => b.score - a.score);
+
+    const pageKey = d.direction;
+    const page = _sqPageMap[pageKey] || 20;
+    const shown = allArts.slice(0, page);
+    const hasMore = allArts.length > page;
+
+    const rowsHtml = shown.map(a => {
+      return `<tr class="border-b b-light hover:s-hover text-[11px]">
+        <td class="py-1.5 px-2">${_copyCodeBtn(a.code)}</td>
+        <td class="py-1.5 px-2 max-w-[180px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+        <td class="py-1.5 px-2 text-center">${_classifBadge(a.classification)}</td>
+        <td class="py-1.5 px-2 text-center">${_sourceBar(a)}</td>
+        <td class="py-1.5 px-2 text-right">${a.nbBLLivraisons || '—'}</td>
+        <td class="py-1.5 px-2 text-right">${a.nbAgencesReseau || '—'}</td>
+        <td class="py-1.5 px-2 text-right">${a.nbClientsZone || '—'}</td>
+        <td class="py-1.5 px-2 text-right font-bold c-action">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const moreHtml = hasMore
+      ? `<div class="text-center py-2"><button onclick="window._laboSqMore('${escapeHtml(pageKey)}')" class="text-[10px] px-4 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">Voir plus (${allArts.length - page} restants)</button></div>`
+      : '';
+
+    const summary = [
+      d.implanter.length ? `${d.implanter.length} à implanter` : '',
+      d.challenger.length ? `${d.challenger.length} à challenger` : '',
+      d.socle.length ? `${d.socle.length} socle` : ''
+    ].filter(Boolean).join(' · ');
+
+    const csvBtn = `<button onclick="event.stopPropagation();window._laboSqExportDir('${escapeHtml(d.direction)}')" class="text-[9px] px-2 py-1 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Export CSV">CSV</button>`;
+
+    return `<details class="border-b b-light" ${idx === 0 && !_sqFilterDir ? 'open' : _sqFilterDir ? 'open' : ''}>
+      <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-[12px] t-primary">${escapeHtml(d.direction)}</span>
+          <span class="text-[9px] t-disabled">${summary}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          ${csvBtn}
+          <span class="acc-arrow t-disabled">▶</span>
+        </div>
+      </summary>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="s-panel-inner t-inverse text-[10px]">
+            <tr>
+              <th class="py-1.5 px-2 text-left">Code</th>
+              <th class="py-1.5 px-2 text-left">Libellé</th>
+              <th class="py-1.5 px-2 text-center">Classif.</th>
+              <th class="py-1.5 px-2 text-center">Sources</th>
+              <th class="py-1.5 px-2 text-right">BL Livr.</th>
+              <th class="py-1.5 px-2 text-right">Ag. réseau</th>
+              <th class="py-1.5 px-2 text-right">Cli. zone</th>
+              <th class="py-1.5 px-2 text-right">CA agence</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      ${moreHtml}
+    </details>`;
+  }).join('');
+
+  // Global export
+  const exportBtn = `<div class="flex items-center gap-2 mt-3">
+    <button onclick="window._laboSqExportAll()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 Export CSV global</button>
+  </div>`;
+
+  return kpiHtml + dirFilterHtml + legendHtml + dirsHtml + exportBtn;
+}
+
+function _rerenderSquelette() {
+  const content = document.getElementById('laboTileContent');
+  if (!content || content.classList.contains('hidden') || !_S._squeletteFull) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderSquelette(_S._squeletteFull)}</div>`;
+}
+
+window._laboSqFilterClassif = function(key) {
+  _sqFilterClassif = _sqFilterClassif === key ? '' : key;
+  _sqPageMap = {};
+  _rerenderSquelette();
+};
+
+window._laboSqFilterDir = function(val) {
+  _sqFilterDir = val;
+  _sqPageMap = {};
+  _rerenderSquelette();
+};
+
+window._laboSqMore = function(dir) {
+  _sqPageMap[dir] = (_sqPageMap[dir] || 20) + 20;
+  _rerenderSquelette();
+};
+
+function _sqExportRows(articles) {
+  const sep = ';';
+  const header = ['Code', 'Libellé', 'Direction', 'Classification', 'Score', 'Réseau', 'Chalandise', 'Hors-zone', 'Livraisons', 'Nb agences', 'Nb BL livr.', 'Nb clients zone', 'CA agence', 'Stock actuel'].join(sep);
+  const rows = articles.map(a => [
+    a.code, `"${(a.libelle || '').replace(/"/g, '""')}"`, `"${(a.direction || '').replace(/"/g, '""')}"`,
+    a.classification, a.score,
+    a.sources.has('reseau') ? 'Oui' : 'Non', a.sources.has('chalandise') ? 'Oui' : 'Non',
+    a.sources.has('horsZone') ? 'Oui' : 'Non', a.sources.has('livraisons') ? 'Oui' : 'Non',
+    a.nbAgencesReseau, a.nbBLLivraisons, a.nbClientsZone,
+    (a.caAgence || 0).toFixed(2), a.stockActuel
+  ].join(sep));
+  return '\uFEFF' + header + '\n' + rows.join('\n');
+}
+
+window._laboSqExportDir = function(direction) {
+  const data = _S._squeletteFull;
+  if (!data) return;
+  const d = data.directions.find(d => d.direction === direction);
+  if (!d) return;
+  const all = [...d.socle, ...d.implanter, ...d.challenger, ...d.potentiel, ...d.surveiller];
+  const csv = _sqExportRows(all);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Squelette_${direction.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+window._laboSqExportAll = function() {
+  const data = _S._squeletteFull;
+  if (!data) return;
+  const all = [];
+  for (const d of data.directions) all.push(...d.socle, ...d.implanter, ...d.challenger, ...d.potentiel, ...d.surveiller);
+  const csv = _sqExportRows(all);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Squelette_${_S.selectedMyStore || 'AG'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+// ═══════════════════════════════════════════════════════════════
 // Shuffle helper
 // ═══════════════════════════════════════════════════════════════
 
@@ -1031,6 +1260,17 @@ const LABO_TOOLTIPS = {
     Croise l'historique d'achat de chaque client avec le calendrier saisonnier des familles.<br>
     <em>Source :</em> articleMonthlySales × seasonalIndex × ventesClientArticle.<br>
     <em>Opportunité :</em> clients qui achètent habituellement ce mois mais pas encore cette année.`,
+  squelette: `<strong>SQUELETTE — Plan de stock stratégique</strong><br>
+    Croise <strong>4 sources</strong> pour chaque article :<br>
+    🏪 Réseau (vendu par d'autres agences)<br>
+    📋 Chalandise (demandé par les clients zone)<br>
+    🧲 Clients hors-zone (ADN de l'agence)<br>
+    📦 Livraisons (BL livrés sur la zone)<br><br>
+    <em>Classification :</em><br>
+    🟢 <strong>Socle</strong> — en stock, justifié par 2+ sources<br>
+    🔵 <strong>À implanter</strong> — absent, score ≥50 et 2+ sources<br>
+    🔴 <strong>À challenger</strong> — en stock, 0 source, 0 vente<br>
+    🟡 <strong>Potentiel</strong> — signal intéressant, 1 source ou score &lt;50`,
   prisme: `<strong>Générer mon PRISME</strong><br>
     Affiche 6 analyses aléatoires parmi les requêtes en langage naturel disponibles.<br>
     Chaque puce est cliquable et lance l'analyse correspondante.`
@@ -1053,6 +1293,8 @@ function _renderTileGrid(el) {
   const stockSubtitle = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
   const empSubtitle = empScan.n > 0 ? `${empScan.n} emplacements · rendement moyen ${empScan.avg>=10?empScan.avg.toFixed(0):empScan.avg.toFixed(1)}×` : 'Cliquez pour analyser';
   const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
+  const sqScan = _quickScanSquelette();
+  const sqSubtitle = sqScan.n === '?' ? 'Cliquez pour analyser' : `${sqScan.impl} à implanter · ${sqScan.chall} à challenger`;
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('sil')">
@@ -1084,6 +1326,12 @@ function _renderTileGrid(el) {
       <div class="text-lg mb-1">🌡️</div>
       <div class="text-[13px] font-bold t-primary mb-1">Client × Saisonnalité</div>
       <div class="text-[10px] t-secondary" id="laboTileSaisonSub">${saisonSubtitle}</div>
+    </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('squelette')">
+      ${_infoIcon('squelette')}
+      <div class="text-lg mb-1">🦴</div>
+      <div class="text-[13px] font-bold t-primary mb-1">SQUELETTE — Plan de stock</div>
+      <div class="text-[10px] t-secondary" id="laboTileSqSub">${sqSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('prisme')">
       ${_infoIcon('prisme')}
@@ -1131,6 +1379,13 @@ window._laboOpenTile = function(tile) {
     _saisonPage = 20;
     _saisonSearch = '';
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderClientSaisonnier(_saisonData, 0)}</div>`;
+  } else if (tile === 'squelette') {
+    const data = computeSquelette();
+    _S._squeletteFull = data;
+    _sqFilterClassif = '';
+    _sqFilterDir = '';
+    _sqPageMap = {};
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderSquelette(data)}</div>`;
   } else if (tile === 'prisme') {
     const picked = _shuffleArray(_NL_CHIPS).slice(0, 6);
     const chips = picked.map(c => {
@@ -1198,6 +1453,10 @@ export function updateLaboTiles() {
   const saisonScan = _quickScanSaisonnier();
   const saisonSub = document.getElementById('laboTileSaisonSub');
   if (saisonSub) saisonSub.textContent = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
+
+  const sqScan = _quickScanSquelette();
+  const sqSub = document.getElementById('laboTileSqSub');
+  if (sqSub) sqSub.textContent = sqScan.n === '?' ? 'Cliquez pour analyser' : `${sqScan.impl} à implanter · ${sqScan.chall} à challenger`;
 }
 
 // ═══════════════════════════════════════════════════════════════

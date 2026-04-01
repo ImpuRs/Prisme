@@ -260,7 +260,7 @@ _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques d�
 export function invalidateCache(...scopes) {
   const all = scopes.length === 0 || scopes.includes('all');
   if (all || scopes.includes('tab'))   _S._tabRendered = {};
-  if (all || scopes.includes('terr'))  _S._terrCanalCache = new Map();
+  if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; }
   if (all || scopes.includes('bench')) _S._benchCache = null;
 }
 
@@ -393,6 +393,8 @@ export function resetAppState() {
   _S._laboSilData = null;
   _S._laboFamData = null;
   _S._laboStockData = null;
+  _S._squeletteScan = null;
+  _S._squeletteFull = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
