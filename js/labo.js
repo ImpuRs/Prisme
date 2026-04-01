@@ -6,7 +6,7 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, famLib, _doCopyCode, _copyCodeBtn, escapeHtml } from './utils.js';
-import { _unikLink, _clientPassesFilters, computeSquelette } from './engine.js';
+import { _unikLink, _clientPassesFilters, computeSquelette, computeMaClientele } from './engine.js';
 import { DataStore } from './store.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1202,6 +1202,327 @@ window._laboSqExportAll = function() {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MA CLIENTÈLE — Cartographie métiers + drill-down
+// ═══════════════════════════════════════════════════════════════
+
+let _clPage = 20;
+
+function _quickScanClientele() {
+  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) return { n: '?', top: '', nbClients: 0 };
+  const topMetier = [..._S.clientsByMetier.entries()]
+    .filter(([m]) => !!m)
+    .sort((a, b) => b[1].size - a[1].size)[0];
+  return {
+    n: [..._S.clientsByMetier.keys()].filter(m => !!m).length,
+    top: topMetier ? topMetier[0] : '',
+    nbClients: _S.chalandiseData.size
+  };
+}
+
+function _couvertureBar(pct) {
+  const color = pct >= 70 ? 'var(--c-ok,#22c55e)' : pct >= 40 ? 'var(--c-caution,#f59e0b)' : 'var(--c-danger,#ef4444)';
+  return `<div class="flex items-center gap-1"><div style="width:40px;height:6px;border-radius:3px;background:var(--s-muted,#e2e8f0)"><div style="width:${Math.min(pct,100)}%;height:100%;border-radius:3px;background:${color}"></div></div><span class="text-[10px] font-bold" style="color:${color}">${pct}%</span></div>`;
+}
+
+function _renderMaClientele(data) {
+  if (!data) return '<div class="text-center py-8 t-disabled text-sm">Chargez la Zone de Chalandise pour activer cette analyse.</div>';
+
+  if (data.level === 1) return _renderClienteleL1(data);
+  return _renderClienteleL2(data);
+}
+
+function _renderClienteleL1(data) {
+  // Répartition bar
+  const totalCA = data.totalCA || 1;
+  const COLORS = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
+  const top8 = data.metiers.slice(0, 8);
+  const otherCA = data.metiers.slice(8).reduce((s, m) => s + m.caTotal, 0);
+  let barHtml = '<div class="flex rounded-lg overflow-hidden h-5 mb-4">';
+  top8.forEach((m, i) => {
+    const w = Math.max((m.caTotal / totalCA * 100), 0.5);
+    barHtml += `<div title="${escapeHtml(m.metier)} — ${formatEuro(m.caTotal)}" style="width:${w}%;background:${COLORS[i % COLORS.length]};min-width:2px" class="hover:opacity-80 cursor-pointer" onclick="window._laboClienteleDrill('${escapeHtml(m.metier)}')"></div>`;
+  });
+  if (otherCA > 0) barHtml += `<div title="Autres — ${formatEuro(otherCA)}" style="width:${Math.max(otherCA/totalCA*100,0.5)}%;background:#94a3b8;min-width:2px"></div>`;
+  barHtml += '</div>';
+
+  // Table
+  const rows = data.metiers.map((m, i) => {
+    const color = COLORS[i % COLORS.length];
+    const pctCA = totalCA > 0 ? (m.caTotal / totalCA * 100).toFixed(1) : '0.0';
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="window._laboClienteleDrill('${escapeHtml(m.metier)}')">
+      <td class="py-2 px-2"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${i < 8 ? color : '#94a3b8'};margin-right:4px"></span>${escapeHtml(m.metier)}</td>
+      <td class="py-2 px-2 text-right">${m.nbClients}</td>
+      <td class="py-2 px-2 text-right font-bold">${m.nbActifs}</td>
+      <td class="py-2 px-2 text-right t-disabled">${m.nbProspects}</td>
+      <td class="py-2 px-2 text-right font-bold c-action">${formatEuro(m.caTotal)}</td>
+      <td class="py-2 px-2 text-right t-disabled">${pctCA}%</td>
+      <td class="py-2 px-2">${_couvertureBar(m.couverture)}</td>
+    </tr>`;
+  }).join('');
+
+  const csvBtn = `<button onclick="event.stopPropagation();window._laboClienteleExportL1()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 CSV</button>`;
+
+  return `<div class="flex items-center justify-between mb-3">
+    <div>
+      <h3 class="font-extrabold text-sm t-primary">🎯 Ma Clientèle — ${data.nbMetiers} métiers · ${data.totalClients} clients · ${formatEuro(data.totalCA)}</h3>
+      <p class="text-[10px] t-disabled mt-0.5">${data.totalActifs} actifs · ${data.totalClients - data.totalActifs} prospects · Cliquez sur un métier pour explorer</p>
+    </div>
+    ${csvBtn}
+  </div>
+  ${barHtml}
+  <div class="overflow-x-auto">
+    <table class="min-w-full">
+      <thead class="s-panel-inner t-inverse text-[10px]">
+        <tr>
+          <th class="py-1.5 px-2 text-left">Métier</th>
+          <th class="py-1.5 px-2 text-right">Clients</th>
+          <th class="py-1.5 px-2 text-right">Actifs</th>
+          <th class="py-1.5 px-2 text-right">Prospects</th>
+          <th class="py-1.5 px-2 text-right">CA</th>
+          <th class="py-1.5 px-2 text-right">% CA</th>
+          <th class="py-1.5 px-2">Couverture</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function _renderClienteleL2(data) {
+  const backMetier = `<span onclick="window._laboClienteleBack()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-2 inline-block">← Tous les métiers</span>`;
+
+  // Header
+  let hdr = `${backMetier}
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h3 class="font-extrabold text-sm t-primary">🎯 ${escapeHtml(data.metier)} — ${data.nbClients} clients · ${data.nbActifs} actifs · ${data.nbProspects} prospects</h3>
+      <p class="text-[10px] t-disabled mt-0.5">Couverture stock : ${_couvertureBar(data.couvertureGlobale)} (${data.nbArticlesEnStock}/${data.nbArticlesDistincts} articles en rayon)</p>
+    </div>
+    <button onclick="window._laboClienteleExportL2()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 CSV</button>
+  </div>`;
+
+  // Univers accordions
+  let univHtml = '';
+  data.univers.forEach((u, ui) => {
+    const pctCA = data.caTotal > 0 ? (u.ca / data.caTotal * 100).toFixed(0) : '0';
+    let famHtml = '';
+    u.familles.forEach((f, fi) => {
+      // Articles table (top 20 + voir plus)
+      const shown = f.articles.slice(0, 20);
+      const hasMoreArt = f.articles.length > 20;
+      const artRows = shown.map(a => {
+        let stockBadge;
+        if (a.enStock) stockBadge = `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock (${a.stockActuel})</span>`;
+        else if (a.rupture) stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture (0)</span>';
+        else stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
+        return `<tr class="border-b b-light hover:s-hover text-[11px]">
+          <td class="py-1 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+          <td class="py-1 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+          <td class="py-1 px-2 text-right font-bold c-action">${formatEuro(a.ca)}</td>
+          <td class="py-1 px-2 text-right">${a.nbClients}</td>
+          <td class="py-1 px-2 text-center">${stockBadge}</td>
+        </tr>`;
+      }).join('');
+      const moreArt = hasMoreArt ? `<div class="px-3 py-1.5 text-[10px] t-disabled cursor-pointer hover:underline" onclick="window._laboClienteleMoreArt(this, '${escapeHtml(data.metier)}', ${ui}, ${fi})">… voir les ${f.articles.length - 20} suivants</div>` : '';
+
+      famHtml += `<details class="border-b b-light ml-4"${fi === 0 ? ' open' : ''}>
+        <summary class="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:s-hover text-[11px]">
+          <div class="flex items-center gap-2">
+            <span class="acc-arrow t-disabled text-[9px]">▶</span>
+            <span class="font-bold t-primary">${escapeHtml(f.famName)} (${escapeHtml(f.famCode)})</span>
+            <span class="t-disabled">${formatEuro(f.ca)}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[9px] t-disabled">${f.nbEnStock}/${f.nbTotal} en stock</span>
+            ${_couvertureBar(f.couverture)}
+          </div>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead class="text-[9px] t-disabled">
+              <tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-right">Clients</th><th class="py-1 px-2 text-center">Stock</th></tr>
+            </thead>
+            <tbody id="clFamArts_${ui}_${fi}">${artRows}</tbody>
+          </table>
+          ${moreArt}
+        </div>
+      </details>`;
+    });
+
+    univHtml += `<details class="border-b b-light"${ui === 0 ? ' open' : ''}>
+      <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
+        <div class="flex items-center gap-2">
+          <span class="acc-arrow t-disabled">▶</span>
+          <span class="font-bold text-[12px] t-primary">${escapeHtml(u.name)}</span>
+          <span class="text-[9px] t-disabled">${pctCA}% du CA · ${u.familles.length} familles</span>
+        </div>
+        <span class="text-[11px] font-bold t-primary">${formatEuro(u.ca)}</span>
+      </summary>
+      <div>${famHtml}</div>
+    </details>`;
+  });
+
+  // Clients block
+  const top20 = data.clients.slice(0, _clPage);
+  const hasMoreCli = data.clients.length > _clPage;
+  const cliRows = top20.map(c => {
+    const statusBadge = c.isActif
+      ? '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#dcfce7;color:#166534">Actif</span>'
+      : '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">Prospect</span>';
+    const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','labo')">
+      <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(c.ca)}</td>
+      <td class="py-1.5 px-2">${escapeHtml(c.cp)}</td>
+      <td class="py-1.5 px-2">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-center">${statusBadge}</td>
+      <td class="py-1.5 px-2 text-right">${c.nbFamilles > 0 ? c.nbFamilles + ' fam.' : '—'}</td>
+    </tr>`;
+  }).join('');
+  const moreCli = hasMoreCli ? `<div class="px-3 py-2 text-[10px] t-disabled cursor-pointer hover:underline" onclick="window._laboClienteleMoreCli()">… voir les ${data.clients.length - _clPage} suivants</div>` : '';
+
+  const cliBlock = `<details class="border-b b-light mt-4">
+    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
+      <div class="flex items-center gap-2">
+        <span class="acc-arrow t-disabled">▶</span>
+        <span class="font-bold text-[12px] t-primary">👥 ${data.nbClients} clients ${escapeHtml(data.metier)}</span>
+        <span class="text-[9px] t-disabled">Top ${Math.min(_clPage, data.clients.length)} par CA</span>
+      </div>
+    </summary>
+    <div class="overflow-x-auto">
+      <table class="min-w-full">
+        <thead class="s-panel-inner t-inverse text-[10px]">
+          <tr><th class="py-1.5 px-2 text-left">Nom</th><th class="py-1.5 px-2 text-right">CA</th><th class="py-1.5 px-2">CP</th><th class="py-1.5 px-2">Commercial</th><th class="py-1.5 px-2 text-center">Statut</th><th class="py-1.5 px-2 text-right">Familles</th></tr>
+        </thead>
+        <tbody id="clClientRows">${cliRows}</tbody>
+      </table>
+      <div id="clClientMore">${moreCli}</div>
+    </div>
+  </details>`;
+
+  return hdr + univHtml + cliBlock;
+}
+
+// ── Handlers Ma Clientèle ──
+
+window._laboClienteleDrill = function(metier) {
+  _clPage = 20;
+  const data = computeMaClientele(metier);
+  _S._clienteleMetier = metier;
+  _S._clienteleData = data;
+  const content = document.getElementById('laboTileContent');
+  if (!content) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
+};
+
+window._laboClienteleBack = function() {
+  _S._clienteleMetier = null;
+  const data = computeMaClientele();
+  _S._clienteleData = data;
+  const content = document.getElementById('laboTileContent');
+  if (!content) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
+};
+
+window._laboClienteleMoreCli = function() {
+  _clPage += 20;
+  const data = _S._clienteleData;
+  if (!data || data.level !== 2) return;
+  const top = data.clients.slice(0, _clPage);
+  const hasMore = data.clients.length > _clPage;
+  const tbody = document.getElementById('clClientRows');
+  const moreEl = document.getElementById('clClientMore');
+  if (!tbody) return;
+  // Re-render rows
+  tbody.innerHTML = top.map(c => {
+    const statusBadge = c.isActif
+      ? '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#dcfce7;color:#166534">Actif</span>'
+      : '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">Prospect</span>';
+    const ccSafe = (c.cc || '').replace(/'/g, "\\'");
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','labo')">
+      <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(c.ca)}</td>
+      <td class="py-1.5 px-2">${escapeHtml(c.cp)}</td>
+      <td class="py-1.5 px-2">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-center">${statusBadge}</td>
+      <td class="py-1.5 px-2 text-right">${c.nbFamilles > 0 ? c.nbFamilles + ' fam.' : '—'}</td>
+    </tr>`;
+  }).join('');
+  if (moreEl) moreEl.innerHTML = hasMore ? `<div class="px-3 py-2 text-[10px] t-disabled cursor-pointer hover:underline" onclick="window._laboClienteleMoreCli()">… voir les ${data.clients.length - _clPage} suivants</div>` : '';
+};
+
+window._laboClienteleMoreArt = function(el, metier, ui, fi) {
+  const data = _S._clienteleData;
+  if (!data || data.level !== 2) return;
+  const u = data.univers[ui];
+  if (!u) return;
+  const f = u.familles[fi];
+  if (!f) return;
+  const tbody = document.getElementById(`clFamArts_${ui}_${fi}`);
+  if (!tbody) return;
+  // Render all articles
+  tbody.innerHTML = f.articles.map(a => {
+    let stockBadge;
+    if (a.enStock) stockBadge = `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock (${a.stockActuel})</span>`;
+    else if (a.rupture) stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture (0)</span>';
+    else stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
+    return `<tr class="border-b b-light hover:s-hover text-[11px]">
+      <td class="py-1 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+      <td class="py-1 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-1 px-2 text-right font-bold c-action">${formatEuro(a.ca)}</td>
+      <td class="py-1 px-2 text-right">${a.nbClients}</td>
+      <td class="py-1 px-2 text-center">${stockBadge}</td>
+    </tr>`;
+  }).join('');
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+};
+
+window._laboClienteleExportL1 = function() {
+  const data = _S._clienteleData;
+  if (!data || data.level !== 1) return;
+  const sep = ';';
+  const header = ['Métier','Clients','Actifs','Prospects','CA','Couverture %'].join(sep);
+  const rows = data.metiers.map(m => [
+    `"${m.metier}"`, m.nbClients, m.nbActifs, m.nbProspects, m.caTotal.toFixed(2), m.couverture
+  ].join(sep));
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Clientele_${_S.selectedMyStore || 'AG'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+window._laboClienteleExportL2 = function() {
+  const data = _S._clienteleData;
+  if (!data || data.level !== 2) return;
+  const sep = ';';
+  const header = ['Univers','Famille','Code','Libellé','CA','Nb Clients','En Stock','Stock Actuel'].join(sep);
+  const rows = [];
+  for (const u of data.univers) {
+    for (const f of u.familles) {
+      for (const a of f.articles) {
+        rows.push([
+          `"${u.name}"`, `"${f.famName}"`, a.code, `"${(a.libelle || '').replace(/"/g, '""')}"`,
+          a.ca.toFixed(2), a.nbClients, a.enStock ? 'Oui' : a.rupture ? 'Rupture' : 'Non',
+          a.stockActuel ?? ''
+        ].join(sep));
+      }
+    }
+  }
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PRISME_Clientele_${escapeHtml(data.metier)}_${_S.selectedMyStore || 'AG'}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+};
+
+// ═══════════════════════════════════════════════════════════════
 // Shuffle helper
 // ═══════════════════════════════════════════════════════════════
 
@@ -1271,6 +1592,12 @@ const LABO_TOOLTIPS = {
     🔵 <strong>À implanter</strong> — absent, score ≥50 et 2+ sources<br>
     🔴 <strong>À challenger</strong> — en stock, 0 source, 0 vente<br>
     🟡 <strong>Potentiel</strong> — signal intéressant, 1 source ou score &lt;50`,
+  clientele: `<strong>Ma Clientèle — Cartographie métiers</strong><br>
+    Visualise la répartition de vos clients par métier et leur poids dans votre CA.<br>
+    <em>Cliquez sur un métier</em> pour descendre : Univers → Famille → Articles.<br>
+    Pour chaque article : est-il en stock ? En rupture ? Absent ?<br><br>
+    <em>Source :</em> chalandise (métier, CP) × consommé (achats) × stock (rayon).<br>
+    <em>Objectif :</em> adapter votre rayon à votre clientèle locale.`,
   prisme: `<strong>Générer mon PRISME</strong><br>
     Affiche 6 analyses aléatoires parmi les requêtes en langage naturel disponibles.<br>
     Chaque puce est cliquable et lance l'analyse correspondante.`
@@ -1295,6 +1622,8 @@ function _renderTileGrid(el) {
   const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
   const sqScan = _quickScanSquelette();
   const sqSubtitle = sqScan.n === '?' ? 'Cliquez pour analyser' : `${sqScan.impl} à implanter · ${sqScan.chall} à challenger`;
+  const clScan = _quickScanClientele();
+  const clSubtitle = clScan.n === '?' ? 'Nécessite la chalandise' : `${clScan.n} métiers · ${clScan.nbClients} clients`;
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('sil')">
@@ -1332,6 +1661,12 @@ function _renderTileGrid(el) {
       <div class="text-lg mb-1">🦴</div>
       <div class="text-[13px] font-bold t-primary mb-1">SQUELETTE — Plan de stock</div>
       <div class="text-[10px] t-secondary" id="laboTileSqSub">${sqSubtitle}</div>
+    </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('clientele')">
+      ${_infoIcon('clientele')}
+      <div class="text-lg mb-1">🎯</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Ma Clientèle</div>
+      <div class="text-[10px] t-secondary" id="laboTileClSub">${clSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('prisme')">
       ${_infoIcon('prisme')}
@@ -1386,6 +1721,11 @@ window._laboOpenTile = function(tile) {
     _sqFilterDir = '';
     _sqPageMap = {};
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderSquelette(data)}</div>`;
+  } else if (tile === 'clientele') {
+    _S._clienteleMetier = null;
+    const data = computeMaClientele();
+    _S._clienteleData = data;
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
   } else if (tile === 'prisme') {
     const picked = _shuffleArray(_NL_CHIPS).slice(0, 6);
     const chips = picked.map(c => {
@@ -1457,6 +1797,10 @@ export function updateLaboTiles() {
   const sqScan = _quickScanSquelette();
   const sqSub = document.getElementById('laboTileSqSub');
   if (sqSub) sqSub.textContent = sqScan.n === '?' ? 'Cliquez pour analyser' : `${sqScan.impl} à implanter · ${sqScan.chall} à challenger`;
+
+  const clScan = _quickScanClientele();
+  const clSub = document.getElementById('laboTileClSub');
+  if (clSub) clSub.textContent = clScan.n === '?' ? 'Nécessite la chalandise' : `${clScan.n} métiers · ${clScan.nbClients} clients`;
 }
 
 // ═══════════════════════════════════════════════════════════════

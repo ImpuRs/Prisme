@@ -8,7 +8,7 @@
 // Dépend de : constants.js, utils.js, state.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
+import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE, FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 
@@ -1515,5 +1515,189 @@ export function computeSquelette(directionFilter) {
       surveiller: results.filter(a => a.classification === 'surveiller').length,
       potentiel: results.filter(a => a.classification === 'potentiel').length,
     }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MA CLIENTÈLE — Cartographie métiers + drill-down
+// Croise chalandise × ventesClientArticle × stock
+// ═══════════════════════════════════════════════════════════════
+
+export function computeMaClientele(metierFilter) {
+  if (!_S.chalandiseReady || !_S.chalandiseData?.size) return null;
+
+  const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
+
+  // ═══ NIVEAU 1 : Cartographie par métier ═══
+  if (!metierFilter) {
+    const metiers = [];
+    for (const [metier, clientSet] of _S.clientsByMetier) {
+      if (!metier) continue;
+
+      let nbActifs = 0, nbProspects = 0, caTotal = 0;
+      const articlesSet = new Set();
+
+      for (const cc of clientSet) {
+        const vca = _S.ventesClientArticle?.get(cc);
+        if (vca && vca.size > 0) {
+          nbActifs++;
+          for (const [code, data] of vca) {
+            caTotal += data.sumCA || 0;
+            articlesSet.add(code);
+          }
+        } else {
+          nbProspects++;
+        }
+      }
+
+      let articlesEnStock = 0;
+      for (const code of articlesSet) {
+        const stock = stockMap.get(code);
+        if (stock && (stock.stockActuel || 0) > 0) articlesEnStock++;
+      }
+
+      const articlesTotaux = articlesSet.size;
+      const couverture = articlesTotaux > 0 ? Math.round(articlesEnStock / articlesTotaux * 100) : 0;
+
+      metiers.push({
+        metier, nbClients: clientSet.size, nbActifs, nbProspects,
+        caTotal, nbArticles: articlesTotaux, couverture,
+      });
+    }
+
+    metiers.sort((a, b) => b.caTotal - a.caTotal);
+
+    return {
+      level: 1,
+      metiers,
+      totalClients: metiers.reduce((s, m) => s + m.nbClients, 0),
+      totalActifs: metiers.reduce((s, m) => s + m.nbActifs, 0),
+      totalCA: metiers.reduce((s, m) => s + m.caTotal, 0),
+      nbMetiers: metiers.length
+    };
+  }
+
+  // ═══ NIVEAU 2 : Drill-down dans un métier ═══
+  const clientSet = _S.clientsByMetier.get(metierFilter);
+  if (!clientSet || !clientSet.size) return null;
+
+  const univers = new Map();
+  const clientDetails = [];
+
+  for (const cc of clientSet) {
+    const chal = _S.chalandiseData.get(cc);
+    const vca = _S.ventesClientArticle?.get(cc);
+    const vcaHors = _S.ventesClientHorsMagasin?.get(cc);
+    if (!vca && !vcaHors) {
+      // Prospect sans achats
+      clientDetails.push({
+        cc, nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+        cp: chal?.cp || '', commercial: chal?.commercial || '',
+        classification: chal?.classification || '', statut: chal?.statut || '',
+        ca: 0, nbFamilles: 0, isActif: false,
+      });
+      continue;
+    }
+
+    let clientCA = 0;
+    const clientFamilles = new Set();
+
+    const _agg = (code, ca, countBL) => {
+      const famCode = _S.articleFamille?.[code] || '';
+      if (!famCode) return;
+      const letter = famCode.match(/^[A-Z]/)?.[0] || '';
+      const univName = FAM_LETTER_UNIVERS[letter] || 'Autre';
+      const famName = FAMILLE_LOOKUP[famCode] || famCode;
+      clientFamilles.add(famCode);
+
+      if (!univers.has(univName)) univers.set(univName, { ca: 0, familles: new Map() });
+      const u = univers.get(univName);
+      u.ca += ca;
+      if (!u.familles.has(famCode)) u.familles.set(famCode, { famCode, famName, ca: 0, articles: new Map() });
+      const f = u.familles.get(famCode);
+      f.ca += ca;
+      if (!f.articles.has(code)) {
+        const stock = stockMap.get(code);
+        f.articles.set(code, {
+          code, libelle: _S.libelleLookup?.[code] || code,
+          ca: 0, countBL: 0,
+          enStock: stock ? (stock.stockActuel || 0) > 0 : false,
+          rupture: stock ? (stock.stockActuel || 0) === 0 && !!stock.emplacement : false,
+          stockActuel: stock?.stockActuel ?? null,
+          nbClients: 0,
+        });
+      }
+      const art = f.articles.get(code);
+      art.ca += ca;
+      art.countBL += countBL || 0;
+      art.nbClients++;
+    };
+
+    if (vca) {
+      for (const [code, data] of vca) {
+        const ca = data.sumCA || 0;
+        clientCA += ca;
+        _agg(code, ca, data.countBL || 0);
+      }
+    }
+    if (vcaHors) {
+      for (const [code, data] of vcaHors) {
+        const ca = data.sumCA || 0;
+        clientCA += ca;
+        _agg(code, ca, 0);
+      }
+    }
+
+    clientDetails.push({
+      cc, nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+      cp: chal?.cp || '', commercial: chal?.commercial || '',
+      classification: chal?.classification || '', statut: chal?.statut || '',
+      ca: clientCA, nbFamilles: clientFamilles.size, isActif: !!(vca && vca.size > 0),
+    });
+  }
+
+  clientDetails.sort((a, b) => b.ca - a.ca);
+
+  // Sort hierarchy
+  const univSorted = [...univers.entries()]
+    .map(([name, u]) => ({
+      name, ca: u.ca,
+      familles: [...u.familles.values()]
+        .map(f => ({
+          ...f,
+          articles: [...f.articles.values()].sort((a, b) => b.ca - a.ca),
+          nbEnStock: [...f.articles.values()].filter(a => a.enStock).length,
+          nbTotal: f.articles.size,
+          couverture: f.articles.size > 0
+            ? Math.round([...f.articles.values()].filter(a => a.enStock).length / f.articles.size * 100)
+            : 0
+        }))
+        .sort((a, b) => b.ca - a.ca)
+    }))
+    .sort((a, b) => b.ca - a.ca);
+
+  const totalArticles = new Set();
+  const totalEnStock = new Set();
+  for (const u of univSorted) {
+    for (const f of u.familles) {
+      for (const a of f.articles) {
+        totalArticles.add(a.code);
+        if (a.enStock) totalEnStock.add(a.code);
+      }
+    }
+  }
+
+  return {
+    level: 2,
+    metier: metierFilter,
+    nbClients: clientSet.size,
+    nbActifs: clientDetails.filter(c => c.isActif).length,
+    nbProspects: clientDetails.filter(c => !c.isActif).length,
+    caTotal: clientDetails.reduce((s, c) => s + c.ca, 0),
+    couvertureGlobale: totalArticles.size > 0 ? Math.round(totalEnStock.size / totalArticles.size * 100) : 0,
+    univers: univSorted,
+    clients: clientDetails,
+    nbArticlesDistincts: totalArticles.size,
+    nbArticlesEnStock: totalEnStock.size,
   };
 }
