@@ -1545,6 +1545,8 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       // Ne PAS créer d'entrée dans ventesClientArticle ici — seules les lignes MAGASIN (L1686) le font
       if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
       {const _ccA=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());const _codeA=cleanCode((getVal(row,'Article','Code')||'').toString());const _skA=extractStoreCode(row)||'INCONNU';if(_ccA&&_codeA&&(!_S.selectedMyStore||_skA==='INCONNU'||_skA===_S.selectedMyStore)){const _caAT=(getCaColumn(row,'prél')||0)+(getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0);if(_caAT>0){if(!_tempCAAll.has(_ccA))_tempCAAll.set(_ccA,new Map());const _amA=_tempCAAll.get(_ccA);_amA.set(_codeA,(_amA.get(_codeA)||0)+_caAT);}}}
+      // clientNomLookup — ALL canals, before the canal split, so hors-MAGASIN clients get named too
+      if(!isRefilter){const _ccNom=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());if(_ccNom&&!_S.clientNomLookup[_ccNom]){const _rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const _di=_rawFull.indexOf(' - ');if(_di>=0)_S.clientNomLookup[_ccNom]=_rawFull.slice(_di+3).trim();}}
       if(_S.storesIntersection.size>0?canal!=='MAGASIN':canal!==''&&canal!=='MAGASIN'){
         // Canaux hors MAGASIN — filtre période + accumulation ventesParMagasinByCanal
         if(canal){
@@ -1572,8 +1574,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=(getVal(row,'Numéro de commande','commande','N° commande')||getVal(row,'BL','Numéro','N° BL')||'').toString().trim()||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
-      // _S.clientNomLookup : extrait "NOM" depuis "CODE - NOM" (première occurrence)
-      if(cc2&&!_S.clientNomLookup[cc2]){const rawFull=(getVal(row,'Code et nom client','Code client','Client')||'').toString().trim();const di=rawFull.indexOf(' - ');if(di>=0)_S.clientNomLookup[cc2]=rawFull.slice(di+3).trim();}
+      // clientNomLookup already populated above (before canal split) for ALL canals
       // ventesClientArticle = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
       if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}
