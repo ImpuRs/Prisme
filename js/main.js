@@ -4288,7 +4288,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     _S._globalPeriodePreset = val || '12M';
     const note = document.getElementById('saisonPeriodeNote');
     if (note) note.classList.toggle('hidden', _S._globalPeriodePreset === '12M');
-    renderSaisonWidget();
   }
   window.setPeriodePreset = setPeriodePreset;
 
@@ -4587,8 +4586,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     })();
 
     renderCockpitEquation();
-    // Feature D — Préconisation saisonnière (projection du mois courant, zéro structure _S)
-    renderSaisonWidget();
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
     // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
@@ -4597,17 +4594,16 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     renderHealthScore();
     renderIRABanner();
     renderTabBadges();
-    renderCockpitRupClients();
 
     // ── Sidebar pills + inline summaries (fusion Stock+Analyse) ──
-    _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:0,saso:lstS.length,colis:lstColis.length,rupClients:0};
+    const _saisonCount=Object.keys(_S.seasonalIndex).length>0?_getSaisonCandidats().length:0;
+    _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:_saisonCount,saso:lstS.length,colis:lstColis.length,rupClients:0};
     // rupClients count
     {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
     _renderStockPills();
     // Inline summaries
     {const _si=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
     _si('valeurStockInline',`${formatEuro(totalValue)} · ${dataSource.length.toLocaleString('fr-FR')} ref.`);
-    _si('rupClientsInline',_S.cockpitCounts.rupClients>0?`${_S.cockpitCounts.rupClients} clients`:'');
     }
   }
 
