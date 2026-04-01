@@ -820,10 +820,16 @@ function _renderClientSaisonnier(opps, monthOffset) {
 
   const totalMontant = filtered.reduce((s, o) => s + o.montantPotentiel, 0);
 
-  // Toggle
-  const toggleHtml = `<div class="flex items-center gap-2 mb-3">
+  // Toggle (masqué en mode réachat — le mois cible ne change rien)
+  const fullYear = _hasFullYear();
+  const toggleHtml = fullYear
+    ? `<div class="flex items-center gap-2 mb-3">
     <button onclick="window._laboSaisonToggle(0)" class="text-[10px] px-3 py-1 rounded-full border ${isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[new Date().getMonth()]}</button>
     <button onclick="window._laboSaisonToggle(1)" class="text-[10px] px-3 py-1 rounded-full border ${!isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[(new Date().getMonth() + 1) % 12]}</button>
+    <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
+  </div>`
+    : `<div class="flex items-center gap-2 mb-3">
+    <span class="text-sm font-bold t-inverse">📅 Opportunités de réachat</span>
     <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
   </div>`;
 
