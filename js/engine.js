@@ -714,7 +714,7 @@ export function generateDecisionQueue() {
   if (_S.clientOmniScore?.size && _S.ventesClientArticle?.size) {
     const drifters = [];
     for (const [cc, omni] of _S.clientOmniScore) {
-      if (omni.segment !== 'digital') continue;
+      if (omni.caPDV <= 0 || omni.caHors <= 0) continue; // must have both PDV and hors history
       if (omni.caPDV < 200 || omni.caHors < 500) continue;
       if (omni.silenceDays < 90) continue;
       drifters.push({ cc, nom: _S.clientNomLookup?.[cc] || cc, ...omni });
@@ -1088,8 +1088,13 @@ export function computeReseauHeatmap() {
 
 // ── Score omnicanalité par client ─────────────────────────────────────────
 // Segmente chaque client en : mono / hybride / digital / dormant
-// et calcule un score 0-100 (ancrage PDV + fréquence + récence)
-// Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
+// Segmentation par nombre de canaux distincts :
+//   purComptoir = MAGASIN uniquement (1 canal)
+//   purHors     = jamais MAGASIN, uniquement DCS/Internet/Représentant/Autre
+//   hybride     = MAGASIN + 1 ou 2 autres canaux (2-3 canaux)
+//   full        = 4+ canaux distincts
+// Score omnicanal = nombre de canaux distincts (1 à 4+)
+// Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays}>
 export function computeOmniScores() {
   const scores = new Map();
   const now = new Date();
@@ -1104,26 +1109,28 @@ export function computeOmniScores() {
     let caPDV = 0;
     if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
     let caHors = 0;
-    if (horArts) for (const [, v] of horArts) caHors += v.sumCA || 0;
+    const canaux = new Set();
+    if (caPDV > 0) canaux.add('MAGASIN');
+    if (horArts) {
+      for (const [, v] of horArts) {
+        caHors += v.sumCA || 0;
+        if (v.canal) canaux.add(v.canal);
+      }
+    }
+    const nbCanaux = canaux.size;
+    const caTotal = caPDV + caHors;
     const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
     const lastPDV = _S.clientLastOrder?.get(cc);
     const silenceDays = lastPDV ? Math.round((now - lastPDV) / 86400000) : 999;
-    // Segment — seuil strict caHors=0 pour Mono (aligné sur Top PDV seuil 100€)
+    // Segment par nombre de canaux
     let segment;
-    if (silenceDays > 180 && caHors === 0) segment = 'dormant';
-    else if (caHors > 0 && (caPDV < 50 || caHors > caPDV * 1.5)) segment = 'digital';
-    else if (caHors > 0 && caPDV > 0) segment = 'hybride';
-    else segment = 'mono'; // caHors === 0 ET actif ≤ 180j
-    // Score 0-100 : ancrage PDV (40) + fréquence (30) + récence (30)
-    const total = caPDV + caHors;
-    let score = 0;
-    if (total > 0) {
-      const recency = Math.max(0, 1 - silenceDays / 180);
-      const freqScore = Math.min(nbBL / 12, 1);
-      const pdvShare = caPDV / total;
-      score = Math.round(pdvShare * 40 + freqScore * 30 + recency * 30);
-    }
-    scores.set(cc, { segment, score, caPDV, caHors, nbBL, silenceDays });
+    if (nbCanaux >= 4) segment = 'full';
+    else if (canaux.has('MAGASIN') && nbCanaux >= 2) segment = 'hybride';
+    else if (!canaux.has('MAGASIN') && nbCanaux >= 1) segment = 'purHors';
+    else segment = 'purComptoir'; // MAGASIN uniquement (ou aucun canal avec CA)
+    // Score = nombre de canaux distincts
+    const score = nbCanaux;
+    scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });
   }
   _S.clientOmniScore = scores;
 }
