@@ -2642,10 +2642,9 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));
     }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
-    if(degraded){_buildDegradedCockpit();_renderRecoStock();return;}
+    if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
-      _renderRecoStock();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -2676,7 +2675,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       const _ccEl=document.getElementById('terrKpiCouvertureInfo');if(_ccEl)_ccEl.classList.toggle('hidden',!_canalGlobal);
       const _ctEl=document.getElementById('terrContribTitle');if(_ctEl){if(_canalGlobal)_ctEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _ctEl.textContent='🔗 Contributeurs agence';}
       renderInsightsBanner();
-      _renderRecoStock();
       return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
     }
 
@@ -2813,7 +2811,6 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}${_copyCodeBtn(a.code)}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 t-disabled">Aucun article</td></tr>';
-    _renderRecoStock();
 
     // Clients top 50 — filtered by same filters as direction/top100 views + client search
     const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
@@ -4636,6 +4633,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const isFiltered=globalFilters.length>0;
     const badge=document.getElementById('radarFilterBadge');
     if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
+    _renderRecoStock();
     const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
