@@ -1009,6 +1009,37 @@ export function renderLaboTab() {
   _renderTileGrid(el);
 }
 
+// ── Tooltip definitions ──
+const LABO_TOOLTIPS = {
+  sil: `<strong>Commercial × Silencieux</strong><br>
+    Croise la liste des commerciaux (chalandise) avec les clients silencieux (30-60j) et perdus (&gt;60j).<br>
+    <em>Source :</em> chalandise.commercial + clientLastOrder (consommé MAGASIN).<br>
+    <em>CA en jeu :</em> somme du CA PDV historique des clients concernés.`,
+  fam: `<strong>Famille × Commercial</strong><br>
+    Pour chaque commercial, identifie les familles achetées par ses clients vs. les familles attendues (inférées depuis le réseau).<br>
+    <em>Source :</em> chalandise.metier × ventesClientArticle × FAMILLE_LOOKUP.<br>
+    <em>Opportunité :</em> nb clients du métier sans achat dans la famille attendue.`,
+  stock: `<strong>Familles en ligne × Stock</strong><br>
+    Détecte les familles fortement commandées en ligne (Internet, DCS) mais absentes ou sous-stockées en rayon.<br>
+    <em>Source :</em> ventesClientHorsMagasin × finalData (stock actuel).<br>
+    <em>Potentiel bascule :</em> CA hors-magasin récupérable si articles en rayon.`,
+  emp: `<strong>Emplacement × Performance</strong><br>
+    Analyse le rendement de chaque emplacement : CA généré ÷ valeur stock immobilisée.<br>
+    <em>Source :</em> finalData (emplacement, stockActuel, PRMP) × ventesParMagasin (CA PDV).<br>
+    <em>Rendement :</em> un ratio &gt;10× indique un emplacement très productif.`,
+  saison: `<strong>Client × Saisonnalité</strong><br>
+    Croise l'historique d'achat de chaque client avec le calendrier saisonnier des familles.<br>
+    <em>Source :</em> articleMonthlySales × seasonalIndex × ventesClientArticle.<br>
+    <em>Opportunité :</em> clients qui achètent habituellement ce mois mais pas encore cette année.`,
+  prisme: `<strong>Générer mon PRISME</strong><br>
+    Affiche 6 analyses aléatoires parmi les requêtes en langage naturel disponibles.<br>
+    Chaque puce est cliquable et lance l'analyse correspondante.`
+};
+
+const _infoIcon = (key) => LABO_TOOLTIPS[key]
+  ? `<span class="labo-info-tip" onclick="event.stopPropagation()">ⓘ<span class="labo-info-bubble">${LABO_TOOLTIPS[key]}</span></span>`
+  : '';
+
 function _renderTileGrid(el) {
   const silScan = _quickScanSilencieux();
   const famScan = _quickScanFamille();
@@ -1024,32 +1055,38 @@ function _renderTileGrid(el) {
   const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('sil')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('sil')">
+      ${_infoIcon('sil')}
       <div class="text-lg mb-1">🔀</div>
       <div class="text-[13px] font-bold t-primary mb-1">Commercial × Silencieux</div>
       <div class="text-[10px] t-secondary" id="laboTileSilSub">${silSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('fam')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('fam')">
+      ${_infoIcon('fam')}
       <div class="text-lg mb-1">🧬</div>
       <div class="text-[13px] font-bold t-primary mb-1">Famille × Commercial</div>
       <div class="text-[10px] t-secondary" id="laboTileFamSub">${famSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('stock')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('stock')">
+      ${_infoIcon('stock')}
       <div class="text-lg mb-1">🛒</div>
       <div class="text-[13px] font-bold t-primary mb-1">Familles en ligne × Stock</div>
       <div class="text-[10px] t-secondary" id="laboTileStockSub">${stockSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('emp')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('emp')">
+      ${_infoIcon('emp')}
       <div class="text-lg mb-1">📍</div>
       <div class="text-[13px] font-bold t-primary mb-1">Emplacement × Performance</div>
       <div class="text-[10px] t-secondary" id="laboTileEmpSub">${empSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('saison')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('saison')">
+      ${_infoIcon('saison')}
       <div class="text-lg mb-1">🌡️</div>
       <div class="text-[13px] font-bold t-primary mb-1">Client × Saisonnalité</div>
       <div class="text-[10px] t-secondary" id="laboTileSaisonSub">${saisonSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('prisme')">
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('prisme')">
+      ${_infoIcon('prisme')}
       <div class="text-lg mb-1">🎲</div>
       <div class="text-[13px] font-bold t-primary mb-1">Générer mon PRISME</div>
       <div class="text-[10px] t-secondary">6 analyses aléatoires</div>

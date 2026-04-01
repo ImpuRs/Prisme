@@ -1185,3 +1185,79 @@ export function computeFamillesHors() {
     .filter(r => r.caHors >= 200)
     .sort((a, b) => b.caHors - a.caHors);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Recommandations Stock par direction (Omnicanalité)
+// Croise territoireLines × finalData × ventesParMagasin
+// ═══════════════════════════════════════════════════════════════
+
+export function computeRecoStock() {
+  if (!_S.territoireReady || !_S.territoireLines?.length) return null;
+
+  const fd = _S.finalData || [];
+  const stockMap = new Map(fd.map(r => [r.code, r]));
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+
+  // 1. Agréger par article depuis territoireLines
+  const artAgg = new Map();
+  for (const l of _S.territoireLines) {
+    if (l.isSpecial) continue;
+    if (!artAgg.has(l.code)) {
+      artAgg.set(l.code, {
+        code: l.code, libelle: l.libelle, direction: l.direction,
+        ca: 0, blSet: new Set(), rayonStatus: l.rayonStatus,
+        clientSet: new Set()
+      });
+    }
+    const a = artAgg.get(l.code);
+    a.ca += l.ca;
+    a.blSet.add(l.bl);
+    if (l.clientCode) a.clientSet.add(l.clientCode);
+  }
+
+  // 2. Enrichir avec réseau + stock
+  for (const [code, agg] of artAgg) {
+    let nbAgences = 0;
+    for (const [store, arts] of Object.entries(vpm)) {
+      if (store === myStore) continue;
+      if (arts[code]?.countBL > 0) nbAgences++;
+    }
+    agg.nbAgencesReseau = nbAgences;
+    const stock = stockMap.get(code);
+    agg.stockActuel = stock?.stockActuel ?? null;
+    agg.emplacement = stock?.emplacement || '';
+  }
+
+  // 3. Filtrer : ABSENTS (red) + RUPTURES (yellow, stock=0)
+  const recos = [];
+  for (const [, a] of artAgg) {
+    const isAbsent = a.rayonStatus === 'red';
+    const isRupture = a.rayonStatus === 'yellow' && (a.stockActuel === 0 || a.stockActuel === null);
+    if (!isAbsent && !isRupture) continue;
+    recos.push({
+      code: a.code, libelle: a.libelle, direction: a.direction,
+      ca: a.ca, nbBL: a.blSet.size, nbClients: a.clientSet.size,
+      nbAgencesReseau: a.nbAgencesReseau,
+      type: isRupture ? 'rupture' : 'absent',
+      score: a.blSet.size * (1 + Math.min(a.nbAgencesReseau, 5) * 0.2)
+    });
+  }
+
+  // 4. Grouper par direction, trier par score
+  const byDir = new Map();
+  for (const r of recos) {
+    if (!byDir.has(r.direction)) byDir.set(r.direction, []);
+    byDir.get(r.direction).push(r);
+  }
+  for (const [, list] of byDir) list.sort((a, b) => b.score - a.score);
+
+  return [...byDir.entries()]
+    .map(([dir, list]) => ({
+      direction: dir, recos: list,
+      totalCA: list.reduce((s, r) => s + r.ca, 0),
+      nbAbsents: list.filter(r => r.type === 'absent').length,
+      nbRuptures: list.filter(r => r.type === 'rupture').length
+    }))
+    .sort((a, b) => b.totalCA - a.totalCA);
+}

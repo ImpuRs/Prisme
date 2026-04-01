@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors, computeRecoStock } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
@@ -2675,6 +2675,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       const _ccEl=document.getElementById('terrKpiCouvertureInfo');if(_ccEl)_ccEl.classList.toggle('hidden',!_canalGlobal);
       const _ctEl=document.getElementById('terrContribTitle');if(_ctEl){if(_canalGlobal)_ctEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _ctEl.textContent='🔗 Contributeurs agence';}
       renderInsightsBanner();
+      _renderRecoStock();
       return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
     }
 
@@ -2811,6 +2812,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       p100+=`<tr class="border-b text-[11px] ${rowBg}"><td class="py-1.5 px-2 font-mono">${a.code}${_copyCodeBtn(a.code)}</td><td class="py-1.5 px-2 max-w-[200px] truncate" title="${a.libelle}">${a.libelle}</td><td class="py-1.5 px-2">${a.direction}</td><td class="py-1.5 px-2 text-center">${a.bl.size}</td><td class="py-1.5 px-2 text-right font-bold">${formatEuro(a.caTotal)}</td><td class="py-1.5 px-2 text-center">${rayonIcon}</td><td class="py-1.5 px-2 text-right">${stockQty}</td></tr>`;
     }
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 t-disabled">Aucun article</td></tr>';
+    _renderRecoStock();
 
     // Clients top 50 — filtered by same filters as direction/top100 views + client search
     const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
@@ -2844,6 +2846,106 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     });
 
   }
+
+  // ── Recommandations stock par direction (Omnicanalité) ──────────
+  function _renderRecoStock() {
+    const el = document.getElementById('terrRecoStockBlock');
+    if (!el) return;
+    const data = computeRecoStock();
+    if (!data || !data.length) { el.innerHTML = ''; return; }
+    const totalRecos = data.reduce((s, d) => s + d.recos.length, 0);
+    const totalCA = data.reduce((s, d) => s + d.totalCA, 0);
+    const dirsHtml = data.map((d, idx) => {
+      const top10 = d.recos.slice(0, 10);
+      const hasMore = d.recos.length > 10;
+      const rowsHtml = top10.map(r => {
+        const typeBadge = r.type === 'rupture'
+          ? '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture</span>'
+          : '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
+        const reseauBadge = r.nbAgencesReseau >= 3
+          ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dbeafe;color:#1e40af">${r.nbAgencesReseau} agences</span>`
+          : r.nbAgencesReseau > 0
+            ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">${r.nbAgencesReseau} ag.</span>`
+            : '';
+        return `<tr class="border-b b-light hover:s-hover text-[11px]">
+          <td class="py-1.5 px-2">${_copyCodeBtn(r.code)}</td>
+          <td class="py-1.5 px-2">${escapeHtml(r.libelle)}</td>
+          <td class="py-1.5 px-2 text-center">${typeBadge}</td>
+          <td class="py-1.5 px-2 text-right font-bold">${r.nbBL}</td>
+          <td class="py-1.5 px-2 text-right">${r.nbClients}</td>
+          <td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(r.ca)}</td>
+          <td class="py-1.5 px-2 text-center">${reseauBadge}</td>
+        </tr>`;
+      }).join('');
+      const moreHtml = hasMore
+        ? `<div class="px-3 py-2 text-[10px] t-disabled">… et ${d.recos.length - 10} autres articles</div>`
+        : '';
+      const csvBtn = `<button onclick="event.stopPropagation();window._exportRecoCSV('${escapeHtml(d.direction)}')" class="text-[9px] px-2 py-1 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Export CSV">CSV</button>`;
+      return `<details class="border-b b-light" ${idx === 0 ? 'open' : ''}>
+        <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-[12px] t-primary">${escapeHtml(d.direction)}</span>
+            <span class="text-[9px] t-disabled">${d.recos.length} articles</span>
+            <span class="text-[9px] font-bold c-danger">${d.nbAbsents} absents</span>
+            <span class="text-[9px] font-bold c-caution">${d.nbRuptures} ruptures</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-bold t-primary">${formatEuro(d.totalCA)}</span>
+            ${csvBtn}
+            <span class="acc-arrow t-disabled">▶</span>
+          </div>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="min-w-full">
+            <thead class="s-panel-inner t-inverse text-[10px]">
+              <tr>
+                <th class="py-1.5 px-2 text-left">Code</th>
+                <th class="py-1.5 px-2 text-left">Libellé</th>
+                <th class="py-1.5 px-2 text-center">Statut</th>
+                <th class="py-1.5 px-2 text-right">Nb BL</th>
+                <th class="py-1.5 px-2 text-right">Clients</th>
+                <th class="py-1.5 px-2 text-right">CA Terrain</th>
+                <th class="py-1.5 px-2 text-center">Réseau</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        ${moreHtml}
+      </details>`;
+    }).join('');
+    const infoTip = `PRISME croise les BL livrés hors agence (fichier Livraisons) avec votre stock actuel et le réseau. Les articles sont triés par fréquence de BL × présence réseau. Un article livré 100+ fois sur votre zone et vendu par 3+ agences est un candidat prioritaire pour votre rayon.`;
+    el.innerHTML = `<details class="s-card rounded-xl border overflow-hidden">
+      <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+        <h3 class="font-extrabold text-sm t-primary">
+          📦 Recommandations stock
+          <span class="text-[10px] font-normal t-disabled ml-1">${totalRecos} articles · ${formatEuro(totalCA)} CA terrain</span>
+          <span class="labo-info-tip ml-1" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ<span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span></span>
+        </h3>
+        <span class="acc-arrow t-disabled">▶</span>
+      </summary>
+      <div>${dirsHtml}</div>
+    </details>`;
+  }
+
+  window._exportRecoCSV = function(direction) {
+    const data = computeRecoStock();
+    if (!data) return;
+    const dirData = data.find(d => d.direction === direction);
+    if (!dirData) return;
+    const sep = ';';
+    const header = ['Code', 'Libellé', 'Statut', 'Nb BL', 'Nb Clients', 'CA Terrain', 'Agences Réseau', 'Score'].join(sep);
+    const rows = dirData.recos.map(r =>
+      [r.code, `"${(r.libelle || '').replace(/"/g, '""')}"`, r.type, r.nbBL, r.nbClients, r.ca.toFixed(2), r.nbAgencesReseau, r.score.toFixed(1)].join(sep)
+    );
+    const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `PRISME_Reco_Stock_${direction.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
 
   // Toggle direction row — shows famille breakdown (lazy)
   function toggleTerrDir(rowId,encDir){
