@@ -20,15 +20,41 @@ export async function loadCatalogueMarques() {
 
     _S.catalogueMarques = new Map();
     _S.marqueArticles = new Map();
+    _S.catalogueDesignation = new Map();
+    _S.catalogueFamille = new Map();
 
-    for (const [rawCode, marque] of Object.entries(data)) {
-      const code = rawCode.replace(/^0+/, '').padStart(6, '0');
-      _S.catalogueMarques.set(code, marque);
-      if (!_S.marqueArticles.has(marque)) _S.marqueArticles.set(marque, new Set());
-      _S.marqueArticles.get(marque).add(code);
+    // Detect format: new indexed format has M/F/A keys
+    if (data.M && data.F && data.A) {
+      const marques = data.M;   // string[]
+      const familles = data.F;  // [libFam, sousFam][]
+      const articles = data.A;  // {code: [mIdx, fIdx, designation]}
+
+      for (const [rawCode, entry] of Object.entries(articles)) {
+        const code = rawCode.replace(/^0+/, '').padStart(6, '0');
+        const [mIdx, fIdx, designation] = entry;
+        const marque = marques[mIdx] || 'Inconnu';
+
+        _S.catalogueMarques.set(code, marque);
+        if (!_S.marqueArticles.has(marque)) _S.marqueArticles.set(marque, new Set());
+        _S.marqueArticles.get(marque).add(code);
+
+        if (designation) _S.catalogueDesignation.set(code, designation);
+        if (familles[fIdx]) {
+          const [libFam, sousFam] = familles[fIdx];
+          _S.catalogueFamille.set(code, { libFam: libFam || '', sousFam: sousFam || '' });
+        }
+      }
+    } else {
+      // Legacy flat format: {code: marque}
+      for (const [rawCode, marque] of Object.entries(data)) {
+        const code = rawCode.replace(/^0+/, '').padStart(6, '0');
+        _S.catalogueMarques.set(code, marque);
+        if (!_S.marqueArticles.has(marque)) _S.marqueArticles.set(marque, new Set());
+        _S.marqueArticles.get(marque).add(code);
+      }
     }
 
-    _S.marquesList = [..._S.marqueArticles.keys()].sort();
+    _S.marquesList = [..._S.marqueArticles.keys()].filter(m => typeof m === 'string' && m.length > 0).sort();
     console.log(`[PRISME] Catalogue marques : ${_S.catalogueMarques.size} articles, ${_S.marquesList.length} marques`);
   } catch (e) {
     console.warn('[PRISME] Erreur chargement catalogue marques:', e);
@@ -52,7 +78,7 @@ export function initAnimationSearch() {
       if (q.length < 2) { results.classList.add('hidden'); return; }
 
       const matches = (_S.marquesList || [])
-        .filter(m => m.toLowerCase().includes(q))
+        .filter(m => m && typeof m === 'string' && m.toLowerCase().includes(q))
         .slice(0, 15);
 
       if (!matches.length) {
@@ -166,9 +192,11 @@ function _renderAnimation(data) {
   data.familles.forEach((f, fi) => {
     const top20 = f.articles.slice(0, 20);
     const hasMore = f.articles.length > 20;
+    const hasSousFam = f.articles.some(a => a.sousFam);
     const artRows = top20.map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
       <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      ${hasSousFam ? `<td class="py-1.5 px-2 text-[9px] t-secondary max-w-[120px] truncate" title="${escapeHtml(a.sousFam || '')}">${escapeHtml(a.sousFam || '—')}</td>` : ''}
       <td class="py-1.5 px-2 text-center">${_stockBadge(a.stockStatus, a.stockActuel)}</td>
       <td class="py-1.5 px-2 text-right font-bold c-action">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
       <td class="py-1.5 px-2 text-right">${a.nbClients > 0 ? a.nbClients : '—'}</td>
@@ -192,7 +220,7 @@ function _renderAnimation(data) {
       <div class="overflow-x-auto">
         <table class="min-w-full">
           <thead class="s-panel-inner t-inverse text-[10px]">
-            <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">Stock</th><th class="py-1.5 px-2 text-right">CA agence</th><th class="py-1.5 px-2 text-right">Clients</th><th class="py-1.5 px-2 text-center">Réseau</th></tr>
+            <tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${hasSousFam ? '<th class="py-1.5 px-2 text-left">Sous-famille</th>' : ''}<th class="py-1.5 px-2 text-center">Stock</th><th class="py-1.5 px-2 text-right">CA agence</th><th class="py-1.5 px-2 text-right">Clients</th><th class="py-1.5 px-2 text-center">Réseau</th></tr>
           </thead>
           <tbody id="animFamArts_${fi}">${artRows}</tbody>
         </table>
@@ -268,9 +296,11 @@ window._animMoreFamArts = function(el, fi) {
   if (!f) return;
   const tbody = document.getElementById(`animFamArts_${fi}`);
   if (!tbody) return;
+  const hasSousFam = f.articles.some(a => a.sousFam);
   tbody.innerHTML = f.articles.map(a => `<tr class="border-b b-light hover:s-hover text-[11px]">
     <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
     <td class="py-1.5 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+    ${hasSousFam ? `<td class="py-1.5 px-2 text-[9px] t-secondary max-w-[120px] truncate" title="${escapeHtml(a.sousFam || '')}">${escapeHtml(a.sousFam || '—')}</td>` : ''}
     <td class="py-1.5 px-2 text-center">${_stockBadge(a.stockStatus, a.stockActuel)}</td>
     <td class="py-1.5 px-2 text-right font-bold c-action">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
     <td class="py-1.5 px-2 text-right">${a.nbClients > 0 ? a.nbClients : '—'}</td>
@@ -305,9 +335,9 @@ window._animExportArticles = function() {
   const data = _S._animationData;
   if (!data) return;
   const sep = ';';
-  const header = ['Code', 'Libellé', 'Famille', 'Stock', 'Stock actuel', 'CA agence', 'Agences réseau'].join(sep);
+  const header = ['Code', 'Libellé', 'Famille', 'Sous-famille', 'Stock', 'Stock actuel', 'CA agence', 'Agences réseau'].join(sep);
   const rows = data.articles.map(a => [
-    a.code, `"${(a.libelle || '').replace(/"/g, '""')}"`, `"${a.famLabel}"`,
+    a.code, `"${(a.libelle || '').replace(/"/g, '""')}"`, `"${a.famLabel}"`, `"${a.sousFam || ''}"`,
     a.stockStatus === 'enStock' ? 'En stock' : a.stockStatus === 'rupture' ? 'Rupture' : 'Absent',
     a.stockActuel ?? '', a.caAgence.toFixed(2), a.nbAgencesReseau
   ].join(sep));
