@@ -1206,6 +1206,7 @@ window._laboSqExportAll = function() {
 // ═══════════════════════════════════════════════════════════════
 
 let _clPage = 20;
+let _clDistKm = null; // null = no filter
 
 function _quickScanClientele() {
   if (!_S.chalandiseReady || !_S.clientsByMetier?.size) return { n: '?', top: '', nbClients: 0 };
@@ -1229,6 +1230,18 @@ function _renderMaClientele(data) {
 
   if (data.level === 1) return _renderClienteleL1(data);
   return _renderClienteleL2(data);
+}
+
+function _distSliderHtml() {
+  const hasDist = _S.chalandiseData && [..._S.chalandiseData.values()].some(i => i.distanceKm != null);
+  if (!hasDist) return '';
+  const val = _clDistKm || 100;
+  const label = (!_clDistKm || _clDistKm >= 100) ? 'Tous' : _clDistKm + ' km';
+  return `<div class="flex items-center gap-3 mb-4 px-1">
+    <span class="text-[11px] font-bold t-primary">📍 Rayon :</span>
+    <input type="range" min="5" max="100" step="5" value="${val}" oninput="window._laboClienteleDistChange(this.value)" class="flex-1" style="max-width:200px;accent-color:var(--c-action,#8b5cf6)">
+    <span class="text-[11px] font-bold c-action min-w-[40px]" id="clDistLabel">${label}</span>
+  </div>`;
 }
 
 function _renderClienteleL1(data) {
@@ -1264,11 +1277,12 @@ function _renderClienteleL1(data) {
 
   return `<div class="flex items-center justify-between mb-3">
     <div>
-      <h3 class="font-extrabold text-sm t-primary">🎯 Ma Clientèle — ${data.nbMetiers} métiers · ${data.totalClients} clients · ${formatEuro(data.totalCA)}</h3>
+      <h3 class="font-extrabold text-sm t-primary">🎯 Ma Clientèle${_clDistKm && _clDistKm < 100 ? ' — ' + _clDistKm + ' km' : ''} — ${data.nbMetiers} métiers · ${data.totalClients} clients · ${formatEuro(data.totalCA)}</h3>
       <p class="text-[10px] t-disabled mt-0.5">${data.totalActifs} actifs · ${data.totalClients - data.totalActifs} prospects · Cliquez sur un métier pour explorer</p>
     </div>
     ${csvBtn}
   </div>
+  ${_distSliderHtml()}
   ${barHtml}
   <div class="overflow-x-auto">
     <table class="min-w-full">
@@ -1299,7 +1313,8 @@ function _renderClienteleL2(data) {
       <p class="text-[10px] t-disabled mt-0.5">Couverture stock : ${_couvertureBar(data.couvertureGlobale)} (${data.nbArticlesEnStock}/${data.nbArticlesDistincts} articles en rayon)</p>
     </div>
     <button onclick="window._laboClienteleExportL2()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 CSV</button>
-  </div>`;
+  </div>
+  ${_distSliderHtml()}`;
 
   // Univers accordions
   let univHtml = '';
@@ -1407,7 +1422,7 @@ function _renderClienteleL2(data) {
 
 window._laboClienteleDrill = function(metier) {
   _clPage = 20;
-  const data = computeMaClientele(metier);
+  const data = computeMaClientele(metier, _clDistKm);
   _S._clienteleMetier = metier;
   _S._clienteleData = data;
   const content = document.getElementById('laboTileContent');
@@ -1418,7 +1433,22 @@ window._laboClienteleDrill = function(metier) {
 
 window._laboClienteleBack = function() {
   _S._clienteleMetier = null;
-  const data = computeMaClientele();
+  const data = computeMaClientele(null, _clDistKm);
+  _S._clienteleData = data;
+  const content = document.getElementById('laboTileContent');
+  if (!content) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
+};
+
+window._laboClienteleDistChange = function(val) {
+  const v = parseInt(val) || 100;
+  _clDistKm = v >= 100 ? null : v;
+  const lbl = document.getElementById('clDistLabel');
+  if (lbl) lbl.textContent = _clDistKm ? _clDistKm + ' km' : 'Tous';
+  // Re-render current view
+  const metier = _S._clienteleMetier;
+  const data = computeMaClientele(metier || null, _clDistKm);
   _S._clienteleData = data;
   const content = document.getElementById('laboTileContent');
   if (!content) return;
@@ -1723,7 +1753,8 @@ window._laboOpenTile = function(tile) {
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderSquelette(data)}</div>`;
   } else if (tile === 'clientele') {
     _S._clienteleMetier = null;
-    const data = computeMaClientele();
+    _clDistKm = null;
+    const data = computeMaClientele(null, _clDistKm);
     _S._clienteleData = data;
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
   } else if (tile === 'prisme') {

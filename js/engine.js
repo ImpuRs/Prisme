@@ -1523,10 +1523,16 @@ export function computeSquelette(directionFilter) {
 // Croise chalandise × ventesClientArticle × stock
 // ═══════════════════════════════════════════════════════════════
 
-export function computeMaClientele(metierFilter) {
+export function computeMaClientele(metierFilter, distanceKm) {
   if (!_S.chalandiseReady || !_S.chalandiseData?.size) return null;
 
   const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
+  const _distOk = (cc) => {
+    if (!distanceKm) return true;
+    const info = _S.chalandiseData.get(cc);
+    if (!info || info.distanceKm == null) return true;
+    return info.distanceKm <= distanceKm;
+  };
 
   // ═══ NIVEAU 1 : Cartographie par métier ═══
   if (!metierFilter) {
@@ -1534,10 +1540,12 @@ export function computeMaClientele(metierFilter) {
     for (const [metier, clientSet] of _S.clientsByMetier) {
       if (!metier) continue;
 
-      let nbActifs = 0, nbProspects = 0, caTotal = 0;
+      let nbFiltered = 0, nbActifs = 0, nbProspects = 0, caTotal = 0;
       const articlesSet = new Set();
 
       for (const cc of clientSet) {
+        if (!_distOk(cc)) continue;
+        nbFiltered++;
         const vca = _S.ventesClientArticle?.get(cc);
         if (vca && vca.size > 0) {
           nbActifs++;
@@ -1559,8 +1567,10 @@ export function computeMaClientele(metierFilter) {
       const articlesTotaux = articlesSet.size;
       const couverture = articlesTotaux > 0 ? Math.round(articlesEnStock / articlesTotaux * 100) : 0;
 
+      if (nbFiltered === 0) continue;
+
       metiers.push({
-        metier, nbClients: clientSet.size, nbActifs, nbProspects,
+        metier, nbClients: nbFiltered, nbActifs, nbProspects,
         caTotal, nbArticles: articlesTotaux, couverture,
       });
     }
@@ -1585,6 +1595,7 @@ export function computeMaClientele(metierFilter) {
   const clientDetails = [];
 
   for (const cc of clientSet) {
+    if (!_distOk(cc)) continue;
     const chal = _S.chalandiseData.get(cc);
     const vca = _S.ventesClientArticle?.get(cc);
     const vcaHors = _S.ventesClientHorsMagasin?.get(cc);
@@ -1690,7 +1701,7 @@ export function computeMaClientele(metierFilter) {
   return {
     level: 2,
     metier: metierFilter,
-    nbClients: clientSet.size,
+    nbClients: clientDetails.length,
     nbActifs: clientDetails.filter(c => c.isActif).length,
     nbProspects: clientDetails.filter(c => !c.isActif).length,
     caTotal: clientDetails.reduce((s, c) => s + c.ca, 0),
