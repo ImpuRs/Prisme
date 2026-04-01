@@ -10,7 +10,7 @@
 'use strict';
 import { DQ_MIN_CA_PERDU_SEM, DQ_MIN_PRIORITY_SCORE, DQ_MIN_PU_ALERTE, DQ_MIN_FREQ_ALERTE } from './constants.js';
 import { _S } from './state.js';
-import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm } from './utils.js';
+import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
@@ -273,7 +273,8 @@ export function clientMatchesStatutDetailleFilter(info) {
 
 export function clientMatchesDirectionFilter(info) {
   if (!_S._selectedDirections.size) return true;
-  return _S._selectedDirections.has(info.direction || '');
+  const dir = info.secteur ? getSecteurDirection(info.secteur) || 'Autre' : 'Autre';
+  return _S._selectedDirections.has(dir);
 }
 
 export function clientMatchesCommercialFilter(info) {
