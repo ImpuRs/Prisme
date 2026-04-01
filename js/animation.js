@@ -8,6 +8,18 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml, famLib, _copyCodeBtn } from './utils.js';
 import { computeAnimation } from './engine.js';
 
+// Aliases marques commerciales → fournisseur catalogue
+const MARQUE_ALIASES = {
+  'dewalt': 'STANLEY BLACK & DECKER FRANCE',
+  'facom': 'STANLEY BLACK & DECKER FRANCE',
+  'black+decker': 'STANLEY BLACK & DECKER FRANCE',
+  'black decker': 'STANLEY BLACK & DECKER FRANCE',
+  'milwaukee': 'TECHTRONIC INDUSTRIES FRANCE',
+  'ryobi': 'TECHTRONIC INDUSTRIES FRANCE',
+  'hikoki': 'KOKI HOLDINGS (EUROPE)',
+  'metabo': 'KOKI HOLDINGS (EUROPE)',
+};
+
 // ═══════════════════════════════════════════════════════════════
 // Chargement du catalogue marques (async, non bloquant)
 // ═══════════════════════════════════════════════════════════════
@@ -77,22 +89,41 @@ export function initAnimationSearch() {
       const q = input.value.trim().toLowerCase();
       if (q.length < 2) { results.classList.add('hidden'); return; }
 
-      const matches = (_S.marquesList || [])
-        .filter(m => m && typeof m === 'string' && m.toLowerCase().includes(q))
-        .slice(0, 15);
+      // Direct matches on marquesList
+      const directMatches = (_S.marquesList || [])
+        .filter(m => m && typeof m === 'string' && m.toLowerCase().includes(q));
 
-      if (!matches.length) {
+      // Alias matches: check if query matches an alias key
+      const aliasHits = [];
+      const directSet = new Set(directMatches);
+      for (const [alias, marque] of Object.entries(MARQUE_ALIASES)) {
+        if (alias.includes(q) && !directSet.has(marque)) {
+          directSet.add(marque);
+          aliasHits.push({ alias, marque });
+        }
+      }
+
+      // Build unified result list: [{marque, alias?}]
+      const combined = [
+        ...aliasHits.map(h => ({ marque: h.marque, alias: h.alias })),
+        ...directMatches.map(m => ({ marque: m, alias: null })),
+      ].slice(0, 15);
+
+      if (!combined.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune marque trouvée</div>';
         results.classList.remove('hidden');
         return;
       }
 
-      results.innerHTML = matches.map(m => {
+      results.innerHTML = combined.map(({ marque: m, alias }) => {
         const nbArt = _S.marqueArticles?.get(m)?.size || 0;
         const safe = m.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const label = alias
+          ? `<span class="font-bold t-primary">${escapeHtml(alias.toUpperCase())}</span> <span class="t-disabled">→</span> <span class="t-secondary">${escapeHtml(m)}</span>`
+          : `<span class="font-bold t-primary">${escapeHtml(m)}</span>`;
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
           onclick="window._selectAnimMarque('${safe}')">
-          <span class="font-bold t-primary">${escapeHtml(m)}</span>
+          ${label}
           <span class="t-disabled ml-2">${nbArt} articles</span>
         </div>`;
       }).join('');
