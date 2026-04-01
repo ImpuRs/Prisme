@@ -259,6 +259,8 @@ _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques d�
 _S.catalogueMarques = null;    // Map<code, marque> — chargé une fois au boot
 _S.marqueArticles = null;      // Map<marque, Set<code>>
 _S.marquesList = [];           // string[] sorted — autocomplétion
+_S.catalogueDesignation = null; // Map<code, designation> — libellé catalogue
+_S.catalogueFamille = null;    // Map<code, {libFam, sousFam}> — famille + sous-famille catalogue
 _S._animationData = null;      // cache du dernier computeAnimation
 
 // ── Invalidation centralisée des caches ──────────────────────────

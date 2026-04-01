@@ -1732,7 +1732,8 @@ export function computeAnimation(marque) {
     const normCode = code.replace(/^0+/, '').padStart(6, '0');
     const stock = stockMap.get(normCode);
     const famille = _S.articleFamille?.[normCode] || '';
-    const libelle = _S.libelleLookup?.[normCode] || normCode;
+    const libelle = _S.catalogueDesignation?.get(normCode) || _S.libelleLookup?.[normCode] || normCode;
+    const catFam = _S.catalogueFamille?.get(normCode);
 
     // Status stock
     let stockStatus, stockActuel = null;
@@ -1769,7 +1770,8 @@ export function computeAnimation(marque) {
 
     articles.push({
       code: normCode, libelle, famille,
-      famLabel: famLib(famille) || famille,
+      famLabel: catFam?.libFam || famLib(famille) || famille,
+      sousFam: catFam?.sousFam || '',
       stockStatus, stockActuel,
       caAgence, blAgence,
       nbAgencesReseau, caReseau,
