@@ -663,90 +663,130 @@ function _topMonths(profile) {
   return profile.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, SAISON_TOP_N).map(x => x.i);
 }
 
+/** Détecte si l'historique couvre 12 mois (saisonnalité fiable) */
+function _hasFullYear() {
+  const ms = _S.articleMonthlySales;
+  if (!ms) return false;
+  const monthsSeen = new Set();
+  for (const months of Object.values(ms)) {
+    for (let i = 0; i < 12; i++) { if (months[i] > 0) monthsSeen.add(i); }
+    if (monthsSeen.size >= 12) return true;
+  }
+  return monthsSeen.size >= 10; // tolérance : 10 mois suffisent
+}
+
+function _clientBadge(cc) {
+  const now = Date.now();
+  let lastDate = null;
+  const canalMap = _S.clientLastOrderByCanal?.get(cc);
+  if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+  if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
+  const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+  let badge = 'perdu';
+  if (daysSince !== null && daysSince <= 30) badge = 'actif';
+  else if (daysSince !== null && daysSince <= 60) badge = 'silencieux';
+  return { lastDate, daysSince, badge };
+}
+
+function _passesGlobalFilters(cc) {
+  const info = _S.chalandiseData?.get(cc);
+  if (info) return _clientPassesFilters(info, cc) ? info : null;
+  const _hasChalFilter = _S._selectedDepts?.size > 0 || _S._selectedClassifs?.size > 0 || _S._selectedStatuts?.size > 0 || _S._selectedActivitesPDV?.size > 0 || _S._selectedDirections?.size > 0 || _S._selectedUnivers?.size > 0 || _S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._selectedStatutDetaille;
+  if (_hasChalFilter) return null;
+  return false; // no info but passes (false = no chalandise)
+}
+
 export function computeClientSaisonnier(monthOffset) {
   const mois = _getSaisonTargetMonth(monthOffset || 0);
   const fd = DataStore.finalData;
   if (!fd.length) return [];
 
-  const seasonIdx = _S.seasonalIndex;
-  if (!seasonIdx || !Object.keys(seasonIdx).length) return [];
+  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  const _currentPDV = _S.ventesClientArticle;
+  if (!_fullPDV?.size) return [];
 
-  // Phase 1 : filtrer les articles dont le mois cible est un mois "haut"
-  const seasonalArticles = new Map(); // code → {article, caMoyenGlobal}
-  for (const r of fd) {
-    if (!r.code || !r.famille) continue;
-    const profile = seasonIdx[r.famille];
-    if (!profile) continue;
-    const tops = _topMonths(profile);
-    if (!tops.includes(mois)) continue;
-    seasonalArticles.set(r.code, r);
+  // Lookup rapide des articles en stock
+  const articleLookup = new Map();
+  for (const r of fd) { if (r.code) articleLookup.set(r.code, r); }
+
+  const fullYear = _hasFullYear();
+  const seasonIdx = _S.seasonalIndex;
+
+  // ── Mode A : historique >= 12 mois → saisonnalité vraie ──
+  if (fullYear && seasonIdx && Object.keys(seasonIdx).length) {
+    const seasonalArticles = new Map();
+    for (const r of fd) {
+      if (!r.code || !r.famille) continue;
+      const profile = seasonIdx[r.famille];
+      if (!profile) continue;
+      const tops = _topMonths(profile);
+      if (!tops.includes(mois)) continue;
+      seasonalArticles.set(r.code, r);
+    }
+    if (!seasonalArticles.size) return [];
+
+    const opps = [];
+    for (const [code, article] of seasonalArticles) {
+      const clientsForArt = _S.articleClients?.get(code);
+      if (!clientsForArt?.size) continue;
+      for (const cc of clientsForArt) {
+        const filterResult = _passesGlobalFilters(cc);
+        if (filterResult === null) continue;
+        const info = filterResult || undefined;
+        if (_currentPDV?.get(cc)?.has(code)) continue;
+        const artData = _fullPDV?.get(cc)?.get(code);
+        if (!artData || (artData.sumCA || 0) <= 0) continue;
+        const { lastDate, daysSince, badge } = _clientBadge(cc);
+        opps.push({
+          cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
+          code, libelle: article.libelle || _S.libelleLookup?.[code] || code,
+          famille: famLib(article.famille) || article.famille,
+          profile: seasonIdx[article.famille],
+          montantPotentiel: artData.sumCA || 0,
+          lastDate, daysSince, badge, mode: 'saison'
+        });
+      }
+    }
+    opps.sort((a, b) => b.montantPotentiel - a.montantPotentiel);
+    return opps;
   }
 
-  if (!seasonalArticles.size) return [];
-
-  // Source : ventesClientArticleFull pour "qui a déjà acheté"
-  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
-  // Source : ventesClientArticle (filtré période courante) pour "a-t-il acheté CE MOIS"
-  const _currentPDV = _S.ventesClientArticle;
-
-  // Phase 2 : pour chaque article saisonnier, croiser avec les clients
+  // ── Mode B : historique < 12 mois → réachat potentiel ──
+  // Articles achetés par le client dans l'historique mais pas ce mois
   const opps = [];
-  for (const [code, article] of seasonalArticles) {
-    // Clients ayant déjà acheté cet article (historique complet)
-    const clientsForArt = _S.articleClients?.get(code);
-    if (!clientsForArt?.size) continue;
+  const seen = new Set(); // éviter doublons cc|code
+  for (const [cc, fullArts] of _fullPDV) {
+    const filterResult = _passesGlobalFilters(cc);
+    if (filterResult === null) continue;
+    const info = filterResult || undefined;
+    const currentArts = _currentPDV?.get(cc);
+    const { lastDate, daysSince, badge } = _clientBadge(cc);
 
-    for (const cc of clientsForArt) {
-      // Filtre chalandise
-      const info = _S.chalandiseData?.get(cc);
-      if (info && !_clientPassesFilters(info, cc)) continue;
-      // Si pas chalandise et filtres actifs, exclure
-      if (!info) {
-        const _hasChalFilter = _S._selectedDepts?.size > 0 || _S._selectedClassifs?.size > 0 || _S._selectedStatuts?.size > 0 || _S._selectedActivitesPDV?.size > 0 || _S._selectedDirections?.size > 0 || _S._selectedUnivers?.size > 0 || _S._selectedCommercial || _S._selectedMetier || _S._filterStrategiqueOnly || _S._selectedStatutDetaille;
-        if (_hasChalFilter) continue;
-      }
-
-      // Vérifier si le client N'A PAS acheté cet article ce mois (période courante)
-      const currentArts = _currentPDV?.get(cc);
+    for (const [code, artData] of fullArts) {
       if (currentArts?.has(code)) continue; // déjà commandé ce mois
+      const ca = artData.sumCA || 0;
+      if (ca <= 0) continue;
+      const article = articleLookup.get(code);
+      if (!article) continue;
+      const key = cc + '|' + code;
+      if (seen.has(key)) continue;
+      seen.add(key);
 
-      // CA moyen mensuel de cet article pour ce client
-      const fullArts = _fullPDV?.get(cc);
-      const artData = fullArts?.get(code);
-      if (!artData) continue;
-      const montantPotentiel = artData.sumCA || 0;
-      if (montantPotentiel <= 0) continue;
-
-      // Badge client
-      const now = Date.now();
-      let lastDate = null;
-      const canalMap = _S.clientLastOrderByCanal?.get(cc);
-      if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
-      if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
-      const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
-      let badge = 'perdu';
-      if (daysSince !== null && daysSince <= 30) badge = 'actif';
-      else if (daysSince !== null && daysSince <= 60) badge = 'silencieux';
-
-      const profile = seasonIdx[article.famille];
+      // Profil saisonnier si disponible (même partiel)
+      const profile = seasonIdx?.[article.famille] || null;
 
       opps.push({
-        cc,
-        nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
-        code,
-        libelle: article.libelle || _S.libelleLookup?.[code] || code,
+        cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
+        code, libelle: article.libelle || _S.libelleLookup?.[code] || code,
         famille: famLib(article.famille) || article.famille,
         profile,
-        montantPotentiel,
-        lastDate,
-        daysSince,
-        badge
+        montantPotentiel: ca,
+        lastDate, daysSince, badge, mode: 'reachat'
       });
     }
   }
-
   opps.sort((a, b) => b.montantPotentiel - a.montantPotentiel);
-  return opps;
+  return opps.slice(0, 500); // cap pour perf
 }
 
 function _miniRibbon(profile, highlightMonth) {
@@ -782,8 +822,8 @@ function _renderClientSaisonnier(opps, monthOffset) {
 
   // Toggle
   const toggleHtml = `<div class="flex items-center gap-2 mb-3">
-    <button onclick="window._laboSaisonToggle(0)" class="text-[10px] px-3 py-1 rounded-full border ${isThis ? 's-panel-inner font-bold t-primary b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[new Date().getMonth()]}</button>
-    <button onclick="window._laboSaisonToggle(1)" class="text-[10px] px-3 py-1 rounded-full border ${!isThis ? 's-panel-inner font-bold t-primary b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[(new Date().getMonth() + 1) % 12]}</button>
+    <button onclick="window._laboSaisonToggle(0)" class="text-[10px] px-3 py-1 rounded-full border ${isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[new Date().getMonth()]}</button>
+    <button onclick="window._laboSaisonToggle(1)" class="text-[10px] px-3 py-1 rounded-full border ${!isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[(new Date().getMonth() + 1) % 12]}</button>
     <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
   </div>`;
 
@@ -792,8 +832,14 @@ function _renderClientSaisonnier(opps, monthOffset) {
     <input type="text" value="${escapeHtml(_saisonSearch)}" oninput="window._laboSaisonFilter(this.value)" placeholder="Rechercher client ou article…" class="text-[11px] px-3 py-1.5 rounded-lg border b-light s-card t-primary w-full" style="max-width:320px">
   </div>`;
 
+  // Mode label
+  const isReachat = filtered.length > 0 && filtered[0].mode === 'reachat';
+  const modeLabel = isReachat
+    ? `<div class="text-[9px] t-disabled mb-2 px-1">📊 Historique &lt; 12 mois — mode réachat : articles achetés précédemment mais pas ce mois-ci</div>`
+    : '';
+
   if (!filtered.length) {
-    return toggleHtml + searchHtml + '<p class="text-xs t-disabled p-4">Aucune opportunité saisonnière détectée pour ce mois.</p>';
+    return toggleHtml + searchHtml + '<p class="text-xs t-disabled p-4">Aucune opportunité détectée pour ce mois.</p>';
   }
 
   // Pagination
@@ -841,29 +887,22 @@ function _renderClientSaisonnier(opps, monthOffset) {
     <button onclick="window._laboSaisonExportCSV()" class="text-[10px] px-3 py-1.5 rounded-lg border b-light s-card t-secondary hover:t-primary">📥 Export CSV</button>
   </div>`;
 
-  return toggleHtml + searchHtml + table + moreBtn + exportHtml;
+  return toggleHtml + searchHtml + modeLabel + table + moreBtn + exportHtml;
 }
 
 function _quickScanSaisonnier() {
-  const seasonIdx = _S.seasonalIndex;
-  if (!seasonIdx || !Object.keys(seasonIdx).length) return { n: 0, ca: 0 };
-
   const mois = new Date().getMonth();
-  const fd = DataStore.finalData;
-  let seasonalCodes = 0;
-  for (const r of fd) {
-    if (!r.code || !r.famille) continue;
-    const profile = seasonIdx[r.famille];
-    if (!profile) continue;
-    const tops = _topMonths(profile);
-    if (tops.includes(mois)) seasonalCodes++;
-  }
 
   // Use cached data if available
   if (_saisonData && _saisonMonth === mois) {
     return { n: _saisonData.length, ca: _saisonData.reduce((s, o) => s + o.montantPotentiel, 0) };
   }
-  return { n: seasonalCodes > 0 ? '?' : 0, ca: 0 };
+
+  // Quick check : has data at all?
+  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  if (!_fullPDV?.size) return { n: 0, ca: 0 };
+
+  return { n: '?', ca: 0 };
 }
 
 function _rerenderSaisonView() {
@@ -982,7 +1021,7 @@ function _renderTileGrid(el) {
   const famSubtitle = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
   const stockSubtitle = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
   const empSubtitle = empScan.n > 0 ? `${empScan.n} emplacements · rendement moyen ${empScan.avg>=10?empScan.avg.toFixed(0):empScan.avg.toFixed(1)}×` : 'Cliquez pour analyser';
-  const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités saisonnières ce mois` : 'Aucun pic saisonnier ce mois';
+  const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all" onclick="window._laboOpenTile('sil')">
@@ -1121,7 +1160,7 @@ export function updateLaboTiles() {
 
   const saisonScan = _quickScanSaisonnier();
   const saisonSub = document.getElementById('laboTileSaisonSub');
-  if (saisonSub) saisonSub.textContent = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités saisonnières ce mois` : 'Aucun pic saisonnier ce mois';
+  if (saisonSub) saisonSub.textContent = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
 }
 
 // ═══════════════════════════════════════════════════════════════
