@@ -4769,18 +4769,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     html+='</tbody></table>';
     html+='<p class="text-center text-[10px] t-disabled mt-3">Cliquer sur une case → filtre l\'onglet Articles · Survoler → recommandation</p>';
     const mc=document.getElementById('abcMatrixContainer');if(mc)mc.innerHTML=html;
-    // Legend grid
-    let leg='<div class="p-4 s-card-alt rounded-xl border"><h4 class="font-bold text-sm t-primary mb-3 flex items-center gap-2">💡 Recommandations par segment <span class="text-[10px] font-normal t-disabled">— cliquer sur un segment pour filtrer</span></h4>';
-    leg+='<div class="grid grid-cols-1 sm:grid-cols-3 gap-2">';
-    for(const key of['AF','AM','AR','BF','BM','BR','CF','CM','CR']){
-      const d=mx[key]||{count:0,stockVal:0};const bg=CELL_BG[key];
-      leg+=`<div class="flex items-start gap-2 p-3 rounded-lg s-card border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onclick="filterByAbcFmr('${key[0]}','${key[1]}')">
-        <div class="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center font-extrabold text-[11px] text-white" style="background:${bg}">${key}</div>
-        <div class="min-w-0"><div class="text-xs font-bold t-primary">${LABELS[key]}</div><div class="text-[10px] t-tertiary mt-0.5">${RECOS[key]}</div><div class="text-[10px] text-indigo-600 font-bold mt-1">${d.count} art. · ${formatEuro(d.stockVal)}</div></div>
-      </div>`;
-    }
-    leg+='</div></div>';
-    const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML=leg;
+    const lc=document.getElementById('abcMatrixLegend');if(lc)lc.innerHTML='';
     // Attractivité par Famille (migrée depuis Mon Stock)
     const atEl=document.getElementById('dashAttractTable');if(atEl){const va=_S.ventesAnalysis;const totalBL2=va.totalBL||1;const p2=[];Object.entries(va.attractivite).sort((a,b)=>b[1]-a[1]).forEach(([fam,count])=>{const rate=((count/totalBL2)*100).toFixed(1);const barW=Math.min(parseFloat(rate),100);p2.push(`<tr class="border-b hover:bg-pink-50"><td class="py-2 px-3 text-[11px] font-semibold truncate max-w-[200px]" title="${escapeHtml(fam)}">${escapeHtml(fam)}</td><td class="py-2 px-3 text-center t-secondary text-xs">${count.toLocaleString('fr')}</td><td class="py-2 px-3 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-1.5"><div class="perf-bar bg-pink-500 rounded-full" style="width:${barW}%"></div></div><span class="text-pink-700 font-bold text-[10px] min-w-[35px] text-right">${rate}%</span></div></td></tr>`);});atEl.innerHTML=p2.join('')||'<tr><td colspan="3" class="text-center py-4 t-disabled text-xs">Aucune donnée famille</td></tr>';}
   }
