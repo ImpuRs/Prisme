@@ -361,16 +361,20 @@ function _today() { return new Date().toISOString().slice(0, 10); }
 // Render tab (appelé depuis renderAll)
 // ═══════════════════════════════════════════════════════════════
 
-export function renderAnimationTab() {
+export async function renderAnimationTab() {
   const el = document.getElementById('tabAnimation');
   if (!el) return;
 
+  // Lazy load : charger le catalogue au premier accès
+  if (!_S.catalogueMarques) {
+    const content = document.getElementById('animContent');
+    if (content) content.innerHTML = '<div class="text-center py-8 t-disabled text-sm">Catalogue en cours de chargement…</div>';
+    await loadCatalogueMarques();
+  }
+
   if (!_S.catalogueMarques?.size) {
-    const msg = _S.catalogueMarques === null
-      ? 'Catalogue marques en cours de chargement…'
-      : 'Catalogue marques non disponible (js/catalogue-marques.json manquant).';
     document.getElementById('animContent').innerHTML =
-      `<div class="text-center py-8 t-disabled text-sm">${msg}</div>`;
+      '<div class="text-center py-8 t-disabled text-sm">Catalogue marques non disponible (js/catalogue-marques.json manquant).</div>';
     return;
   }
 
