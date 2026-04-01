@@ -13,6 +13,7 @@ Thumbs.db
 *.json
 !package.json
 !js/cp-coords.json
+!js/catalogue-marques.json
 
 # Temp
 *.tmp
