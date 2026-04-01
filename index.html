@@ -654,6 +654,7 @@
       <button data-tab="omni" onclick="switchTab('omni')" class="tab-btn" id="btnTabOmni" style="--tab-color:#7c3aed;--tab-bg:#7c3aed1F;--tab-text:#4c1d95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><ellipse cx="12" cy="12" rx="4" ry="9"/></svg><span>Omnicanalité</span></button>
       <button data-tab="bench" onclick="switchTab('bench')" class="tab-btn" id="btnTabBench" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Réseau</span></button>
 
+      <button data-tab="animation" onclick="switchTab('animation')" class="tab-btn" id="btnTabAnimation" style="--tab-color:#e11d48;--tab-bg:#e11d481F;--tab-text:#9f1239"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Animation</span></button>
       <button data-tab="labo" onclick="switchTab('labo')" class="tab-btn active" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Labo</span></button>
     </div>
   </div>
@@ -1749,6 +1750,22 @@
 
     </div>
 
+
+    <div id="tabAnimation" class="tab-content hidden">
+      <!-- Command palette search -->
+      <div class="mb-4">
+        <div class="relative max-w-lg mx-auto">
+          <input type="text" id="animSearchInput"
+            placeholder="Rechercher une marque... (ex: Bosch, Makita, Dewalt)"
+            class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
+            autocomplete="off">
+          <div id="animSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+        </div>
+        <p class="text-center text-[10px] t-disabled mt-2">787 marques disponibles · Tapez au moins 2 caracteres</p>
+      </div>
+      <!-- Resultat animation -->
+      <div id="animContent"></div>
+    </div>
 
     <div id="tabLabo" class="tab-content hidden">
       <!-- Rendu dynamique par renderLaboTab() -->
