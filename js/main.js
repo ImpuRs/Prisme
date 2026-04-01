@@ -2852,9 +2852,31 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
     const el = document.getElementById('terrRecoStockBlock');
     if (!el) return;
     const data = computeRecoStock();
-    if (!data || !data.length) { el.innerHTML = ''; return; }
+    if (!data || !data.length) {
+      // Show empty message if we have réseau data but no recos
+      if (_S.ventesParMagasin && Object.keys(_S.ventesParMagasin).length > 1) {
+        el.innerHTML = `<div class="s-card rounded-xl border p-4 t-disabled text-[11px]">
+          📦 Recommandations stock — aucun article absent/rupture détecté dans le réseau.
+        </div>`;
+      } else {
+        el.innerHTML = '';
+      }
+      return;
+    }
+    const enriched = data._enriched;
     const totalRecos = data.reduce((s, d) => s + d.recos.length, 0);
     const totalCA = data.reduce((s, d) => s + d.totalCA, 0);
+
+    // Badge mode
+    const modeBadge = enriched
+      ? '<span class="text-[8px] px-2 py-0.5 rounded-full font-bold ml-2" style="background:#ede9fe;color:#6d28d9">📦 Enrichi Livraisons</span>'
+      : '<span class="text-[8px] px-2 py-0.5 rounded-full font-bold ml-2" style="background:#e0f2fe;color:#0369a1">🏪 Réseau uniquement</span>';
+
+    // Tooltip adaptatif
+    const infoTip = enriched
+      ? `PRISME croise les BL livrés hors agence (fichier Livraisons) avec votre stock, le réseau et la chalandise. Les articles sont triés par fréquence BL × présence réseau.`
+      : `PRISME identifie les articles vendus par d'autres agences du réseau mais absents de votre stock. Chargez le fichier Livraisons pour enrichir avec les BL terrain.`;
+
     const dirsHtml = data.map((d, idx) => {
       const top10 = d.recos.slice(0, 10);
       const hasMore = d.recos.length > 10;
@@ -2867,13 +2889,16 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
           : r.nbAgencesReseau > 0
             ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">${r.nbAgencesReseau} ag.</span>`
             : '';
+        // Colonnes adaptatives selon le mode
+        const blCell = enriched ? `<td class="py-1.5 px-2 text-right font-bold">${r.nbBL}</td>` : '';
+        const cliCell = enriched ? `<td class="py-1.5 px-2 text-right">${r.nbClients}</td>` : '';
+        const caLabel = enriched ? formatEuro(r.ca) : (r.ca > 0 ? formatEuro(r.ca) : '—');
         return `<tr class="border-b b-light hover:s-hover text-[11px]">
           <td class="py-1.5 px-2">${_copyCodeBtn(r.code)}</td>
           <td class="py-1.5 px-2">${escapeHtml(r.libelle)}</td>
           <td class="py-1.5 px-2 text-center">${typeBadge}</td>
-          <td class="py-1.5 px-2 text-right font-bold">${r.nbBL}</td>
-          <td class="py-1.5 px-2 text-right">${r.nbClients}</td>
-          <td class="py-1.5 px-2 text-right font-bold c-action">${formatEuro(r.ca)}</td>
+          ${blCell}${cliCell}
+          <td class="py-1.5 px-2 text-right font-bold c-action">${caLabel}</td>
           <td class="py-1.5 px-2 text-center">${reseauBadge}</td>
         </tr>`;
       }).join('');
@@ -2881,6 +2906,10 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
         ? `<div class="px-3 py-2 text-[10px] t-disabled">… et ${d.recos.length - 10} autres articles</div>`
         : '';
       const csvBtn = `<button onclick="event.stopPropagation();window._exportRecoCSV('${escapeHtml(d.direction)}')" class="text-[9px] px-2 py-1 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Export CSV">CSV</button>`;
+      // Colonnes header adaptatives
+      const thBL = enriched ? '<th class="py-1.5 px-2 text-right">Nb BL</th>' : '';
+      const thCli = enriched ? '<th class="py-1.5 px-2 text-right">Clients</th>' : '';
+      const thCA = enriched ? 'CA Terrain' : 'CA zone';
       return `<details class="border-b b-light" ${idx === 0 ? 'open' : ''}>
         <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
           <div class="flex items-center gap-2">
@@ -2902,9 +2931,8 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
                 <th class="py-1.5 px-2 text-left">Code</th>
                 <th class="py-1.5 px-2 text-left">Libellé</th>
                 <th class="py-1.5 px-2 text-center">Statut</th>
-                <th class="py-1.5 px-2 text-right">Nb BL</th>
-                <th class="py-1.5 px-2 text-right">Clients</th>
-                <th class="py-1.5 px-2 text-right">CA Terrain</th>
+                ${thBL}${thCli}
+                <th class="py-1.5 px-2 text-right">${thCA}</th>
                 <th class="py-1.5 px-2 text-center">Réseau</th>
               </tr>
             </thead>
@@ -2914,12 +2942,13 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
         ${moreHtml}
       </details>`;
     }).join('');
-    const infoTip = `PRISME croise les BL livrés hors agence (fichier Livraisons) avec votre stock actuel et le réseau. Les articles sont triés par fréquence de BL × présence réseau. Un article livré 100+ fois sur votre zone et vendu par 3+ agences est un candidat prioritaire pour votre rayon.`;
-    el.innerHTML = `<details class="s-card rounded-xl border overflow-hidden">
+    const borderStyle = enriched ? 'border-color: var(--c-action, #8b5cf6)' : '';
+    el.innerHTML = `<details class="s-card rounded-xl border overflow-hidden" style="${borderStyle}">
       <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
         <h3 class="font-extrabold text-sm t-primary">
           📦 Recommandations stock
-          <span class="text-[10px] font-normal t-disabled ml-1">${totalRecos} articles · ${formatEuro(totalCA)} CA terrain</span>
+          <span class="text-[10px] font-normal t-disabled ml-1">${totalRecos} articles · ${formatEuro(totalCA)} CA</span>
+          ${modeBadge}
           <span class="labo-info-tip ml-1" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ<span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span></span>
         </h3>
         <span class="acc-arrow t-disabled">▶</span>

@@ -1192,59 +1192,123 @@ export function computeFamillesHors() {
 // ═══════════════════════════════════════════════════════════════
 
 export function computeRecoStock() {
-  if (!_S.territoireReady || !_S.territoireLines?.length) return null;
+  // Guard : Consommé + Stock suffisent (les 2 fichiers obligatoires)
+  if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length || !_S.finalData?.length) return null;
 
   const fd = _S.finalData || [];
   const stockMap = new Map(fd.map(r => [r.code, r]));
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
+  const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
-  // 1. Agréger par article depuis territoireLines
   const artAgg = new Map();
-  for (const l of _S.territoireLines) {
-    if (l.isSpecial) continue;
-    if (!artAgg.has(l.code)) {
-      artAgg.set(l.code, {
-        code: l.code, libelle: l.libelle, direction: l.direction,
-        ca: 0, blSet: new Set(), rayonStatus: l.rayonStatus,
-        clientSet: new Set()
-      });
+
+  // Source Livraisons (si disponible)
+  if (hasTerr) {
+    for (const l of _S.territoireLines) {
+      if (l.isSpecial) continue;
+      if (!artAgg.has(l.code)) {
+        artAgg.set(l.code, {
+          code: l.code, libelle: l.libelle, direction: l.direction,
+          ca: 0, blSet: new Set(), rayonStatus: l.rayonStatus,
+          clientSet: new Set(), nbAgencesReseau: 0,
+          nbClientsZone: 0, caClientsZone: 0
+        });
+      }
+      const a = artAgg.get(l.code);
+      a.ca += l.ca;
+      a.blSet.add(l.bl);
+      if (l.clientCode) a.clientSet.add(l.clientCode);
     }
-    const a = artAgg.get(l.code);
-    a.ca += l.ca;
-    a.blSet.add(l.bl);
-    if (l.clientCode) a.clientSet.add(l.clientCode);
   }
 
-  // 2. Enrichir avec réseau + stock
-  for (const [code, agg] of artAgg) {
-    let nbAgences = 0;
-    for (const [store, arts] of Object.entries(vpm)) {
-      if (store === myStore) continue;
-      if (arts[code]?.countBL > 0) nbAgences++;
+  // Source Réseau : articles vendus par d'autres agences mais ABSENTS/RUPTURE de mon stock
+  const FAM_DIR = { 'A':'DV SECOND OEUVRE','B':'DV SECOND OEUVRE','C':'DV MAINTENANCE',
+    'R':'DV MAINTENANCE','E':'DV MAINTENANCE','G':'DV PLOMBERIE',
+    'M':'DV MAINTENANCE','O':'DV MAINTENANCE','L':'DV PLOMBERIE' };
+  for (const [store, arts] of Object.entries(vpm)) {
+    if (store === myStore) continue;
+    for (const [code, data] of Object.entries(arts)) {
+      if (!/^\d{6}$/.test(code)) continue;
+      if (data.countBL <= 0) continue;
+      const stock = stockMap.get(code);
+      const rayonStatus = stock ? ((stock.stockActuel || 0) > 0 ? 'green' : 'yellow') : 'red';
+      if (rayonStatus === 'green') continue; // already in stock and ok
+      if (!artAgg.has(code)) {
+        const famille = _S.articleFamille?.[code] || stock?.famille || '';
+        const letter = (famille.match(/^[A-Z]/)?.[0]) || '';
+        artAgg.set(code, {
+          code, libelle: _S.libelleLookup?.[code] || code,
+          direction: FAM_DIR[letter] || 'NON CLASSÉ',
+          ca: 0, blSet: new Set(), rayonStatus,
+          clientSet: new Set(), nbAgencesReseau: 0,
+          nbClientsZone: 0, caClientsZone: 0
+        });
+      }
+      artAgg.get(code).nbAgencesReseau++;
     }
-    agg.nbAgencesReseau = nbAgences;
+  }
+
+  // Source Chalandise : clients zone who buy these articles
+  if (hasChal) {
+    const chalClients = new Set(_S.chalandiseData.keys());
+    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+      if (!chalClients.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        const a = artAgg.get(code);
+        if (!a) continue;
+        a.nbClientsZone++;
+        a.caClientsZone += data.sumCA || 0;
+      }
+    }
+  }
+
+  // Enrichir réseau pour les articles from livraisons
+  if (hasTerr) {
+    for (const [code, agg] of artAgg) {
+      if (agg.nbAgencesReseau > 0) continue; // déjà compté
+      let nb = 0;
+      for (const [store, arts] of Object.entries(vpm)) {
+        if (store === myStore) continue;
+        if (arts[code]?.countBL > 0) nb++;
+      }
+      agg.nbAgencesReseau = nb;
+    }
+  }
+
+  // Enrichir stock
+  for (const [code, agg] of artAgg) {
     const stock = stockMap.get(code);
     agg.stockActuel = stock?.stockActuel ?? null;
     agg.emplacement = stock?.emplacement || '';
   }
 
-  // 3. Filtrer : ABSENTS (red) + RUPTURES (yellow, stock=0)
+  // Filtrer : ABSENTS (red) + RUPTURES (yellow, stock=0)
   const recos = [];
   for (const [, a] of artAgg) {
     const isAbsent = a.rayonStatus === 'red';
     const isRupture = a.rayonStatus === 'yellow' && (a.stockActuel === 0 || a.stockActuel === null);
     if (!isAbsent && !isRupture) continue;
+
+    // Score adaptatif selon les sources disponibles
+    let score;
+    if (hasTerr && a.blSet.size > 0) {
+      score = a.blSet.size * (1 + Math.min(a.nbAgencesReseau, 5) * 0.2);
+    } else {
+      score = a.nbAgencesReseau * 10 + a.nbClientsZone * 5 + (a.caClientsZone > 0 ? 5 : 0);
+    }
+
     recos.push({
       code: a.code, libelle: a.libelle, direction: a.direction,
-      ca: a.ca, nbBL: a.blSet.size, nbClients: a.clientSet.size,
+      ca: a.ca || a.caClientsZone, nbBL: a.blSet.size, nbClients: a.clientSet.size || a.nbClientsZone,
       nbAgencesReseau: a.nbAgencesReseau,
       type: isRupture ? 'rupture' : 'absent',
-      score: a.blSet.size * (1 + Math.min(a.nbAgencesReseau, 5) * 0.2)
+      score
     });
   }
 
-  // 4. Grouper par direction, trier par score
+  // Grouper par direction, trier par score
   const byDir = new Map();
   for (const r of recos) {
     if (!byDir.has(r.direction)) byDir.set(r.direction, []);
@@ -1252,7 +1316,7 @@ export function computeRecoStock() {
   }
   for (const [, list] of byDir) list.sort((a, b) => b.score - a.score);
 
-  return [...byDir.entries()]
+  const result = [...byDir.entries()]
     .map(([dir, list]) => ({
       direction: dir, recos: list,
       totalCA: list.reduce((s, r) => s + r.ca, 0),
@@ -1260,6 +1324,11 @@ export function computeRecoStock() {
       nbRuptures: list.filter(r => r.type === 'rupture').length
     }))
     .sort((a, b) => b.totalCA - a.totalCA);
+
+  // Métadonnées pour le rendu (mode enrichi ou basique)
+  result._enriched = hasTerr;
+  result._hasChal = hasChal;
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════
