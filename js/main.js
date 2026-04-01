@@ -2642,9 +2642,10 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
       _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));
     }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
-    if(degraded){_buildDegradedCockpit();return;}
+    if(degraded){_buildDegradedCockpit();_renderRecoStock();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
+      _renderRecoStock();
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
