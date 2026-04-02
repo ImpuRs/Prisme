@@ -393,11 +393,25 @@ function _prRenderSquelette(fam) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
         const cf = _S.catalogueFamille?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-        if (cf === fam.codeFam) arts.push({ ...a, _g: g });
+        if (cf === fam.codeFam) {
+          if (_prOpenSousFam) {
+            const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
+            if (csf !== _prOpenSousFam) continue;
+          }
+          arts.push({ ...a, _g: g });
+        }
       }
     }
   }
   _S._prSqArts = arts;
+
+  const sousFamLib = _prOpenSousFam
+    ? (_S.catalogueFamille
+        ? [..._S.catalogueFamille.values()]
+            .find(f => f.codeFam === fam.codeFam && f.codeSousFam === _prOpenSousFam)
+            ?.sousFam || _prOpenSousFam
+        : _prOpenSousFam)
+    : '';
 
   const counts = {};
   for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
@@ -411,7 +425,11 @@ function _prRenderSquelette(fam) {
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g]}</strong></button>`;
   }).join('');
 
-  return `<div class="flex flex-wrap gap-1.5 mb-3">${pills}</div>${_prBuildSqTable(arts)}`;
+  const sousFamNote = sousFamLib
+    ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">· filtré sur <em>${escapeHtml(sousFamLib)}</em></span>`
+    : '';
+
+  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prBuildSqTable(arts)}`;
 }
 
 // ── Onglet Métiers ───────────────────────────────────────────────────
