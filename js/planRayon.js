@@ -13,6 +13,7 @@ let _prDetailTab     = 'rayon';
 let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
+let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -281,12 +282,23 @@ function _prRenderRayon(data) {
   if (!data) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
   const { monRayon, nbCatalogue, couverture, valeurTotale } = data;
   const page = _S._prPageRayon || PAGE_SIZE;
-  const shown = monRayon.slice(0, page);
   const pepites  = monRayon.filter(a => a.status === 'pepite').length;
   const challeng = monRayon.filter(a => a.status === 'challenger').length;
   const dormants = monRayon.filter(a => a.status === 'dormant').length;
   const socle    = monRayon.length - pepites - challeng - dormants;
-  const rows = monRayon.slice(0, page).map(a => {
+  // Filtre local par statut
+  const displayed = _prRayonFilter
+    ? monRayon.filter(a => (a.status || 'socle') === _prRayonFilter)
+    : monRayon;
+  // Pills filtrables
+  const _pill = (key, count, icon, label, color, bg, fw) => {
+    if (!count) return '';
+    const active = _prRayonFilter === key;
+    const pillBg     = active ? bg.replace(/[\d.]+\)$/, m => String(Math.min(parseFloat(m) * 1.8, 0.4)) + ')') : bg;
+    const pillBorder = active ? `2px solid ${color}` : '2px solid transparent';
+    return `<button onclick="window._prSetRayonFilter('${key}')" style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:${fw};background:${pillBg};color:${color};border:${pillBorder};cursor:pointer">${icon} ${count} ${label}</button>`;
+  };
+  const rows = displayed.slice(0, page).map(a => {
     const s = a.status || 'standard';
     let sBg, sC, sL;
     if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';   sC='#22c55e';           sL='🟢 Pépite'; }
@@ -307,14 +319,18 @@ function _prRenderRayon(data) {
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--t-primary)">${formatEuro(a.caAgence)}</td>
     </tr>`;
   }).join('');
+  const filteredNote = _prRayonFilter
+    ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">— filtre actif · ${displayed.length} article${displayed.length !== 1 ? 's' : ''}</span>`
+    : '';
   return `<div class="mb-3 text-[11px] t-secondary">
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
-  <div class="flex flex-wrap gap-1.5 mb-3">
-    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
-    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:500">✅ ${socle} socle</span>` : ''}
-    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
-    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(148,163,184,0.2);color:var(--t-secondary);font-weight:600">💤 ${dormants} dormants</span>` : ''}
+  <div class="flex flex-wrap gap-1.5 mb-3 items-center">
+    ${_pill('pepite',    pepites,  '🟢', 'pépites AF',   '#22c55e',        'rgba(34,197,94,0.2)',   600)}
+    ${_pill('socle',     socle,    '✅', 'socle',        '#22c55e',        'rgba(34,197,94,0.2)',   500)}
+    ${_pill('challenger',challeng, '🔴', 'à challenger', '#ef4444',        'rgba(239,68,68,0.2)',   600)}
+    ${_pill('dormant',   dormants, '💤', 'dormants',     '#94a3b8',        'rgba(148,163,184,0.2)', 600)}
+    ${filteredNote}
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
@@ -328,7 +344,7 @@ function _prRenderRayon(data) {
     </table>
   </div>
   <div class="flex gap-2 mt-2">
-    ${monRayon.length > page ? `<button onclick="window._prMoreRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">Voir plus (${monRayon.length - page} restants)</button>` : ''}
+    ${displayed.length > page ? `<button onclick="window._prMoreRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">Voir plus (${displayed.length - page} restants)</button>` : ''}
     <button onclick="window._prExportRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
   </div>`;
 }
@@ -476,6 +492,7 @@ function _prGetTabContent(tab, fam) {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
     _S._prRayonData = rayonData;
     _S._prPageRayon = PAGE_SIZE;
+    _prRayonFilter  = '';
     return _prRenderRayon(rayonData);
   }
   if (tab === 'squelette') return _prRenderSquelette(fam);
@@ -706,6 +723,13 @@ window._prSetTab = function(tab) {
   if (el && fam) el.innerHTML = _prGetTabContent(tab, fam);
 };
 
+window._prSetRayonFilter = function(key) {
+  _prRayonFilter  = _prRayonFilter === key ? '' : key;
+  _S._prPageRayon = PAGE_SIZE;
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
+};
+
 window._prSqFilterFn = function(key) {
   _S._prSqFilter = _S._prSqFilter === key ? '' : key;
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
@@ -721,10 +745,11 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   _prSearchText  = '';
   _prOpenFam     = codeFam;
   _prOpenSousFam = codeSousFam || '';
-  _prDetailTab   = 'rayon';
+  _prDetailTab    = 'rayon';
   _prGridVisible  = true;
-  _S._prSqFilter = '';
-  _S._prSqData   = null;
+  _prRayonFilter  = '';
+  _S._prSqFilter  = '';
+  _S._prSqData    = null;
   // Montrer uniquement la famille sélectionnée dans la grille
   const grid = document.getElementById('prFamGrid');
   if (grid && _S._prData) {
