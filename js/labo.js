@@ -2365,20 +2365,19 @@ function _renderRadarFamille(data) {
       class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none mb-3">
   </div>`;
 
-  // ── Appliquer filtres ──
+  html += `<div id="rfFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_rfBuildCards(data)}</div>`;
+  return html;
+}
+
+function _rfBuildCards(data) {
   let families = data.families;
   if (_rfFilterClassif) families = families.filter(f => f.classifGlobal === _rfFilterClassif);
   if (_rfSearchQ) {
     const q = _rfSearchQ.toLowerCase();
     families = families.filter(f => f.libFam.toLowerCase().includes(q) || f.codeFam.toLowerCase().includes(q));
   }
-
-  if (!families.length) {
-    return html + '<div class="text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
-  }
-
-  // ── Grille de cartes ──
-  html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">';
+  if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
+  let out = '';
   for (const f of families) {
     const b = CLASSIF_BADGE[f.classifGlobal] || CLASSIF_BADGE.potentiel;
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
@@ -2397,7 +2396,7 @@ function _renderRadarFamille(data) {
     if (f.srcHorsZone)   srcSet.add('horsZone');
     if (f.srcLivraisons) srcSet.add('livraisons');
     const covColor = f.couverture >= 70 ? '#22c55e' : f.couverture >= 40 ? '#f59e0b' : '#ef4444';
-    html += `<div class="s-card rounded-xl border p-3 cursor-pointer hover:border-[var(--c-action)] transition-all"
+    out += `<div class="s-card rounded-xl border p-3 cursor-pointer hover:border-[var(--c-action)] transition-all"
       onclick="window._rfOpenDetail('${safeCF}')">
       <div class="flex items-start justify-between mb-0.5">
         <div class="flex-1 min-w-0 mr-2">
@@ -2417,8 +2416,7 @@ function _renderRadarFamille(data) {
       </div>
     </div>`;
   }
-  html += '</div>';
-  return html;
+  return out;
 }
 
 function _renderRadarFamilleDetail(codeFam, data) {
@@ -2567,7 +2565,9 @@ window._rfSetFilter = function(key) {
 
 window._rfSearch = function(q) {
   _rfSearchQ = q;
-  _rfRerender();
+  const grid = document.getElementById('rfFamGrid');
+  if (!grid || !_S._rfData) { _rfRerender(); return; }
+  grid.innerHTML = _rfBuildCards(_S._rfData);
 };
 
 window._rfOpenDetail = function(codeFam) {
