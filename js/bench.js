@@ -12,7 +12,7 @@ import { SECTEUR_DIR_MAP } from './constants.js';
 function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
 function buildBenchCheckboxes(){
   const div=document.getElementById('benchPickCheckboxes');if(!div)return;
-  const stores=[..._S.storesIntersection].sort().filter(s=>s!==_S.selectedMyStore);
+  const stores=[...(_S.storesFoundC||_S.storesIntersection)].sort().filter(s=>s!==_S.selectedMyStore);
   // Keep previous checked state if available
   const prevChecked=new Set();document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>prevChecked.add(cb.value));
   const allWasEmpty=prevChecked.size===0;
@@ -23,7 +23,7 @@ function getBenchCompareStores(){
   // Always use checkboxes; fall back to all stores if none are checked yet (initial state)
   const checked=[];document.querySelectorAll('#benchPickCheckboxes input:checked').forEach(cb=>checked.push(cb.value));
   if(checked.length)return checked;
-  return[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
+  return[...(_S.storesFoundC||_S.storesIntersection)].filter(s=>s!==_S.selectedMyStore);
 }
 function recalcBenchmarkInstant(){
   // Sync _S.selectedBenchBassin from checkboxes before recomputing
@@ -37,7 +37,7 @@ function renderBenchmark(){
   // Libellé canal dynamique dans KPI Comparatifs (basé sur _reseauCanaux)
   {const _rl=_S._reseauCanaux||new Set();const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};if(_rl.size===0){_lEl.textContent='📡 Tous canaux';}else if(_rl.size===1){const _c=[..._rl][0];_lEl.textContent=`📡 Canal ${_LMAP[_c]||_c} uniquement`;}else{_lEl.textContent=`📡 ${_rl.size} canaux`;}}}
   // [Adapter Étape 5] — DataStore.benchLists : canal-invariant via cache _benchCache
-  const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>_S.storesIntersection.has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
+  const{missed,over,storePerf,familyPerf}=DataStore.benchLists;const cs=getBenchCompareStores().filter(s=>(_S.storesFoundC||_S.storesIntersection).has(s));const q=(document.getElementById('benchSearch')?.value||'').trim();
   // Render observatory sections
   renderObservatoire();
 const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=fl(over),fU=fl(DataStore.benchLists.under||[]);
@@ -120,7 +120,7 @@ function onBenchBassinChange() {
   if (!sel) return;
   _S.selectedBenchBassin = new Set([...sel.selectedOptions].map(o => o.value));
   // Si tout est sélectionné = équivalent "vide" (fallback getBenchCompareStores)
-  const all = [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
+  const all = [...(_S.storesFoundC||_S.storesIntersection)].filter(s => s !== _S.selectedMyStore);
   if (_S.selectedBenchBassin.size === all.length) _S.selectedBenchBassin = new Set();
   recalcBenchmarkInstant();
 }
