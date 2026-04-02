@@ -52,7 +52,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     invalidateCache('tab', 'terr');
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
-    if(_S._rawDataC&&_S._rawDataC.length){processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});}else{
+    const _refilterDataC=_S._rawDataCFiltered&&_S._rawDataCFiltered.length?_S._rawDataCFiltered:_S._rawDataC;
+    if(_refilterDataC&&_refilterDataC.length){processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});}else{
       // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
       // Les agrégats période-dépendants (ventesClientArticle, canalAgence…) restent figés à la
       // période de la dernière sauvegarde ; seul le rendu (labels, territoire, filtres) est mis à jour.
@@ -412,6 +413,39 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
 
   // ★★★ MOTEUR PRINCIPAL ★★★
+
+  // Helper : détecte la colonne code agence dans une ligne
+  function _detectStoreColumn(row){
+    if(!row)return null;
+    return Object.keys(row).find(k=>{
+      const kl=k.toLowerCase().replace(/[\r\n]/g,' ').trim();
+      return kl==='code pdv'||kl==='pdv'||kl==='code agence'||kl==='agence'||kl==='code depot'||kl==='dépôt'||kl==='depot';
+    })||null;
+  }
+
+  // Helper : affiche le sélecteur d'agence et attend le choix (Promise-based)
+  function _showStoreSelector(stores){
+    return new Promise(resolve=>{
+      const sel=document.getElementById('selectMyStore');
+      if(!sel){resolve('');return;}
+      sel.innerHTML='<option value="">— Choisir votre agence —</option>'+
+        [...stores].sort().map(s=>'<option value="'+s+'">'+s+'</option>').join('');
+      sel.value='';
+      document.getElementById('storeSelector').classList.remove('hidden');
+      hideLoading();
+      const handler=()=>{
+        const v=sel.value.toUpperCase();
+        if(v&&stores.has(v)){
+          sel.removeEventListener('change',handler);
+          document.getElementById('storeSelector').classList.add('hidden');
+          showLoading('Analyse '+v+'…','');
+          resolve(v);
+        }
+      };
+      sel.addEventListener('change',handler);
+    });
+  }
+
   async function processData(_storeOverride){
     const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
     if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
@@ -419,8 +453,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
-    // Gérer le sélecteur d'agence : si _storeOverride (depuis dropdown/sidebar), conserver ;
-    // sinon vider pour forcer l'affichage du choix si multi-agences
     const _selStore=document.getElementById('selectMyStore');
     if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
@@ -434,16 +466,84 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
+
+    // ── Scan rapide : détecter les agences dans dataC et dataS ──
+    updateProgress(42,100,'Détection agences…');
+    const storeColumnC=_detectStoreColumn(dataC[0]);
+    const storesFoundC=new Set();
+    for(const row of dataC){const s=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';if(s)storesFoundC.add(s);}
+    const storeColumnS=_detectStoreColumn((dataS&&dataS[0])||null);
+    const storesFoundS=new Set();
+    if(dataS&&dataS.length){for(const row of dataS){const s=storeColumnS?(row[storeColumnS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
+    if(storesFoundS.size){_S.storesIntersection=new Set();for(const s of storesFoundC)if(storesFoundS.has(s))_S.storesIntersection.add(s);}
+    else{_S.storesIntersection=new Set(storesFoundC);}
+    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
+
+    // ── Déterminer l'agence AVANT le parsing lourd ──
+    let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
+    // Vérifier que l'agence mémorisée existe dans les données
+    if(selectedStore&&!_S.storesIntersection.has(selectedStore))selectedStore='';
+
+    if(_S.storesIntersection.size>1&&!selectedStore){
+      // Afficher le sélecteur et ATTENDRE le choix
+      selectedStore=await _showStoreSelector(_S.storesIntersection);
+    }
+    if(_S.storesIntersection.size===1)selectedStore=[..._S.storesIntersection][0];
+    _S.selectedMyStore=selectedStore;
+    if(selectedStore)localStorage.setItem('prisme_selectedStore',selectedStore);
+    // Mettre à jour le dropdown pour que processDataFromRaw le retrouve
+    if(_selStore&&selectedStore){_selStore.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selStore.value=selectedStore;}
+    document.getElementById('storeSelector').classList.add('hidden');
+
+    // ── Pré-filtrer dataC pour l'agence choisie ──
+    let dataCFiltered;
+    if(selectedStore&&_S.storesIntersection.size>1){
+      updateProgress(44,100,'Filtrage agence '+selectedStore+'…');
+      dataCFiltered=[];
+      for(const row of dataC){
+        const s=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';
+        if(s===selectedStore||!s)dataCFiltered.push(row);
+      }
+      showToast(`📊 ${dataCFiltered.length.toLocaleString('fr')} lignes ${selectedStore} sur ${dataC.length.toLocaleString('fr')} total`,'info');
+    }else{
+      dataCFiltered=dataC;
+    }
+    _S._rawDataCFiltered=dataCFiltered;
+
     // 1) Parse complet sur toute la période — W, V, MIN/MAX, ABC/FMR invariants
     _S.periodFilterStart=null;_S.periodFilterEnd=null;
-    await processDataFromRaw(dataC,dataS,{storeOverride:_storeOverride||''});
+    await processDataFromRaw(dataCFiltered,dataS,{storeOverride:selectedStore||''});
+
+    // ── Second pass léger : ventesParMagasin des AUTRES agences (pour benchmark réseau) ──
+    if(_S.storesIntersection.size>1&&dataC.length>dataCFiltered.length){
+      updateProgress(90,100,'Benchmark réseau…');
+      _resetColCache();
+      for(const row of dataC){
+        const store=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';
+        if(store===selectedStore||!store)continue;
+        if(!_S.storesIntersection.has(store))continue;
+        const code=cleanCode((getVal(row,'Article','Code')||'').toString());
+        if(!code)continue;
+        const caP=getCaColumn(row,'prél')||0;
+        const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;
+        const vmbP=getVmbColumn(row,'prél')||0;
+        const vmbE=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;
+        const qteP=getQuantityColumn(row,'prél')||0;
+        if(!_S.ventesParMagasin[store])_S.ventesParMagasin[store]={};
+        if(!_S.ventesParMagasin[store][code])_S.ventesParMagasin[store][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};
+        const v=_S.ventesParMagasin[store][code];
+        v.sumCA+=caP+caE;v.sumVMB+=vmbP+vmbE;
+        if(qteP>0)v.sumPrelevee+=qteP;v.countBL++;
+      }
+      await yieldToMain();
+    }
+
     // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
     _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
     // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
-    //    pour recalculer les agrégats d'affichage (CA, clients, marge) sur ce mois uniquement
     const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
-      await processDataFromRaw(dataC,dataS,{isRefilter:true});
+      await processDataFromRaw(dataCFiltered,dataS,{isRefilter:true});
     }
     buildPeriodFilter();
   }
@@ -560,23 +660,11 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       let headersC=null;
       if(!isRefilter){headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}}
 
-      // ── Store detection — skipped for isRefilter (storesIntersection/selectedMyStore unchanged) ──
+      // ── Store detection — déjà fait dans processData (pré-filtrage agence) ──
       _resetColCache();
-      let hasMulti=_S.storesIntersection.size>1,useMulti=hasMulti&&_S.selectedMyStore;
-      if(!isRefilter){
-        const stC=new Set(),stS=new Set();
-        for(const r of dataC){const c=extractStoreCode(r);if(c)stC.add(c);}
-        if(dataS&&dataS.length){for(const r of dataS){const c=extractStoreCode(r);if(c)stS.add(c);}_S.storesIntersection=new Set();for(const s of stC){if(stS.has(s))_S.storesIntersection.add(s);}}
-        else{_S.storesIntersection=new Set(stC);}
-        _S.storeCountConsomme=stC.size;_S.storeCountStock=stS.size;
-        const _explicitStore=storeOverride==='*'?'':storeOverride||(document.getElementById('selectMyStore').value||'').toUpperCase();
-        _S.selectedMyStore=_explicitStore;
-        hasMulti=_S.storesIntersection.size>1;
-        document.getElementById('storeSelector').classList.add('hidden');
-        if(hasMulti){if(storeOverride==='*'){_S.selectedMyStore='';/* tout sélectionner */}else if(_explicitStore&&_S.storesIntersection.has(_explicitStore)){_S.selectedMyStore=_explicitStore;localStorage.setItem('prisme_selectedStore',_explicitStore);}else{const _selEl=document.getElementById('selectMyStore');if(_selEl){_selEl.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selEl.value='';}document.getElementById('storeSelector').classList.remove('hidden');btn.disabled=false;throw new Error('NO_STORE_SELECTED');}btn.disabled=false;}
-        else{if(_S.storesIntersection.size===1)_S.selectedMyStore=[..._S.storesIntersection][0];}
-        useMulti=hasMulti&&_S.selectedMyStore;
-      }else if(_savedStoreBeforeReset){const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
+      if(!isRefilter&&storeOverride){_S.selectedMyStore=storeOverride==='*'?'':storeOverride;}
+      else if(isRefilter&&_savedStoreBeforeReset){_S.selectedMyStore=_savedStoreBeforeReset;const sel=document.getElementById('selectMyStore');if(sel)sel.value=_savedStoreBeforeReset;}
+      const hasMulti=_S.storesIntersection.size>1,useMulti=hasMulti&&_S.selectedMyStore;
 
       const stockKeys=Object.keys(dataS[0]||{});
       const colFamille=stockKeys.find(k=>k.toLowerCase()==='famille')||stockKeys.find(k=>k.toLowerCase().startsWith('famille'));
@@ -1562,8 +1650,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
-      if(_S._rawDataC&&_S._rawDataC.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
-        await processDataFromRaw(_S._rawDataC,_S._rawDataS||[],{isRefilter:true});
+      const _rfDC2=_S._rawDataCFiltered&&_S._rawDataCFiltered.length?_S._rawDataCFiltered:_S._rawDataC;
+      if(_rfDC2&&_rfDC2.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
+        await processDataFromRaw(_rfDC2,_S._rawDataS||[],{isRefilter:true});
       }else{
         renderCanalAgence();renderCurrentTab();renderIRABanner();
       }}

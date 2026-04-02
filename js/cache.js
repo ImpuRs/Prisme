@@ -307,6 +307,7 @@ export async function _saveSessionToIDB() {
       livraisonsClientCount: _S.livraisonsClientCount || 0,
       // ── Raw Excel rows — nécessaires pour recalculer les agrégats sur une nouvelle période ──
       _rawDataC:             _S._rawDataC || [],
+      _rawDataCFiltered:     _S._rawDataCFiltered || [],
       _rawDataS:             _S._rawDataS || [],
     };
     st.put(payload, 'current');
@@ -427,6 +428,7 @@ export async function _restoreSessionFromIDB() {
 
     // ── Raw Excel rows — permet le recalcul période post-restore ──
     _S._rawDataC = data._rawDataC || [];
+    _S._rawDataCFiltered = data._rawDataCFiltered || [];
     _S._rawDataS = data._rawDataS || [];
 
     _idbTimestamp = data.timestamp;
