@@ -2146,16 +2146,12 @@ export function computeRadarFamille() {
   // ── Couverture + classification globale ──
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
-    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
-    if (total > 0) {
-      const ri = f.implanter / total;
-      const rc = f.challenger / total;
-      const rs = f.socle / total;
-      if (ri >= 0.2)      f.classifGlobal = 'implanter';
-      else if (rc >= 0.3) f.classifGlobal = 'challenger';
-      else if (rs >= 0.5) f.classifGlobal = 'socle';
-      else                f.classifGlobal = 'potentiel';
-    }
+    if (f.implanter > 0)                                f.classifGlobal = 'implanter';
+    else if (f.srcReseau && f.nbClients >= 5)           f.classifGlobal = 'socle';
+    else if (f.socle > 0 && f.nbClients >= 2)          f.classifGlobal = 'socle';
+    else if (f.challenger > f.socle && f.nbClients < 3) f.classifGlobal = 'challenger';
+    else if (f.surveiller > 0)                         f.classifGlobal = 'surveiller';
+    else                                               f.classifGlobal = 'potentiel';
   }
 
   const families = [...famMap.values()]
@@ -2165,11 +2161,11 @@ export function computeRadarFamille() {
   return {
     families,
     totals: {
-      socle:      families.reduce((s, f) => s + f.socle,      0),
-      implanter:  families.reduce((s, f) => s + f.implanter,  0),
-      challenger: families.reduce((s, f) => s + f.challenger, 0),
-      potentiel:  families.reduce((s, f) => s + f.potentiel,  0),
-      surveiller: families.reduce((s, f) => s + f.surveiller, 0),
+      socle:      families.filter(f => f.classifGlobal === 'socle').length,
+      implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
+      challenger: families.filter(f => f.classifGlobal === 'challenger').length,
+      potentiel:  families.filter(f => f.classifGlobal === 'potentiel').length,
+      surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
     }
   };
 }
