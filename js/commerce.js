@@ -188,7 +188,8 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     if(!canal||canal==='MAGASIN'){
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(!_passesAllFilters(cc))continue;
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        let caPDV=0,caPrelevee=0;
+        for(const v of artMap.values()){caPDV+=(v.sumCA||0);caPrelevee+=(v.sumCAPrelevee||0);}
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
         const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
@@ -196,7 +197,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
         const lastDate=_S.clientLastOrder?.get(cc);
         const info=_S.chalandiseData?.get(cc);
         const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caPDV,caDelta:caHors,caTotal,lastDate});
+        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caPDV,caPrelevee,caDelta:caHors,caTotal,lastDate});
       }
       if(!canal){
         for(const[cc,artMap]of _S.ventesClientHorsMagasin){
@@ -253,9 +254,10 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
       const silence=daysSince!==null?`${daysSince}j`:'—';
       const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
       const _dc=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
-      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+      const _prevColor=isMagCanal?(r.caPrelevee<r.caPrimary*0.5?'c-caution':'c-ok'):'';
+      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td>${isMagCanal?`<td class="py-1.5 px-2 text-right text-[11px] ${_prevColor}">${formatEuro(r.caPrelevee)}</td>`:''}<td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
     }).join('');
-    el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
+    el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th>${isMagCanal?'<th class="py-2 px-2 text-right">CA Prélevé</th>':''}<th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
   }
 
   // ── _computeTop5Reconq — scored reconquest priority list (shared) ────
