@@ -1810,10 +1810,10 @@ window._laboOpenTile = function(tile) {
     _rfFilterClassif = '';
     _rfOpenFam = null;
     _rfDetailTab = 'rayon';
-    _rfSearchQ = '';
     const data = computeRadarFamille();
     _S._rfData = data;
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderRadarFamille(data)}</div>`;
+    _initRfSearch();
   }
 };
 
@@ -2026,6 +2026,56 @@ function _initRayonSearch() {
       results.classList.add('hidden');
       // Remove listener once tile is gone
       if (!document.getElementById('rayonSearchInput')) document.removeEventListener('click', _rayonOutside);
+    }
+  });
+}
+
+function _initRfSearch() {
+  const input = document.getElementById('rfSearchInput');
+  const results = document.getElementById('rfSearchResults');
+  if (!input || !results) return;
+
+  // Réutiliser le même index catalogue que Mon Rayon (familles niveau 1 uniquement)
+  _S._rayonSearchIndex = null; // forcer rebuild
+  const searchIndex = _buildRayonSearchIndex().filter(e => e.level === 1);
+
+  let debounce;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      const q = input.value.trim().toLowerCase();
+      if (q.length < 2) { results.classList.add('hidden'); return; }
+
+      if (searchIndex.length === 0) {
+        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
+        results.classList.remove('hidden');
+        return;
+      }
+
+      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+      if (!matches.length) {
+        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
+        results.classList.remove('hidden');
+        return;
+      }
+
+      results.innerHTML = matches.map(e => {
+        const safeCF = e.codeFam.replace(/'/g, "\\'");
+        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
+          onclick="window._rfSelectFam('${safeCF}')">
+          <span class="font-bold t-primary">${escapeHtml(e.libFam)}</span>
+          <span class="t-disabled ml-1">(${e.codeFam})</span>
+          <span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>
+        </div>`;
+      }).join('');
+      results.classList.remove('hidden');
+    }, 200);
+  });
+
+  document.addEventListener('click', function _rfOutside(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      results.classList.add('hidden');
+      if (!document.getElementById('rfSearchInput')) document.removeEventListener('click', _rfOutside);
     }
   });
 }
@@ -2319,7 +2369,6 @@ function _downloadCSV(csv, filename) {
 let _rfFilterClassif = '';
 let _rfOpenFam = null;
 let _rfDetailTab = 'rayon';
-let _rfSearchQ = '';
 
 function _rfRerender() {
   const content = document.getElementById('laboTileContent');
@@ -2360,9 +2409,12 @@ function _renderRadarFamille(data) {
       ${_badge('potentiel', totals.potentiel)}
       ${_badge('surveiller', totals.surveiller)}
     </div>
-    <input type="text" id="rfSearchInput" placeholder="🔍 Filtrer par famille…" value="${escapeHtml(_rfSearchQ)}"
-      oninput="window._rfSearch(this.value)"
-      class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none mb-3">
+    <div class="relative mb-3">
+      <input type="text" id="rfSearchInput" placeholder="🔍 Rechercher une famille… (ex: protection, fixation)"
+        autocomplete="off"
+        class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
+      <div id="rfSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+    </div>
   </div>`;
 
   html += `<div id="rfFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_rfBuildCards(data)}</div>`;
@@ -2372,10 +2424,6 @@ function _renderRadarFamille(data) {
 function _rfBuildCards(data) {
   let families = data.families;
   if (_rfFilterClassif) families = families.filter(f => f.classifGlobal === _rfFilterClassif);
-  if (_rfSearchQ) {
-    const q = _rfSearchQ.toLowerCase();
-    families = families.filter(f => f.libFam.toLowerCase().includes(q) || f.codeFam.toLowerCase().includes(q));
-  }
   if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
   let out = '';
   for (const f of families) {
@@ -2563,11 +2611,14 @@ window._rfSetFilter = function(key) {
   _rfRerender();
 };
 
-window._rfSearch = function(q) {
-  _rfSearchQ = q;
-  const grid = document.getElementById('rfFamGrid');
-  if (!grid || !_S._rfData) { _rfRerender(); return; }
-  grid.innerHTML = _rfBuildCards(_S._rfData);
+window._rfSelectFam = function(codeFam) {
+  const results = document.getElementById('rfSearchResults');
+  if (results) results.classList.add('hidden');
+  const input = document.getElementById('rfSearchInput');
+  if (input) input.value = '';
+  _rfOpenFam = codeFam;
+  _rfDetailTab = 'rayon';
+  _rfRerender();
 };
 
 window._rfOpenDetail = function(codeFam) {
