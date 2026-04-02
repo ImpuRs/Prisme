@@ -1,6 +1,6 @@
 'use strict';
 import { _S } from './state.js';
-import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
+import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon } from './engine.js';
 import { FAMILLE_LOOKUP } from './constants.js';
 import { getFilteredData } from './ui.js';
@@ -35,7 +35,24 @@ const CLASSIF_BADGE = {
 
 // ── computePlanStock ─────────────────────────────────────────────────
 function computePlanStock() {
-  const filteredData = (typeof getFilteredData === 'function') ? getFilteredData() : (_S.finalData || []);
+  // Filtrer sur critères structurels uniquement (pas l'âge/période)
+  const fam  = (document.getElementById('filterFamille')?.value || '').trim().toLowerCase();
+  const sFam = (document.getElementById('filterSousFamille')?.value || '').trim().toLowerCase();
+  const emp  = (document.getElementById('filterEmplacement')?.value || '').trim().toLowerCase();
+  const stat = document.getElementById('filterStatut')?.value || '';
+  const abc  = document.getElementById('filterABC')?.value || '';
+  const fmr  = document.getElementById('filterFMR')?.value || '';
+
+  const filteredData = (_S.finalData || []).filter(r => {
+    if (fam  && !famLib(r.famille || '').toLowerCase().includes(fam)
+             && !(r.famille || '').toLowerCase().includes(fam)) return false;
+    if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam)) return false;
+    if (emp  && !(r.emplacement || '').toLowerCase().includes(emp)) return false;
+    if (stat && r.statut !== stat) return false;
+    if (abc  && r.abcClass !== abc) return false;
+    if (fmr  && r.fmrClass !== fmr) return false;
+    return true;
+  });
   const filteredCodes = new Set(filteredData.map(r => r.code));
 
   const sqData = computeSquelette();
