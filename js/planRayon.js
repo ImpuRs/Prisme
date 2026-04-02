@@ -238,6 +238,9 @@ function _prBuildCards(data, searchText = '') {
   if (searchText) families = families.filter(f =>
     f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
   );
+  if (!_prFilterClassif && !searchText && _prOpenFam) {
+    families = families.filter(f => f.codeFam === _prOpenFam);
+  }
   if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
   let out = '';
   for (const f of families) {
@@ -507,6 +510,13 @@ function _prRenderDetail(codeFam) {
   if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
 
   const b = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
+  const sousFamLib = _prOpenSousFam
+    ? (_S.catalogueFamille
+        ? [..._S.catalogueFamille.values()]
+            .find(f => f.codeFam === codeFam && f.codeSousFam === _prOpenSousFam)
+            ?.sousFam || _prOpenSousFam
+        : _prOpenSousFam)
+    : '';
   const tabs = [
     { key: 'rayon',     label: '📊 Mon Rayon' },
     { key: 'squelette', label: '🦴 Squelette' },
@@ -519,6 +529,7 @@ function _prRenderDetail(codeFam) {
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
         <span class="text-[10px] t-disabled">${fam.codeFam}</span>
+        ${sousFamLib ? `<span class="text-[10px] t-disabled mx-1">›</span><span class="text-[12px] t-secondary font-medium">${escapeHtml(sousFamLib)}</span>` : ''}
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
       <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
@@ -574,7 +585,7 @@ function _renderPlanRayonContent(data) {
     ${legend}
   </div>
   <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    ${(_prFilterClassif || _prSearchText)
+    ${(_prFilterClassif || _prSearchText || _prOpenFam)
       ? _prBuildCards(data, _prSearchText)
       : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
   </div>
