@@ -2115,8 +2115,8 @@ export function computeRadarFamille() {
         const fi = getFamInfo(a.code);
         if (!fi) continue;
         const f = _ensure(fi.codeFam, fi.libFam);
-        f[a.classification]++;
-        f.articles[a.classification].push(a);
+        f[g]++;
+        f.articles[g].push(a);
         if (a.sources.has('reseau'))     f.srcReseau     = true;
         if (a.sources.has('chalandise')) f.srcChalandise = true;
         if (a.sources.has('horsZone'))   f.srcHorsZone   = true;
@@ -2146,12 +2146,24 @@ export function computeRadarFamille() {
   // ── Couverture + classification globale ──
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
-    if (f.implanter > 0)                                f.classifGlobal = 'implanter';
-    else if (f.srcReseau && f.nbClients >= 5)           f.classifGlobal = 'socle';
-    else if (f.socle > 0 && f.nbClients >= 2)          f.classifGlobal = 'socle';
-    else if (f.challenger > f.socle && f.nbClients < 3) f.classifGlobal = 'challenger';
-    else if (f.surveiller > 0)                         f.classifGlobal = 'surveiller';
-    else                                               f.classifGlobal = 'potentiel';
+    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
+    const rSocle      = total > 0 ? f.socle      / total : 0;
+    const rChallenger = total > 0 ? f.challenger  / total : 0;
+    const nbSrc = (f.srcReseau ? 1 : 0) + (f.srcChalandise ? 1 : 0)
+                + (f.srcHorsZone ? 1 : 0) + (f.srcLivraisons ? 1 : 0);
+
+    if (f.implanter > 2 && nbSrc >= 2)
+      f.classifGlobal = 'implanter';
+    else if (rSocle >= 0.4 && f.nbClients >= 5 && nbSrc >= 2)
+      f.classifGlobal = 'socle';
+    else if (rSocle >= 0.5 && f.nbClients >= 10)
+      f.classifGlobal = 'socle';
+    else if (rChallenger >= 0.4 && f.nbClients < 5)
+      f.classifGlobal = 'challenger';
+    else if (f.surveiller > f.socle && f.nbClients < 3)
+      f.classifGlobal = 'surveiller';
+    else
+      f.classifGlobal = 'potentiel';
   }
 
   const families = [...famMap.values()]
