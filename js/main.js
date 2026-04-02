@@ -521,11 +521,22 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.periodFilterStart=null;_S.periodFilterEnd=null;
     await processDataFromRaw(dataCFiltered,dataS,{storeOverride:selectedStore||''});
 
+    // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
+    _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+    // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
+    // Note : isRefilter resets ventesParMagasin={} et ventesParMagasinByCanal={}
+    const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+    if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
+      await processDataFromRaw(dataCFiltered,dataS,{isRefilter:true});
+    }
+    buildPeriodFilter();
+
     // ── Second pass léger : ventesParMagasin des AUTRES agences (pour benchmark réseau) ──
-    if(_S.storesIntersection.size>1&&dataC.length>dataCFiltered.length){
+    // DOIT tourner APRÈS isRefilter (qui reset ventesParMagasin à chaque appel)
+    if(_S.storesIntersection.size>1&&_S._rawDataC.length>dataCFiltered.length){
       updateProgress(90,100,'Benchmark réseau…');
       _resetColCache();
-      for(const row of dataC){
+      for(const row of _S._rawDataC){
         const store=extractStoreCode(row);
         if(!store||store===selectedStore)continue;
         if(!_S.storesIntersection.has(store))continue;
@@ -544,15 +555,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       }
       await yieldToMain();
     }
-
-    // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
-    _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
-    // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
-    const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
-    if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
-      await processDataFromRaw(dataCFiltered,dataS,{isRefilter:true});
-    }
-    buildPeriodFilter();
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -723,7 +725,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
           // ventesClientHorsMagasin — skip for isRefilter
           if(!isRefilter&&cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}
           // ventesParMagasinByCanal — toujours (y compris isRefilter)
-          if(codeArt&&(skHors==='INCONNU'||_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=(getCaColumn(row,'prél')||0);_vpmc.countBL++;const _vmbPH=getVmbColumn(row,'prél');const _vmbEH=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
+          if(codeArt&&(_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=(getCaColumn(row,'prél')||0);_vpmc.countBL++;const _vmbPH=getVmbColumn(row,'prél');const _vmbEH=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
         }
         continue;
       }
