@@ -318,11 +318,11 @@ function _prRenderRayon(data) {
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px] t-disabled">
-        <th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>
-        <th class="py-1.5 px-2 text-left">Sous-fam.</th><th class="py-1.5 px-2 text-right">Stock</th>
-        <th class="py-1.5 px-2 text-right">W</th><th class="py-1.5 px-2 text-left">Statut</th>
-        <th class="py-1.5 px-2 text-right">CA agence</th>
+      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sous-fam.</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">W</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Statut</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -352,10 +352,10 @@ function _prBuildSqTable(arts) {
   }).join('');
   return `<div class="overflow-x-auto" id="prSqTable">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px] t-disabled">
-        <th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>
-        <th class="py-1.5 px-2 text-left">Classif.</th><th class="py-1.5 px-2 text-left">Sources</th>
-        <th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-right">CA agence</th>
+      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -429,11 +429,11 @@ function _prRenderMetiers(fam) {
   </tr>`).join('');
   return `<div class="overflow-x-auto">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px] t-disabled">
-        <th class="py-1.5 px-2 text-left">Métier</th>
-        <th class="py-1.5 px-2 text-right">Clients</th>
-        <th class="py-1.5 px-2 text-right">CA famille</th>
-        <th class="py-1.5 px-2 text-right">%</th>
+      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Métier</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Clients</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA famille</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">%</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -497,7 +497,7 @@ function _prRenderDetail(codeFam) {
     { key: 'analyse',   label: '📦 Analyse'   },
   ];
 
-  return `<div id="prDetailPanel" class="mt-4 s-panel-inner rounded-xl border p-3">
+  return `<div id="prDetailPanel" class="mt-4 rounded-xl border b-light p-3">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
@@ -508,7 +508,8 @@ function _prRenderDetail(codeFam) {
     </div>
     <div class="flex flex-wrap gap-1.5 mb-3">
       ${tabs.map(t => `<button onclick="window._prSetTab('${t.key}')" data-prtab="${t.key}"
-        class="text-[11px] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${_prDetailTab === t.key ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}">${t.label}</button>`).join('')}
+        class="text-[11px] px-3 py-1.5 cursor-pointer border-b-2 ${_prDetailTab === t.key ? 'font-bold' : 't-secondary'}"
+        style="${_prDetailTab === t.key ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent'}">${t.label}</button>`).join('')}
     </div>
     <div id="prDetailContent">${_prGetTabContent(_prDetailTab, fam)}</div>
   </div>`;
@@ -696,7 +697,9 @@ window._prSetTab = function(tab) {
   _prDetailTab = tab;
   document.querySelectorAll('[data-prtab]').forEach(btn => {
     const active = btn.dataset.prtab === tab;
-    btn.className = `text-[11px] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}`;
+    btn.className = `text-[11px] px-3 py-1.5 cursor-pointer border-b-2 ${active ? 'font-bold' : 't-secondary'}`;
+    btn.style.borderColor = active ? 'var(--c-action)' : 'transparent';
+    btn.style.color       = active ? 'var(--t-primary)' : '';
   });
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
   const el  = document.getElementById('prDetailContent');
