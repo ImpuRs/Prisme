@@ -684,10 +684,21 @@ function _prGetTabContent(tab, fam) {
         }
       }
     }
-    _S._prRayonData = rayonData;
+    // Filtres structurels uniquement — ruptures (stockActuel=0) incluses
+    const emp = (document.getElementById('filterEmplacement')?.value || '').trim().toLowerCase();
+    const abc = document.getElementById('filterABC')?.value || '';
+    const fmr = document.getElementById('filterFMR')?.value || '';
+    const filteredMonRayon = (rayonData?.monRayon || []).filter(r => {
+      if (emp && !(r.emplacement || '').toLowerCase().includes(emp)) return false;
+      if (abc && r.abcClass !== abc) return false;
+      if (fmr && r.fmrClass !== fmr) return false;
+      return true;
+    });
+    const filtered = rayonData ? { ...rayonData, monRayon: filteredMonRayon } : null;
+    _S._prRayonData = filtered;
     _S._prPageRayon = PAGE_SIZE;
     _prRayonFilter  = '';
-    return _prRenderRayon(rayonData);
+    return _prRenderRayon(filtered);
   }
   if (tab === 'squelette') return _prRenderSquelette(fam);
   if (tab === 'metiers')   return _prRenderMetiers(fam);
