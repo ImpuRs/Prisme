@@ -469,103 +469,97 @@ function _prRenderMetiers(fam) {
   }
   const catFam = _S.catalogueFamille;
 
-  // Articles en stock pour cette famille (dénominateur couverture)
-  const artsEnStock = new Set(
-    (_S.finalData || []).filter(a => {
-      const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-      return cf === fam.codeFam;
-    }).map(a => a.code)
-  );
-  const nbArtsStock = artsEnStock.size;
-
-  // Aggrégats par métier
-  const metierCA       = new Map(); // metier → CA famille
-  const metierActifs   = new Map(); // metier → Set<cc> acheteurs
-  const metierArts     = new Map(); // metier → Set<code> articles achetés
-
+  // CA famille par métier (ventesClientArticle × chalandise)
+  const metierCA      = new Map(); // metier → CA famille
+  const metierClients = new Map(); // metier → Set<cc>
   if (_S.ventesClientArticle) {
     for (const [cc, artMap] of _S.ventesClientArticle) {
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || '';
       let caFam = 0;
-      const artsAchetes = new Set();
       for (const [code, v] of artMap) {
         const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === fam.codeFam) {
-          caFam += v.sumCA || 0;
-          artsAchetes.add(code);
-        }
+        if (cf === fam.codeFam) caFam += v.sumCA || 0;
       }
       if (caFam > 0) {
         metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
-        if (!metierActifs.has(metier)) metierActifs.set(metier, new Set());
-        metierActifs.get(metier).add(cc);
-        if (!metierArts.has(metier)) metierArts.set(metier, new Set());
-        for (const c of artsAchetes) metierArts.get(metier).add(c);
+        if (!metierClients.has(metier)) metierClients.set(metier, new Set());
+        metierClients.get(metier).add(cc);
       }
     }
   }
 
   if (!metierCA.size) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
 
-  // Prospects : clients chalandise du métier sans achat dans cette famille
-  const metierProspects = new Map();
-  if (_S.clientsByMetier) {
-    for (const [metier, ccSet] of _S.clientsByMetier) {
-      const actifsSet = metierActifs.get(metier) || new Set();
-      let prospects = 0;
-      for (const cc of ccSet) {
-        if (!actifsSet.has(cc)) prospects++;
+  // Médiane CA réseau (agences hors myStore) pour cette famille — référence globale
+  const caParAgence = [];
+  if (_S.ventesParMagasin) {
+    for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) {
+      if (store === _S.selectedMyStore) continue;
+      let ca = 0;
+      for (const [code, v] of Object.entries(artMap)) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf === fam.codeFam) ca += v.sumCA || 0;
       }
-      metierProspects.set(metier, prospects);
+      if (ca > 0) caParAgence.push(ca);
+    }
+  }
+  function _med(arr) {
+    if (!arr.length) return 0;
+    const s = [...arr].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  const medReseau = _med(caParAgence);
+
+  // Médiane CA livraison par métier (territoireLines)
+  const metierBLCA = new Map(); // metier → [ca par BL]
+  if (_S.territoireReady && _S.territoireLines?.length) {
+    const blCA = new Map(); // bl → {ca, clientCode}
+    for (const l of _S.territoireLines) {
+      const cf = _S.articleFamille?.[l.code] || catFam?.get(l.code)?.codeFam;
+      if (cf !== fam.codeFam || !l.bl || !(l.ca > 0)) continue;
+      if (!blCA.has(l.bl)) blCA.set(l.bl, { ca: 0, clientCode: l.clientCode });
+      blCA.get(l.bl).ca += l.ca;
+    }
+    for (const [, { ca, clientCode }] of blCA) {
+      const metier = _S.chalandiseData?.get(clientCode)?.metier || '';
+      if (!metier) continue;
+      if (!metierBLCA.has(metier)) metierBLCA.set(metier, []);
+      metierBLCA.get(metier).push(ca);
     }
   }
 
-  const total  = [...metierCA.values()].reduce((s, v) => s + v, 0);
   const sorted = [...metierCA.entries()].sort((a, b) => b[1] - a[1]);
-
-  // Barre de répartition colorée
-  const barSegments = sorted.map(([m, ca], i) => {
-    const pct = total > 0 ? ca / total * 100 : 0;
-    const colors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#84cc16'];
-    return `<span title="${escapeHtml(m||'—')} ${Math.round(pct)}%" style="display:inline-block;height:8px;width:${pct}%;background:${colors[i % colors.length]};"></span>`;
-  }).join('');
-
   const rows = sorted.map(([m, ca]) => {
-    const actifs    = metierActifs.get(m)?.size || 0;
-    const prospects = metierProspects.get(m) || 0;
-    const clients   = actifs; // acheteurs dans la famille
-    const nbArts    = metierArts.get(m)?.size || 0;
-    const couv      = nbArtsStock > 0 ? Math.round(nbArts / nbArtsStock * 100) : 0;
-    const pctCA     = total > 0 ? Math.round(ca / total * 100) : 0;
+    const nbClients = metierClients.get(m)?.size || 0;
+    const medLivr   = _med(metierBLCA.get(m) || []);
     return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${clients}</td>
-      <td class="py-1.5 px-2 text-right" style="color:#22c55e;font-weight:600">${actifs}</td>
-      <td class="py-1.5 px-2 text-right t-disabled">${prospects}</td>
-      <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(ca)}</td>
-      <td class="py-1.5 px-2 text-right t-disabled">${pctCA}%</td>
-      <td class="py-1.5 px-2 text-right">${_prCouvertureBar(couv)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${nbClients}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(ca)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${medReseau > 0 ? formatEuro(medReseau) : '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${medLivr > 0 ? formatEuro(medLivr) : '—'}</td>
     </tr>`;
   }).join('');
 
-  return `<div style="height:8px;border-radius:4px;overflow:hidden;display:flex;margin-bottom:12px">${barSegments}</div>
-  <div class="overflow-x-auto">
+  const livrNote = !_S.territoireReady
+    ? '<p class="text-[10px] t-disabled mt-2">Chargez Le Terrain pour la médiane CA livraison.</p>' : '';
+
+  return `<div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
           <th class="py-1.5 px-2 text-right">Clients</th>
-          <th class="py-1.5 px-2 text-right">Actifs</th>
-          <th class="py-1.5 px-2 text-right">Prospects</th>
           <th class="py-1.5 px-2 text-right">CA famille</th>
-          <th class="py-1.5 px-2 text-right">% CA</th>
-          <th class="py-1.5 px-2 text-right">Couverture</th>
+          <th class="py-1.5 px-2 text-right">Méd. CA réseau</th>
+          <th class="py-1.5 px-2 text-right">Méd. CA livraison</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
-  </div>`;
+  </div>${livrNote}`;
 }
 
 // ── Onglet Analyse ───────────────────────────────────────────────────
