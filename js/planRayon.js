@@ -571,15 +571,39 @@ function _prRenderMetiers(fam) {
 // ── Onglet Analyse ───────────────────────────────────────────────────
 function _prRenderAnalyse(fam) {
   const catFam = _S.catalogueFamille;
+  const filteredData = (typeof getFilteredData === 'function') ? getFilteredData() : (_S.finalData || []);
+
+  // Sous-familles — catalogue + stock
   const sfCount = new Map();
   if (catFam) for (const [, f] of catFam) {
     if (f.codeFam === fam.codeFam && f.sousFam)
       sfCount.set(f.sousFam, (sfCount.get(f.sousFam) || 0) + 1);
   }
-  const sfRows = [...sfCount.entries()].sort((a, b) => b[1] - a[1]).map(([sf, n]) =>
-    `<div class="flex justify-between text-[11px] py-1 border-b b-light"><span class="t-primary truncate">${escapeHtml(sf)}</span><span class="t-disabled ml-2 shrink-0">${n} réf.</span></div>`
-  ).join('') || '<div class="t-disabled text-[11px] py-2">Aucune sous-famille.</div>';
+  const stockBySF = new Map();
+  for (const r of filteredData) {
+    const cf = catFam?.get(r.code);
+    if (cf?.codeFam !== fam.codeFam || !cf.sousFam) continue;
+    if (r.stockActuel > 0) stockBySF.set(cf.sousFam, (stockBySF.get(cf.sousFam) || 0) + 1);
+  }
+  const thSF = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
+    <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+      <th class="py-1.5 px-2 text-left">Sous-famille</th>
+      <th class="py-1.5 px-2 text-right">En stock</th>
+      <th class="py-1.5 px-2 text-right">Réf. cat.</th>
+      <th class="py-1.5 px-2">Couverture</th>
+    </tr></thead>`;
+  const sfRows = [...sfCount.entries()].sort((a, b) => b[1] - a[1]).map(([sf, nbCat]) => {
+    const nbStock = stockBySF.get(sf) || 0;
+    const pct = Math.round(nbStock / nbCat * 100);
+    return `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(sf)}">${escapeHtml(sf)}</td>
+      <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
+      <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune sous-famille.</td></tr>`;
 
+  // Marques — catalogue + stock
   const marqueCount = new Map();
   if (_S.marqueArticles) for (const [marque, codes] of _S.marqueArticles) {
     let n = 0;
@@ -588,13 +612,41 @@ function _prRenderAnalyse(fam) {
     }
     if (n > 0) marqueCount.set(marque, n);
   }
-  const marqueRows = [...marqueCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([m, n]) =>
-    `<div class="flex justify-between text-[11px] py-1 border-b b-light"><span class="t-primary truncate">${escapeHtml(m)}</span><span class="t-disabled ml-2 shrink-0">${n} réf.</span></div>`
-  ).join('') || '<div class="t-disabled text-[11px] py-2">Aucune marque détectée.</div>';
+  const stockByMarque = new Map();
+  for (const r of filteredData) {
+    const cf = catFam?.get(r.code);
+    if (cf?.codeFam !== fam.codeFam) continue;
+    if (r.stockActuel <= 0) continue;
+    const marque = _S.catalogueMarques?.get(r.code) || '';
+    if (marque) stockByMarque.set(marque, (stockByMarque.get(marque) || 0) + 1);
+  }
+  const thM = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
+    <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+      <th class="py-1.5 px-2 text-left">Marque</th>
+      <th class="py-1.5 px-2 text-right">En stock</th>
+      <th class="py-1.5 px-2 text-right">Réf. cat.</th>
+      <th class="py-1.5 px-2">Couverture</th>
+    </tr></thead>`;
+  const marqueRows = [...marqueCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([m, nbCat]) => {
+    const nbStock = stockByMarque.get(m) || 0;
+    const pct = Math.round(nbStock / nbCat * 100);
+    return `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">${escapeHtml(m)}</td>
+      <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
+      <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune marque détectée.</td></tr>`;
 
   return `<div class="grid grid-cols-2 gap-6">
-    <div><h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>${sfRows}</div>
-    <div><h4 class="text-[11px] font-bold t-primary mb-2">Marques (top 15)</h4>${marqueRows}</div>
+    <div>
+      <h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>
+      <div class="overflow-x-auto"><table class="w-full text-[11px]">${thSF}<tbody>${sfRows}</tbody></table></div>
+    </div>
+    <div>
+      <h4 class="text-[11px] font-bold t-primary mb-2">Marques (top 15)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-[11px]">${thM}<tbody>${marqueRows}</tbody></table></div>
+    </div>
   </div>`;
 }
 
