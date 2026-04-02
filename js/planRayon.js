@@ -13,6 +13,7 @@ let _prDetailTab     = 'rayon';
 let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
+let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -237,6 +238,9 @@ function _prBuildCards(data, searchText = '') {
   if (searchText) families = families.filter(f =>
     f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
   );
+  if (!_prFilterClassif && !searchText && _prOpenFam) {
+    families = families.filter(f => f.codeFam === _prOpenFam);
+  }
   if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
   let out = '';
   for (const f of families) {
@@ -281,12 +285,23 @@ function _prRenderRayon(data) {
   if (!data) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
   const { monRayon, nbCatalogue, couverture, valeurTotale } = data;
   const page = _S._prPageRayon || PAGE_SIZE;
-  const shown = monRayon.slice(0, page);
   const pepites  = monRayon.filter(a => a.status === 'pepite').length;
   const challeng = monRayon.filter(a => a.status === 'challenger').length;
   const dormants = monRayon.filter(a => a.status === 'dormant').length;
   const socle    = monRayon.length - pepites - challeng - dormants;
-  const rows = monRayon.slice(0, page).map(a => {
+  // Filtre local par statut
+  const displayed = _prRayonFilter
+    ? monRayon.filter(a => (a.status || 'socle') === _prRayonFilter)
+    : monRayon;
+  // Pills filtrables
+  const _pill = (key, count, icon, label, color, bg, fw) => {
+    if (!count) return '';
+    const active = _prRayonFilter === key;
+    const pillBg     = active ? bg.replace(/[\d.]+\)$/, m => String(Math.min(parseFloat(m) * 1.8, 0.4)) + ')') : bg;
+    const pillBorder = active ? `2px solid ${color}` : '2px solid transparent';
+    return `<button onclick="window._prSetRayonFilter('${key}')" style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:${fw};background:${pillBg};color:${color};border:${pillBorder};cursor:pointer">${icon} ${count} ${label}</button>`;
+  };
+  const rows = displayed.slice(0, page).map(a => {
     const s = a.status || 'standard';
     let sBg, sC, sL;
     if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';   sC='#22c55e';           sL='🟢 Pépite'; }
@@ -307,14 +322,18 @@ function _prRenderRayon(data) {
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--t-primary)">${formatEuro(a.caAgence)}</td>
     </tr>`;
   }).join('');
+  const filteredNote = _prRayonFilter
+    ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">— filtre actif · ${displayed.length} article${displayed.length !== 1 ? 's' : ''}</span>`
+    : '';
   return `<div class="mb-3 text-[11px] t-secondary">
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
-  <div class="flex flex-wrap gap-1.5 mb-3">
-    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
-    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:500">✅ ${socle} socle</span>` : ''}
-    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
-    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(148,163,184,0.2);color:var(--t-secondary);font-weight:600">💤 ${dormants} dormants</span>` : ''}
+  <div class="flex flex-wrap gap-1.5 mb-3 items-center">
+    ${_pill('pepite',    pepites,  '🟢', 'pépites AF',   '#22c55e',        'rgba(34,197,94,0.2)',   600)}
+    ${_pill('socle',     socle,    '✅', 'socle',        '#22c55e',        'rgba(34,197,94,0.2)',   500)}
+    ${_pill('challenger',challeng, '🔴', 'à challenger', '#ef4444',        'rgba(239,68,68,0.2)',   600)}
+    ${_pill('dormant',   dormants, '💤', 'dormants',     '#94a3b8',        'rgba(148,163,184,0.2)', 600)}
+    ${filteredNote}
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
@@ -328,7 +347,7 @@ function _prRenderRayon(data) {
     </table>
   </div>
   <div class="flex gap-2 mt-2">
-    ${monRayon.length > page ? `<button onclick="window._prMoreRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">Voir plus (${monRayon.length - page} restants)</button>` : ''}
+    ${displayed.length > page ? `<button onclick="window._prMoreRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">Voir plus (${displayed.length - page} restants)</button>` : ''}
     <button onclick="window._prExportRayon()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
   </div>`;
 }
@@ -336,7 +355,11 @@ function _prRenderRayon(data) {
 // ── Onglet Squelette ─────────────────────────────────────────────────
 function _prBuildSqTable(arts) {
   const filter = _S._prSqFilter || '';
-  const filtered = filter ? arts.filter(a => a._g === filter) : arts;
+  const filtered = filter === 'absent'
+    ? arts.filter(a => !a.enStock)
+    : filter
+      ? arts.filter(a => a._g === filter)
+      : arts;
   if (!filtered.length) return '<div class="t-disabled text-sm text-center py-4">Aucun article.</div>';
   const shown = filtered.slice(0, 50);
   const rows = shown.map(a => {
@@ -374,67 +397,165 @@ function _prRenderSquelette(fam) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
         const cf = _S.catalogueFamille?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-        if (cf === fam.codeFam) arts.push({ ...a, _g: g });
+        if (cf === fam.codeFam) {
+          if (_prOpenSousFam) {
+            const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
+            if (csf !== _prOpenSousFam) continue;
+          }
+          arts.push({ ...a, _g: g });
+        }
       }
     }
   }
   _S._prSqArts = arts;
 
+  const sousFamLib = _prOpenSousFam
+    ? (_S.catalogueFamille
+        ? [..._S.catalogueFamille.values()]
+            .find(f => f.codeFam === fam.codeFam && f.codeSousFam === _prOpenSousFam)
+            ?.sousFam || _prOpenSousFam
+        : _prOpenSousFam)
+    : '';
+
   const counts = {};
   for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
   const activeFilter = _S._prSqFilter || '';
 
-  const pills = CLASSIFS.map(g => {
+  let pills = CLASSIFS.map(g => {
     const b = CLASSIF_BADGE[g];
     const active = activeFilter === g;
     return `<button onclick="window._prSqFilterFn('${g}')"
       class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}"
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g]}</strong></button>`;
   }).join('');
+  const nbAbsent = arts.filter(a => !a.enStock).length;
+  if (nbAbsent) {
+    const active = activeFilter === 'absent';
+    pills += `<button onclick="window._prSqFilterFn('absent')"
+      class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card'}"
+      style="${active ? 'box-shadow:0 0 0 2px #ef4444' : ''}">
+      📦 Absent du rayon <span class="${active ? 't-inverse-muted' : 't-disabled'}">${nbAbsent}</span>
+    </button>`;
+  }
 
-  return `<div class="flex flex-wrap gap-1.5 mb-3">${pills}</div>${_prBuildSqTable(arts)}`;
+  const sousFamNote = sousFamLib
+    ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">· filtré sur <em>${escapeHtml(sousFamLib)}</em></span>`
+    : '';
+
+  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prBuildSqTable(arts)}`;
 }
 
 // ── Onglet Métiers ───────────────────────────────────────────────────
+function _prCouvertureBar(pct) {
+  const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  return `<span style="display:inline-flex;align-items:center;gap:4px">
+    <span style="display:inline-block;width:40px;height:6px;border-radius:3px;background:var(--color-border-tertiary,#e2e8f0);overflow:hidden">
+      <span style="display:block;height:100%;width:${pct}%;background:${color}"></span>
+    </span>
+    <span style="font-size:10px;font-weight:700;color:${color}">${pct}%</span>
+  </span>`;
+}
+
 function _prRenderMetiers(fam) {
   if (!_S.chalandiseReady || !_S.chalandiseData?.size) {
     return '<div class="t-disabled text-sm text-center py-6">Chargez la Zone de Chalandise pour cette analyse.</div>';
   }
   const catFam = _S.catalogueFamille;
-  const metierCA  = new Map();
-  const metierCli = new Map();
+
+  // Articles en stock pour cette famille (dénominateur couverture)
+  const artsEnStock = new Set(
+    (_S.finalData || []).filter(a => {
+      const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
+      return cf === fam.codeFam;
+    }).map(a => a.code)
+  );
+  const nbArtsStock = artsEnStock.size;
+
+  // Aggrégats par métier
+  const metierCA       = new Map(); // metier → CA famille
+  const metierActifs   = new Map(); // metier → Set<cc> acheteurs
+  const metierArts     = new Map(); // metier → Set<code> articles achetés
+
   if (_S.ventesClientArticle) {
     for (const [cc, artMap] of _S.ventesClientArticle) {
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || '';
       let caFam = 0;
+      const artsAchetes = new Set();
       for (const [code, v] of artMap) {
         const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === fam.codeFam) caFam += v.sumCA || 0;
+        if (cf === fam.codeFam) {
+          caFam += v.sumCA || 0;
+          artsAchetes.add(code);
+        }
       }
       if (caFam > 0) {
-        metierCA.set(metier,  (metierCA.get(metier)  || 0) + caFam);
-        metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
+        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+        if (!metierActifs.has(metier)) metierActifs.set(metier, new Set());
+        metierActifs.get(metier).add(cc);
+        if (!metierArts.has(metier)) metierArts.set(metier, new Set());
+        for (const c of artsAchetes) metierArts.get(metier).add(c);
       }
     }
   }
+
   if (!metierCA.size) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
+
+  // Prospects : clients chalandise du métier sans achat dans cette famille
+  const metierProspects = new Map();
+  if (_S.clientsByMetier) {
+    for (const [metier, ccSet] of _S.clientsByMetier) {
+      const actifsSet = metierActifs.get(metier) || new Set();
+      let prospects = 0;
+      for (const cc of ccSet) {
+        if (!actifsSet.has(cc)) prospects++;
+      }
+      metierProspects.set(metier, prospects);
+    }
+  }
+
   const total  = [...metierCA.values()].reduce((s, v) => s + v, 0);
   const sorted = [...metierCA.entries()].sort((a, b) => b[1] - a[1]);
-  const rows = sorted.map(([m, ca]) => `<tr class="border-b b-light text-[11px]">
-    <td class="py-1.5 px-2 t-primary">${escapeHtml(m || '—')}</td>
-    <td class="py-1.5 px-2 text-right t-secondary">${metierCli.get(m) || 0}</td>
-    <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(ca)}</td>
-    <td class="py-1.5 px-2 text-right t-disabled">${total > 0 ? Math.round(ca / total * 100) : 0}%</td>
-  </tr>`).join('');
-  return `<div class="overflow-x-auto">
+
+  // Barre de répartition colorée
+  const barSegments = sorted.map(([m, ca], i) => {
+    const pct = total > 0 ? ca / total * 100 : 0;
+    const colors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#84cc16'];
+    return `<span title="${escapeHtml(m||'—')} ${Math.round(pct)}%" style="display:inline-block;height:8px;width:${pct}%;background:${colors[i % colors.length]};"></span>`;
+  }).join('');
+
+  const rows = sorted.map(([m, ca]) => {
+    const actifs    = metierActifs.get(m)?.size || 0;
+    const prospects = metierProspects.get(m) || 0;
+    const clients   = actifs; // acheteurs dans la famille
+    const nbArts    = metierArts.get(m)?.size || 0;
+    const couv      = nbArtsStock > 0 ? Math.round(nbArts / nbArtsStock * 100) : 0;
+    const pctCA     = total > 0 ? Math.round(ca / total * 100) : 0;
+    return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
+      <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${clients}</td>
+      <td class="py-1.5 px-2 text-right" style="color:#22c55e;font-weight:600">${actifs}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${prospects}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(ca)}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${pctCA}%</td>
+      <td class="py-1.5 px-2 text-right">${_prCouvertureBar(couv)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="height:8px;border-radius:4px;overflow:hidden;display:flex;margin-bottom:12px">${barSegments}</div>
+  <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Métier</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Clients</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA famille</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">%</th>
-      </tr></thead>
+      <thead style="border-bottom:1px solid var(--color-border-tertiary)">
+        <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+          <th class="py-1.5 px-2 text-left">Métier</th>
+          <th class="py-1.5 px-2 text-right">Clients</th>
+          <th class="py-1.5 px-2 text-right">Actifs</th>
+          <th class="py-1.5 px-2 text-right">Prospects</th>
+          <th class="py-1.5 px-2 text-right">CA famille</th>
+          <th class="py-1.5 px-2 text-right">% CA</th>
+          <th class="py-1.5 px-2 text-right">Couverture</th>
+        </tr>
+      </thead>
       <tbody>${rows}</tbody>
     </table>
   </div>`;
@@ -476,6 +597,7 @@ function _prGetTabContent(tab, fam) {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
     _S._prRayonData = rayonData;
     _S._prPageRayon = PAGE_SIZE;
+    _prRayonFilter  = '';
     return _prRenderRayon(rayonData);
   }
   if (tab === 'squelette') return _prRenderSquelette(fam);
@@ -490,6 +612,13 @@ function _prRenderDetail(codeFam) {
   if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
 
   const b = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
+  const sousFamLib = _prOpenSousFam
+    ? (_S.catalogueFamille
+        ? [..._S.catalogueFamille.values()]
+            .find(f => f.codeFam === codeFam && f.codeSousFam === _prOpenSousFam)
+            ?.sousFam || _prOpenSousFam
+        : _prOpenSousFam)
+    : '';
   const tabs = [
     { key: 'rayon',     label: '📊 Mon Rayon' },
     { key: 'squelette', label: '🦴 Squelette' },
@@ -502,6 +631,7 @@ function _prRenderDetail(codeFam) {
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
         <span class="text-[10px] t-disabled">${fam.codeFam}</span>
+        ${sousFamLib ? `<span class="text-[10px] t-disabled mx-1">›</span><span class="text-[12px] t-secondary font-medium">${escapeHtml(sousFamLib)}</span>` : ''}
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
       <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
@@ -557,7 +687,7 @@ function _renderPlanRayonContent(data) {
     ${legend}
   </div>
   <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    ${(_prFilterClassif || _prSearchText)
+    ${(_prFilterClassif || _prSearchText || _prOpenFam)
       ? _prBuildCards(data, _prSearchText)
       : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
   </div>
@@ -706,6 +836,13 @@ window._prSetTab = function(tab) {
   if (el && fam) el.innerHTML = _prGetTabContent(tab, fam);
 };
 
+window._prSetRayonFilter = function(key) {
+  _prRayonFilter  = _prRayonFilter === key ? '' : key;
+  _S._prPageRayon = PAGE_SIZE;
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
+};
+
 window._prSqFilterFn = function(key) {
   _S._prSqFilter = _S._prSqFilter === key ? '' : key;
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
@@ -721,10 +858,11 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   _prSearchText  = '';
   _prOpenFam     = codeFam;
   _prOpenSousFam = codeSousFam || '';
-  _prDetailTab   = 'rayon';
+  _prDetailTab    = 'rayon';
   _prGridVisible  = true;
-  _S._prSqFilter = '';
-  _S._prSqData   = null;
+  _prRayonFilter  = '';
+  _S._prSqFilter  = '';
+  _S._prSqData    = null;
   // Montrer uniquement la famille sélectionnée dans la grille
   const grid = document.getElementById('prFamGrid');
   if (grid && _S._prData) {
