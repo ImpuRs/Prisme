@@ -1145,13 +1145,24 @@
       </details>
 
 
-      <!-- 5. Articles fantomes -->
+      <!-- Compat JS: anciens IDs supprimés, gardés masqués -->
+      <div class="hidden" aria-hidden="true">
+        <div id="ghostArticlesBlock"></div>
+        <span id="ghostCountInline"></span>
+        <div id="compareBlock"><span id="compareDate"></span><div id="compareCards"></div></div>
+        <table><tbody id="dashAttractTable"></tbody></table>
+        <table><tbody id="dashAgeTable"></tbody></table>
+        <table><tbody id="dashStatusTable"></tbody></table>
+        <table><tbody id="dashFamilyTable"></tbody></table>
+      </div>
+
+      <!-- Plan de rayon -->
       <details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
         <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-          <h3 class="font-extrabold text-sm t-primary">👻 Articles fantomes <span id="ghostCountInline" class="text-[11px] font-normal t-disabled ml-1"></span></h3>
+          <h3 class="font-extrabold text-sm t-primary">🔭 Plan de rayon <span id="planRayonInline" class="text-[11px] font-normal t-disabled ml-1"></span></h3>
           <span class="acc-arrow t-disabled">▶</span>
         </summary>
-        <div id="ghostArticlesBlock" class="p-4"></div>
+        <div id="planRayonBlock" class="p-4"></div>
       </details>
 
       <!-- 6. Recommandations stock -->
@@ -1162,59 +1173,6 @@
         </summary>
         <div id="terrRecoStockBlock" class="p-4"></div>
       </details>
-
-      <!-- 7. Attractivite par Famille -->
-      <details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
-        <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-          <h3 class="font-extrabold text-sm t-primary">🧲 Attractivite par Famille</h3>
-          <span class="acc-arrow t-disabled">▶</span>
-        </summary>
-        <div class="p-4">
-          <p class="text-[10px] t-tertiary mb-3">% de commandes contenant cette famille (base sur le fichier Consomme)</p>
-          <div class="table-scroll max-h-[280px]">
-            <table class="min-w-full text-xs">
-              <thead class="bg-pink-50 text-pink-800 sticky top-0 font-bold">
-                <tr><th class="py-2 px-3 text-left">Famille</th><th class="py-2 px-3 text-center">Cmd.</th><th class="py-2 px-3 text-right">Attractivite</th></tr>
-              </thead>
-              <tbody id="dashAttractTable" class="divide-y"></tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <!-- 8. Evolution historique -->
-      <details id="compareBlock" class="s-card rounded-xl shadow-md border mb-3 overflow-hidden hidden">
-        <summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-          <h3 class="font-extrabold text-sm t-primary">📈 Evolution vs derniere analyse <span id="compareDate" class="text-[11px] font-normal t-disabled ml-1"></span></h3>
-          <span class="acc-arrow t-disabled">▶</span>
-        </summary>
-        <div class="p-4">
-          <div class="flex gap-2 mb-3">
-            <button onclick="exportKPIhistory()" class="text-[10px] i-info-bg py-1 px-2 rounded font-semibold c-action">📥 Exporter</button>
-            <button onclick="clearSavedKPI()" class="text-[10px] s-hover py-1 px-2 rounded font-semibold t-secondary">🗑️ Reset</button>
-            <label class="text-[10px] i-info-bg py-1 px-2 rounded font-semibold c-action cursor-pointer">📤 Importer<input type="file" accept=".json" onchange="importKPIhistory(this)" class="hidden"></label>
-          </div>
-          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3" id="compareCards"></div>
-        </div>
-      </details>
-
-
-      <!-- 11. Anciennete / Statuts / Top 10 Familles -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-3">
-        <div class="s-card p-5 rounded-xl shadow-md border">
-          <h3 class="font-bold mb-2 border-b pb-2">⏳ Anciennete</h3>
-          <p class="text-[10px] c-action font-semibold mb-3">💡 Cliquez → filtre</p>
-          <table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase"><tr><th class="py-2 px-3 text-left text-xs">Periode</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-right text-xs">Nb</th></tr></thead><tbody id="dashAgeTable" class="divide-y font-semibold"></tbody></table>
-        </div>
-        <div class="s-card p-5 rounded-xl shadow-md border">
-          <h3 class="font-bold mb-4 border-b pb-2">🏷️ Statuts</h3>
-          <table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Statut</th><th class="py-2 px-3 text-right text-xs">Valeur</th></tr></thead><tbody id="dashStatusTable" class="divide-y font-semibold"></tbody></table>
-        </div>
-        <div class="s-card p-5 rounded-xl shadow-md border">
-          <h3 class="font-bold mb-4 border-b pb-2">📦 Top 10 Familles</h3>
-          <table class="min-w-full text-sm"><thead class="s-card-alt t-tertiary uppercase sticky top-0"><tr><th class="py-2 px-3 text-left text-xs">Famille</th><th class="py-2 px-3 text-right text-xs">Valeur</th><th class="py-2 px-3 text-xs text-center">🔍</th></tr></thead><tbody id="dashFamilyTable" class="divide-y font-semibold"></tbody></table>
-        </div>
-      </div>
 
     </div>
 
