@@ -1971,6 +1971,45 @@ function _buildRayonSearchIndex() {
       });
     }
   }
+  // ── Level 3 : Marques ──
+  if (_S.marqueArticles?.size) {
+    for (const [marque, codes] of _S.marqueArticles) {
+      if (!marque || codes.size === 0) continue;
+      const famCount = new Map();
+      for (const code of codes) {
+        const cf = catFam.get(code)?.codeFam;
+        if (cf) famCount.set(cf, (famCount.get(cf) || 0) + 1);
+      }
+      if (!famCount.size) continue;
+      const [domFam] = [...famCount.entries()].sort((a, b) => b[1] - a[1])[0];
+      const agg = famAgg.get(domFam);
+      index.push({
+        codeFam: domFam, codeSousFam: '', libFam: agg?.libFam || domFam, sousFam: '',
+        level: 3, nbArticlesCat: codes.size,
+        marque,
+        searchText: `${marque} ${domFam} ${agg?.libFam || ''}`.toLowerCase()
+      });
+    }
+  }
+
+  // ── Level 4 : Codes articles (lookup rapide au moment de la recherche) ──
+  if (_S.catalogueDesignation?.size) {
+    const articleCodes = new Map();
+    for (const [code, desig] of _S.catalogueDesignation) {
+      const cf = catFam.get(code);
+      articleCodes.set(code, {
+        code,
+        libelle: desig,
+        marque: _S.catalogueMarques?.get(code) || '',
+        codeFam: cf?.codeFam || '',
+        libFam: cf?.libFam || '',
+        codeSousFam: cf?.codeSousFam || '',
+        sousFam: cf?.sousFam || '',
+      });
+    }
+    index._articleCodes = articleCodes;
+  }
+
   index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
   _S._rayonSearchIndex = index;
   return index;
@@ -1997,7 +2036,21 @@ function _initRayonSearch() {
         return;
       }
 
-      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+      let matches = [];
+      const isCodeQuery = /^\d{3,}$/.test(q);
+      if (isCodeQuery && searchIndex._articleCodes) {
+        for (const [code, art] of searchIndex._articleCodes) {
+          if (code.includes(q)) {
+            matches.push({ level: 4, codeFam: art.codeFam, codeSousFam: art.codeSousFam,
+                           libFam: art.libFam, sousFam: art.sousFam,
+                           code: art.code, libelle: art.libelle, marque: art.marque,
+                           nbArticlesCat: 1, searchText: '' });
+            if (matches.length >= 15) break;
+          }
+        }
+      } else {
+        matches = searchIndex.filter(e => e.level <= 3 && e.searchText.includes(q)).slice(0, 15);
+      }
 
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
@@ -2006,15 +2059,23 @@ function _initRayonSearch() {
       }
 
       results.innerHTML = matches.map(e => {
-        const label = e.level === 1
-          ? `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`
-          : `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
-        const safeCF = e.codeFam.replace(/'/g, "\\'");
-        const safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let safeCF = e.codeFam.replace(/'/g, "\\'");
+        let safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let label;
+        if (e.level === 1) {
+          label = `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`;
+        } else if (e.level === 2) {
+          label = `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        } else if (e.level === 3) {
+          label = `<span class="font-bold t-primary">🏷 ${escapeHtml(e.marque)}</span> <span class="t-disabled ml-1">dans ${escapeHtml(e.libFam)}</span>`;
+          safeCSF = '';
+        } else {
+          label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
+        }
+        const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
           onclick="window._selectRayon('${safeCF}','${safeCSF}')">
-          ${label}
-          <span class="t-disabled ml-2">${e.nbArticlesCat} réf. catalogue</span>
+          ${label}${refsLabel}
         </div>`;
       }).join('');
       results.classList.remove('hidden');
@@ -2052,7 +2113,22 @@ function _initRfSearch() {
         return;
       }
 
-      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+      let matches = [];
+      const isCodeQuery = /^\d{3,}$/.test(q);
+      if (isCodeQuery && searchIndex._articleCodes) {
+        for (const [code, art] of searchIndex._articleCodes) {
+          if (code.includes(q)) {
+            matches.push({ level: 4, codeFam: art.codeFam, codeSousFam: art.codeSousFam,
+                           libFam: art.libFam, sousFam: art.sousFam,
+                           code: art.code, libelle: art.libelle, marque: art.marque,
+                           nbArticlesCat: 1, searchText: '' });
+            if (matches.length >= 15) break;
+          }
+        }
+      } else {
+        matches = searchIndex.filter(e => e.level <= 3 && e.searchText.includes(q)).slice(0, 15);
+      }
+
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
         results.classList.remove('hidden');
@@ -2060,15 +2136,23 @@ function _initRfSearch() {
       }
 
       results.innerHTML = matches.map(e => {
-        const safeCF = e.codeFam.replace(/'/g, "\\'");
-        const safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
-        const label = e.level === 1
-          ? `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`
-          : `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        let safeCF = e.codeFam.replace(/'/g, "\\'");
+        let safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let label;
+        if (e.level === 1) {
+          label = `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`;
+        } else if (e.level === 2) {
+          label = `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        } else if (e.level === 3) {
+          label = `<span class="font-bold t-primary">🏷 ${escapeHtml(e.marque)}</span> <span class="t-disabled ml-1">dans ${escapeHtml(e.libFam)}</span>`;
+          safeCSF = '';
+        } else {
+          label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
+        }
+        const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
           onclick="window._rfSelectFam('${safeCF}','${safeCSF}')">
-          ${label}
-          <span class="t-disabled ml-2">${e.nbArticlesCat} réf. catalogue</span>
+          ${label}${refsLabel}
         </div>`;
       }).join('');
       results.classList.remove('hidden');
