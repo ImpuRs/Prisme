@@ -23,7 +23,7 @@ window._S = _S; // debug + accès depuis nl.js et console DevTools
 import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume } from './diagnostic.js';
 import { renderLaboTab, updateLaboTiles } from './labo.js';
-import { renderAnimationTab } from './animation.js';
+import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 // ── P3 Modules — extracted from main.js ──
 import { _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _onDistanceSlider, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _renderCommercialSummary, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, exportTop5CSV, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './territoire.js';
 import { onBenchParamChange, buildBenchCheckboxes, getBenchCompareStores, recalcBenchmarkInstant, renderBenchmark, buildBenchBassinSelect, renderReseauHeatmap, renderReseauNomades, renderReseauOrphelins, renderReseauFuites, renderNomadesMissedArts, renderHeatmapFamilleCommercial, _obsNav, renderObservatoire, buildObsCompareSelect, _buildObsUniversDropdown, onObsCompareChange, onObsFilterChange, resetObsFilters, _setBenchPeriode, renderObsArticleSearch, copyObsActionPlan, copyObsArticleList, toggleObsFamily, copyObsSection, copyPepitesList, copyPepitesOtherList, openNomadeArticleModal, closeNomadeArticleModal, _copyNomadeClientsClipboard, copyNomadesMissedArts, exportBenchList } from './bench.js';
@@ -1505,6 +1505,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
   // ── Restauration de session au démarrage ─────────────────────
   // Charger la table CP → coordonnées GPS en arrière-plan (non bloquant)
   loadCpCoords();
+  // Chargement catalogue en arrière-plan (marques, familles, désignations)
+  loadCatalogueMarques().catch(e => console.warn('[PRISME] Catalogue non chargé:', e));
 
   (async function _initFromCache() {
     // Pré-remplir le sélecteur d'agence depuis localStorage si une valeur est sauvegardée

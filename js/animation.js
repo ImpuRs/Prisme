@@ -403,7 +403,7 @@ export async function renderAnimationTab() {
   if (!_S.catalogueMarques) {
     const content = document.getElementById('animContent');
     if (content) content.innerHTML = '<div class="text-center py-8 t-disabled text-sm">Catalogue en cours de chargement…</div>';
-    await loadCatalogueMarques();
+    if (!_S.catalogueMarques?.size) await loadCatalogueMarques();
   }
 
   if (!_S.catalogueMarques?.size) {
