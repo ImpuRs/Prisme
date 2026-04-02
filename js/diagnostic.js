@@ -672,6 +672,114 @@ function _diagAFRenderCoachats(famille) {
   return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
 }
 
+// ── Cell diag — tab switcher & renderers (cases ABC×FMR) ──────────────
+window._diagCellSwitchTab = function(tab) {
+  const key=_S._diagCellKey; if(!key)return;
+  const content=document.getElementById('diagAFContent'); if(!content)return;
+  document.querySelectorAll('#diagAFTabs button[data-tab]').forEach(btn=>{
+    const active=btn.dataset.tab===tab;
+    btn.className=`text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${active?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}`;
+  });
+  const v1=_S._diagLevels?.v1, v2=_S._diagLevels?.v2;
+  if(tab==='stock')         content.innerHTML=_diagCellRenderStock(key,v1||{});
+  else if(tab==='clientele')content.innerHTML=_diagCellRenderClientele(key,v2);
+  else if(tab==='coachats') content.innerHTML=_diagCellRenderCoachats(key);
+};
+
+function _diagCellRenderStock(key,v1) {
+  const cellArts=_S._diagCellArts||[];
+  const artSet=new Set(cellArts.map(r=>r.code));
+  let caFam=0;
+  if(DataStore.ventesClientArticle?.size){
+    for(const[,artMap]of DataStore.ventesClientArticle){
+      for(const[code,d]of artMap){if(artSet.has(code))caFam+=(d.sumCA||0);}
+    }
+  }
+  const valStock=cellArts.filter(r=>(r.stockActuel||0)>0).reduce((s,r)=>s+(r.stockActuel||0)*(r.prixUnitaire||0),0);
+  const rend=valStock>0?caFam/valStock:null;
+  const rendStr=rend!==null?rend.toFixed(2)+'×':'—';
+  const rendCol=rend===null?'t-disabled':rend>=1.0?'c-ok':rend>=0.5?'c-caution':'c-danger';
+  const nbRup=v1.ruptures?.length||0;
+  const caPerdu=v1.caPerduTotal||0;
+  const nbMM=v1.nbMM||0;
+  const nonCal=v1.nonCal||0;
+  const cards=[
+    {label:'Ruptures',val:nbRup>0?String(nbRup):'—',sub:caPerdu>0?formatEuro(caPerdu)+' perdu':'Pas de rupture',col:nbRup===0?'c-ok':caPerdu>=1000?'c-danger':'c-caution'},
+    {label:'Mal calibrés',val:nbMM>0?String(nbMM):'—',sub:nonCal>0?`dont ${nonCal} sans MIN/MAX`:'Calibrage correct',col:nbMM===0?'c-ok':nbMM>5?'c-danger':'c-caution'},
+    {label:'Rendement',val:rendStr,sub:valStock>0?`${formatEuro(Math.round(caFam))} CA · ${formatEuro(Math.round(valStock))} stock`:'Stock vide',col:rendCol},
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+  const k=key;
+  const linkRup=nbRup>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll()">→ Voir ruptures</button>`:'';
+  const linkMM=nbMM>0?`<button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();document.getElementById('filterABC').value='${k[0]}';document.getElementById('filterFMR').value='${k[1]}';_S.currentPage=0;switchTab('table');renderAll()">→ Voir mal calibrés</button>`:'';
+  return`<div class="flex gap-3 mb-4">${cards}</div>${(linkRup||linkMM)?`<div class="flex flex-wrap gap-4 mt-1">${linkRup}${linkMM}</div>`:''}`;
+}
+
+function _diagCellRenderClientele(key,v2) {
+  if(!_S.chalandiseReady)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="t-disabled text-sm">🔒 Chargez la Zone de Chalandise pour activer cette analyse.</p></div>`;
+  const cellArts=_S._diagCellArts||[];
+  const artSet=new Set(cellArts.map(r=>r.code));
+  const acheteurs=new Set();
+  if(DataStore.ventesClientArticle?.size){
+    for(const[cc,artMap]of DataStore.ventesClientArticle){
+      for(const code of artMap.keys()){if(artSet.has(code)){acheteurs.add(cc);break;}}
+    }
+  }
+  const nbActifs=acheteurs.size;
+  const domMetier=v2?.metiers?.[0]?.metier||null;
+  let nbZone=0;
+  if(domMetier&&_S.chalandiseData?.size){for(const[,info]of _S.chalandiseData){if(info.metier===domMetier)nbZone++;}}
+  const txPen=(nbActifs>0&&nbZone>0)?Math.round(nbActifs/nbZone*100):null;
+  const penCol=txPen===null?'t-disabled':txPen>40?'c-ok':txPen>=20?'c-caution':'c-danger';
+  const barBg=txPen===null?'rgba(148,163,184,0.3)':txPen>40?'#22c55e':txPen>=20?'#f59e0b':'#ef4444';
+  const barRow=txPen!==null?`<div class="flex items-center gap-2 mt-2"><span class="text-[10px] t-disabled w-28 shrink-0">Taux pénétration</span><div class="flex-1 h-2 rounded-full overflow-hidden" style="background:rgba(148,163,184,0.2)"><div class="h-full rounded-full" style="width:${Math.min(txPen,100)}%;background:${barBg}"></div></div><span class="text-[11px] font-bold ${penCol} w-8 text-right">${txPen}%</span></div>`:'';
+  const penBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl mb-3"><p class="text-[11px] mb-1" style="color:var(--t-primary)"><strong>${nbActifs}</strong> acheteurs actifs sur cette case</p>${domMetier&&nbZone>0?`<p class="text-[11px] mb-0" style="color:var(--t-primary)"><strong>${nbZone}</strong> clients <em>${escapeHtml(domMetier)}</em> dans ta zone chalandise</p>`:''}${barRow}${txPen===null&&nbZone===0?'<p class="text-[10px] t-disabled mt-1">Métier dominant non identifié dans la chalandise.</p>':''}</div>`;
+  const nbPerdus=v2?.perdus||0;
+  const potentiel=v2?.potentiel||0;
+  const reconBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl">${nbPerdus>0?`<p class="text-[11px] font-bold c-caution mb-2">⚠ ${nbPerdus} client${nbPerdus>1?'s':''} perdu${nbPerdus>1?'s':''}${potentiel>0?' · '+formatEuro(potentiel)+' récupérable':''}</p><button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();switchTab('territoire')">→ Voir dans Le Terrain</button>`:'<p class="text-[11px] c-ok">✅ Aucun client perdu identifié pour cette case.</p>'}</div>`;
+  return penBlock+reconBlock;
+}
+
+function _diagCellRenderCoachats(key) {
+  const cellArts=_S._diagCellArts||[];
+  const artSet=new Set(cellArts.map(r=>r.code));
+  if(!artSet.size)return'<div class="t-disabled text-sm text-center py-4">Aucun article dans cette case.</div>';
+  const coCount=new Map();
+  let source='none';
+  const isMono=(_S.storesIntersection?.size||1)<=1;
+  const agLabel=_S.selectedMyStore||'votre agence';
+  if(_S.territoireReady&&DataStore.territoireLines?.length>0){
+    source='territoire';
+    const blsWithFam=new Set();
+    for(const l of DataStore.territoireLines){if(l.code&&artSet.has(l.code))blsWithFam.add(l.bl);}
+    for(const l of DataStore.territoireLines){
+      if(!l.bl||!blsWithFam.has(l.bl)||artSet.has(l.code))continue;
+      coCount.set(l.code,(coCount.get(l.code)||0)+1);
+    }
+  }else if(DataStore.ventesClientArticle?.size){
+    source='client';
+    for(const[,artMap]of DataStore.ventesClientArticle){
+      const buysFam=[...artMap.keys()].some(c=>artSet.has(c));
+      if(!buysFam)continue;
+      for(const code of artMap.keys()){if(!artSet.has(code))coCount.set(code,(coCount.get(code)||0)+1);}
+    }
+  }
+  if(!coCount.size)return'<div class="t-disabled text-sm text-center py-4">Pas assez de données pour calculer les co-achats.</div>';
+  const top10=[...coCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const srcLabel=isMono||source==='client'?escapeHtml(agLabel):'réseau';
+  const monoNote=(isMono||source==='client')?`<p class="text-[10px] t-disabled italic mt-3">*(données ${escapeHtml(agLabel)} uniquement — chargez un consommé multi-agences pour le réseau complet)</p>`:'';
+  const rows=top10.map(([code,count])=>{
+    const r=DataStore.finalData?.find(f=>f.code===code);
+    const rawLib=_S.libelleLookup?.[code]||code;
+    const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
+    const inStock=r&&(r.stockActuel||0)>0;
+    const badge=inStock
+      ?`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">✓ En stock</span>`
+      :`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">⚠ Absent</span>`;
+    return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono">${_copyCodeBtn(code)}</td><td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${count} BL ${srcLabel}</td><td class="py-1.5 px-2 text-center">${badge}</td></tr>`;
+  }).join('');
+  return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
+}
+
 function renderDiagnosticPanel(famille,source){
   const panel=document.getElementById('diagnosticPanel');if(!panel)return;
   const isMetierMode=famille.startsWith('@metier:');
@@ -822,7 +930,11 @@ function _renderDiagnosticCellPanel(key,cellArts){
   if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('territoire');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
   if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
   _S._diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
+  _S._diagCellKey=key;
+  _S._diagCellArts=cellArts;
   const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="c-caution">${LABELS[key]||key}</span> <span class="t-inverse-muted font-normal text-sm">(${cellArts.length} articles)</span>`;
+  const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'coachats',label:'🔗 Co-achats'}];
+  const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagCellSwitchTab('${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
   panel.innerHTML=`
     <div class="flex items-start justify-between mb-5">
       <div>
@@ -833,11 +945,8 @@ function _renderDiagnosticCellPanel(key,cellArts){
       </div>
       <button onclick="closeDiagnostic()" class="t-inverse-muted hover:text-white text-3xl font-light leading-none ml-4 flex-shrink-0">✕</button>
     </div>
-    ${_diagRenderSummaryBar(v1,v2,v3)}
-    <div id="_diagPlan">${_diagRenderPlan(key,_S._diagActions)}</div>
-    ${_diagRenderV1(v1,hasMulti&&v3&&v3.status!=='lock'&&(v3.medCA>0||v3.missing?.length>0))}
-    ${_diagRenderV2(v2,hasChal)}
-    ${_diagRenderV3(v3,hasMulti)}`;
+    <div class="flex gap-1 border-b b-dark mb-4" id="diagAFTabs">${_tabBtns}</div>
+    <div id="diagAFContent">${_diagCellRenderStock(key,v1)}</div>`;
 }
 
 function _diagBadge(s){
