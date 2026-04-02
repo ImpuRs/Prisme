@@ -580,7 +580,7 @@ export function computeBenchmark(canaux = new Set()) {
   }
 
   const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
-  const cs = bassinStores.filter(s => _S.storesIntersection.has(s));
+  const cs = bassinStores.filter(s => (_S.storesFoundC||_S.storesIntersection).has(s));
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;

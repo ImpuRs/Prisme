@@ -489,7 +489,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(dataS&&dataS.length){for(const row of dataS){const s=storeColumnS?(row[storeColumnS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
     if(storesFoundS.size){_S.storesIntersection=new Set();for(const s of storesFoundC)if(storesFoundS.has(s))_S.storesIntersection.add(s);}
     else{_S.storesIntersection=new Set(storesFoundC);}
-    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
+    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;_S.storesFoundC=storesFoundC;
 
     // ── Valider l'agence pré-sélectionnée contre les données réelles ──
     // (cas où AGENCE_CP était utilisé mais l'agence n'est pas dans ce fichier)
@@ -536,7 +536,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
     // ── Second pass léger : ventesParMagasin des AUTRES agences (pour benchmark réseau) ──
     // DOIT tourner APRÈS isRefilter (qui reset ventesParMagasin à chaque appel)
-    if(_S.storesIntersection.size>1&&_S._rawDataC.length>dataCFiltered.length){
+    if((_S.storesFoundC||_S.storesIntersection).size>1&&_S._rawDataC.length>dataCFiltered.length){
       updateProgress(90,100,'Benchmark réseau…');
       // Pré-détection colonnes UNE SEULE FOIS — évite Object.keys + find à chaque ligne (×13 perf)
       const _k=Object.keys(_S._rawDataC[0]||{});
@@ -551,7 +551,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       for(const row of _S._rawDataC){
         const store=_colSt?(row[_colSt]||'').toString().trim().toUpperCase():'';
         if(!store||store===selectedStore)continue;
-        if(!_S.storesIntersection.has(store))continue;
+        if(!(_S.storesFoundC||_S.storesIntersection).has(store))continue;
         const rawArt=_colArt?(row[_colArt]||'').toString():'';
         const code=rawArt?cleanCode(rawArt.split('-')[0].trim()):'';
         if(!code)continue;

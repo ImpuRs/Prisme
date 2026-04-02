@@ -82,6 +82,7 @@ _S.articleCanalCA = new Map(); // [F1 fix] code → Map(canal → {ca, qteP, cou
 // ── Agences par fichier (pour alerte stock mono-agence) ──
 _S.storeCountConsomme = 0; // nb agences détectées dans le consommé
 _S.storeCountStock = 0;    // nb agences détectées dans le stock
+_S.storesFoundC = new Set(); // toutes les agences du consommé (pour benchmark — superset de storesIntersection)
 
 // ── Période consommé ──
 _S.consommePeriodMin = null;
@@ -287,7 +288,7 @@ export function resetAppState() {
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
-  _S.ventesParMagasin = {}; _S.ventesParMagasinByCanal = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set();
+  _S.ventesParMagasin = {}; _S.ventesParMagasinByCanal = {}; _S.stockParMagasin = {}; _S.storesIntersection = new Set(); _S.storesFoundC = new Set();
   _S.selectedMyStore = ''; _S.libelleLookup = {}; _S.articleFamille = {}; _S.articleUnivers = {};
 
   // Benchmark
