@@ -2146,24 +2146,25 @@ export function computeRadarFamille() {
   // ── Couverture + classification globale ──
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
-    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
-    const rSocle      = total > 0 ? f.socle      / total : 0;
-    const rChallenger = total > 0 ? f.challenger  / total : 0;
-    const nbSrc = (f.srcReseau ? 1 : 0) + (f.srcChalandise ? 1 : 0)
-                + (f.srcHorsZone ? 1 : 0) + (f.srcLivraisons ? 1 : 0);
+    const totalStock  = f.socle + f.challenger + f.surveiller;
+    const totalAbsent = f.implanter + f.potentiel;
 
-    if (f.implanter > 2 && nbSrc >= 2)
+    if (f.implanter >= 3 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
-    else if (rSocle >= 0.4 && f.nbClients >= 5 && nbSrc >= 2)
+    else if (f.implanter >= 2 && totalAbsent > totalStock * 0.3)
+      f.classifGlobal = 'implanter';
+    else if (f.socle >= 5 && f.challenger <= f.socle * 0.5)
       f.classifGlobal = 'socle';
-    else if (rSocle >= 0.5 && f.nbClients >= 10)
+    else if (f.socle >= 3 && f.challenger === 0)
       f.classifGlobal = 'socle';
-    else if (rChallenger >= 0.4 && f.nbClients < 5)
+    else if (f.challenger >= 5 && f.challenger > f.socle * 2)
       f.classifGlobal = 'challenger';
-    else if (f.surveiller > f.socle && f.nbClients < 3)
-      f.classifGlobal = 'surveiller';
-    else
+    else if (f.challenger > f.socle && f.socle < 2)
+      f.classifGlobal = 'challenger';
+    else if (f.implanter >= 1 || f.potentiel >= 3)
       f.classifGlobal = 'potentiel';
+    else
+      f.classifGlobal = 'surveiller';
   }
 
   const families = [...famMap.values()]
