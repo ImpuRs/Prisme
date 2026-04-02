@@ -451,6 +451,7 @@ function _passesAllFilters(cc){
   }
 
 // ── Window expositions for onclick handlers ──
+window.renderOmniTab     = renderOmniTab;
 window.renderCanalAgence = renderCanalAgence;
 window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
