@@ -430,10 +430,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers (parallèle)…');
-      [dataC,dataS]=await Promise.all([
-        readExcel(f1, (msg, pct) => updateProgress(pct, 100, msg)),
-        f2 ? readExcel(f2) : Promise.resolve([])
-      ]);
+      [dataC,dataS]=await Promise.all([readExcel(f1),f2?readExcel(f2):Promise.resolve([])]);
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
