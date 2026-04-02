@@ -285,13 +285,15 @@ function _prRenderRayon(data) {
   if (!data) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
   const { monRayon, nbCatalogue, couverture, valeurTotale } = data;
   const page = _S._prPageRayon || PAGE_SIZE;
-  const pepites  = monRayon.filter(a => a.status === 'pepite').length;
-  const challeng = monRayon.filter(a => a.status === 'challenger').length;
-  const dormants = monRayon.filter(a => a.status === 'dormant').length;
-  const socle    = monRayon.length - pepites - challeng - dormants;
+  const pepites    = monRayon.filter(a => a.status === 'pepite').length;
+  const challeng   = monRayon.filter(a => a.status === 'challenger').length;
+  const dormants   = monRayon.filter(a => a.status === 'dormant').length;
+  const socle      = monRayon.filter(a => a.status === 'socle').length;
+  const surveiller = monRayon.filter(a => a.status === 'surveiller').length;
+  const potentiel  = monRayon.filter(a => a.status === 'potentiel').length;
   // Filtre local par statut
   const displayed = _prRayonFilter
-    ? monRayon.filter(a => (a.status || 'socle') === _prRayonFilter)
+    ? monRayon.filter(a => a.status === _prRayonFilter)
     : monRayon;
   // Pills filtrables
   const _pill = (key, count, icon, label, color, bg, fw) => {
@@ -302,13 +304,16 @@ function _prRenderRayon(data) {
     return `<button onclick="window._prSetRayonFilter('${key}')" style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:${fw};background:${pillBg};color:${color};border:${pillBorder};cursor:pointer">${icon} ${count} ${label}</button>`;
   };
   const rows = displayed.slice(0, page).map(a => {
-    const s = a.status || 'standard';
+    const s = a.status || 'socle';
     let sBg, sC, sL;
-    if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';   sC='#22c55e';           sL='🟢 Pépite'; }
-    else if (s === 'challenger') { sBg='rgba(239,68,68,0.2)';   sC='#ef4444';           sL='🔴 Challenger'; }
-    else if (s === 'dormant')    { sBg='rgba(148,163,184,0.2)'; sC='var(--t-secondary)'; sL='💤 Dormant'; }
-    else if (s === 'rupture')    { sBg='rgba(245,158,11,0.2)';  sC='#f59e0b';           sL='⚠️ Rupture'; }
-    else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ Socle'; }
+    if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';    sC='#22c55e';            sL='🟢 Pépite'; }
+    else if (s === 'socle')      { sBg='rgba(34,197,94,0.15)';   sC='#22c55e';            sL='✅ Socle'; }
+    else if (s === 'challenger') { sBg='rgba(239,68,68,0.2)';    sC='#ef4444';            sL='🔴 Challenger'; }
+    else if (s === 'potentiel')  { sBg='rgba(245,158,11,0.2)';   sC='#f59e0b';            sL='🟡 Potentiel'; }
+    else if (s === 'surveiller') { sBg='rgba(148,163,184,0.2)';  sC='var(--t-secondary)'; sL='👁 Surveiller'; }
+    else if (s === 'dormant')    { sBg='rgba(148,163,184,0.2)';  sC='var(--t-secondary)'; sL='💤 Dormant'; }
+    else if (s === 'rupture')    { sBg='rgba(245,158,11,0.2)';   sC='#f59e0b';            sL='⚠️ Rupture'; }
+    else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ —'; }
     const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
     return `<tr class="border-b b-light hover:s-hover text-[11px]">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
@@ -329,10 +334,12 @@ function _prRenderRayon(data) {
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
-    ${_pill('pepite',    pepites,  '🟢', 'pépites AF',   '#22c55e',        'rgba(34,197,94,0.2)',   600)}
-    ${_pill('socle',     socle,    '✅', 'socle',        '#22c55e',        'rgba(34,197,94,0.2)',   500)}
-    ${_pill('challenger',challeng, '🔴', 'à challenger', '#ef4444',        'rgba(239,68,68,0.2)',   600)}
-    ${_pill('dormant',   dormants, '💤', 'dormants',     '#94a3b8',        'rgba(148,163,184,0.2)', 600)}
+    ${_pill('pepite',     pepites,    '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
+    ${_pill('socle',      socle,      '✅', 'socle',       '#22c55e', 'rgba(34,197,94,0.2)',   500)}
+    ${_pill('challenger', challeng,   '🔴', 'challenger',  '#ef4444', 'rgba(239,68,68,0.2)',   600)}
+    ${_pill('dormant',    dormants,   '💤', 'dormants',    '#94a3b8', 'rgba(148,163,184,0.2)', 600)}
+    ${_pill('surveiller', surveiller, '👁', 'surveiller',  '#94a3b8', 'rgba(148,163,184,0.2)', 600)}
+    ${_pill('potentiel',  potentiel,  '🟡', 'potentiel',   '#f59e0b', 'rgba(245,158,11,0.2)',  600)}
     ${filteredNote}
   </div>
   <div class="overflow-x-auto">
@@ -595,6 +602,25 @@ function _prRenderAnalyse(fam) {
 function _prGetTabContent(tab, fam) {
   if (tab === 'rayon') {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
+    // Enrichir avec classification Squelette
+    const sqData = _S._prSqData || computeSquelette();
+    _S._prSqData = sqData;
+    const sqClassif = new Map();
+    if (sqData) {
+      for (const d of sqData.directions) {
+        for (const g of ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller']) {
+          for (const a of (d[g] || [])) sqClassif.set(a.code, g);
+        }
+      }
+    }
+    if (rayonData) {
+      for (const a of rayonData.monRayon) {
+        const sq = sqClassif.get(a.code);
+        if (sq && a.status !== 'pepite' && a.status !== 'dormant' && a.status !== 'rupture') {
+          a.status = sq;
+        }
+      }
+    }
     _S._prRayonData = rayonData;
     _S._prPageRayon = PAGE_SIZE;
     _prRayonFilter  = '';
