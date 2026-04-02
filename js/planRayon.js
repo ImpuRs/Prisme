@@ -286,23 +286,33 @@ function _prRenderRayon(data) {
   const challeng = monRayon.filter(a => a.status === 'challenger').length;
   const dormants = monRayon.filter(a => a.status === 'dormant').length;
   const socle    = monRayon.length - pepites - challeng - dormants;
-  const rows = shown.map(a => `<tr class="border-b b-light text-[11px]">
-    <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
-    <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
-    <td class="py-1.5 px-2 t-secondary">${escapeHtml(a.sousFam || '')}</td>
-    <td class="py-1.5 px-2 text-right t-primary">${a.stockActuel ?? '—'}</td>
-    <td class="py-1.5 px-2 text-right t-secondary">${a.W ?? '—'}</td>
-    <td class="py-1.5 px-2 t-secondary">${escapeHtml(a.status || '')}</td>
-    <td class="py-1.5 px-2 text-right font-bold t-primary">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
-  </tr>`).join('');
+  const _statusBadge = (s) => {
+    if (s === 'pepite')     return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:600">🟢 Pépite</span>`;
+    if (s === 'challenger') return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.15);color:#ef4444;font-weight:600">🔴 Challenger</span>`;
+    if (s === 'dormant')    return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(100,116,139,0.2);color:var(--t-secondary);font-weight:600">💤 Dormant</span>`;
+    if (s === 'rupture')    return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,0.15);color:#f59e0b;font-weight:600">⚠️ Rupture</span>`;
+    return '';
+  };
+  const rows = shown.map(a => {
+    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code || '—';
+    return `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
+      <td class="py-1.5 px-2 t-primary">${escapeHtml(lib)}</td>
+      <td class="py-1.5 px-2 t-secondary">${escapeHtml(a.sousFam || '')}</td>
+      <td class="py-1.5 px-2 text-right t-primary">${a.stockActuel ?? '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.W ?? '—'}</td>
+      <td class="py-1.5 px-2">${_statusBadge(a.status)}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
+    </tr>`;
+  }).join('');
   return `<div class="mb-3 text-[11px] t-secondary">
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
   <div class="flex flex-wrap gap-1.5 mb-3">
-    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
-    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:500">✅ ${socle} socle</span>` : ''}
-    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
-    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;font-weight:600">💤 ${dormants} dormants</span>` : ''}
+    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
+    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:500">✅ ${socle} socle</span>` : ''}
+    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.15);color:#ef4444;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
+    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(100,116,139,0.2);color:var(--t-secondary);font-weight:600">💤 ${dormants} dormants</span>` : ''}
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
