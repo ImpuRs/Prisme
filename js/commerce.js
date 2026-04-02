@@ -672,9 +672,10 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     if(!canal){
       // Tous canaux — somme de tous les canaux
       for(const c of Object.values(_S.canalAgence||{})){ca+=c.ca||0;nbBL+=c.bl||0;}
-      // Clients distincts tous canaux = union de clientLastOrderByCanal keys + clientsMagasin
-      const allClients=new Set(_S.clientsMagasin||[]);
-      if(_S.clientLastOrderByCanal)for(const[cc,cMap]of _S.clientLastOrderByCanal)if(cMap.size>0)allClients.add(cc);
+      // Clients distincts tous canaux = union VCA + VCHM
+      const allClients=new Set();
+      if(_S.ventesClientArticle)for(const cc of _S.ventesClientArticle.keys())allClients.add(cc);
+      if(_S.ventesClientHorsMagasin)for(const cc of _S.ventesClientHorsMagasin.keys())allClients.add(cc);
       nbClients=allClients.size;
     }else{
       // Canal spécifique
@@ -691,7 +692,16 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     el.classList.remove('hidden');
     const freq=nbClients>0?(nbBL/nbClients).toFixed(1):'—';
     const caClient=nbClients>0?Math.round(ca/nbClients):0;
-    const txMarge=_S.ventesAnalysis?.txMarge;const vmc=_S.ventesAnalysis?.vmc;
+    let txMarge,vmc;
+    if(canal){
+      txMarge=_S.ventesAnalysis?.txMarge;vmc=_S.ventesAnalysis?.vmc;
+    }else{
+      // Tx marge tous canaux — VMB depuis ventesParMagasinByCanal[selectedMyStore]
+      let _vmbTC=0;const _vpmbc=_S.ventesParMagasinByCanal?.[_S.selectedMyStore]||{};
+      for(const arts of Object.values(_vpmbc))for(const d of Object.values(arts))_vmbTC+=d.sumVMB||0;
+      txMarge=ca>0?(_vmbTC/ca*100):null;
+      vmc=nbBL>0?Math.round(ca/nbBL):null;
+    }
     const extraParts=[];if(txMarge>0)extraParts.push(`Tx\u00a0marge\u00a0: <strong>${txMarge.toFixed(2)}%</strong>`);if(vmc>0)extraParts.push(`VMC\u00a0: <strong>${Math.round(vmc).toLocaleString('fr')}\u00a0€</strong>`);
     const pS=_S.periodFilterStart||_S.consommePeriodMin;const pE=_S.periodFilterEnd||_S.consommePeriodMax;
     const periodStr=(pS&&pE)?((pS.getMonth()===pE.getMonth()&&pS.getFullYear()===pE.getFullYear())?fmtDate(pS):`${fmtDate(pS)} → ${fmtDate(pE)}`):'';
