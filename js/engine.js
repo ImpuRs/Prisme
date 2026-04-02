@@ -2064,3 +2064,112 @@ export function computeMonRayon(codeFam, codeSousFam) {
     marques: Object.entries(catMarques).sort((a, b) => b[1] - a[1]).slice(0, 15),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// computeRadarFamille — Vue radar par famille (fusion Squelette + Mon Rayon)
+// Agrège toutes les données du Squelette par codeFam catalogue
+// ═══════════════════════════════════════════════════════════════
+export function computeRadarFamille() {
+  const sqData = computeSquelette();
+  const catFam = _S.catalogueFamille;
+
+  // ── Compter nb articles dans le catalogue par famille ──
+  const catCount = new Map();
+  if (catFam) {
+    for (const [, f] of catFam) {
+      if (!f.codeFam) continue;
+      catCount.set(f.codeFam, (catCount.get(f.codeFam) || 0) + 1);
+    }
+  }
+
+  // ── Helper : retrouver codeFam + libFam d'un article ──
+  const getFamInfo = (code) => {
+    const cf = catFam?.get(code);
+    if (cf?.codeFam) return { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
+    const fam = _S.articleFamille?.[code];
+    if (fam) return { codeFam: fam, libFam: FAMILLE_LOOKUP[fam.slice(0, 2)] || fam };
+    return null;
+  };
+
+  const famMap = new Map();
+  const _ensure = (codeFam, libFam) => {
+    if (!famMap.has(codeFam)) {
+      famMap.set(codeFam, {
+        codeFam, libFam,
+        socle: 0, implanter: 0, challenger: 0, potentiel: 0, surveiller: 0,
+        srcReseau: false, srcChalandise: false, srcHorsZone: false, srcLivraisons: false,
+        caAgence: 0, caReseau: 0, nbClients: 0,
+        nbCatalogue: catCount.get(codeFam) || 0,
+        nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
+        articles: { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] },
+      });
+    }
+    return famMap.get(codeFam);
+  };
+
+  // ── Grouper les articles du squelette par famille ──
+  const CLASSIFS = ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller'];
+  for (const d of sqData.directions) {
+    for (const g of CLASSIFS) {
+      for (const a of (d[g] || [])) {
+        const fi = getFamInfo(a.code);
+        if (!fi) continue;
+        const f = _ensure(fi.codeFam, fi.libFam);
+        f[a.classification]++;
+        f.articles[a.classification].push(a);
+        if (a.sources.has('reseau'))     f.srcReseau     = true;
+        if (a.sources.has('chalandise')) f.srcChalandise = true;
+        if (a.sources.has('horsZone'))   f.srcHorsZone   = true;
+        if (a.sources.has('livraisons')) f.srcLivraisons = true;
+        f.caAgence += a.caAgence  || 0;
+        f.caReseau += a.caReseau  || 0;
+        if (a.enStock) f.nbEnRayon++;
+      }
+    }
+  }
+
+  // ── Clients par famille ──
+  if (_S.ventesClientArticle) {
+    for (const [, artMap] of _S.ventesClientArticle) {
+      const seen = new Set();
+      for (const code of artMap.keys()) {
+        const fi = getFamInfo(code);
+        if (fi && !seen.has(fi.codeFam)) {
+          seen.add(fi.codeFam);
+          const f = famMap.get(fi.codeFam);
+          if (f) f.nbClients++;
+        }
+      }
+    }
+  }
+
+  // ── Couverture + classification globale ──
+  for (const [, f] of famMap) {
+    f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
+    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
+    if (total > 0) {
+      const ri = f.implanter / total;
+      const rc = f.challenger / total;
+      const rs = f.socle / total;
+      if (ri >= 0.2)      f.classifGlobal = 'implanter';
+      else if (rc >= 0.3) f.classifGlobal = 'challenger';
+      else if (rs >= 0.5) f.classifGlobal = 'socle';
+      else                f.classifGlobal = 'potentiel';
+    }
+  }
+
+  const families = [...famMap.values()]
+    .filter(f => f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller > 0)
+    .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
+
+  return {
+    families,
+    totals: {
+      socle:      families.reduce((s, f) => s + f.socle,      0),
+      implanter:  families.reduce((s, f) => s + f.implanter,  0),
+      challenger: families.reduce((s, f) => s + f.challenger, 0),
+      potentiel:  families.reduce((s, f) => s + f.potentiel,  0),
+      surveiller: families.reduce((s, f) => s + f.surveiller, 0),
+    }
+  };
+}

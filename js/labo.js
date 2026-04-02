@@ -6,7 +6,7 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, famLib, _doCopyCode, _copyCodeBtn, escapeHtml } from './utils.js';
-import { _unikLink, _clientPassesFilters, computeSquelette, computeMaClientele, computeMonRayon } from './engine.js';
+import { _unikLink, _clientPassesFilters, computeSquelette, computeMaClientele, computeMonRayon, computeRadarFamille } from './engine.js';
 import { DataStore } from './store.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1639,7 +1639,14 @@ const LABO_TOOLTIPS = {
     🔴 À challenger (dormants, surstock)<br>
     👥 Vos clients (qui achète cette famille)<br>
     📋 Le catalogue complet (par sous-famille, par marque)<br><br>
-    <em>Source :</em> stock × catalogue × consommé × chalandise × réseau.`
+    <em>Source :</em> stock × catalogue × consommé × chalandise × réseau.`,
+  radar: `<strong>Radar Famille — Vue 360° par famille</strong><br>
+    Fusionne SQUELETTE + Ma Clientèle + Mon Rayon, organisé par famille.<br>
+    Pour chaque famille :<br>
+    🟢 Socle · 🔵 À implanter · 🔴 Challenger · 🟡 Potentiel<br>
+    📊 Couverture catalogue · 👥 Clients · Sources actives<br><br>
+    Cliquez sur une famille pour le diagnostic complet en 4 onglets.<br>
+    <em>Source :</em> Squelette (4 sources) × consommé × catalogue × chalandise.`
 };
 
 const _infoIcon = (key) => LABO_TOOLTIPS[key]
@@ -1719,6 +1726,12 @@ function _renderTileGrid(el) {
       <div class="text-[13px] font-bold t-primary mb-1">Mon Rayon</div>
       <div class="text-[10px] t-secondary">Diagnostic complet par famille</div>
     </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('radar')">
+      ${_infoIcon('radar')}
+      <div class="text-lg mb-1">🔭</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Radar Famille</div>
+      <div class="text-[10px] t-secondary">Vue 360° par famille</div>
+    </div>
   </div>
   <div id="laboTileContent" class="hidden"></div>`;
 }
@@ -1793,6 +1806,14 @@ window._laboOpenTile = function(tile) {
     content.innerHTML = backBtn +
       `<div class="flex flex-wrap gap-2 mb-4">${chips}</div>` +
       `<div id="laboPrismeResults"></div>`;
+  } else if (tile === 'radar') {
+    _rfFilterClassif = '';
+    _rfOpenFam = null;
+    _rfDetailTab = 'rayon';
+    _rfSearchQ = '';
+    const data = computeRadarFamille();
+    _S._rfData = data;
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderRadarFamille(data)}</div>`;
   }
 };
 
@@ -2290,3 +2311,288 @@ function _downloadCSV(csv, filename) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Radar Famille — Vue 360° par famille (fusion Squelette + Mon Rayon)
+// ═══════════════════════════════════════════════════════════════
+
+let _rfFilterClassif = '';
+let _rfOpenFam = null;
+let _rfDetailTab = 'rayon';
+let _rfSearchQ = '';
+
+function _rfRerender() {
+  const content = document.getElementById('laboTileContent');
+  if (!content || content.classList.contains('hidden') || !_S._rfData) return;
+  const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
+  content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderRadarFamille(_S._rfData)}</div>`;
+}
+
+function _renderRadarFamille(data) {
+  if (!data || !data.families.length) {
+    return '<div class="text-center py-8 t-disabled text-sm">Chargez au moins le fichier Consommé pour activer cette analyse.</div>';
+  }
+
+  if (_rfOpenFam) {
+    return _renderRadarFamilleDetail(_rfOpenFam, data);
+  }
+
+  // ── Badges totaux + filtres ──
+  const { totals } = data;
+  const _badge = (key, n) => {
+    const b = CLASSIF_BADGE[key];
+    const active = _rfFilterClassif === key;
+    return `<button onclick="window._rfSetFilter('${key}')" data-rfbadge="${key}" class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}" style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">
+      <span class="text-base leading-none">${b.icon}</span>
+      <span class="text-[13px] font-extrabold ${active ? 't-inverse' : 't-primary'}">${n}</span>
+      <span class="text-[9px] ${active ? 't-inverse-muted' : 't-disabled'}">${b.label}</span>
+    </button>`;
+  };
+
+  let html = `<div class="mb-3">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-extrabold text-sm t-primary">🔭 Radar Famille — ${data.families.length} familles analysées</h3>
+    </div>
+    <div class="grid grid-cols-5 gap-2 mb-3">
+      ${_badge('socle', totals.socle)}
+      ${_badge('implanter', totals.implanter)}
+      ${_badge('challenger', totals.challenger)}
+      ${_badge('potentiel', totals.potentiel)}
+      ${_badge('surveiller', totals.surveiller)}
+    </div>
+    <input type="text" id="rfSearchInput" placeholder="🔍 Filtrer par famille…" value="${escapeHtml(_rfSearchQ)}"
+      oninput="window._rfSearch(this.value)"
+      class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none mb-3">
+  </div>`;
+
+  // ── Appliquer filtres ──
+  let families = data.families;
+  if (_rfFilterClassif) families = families.filter(f => f.classifGlobal === _rfFilterClassif);
+  if (_rfSearchQ) {
+    const q = _rfSearchQ.toLowerCase();
+    families = families.filter(f => f.libFam.toLowerCase().includes(q) || f.codeFam.toLowerCase().includes(q));
+  }
+
+  if (!families.length) {
+    return html + '<div class="text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
+  }
+
+  // ── Grille de cartes ──
+  html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">';
+  for (const f of families) {
+    const b = CLASSIF_BADGE[f.classifGlobal] || CLASSIF_BADGE.potentiel;
+    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
+    const safeCF = f.codeFam.replace(/'/g, "\\'");
+    const bw = (n) => total > 0 ? Math.max(n / total * 100, n > 0 ? 3 : 0) : 0;
+    const miniBar = `<div class="flex rounded overflow-hidden h-1.5 my-1.5" style="gap:1px">
+      ${f.socle     ? `<div title="${f.socle} socle" style="width:${bw(f.socle)}%;background:#22c55e"></div>` : ''}
+      ${f.implanter ? `<div title="${f.implanter} à implanter" style="width:${bw(f.implanter)}%;background:#3b82f6"></div>` : ''}
+      ${f.challenger? `<div title="${f.challenger} challenger" style="width:${bw(f.challenger)}%;background:#ef4444"></div>` : ''}
+      ${f.potentiel ? `<div title="${f.potentiel} potentiel" style="width:${bw(f.potentiel)}%;background:#f59e0b"></div>` : ''}
+      ${f.surveiller? `<div title="${f.surveiller} surveiller" style="width:${bw(f.surveiller)}%;background:#94a3b8"></div>` : ''}
+    </div>`;
+    const srcSet = new Set();
+    if (f.srcReseau)     srcSet.add('reseau');
+    if (f.srcChalandise) srcSet.add('chalandise');
+    if (f.srcHorsZone)   srcSet.add('horsZone');
+    if (f.srcLivraisons) srcSet.add('livraisons');
+    const covColor = f.couverture >= 70 ? '#22c55e' : f.couverture >= 40 ? '#f59e0b' : '#ef4444';
+    html += `<div class="s-card rounded-xl border p-3 cursor-pointer hover:border-[var(--c-action)] transition-all"
+      onclick="window._rfOpenDetail('${safeCF}')">
+      <div class="flex items-start justify-between mb-0.5">
+        <div class="flex-1 min-w-0 mr-2">
+          <div class="text-[12px] font-bold t-primary truncate">${escapeHtml(f.libFam)}</div>
+          <div class="text-[10px] t-disabled">${f.codeFam}</div>
+        </div>
+        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
+      </div>
+      ${miniBar}
+      <div class="flex items-center justify-between text-[10px]">
+        <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
+        <span class="font-bold" style="color:${covColor}">${f.couverture}% couv.</span>
+      </div>
+      <div class="flex items-center justify-between mt-1.5">
+        ${_sourceBar({ sources: srcSet })}
+        <span class="text-[10px] font-bold t-secondary">${formatEuro(f.caAgence)}</span>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function _renderRadarFamilleDetail(codeFam, data) {
+  const fam = data.families.find(f => f.codeFam === codeFam);
+  if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
+
+  const b = CLASSIF_BADGE[fam.classifGlobal] || CLASSIF_BADGE.potentiel;
+  const tabs = [
+    { key: 'rayon',     label: '📊 Mon Rayon' },
+    { key: 'squelette', label: '🦴 Squelette' },
+    { key: 'clients',   label: '👥 Clients'   },
+    { key: 'analyse',   label: '🏷 Analyse'   },
+  ];
+
+  let html = `<div class="mb-3">
+    <div class="flex items-center gap-2 mb-2">
+      <button onclick="window._rfCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card">← Retour</button>
+      <span class="text-[14px] font-bold t-primary">${escapeHtml(fam.libFam)}</span>
+      <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
+      <span class="text-[10px] t-disabled">${fam.codeFam}</span>
+    </div>
+    <div class="flex gap-2 flex-wrap mb-3">
+      ${tabs.map(t => `<button onclick="window._rfSetTab('${t.key}')" data-rftab="${t.key}"
+        class="text-[11px] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${_rfDetailTab === t.key ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}">${t.label}</button>`).join('')}
+    </div>
+  </div>
+  <div id="rfDetailContent">${_getRfTabContent(_rfDetailTab, fam)}</div>`;
+  return html;
+}
+
+function _getRfTabContent(tab, fam) {
+  if (tab === 'rayon') {
+    const rayonData = computeMonRayon(fam.codeFam);
+    if (!rayonData || (!rayonData.monRayon.length && !rayonData.aImplanter.length)) {
+      return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
+    }
+    return _renderMonRayon(rayonData);
+  }
+
+  if (tab === 'squelette') {
+    const CLASSIFS = ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller'];
+    const allArts = CLASSIFS.flatMap(g => (fam.articles[g] || []).map(a => ({ ...a, _g: g })));
+    if (!allArts.length) return '<div class="t-disabled text-sm text-center py-6">Aucun article squelette pour cette famille.</div>';
+    const rows = allArts.map(a => `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
+      <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
+      <td class="py-1.5 px-2">${_classifBadge(a.classification)}</td>
+      <td class="py-1.5 px-2">${_sourceBar(a)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.enStock ? a.stockActuel : '—'}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
+    </tr>`).join('');
+    return `<div class="overflow-x-auto">
+      <table class="w-full text-[11px]">
+        <thead><tr class="border-b b-light text-[10px] t-disabled">
+          <th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>
+          <th class="py-1.5 px-2 text-left">Classif.</th><th class="py-1.5 px-2 text-left">Sources</th>
+          <th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-right">CA agence</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  if (tab === 'clients') {
+    const clientsMap = new Map();
+    if (_S.ventesClientArticle) {
+      for (const [cc, artMap] of _S.ventesClientArticle) {
+        let caFam = 0, nbArt = 0;
+        for (const [code, data] of artMap) {
+          const cf = _S.catalogueFamille?.get(code);
+          const match = cf ? cf.codeFam === fam.codeFam : (_S.articleFamille?.[code] === fam.codeFam);
+          if (match) { caFam += data.sumCA || 0; nbArt++; }
+        }
+        if (nbArt > 0) {
+          const chal = _S.chalandiseData?.get(cc);
+          clientsMap.set(cc, {
+            cc,
+            nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+            metier: chal?.metier || '',
+            commercial: chal?.commercial || '',
+            ca: caFam, nbArticles: nbArt
+          });
+        }
+      }
+    }
+    const clients = [...clientsMap.values()].sort((a, b) => b.ca - a.ca);
+    if (!clients.length) return '<div class="t-disabled text-sm text-center py-6">Aucun client pour cette famille sur la période.</div>';
+    const metiersCount = {};
+    for (const c of clients) if (c.metier) metiersCount[c.metier] = (metiersCount[c.metier] || 0) + 1;
+    const topMetiers = Object.entries(metiersCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const pills = topMetiers.map(([m, n]) => `<span class="text-[10px] px-2 py-0.5 rounded-full s-panel-inner t-secondary">${escapeHtml(m)} <strong class="t-primary">${n}</strong></span>`).join('');
+    const rows = clients.slice(0, 50).map(c => `<tr class="border-b b-light text-[11px] hover:s-hover">
+      <td class="py-1.5 px-2 font-mono t-disabled">${c.cc}</td>
+      <td class="py-1.5 px-2 t-primary">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 t-secondary">${escapeHtml(c.metier)}</td>
+      <td class="py-1.5 px-2 t-disabled">${escapeHtml(c.commercial)}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(c.ca)}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${c.nbArticles}</td>
+    </tr>`).join('');
+    return `<div class="flex flex-wrap gap-1.5 mb-3">${pills}</div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[11px]">
+          <thead><tr class="border-b b-light text-[10px] t-disabled">
+            <th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Nom</th>
+            <th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th>
+            <th class="py-1.5 px-2 text-right">CA famille</th><th class="py-1.5 px-2 text-right">Articles</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${clients.length > 50 ? `<div class="text-[10px] t-disabled text-center py-2">+${clients.length - 50} autres clients</div>` : ''}
+      </div>`;
+  }
+
+  // Tab analyse
+  const rayonData = computeMonRayon(fam.codeFam);
+  if (!rayonData) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée catalogue pour cette famille.</div>';
+  const sfRows = rayonData.sousFamilles.map(([sf, n]) => `<tr class="border-b b-light text-[11px]">
+    <td class="py-1.5 px-2 t-primary">${escapeHtml(sf)}</td>
+    <td class="py-1.5 px-2 text-right font-bold t-primary">${n}</td>
+  </tr>`).join('');
+  const mqRows = rayonData.marques.map(([m, n]) => `<tr class="border-b b-light text-[11px]">
+    <td class="py-1.5 px-2 t-primary">${escapeHtml(m)}</td>
+    <td class="py-1.5 px-2 text-right font-bold t-primary">${n}</td>
+  </tr>`).join('');
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <div class="text-[12px] font-bold t-primary mb-2">📂 Sous-familles (${rayonData.sousFamilles.length})</div>
+      <table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px] t-disabled">
+        <th class="py-1.5 px-2 text-left">Sous-famille</th><th class="py-1.5 px-2 text-right">Réf.</th>
+      </tr></thead><tbody>${sfRows || '<tr><td colspan="2" class="py-3 text-center t-disabled">—</td></tr>'}</tbody></table>
+    </div>
+    <div>
+      <div class="text-[12px] font-bold t-primary mb-2">🏷 Marques (top 15)</div>
+      <table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px] t-disabled">
+        <th class="py-1.5 px-2 text-left">Marque</th><th class="py-1.5 px-2 text-right">Réf.</th>
+      </tr></thead><tbody>${mqRows || '<tr><td colspan="2" class="py-3 text-center t-disabled">—</td></tr>'}</tbody></table>
+    </div>
+  </div>`;
+}
+
+window._rfSetFilter = function(key) {
+  _rfFilterClassif = _rfFilterClassif === key ? '' : key;
+  _rfOpenFam = null;
+  _rfRerender();
+};
+
+window._rfSearch = function(q) {
+  _rfSearchQ = q;
+  _rfRerender();
+};
+
+window._rfOpenDetail = function(codeFam) {
+  _rfOpenFam = codeFam;
+  _rfDetailTab = 'rayon';
+  _rfRerender();
+};
+
+window._rfCloseDetail = function() {
+  _rfOpenFam = null;
+  _rfDetailTab = 'rayon';
+  _rfRerender();
+};
+
+window._rfSetTab = function(tab) {
+  _rfDetailTab = tab;
+  // Update tab button styles
+  document.querySelectorAll('[data-rftab]').forEach(btn => {
+    const isActive = btn.dataset.rftab === tab;
+    btn.className = `text-[11px] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${isActive ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}`;
+  });
+  // Swap tab content only
+  const el = document.getElementById('rfDetailContent');
+  if (el && _S._rfData && _rfOpenFam) {
+    const fam = _S._rfData.families.find(f => f.codeFam === _rfOpenFam);
+    if (fam) el.innerHTML = _getRfTabContent(tab, fam);
+  }
+};

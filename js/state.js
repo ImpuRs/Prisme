@@ -266,6 +266,7 @@ _S.catalogueFamille = null;    // Map<code, {libFam, sousFam}> — famille + sou
 _S._animationData = null;      // cache du dernier computeAnimation
 _S._rayonData = null;          // cache du dernier computeMonRayon
 _S._rayonSearchIndex = null;   // cache de l'index de recherche Mon Rayon
+_S._rfData = null;             // cache du dernier computeRadarFamille
 
 // ── Invalidation centralisée des caches ──────────────────────────
 // Scopes : 'all' (défaut) | 'tab' | 'terr' | 'bench'
@@ -417,6 +418,9 @@ export function resetAppState() {
   // Mon Rayon
   _S._rayonData = null;
   _S._rayonSearchIndex = null;
+
+  // Radar Famille
+  _S._rfData = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
