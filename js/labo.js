@@ -1920,7 +1920,7 @@ function _buildRayonSearchIndex() {
   if (_S._rayonSearchIndex) return _S._rayonSearchIndex;
   const index = [];
   const catFam = _S.catalogueFamille;
-  if (!catFam?.size) return index;
+  if (!catFam?.size) return index; // Ne PAS assigner _S._rayonSearchIndex ici
 
   const famAgg = new Map();
   for (const [code, f] of catFam) {
@@ -1960,6 +1960,7 @@ function _initRayonSearch() {
   const results = document.getElementById('rayonSearchResults');
   if (!input || !results) return;
 
+  _S._rayonSearchIndex = null; // Forcer rebuild à chaque ouverture de tuile
   const searchIndex = _buildRayonSearchIndex();
 
   let debounce;
@@ -1968,6 +1969,12 @@ function _initRayonSearch() {
     debounce = setTimeout(() => {
       const q = input.value.trim().toLowerCase();
       if (q.length < 2) { results.classList.add('hidden'); return; }
+
+      if (searchIndex.length === 0) {
+        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
+        results.classList.remove('hidden');
+        return;
+      }
 
       const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
 
