@@ -355,7 +355,11 @@ function _prRenderRayon(data) {
 // ── Onglet Squelette ─────────────────────────────────────────────────
 function _prBuildSqTable(arts) {
   const filter = _S._prSqFilter || '';
-  const filtered = filter ? arts.filter(a => a._g === filter) : arts;
+  const filtered = filter === 'absent'
+    ? arts.filter(a => !a.enStock)
+    : filter
+      ? arts.filter(a => a._g === filter)
+      : arts;
   if (!filtered.length) return '<div class="t-disabled text-sm text-center py-4">Aucun article.</div>';
   const shown = filtered.slice(0, 50);
   const rows = shown.map(a => {
@@ -417,13 +421,22 @@ function _prRenderSquelette(fam) {
   for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
   const activeFilter = _S._prSqFilter || '';
 
-  const pills = CLASSIFS.map(g => {
+  let pills = CLASSIFS.map(g => {
     const b = CLASSIF_BADGE[g];
     const active = activeFilter === g;
     return `<button onclick="window._prSqFilterFn('${g}')"
       class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}"
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g]}</strong></button>`;
   }).join('');
+  const nbAbsent = arts.filter(a => !a.enStock).length;
+  if (nbAbsent) {
+    const active = activeFilter === 'absent';
+    pills += `<button onclick="window._prSqFilterFn('absent')"
+      class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card'}"
+      style="${active ? 'box-shadow:0 0 0 2px #ef4444' : ''}">
+      📦 Absent du rayon <span class="${active ? 't-inverse-muted' : 't-disabled'}">${nbAbsent}</span>
+    </button>`;
+  }
 
   const sousFamNote = sousFamLib
     ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">· filtré sur <em>${escapeHtml(sousFamLib)}</em></span>`
