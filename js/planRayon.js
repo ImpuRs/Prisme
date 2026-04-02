@@ -25,11 +25,11 @@ const ACTION_BADGE = {
 };
 
 const CLASSIF_BADGE = {
-  socle:      { label: 'Socle',      bg: '#dcfce7', color: '#166534', icon: '🟢' },
-  implanter:  { label: 'Implanter',  bg: '#dbeafe', color: '#1e40af', icon: '🔵' },
-  challenger: { label: 'Challenger', bg: '#fee2e2', color: '#991b1b', icon: '🔴' },
-  potentiel:  { label: 'Potentiel',  bg: '#fef9c3', color: '#854d0e', icon: '🟡' },
-  surveiller: { label: 'Surveiller', bg: '#f1f5f9', color: '#475569', icon: '👁'  },
+  socle:      { label: 'Socle',      bg: 'rgba(34,197,94,0.2)',   color: '#22c55e',           icon: '🟢' },
+  implanter:  { label: 'Implanter',  bg: 'rgba(59,130,246,0.2)',  color: '#3b82f6',           icon: '🔵' },
+  challenger: { label: 'Challenger', bg: 'rgba(239,68,68,0.2)',   color: '#ef4444',           icon: '🔴' },
+  potentiel:  { label: 'Potentiel',  bg: 'rgba(245,158,11,0.2)',  color: '#f59e0b',           icon: '🟡' },
+  surveiller: { label: 'Surveiller', bg: 'rgba(148,163,184,0.2)', color: 'var(--t-secondary)', icon: '👁'  },
 };
 
 // ── computePlanStock ─────────────────────────────────────────────────
@@ -286,33 +286,35 @@ function _prRenderRayon(data) {
   const challeng = monRayon.filter(a => a.status === 'challenger').length;
   const dormants = monRayon.filter(a => a.status === 'dormant').length;
   const socle    = monRayon.length - pepites - challeng - dormants;
-  const _statusBadge = (s) => {
-    if (s === 'pepite')     return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:600">🟢 Pépite</span>`;
-    if (s === 'challenger') return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.15);color:#ef4444;font-weight:600">🔴 Challenger</span>`;
-    if (s === 'dormant')    return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(100,116,139,0.2);color:var(--t-secondary);font-weight:600">💤 Dormant</span>`;
-    if (s === 'rupture')    return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,0.15);color:#f59e0b;font-weight:600">⚠️ Rupture</span>`;
-    return '';
-  };
-  const rows = shown.map(a => {
-    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code || '—';
-    return `<tr class="border-b b-light text-[11px]">
-      <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
-      <td class="py-1.5 px-2 t-primary">${escapeHtml(lib)}</td>
-      <td class="py-1.5 px-2 t-secondary">${escapeHtml(a.sousFam || '')}</td>
-      <td class="py-1.5 px-2 text-right t-primary">${a.stockActuel ?? '—'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.W ?? '—'}</td>
-      <td class="py-1.5 px-2">${_statusBadge(a.status)}</td>
-      <td class="py-1.5 px-2 text-right font-bold t-primary">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
+  const rows = monRayon.slice(0, page).map(a => {
+    const s = a.status || 'standard';
+    let sBg, sC, sL;
+    if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';   sC='#22c55e';           sL='🟢 Pépite'; }
+    else if (s === 'challenger') { sBg='rgba(239,68,68,0.2)';   sC='#ef4444';           sL='🔴 Challenger'; }
+    else if (s === 'dormant')    { sBg='rgba(148,163,184,0.2)'; sC='var(--t-secondary)'; sL='💤 Dormant'; }
+    else if (s === 'rupture')    { sBg='rgba(245,158,11,0.2)';  sC='#f59e0b';           sL='⚠️ Rupture'; }
+    else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ Socle'; }
+    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
+    return `<tr class="border-b b-light hover:s-hover text-[11px]">
+      <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+      <td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
+      <td class="py-1.5 px-2 text-[10px]" style="color:var(--t-secondary)">${escapeHtml(a.sousFam || '')}</td>
+      <td class="py-1.5 px-2 text-right" style="color:var(--t-primary)">${a.stockActuel}</td>
+      <td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.W || 0}</td>
+      <td class="py-1.5 px-2 text-center">
+        <span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${sBg};color:${sC}">${sL}</span>
+      </td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:var(--t-primary)">${formatEuro(a.caAgence)}</td>
     </tr>`;
   }).join('');
   return `<div class="mb-3 text-[11px] t-secondary">
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
   <div class="flex flex-wrap gap-1.5 mb-3">
-    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
-    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;font-weight:500">✅ ${socle} socle</span>` : ''}
-    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.15);color:#ef4444;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
-    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(100,116,139,0.2);color:var(--t-secondary);font-weight:600">💤 ${dormants} dormants</span>` : ''}
+    ${pepites  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">🟢 ${pepites} pépites AF</span>` : ''}
+    ${socle > 0 ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:500">✅ ${socle} socle</span>` : ''}
+    ${challeng  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">🔴 ${challeng} à challenger</span>` : ''}
+    ${dormants  ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(148,163,184,0.2);color:var(--t-secondary);font-weight:600">💤 ${dormants} dormants</span>` : ''}
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
