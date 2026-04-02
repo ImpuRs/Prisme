@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP } from './constants.js';
+import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors, computeRecoStock } from './engine.js';
@@ -457,6 +457,15 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
     resetPromo();
+
+    // ── FIX 2 : sélecteur agence AVANT lecture fichier ──
+    // Si aucune agence mémorisée, demander à l'utilisateur MAINTENANT (avant les 4+ min de readExcel)
+    let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
+    if(!selectedStore){
+      selectedStore=await _showStoreSelector(new Set(Object.keys(AGENCE_CP)));
+      if(selectedStore)localStorage.setItem('prisme_selectedStore',selectedStore);
+    }
+
     showLoading('Lecture…','');await yieldToMain();
     let dataC,dataS;
     try{
@@ -479,13 +488,11 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     else{_S.storesIntersection=new Set(storesFoundC);}
     _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
 
-    // ── Déterminer l'agence AVANT le parsing lourd ──
-    let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
-    // Vérifier que l'agence mémorisée existe dans les données
+    // ── Valider l'agence pré-sélectionnée contre les données réelles ──
+    // (cas où AGENCE_CP était utilisé mais l'agence n'est pas dans ce fichier)
     if(selectedStore&&!_S.storesIntersection.has(selectedStore))selectedStore='';
-
     if(_S.storesIntersection.size>1&&!selectedStore){
-      // Afficher le sélecteur et ATTENDRE le choix
+      // Fallback : sélecteur avec les agences réelles du fichier
       selectedStore=await _showStoreSelector(_S.storesIntersection);
     }
     if(_S.storesIntersection.size===1)selectedStore=[..._S.storesIntersection][0];
@@ -519,8 +526,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       updateProgress(90,100,'Benchmark réseau…');
       _resetColCache();
       for(const row of dataC){
-        const store=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';
-        if(store===selectedStore||!store)continue;
+        const store=extractStoreCode(row);
+        if(!store||store===selectedStore)continue;
         if(!_S.storesIntersection.has(store))continue;
         const code=cleanCode((getVal(row,'Article','Code')||'').toString());
         if(!code)continue;
