@@ -6,13 +6,14 @@ import { DataStore } from './store.js';
 import {
   escapeHtml, formatEuro, daysBetween, famLib, famLabel,
   _normalizeClassif, _classifShort, _normalizeStatut,
-  _isMetierStrategique, _unikLink, _crossBadge,
+  _isMetierStrategique,
   fmtDate, getSecteurDirection, matchQuery, formatLocalYMD
 } from './utils.js';
 import {
   _clientPassesFilters, _passesClientCrossFilter,
   _isPDVActif, _isGlobalActif, _isPerdu, _isProspect,
-  _isPerdu24plus, _clientStatusBadge, _clientStatusText
+  _isPerdu24plus, _clientStatusBadge, _clientStatusText,
+  _unikLink, _crossBadge
 } from './engine.js';
 import { switchTab, showToast } from './ui.js';
 import { _saveExclusions } from './cache.js';

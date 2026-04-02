@@ -3,8 +3,8 @@
 // ── ESM imports ─────────────────────────────────────────────────────────
 import { _S } from './state.js';
 import { DataStore } from './store.js';
-import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, _unikLink, matchQuery } from './utils.js';
-import { _clientPassesFilters } from './engine.js';
+import { formatEuro, escapeHtml, _copyCodeBtn, fmtDate, matchQuery } from './utils.js';
+import { _clientPassesFilters, _unikLink } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner } from './ui.js';
 import { deltaColor, renderOppNetteTable } from './helpers.js';
