@@ -1202,12 +1202,17 @@ export function computeRecoStock() {
   const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
+  // Respecter les filtres actifs (famille, emplacement, ABC, etc.)
+  const filteredData = _S.filteredData?.length ? _S.filteredData : fd;
+  const filteredCodes = new Set(filteredData.map(r => r.code));
+
   const artAgg = new Map();
 
   // Source Livraisons (si disponible)
   if (hasTerr) {
     for (const l of _S.territoireLines) {
       if (l.isSpecial) continue;
+      if (stockMap.has(l.code) && !filteredCodes.has(l.code)) continue;
       if (!artAgg.has(l.code)) {
         artAgg.set(l.code, {
           code: l.code, libelle: l.libelle, direction: l.direction,
@@ -1232,6 +1237,7 @@ export function computeRecoStock() {
     for (const [code, data] of Object.entries(arts)) {
       if (!/^\d{6}$/.test(code)) continue;
       if (data.countBL <= 0) continue;
+      if (stockMap.has(code) && !filteredCodes.has(code)) continue;
       const stock = stockMap.get(code);
       const rayonStatus = stock ? ((stock.stockActuel || 0) > 0 ? 'green' : 'yellow') : 'red';
       if (rayonStatus === 'green') continue; // already in stock and ok
