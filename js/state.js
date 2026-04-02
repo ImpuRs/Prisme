@@ -13,6 +13,7 @@ export const _S = {};
 // ── Core data ──
 _S.finalData = [];
 _S.filteredData = [];
+_S._pushedCodes = new Set();
 _S.sortCol = 'caAnnuel'; // valeur par défaut alignée sur resetAppState()
 _S.sortAsc = false;
 _S.currentPage = 0;
@@ -283,7 +284,7 @@ export function resetAppState() {
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
   // Core data
-  _S.finalData = []; _S.filteredData = []; _S.currentPage = 0;
+  _S.finalData = []; _S.filteredData = []; _S.currentPage = 0; _S._pushedCodes = new Set();
   _S.sortCol = 'caAnnuel'; _S.sortAsc = false;
 
   // Store / ventes
