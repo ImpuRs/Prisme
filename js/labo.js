@@ -2035,9 +2035,9 @@ function _initRfSearch() {
   const results = document.getElementById('rfSearchResults');
   if (!input || !results) return;
 
-  // Réutiliser le même index catalogue que Mon Rayon (familles niveau 1 uniquement)
+  // Réutiliser le même index catalogue que Mon Rayon (familles + sous-familles)
   _S._rayonSearchIndex = null; // forcer rebuild
-  const searchIndex = _buildRayonSearchIndex().filter(e => e.level === 1);
+  const searchIndex = _buildRayonSearchIndex();
 
   let debounce;
   input.addEventListener('input', () => {
@@ -2061,11 +2061,14 @@ function _initRfSearch() {
 
       results.innerHTML = matches.map(e => {
         const safeCF = e.codeFam.replace(/'/g, "\\'");
+        const safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        const label = e.level === 1
+          ? `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`
+          : `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
-          onclick="window._rfSelectFam('${safeCF}')">
-          <span class="font-bold t-primary">${escapeHtml(e.libFam)}</span>
-          <span class="t-disabled ml-1">(${e.codeFam})</span>
-          <span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>
+          onclick="window._rfSelectFam('${safeCF}','${safeCSF}')">
+          ${label}
+          <span class="t-disabled ml-2">${e.nbArticlesCat} réf. catalogue</span>
         </div>`;
       }).join('');
       results.classList.remove('hidden');
@@ -2368,6 +2371,7 @@ function _downloadCSV(csv, filename) {
 
 let _rfFilterClassif = '';
 let _rfOpenFam = null;
+let _rfOpenSousFam = '';
 let _rfDetailTab = 'rayon';
 
 function _rfRerender() {
@@ -2497,7 +2501,7 @@ function _renderRadarFamilleDetail(codeFam, data) {
 
 function _getRfTabContent(tab, fam) {
   if (tab === 'rayon') {
-    const rayonData = computeMonRayon(fam.codeFam);
+    const rayonData = computeMonRayon(fam.codeFam, _rfOpenSousFam || '');
     if (!rayonData || (!rayonData.monRayon.length && !rayonData.aImplanter.length)) {
       return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
     }
@@ -2579,7 +2583,7 @@ function _getRfTabContent(tab, fam) {
   }
 
   // Tab analyse
-  const rayonData = computeMonRayon(fam.codeFam);
+  const rayonData = computeMonRayon(fam.codeFam, _rfOpenSousFam || '');
   if (!rayonData) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée catalogue pour cette famille.</div>';
   const sfRows = rayonData.sousFamilles.map(([sf, n]) => `<tr class="border-b b-light text-[11px]">
     <td class="py-1.5 px-2 t-primary">${escapeHtml(sf)}</td>
@@ -2608,27 +2612,31 @@ function _getRfTabContent(tab, fam) {
 window._rfSetFilter = function(key) {
   _rfFilterClassif = _rfFilterClassif === key ? '' : key;
   _rfOpenFam = null;
+  _rfOpenSousFam = '';
   _rfRerender();
 };
 
-window._rfSelectFam = function(codeFam) {
+window._rfSelectFam = function(codeFam, codeSousFam) {
   const results = document.getElementById('rfSearchResults');
   if (results) results.classList.add('hidden');
   const input = document.getElementById('rfSearchInput');
   if (input) input.value = '';
   _rfOpenFam = codeFam;
+  _rfOpenSousFam = codeSousFam || '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
 
 window._rfOpenDetail = function(codeFam) {
   _rfOpenFam = codeFam;
+  _rfOpenSousFam = '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
 
 window._rfCloseDetail = function() {
   _rfOpenFam = null;
+  _rfOpenSousFam = '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
