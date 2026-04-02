@@ -1971,6 +1971,45 @@ function _buildRayonSearchIndex() {
       });
     }
   }
+  // ── Level 3 : Marques ──
+  if (_S.marqueArticles?.size) {
+    for (const [marque, codes] of _S.marqueArticles) {
+      if (!marque || codes.size === 0) continue;
+      const famCount = new Map();
+      for (const code of codes) {
+        const cf = catFam.get(code)?.codeFam;
+        if (cf) famCount.set(cf, (famCount.get(cf) || 0) + 1);
+      }
+      if (!famCount.size) continue;
+      const [domFam] = [...famCount.entries()].sort((a, b) => b[1] - a[1])[0];
+      const agg = famAgg.get(domFam);
+      index.push({
+        codeFam: domFam, codeSousFam: '', libFam: agg?.libFam || domFam, sousFam: '',
+        level: 3, nbArticlesCat: codes.size,
+        marque,
+        searchText: `${marque} ${domFam} ${agg?.libFam || ''}`.toLowerCase()
+      });
+    }
+  }
+
+  // ── Level 4 : Codes articles (lookup rapide au moment de la recherche) ──
+  if (_S.catalogueDesignation?.size) {
+    const articleCodes = new Map();
+    for (const [code, desig] of _S.catalogueDesignation) {
+      const cf = catFam.get(code);
+      articleCodes.set(code, {
+        code,
+        libelle: desig,
+        marque: _S.catalogueMarques?.get(code) || '',
+        codeFam: cf?.codeFam || '',
+        libFam: cf?.libFam || '',
+        codeSousFam: cf?.codeSousFam || '',
+        sousFam: cf?.sousFam || '',
+      });
+    }
+    index._articleCodes = articleCodes;
+  }
+
   index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
   _S._rayonSearchIndex = index;
   return index;
@@ -1997,7 +2036,21 @@ function _initRayonSearch() {
         return;
       }
 
-      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+      let matches = [];
+      const isCodeQuery = /^\d{3,}$/.test(q);
+      if (isCodeQuery && searchIndex._articleCodes) {
+        for (const [code, art] of searchIndex._articleCodes) {
+          if (code.includes(q)) {
+            matches.push({ level: 4, codeFam: art.codeFam, codeSousFam: art.codeSousFam,
+                           libFam: art.libFam, sousFam: art.sousFam,
+                           code: art.code, libelle: art.libelle, marque: art.marque,
+                           nbArticlesCat: 1, searchText: '' });
+            if (matches.length >= 15) break;
+          }
+        }
+      } else {
+        matches = searchIndex.filter(e => e.level <= 3 && e.searchText.includes(q)).slice(0, 15);
+      }
 
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
@@ -2006,15 +2059,23 @@ function _initRayonSearch() {
       }
 
       results.innerHTML = matches.map(e => {
-        const label = e.level === 1
-          ? `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`
-          : `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
-        const safeCF = e.codeFam.replace(/'/g, "\\'");
-        const safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let safeCF = e.codeFam.replace(/'/g, "\\'");
+        let safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let label;
+        if (e.level === 1) {
+          label = `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`;
+        } else if (e.level === 2) {
+          label = `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        } else if (e.level === 3) {
+          label = `<span class="font-bold t-primary">🏷 ${escapeHtml(e.marque)}</span> <span class="t-disabled ml-1">dans ${escapeHtml(e.libFam)}</span>`;
+          safeCSF = '';
+        } else {
+          label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
+        }
+        const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
           onclick="window._selectRayon('${safeCF}','${safeCSF}')">
-          ${label}
-          <span class="t-disabled ml-2">${e.nbArticlesCat} réf. catalogue</span>
+          ${label}${refsLabel}
         </div>`;
       }).join('');
       results.classList.remove('hidden');
@@ -2035,9 +2096,9 @@ function _initRfSearch() {
   const results = document.getElementById('rfSearchResults');
   if (!input || !results) return;
 
-  // Réutiliser le même index catalogue que Mon Rayon (familles niveau 1 uniquement)
+  // Réutiliser le même index catalogue que Mon Rayon (familles + sous-familles)
   _S._rayonSearchIndex = null; // forcer rebuild
-  const searchIndex = _buildRayonSearchIndex().filter(e => e.level === 1);
+  const searchIndex = _buildRayonSearchIndex();
 
   let debounce;
   input.addEventListener('input', () => {
@@ -2052,7 +2113,22 @@ function _initRfSearch() {
         return;
       }
 
-      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+      let matches = [];
+      const isCodeQuery = /^\d{3,}$/.test(q);
+      if (isCodeQuery && searchIndex._articleCodes) {
+        for (const [code, art] of searchIndex._articleCodes) {
+          if (code.includes(q)) {
+            matches.push({ level: 4, codeFam: art.codeFam, codeSousFam: art.codeSousFam,
+                           libFam: art.libFam, sousFam: art.sousFam,
+                           code: art.code, libelle: art.libelle, marque: art.marque,
+                           nbArticlesCat: 1, searchText: '' });
+            if (matches.length >= 15) break;
+          }
+        }
+      } else {
+        matches = searchIndex.filter(e => e.level <= 3 && e.searchText.includes(q)).slice(0, 15);
+      }
+
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
         results.classList.remove('hidden');
@@ -2060,12 +2136,23 @@ function _initRfSearch() {
       }
 
       results.innerHTML = matches.map(e => {
-        const safeCF = e.codeFam.replace(/'/g, "\\'");
+        let safeCF = e.codeFam.replace(/'/g, "\\'");
+        let safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        let label;
+        if (e.level === 1) {
+          label = `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`;
+        } else if (e.level === 2) {
+          label = `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        } else if (e.level === 3) {
+          label = `<span class="font-bold t-primary">🏷 ${escapeHtml(e.marque)}</span> <span class="t-disabled ml-1">dans ${escapeHtml(e.libFam)}</span>`;
+          safeCSF = '';
+        } else {
+          label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
+        }
+        const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
-          onclick="window._rfSelectFam('${safeCF}')">
-          <span class="font-bold t-primary">${escapeHtml(e.libFam)}</span>
-          <span class="t-disabled ml-1">(${e.codeFam})</span>
-          <span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>
+          onclick="window._rfSelectFam('${safeCF}','${safeCSF}')">
+          ${label}${refsLabel}
         </div>`;
       }).join('');
       results.classList.remove('hidden');
@@ -2098,11 +2185,15 @@ function _statusBadge(status) {
   return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:500">✅ Socle</span>';
 }
 
-function _renderMonRayon(data) {
+function _renderRayonContent(data, prefix = 'rayon') {
   const { codeFam, codeSousFam, libFam, sousFam, monRayon, nbEnStock, nbPepites, nbChallenger, nbDormants, nbRuptures, valeurTotale, aImplanter, clients, topMetiers, nbCatalogue, couverture, sousFamilles, marques } = data;
 
   const title = sousFam ? `${libFam} → ${sousFam}` : libFam;
   const codeLabel = codeSousFam ? `${codeFam} / ${codeSousFam}` : codeFam;
+
+  const _pageRayon = _S[`_${prefix}PageRayon`] || _RAYON_PAGE_SIZE;
+  const _pageImpl  = _S[`_${prefix}PageImpl`]  || _RAYON_PAGE_SIZE;
+  const _pageCli   = _S[`_${prefix}PageCli`]   || _RAYON_PAGE_SIZE;
 
   // Header
   let html = `<div class="mb-4">
@@ -2118,13 +2209,13 @@ function _renderMonRayon(data) {
   </div>`;
 
   // ── Bloc 1 : Mon rayon (ouvert par défaut) ──
-  const rayonRows = monRayon.slice(0, _rayonPageRayon);
+  const rayonRows = monRayon.slice(0, _pageRayon);
   html += `<div class="mb-3">
-    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('rayon')">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window['_${prefix}ToggleSection']('rayon')">
       <span class="text-[12px] font-bold t-primary">📊 Mon rayon aujourd'hui <span class="t-disabled font-normal">(${monRayon.length})</span></span>
-      <span id="rayonSectionIcon_rayon" class="t-disabled text-[11px]">▲</span>
+      <span id="${prefix}SectionIcon_rayon" class="t-disabled text-[11px]">▲</span>
     </div>
-    <div id="rayonSection_rayon">
+    <div id="${prefix}Section_rayon">
       <div class="overflow-x-auto mt-2">
         <table class="w-full text-[11px]">
           <thead><tr class="t-disabled border-b b-light">
@@ -2153,19 +2244,19 @@ function _renderMonRayon(data) {
           </tbody>
         </table>
       </div>
-      ${monRayon.length > _rayonPageRayon ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreRayon()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${monRayon.length - _rayonPageRayon} restants)</button></div>` : ''}
-      <div class="mt-2 text-right"><button onclick="window._rayonExportRayon()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV rayon</button></div>
+      ${monRayon.length > _pageRayon ? `<div class="mt-2 text-center"><button onclick="window['_${prefix}MoreRayon']()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${monRayon.length - _pageRayon} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window['_${prefix}ExportRayon']()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV rayon</button></div>
     </div>
   </div>`;
 
   // ── Bloc 2 : À implanter (fermé) ──
-  const implRows = aImplanter.slice(0, _rayonPageImpl);
+  const implRows = aImplanter.slice(0, _pageImpl);
   html += `<div class="mb-3">
-    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('impl')">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window['_${prefix}ToggleSection']('impl')">
       <span class="text-[12px] font-bold t-primary">🔵 À implanter <span class="t-disabled font-normal">(${aImplanter.length})</span></span>
-      <span id="rayonSectionIcon_impl" class="t-disabled text-[11px]">▼</span>
+      <span id="${prefix}SectionIcon_impl" class="t-disabled text-[11px]">▼</span>
     </div>
-    <div id="rayonSection_impl" class="hidden">
+    <div id="${prefix}Section_impl" class="hidden">
       ${aImplanter.length === 0 ? '<div class="py-3 text-[11px] t-disabled text-center">Aucun article vendus par le réseau et absent de votre stock</div>' : `
       <div class="overflow-x-auto mt-2">
         <table class="w-full text-[11px]">
@@ -2189,20 +2280,20 @@ function _renderMonRayon(data) {
           </tbody>
         </table>
       </div>
-      ${aImplanter.length > _rayonPageImpl ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreImpl()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${aImplanter.length - _rayonPageImpl} restants)</button></div>` : ''}
-      <div class="mt-2 text-right"><button onclick="window._rayonExportImpl()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV à implanter</button></div>`}
+      ${aImplanter.length > _pageImpl ? `<div class="mt-2 text-center"><button onclick="window['_${prefix}MoreImpl']()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${aImplanter.length - _pageImpl} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window['_${prefix}ExportImpl']()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV à implanter</button></div>`}
     </div>
   </div>`;
 
   // ── Bloc 3 : Mes clients (fermé) ──
-  const cliRows = clients.slice(0, _rayonPageCli);
+  const cliRows = clients.slice(0, _pageCli);
   const metiersLabel = topMetiers.slice(0, 3).map(([m, n]) => `${m} (${n})`).join(', ');
   html += `<div class="mb-3">
-    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('cli')">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window['_${prefix}ToggleSection']('cli')">
       <span class="text-[12px] font-bold t-primary">👥 Mes clients <span class="t-disabled font-normal">(${clients.length})</span></span>
-      <span id="rayonSectionIcon_cli" class="t-disabled text-[11px]">▼</span>
+      <span id="${prefix}SectionIcon_cli" class="t-disabled text-[11px]">▼</span>
     </div>
-    <div id="rayonSection_cli" class="hidden">
+    <div id="${prefix}Section_cli" class="hidden">
       ${clients.length === 0 ? '<div class="py-3 text-[11px] t-disabled text-center">Aucun client avec achat dans cette famille</div>' : `
       ${metiersLabel ? `<div class="mt-2 text-[10px] t-secondary">Top métiers : ${escapeHtml(metiersLabel)}</div>` : ''}
       <div class="overflow-x-auto mt-2">
@@ -2225,25 +2316,25 @@ function _renderMonRayon(data) {
           </tbody>
         </table>
       </div>
-      ${clients.length > _rayonPageCli ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreCli()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${clients.length - _rayonPageCli} restants)</button></div>` : ''}
-      <div class="mt-2 text-right"><button onclick="window._rayonExportCli()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV clients</button></div>`}
+      ${clients.length > _pageCli ? `<div class="mt-2 text-center"><button onclick="window['_${prefix}MoreCli']()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${clients.length - _pageCli} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window['_${prefix}ExportCli']()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV clients</button></div>`}
     </div>
   </div>`;
 
   // ── Bloc 4 : Catalogue (fermé) ──
   html += `<div class="mb-3">
-    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('cat')">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window['_${prefix}ToggleSection']('cat')">
       <span class="text-[12px] font-bold t-primary">📋 Catalogue <span class="t-disabled font-normal">(${nbCatalogue} réf.)</span></span>
-      <span id="rayonSectionIcon_cat" class="t-disabled text-[11px]">▼</span>
+      <span id="${prefix}SectionIcon_cat" class="t-disabled text-[11px]">▼</span>
     </div>
-    <div id="rayonSection_cat" class="hidden">
+    <div id="${prefix}Section_cat" class="hidden">
       <div class="mt-2 text-[11px] t-secondary mb-2">${nbCatalogue} références disponibles chez Legallais</div>
       ${sousFamilles.length ? `<div class="mb-2">
         <div class="text-[10px] t-disabled mb-1">Par sous-famille :</div>
         <div class="flex flex-wrap gap-2">
           ${sousFamilles.map(([sf, n]) => {
             const safeSF = (sf === 'Non classé' ? '' : sf).replace(/'/g, "\\'");
-            return `<span class="text-[10px] px-2 py-0.5 rounded border b-light t-secondary cursor-pointer hover:t-primary" onclick="window._selectRayon('${codeFam.replace(/'/g,"\\'")}','${safeSF}')">${escapeHtml(sf)} (${n})</span>`;
+            return `<span class="text-[10px] px-2 py-0.5 rounded border b-light t-secondary cursor-pointer hover:t-primary" onclick="window['_${prefix}SelectSousFam']('${codeFam.replace(/'/g,"\\'")}','${safeSF}')">${escapeHtml(sf)} (${n})</span>`;
           }).join('')}
         </div>
       </div>` : ''}
@@ -2259,6 +2350,8 @@ function _renderMonRayon(data) {
   return html;
 }
 
+function _renderMonRayon(data) { return _renderRayonContent(data, 'rayon'); }
+
 window._selectRayon = function(codeFam, codeSousFam) {
   const input = document.getElementById('rayonSearchInput');
   const results = document.getElementById('rayonSearchResults');
@@ -2267,6 +2360,9 @@ window._selectRayon = function(codeFam, codeSousFam) {
   _rayonPageRayon = _RAYON_PAGE_SIZE;
   _rayonPageImpl  = _RAYON_PAGE_SIZE;
   _rayonPageCli   = _RAYON_PAGE_SIZE;
+  _S._rayonPageRayon = _RAYON_PAGE_SIZE;
+  _S._rayonPageImpl  = _RAYON_PAGE_SIZE;
+  _S._rayonPageCli   = _RAYON_PAGE_SIZE;
 
   const data = computeMonRayon(codeFam, codeSousFam || '');
   if (!data) return;
@@ -2277,6 +2373,8 @@ window._selectRayon = function(codeFam, codeSousFam) {
   const el = document.getElementById('rayonContent');
   if (el) el.innerHTML = _renderMonRayon(data);
 };
+
+window._rayonSelectSousFam = window._selectRayon;
 
 window._rayonToggleSection = function(key) {
   const section = document.getElementById('rayonSection_' + key);
@@ -2289,6 +2387,7 @@ window._rayonToggleSection = function(key) {
 window._rayonMoreRayon = function() {
   if (!_S._rayonData) return;
   _rayonPageRayon += _RAYON_PAGE_SIZE;
+  _S._rayonPageRayon = _rayonPageRayon;
   const el = document.getElementById('rayonContent');
   if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
   // Re-open rayon section
@@ -2301,6 +2400,7 @@ window._rayonMoreRayon = function() {
 window._rayonMoreImpl = function() {
   if (!_S._rayonData) return;
   _rayonPageImpl += _RAYON_PAGE_SIZE;
+  _S._rayonPageImpl = _rayonPageImpl;
   const el = document.getElementById('rayonContent');
   if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
   const s = document.getElementById('rayonSection_impl');
@@ -2312,6 +2412,7 @@ window._rayonMoreImpl = function() {
 window._rayonMoreCli = function() {
   if (!_S._rayonData) return;
   _rayonPageCli += _RAYON_PAGE_SIZE;
+  _S._rayonPageCli = _rayonPageCli;
   const el = document.getElementById('rayonContent');
   if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
   const s = document.getElementById('rayonSection_cli');
@@ -2362,12 +2463,98 @@ function _downloadCSV(csv, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ── Handlers prefixés rf (Radar Famille détail) ─────────────────
+window._rfToggleSection = function(key) {
+  const section = document.getElementById('rfSection_' + key);
+  const icon    = document.getElementById('rfSectionIcon_' + key);
+  if (!section) return;
+  const hidden = section.classList.toggle('hidden');
+  if (icon) icon.textContent = hidden ? '▼' : '▲';
+};
+
+window._rfMoreRayon = function() {
+  if (!_S._rfRayonData) return;
+  _S._rfPageRayon = (_S._rfPageRayon || _RAYON_PAGE_SIZE) + _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rfContent');
+  if (el) el.innerHTML = _renderRayonContent(_S._rfRayonData, 'rf');
+  const s = document.getElementById('rfSection_rayon');
+  const ic = document.getElementById('rfSectionIcon_rayon');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+window._rfMoreImpl = function() {
+  if (!_S._rfRayonData) return;
+  _S._rfPageImpl = (_S._rfPageImpl || _RAYON_PAGE_SIZE) + _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rfContent');
+  if (el) el.innerHTML = _renderRayonContent(_S._rfRayonData, 'rf');
+  const s = document.getElementById('rfSection_impl');
+  const ic = document.getElementById('rfSectionIcon_impl');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+window._rfMoreCli = function() {
+  if (!_S._rfRayonData) return;
+  _S._rfPageCli = (_S._rfPageCli || _RAYON_PAGE_SIZE) + _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rfContent');
+  if (el) el.innerHTML = _renderRayonContent(_S._rfRayonData, 'rf');
+  const s = document.getElementById('rfSection_cli');
+  const ic = document.getElementById('rfSectionIcon_cli');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+window._rfExportRayon = function() {
+  if (!_S._rfRayonData) return;
+  const csv = _rayonToCSV(
+    _S._rfRayonData.monRayon,
+    ['Code','Libellé','Marque','Sous-famille','Stock','W','ABC','FMR','CA agence','Valeur stock','Statut'],
+    a => [a.code, a.libelle, a.marque, a.sousFam, a.stockActuel, a.W, a.abcClass, a.fmrClass, a.caAgence.toFixed(2), a.valeurStock.toFixed(2), a.status].join(';')
+  );
+  _downloadCSV(csv, `rayon_${_S._rfRayonData.codeFam}.csv`);
+};
+
+window._rfExportImpl = function() {
+  if (!_S._rfRayonData) return;
+  const csv = _rayonToCSV(
+    _S._rfRayonData.aImplanter,
+    ['Code','Libellé','Marque','Sous-famille','Nb agences','CA réseau'],
+    a => [a.code, a.libelle, a.marque, a.sousFam, a.nbAgences, a.caReseau.toFixed(2)].join(';')
+  );
+  _downloadCSV(csv, `implanter_${_S._rfRayonData.codeFam}.csv`);
+};
+
+window._rfExportCli = function() {
+  if (!_S._rfRayonData) return;
+  const csv = _rayonToCSV(
+    _S._rfRayonData.clients,
+    ['Code client','Nom','Métier','Commercial','CA famille','Nb articles'],
+    c => [c.cc, c.nom, c.metier, c.commercial, c.ca.toFixed(2), c.nbArticles].join(';')
+  );
+  _downloadCSV(csv, `clients_rayon_${_S._rfRayonData.codeFam}.csv`);
+};
+
+window._rfSelectSousFam = function(codeFam, codeSousFam) {
+  _rfOpenSousFam = codeSousFam || '';
+  _S._rfPageRayon = _RAYON_PAGE_SIZE;
+  _S._rfPageImpl  = _RAYON_PAGE_SIZE;
+  _S._rfPageCli   = _RAYON_PAGE_SIZE;
+  const rayonData = computeMonRayon(codeFam, _rfOpenSousFam);
+  _S._rfRayonData = rayonData;
+  const el = document.getElementById('rfContent');
+  if (el) el.innerHTML = rayonData
+    ? _renderRayonContent(rayonData, 'rf')
+    : '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette sous-famille.</div>';
+};
+
 // ═══════════════════════════════════════════════════════════════
 // Radar Famille — Vue 360° par famille (fusion Squelette + Mon Rayon)
 // ═══════════════════════════════════════════════════════════════
 
 let _rfFilterClassif = '';
 let _rfOpenFam = null;
+let _rfOpenSousFam = '';
 let _rfDetailTab = 'rayon';
 
 function _rfRerender() {
@@ -2497,11 +2684,15 @@ function _renderRadarFamilleDetail(codeFam, data) {
 
 function _getRfTabContent(tab, fam) {
   if (tab === 'rayon') {
-    const rayonData = computeMonRayon(fam.codeFam);
+    const rayonData = computeMonRayon(fam.codeFam, _rfOpenSousFam || '');
+    _S._rfRayonData = rayonData;
+    _S._rfPageRayon = _RAYON_PAGE_SIZE;
+    _S._rfPageImpl  = _RAYON_PAGE_SIZE;
+    _S._rfPageCli   = _RAYON_PAGE_SIZE;
     if (!rayonData || (!rayonData.monRayon.length && !rayonData.aImplanter.length)) {
       return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
     }
-    return _renderMonRayon(rayonData);
+    return `<div id="rfContent">${_renderRayonContent(rayonData, 'rf')}</div>`;
   }
 
   if (tab === 'squelette') {
@@ -2579,7 +2770,7 @@ function _getRfTabContent(tab, fam) {
   }
 
   // Tab analyse
-  const rayonData = computeMonRayon(fam.codeFam);
+  const rayonData = computeMonRayon(fam.codeFam, _rfOpenSousFam || '');
   if (!rayonData) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée catalogue pour cette famille.</div>';
   const sfRows = rayonData.sousFamilles.map(([sf, n]) => `<tr class="border-b b-light text-[11px]">
     <td class="py-1.5 px-2 t-primary">${escapeHtml(sf)}</td>
@@ -2608,27 +2799,31 @@ function _getRfTabContent(tab, fam) {
 window._rfSetFilter = function(key) {
   _rfFilterClassif = _rfFilterClassif === key ? '' : key;
   _rfOpenFam = null;
+  _rfOpenSousFam = '';
   _rfRerender();
 };
 
-window._rfSelectFam = function(codeFam) {
+window._rfSelectFam = function(codeFam, codeSousFam) {
   const results = document.getElementById('rfSearchResults');
   if (results) results.classList.add('hidden');
   const input = document.getElementById('rfSearchInput');
   if (input) input.value = '';
   _rfOpenFam = codeFam;
+  _rfOpenSousFam = codeSousFam || '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
 
 window._rfOpenDetail = function(codeFam) {
   _rfOpenFam = codeFam;
+  _rfOpenSousFam = '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
 
 window._rfCloseDetail = function() {
   _rfOpenFam = null;
+  _rfOpenSousFam = '';
   _rfDetailTab = 'rayon';
   _rfRerender();
 };
