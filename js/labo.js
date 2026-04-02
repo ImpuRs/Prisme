@@ -6,7 +6,7 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, famLib, _doCopyCode, _copyCodeBtn, escapeHtml } from './utils.js';
-import { _unikLink, _clientPassesFilters, computeSquelette, computeMaClientele } from './engine.js';
+import { _unikLink, _clientPassesFilters, computeSquelette, computeMaClientele, computeMonRayon } from './engine.js';
 import { DataStore } from './store.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1630,7 +1630,16 @@ const LABO_TOOLTIPS = {
     <em>Objectif :</em> adapter votre rayon à votre clientèle locale.`,
   prisme: `<strong>Générer mon PRISME</strong><br>
     Affiche 6 analyses aléatoires parmi les requêtes en langage naturel disponibles.<br>
-    Chaque puce est cliquable et lance l'analyse correspondante.`
+    Chaque puce est cliquable et lance l'analyse correspondante.`,
+  rayon: `<strong>Mon Rayon — Diagnostic famille</strong><br>
+    Tapez un nom de famille, sous-famille, ou code famille.<br>
+    PRISME affiche en un écran :<br>
+    📊 Votre rayon (stock, ABC/FMR, couverture)<br>
+    🔵 À implanter (vendus par le réseau, absents chez vous)<br>
+    🔴 À challenger (dormants, surstock)<br>
+    👥 Vos clients (qui achète cette famille)<br>
+    📋 Le catalogue complet (par sous-famille, par marque)<br><br>
+    <em>Source :</em> stock × catalogue × consommé × chalandise × réseau.`
 };
 
 const _infoIcon = (key) => LABO_TOOLTIPS[key]
@@ -1704,6 +1713,12 @@ function _renderTileGrid(el) {
       <div class="text-[13px] font-bold t-primary mb-1">Générer mon PRISME</div>
       <div class="text-[10px] t-secondary">6 analyses aléatoires</div>
     </div>
+    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('rayon')">
+      ${_infoIcon('rayon')}
+      <div class="text-lg mb-1">🔍</div>
+      <div class="text-[13px] font-bold t-primary mb-1">Mon Rayon</div>
+      <div class="text-[10px] t-secondary">Diagnostic complet par famille</div>
+    </div>
   </div>
   <div id="laboTileContent" class="hidden"></div>`;
 }
@@ -1757,6 +1772,18 @@ window._laboOpenTile = function(tile) {
     const data = computeMaClientele(null, _clDistKm);
     _S._clienteleData = data;
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderMaClientele(data)}</div>`;
+  } else if (tile === 'rayon') {
+    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">
+      <div class="relative max-w-lg mx-auto mb-4">
+        <input type="text" id="rayonSearchInput"
+          placeholder="🔍 Famille, sous-famille ou code… (ex: lunettes, E07, fixation)"
+          class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
+          autocomplete="off">
+        <div id="rayonSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+      </div>
+      <div id="rayonContent"></div>
+    </div>`;
+    _initRayonSearch();
   } else if (tile === 'prisme') {
     const picked = _shuffleArray(_NL_CHIPS).slice(0, 6);
     const chips = picked.map(c => {
@@ -1884,3 +1911,370 @@ window._laboUpdateSeuil = function(val) {
     famContent.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderFamilleCommercial(famData)}</div>`;
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// Mon Rayon — recherche, rendu, handlers
+// ═══════════════════════════════════════════════════════════════
+
+function _buildRayonSearchIndex() {
+  if (_S._rayonSearchIndex) return _S._rayonSearchIndex;
+  const index = [];
+  const catFam = _S.catalogueFamille;
+  if (!catFam?.size) return index;
+
+  const famAgg = new Map();
+  for (const [code, f] of catFam) {
+    const cf = f.codeFam || '';
+    if (!cf) continue;
+    if (!famAgg.has(cf)) famAgg.set(cf, { codeFam: cf, libFam: f.libFam || cf, sousFams: new Map(), totalCount: 0 });
+    const agg = famAgg.get(cf);
+    agg.totalCount++;
+    const csf = f.codeSousFam || '';
+    if (csf) {
+      if (!agg.sousFams.has(csf)) agg.sousFams.set(csf, { codeSousFam: csf, sousFam: f.sousFam || csf, count: 0 });
+      agg.sousFams.get(csf).count++;
+    }
+  }
+
+  for (const [cf, agg] of famAgg) {
+    index.push({
+      codeFam: cf, codeSousFam: '', libFam: agg.libFam, sousFam: '',
+      level: 1, nbArticlesCat: agg.totalCount,
+      searchText: `${cf} ${agg.libFam}`.toLowerCase()
+    });
+    for (const [csf, sf] of agg.sousFams) {
+      index.push({
+        codeFam: cf, codeSousFam: csf, libFam: agg.libFam, sousFam: sf.sousFam,
+        level: 2, nbArticlesCat: sf.count,
+        searchText: `${cf} ${csf} ${agg.libFam} ${sf.sousFam}`.toLowerCase()
+      });
+    }
+  }
+  index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
+  _S._rayonSearchIndex = index;
+  return index;
+}
+
+function _initRayonSearch() {
+  const input = document.getElementById('rayonSearchInput');
+  const results = document.getElementById('rayonSearchResults');
+  if (!input || !results) return;
+
+  const searchIndex = _buildRayonSearchIndex();
+
+  let debounce;
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      const q = input.value.trim().toLowerCase();
+      if (q.length < 2) { results.classList.add('hidden'); return; }
+
+      const matches = searchIndex.filter(e => e.searchText.includes(q)).slice(0, 15);
+
+      if (!matches.length) {
+        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
+        results.classList.remove('hidden');
+        return;
+      }
+
+      results.innerHTML = matches.map(e => {
+        const label = e.level === 1
+          ? `<span class="font-bold t-primary">${escapeHtml(e.libFam)}</span> <span class="t-disabled">(${e.codeFam})</span>`
+          : `<span class="t-secondary ml-2">└ ${escapeHtml(e.sousFam)}</span> <span class="t-disabled">dans ${e.libFam}</span>`;
+        const safeCF = e.codeFam.replace(/'/g, "\\'");
+        const safeCSF = (e.codeSousFam || '').replace(/'/g, "\\'");
+        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
+          onclick="window._selectRayon('${safeCF}','${safeCSF}')">
+          ${label}
+          <span class="t-disabled ml-2">${e.nbArticlesCat} réf. catalogue</span>
+        </div>`;
+      }).join('');
+      results.classList.remove('hidden');
+    }, 200);
+  });
+
+  document.addEventListener('click', function _rayonOutside(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      results.classList.add('hidden');
+      // Remove listener once tile is gone
+      if (!document.getElementById('rayonSearchInput')) document.removeEventListener('click', _rayonOutside);
+    }
+  });
+}
+
+const _RAYON_PAGE_SIZE = 20;
+let _rayonPageRayon = _RAYON_PAGE_SIZE;
+let _rayonPageImpl = _RAYON_PAGE_SIZE;
+let _rayonPageCli = _RAYON_PAGE_SIZE;
+
+function _statusBadge(status) {
+  if (status === 'pepite')     return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-400">🟢 Pépite</span>';
+  if (status === 'dormant')    return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400">💤 Dormant</span>';
+  if (status === 'challenger') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">🔴 Challenger</span>';
+  if (status === 'rupture')    return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/40 text-yellow-400">⚠ Rupture</span>';
+  return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/30 t-secondary">⚪ Standard</span>';
+}
+
+function _renderMonRayon(data) {
+  const { codeFam, codeSousFam, libFam, sousFam, monRayon, nbEnStock, nbPepites, nbChallenger, nbDormants, nbRuptures, valeurTotale, aImplanter, clients, topMetiers, nbCatalogue, couverture, sousFamilles, marques } = data;
+
+  const title = sousFam ? `${libFam} → ${sousFam}` : libFam;
+  const codeLabel = codeSousFam ? `${codeFam} / ${codeSousFam}` : codeFam;
+
+  // Header
+  let html = `<div class="mb-4">
+    <div class="text-[15px] font-bold t-primary mb-1">🔍 ${escapeHtml(title)} <span class="text-[11px] t-disabled font-normal">(${codeLabel})</span></div>
+    <div class="text-[11px] t-secondary mb-1">${monRayon.length} articles en rayon · ${couverture}% couverture catalogue (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock</div>
+    <div class="flex flex-wrap gap-2 text-[10px]">
+      ${nbPepites   ? `<span class="px-2 py-0.5 rounded bg-green-900/30 text-green-400">🟢 ${nbPepites} pépites AF</span>` : ''}
+      <span class="px-2 py-0.5 rounded bg-gray-700/30 t-secondary">⚪ ${monRayon.length - nbPepites - nbChallenger - nbDormants - nbRuptures} standard</span>
+      ${nbChallenger ? `<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-400">🔴 ${nbChallenger} à challenger</span>` : ''}
+      ${nbDormants   ? `<span class="px-2 py-0.5 rounded bg-gray-600/30 text-gray-400">💤 ${nbDormants} dormants</span>` : ''}
+      ${nbRuptures   ? `<span class="px-2 py-0.5 rounded bg-yellow-900/30 text-yellow-400">⚠ ${nbRuptures} ruptures</span>` : ''}
+    </div>
+  </div>`;
+
+  // ── Bloc 1 : Mon rayon (ouvert par défaut) ──
+  const rayonRows = monRayon.slice(0, _rayonPageRayon);
+  html += `<div class="mb-3">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('rayon')">
+      <span class="text-[12px] font-bold t-primary">📊 Mon rayon aujourd'hui <span class="t-disabled font-normal">(${monRayon.length})</span></span>
+      <span id="rayonSectionIcon_rayon" class="t-disabled text-[11px]">▲</span>
+    </div>
+    <div id="rayonSection_rayon">
+      <div class="overflow-x-auto mt-2">
+        <table class="w-full text-[11px]">
+          <thead><tr class="t-disabled border-b b-light">
+            <th class="text-left pb-1 pr-2">Code</th>
+            <th class="text-left pb-1 pr-2">Libellé</th>
+            <th class="text-left pb-1 pr-2">Marque</th>
+            <th class="text-left pb-1 pr-2">Sous-fam.</th>
+            <th class="text-right pb-1 pr-2">Stock</th>
+            <th class="text-right pb-1 pr-2">W</th>
+            <th class="text-center pb-1 pr-2">ABC/FMR</th>
+            <th class="text-right pb-1 pr-2">CA agence</th>
+            <th class="text-left pb-1">Statut</th>
+          </tr></thead>
+          <tbody>
+            ${rayonRows.map(a => `<tr class="border-b b-light hover:s-hover">
+              <td class="py-1 pr-2 font-mono t-secondary">${escapeHtml(a.code)}</td>
+              <td class="py-1 pr-2 t-primary max-w-[160px] truncate">${escapeHtml(a.libelle)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(a.marque)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(a.sousFam)}</td>
+              <td class="py-1 pr-2 text-right">${a.stockActuel}</td>
+              <td class="py-1 pr-2 text-right">${a.W}</td>
+              <td class="py-1 pr-2 text-center font-mono">${a.abcClass}${a.fmrClass}</td>
+              <td class="py-1 pr-2 text-right">${formatEuro(a.caAgence)}</td>
+              <td class="py-1">${_statusBadge(a.status)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${monRayon.length > _rayonPageRayon ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreRayon()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${monRayon.length - _rayonPageRayon} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window._rayonExportRayon()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV rayon</button></div>
+    </div>
+  </div>`;
+
+  // ── Bloc 2 : À implanter (fermé) ──
+  const implRows = aImplanter.slice(0, _rayonPageImpl);
+  html += `<div class="mb-3">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('impl')">
+      <span class="text-[12px] font-bold t-primary">🔵 À implanter <span class="t-disabled font-normal">(${aImplanter.length})</span></span>
+      <span id="rayonSectionIcon_impl" class="t-disabled text-[11px]">▼</span>
+    </div>
+    <div id="rayonSection_impl" class="hidden">
+      ${aImplanter.length === 0 ? '<div class="py-3 text-[11px] t-disabled text-center">Aucun article vendus par le réseau et absent de votre stock</div>' : `
+      <div class="overflow-x-auto mt-2">
+        <table class="w-full text-[11px]">
+          <thead><tr class="t-disabled border-b b-light">
+            <th class="text-left pb-1 pr-2">Code</th>
+            <th class="text-left pb-1 pr-2">Libellé</th>
+            <th class="text-left pb-1 pr-2">Marque</th>
+            <th class="text-left pb-1 pr-2">Sous-fam.</th>
+            <th class="text-right pb-1 pr-2">Agences</th>
+            <th class="text-right pb-1">CA réseau</th>
+          </tr></thead>
+          <tbody>
+            ${implRows.map(a => `<tr class="border-b b-light hover:s-hover">
+              <td class="py-1 pr-2 font-mono t-secondary">${escapeHtml(a.code)}</td>
+              <td class="py-1 pr-2 t-primary max-w-[160px] truncate">${escapeHtml(a.libelle)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(a.marque)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(a.sousFam)}</td>
+              <td class="py-1 pr-2 text-right"><span class="px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400">🏪 ${a.nbAgences} ag.</span></td>
+              <td class="py-1 text-right">${formatEuro(a.caReseau)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${aImplanter.length > _rayonPageImpl ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreImpl()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${aImplanter.length - _rayonPageImpl} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window._rayonExportImpl()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV à implanter</button></div>`}
+    </div>
+  </div>`;
+
+  // ── Bloc 3 : Mes clients (fermé) ──
+  const cliRows = clients.slice(0, _rayonPageCli);
+  const metiersLabel = topMetiers.slice(0, 3).map(([m, n]) => `${m} (${n})`).join(', ');
+  html += `<div class="mb-3">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('cli')">
+      <span class="text-[12px] font-bold t-primary">👥 Mes clients <span class="t-disabled font-normal">(${clients.length})</span></span>
+      <span id="rayonSectionIcon_cli" class="t-disabled text-[11px]">▼</span>
+    </div>
+    <div id="rayonSection_cli" class="hidden">
+      ${clients.length === 0 ? '<div class="py-3 text-[11px] t-disabled text-center">Aucun client avec achat dans cette famille</div>' : `
+      ${metiersLabel ? `<div class="mt-2 text-[10px] t-secondary">Top métiers : ${escapeHtml(metiersLabel)}</div>` : ''}
+      <div class="overflow-x-auto mt-2">
+        <table class="w-full text-[11px]">
+          <thead><tr class="t-disabled border-b b-light">
+            <th class="text-left pb-1 pr-2">Client</th>
+            <th class="text-left pb-1 pr-2">Métier</th>
+            <th class="text-left pb-1 pr-2">Commercial</th>
+            <th class="text-right pb-1 pr-2">CA famille</th>
+            <th class="text-right pb-1">Articles</th>
+          </tr></thead>
+          <tbody>
+            ${cliRows.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','labo')">
+              <td class="py-1 pr-2 t-primary">${escapeHtml(c.nom)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(c.metier)}</td>
+              <td class="py-1 pr-2 t-secondary">${escapeHtml(c.commercial)}</td>
+              <td class="py-1 pr-2 text-right">${formatEuro(c.ca)}</td>
+              <td class="py-1 text-right">${c.nbArticles}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${clients.length > _rayonPageCli ? `<div class="mt-2 text-center"><button onclick="window._rayonMoreCli()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${clients.length - _rayonPageCli} restants)</button></div>` : ''}
+      <div class="mt-2 text-right"><button onclick="window._rayonExportCli()" class="text-[10px] px-3 py-1 rounded border b-light t-secondary hover:t-primary">⬇ CSV clients</button></div>`}
+    </div>
+  </div>`;
+
+  // ── Bloc 4 : Catalogue (fermé) ──
+  html += `<div class="mb-3">
+    <div class="flex items-center justify-between cursor-pointer py-1 border-b b-light" onclick="window._rayonToggleSection('cat')">
+      <span class="text-[12px] font-bold t-primary">📋 Catalogue <span class="t-disabled font-normal">(${nbCatalogue} réf.)</span></span>
+      <span id="rayonSectionIcon_cat" class="t-disabled text-[11px]">▼</span>
+    </div>
+    <div id="rayonSection_cat" class="hidden">
+      <div class="mt-2 text-[11px] t-secondary mb-2">${nbCatalogue} références disponibles chez Legallais</div>
+      ${sousFamilles.length ? `<div class="mb-2">
+        <div class="text-[10px] t-disabled mb-1">Par sous-famille :</div>
+        <div class="flex flex-wrap gap-2">
+          ${sousFamilles.map(([sf, n]) => {
+            const safeSF = (sf === 'Non classé' ? '' : sf).replace(/'/g, "\\'");
+            return `<span class="text-[10px] px-2 py-0.5 rounded border b-light t-secondary cursor-pointer hover:t-primary" onclick="window._selectRayon('${codeFam.replace(/'/g,"\\'")}','${safeSF}')">${escapeHtml(sf)} (${n})</span>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+      ${marques.length ? `<div>
+        <div class="text-[10px] t-disabled mb-1">Par marque :</div>
+        <div class="flex flex-wrap gap-2">
+          ${marques.map(([m, n]) => `<span class="text-[10px] px-2 py-0.5 rounded border b-light t-secondary">${escapeHtml(m)} (${n})</span>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+
+  return html;
+}
+
+window._selectRayon = function(codeFam, codeSousFam) {
+  const input = document.getElementById('rayonSearchInput');
+  const results = document.getElementById('rayonSearchResults');
+  if (results) results.classList.add('hidden');
+
+  _rayonPageRayon = _RAYON_PAGE_SIZE;
+  _rayonPageImpl  = _RAYON_PAGE_SIZE;
+  _rayonPageCli   = _RAYON_PAGE_SIZE;
+
+  const data = computeMonRayon(codeFam, codeSousFam || '');
+  if (!data) return;
+  _S._rayonData = data;
+
+  if (input) input.value = data.sousFam ? `${data.libFam} → ${data.sousFam}` : data.libFam;
+
+  const el = document.getElementById('rayonContent');
+  if (el) el.innerHTML = _renderMonRayon(data);
+};
+
+window._rayonToggleSection = function(key) {
+  const section = document.getElementById('rayonSection_' + key);
+  const icon    = document.getElementById('rayonSectionIcon_' + key);
+  if (!section) return;
+  const hidden = section.classList.toggle('hidden');
+  if (icon) icon.textContent = hidden ? '▼' : '▲';
+};
+
+window._rayonMoreRayon = function() {
+  if (!_S._rayonData) return;
+  _rayonPageRayon += _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rayonContent');
+  if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
+  // Re-open rayon section
+  const s = document.getElementById('rayonSection_rayon');
+  const ic = document.getElementById('rayonSectionIcon_rayon');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+window._rayonMoreImpl = function() {
+  if (!_S._rayonData) return;
+  _rayonPageImpl += _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rayonContent');
+  if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
+  const s = document.getElementById('rayonSection_impl');
+  const ic = document.getElementById('rayonSectionIcon_impl');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+window._rayonMoreCli = function() {
+  if (!_S._rayonData) return;
+  _rayonPageCli += _RAYON_PAGE_SIZE;
+  const el = document.getElementById('rayonContent');
+  if (el) el.innerHTML = _renderMonRayon(_S._rayonData);
+  const s = document.getElementById('rayonSection_cli');
+  const ic = document.getElementById('rayonSectionIcon_cli');
+  if (s) s.classList.remove('hidden');
+  if (ic) ic.textContent = '▲';
+};
+
+function _rayonToCSV(rows, headers, rowFn) {
+  return [headers.join(';'), ...rows.map(rowFn)].join('\n');
+}
+
+window._rayonExportRayon = function() {
+  if (!_S._rayonData) return;
+  const csv = _rayonToCSV(
+    _S._rayonData.monRayon,
+    ['Code','Libellé','Marque','Sous-famille','Stock','W','ABC','FMR','CA agence','Valeur stock','Statut'],
+    a => [a.code, a.libelle, a.marque, a.sousFam, a.stockActuel, a.W, a.abcClass, a.fmrClass, a.caAgence.toFixed(2), a.valeurStock.toFixed(2), a.status].join(';')
+  );
+  _downloadCSV(csv, `rayon_${_S._rayonData.codeFam}.csv`);
+};
+
+window._rayonExportImpl = function() {
+  if (!_S._rayonData) return;
+  const csv = _rayonToCSV(
+    _S._rayonData.aImplanter,
+    ['Code','Libellé','Marque','Sous-famille','Nb agences','CA réseau'],
+    a => [a.code, a.libelle, a.marque, a.sousFam, a.nbAgences, a.caReseau.toFixed(2)].join(';')
+  );
+  _downloadCSV(csv, `implanter_${_S._rayonData.codeFam}.csv`);
+};
+
+window._rayonExportCli = function() {
+  if (!_S._rayonData) return;
+  const csv = _rayonToCSV(
+    _S._rayonData.clients,
+    ['Code client','Nom','Métier','Commercial','CA famille','Nb articles'],
+    c => [c.cc, c.nom, c.metier, c.commercial, c.ca.toFixed(2), c.nbArticles].join(';')
+  );
+  _downloadCSV(csv, `clients_rayon_${_S._rayonData.codeFam}.csv`);
+};
+
+function _downloadCSV(csv, filename) {
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

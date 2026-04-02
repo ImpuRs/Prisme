@@ -1896,3 +1896,171 @@ export function computeAnimation(marque) {
     caMarqueAgence: clientsActifs.reduce((s, c) => s + c.caMarque, 0),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// computeMonRayon — Diagnostic complet d'un rayon par famille/sous-famille
+// ═══════════════════════════════════════════════════════════════
+export function computeMonRayon(codeFam, codeSousFam) {
+  if (!codeFam) return null;
+
+  const fd = _S.finalData || [];
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const catFam = _S.catalogueFamille;
+  const catDesig = _S.catalogueDesignation;
+  const catMarq = _S.catalogueMarques;
+  const vca = _S.ventesClientArticle;
+
+  // Helper : article matche la famille/sous-famille ?
+  const matchFam = (code) => {
+    const cf = catFam?.get(code);
+    if (cf) {
+      if (cf.codeFam !== codeFam) return false;
+      if (codeSousFam && cf.codeSousFam !== codeSousFam) return false;
+      return true;
+    }
+    const fam = _S.articleFamille?.[code];
+    if (fam && fam.startsWith(codeFam)) return !codeSousFam;
+    return false;
+  };
+
+  // ═══ 1. MON RAYON — articles en stock dans cette famille ═══
+  const monRayon = [];
+  for (const r of fd) {
+    if (!matchFam(r.code)) continue;
+    monRayon.push({
+      code: r.code,
+      libelle: _S.libelleLookup?.[r.code] || catDesig?.get(r.code) || r.code,
+      marque: catMarq?.get(r.code) || '',
+      sousFam: catFam?.get(r.code)?.sousFam || '',
+      stockActuel: r.stockActuel || 0,
+      W: r.W || 0,
+      abcClass: r.abcClass || '',
+      fmrClass: r.fmrClass || '',
+      caAgence: vpm[myStore]?.[r.code]?.sumCA || 0,
+      valeurStock: (r.stockActuel || 0) * (r.prixUnitaire || 0),
+      status: 'standard'
+    });
+  }
+  for (const a of monRayon) {
+    if (a.W === 0 && a.stockActuel > 0) a.status = 'dormant';
+    else if (a.stockActuel === 0) a.status = 'rupture';
+    else if (a.abcClass === 'A' && a.fmrClass === 'F') a.status = 'pepite';
+    else if (a.abcClass === 'C' && a.fmrClass === 'R') a.status = 'challenger';
+  }
+  monRayon.sort((a, b) => b.caAgence - a.caAgence);
+
+  const nbEnStock = monRayon.filter(a => a.stockActuel > 0).length;
+  const nbPepites = monRayon.filter(a => a.status === 'pepite').length;
+  const nbChallenger = monRayon.filter(a => a.status === 'challenger').length;
+  const nbDormants = monRayon.filter(a => a.status === 'dormant').length;
+  const nbRuptures = monRayon.filter(a => a.status === 'rupture').length;
+  const valeurTotale = monRayon.reduce((s, a) => s + a.valeurStock, 0);
+  const mesCodes = new Set(monRayon.map(a => a.code));
+
+  // ═══ 2. À IMPLANTER — vendus par le réseau, absents chez moi ═══
+  const implanter = new Map();
+  for (const [store, arts] of Object.entries(vpm)) {
+    if (store === myStore) continue;
+    for (const [code, data] of Object.entries(arts)) {
+      if (!matchFam(code)) continue;
+      if (data.countBL <= 0) continue;
+      if (mesCodes.has(code)) continue;
+      if (!implanter.has(code)) {
+        implanter.set(code, {
+          code,
+          libelle: _S.libelleLookup?.[code] || catDesig?.get(code) || code,
+          marque: catMarq?.get(code) || '',
+          sousFam: catFam?.get(code)?.sousFam || '',
+          nbAgences: 0,
+          caReseau: 0,
+        });
+      }
+      const a = implanter.get(code);
+      a.nbAgences++;
+      a.caReseau += data.sumCA || 0;
+    }
+  }
+  const aImplanter = [...implanter.values()].sort((a, b) => b.nbAgences - a.nbAgences || b.caReseau - a.caReseau);
+
+  // ═══ 3. CLIENTS — qui achète cette famille chez moi ═══
+  const clientsMap = new Map();
+  if (vca) {
+    for (const [cc, artMap] of vca) {
+      let caFam = 0, nbArt = 0;
+      for (const [code, data] of artMap) {
+        if (matchFam(code)) { caFam += data.sumCA || 0; nbArt++; }
+      }
+      if (nbArt > 0) {
+        const chal = _S.chalandiseData?.get(cc);
+        clientsMap.set(cc, {
+          cc,
+          nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+          metier: chal?.metier || '',
+          commercial: chal?.commercial || '',
+          ca: caFam,
+          nbArticles: nbArt
+        });
+      }
+    }
+  }
+  const clients = [...clientsMap.values()].sort((a, b) => b.ca - a.ca);
+
+  const metiersCount = {};
+  for (const c of clients) {
+    if (c.metier) metiersCount[c.metier] = (metiersCount[c.metier] || 0) + 1;
+  }
+  const topMetiers = Object.entries(metiersCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // ═══ 4. CATALOGUE — tout ce qui existe dans cette famille ═══
+  let nbCatalogue = 0;
+  const catSousFams = {};
+  const catMarques = {};
+  if (catFam) {
+    for (const [code, f] of catFam) {
+      if (f.codeFam !== codeFam) continue;
+      if (codeSousFam && f.codeSousFam !== codeSousFam) continue;
+      nbCatalogue++;
+      const sf = f.sousFam || 'Non classé';
+      catSousFams[sf] = (catSousFams[sf] || 0) + 1;
+      const m = catMarq?.get(code) || 'Non classé';
+      catMarques[m] = (catMarques[m] || 0) + 1;
+    }
+  }
+  const couverture = nbCatalogue > 0 ? Math.round(mesCodes.size / nbCatalogue * 100) : 0;
+
+  // Libellés famille / sous-famille pour l'affichage
+  let displayLibFam = FAMILLE_LOOKUP?.[codeFam] || codeFam;
+  let displaySousFam = '';
+  if (catFam) {
+    for (const [, f] of catFam) {
+      if (f.codeFam === codeFam) { displayLibFam = f.libFam || displayLibFam; break; }
+    }
+    if (codeSousFam) {
+      for (const [, f] of catFam) {
+        if (f.codeFam === codeFam && f.codeSousFam === codeSousFam) { displaySousFam = f.sousFam || codeSousFam; break; }
+      }
+    }
+  }
+
+  return {
+    codeFam,
+    codeSousFam,
+    libFam: displayLibFam,
+    sousFam: displaySousFam,
+    monRayon,
+    nbEnStock,
+    nbPepites,
+    nbChallenger,
+    nbDormants,
+    nbRuptures,
+    valeurTotale,
+    aImplanter,
+    clients,
+    topMetiers,
+    nbCatalogue,
+    couverture,
+    sousFamilles: Object.entries(catSousFams).sort((a, b) => b[1] - a[1]),
+    marques: Object.entries(catMarques).sort((a, b) => b[1] - a[1]).slice(0, 15),
+  };
+}

@@ -264,6 +264,8 @@ _S.marquesList = [];           // string[] sorted — autocomplétion
 _S.catalogueDesignation = null; // Map<code, designation> — libellé catalogue
 _S.catalogueFamille = null;    // Map<code, {libFam, sousFam}> — famille + sous-famille catalogue
 _S._animationData = null;      // cache du dernier computeAnimation
+_S._rayonData = null;          // cache du dernier computeMonRayon
+_S._rayonSearchIndex = null;   // cache de l'index de recherche Mon Rayon
 
 // ── Invalidation centralisée des caches ──────────────────────────
 // Scopes : 'all' (défaut) | 'tab' | 'terr' | 'bench'
@@ -411,6 +413,10 @@ export function resetAppState() {
 
   // Animation
   _S._animationData = null;
+
+  // Mon Rayon
+  _S._rayonData = null;
+  _S._rayonSearchIndex = null;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
