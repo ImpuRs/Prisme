@@ -446,45 +446,116 @@ function _prRenderSquelette(fam) {
 }
 
 // ── Onglet Métiers ───────────────────────────────────────────────────
+function _prCouvertureBar(pct) {
+  const color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  return `<span style="display:inline-flex;align-items:center;gap:4px">
+    <span style="display:inline-block;width:40px;height:6px;border-radius:3px;background:var(--color-border-tertiary,#e2e8f0);overflow:hidden">
+      <span style="display:block;height:100%;width:${pct}%;background:${color}"></span>
+    </span>
+    <span style="font-size:10px;font-weight:700;color:${color}">${pct}%</span>
+  </span>`;
+}
+
 function _prRenderMetiers(fam) {
   if (!_S.chalandiseReady || !_S.chalandiseData?.size) {
     return '<div class="t-disabled text-sm text-center py-6">Chargez la Zone de Chalandise pour cette analyse.</div>';
   }
   const catFam = _S.catalogueFamille;
-  const metierCA  = new Map();
-  const metierCli = new Map();
+
+  // Articles en stock pour cette famille (dénominateur couverture)
+  const artsEnStock = new Set(
+    (_S.finalData || []).filter(a => {
+      const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
+      return cf === fam.codeFam;
+    }).map(a => a.code)
+  );
+  const nbArtsStock = artsEnStock.size;
+
+  // Aggrégats par métier
+  const metierCA       = new Map(); // metier → CA famille
+  const metierActifs   = new Map(); // metier → Set<cc> acheteurs
+  const metierArts     = new Map(); // metier → Set<code> articles achetés
+
   if (_S.ventesClientArticle) {
     for (const [cc, artMap] of _S.ventesClientArticle) {
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || '';
       let caFam = 0;
+      const artsAchetes = new Set();
       for (const [code, v] of artMap) {
         const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === fam.codeFam) caFam += v.sumCA || 0;
+        if (cf === fam.codeFam) {
+          caFam += v.sumCA || 0;
+          artsAchetes.add(code);
+        }
       }
       if (caFam > 0) {
-        metierCA.set(metier,  (metierCA.get(metier)  || 0) + caFam);
-        metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
+        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+        if (!metierActifs.has(metier)) metierActifs.set(metier, new Set());
+        metierActifs.get(metier).add(cc);
+        if (!metierArts.has(metier)) metierArts.set(metier, new Set());
+        for (const c of artsAchetes) metierArts.get(metier).add(c);
       }
     }
   }
+
   if (!metierCA.size) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
+
+  // Prospects : clients chalandise du métier sans achat dans cette famille
+  const metierProspects = new Map();
+  if (_S.clientsByMetier) {
+    for (const [metier, ccSet] of _S.clientsByMetier) {
+      const actifsSet = metierActifs.get(metier) || new Set();
+      let prospects = 0;
+      for (const cc of ccSet) {
+        if (!actifsSet.has(cc)) prospects++;
+      }
+      metierProspects.set(metier, prospects);
+    }
+  }
+
   const total  = [...metierCA.values()].reduce((s, v) => s + v, 0);
   const sorted = [...metierCA.entries()].sort((a, b) => b[1] - a[1]);
-  const rows = sorted.map(([m, ca]) => `<tr class="border-b b-light text-[11px]">
-    <td class="py-1.5 px-2 t-primary">${escapeHtml(m || '—')}</td>
-    <td class="py-1.5 px-2 text-right t-secondary">${metierCli.get(m) || 0}</td>
-    <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(ca)}</td>
-    <td class="py-1.5 px-2 text-right t-disabled">${total > 0 ? Math.round(ca / total * 100) : 0}%</td>
-  </tr>`).join('');
-  return `<div class="overflow-x-auto">
+
+  // Barre de répartition colorée
+  const barSegments = sorted.map(([m, ca], i) => {
+    const pct = total > 0 ? ca / total * 100 : 0;
+    const colors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#84cc16'];
+    return `<span title="${escapeHtml(m||'—')} ${Math.round(pct)}%" style="display:inline-block;height:8px;width:${pct}%;background:${colors[i % colors.length]};"></span>`;
+  }).join('');
+
+  const rows = sorted.map(([m, ca]) => {
+    const actifs    = metierActifs.get(m)?.size || 0;
+    const prospects = metierProspects.get(m) || 0;
+    const clients   = actifs; // acheteurs dans la famille
+    const nbArts    = metierArts.get(m)?.size || 0;
+    const couv      = nbArtsStock > 0 ? Math.round(nbArts / nbArtsStock * 100) : 0;
+    const pctCA     = total > 0 ? Math.round(ca / total * 100) : 0;
+    return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
+      <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${clients}</td>
+      <td class="py-1.5 px-2 text-right" style="color:#22c55e;font-weight:600">${actifs}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${prospects}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${formatEuro(ca)}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${pctCA}%</td>
+      <td class="py-1.5 px-2 text-right">${_prCouvertureBar(couv)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="height:8px;border-radius:4px;overflow:hidden;display:flex;margin-bottom:12px">${barSegments}</div>
+  <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Métier</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Clients</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA famille</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">%</th>
-      </tr></thead>
+      <thead style="border-bottom:1px solid var(--color-border-tertiary)">
+        <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
+          <th class="py-1.5 px-2 text-left">Métier</th>
+          <th class="py-1.5 px-2 text-right">Clients</th>
+          <th class="py-1.5 px-2 text-right">Actifs</th>
+          <th class="py-1.5 px-2 text-right">Prospects</th>
+          <th class="py-1.5 px-2 text-right">CA famille</th>
+          <th class="py-1.5 px-2 text-right">% CA</th>
+          <th class="py-1.5 px-2 text-right">Couverture</th>
+        </tr>
+      </thead>
       <tbody>${rows}</tbody>
     </table>
   </div>`;
