@@ -2015,11 +2015,16 @@ let _rayonPageImpl = _RAYON_PAGE_SIZE;
 let _rayonPageCli = _RAYON_PAGE_SIZE;
 
 function _statusBadge(status) {
-  if (status === 'pepite')     return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-900/40 text-green-400">🟢 Pépite</span>';
-  if (status === 'dormant')    return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/50 text-gray-400">💤 Dormant</span>';
-  if (status === 'challenger') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">🔴 Challenger</span>';
-  if (status === 'rupture')    return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/40 text-yellow-400">⚠ Rupture</span>';
-  return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700/30 t-secondary">⚪ Standard</span>';
+  if (status === 'pepite')
+    return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:600">🟢 Pépite</span>';
+  if (status === 'dormant')
+    return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;font-weight:600">💤 Dormant</span>';
+  if (status === 'challenger')
+    return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:600">🔴 Challenger</span>';
+  if (status === 'rupture')
+    return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fef9c3;color:#854d0e;font-weight:600">⚠️ Surveiller</span>';
+  // Standard → Socle
+  return '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:500">✅ Socle</span>';
 }
 
 function _renderMonRayon(data) {
@@ -2032,12 +2037,12 @@ function _renderMonRayon(data) {
   let html = `<div class="mb-4">
     <div class="text-[15px] font-bold t-primary mb-1">🔍 ${escapeHtml(title)} <span class="text-[11px] t-disabled font-normal">(${codeLabel})</span></div>
     <div class="text-[11px] t-secondary mb-1">${monRayon.length} articles en rayon · ${couverture}% couverture catalogue (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock</div>
-    <div class="flex flex-wrap gap-2 text-[10px]">
-      ${nbPepites   ? `<span class="px-2 py-0.5 rounded bg-green-900/30 text-green-400">🟢 ${nbPepites} pépites AF</span>` : ''}
-      <span class="px-2 py-0.5 rounded bg-gray-700/30 t-secondary">⚪ ${monRayon.length - nbPepites - nbChallenger - nbDormants - nbRuptures} standard</span>
-      ${nbChallenger ? `<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-400">🔴 ${nbChallenger} à challenger</span>` : ''}
-      ${nbDormants   ? `<span class="px-2 py-0.5 rounded bg-gray-600/30 text-gray-400">💤 ${nbDormants} dormants</span>` : ''}
-      ${nbRuptures   ? `<span class="px-2 py-0.5 rounded bg-yellow-900/30 text-yellow-400">⚠ ${nbRuptures} ruptures</span>` : ''}
+    <div class="flex flex-wrap gap-2">
+      ${nbPepites   ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:600">🟢 ${nbPepites} pépites AF</span>` : ''}
+      <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:500">✅ ${monRayon.length - nbPepites - nbChallenger - nbDormants - nbRuptures} socle</span>
+      ${nbChallenger ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:600">🔴 ${nbChallenger} à challenger</span>` : ''}
+      ${nbDormants   ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;font-weight:600">💤 ${nbDormants} dormants</span>` : ''}
+      ${nbRuptures   ? `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fef9c3;color:#854d0e;font-weight:600">⚠️ ${nbRuptures} à surveiller</span>` : ''}
     </div>
   </div>`;
 
