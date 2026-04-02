@@ -489,7 +489,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(dataS&&dataS.length){for(const row of dataS){const s=storeColumnS?(row[storeColumnS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
     if(storesFoundS.size){_S.storesIntersection=new Set();for(const s of storesFoundC)if(storesFoundS.has(s))_S.storesIntersection.add(s);}
     else{_S.storesIntersection=new Set(storesFoundC);}
-    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;_S.storesFoundC=storesFoundC;
+    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
 
     // ── Valider l'agence pré-sélectionnée contre les données réelles ──
     // (cas où AGENCE_CP était utilisé mais l'agence n'est pas dans ce fichier)
@@ -505,69 +505,18 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(_selStore&&selectedStore){_selStore.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selStore.value=selectedStore;}
     document.getElementById('storeSelector').classList.add('hidden');
 
-    // ── Pré-filtrer dataC pour l'agence choisie ──
-    let dataCFiltered;
-    if(selectedStore&&_S.storesIntersection.size>1){
-      updateProgress(44,100,'Filtrage agence '+selectedStore+'…');
-      dataCFiltered=[];
-      for(const row of dataC){
-        const s=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';
-        if(s===selectedStore||!s)dataCFiltered.push(row);
-      }
-      showToast(`📊 ${dataCFiltered.length.toLocaleString('fr')} lignes ${selectedStore} sur ${dataC.length.toLocaleString('fr')} total`,'info');
-    }else{
-      dataCFiltered=dataC;
-    }
-    _S._rawDataCFiltered=dataCFiltered;
-
     // 1) Parse complet sur toute la période — W, V, MIN/MAX, ABC/FMR invariants
     _S.periodFilterStart=null;_S.periodFilterEnd=null;
-    await processDataFromRaw(dataCFiltered,dataS,{storeOverride:selectedStore||''});
+    await processDataFromRaw(dataC,dataS,{storeOverride:selectedStore||''});
 
     // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
     _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
     // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
-    // Note : isRefilter resets ventesParMagasin={} et ventesParMagasinByCanal={}
     const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
-      await processDataFromRaw(dataCFiltered,dataS,{isRefilter:true});
+      await processDataFromRaw(dataC,dataS,{isRefilter:true});
     }
     buildPeriodFilter();
-
-    // ── Second pass léger : ventesParMagasin des AUTRES agences (pour benchmark réseau) ──
-    // DOIT tourner APRÈS isRefilter (qui reset ventesParMagasin à chaque appel)
-    if((_S.storesFoundC||_S.storesIntersection).size>1&&_S._rawDataC.length>dataCFiltered.length){
-      updateProgress(90,100,'Benchmark réseau…');
-      // Pré-détection colonnes UNE SEULE FOIS — évite Object.keys + find à chaque ligne (×13 perf)
-      const _k=Object.keys(_S._rawDataC[0]||{});
-      const _colSt=_k.find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ').trim();return l==='code pdv'||l==='code agence';});
-      const _colArt=_k.find(k=>k.toLowerCase().includes('signation')||(k.toLowerCase().includes('article')&&!k.toLowerCase().includes('famille')));
-      const _colCaP=_k.find(k=>k.toLowerCase().includes('ca')&&k.toLowerCase().includes('pr'));
-      const _colCaE=_k.find(k=>k.toLowerCase().includes('ca')&&k.toLowerCase().includes('enlev'));
-      const _colVmbP=_k.find(k=>k.toLowerCase().includes('vmb')&&k.toLowerCase().includes('pr'));
-      const _colVmbE=_k.find(k=>k.toLowerCase().includes('vmb')&&k.toLowerCase().includes('enlev'));
-      const _colQteP=_k.find(k=>(k.toLowerCase().includes('qt')||k.toLowerCase().includes('quant'))&&k.toLowerCase().includes('pr'));
-      const _parse=v=>parseFloat((v||'').toString().replace(',','.'))||0;
-      for(const row of _S._rawDataC){
-        const store=_colSt?(row[_colSt]||'').toString().trim().toUpperCase():'';
-        if(!store||store===selectedStore)continue;
-        if(!(_S.storesFoundC||_S.storesIntersection).has(store))continue;
-        const rawArt=_colArt?(row[_colArt]||'').toString():'';
-        const code=rawArt?cleanCode(rawArt.split('-')[0].trim()):'';
-        if(!code)continue;
-        const caP=_parse(row[_colCaP]);
-        const caE=_parse(row[_colCaE]);
-        const vmbP=_parse(row[_colVmbP]);
-        const vmbE=_parse(row[_colVmbE]);
-        const qteP=_parse(row[_colQteP]);
-        if(!_S.ventesParMagasin[store])_S.ventesParMagasin[store]={};
-        if(!_S.ventesParMagasin[store][code])_S.ventesParMagasin[store][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};
-        const v=_S.ventesParMagasin[store][code];
-        v.sumCA+=caP+caE;v.sumVMB+=vmbP+vmbE;
-        if(qteP>0)v.sumPrelevee+=qteP;v.countBL++;
-      }
-      await yieldToMain();
-    }
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
