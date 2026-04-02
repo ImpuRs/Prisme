@@ -164,10 +164,41 @@ export function extractStoreCode(row) {
   return key ? (row[key] || '').toString().trim().toUpperCase() : '';
 }
 
-export function readExcel(f) {
+export function readExcel(f, onProgress) {
+  // Fichiers < 20 Mo : inline (rapide, pas d'overhead Worker)
+  if (f.size < 20 * 1024 * 1024) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => {
+        try {
+          const w = XLSX.read(new Uint8Array(e.target.result), {
+            type:'array', dense:true, cellDates:true,
+            cellFormula:false, cellHTML:false, cellStyles:false
+          });
+          res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], {defval:''}));
+        } catch(err) { rej(err); }
+      };
+      r.onerror = () => rej(new Error('Lecture impossible'));
+      r.readAsArrayBuffer(f);
+    });
+  }
+
+  // Fichiers >= 20 Mo : Worker (pas de freeze UI)
   return new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload = e => { try { const w = XLSX.read(new Uint8Array(e.target.result), { type: 'array', dense: true, cellDates: true, cellFormula: false, cellHTML: false, cellStyles: false }); res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], { defval: '' })); } catch (e) { rej(e); } };
+    r.onload = e => {
+      const buffer = e.target.result;
+      const worker = new Worker('js/xlsx-worker.js');
+      worker.onmessage = evt => {
+        const msg = evt.data;
+        if (msg.type === 'progress' && onProgress) onProgress(msg.msg, msg.pct);
+        else if (msg.type === 'result') { worker.terminate(); res(msg.data); }
+        else if (msg.type === 'error') { worker.terminate(); rej(new Error(msg.msg)); }
+      };
+      worker.onerror = err => { worker.terminate(); rej(new Error('Worker: ' + err.message)); };
+      // PAS de Transferable — envoyer une copie (prouvé fonctionnel)
+      worker.postMessage({buffer: buffer});
+    };
     r.onerror = () => rej(new Error('Lecture impossible'));
     r.readAsArrayBuffer(f);
   });

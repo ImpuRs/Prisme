@@ -471,7 +471,10 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers (parallèle)…');
-      [dataC,dataS]=await Promise.all([readExcel(f1),f2?readExcel(f2):Promise.resolve([])]);
+      [dataC,dataS]=await Promise.all([
+        readExcel(f1, (msg, pct) => updateProgress(pct, 100, msg)),
+        f2 ? readExcel(f2) : Promise.resolve([])
+      ]);
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
@@ -535,18 +538,28 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     // DOIT tourner APRÈS isRefilter (qui reset ventesParMagasin à chaque appel)
     if(_S.storesIntersection.size>1&&_S._rawDataC.length>dataCFiltered.length){
       updateProgress(90,100,'Benchmark réseau…');
-      _resetColCache();
+      // Pré-détection colonnes UNE SEULE FOIS — évite Object.keys + find à chaque ligne (×13 perf)
+      const _k=Object.keys(_S._rawDataC[0]||{});
+      const _colSt=_k.find(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ').trim();return l==='code pdv'||l==='code agence';});
+      const _colArt=_k.find(k=>k.toLowerCase().includes('signation')||(k.toLowerCase().includes('article')&&!k.toLowerCase().includes('famille')));
+      const _colCaP=_k.find(k=>k.toLowerCase().includes('ca')&&k.toLowerCase().includes('pr'));
+      const _colCaE=_k.find(k=>k.toLowerCase().includes('ca')&&k.toLowerCase().includes('enlev'));
+      const _colVmbP=_k.find(k=>k.toLowerCase().includes('vmb')&&k.toLowerCase().includes('pr'));
+      const _colVmbE=_k.find(k=>k.toLowerCase().includes('vmb')&&k.toLowerCase().includes('enlev'));
+      const _colQteP=_k.find(k=>(k.toLowerCase().includes('qt')||k.toLowerCase().includes('quant'))&&k.toLowerCase().includes('pr'));
+      const _parse=v=>parseFloat((v||'').toString().replace(',','.'))||0;
       for(const row of _S._rawDataC){
-        const store=extractStoreCode(row);
+        const store=_colSt?(row[_colSt]||'').toString().trim().toUpperCase():'';
         if(!store||store===selectedStore)continue;
         if(!_S.storesIntersection.has(store))continue;
-        const code=cleanCode((getVal(row,'Article','Code')||'').toString());
+        const rawArt=_colArt?(row[_colArt]||'').toString():'';
+        const code=rawArt?cleanCode(rawArt.split('-')[0].trim()):'';
         if(!code)continue;
-        const caP=getCaColumn(row,'prél')||0;
-        const caE=getCaColumn(row,'enlév')||getCaColumn(row,'enlev')||0;
-        const vmbP=getVmbColumn(row,'prél')||0;
-        const vmbE=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;
-        const qteP=getQuantityColumn(row,'prél')||0;
+        const caP=_parse(row[_colCaP]);
+        const caE=_parse(row[_colCaE]);
+        const vmbP=_parse(row[_colVmbP]);
+        const vmbE=_parse(row[_colVmbE]);
+        const qteP=_parse(row[_colQteP]);
         if(!_S.ventesParMagasin[store])_S.ventesParMagasin[store]={};
         if(!_S.ventesParMagasin[store][code])_S.ventesParMagasin[store][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};
         const v=_S.ventesParMagasin[store][code];
@@ -725,7 +738,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
           // ventesClientHorsMagasin — skip for isRefilter
           if(!isRefilter&&cc&&codeArt&&(!_S.selectedMyStore||skHors==='INCONNU'||skHors===_S.selectedMyStore)){_S.cannauxHorsMagasin.add(canal);const hm=_S.ventesClientHorsMagasin.get(cc)||new Map();const ex=hm.get(codeArt)||{sumCA:0,sumPrelevee:0,sumCAPrelevee:0,countBL:0,canal};ex.sumCA+=caLigne;ex.sumPrelevee+=qteLigne;ex.sumCAPrelevee+=caLigne;ex.countBL++;hm.set(codeArt,ex);_S.ventesClientHorsMagasin.set(cc,hm);}
           // ventesParMagasinByCanal — toujours (y compris isRefilter)
-          if(codeArt&&(_S.storesIntersection.has(skHors)||!_S.storesIntersection.size)){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=(getCaColumn(row,'prél')||0);_vpmc.countBL++;const _vmbPH=getVmbColumn(row,'prél');const _vmbEH=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
+          // Multi-agences : écrire UNIQUEMENT pour l'agence sélectionnée (évite la double accumulation)
+          if(codeArt&&(_S.storesIntersection.size>0?skHors===_S.selectedMyStore:(_S.storesIntersection.has(skHors)||!_S.storesIntersection.size))){const _storeKey=skHors==='INCONNU'?(_S.selectedMyStore||skHors):skHors;if(!_S.ventesParMagasinByCanal[_storeKey])_S.ventesParMagasinByCanal[_storeKey]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal])_S.ventesParMagasinByCanal[_storeKey][canal]={};if(!_S.ventesParMagasinByCanal[_storeKey][canal][codeArt])_S.ventesParMagasinByCanal[_storeKey][canal][codeArt]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc=_S.ventesParMagasinByCanal[_storeKey][canal][codeArt];_vpmc.sumCA+=caLigne;_vpmc.sumPrelevee+=(getCaColumn(row,'prél')||0);_vpmc.countBL++;const _vmbPH=getVmbColumn(row,'prél');const _vmbEH=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc.sumVMB+=_vmbPH+_vmbEH;_vpmc.sumVMBPrel+=_vmbPH;}
         }
         continue;
       }
@@ -737,7 +751,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd)continue;
       // B3: monthly sales accumulation
       if(dateV&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)&&qteP>0){if(!monthlySales[code])monthlySales[code]=new Array(12).fill(0);monthlySales[code][dateV.getMonth()]+=qteP;}
-      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));if(canal){const _bck=_S.ventesParMagasin[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}if(code){const _canalKey=canal||'MAGASIN';if(!_S.ventesParMagasinByCanal[sk])_S.ventesParMagasinByCanal[sk]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey])_S.ventesParMagasinByCanal[sk][_canalKey]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey][code])_S.ventesParMagasinByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParMagasinByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=getVmbColumn(row,'prél');const _vmbE2=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
+      if(_S.storesIntersection.has(sk)||!_S.storesIntersection.size){if(!_S.ventesParMagasin[sk])_S.ventesParMagasin[sk]={};if(!_S.ventesParMagasin[sk][code])_S.ventesParMagasin[sk][code]={sumPrelevee:0,sumEnleve:0,sumCA:0,countBL:0,sumVMB:0};if(qteP>0)_S.ventesParMagasin[sk][code].sumPrelevee+=qteP;if(qteE>0)_S.ventesParMagasin[sk][code].sumEnleve+=qteE;_S.ventesParMagasin[sk][code].sumCA+=caP+caE;if(qteP>0||qteE>0)_S.ventesParMagasin[sk][code].countBL++;_S.ventesParMagasin[sk][code].sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));if(canal){const _bck=_S.ventesParMagasin[sk][code];if(!_bck.byCanal)_bck.byCanal={};if(!_bck.byCanal[canal])_bck.byCanal[canal]={sumPrelevee:0,sumCA:0,countBL:0,sumVMB:0};const _bc=_bck.byCanal[canal];if(qteP>0)_bc.sumPrelevee+=qteP;_bc.sumCA+=caP+caE;if(qteP>0||qteE>0)_bc.countBL++;_bc.sumVMB+=getVmbColumn(row,'prél')+(getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev'));}// ventesParMagasinByCanal — canal MAGASIN uniquement (hors-MAGASIN écrits dans le bloc hors-MAGASIN)
+if(code&&(!canal||canal==='MAGASIN')){const _canalKey='MAGASIN';if(!_S.ventesParMagasinByCanal[sk])_S.ventesParMagasinByCanal[sk]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey])_S.ventesParMagasinByCanal[sk][_canalKey]={};if(!_S.ventesParMagasinByCanal[sk][_canalKey][code])_S.ventesParMagasinByCanal[sk][_canalKey][code]={sumCA:0,sumPrelevee:0,countBL:0,sumVMB:0,sumVMBPrel:0};const _vpmc2=_S.ventesParMagasinByCanal[sk][_canalKey][code];_vpmc2.sumCA+=caP+caE;_vpmc2.sumPrelevee+=caP;if(qteP>0||qteE>0)_vpmc2.countBL++;const _vmbP2=getVmbColumn(row,'prél');const _vmbE2=getVmbColumn(row,'enlév')||getVmbColumn(row,'enlev')||0;_vpmc2.sumVMB+=_vmbP2+_vmbE2;_vpmc2.sumVMBPrel+=_vmbP2;}}
       // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       const cc2=extractClientCode((getVal(row,'Code et nom client','Code client','Client')||'').toString().trim());
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
