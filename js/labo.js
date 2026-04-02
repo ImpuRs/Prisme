@@ -987,6 +987,15 @@ const CLASSIF_BADGE = {
   surveiller: { label: 'Surveiller', bg: '#f1f5f9', color: '#475569', icon: '👁' }
 };
 
+// Labels orientés action pour le Radar Famille (classifGlobal par famille)
+const CLASSIF_BADGE_FAMILLE = {
+  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢' },
+  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵' },
+  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴' },
+  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡' },
+  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁'  }
+};
+
 function _sourceBar(a) {
   const s = a.sources;
   const seg = (key, color, label) =>
@@ -2576,7 +2585,7 @@ function _renderRadarFamille(data) {
   // ── Badges totaux + filtres ──
   const { totals } = data;
   const _badge = (key, n) => {
-    const b = CLASSIF_BADGE[key];
+    const b = CLASSIF_BADGE_FAMILLE[key];
     const active = _rfFilterClassif === key;
     return `<button onclick="window._rfSetFilter('${key}')" data-rfbadge="${key}" class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}" style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">
       <span class="text-base leading-none">${b.icon}</span>
@@ -2614,7 +2623,7 @@ function _rfBuildCards(data) {
   if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
   let out = '';
   for (const f of families) {
-    const b = CLASSIF_BADGE[f.classifGlobal] || CLASSIF_BADGE.potentiel;
+    const b = CLASSIF_BADGE_FAMILLE[f.classifGlobal] || CLASSIF_BADGE_FAMILLE.potentiel;
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
     const safeCF = f.codeFam.replace(/'/g, "\\'");
     const bw = (n) => total > 0 ? Math.max(n / total * 100, n > 0 ? 3 : 0) : 0;
@@ -2658,7 +2667,7 @@ function _renderRadarFamilleDetail(codeFam, data) {
   const fam = data.families.find(f => f.codeFam === codeFam);
   if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
 
-  const b = CLASSIF_BADGE[fam.classifGlobal] || CLASSIF_BADGE.potentiel;
+  const b = CLASSIF_BADGE_FAMILLE[fam.classifGlobal] || CLASSIF_BADGE_FAMILLE.potentiel;
   const tabs = [
     { key: 'rayon',     label: '📊 Mon Rayon' },
     { key: 'squelette', label: '🦴 Squelette' },
