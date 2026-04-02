@@ -14,6 +14,7 @@ let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
+let _prSqPage        = 50;   // nb articles affichés dans le Squelette
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -385,7 +386,7 @@ function _prBuildSqTable(arts) {
       ? arts.filter(a => a._g === filter)
       : arts;
   if (!filtered.length) return '<div class="t-disabled text-sm text-center py-4">Aucun article.</div>';
-  const shown = filtered.slice(0, 50);
+  const shown = filtered.slice(0, _prSqPage);
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
     return `<tr class="border-b b-light text-[11px]">
@@ -406,7 +407,7 @@ function _prBuildSqTable(arts) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${filtered.length > 50 ? `<div class="text-[10px] t-disabled text-center py-2">Affichage limité à 50 / ${filtered.length} articles</div>` : ''}
+    ${filtered.length > _prSqPage ? `<div class="mt-2 text-center"><button onclick="window._prMoreSq()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${filtered.length - _prSqPage} restants)</button></div>` : ''}
   </div>`;
 }
 
@@ -911,6 +912,7 @@ window._prOpenDetail = function(codeFam) {
   _prDetailTab = 'rayon';
   _S._prSqFilter = '';
   _S._prSqData = null;
+  _prSqPage = 50;
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
@@ -945,9 +947,18 @@ window._prSetRayonFilter = function(key) {
 
 window._prSqFilterFn = function(key) {
   _S._prSqFilter = _S._prSqFilter === key ? '' : key;
+  _prSqPage = 50;
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
   const el  = document.getElementById('prDetailContent');
   if (el && fam) el.innerHTML = _prRenderSquelette(fam);
+};
+
+window._prMoreSq = function() {
+  _prSqPage += 50;
+  const el = document.getElementById('prDetailContent');
+  if (!el || !_S._prSqArts) return;
+  const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
+  if (fam) el.innerHTML = _prRenderSquelette(fam);
 };
 
 window._prSelectFam = function(codeFam, codeSousFam) {
