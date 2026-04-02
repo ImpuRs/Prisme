@@ -2571,6 +2571,7 @@ function _rfRerender() {
   if (!content || content.classList.contains('hidden') || !_S._rfData) return;
   const backBtn = '<span onclick="window._laboBackToTiles()" class="t-secondary text-[11px] cursor-pointer hover:underline mb-3 inline-block">\u2190 Tuiles</span>';
   content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderRadarFamille(_S._rfData)}</div>`;
+  _initRfSearch();
 }
 
 function _renderRadarFamille(data) {
