@@ -11,6 +11,8 @@ let _prOpenFam       = null;
 let _prOpenSousFam   = '';
 let _prDetailTab     = 'rayon';
 let _prSearchIndex   = null;
+let _prGridVisible   = false;
+let _prSearchText    = '';
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -229,9 +231,12 @@ function _buildPrSearchIndex() {
 }
 
 // ── Render cartes famille ────────────────────────────────────────────
-function _prBuildCards(data) {
+function _prBuildCards(data, searchText = '') {
   let families = data.families;
   if (_prFilterClassif) families = families.filter(f => f.classifGlobal === _prFilterClassif);
+  if (searchText) families = families.filter(f =>
+    f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
+  );
   if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
   let out = '';
   for (const f of families) {
@@ -538,7 +543,9 @@ function _renderPlanRayonContent(data) {
     </div>
     ${legend}
   </div>
-  <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_prBuildCards(data)}</div>
+  ${(_prGridVisible || _prOpenFam)
+    ? `<div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_prBuildCards(data, _prSearchText)}</div>`
+    : `<div id="prFamGrid"><div class="text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille pour explorer</div></div>`}
   ${_prOpenFam ? _prRenderDetail(_prOpenFam) : ''}`;
 }
 
@@ -613,6 +620,19 @@ function _initPrSearch() {
     }, 200);
   });
 
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const q = input.value.trim().toLowerCase();
+      results.classList.add('hidden');
+      _prSearchText   = q;
+      _prGridVisible  = q.length >= 2;
+      const grid = document.getElementById('prFamGrid');
+      if (grid) grid.innerHTML = q.length >= 2
+        ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_prBuildCards(_S._prData, q)}</div>`
+        : '<div class="text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille pour explorer</div>';
+    }
+  });
+
   document.addEventListener('click', function _prOutside(e) {
     if (!input.contains(e.target) && !results.contains(e.target)) {
       results.classList.add('hidden');
@@ -624,9 +644,13 @@ function _initPrSearch() {
 // ── Handlers window.* ─────────────────────────────────────────────────
 window._prSetFilter = function(key) {
   _prFilterClassif = _prFilterClassif === key ? '' : key;
+  _prGridVisible   = _prFilterClassif !== '';
+  _prSearchText    = '';
   _prOpenFam = null;
   const grid = document.getElementById('prFamGrid');
-  if (grid) grid.innerHTML = _prBuildCards(_S._prData);
+  if (grid) grid.innerHTML = _prGridVisible
+    ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${_prBuildCards(_S._prData)}</div>`
+    : '<div class="text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille pour explorer</div>';
   const panel = document.getElementById('prDetailPanel');
   if (panel) panel.remove();
   document.querySelectorAll('[data-prbadge]').forEach(btn => {
@@ -679,9 +703,11 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   if (results) results.classList.add('hidden');
   const input = document.getElementById('prSearchInput');
   if (input) input.value = '';
-  _prOpenFam    = codeFam;
+  _prOpenFam     = codeFam;
   _prOpenSousFam = codeSousFam || '';
-  _prDetailTab  = 'rayon';
+  _prDetailTab   = 'rayon';
+  _prGridVisible  = true;
+  _prSearchText   = '';
   _S._prSqFilter = '';
   _S._prSqData   = null;
   _prRerender();
@@ -733,6 +759,8 @@ export function renderPlanRayon() {
   _prOpenFam       = null;
   _prOpenSousFam   = '';
   _prDetailTab     = 'rayon';
+  _prGridVisible   = false;
+  _prSearchText    = '';
   _S._prSqFilter   = '';
   _S._prSqData     = null;
 
