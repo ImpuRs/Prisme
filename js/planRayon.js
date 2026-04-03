@@ -15,6 +15,7 @@ let _prGridVisible   = false;
 let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 let _prSqPage        = 50;   // nb articles affichés dans le Squelette
+let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -489,11 +490,32 @@ function _prRenderMetiers(fam) {
   }
   const catFam = _S.catalogueFamille;
 
-  // CA famille par métier (ventesClientArticle × chalandise)
+  // Slider distance
+  const hasDist = [..._S.chalandiseData.values()].some(i => i.distanceKm != null);
+  const sliderHtml = hasDist ? `
+    <div class="flex items-center gap-3 mb-4">
+      <span class="text-[11px] font-bold" style="color:var(--t-primary)">📍 Rayon :</span>
+      <input type="range" min="5" max="100" step="5"
+        value="${_prMetierDist || 100}"
+        oninput="window._prMetierDistChange(this.value)"
+        style="flex:1;max-width:200px;accent-color:var(--c-action,#8b5cf6)">
+      <span class="text-[11px] font-bold" style="color:var(--c-action,#8b5cf6);min-width:40px"
+        id="prMetierDistLabel">${!_prMetierDist || _prMetierDist >= 100 ? 'Tous' : _prMetierDist + ' km'}</span>
+    </div>` : '';
+
+  const _distOk = (cc) => {
+    if (!_prMetierDist) return true;
+    const info = _S.chalandiseData.get(cc);
+    if (!info || info.distanceKm == null) return true;
+    return info.distanceKm <= _prMetierDist;
+  };
+
+  // CA famille par métier (ventesClientArticle × chalandise, filtré distance)
   const metierCA      = new Map(); // metier → CA famille
   const metierClients = new Map(); // metier → Set<cc>
   if (_S.ventesClientArticle) {
     for (const [cc, artMap] of _S.ventesClientArticle) {
+      if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || '';
       let caFam = 0;
@@ -509,77 +531,33 @@ function _prRenderMetiers(fam) {
     }
   }
 
-  if (!metierCA.size) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
-
-  // Médiane CA réseau (agences hors myStore) pour cette famille — référence globale
-  const caParAgence = [];
-  if (_S.ventesParMagasin) {
-    for (const [store, artMap] of Object.entries(_S.ventesParMagasin)) {
-      if (store === _S.selectedMyStore) continue;
-      let ca = 0;
-      for (const [code, v] of Object.entries(artMap)) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === fam.codeFam) ca += v.sumCA || 0;
-      }
-      if (ca > 0) caParAgence.push(ca);
-    }
-  }
-  function _med(arr) {
-    if (!arr.length) return 0;
-    const s = [...arr].sort((a, b) => a - b);
-    const m = Math.floor(s.length / 2);
-    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-  }
-  const medReseau = _med(caParAgence);
-
-  // Médiane CA livraison par métier (territoireLines)
-  const metierBLCA = new Map(); // metier → [ca par BL]
-  if (_S.territoireReady && _S.territoireLines?.length) {
-    const blCA = new Map(); // bl → {ca, clientCode}
-    for (const l of _S.territoireLines) {
-      const cf = _S.articleFamille?.[l.code] || catFam?.get(l.code)?.codeFam;
-      if (cf !== fam.codeFam || !l.bl || !(l.ca > 0)) continue;
-      if (!blCA.has(l.bl)) blCA.set(l.bl, { ca: 0, clientCode: l.clientCode });
-      blCA.get(l.bl).ca += l.ca;
-    }
-    for (const [, { ca, clientCode }] of blCA) {
-      const metier = _S.chalandiseData?.get(clientCode)?.metier || '';
-      if (!metier) continue;
-      if (!metierBLCA.has(metier)) metierBLCA.set(metier, []);
-      metierBLCA.get(metier).push(ca);
-    }
-  }
+  if (!metierCA.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
 
   const sorted = [...metierCA.entries()].sort((a, b) => b[1] - a[1]);
   const rows = sorted.map(([m, ca]) => {
     const nbClients = metierClients.get(m)?.size || 0;
-    const medLivr   = _med(metierBLCA.get(m) || []);
+    const panier    = nbClients > 0 ? ca / nbClients : 0;
     return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbClients}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(ca)}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${medReseau > 0 ? formatEuro(medReseau) : '—'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${medLivr > 0 ? formatEuro(medLivr) : '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${panier > 0 ? formatEuro(panier) : '—'}</td>
     </tr>`;
   }).join('');
 
-  const livrNote = !_S.territoireReady
-    ? '<p class="text-[10px] t-disabled mt-2">Chargez Le Terrain pour la médiane CA livraison.</p>' : '';
-
-  return `<div class="overflow-x-auto">
+  return `${sliderHtml}<div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
           <th class="py-1.5 px-2 text-right">Clients</th>
           <th class="py-1.5 px-2 text-right">CA famille</th>
-          <th class="py-1.5 px-2 text-right">Méd. CA réseau</th>
-          <th class="py-1.5 px-2 text-right">Méd. CA livraison</th>
+          <th class="py-1.5 px-2 text-right">Panier moyen</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
-  </div>${livrNote}`;
+  </div>`;
 }
 
 // ── Onglet Analyse ───────────────────────────────────────────────────
@@ -911,6 +889,7 @@ window._prOpenDetail = function(codeFam) {
   _S._prSqFilter = '';
   _S._prSqData = null;
   _prSqPage = 50;
+  _prMetierDist = 0;
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
@@ -920,6 +899,7 @@ window._prOpenDetail = function(codeFam) {
 
 window._prCloseDetail = function() {
   _prOpenFam = null;
+  _prMetierDist = 0;
   _prRerender();
 };
 
@@ -949,6 +929,16 @@ window._prSqFilterFn = function(key) {
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
   const el  = document.getElementById('prDetailContent');
   if (el && fam) el.innerHTML = _prRenderSquelette(fam);
+};
+
+window._prMetierDistChange = function(val) {
+  _prMetierDist = parseInt(val) >= 100 ? 0 : parseInt(val);
+  const label = document.getElementById('prMetierDistLabel');
+  if (label) label.textContent = !_prMetierDist ? 'Tous' : _prMetierDist + ' km';
+  const el = document.getElementById('prDetailContent');
+  if (!el || !_S._prData || !_prOpenFam) return;
+  const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+  if (fam) el.innerHTML = _prRenderMetiers(fam);
 };
 
 window._prMoreSq = function() {
@@ -1007,6 +997,7 @@ window._prExportRayon = function() {
 export function renderPlanRayon() {
   const el = document.getElementById('planRayonBlock');
   if (!el) return;
+  _prMetierDist = 0;
 
   if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length || !_S.finalData?.length) {
     el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
