@@ -26,15 +26,19 @@ export async function _getFileHash(file) {
     return Array.from(new Uint8Array(hBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
   } catch (_) { return ''; }
 }
-export function _checkFilesUnchanged(hashC, hashS) {
-  if (!hashC) return false;
+export async function _checkFilesUnchanged(f1, f2) {
   try {
-    const s = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
-    return s && s.c === hashC && s.s === hashS;
+    const saved = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
+    if (!saved) return false;
+    const [hC, hS] = await Promise.all([_getFileHash(f1), f2 ? _getFileHash(f2) : Promise.resolve('')]);
+    return !!hC && saved.c === hC && saved.s === hS;
   } catch (_) { return false; }
 }
-export function _saveFileHashes(hashC, hashS) {
-  try { localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({c: hashC, s: hashS})); } catch (_) {}
+export async function _saveFileHashes(f1, f2) {
+  try {
+    const [hC, hS] = await Promise.all([_getFileHash(f1), f2 ? _getFileHash(f2) : Promise.resolve('')]);
+    if (hC) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({c: hC, s: hS}));
+  } catch (_) {}
 }
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+

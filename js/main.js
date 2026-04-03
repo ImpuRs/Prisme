@@ -452,16 +452,24 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
-    // OPT 1 — Hash-check : si les mêmes fichiers sont rechargés, skip le parsing
-    let _hashC='',_hashS='';
-    try{
-      showLoading('Vérification fichiers…','');await yieldToMain();
-      [_hashC,_hashS]=await Promise.all([_getFileHash(f1),f2?_getFileHash(f2):Promise.resolve('')]);
-      if(_checkFilesUnchanged(_hashC,_hashS)&&_S.finalData.length>0){
-        showToast('⚡ Fichiers identiques — données conservées (purger pour forcer le rechargement)','info',5000);
-        btn.disabled=false;hideLoading();renderAll();buildPeriodFilter();return;
+    // ── OPT1 : Hash-check IDB — même fichier → skip parse complet ──
+    {
+      const _hashes = localStorage.getItem('prisme_fileHashes');
+      if (_hashes) {
+        const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
+        if (_idbOk && DataStore.finalData.length > 0) {
+          const _unchanged = await _checkFilesUnchanged(f1, f2 || null);
+          if (_unchanged) {
+            showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
+            btn.disabled = false;
+            hideLoading();
+            renderAll();
+            buildPeriodFilter();
+            return;
+          }
+        }
       }
-    }catch(_){}
+    }
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
     const _selStore=document.getElementById('selectMyStore');
@@ -521,7 +529,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
     // 1) Parse complet sur toute la période — W, V, MIN/MAX, ABC/FMR invariants
     _S.periodFilterStart=null;_S.periodFilterEnd=null;
-    await processDataFromRaw(dataC,dataS,{storeOverride:selectedStore||''});
+    await processDataFromRaw(dataC,dataS,{storeOverride:selectedStore||'',_f1:f1,_f2:f2||null});
 
     // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
     _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
@@ -531,8 +539,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       await processDataFromRaw(dataC,dataS,{isRefilter:true});
     }
     buildPeriodFilter();
-    // OPT 1 — Sauvegarder les hashes après parse réussi
-    if(_hashC)_saveFileHashes(_hashC,_hashS);
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -638,7 +644,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
   }
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
-    const{isRefilter=false,storeOverride=''}=opts;
+    const{isRefilter=false,storeOverride='',_f1=null,_f2=null}=opts;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
@@ -937,7 +943,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('labo');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
