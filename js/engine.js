@@ -1400,6 +1400,22 @@ export function computeSquelette(directionFilter) {
         a.sources.add('chalandise');
       }
     }
+    // Source 2b : clients chalandise hors MAGASIN (Internet, Représentant, DCS)
+    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      if (!chalClients.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        if (!/^\d{6}$/.test(code)) continue;
+        const a = _ensure(code);
+        // Ne pas doubler nbClientsZone si déjà compté via ventesClientArticle
+        const alreadyCounted = _S.ventesClientArticle?.get(cc)?.has(code);
+        if (!alreadyCounted) {
+          a.nbClientsZone++;
+        }
+        // Toujours ajouter le CA hors magasin
+        a.caClientsZone += data.sumCA || 0;
+        a.sources.add('chalandise');
+      }
+    }
   }
 
   // ── Source 3 : Clients hors-zone ──
