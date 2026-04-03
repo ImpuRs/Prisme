@@ -106,7 +106,7 @@ function _renderClient360(clientCode,source){
 
   // ── HEADER ───────────────────────────────────────────────────────
   const header=`<div class="flex items-center gap-2 mb-3">
-    <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">${backLabel}</button>
+    <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">${backLabel}</button>
     <div class="flex-1 mx-2">
       <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
         <span class="font-mono t-disabled text-xs">${escapeHtml(clientCode)}</span>
@@ -116,7 +116,7 @@ function _renderClient360(clientCode,source){
       <h2 class="font-extrabold text-base leading-tight text-white">${escapeHtml(nom)}${_unikLink(clientCode)}</h2>
       <p class="text-[11px] t-inverse-muted mt-0.5">${[info.ville?escapeHtml(info.ville):'',info.metier?escapeHtml(info.metier):'',info.commercial?`Commercial : ${escapeHtml(info.commercial)}`:''].filter(Boolean).join(' · ')||'Données chalandise non chargées'}</p>
     </div>
-    <button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
+    <button onclick="closeDiagnostic()" class="t-disabled hover:text-white text-xl leading-none font-bold ml-2">✕</button>
   </div>`;
 
   // ── ACTION (ligne 2) ─────────────────────────────────────────────
