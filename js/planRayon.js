@@ -647,8 +647,11 @@ function _prRenderMetiers(fam) {
       const metier = info?.metier || '';
       let caFam = 0;
       for (const [code, v] of artMap) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === fam.codeFam) caFam += v.sumCA || 0;
+        const cf = catFam?.get(code);
+        const cfCode = cf?.codeFam || _S.articleFamille?.[code];
+        if (cfCode !== fam.codeFam) continue;
+        if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf?.codeSousFam || '')) continue;
+        caFam += v.sumCA || 0;
       }
       if (caFam > 0) {
         metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
