@@ -1665,7 +1665,14 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       }
       const _rfDC2=(_S._rawDataCFiltered?.rows??_S._rawDataCFiltered)?.length?_S._rawDataCFiltered:_S._rawDataC;
       if((_rfDC2?.rows??_rfDC2)?.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
-        await processDataFromRaw(_rfDC2,_S._rawDataS||[],{isRefilter:true});
+        // Si les agrégats IDB sont récents (< 1h), skip le refilter — données déjà correctes
+        const _idbTs=localStorage.getItem('prisme_idbSavedAt');
+        const _idbAge=_idbTs?Date.now()-parseInt(_idbTs):Infinity;
+        if(_idbAge<3600000){
+          renderCanalAgence();renderCurrentTab();renderIRABanner();
+        }else{
+          await processDataFromRaw(_rfDC2,_S._rawDataS||[],{isRefilter:true});
+        }
       }else{
         renderCanalAgence();renderCurrentTab();renderIRABanner();
       }}

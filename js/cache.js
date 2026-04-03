@@ -338,6 +338,7 @@ export async function _saveSessionToIDB() {
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
+    localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
     console.log('[PRISME] IDB save - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
     console.log('[PRISME] session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
   } catch (e) {
