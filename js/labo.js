@@ -1708,13 +1708,15 @@ function _renderTileGrid(el) {
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('saison')">
       ${_infoIcon('saison')}
       <div class="text-lg mb-1">🌡️</div>
-      <div class="text-[13px] font-bold t-primary mb-1">Client × Saisonnalité</div>
+      <div class="text-[13px] font-bold t-primary mb-0.5">Client × Saisonnalité</div>
+      <div class="text-[10px] t-disabled mb-1">Familles × Saisons</div>
       <div class="text-[10px] t-secondary" id="laboTileSaisonSub">${saisonSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('squelette')">
       ${_infoIcon('squelette')}
       <div class="text-lg mb-1">🦴</div>
-      <div class="text-[13px] font-bold t-primary mb-1">SQUELETTE — Plan de stock</div>
+      <div class="text-[13px] font-bold t-primary mb-0.5">Arbitrage rayon</div>
+      <div class="text-[10px] t-disabled mb-1">Stock × Demande clients</div>
       <div class="text-[10px] t-secondary" id="laboTileSqSub">${sqSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('clientele')">
