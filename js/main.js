@@ -459,7 +459,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
         if (_idbOk && DataStore.finalData.length > 0) {
           const _unchanged = await _checkFilesUnchanged(f1, f2 || null);
-          if (_unchanged) {
+          const _fTerr = document.getElementById('fileLivraisons').files[0];
+          const _hasNewTerr = !!(_fTerr && _fTerr.size > 0);
+          if (_unchanged && !(_hasNewTerr && !_S.territoireReady)) {
             showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
             btn.disabled = false;
             hideLoading();
