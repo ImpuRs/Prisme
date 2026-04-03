@@ -929,7 +929,12 @@ function _initPrSearch() {
           }
         }
       } else {
-        matches = searchIndex.filter(e => e.level <= 5 && e.searchText.includes(q)).sort((a, b) => a.level - b.level).slice(0, 15);
+        const allMatches = searchIndex.filter(e => e.level <= 5 && e.searchText.includes(q));
+        const empMatches = allMatches.filter(e => e.level === 5);
+        const otherMatches = allMatches.filter(e => e.level < 5).sort((a, b) => a.level - b.level);
+        const exactEmp = empMatches.filter(e => e.searchText === q);
+        const partialEmp = empMatches.filter(e => e.searchText !== q);
+        matches = [...exactEmp, ...otherMatches.slice(0, 10), ...partialEmp].slice(0, 15);
       }
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
