@@ -471,9 +471,7 @@ function openArticlePanel(code,source){
       pct:totalBLWithArticle>0?Math.round(score/totalBLWithArticle*100):0,
       inStock:(DataStore.finalData.find(r=>r.code===c)?.stockActuel||0)>0,
     }));
-  const periodeLabel=_S._globalPeriodePreset||
-    document.getElementById('periodeSelect')?.selectedOptions?.[0]?.text||
-    'période sélectionnée';
+  const periodeLabel=_S._globalPeriodePreset||'Historique complet';
   let coAchatHtml='';
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{

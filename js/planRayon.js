@@ -608,7 +608,7 @@ function _prRenderMetiers(fam) {
     </tr>`;
   }).join('');
 
-  return `${sliderHtml}<div class="overflow-x-auto">
+  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">📅 Calculé sur l'historique complet (ventesClientArticleFull)</div><div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
@@ -784,10 +784,15 @@ function _prRenderDetail(codeFam) {
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
     </div>
-    <div class="flex flex-wrap gap-1.5 mb-3">
+    <div class="flex flex-wrap gap-1.5 mb-1">
       ${tabs.map(t => `<button onclick="window._prSetTab('${t.key}')" data-prtab="${t.key}"
         class="text-[11px] px-3 py-1.5 cursor-pointer border-b-2 ${_prDetailTab === t.key ? 'font-bold' : 't-secondary'}"
         style="${_prDetailTab === t.key ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent'}">${t.label}</button>`).join('')}
+    </div>
+    <div class="text-[9px] t-disabled px-4 pb-2">
+      📊 Classif. famille : historique complet
+      · Mon Rayon : ${_S._globalPeriodePreset || 'historique complet'}
+      · Métiers : historique complet
     </div>
     <div id="prDetailContent">${_prGetTabContent(_prDetailTab, fam)}</div>
   </div>`;
