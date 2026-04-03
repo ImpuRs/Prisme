@@ -370,13 +370,20 @@ function _prBuildCards(data, searchText = '') {
 // ── Onglet Mon Rayon ─────────────────────────────────────────────────
 function _prRenderRayon(data) {
   if (!data) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
-  const { monRayon, nbCatalogue, couverture, valeurTotale } = data;
+  const { monRayon, nbCatalogue } = data;
+  const displayedForHeader = _prSelectedEmps.size > 0
+    ? monRayon.filter(a => _prSelectedEmps.has(a.emplacement || ''))
+    : monRayon;
+  const valeurTotale = displayedForHeader.reduce((s, a) => s + (a.valeurStock || 0), 0);
+  const couverture = nbCatalogue > 0
+    ? Math.round(displayedForHeader.length / nbCatalogue * 100)
+    : 0;
   const page = _S._prPageRayon || PAGE_SIZE;
-  const pepites  = monRayon.filter(a => a.status === 'pepite').length;
-  const challeng = monRayon.filter(a => a.status === 'challenger').length;
-  const dormants = monRayon.filter(a => a.status === 'dormant').length;
-  const ruptures = monRayon.filter(a => a.status === 'rupture').length;
-  const standard = monRayon.length - pepites - challeng - dormants - ruptures;
+  const pepites  = displayedForHeader.filter(a => a.status === 'pepite').length;
+  const challeng = displayedForHeader.filter(a => a.status === 'challenger').length;
+  const dormants = displayedForHeader.filter(a => a.status === 'dormant').length;
+  const ruptures = displayedForHeader.filter(a => a.status === 'rupture').length;
+  const standard = displayedForHeader.length - pepites - challeng - dormants - ruptures;
   // Pills emplacements
   const empsInRayon = [...new Set(monRayon.map(a => a.emplacement).filter(Boolean))].sort();
   const empPills = empsInRayon.length > 1
@@ -391,10 +398,8 @@ function _prRenderRayon(data) {
         ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-[10px] t-disabled hover:t-primary ml-1">✕</button>` : ''}
       </div>`
     : '';
-  // Filtre emplacement puis statut
-  const afterEmp = _prSelectedEmps.size
-    ? monRayon.filter(a => _prSelectedEmps.has(a.emplacement || ''))
-    : monRayon;
+  // Filtre emplacement puis statut (réutilise displayedForHeader, déjà filtré)
+  const afterEmp = displayedForHeader;
   const displayed = _prRayonFilter
     ? afterEmp.filter(a => a.status === _prRayonFilter)
     : afterEmp;
@@ -439,7 +444,7 @@ function _prRenderRayon(data) {
     ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">— filtre actif · ${displayed.length} article${displayed.length !== 1 ? 's' : ''}</span>`
     : '';
   return `<div class="mb-3 text-[11px] t-secondary">
-    ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
+    ${displayedForHeader.length} articles en rayon · ${couverture}% couverture (${displayedForHeader.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
   ${empPills}
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
