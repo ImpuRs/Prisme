@@ -1091,9 +1091,23 @@ function _prBuildDiagText(codeFam) {
   const sqData = computeSquelette();
   const catFam = _S.catalogueFamille;
 
+  // Label contexte : sous-famille si active
+  let sousFamLib = '';
+  if (_prOpenSousFam && catFam) {
+    for (const [, f] of catFam) {
+      if (f.codeFam === codeFam && f.codeSousFam === _prOpenSousFam) {
+        sousFamLib = f.sousFam || _prOpenSousFam;
+        break;
+      }
+    }
+  }
+  const contexteLabel = _prOpenSousFam
+    ? `${fam.libFam} (${codeFam}) › ${sousFamLib}`
+    : `${fam.libFam} (${codeFam})`;
+
   let txt = `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
   txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
-  txt += `Agence : ${agence}. Famille analysée : ${fam.libFam} (${fam.codeFam})\n`;
+  txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
 
   txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
@@ -1156,8 +1170,27 @@ function _prBuildDiagText(codeFam) {
     }
   }
 
+  // Totaux Squelette filtrés sur sous-famille si active
+  let sqTotals = {
+    socle: fam.socle, implanter: fam.implanter,
+    challenger: fam.challenger, potentiel: fam.potentiel, surveiller: fam.surveiller
+  };
+  if (_prOpenSousFam && sqData) {
+    sqTotals = { socle:0, implanter:0, challenger:0, potentiel:0, surveiller:0 };
+    for (const d of sqData.directions) {
+      for (const g of ['socle','implanter','challenger','potentiel','surveiller']) {
+        for (const a of (d[g] || [])) {
+          const cf = catFam?.get(a.code);
+          if (cf?.codeFam !== codeFam) continue;
+          if (cf?.codeSousFam !== _prOpenSousFam) continue;
+          sqTotals[g]++;
+        }
+      }
+    }
+  }
+
   txt += `═══ SQUELETTE RÉSEAU (4 sources croisées) ═══\n`;
-  txt += `🟢 Socle : ${fam.socle} articles · 🔵 À implanter : ${fam.implanter} · 🔴 Challenger : ${fam.challenger} · 🟡 Potentiel : ${fam.potentiel} · 👁 Surveiller : ${fam.surveiller}\n`;
+  txt += `🟢 Socle : ${sqTotals.socle} articles · 🔵 À implanter : ${sqTotals.implanter} · 🔴 Challenger : ${sqTotals.challenger} · 🟡 Potentiel : ${sqTotals.potentiel} · 👁 Surveiller : ${sqTotals.surveiller}\n`;
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
 
   if (sqData) {
