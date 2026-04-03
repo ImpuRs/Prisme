@@ -1397,7 +1397,8 @@ function _prBuildDiagText(codeFam) {
     txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
     txt += ` (${rayonData.monRayon.length}/${nbCat})`;
     if (_prSelectedSFs.size > 0) txt += ` sur les sous-familles sélectionnées`;
-    txt += ` · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
+    const valeurFiltree = rayonData.monRayon.reduce((s, a) => s + (a.valeurStock || 0), 0);
+    txt += ` · ${Math.round(valeurFiltree)}€ valeur stock\n\n`;
 
       const _minMax = (a) => {
       if (a.nouveauMax > 0) return { min: a.nouveauMin, max: a.nouveauMax, src: 'PRISME' };
