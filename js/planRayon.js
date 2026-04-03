@@ -290,6 +290,9 @@ function _buildPrSearchIndex() {
     });
   }
 
+  const empEntries = index.filter(e => e.level === 5);
+  console.log('[PrSearch] Emplacements indexés:', empEntries.length, empEntries.slice(0, 5));
+
   index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
   _prSearchIndex = index;
   return index;
@@ -899,6 +902,8 @@ function _initPrSearch() {
 
   _prSearchIndex = null; // forcer rebuild
   const searchIndex = _buildPrSearchIndex();
+  console.log('[PrSearch] Index total:', searchIndex.length,
+    'dont level5:', searchIndex.filter(e => e.level === 5).length);
 
   let debounce;
   input.addEventListener('input', () => {
