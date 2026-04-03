@@ -688,12 +688,50 @@ function _prRenderAnalyse(fam) {
   const catFam = _S.catalogueFamille;
   const filteredData = (typeof getFilteredData === 'function') ? getFilteredData() : (_S.finalData || []);
 
+  // Pills emplacements
+  const empsInFam = [...new Set(
+    (_S.finalData || [])
+      .filter(r => {
+        const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+        return cf === fam.codeFam && r.emplacement?.trim();
+      })
+      .map(r => r.emplacement.trim())
+  )].sort();
+  const empPillsAnalyse = empsInFam.length > 0
+    ? `<div class="flex gap-1.5 flex-wrap mb-4 items-center">
+        <span class="text-[10px] t-disabled">📍</span>
+        ${empsInFam.map(emp => {
+          const active = _prSelectedEmps.has(emp);
+          return `<button onclick="window._prToggleEmp('${emp.replace(/'/g, "\\'")}')"
+            class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary'}"
+            style="${active ? 'box-shadow:0 0 0 1.5px var(--c-action)' : ''}">${escapeHtml(emp)}</button>`;
+        }).join('')}
+        ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-[10px] t-disabled hover:t-primary ml-1">✕</button>` : ''}
+      </div>`
+    : '';
+
+  // Articles actifs si filtre emplacement
+  const activeCodes = _prSelectedEmps.size > 0
+    ? new Set((_S.finalData || []).filter(r => _prSelectedEmps.has(r.emplacement || '')).map(r => r.code))
+    : null;
+
   // Sous-familles — catalogue + stock (keyed by codeSousFam)
   const sfMap = new Map(); // codeSousFam → { libelle, nbCat }
   if (catFam) for (const [, f] of catFam) {
     if (f.codeFam === fam.codeFam && f.codeSousFam && f.sousFam) {
       if (!sfMap.has(f.codeSousFam)) sfMap.set(f.codeSousFam, { libelle: f.sousFam, nbCat: 0 });
       sfMap.get(f.codeSousFam).nbCat++;
+    }
+  }
+  // Filtrer sfMap sur activeCodes si emplacement actif
+  if (activeCodes) {
+    for (const [csf] of [...sfMap]) {
+      let cnt = 0;
+      for (const [code, f] of (catFam || new Map())) {
+        if (f.codeFam === fam.codeFam && f.codeSousFam === csf && activeCodes.has(code)) cnt++;
+      }
+      if (cnt === 0) sfMap.delete(csf);
+      else sfMap.get(csf).nbCat = cnt;
     }
   }
   const stockBySF = new Map(); // codeSousFam → nbStock
@@ -770,7 +808,7 @@ function _prRenderAnalyse(fam) {
       class="text-[11px] px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
   </div>` : '';
 
-  return `<div class="grid grid-cols-2 gap-6">
+  return `${empPillsAnalyse}<div class="grid grid-cols-2 gap-6">
     <div>
       <h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>
       <div class="overflow-x-auto"><table class="w-full text-[11px]">${thSF}<tbody>${sfRows}</tbody></table></div>
@@ -1118,8 +1156,12 @@ window._prToggleEmp = function(emp) {
     }
   }
   const el = document.getElementById('prDetailContent');
-  if (!el || !_S._prRayonData) return;
-  el.innerHTML = _prRenderRayon(_S._prRayonData);
+  if (!el) return;
+  if (_prDetailTab === 'analyse' && _S._prData && _prOpenFam) {
+    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+    if (fam) { el.innerHTML = _prGetTabContent('analyse', fam); return; }
+  }
+  if (_S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
 };
 
 window._prClearEmps = function() {
