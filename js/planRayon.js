@@ -111,8 +111,11 @@ function computePlanStock() {
     }
   }
 
-  if (_S.ventesClientArticle) {
-    for (const [, artMap] of _S.ventesClientArticle) {
+  // nbClients : utiliser la version full (toute période) pour cohérence structurelle
+  const vcaFull = _S.ventesClientArticleFull?.size
+    ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  if (vcaFull) {
+    for (const [, artMap] of vcaFull) {
       const seen = new Set();
       for (const code of artMap.keys()) {
         if (!filteredCodes.has(code)) continue;
