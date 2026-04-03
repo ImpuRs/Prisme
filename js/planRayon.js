@@ -513,8 +513,12 @@ function _prRenderMetiers(fam) {
   // CA famille par métier (ventesClientArticle × chalandise, filtré distance)
   const metierCA      = new Map(); // metier → CA famille
   const metierClients = new Map(); // metier → Set<cc>
-  if (_S.ventesClientArticle) {
-    for (const [cc, artMap] of _S.ventesClientArticle) {
+  // Utiliser la version full (toute période du consommé) pour cohérence structurelle
+  const vcaFull = _S.ventesClientArticleFull?.size
+    ? _S.ventesClientArticleFull
+    : _S.ventesClientArticle;
+  if (vcaFull) {
+    for (const [cc, artMap] of vcaFull) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
       const metier = info?.metier || '';
