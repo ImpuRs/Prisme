@@ -1502,24 +1502,33 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ CATALOGUE ═══\n`;
-  txt += `${fam.nbCatalogue} références disponibles chez Legallais dans cette famille (couverture actuelle ${fam.couverture}%)\n`;
-
-  const sfCount = new Map();
-  if (catFam) for (const [,f] of catFam) {
-    if (f.codeFam === codeFam && f.sousFam) sfCount.set(f.sousFam, (sfCount.get(f.sousFam)||0)+1);
-  }
-  if (sfCount.size) {
-    txt += `Sous-familles : ${[...sfCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([sf,n])=>`${sf} (${n})`).join(', ')}\n`;
-  }
-
-  const marCount = new Map();
-  if (_S.marqueArticles) for (const [m,codes] of _S.marqueArticles) {
-    let cnt = 0;
-    for (const c of codes) if (catFam?.get(c)?.codeFam === codeFam) cnt++;
-    if (cnt > 0) marCount.set(m, cnt);
-  }
-  if (marCount.size) {
-    txt += `Marques principales : ${[...marCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([m,n])=>`${m} (${n} réf)`).join(', ')}\n`;
+  if (_prSelectedSFs.size > 0) {
+    txt += `${nbCat} références dans les sous-familles sélectionnées\n`;
+    for (const csf of _prSelectedSFs) {
+      const sfName = [...(catFam?.values() || [])].find(f => f.codeFam === codeFam && f.codeSousFam === csf)?.sousFam || csf;
+      let cnt = 0;
+      for (const [, f] of (catFam || new Map()))
+        if (f.codeFam === codeFam && f.codeSousFam === csf) cnt++;
+      txt += `  · ${sfName} : ${cnt} réf.\n`;
+    }
+  } else {
+    txt += `${fam.nbCatalogue} références disponibles chez Legallais dans cette famille (couverture actuelle ${fam.couverture}%)\n`;
+    const sfCount = new Map();
+    if (catFam) for (const [, f] of catFam) {
+      if (f.codeFam === codeFam && f.sousFam) sfCount.set(f.sousFam, (sfCount.get(f.sousFam) || 0) + 1);
+    }
+    if (sfCount.size) {
+      txt += `Sous-familles : ${[...sfCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([sf, n]) => `${sf} (${n})`).join(', ')}\n`;
+    }
+    const marCount = new Map();
+    if (_S.marqueArticles) for (const [m, codes] of _S.marqueArticles) {
+      let cnt = 0;
+      for (const c of codes) if (catFam?.get(c)?.codeFam === codeFam) cnt++;
+      if (cnt > 0) marCount.set(m, cnt);
+    }
+    if (marCount.size) {
+      txt += `Marques principales : ${[...marCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m, n]) => `${m} (${n} réf)`).join(', ')}\n`;
+    }
   }
   txt += '\n';
 
@@ -1527,16 +1536,18 @@ function _prBuildDiagText(codeFam) {
     txt += `═══ MÉTIERS CLIENTS (chalandise) ═══\n`;
     const metierCA = new Map();
     const metierCli = new Map();
-    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
-      const metier = _S.chalandiseData.get(cc)?.metier || 'Non classifié';
+    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+      const metier = _S.chalandiseData?.get(cc)?.metier || 'Non classifié';
       let caFam = 0;
       for (const [code, data] of artMap) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf === codeFam) caFam += data.sumCA || 0;
+        const cf = catFam?.get(code);
+        if (cf?.codeFam !== codeFam) continue;
+        if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) continue;
+        caFam += data.sumCA || 0;
       }
       if (caFam > 0) {
-        metierCA.set(metier, (metierCA.get(metier)||0) + caFam);
-        metierCli.set(metier, (metierCli.get(metier)||0) + 1);
+        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+        metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
       }
     }
     [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([m,ca]) => {
