@@ -777,13 +777,16 @@ function _renderPlanRayonContent(data) {
     </div>
     <div class="flex items-center gap-2 mb-3">
       <span class="text-[11px] t-secondary">📍 Emplacement :</span>
-      <input type="text" id="prEmpInput"
-        placeholder="ex: ARROSAGE, GANTS…"
-        autocomplete="off"
-        value="${_prEmpFilter || ''}"
-        oninput="window._prEmpChange(this.value)"
-        class="px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
-        style="max-width:200px">
+      <div class="relative" style="max-width:220px">
+        <input type="text" id="prEmpInput"
+          placeholder="ex: ARROSAGE, GANTS…"
+          autocomplete="off"
+          value="${_prEmpFilter || ''}"
+          oninput="window._prEmpChange(this.value)"
+          onfocus="window._prEmpShowList()"
+          class="w-full px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
+        <div id="prEmpResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-48 overflow-y-auto z-50"></div>
+      </div>
       ${_prEmpFilter ? `<button onclick="window._prEmpChange('')" class="text-[10px] t-disabled hover:t-primary">✕ Reset</button>` : ''}
     </div>
     ${legend}
@@ -922,10 +925,33 @@ window._prOpenDetail = function(codeFam) {
   }, 50);
 };
 
-window._prEmpChange = function(val) {
-  _prEmpFilter = val.trim();
-  const empInput = document.getElementById('prEmpInput');
-  if (empInput) empInput.value = _prEmpFilter;
+function _buildEmpList() {
+  const emps = new Set();
+  for (const r of (_S.finalData || [])) {
+    if (r.emplacement && r.emplacement.trim()) emps.add(r.emplacement.trim());
+  }
+  return [...emps].sort();
+}
+
+window._prEmpShowList = function() {
+  const input   = document.getElementById('prEmpInput');
+  const results = document.getElementById('prEmpResults');
+  if (!input || !results) return;
+  const q = input.value.trim().toLowerCase();
+  const emps = _buildEmpList().filter(e => !q || e.toLowerCase().includes(q));
+  if (!emps.length) { results.classList.add('hidden'); return; }
+  results.innerHTML = emps.slice(0, 20).map(e =>
+    `<div class="px-3 py-2 hover:s-hover cursor-pointer text-[12px] t-primary border-b b-light"
+      onclick="window._prEmpSelect('${e.replace(/'/g, "\\'")}')">${e}</div>`
+  ).join('');
+  results.classList.remove('hidden');
+};
+
+window._prEmpSelect = function(val) {
+  _prEmpFilter = val;
+  const input = document.getElementById('prEmpInput');
+  if (input) input.value = val;
+  document.getElementById('prEmpResults')?.classList.add('hidden');
   if (_prOpenFam && _prDetailTab === 'rayon') {
     const el = document.getElementById('prDetailContent');
     if (el && _S._prData) {
@@ -934,6 +960,27 @@ window._prEmpChange = function(val) {
     }
   }
 };
+
+window._prEmpChange = function(val) {
+  _prEmpFilter = val.trim();
+  window._prEmpShowList();
+  if (_prOpenFam && _prDetailTab === 'rayon') {
+    const el = document.getElementById('prDetailContent');
+    if (el && _S._prData) {
+      const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+      if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
+    }
+  }
+};
+
+document.addEventListener('click', function _prEmpOutside(e) {
+  const input   = document.getElementById('prEmpInput');
+  const results = document.getElementById('prEmpResults');
+  if (!input || !results) { document.removeEventListener('click', _prEmpOutside); return; }
+  if (!input.contains(e.target) && !results.contains(e.target)) {
+    results.classList.add('hidden');
+  }
+});
 
 window._prCloseDetail = function() {
   _prOpenFam = null;
@@ -1051,6 +1098,22 @@ function _prBuildDiagText(codeFam) {
   if (rayonData) {
     txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
 
+      const _minMax = (a) => {
+      if ((a.nouveauMax || 0) > 0) return { min: a.nouveauMin, max: a.nouveauMax };
+      if ((a.ancienMax  || 0) > 0) return { min: a.ancienMin,  max: a.ancienMax  };
+      return null;
+    };
+    const _cmdLine = (a) => {
+      const mm = _minMax(a);
+      if (mm?.max > 0) {
+        const qte = Math.max(0, mm.max - (a.stockActuel || 0));
+        return qte > 0
+          ? ` → stock ${a.stockActuel||0}, MAX ${mm.max} → Commander ${qte} unité${qte>1?'s':''}`
+          : ` → stock ${a.stockActuel||0}, MAX ${mm.max} → OK`;
+      }
+      return ` → stock ${a.stockActuel||0} (pas de MAX configuré)`;
+    };
+
     const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort((a, b) => (b.W || 0) - (a.W || 0));
     const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3);
     const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite');
@@ -1059,35 +1122,35 @@ function _prBuildDiagText(codeFam) {
     const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant');
 
     if (rupturesUrgentes.length) {
-      txt += `🚨 RUPTURES URGENTES (W ≥ 3 — CA perdu en cours) :\n`;
-      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle} — W=${a.W}, stock=0 → RÉAPPRO IMMÉDIATE\n`);
+      txt += `🚨 RUPTURES URGENTES (fréquentes — réappro immédiate) :\n`;
+      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (pepites.length) {
       txt += `Pépites AF (ne jamais rompre) :\n`;
-      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
+      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'})${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€\n`);
       txt += '\n';
     }
     if (socles.length) {
       txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
       txt += '\n';
     }
     if (challengers.length) {
       txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (dormants.length) {
-      txt += `Dormants (W=0, stock immobilisé) :\n`;
+      txt += `Dormants (stock immobilisé, fréquence nulle) :\n`;
       dormants.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
       if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
       txt += '\n';
     }
     if (rupturesNormales.length) {
-      txt += `Ruptures (W < 3, moins urgentes) :\n`;
-      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
+      txt += `Ruptures (moins fréquentes) :\n`;
+      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
   }
@@ -1161,6 +1224,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires (garder/implanter/challenger/réappro)\n`;
   txt += `Sois direct, concret, sans jargon inutile. Max 400 mots.\n`;
   txt += `IMPORTANT : commence par les ruptures urgentes (W ≥ 3) — ce sont des ventes perdues chaque jour. Mets-les en tête du diagnostic.\n`;
+  txt += `Pour chaque article cité, indique toujours la quantité à commander (MAX - stock actuel) quand le MAX est disponible. Le destinataire est le logisticien, pas le chef de rayon.\n`;
 
   return txt;
 }
