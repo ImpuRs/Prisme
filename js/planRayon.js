@@ -1051,6 +1051,22 @@ function _prBuildDiagText(codeFam) {
   if (rayonData) {
     txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
 
+      const _minMax = (a) => {
+      if ((a.nouveauMax || 0) > 0) return { min: a.nouveauMin, max: a.nouveauMax };
+      if ((a.ancienMax  || 0) > 0) return { min: a.ancienMin,  max: a.ancienMax  };
+      return null;
+    };
+    const _cmdLine = (a) => {
+      const mm = _minMax(a);
+      if (mm?.max > 0) {
+        const qte = Math.max(0, mm.max - (a.stockActuel || 0));
+        return qte > 0
+          ? ` → stock ${a.stockActuel||0}, MAX ${mm.max} → Commander ${qte} unité${qte>1?'s':''}`
+          : ` → stock ${a.stockActuel||0}, MAX ${mm.max} → OK`;
+      }
+      return ` → stock ${a.stockActuel||0} (pas de MAX configuré)`;
+    };
+
     const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort((a, b) => (b.W || 0) - (a.W || 0));
     const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3);
     const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite');
@@ -1059,35 +1075,35 @@ function _prBuildDiagText(codeFam) {
     const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant');
 
     if (rupturesUrgentes.length) {
-      txt += `🚨 RUPTURES URGENTES (W ≥ 3 — CA perdu en cours) :\n`;
-      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle} — W=${a.W}, stock=0 → RÉAPPRO IMMÉDIATE\n`);
+      txt += `🚨 RUPTURES URGENTES (fréquentes — réappro immédiate) :\n`;
+      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (pepites.length) {
       txt += `Pépites AF (ne jamais rompre) :\n`;
-      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
+      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'})${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€\n`);
       txt += '\n';
     }
     if (socles.length) {
       txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
       txt += '\n';
     }
     if (challengers.length) {
       txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (dormants.length) {
-      txt += `Dormants (W=0, stock immobilisé) :\n`;
+      txt += `Dormants (stock immobilisé, fréquence nulle) :\n`;
       dormants.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
       if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
       txt += '\n';
     }
     if (rupturesNormales.length) {
-      txt += `Ruptures (W < 3, moins urgentes) :\n`;
-      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
+      txt += `Ruptures (moins fréquentes) :\n`;
+      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
   }
@@ -1161,6 +1177,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires (garder/implanter/challenger/réappro)\n`;
   txt += `Sois direct, concret, sans jargon inutile. Max 400 mots.\n`;
   txt += `IMPORTANT : commence par les ruptures urgentes (W ≥ 3) — ce sont des ventes perdues chaque jour. Mets-les en tête du diagnostic.\n`;
+  txt += `Pour chaque article cité, indique toujours la quantité à commander (MAX - stock actuel) quand le MAX est disponible. Le destinataire est le logisticien, pas le chef de rayon.\n`;
 
   return txt;
 }
