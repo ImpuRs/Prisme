@@ -1242,11 +1242,17 @@ function _prBuildDiagText(codeFam) {
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
 
   if (sqData) {
+    const sousFamFilter = _prOpenSousFam || '';
     const toImpl = [];
     for (const d of sqData.directions) {
       for (const a of (d.implanter || [])) {
         const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-        if (cf === codeFam) toImpl.push(a);
+        if (cf !== codeFam) continue;
+        if (sousFamFilter) {
+          const csf = catFam?.get(a.code)?.codeSousFam || '';
+          if (csf !== sousFamFilter) continue;
+        }
+        toImpl.push(a);
       }
     }
     if (toImpl.length) {
