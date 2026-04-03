@@ -68,7 +68,11 @@ function computePlanStock() {
     const cf = catFam?.get(code);
     if (cf?.codeFam) return { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
     const fam = _S.articleFamille?.[code];
-    if (fam) return { codeFam: fam, libFam: FAMILLE_LOOKUP[fam.slice(0, 2)] || fam };
+    if (fam) {
+      // Normaliser : prendre les 3 premiers chars si articleFamille est plus long
+      const codeFam = fam.length > 3 ? fam.slice(0, 3) : fam;
+      return { codeFam, libFam: FAMILLE_LOOKUP[codeFam.slice(0, 2)] || codeFam };
+    }
     return null;
   };
 
@@ -483,8 +487,13 @@ function _prRenderSquelette(fam) {
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
-        const cf = _S.catalogueFamille?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-        if (cf === fam.codeFam) {
+        const cfCat = _S.catalogueFamille?.get(a.code)?.codeFam;
+        const cfArt = _S.articleFamille?.[a.code] || '';
+        // Match si catalogue exact OU si articleFamille commence par codeFam (ex: B10 dans B10X)
+        const matches = cfCat === fam.codeFam
+          || (!cfCat && cfArt.startsWith(fam.codeFam))
+          || cfArt === fam.codeFam;
+        if (matches) {
           if (_prOpenSousFam) {
             const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
             if (csf !== _prOpenSousFam) continue;
