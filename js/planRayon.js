@@ -1097,8 +1097,26 @@ window._prCloseDetail = function() {
 };
 
 window._prToggleEmp = function(emp) {
-  if (_prSelectedEmps.has(emp)) _prSelectedEmps.delete(emp);
-  else _prSelectedEmps.add(emp);
+  const catFam = _S.catalogueFamille;
+  if (_prSelectedEmps.has(emp)) {
+    _prSelectedEmps.delete(emp);
+    // Recalcule les SFs depuis les emplacements restants
+    _prSelectedSFs.clear();
+    if (_prSelectedEmps.size > 0) {
+      for (const r of (_S._prRayonData?.monRayon || [])) {
+        if (!_prSelectedEmps.has(r.emplacement || '')) continue;
+        const csf = catFam?.get(r.code)?.codeSousFam || '';
+        if (csf) _prSelectedSFs.add(csf);
+      }
+    }
+  } else {
+    _prSelectedEmps.add(emp);
+    for (const r of (_S._prRayonData?.monRayon || [])) {
+      if ((r.emplacement || '') !== emp) continue;
+      const csf = catFam?.get(r.code)?.codeSousFam || '';
+      if (csf) _prSelectedSFs.add(csf);
+    }
+  }
   const el = document.getElementById('prDetailContent');
   if (!el || !_S._prRayonData) return;
   el.innerHTML = _prRenderRayon(_S._prRayonData);
