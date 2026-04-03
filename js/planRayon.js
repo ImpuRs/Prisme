@@ -304,11 +304,12 @@ function _prBuildCards(data, searchText = '') {
   // qui ont au moins 1 article à cet emplacement
   let empFamilles = null;
   if (_prEmpFilter) {
-    const q = _prEmpFilter.toLowerCase();
+    const empList = _prEmpFilter.split(';').map(e => e.trim().toLowerCase()).filter(Boolean);
     empFamilles = new Set();
     const catFam = _S.catalogueFamille;
     for (const r of (_S.finalData || [])) {
-      if (!(r.emplacement || '').toLowerCase().includes(q)) continue;
+      const emp = (r.emplacement || '').toLowerCase();
+      if (!empList.some(e => emp.includes(e))) continue;
       const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
       if (cf) empFamilles.add(cf);
     }
@@ -764,7 +765,10 @@ function _prGetTabContent(tab, fam) {
     const fmr  = document.getElementById('filterFMR')?.value || '';
     const stat = document.getElementById('filterStatut')?.value || '';
     const filteredMonRayon = (rayonData?.monRayon || []).filter(a => {
-      if (_prEmpFilter && !(a.emplacement || '').toLowerCase().includes(_prEmpFilter.toLowerCase())) return false;
+      if (_prEmpFilter) {
+        const empList = _prEmpFilter.split(';').map(e => e.trim().toLowerCase()).filter(Boolean);
+        if (!empList.some(e => (a.emplacement || '').toLowerCase().includes(e))) return false;
+      }
       if (abc  && a.abcClass !== abc) return false;
       if (fmr  && a.fmrClass !== fmr) return false;
       if (stat && (a.statut  || '') !== stat) return false;
@@ -871,7 +875,7 @@ function _renderPlanRayonContent(data) {
       ${_badge('surveiller', totals.surveiller)}
     </div>
     <div class="relative mb-3">
-      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code article ou emplacement…"
+      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement (ex: E1;E2;F2)…"
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
       <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-96 overflow-y-auto z-50"></div>
@@ -910,6 +914,13 @@ function _initPrSearch() {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       const q = input.value.trim().toLowerCase();
+      if (q.includes(';')) {
+        results.classList.add('hidden');
+        _prEmpFilter = input.value.trim();
+        const grid = document.getElementById('prFamGrid');
+        if (grid && _S._prData) grid.innerHTML = _prBuildCards(_S._prData);
+        return;
+      }
       if (q.length < 2) { results.classList.add('hidden'); return; }
       if (!searchIndex.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
