@@ -120,8 +120,7 @@ export async function parseChalandise(file) {
   const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on territoire tab
   if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.renderAll?.(); }
-  // Ne pas sauvegarder si aucune agence sélectionnée — évite la contamination IDB
-  if (_S.selectedMyStore) _saveSessionToIDB(); // Sauvegarder avec les données chalandise
+  // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
 }
 
 export function onChalandiseSelected(input) {
@@ -302,7 +301,7 @@ export async function parseLivraisons(file) {
     window.computeOpportuniteNette?.();
     window.renderTerritoireTab?.();
     window.renderAll?.();
-    if (_S.selectedMyStore) window._saveSessionToIDB?.();
+    // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
   } catch (e) {
     console.error('[PRISME] parseLivraisons error:', e);
     showToast('❌ Erreur lecture Livraisons : ' + e.message, 'error');
