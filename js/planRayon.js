@@ -821,7 +821,7 @@ function _renderPlanRayonContent(data) {
       <input type="text" id="prSearchInput" placeholder="🔍 Rechercher une famille, marque ou code article…"
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
-      <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+      <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-96 overflow-y-auto z-50"></div>
     </div>
     ${legend}
   </div>
@@ -895,7 +895,7 @@ function _initPrSearch() {
           label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
         }
         const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
-        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
+        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[13px]"
           onclick="window._prSelectFam('${safeCF}','${safeCSF}')">
           ${label}${refsLabel}
         </div>`;
