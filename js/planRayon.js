@@ -777,13 +777,16 @@ function _renderPlanRayonContent(data) {
     </div>
     <div class="flex items-center gap-2 mb-3">
       <span class="text-[11px] t-secondary">📍 Emplacement :</span>
-      <input type="text" id="prEmpInput"
-        placeholder="ex: ARROSAGE, GANTS…"
-        autocomplete="off"
-        value="${_prEmpFilter || ''}"
-        oninput="window._prEmpChange(this.value)"
-        class="px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
-        style="max-width:200px">
+      <div class="relative" style="max-width:220px">
+        <input type="text" id="prEmpInput"
+          placeholder="ex: ARROSAGE, GANTS…"
+          autocomplete="off"
+          value="${_prEmpFilter || ''}"
+          oninput="window._prEmpChange(this.value)"
+          onfocus="window._prEmpShowList()"
+          class="w-full px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
+        <div id="prEmpResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-48 overflow-y-auto z-50"></div>
+      </div>
       ${_prEmpFilter ? `<button onclick="window._prEmpChange('')" class="text-[10px] t-disabled hover:t-primary">✕ Reset</button>` : ''}
     </div>
     ${legend}
@@ -922,10 +925,33 @@ window._prOpenDetail = function(codeFam) {
   }, 50);
 };
 
-window._prEmpChange = function(val) {
-  _prEmpFilter = val.trim();
-  const empInput = document.getElementById('prEmpInput');
-  if (empInput) empInput.value = _prEmpFilter;
+function _buildEmpList() {
+  const emps = new Set();
+  for (const r of (_S.finalData || [])) {
+    if (r.emplacement && r.emplacement.trim()) emps.add(r.emplacement.trim());
+  }
+  return [...emps].sort();
+}
+
+window._prEmpShowList = function() {
+  const input   = document.getElementById('prEmpInput');
+  const results = document.getElementById('prEmpResults');
+  if (!input || !results) return;
+  const q = input.value.trim().toLowerCase();
+  const emps = _buildEmpList().filter(e => !q || e.toLowerCase().includes(q));
+  if (!emps.length) { results.classList.add('hidden'); return; }
+  results.innerHTML = emps.slice(0, 20).map(e =>
+    `<div class="px-3 py-2 hover:s-hover cursor-pointer text-[12px] t-primary border-b b-light"
+      onclick="window._prEmpSelect('${e.replace(/'/g, "\\'")}')">${e}</div>`
+  ).join('');
+  results.classList.remove('hidden');
+};
+
+window._prEmpSelect = function(val) {
+  _prEmpFilter = val;
+  const input = document.getElementById('prEmpInput');
+  if (input) input.value = val;
+  document.getElementById('prEmpResults')?.classList.add('hidden');
   if (_prOpenFam && _prDetailTab === 'rayon') {
     const el = document.getElementById('prDetailContent');
     if (el && _S._prData) {
@@ -934,6 +960,27 @@ window._prEmpChange = function(val) {
     }
   }
 };
+
+window._prEmpChange = function(val) {
+  _prEmpFilter = val.trim();
+  window._prEmpShowList();
+  if (_prOpenFam && _prDetailTab === 'rayon') {
+    const el = document.getElementById('prDetailContent');
+    if (el && _S._prData) {
+      const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+      if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
+    }
+  }
+};
+
+document.addEventListener('click', function _prEmpOutside(e) {
+  const input   = document.getElementById('prEmpInput');
+  const results = document.getElementById('prEmpResults');
+  if (!input || !results) { document.removeEventListener('click', _prEmpOutside); return; }
+  if (!input.contains(e.target) && !results.contains(e.target)) {
+    results.classList.add('hidden');
+  }
+});
 
 window._prCloseDetail = function() {
   _prOpenFam = null;
