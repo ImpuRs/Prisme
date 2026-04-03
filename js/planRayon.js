@@ -19,6 +19,7 @@ let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs   = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
+let _prSelectedEmps  = new Set(); // Set<emplacement> actifs dans Mon Rayon
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
 const PAGE_SIZE = 20;
 
@@ -377,10 +378,27 @@ function _prRenderRayon(data) {
   const dormants = monRayon.filter(a => a.status === 'dormant').length;
   const ruptures = monRayon.filter(a => a.status === 'rupture').length;
   const standard = monRayon.length - pepites - challeng - dormants - ruptures;
-  // Filtre local par statut
-  const displayed = _prRayonFilter
-    ? monRayon.filter(a => a.status === _prRayonFilter)
+  // Pills emplacements
+  const empsInRayon = [...new Set(monRayon.map(a => a.emplacement).filter(Boolean))].sort();
+  const empPills = empsInRayon.length > 1
+    ? `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
+        <span class="text-[10px] t-disabled">📍</span>
+        ${empsInRayon.map(emp => {
+          const active = _prSelectedEmps.has(emp);
+          return `<button onclick="window._prToggleEmp('${emp.replace(/'/g, "\\'")}')"
+            class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary'}"
+            style="${active ? 'box-shadow:0 0 0 1.5px var(--c-action)' : ''}">${escapeHtml(emp)}</button>`;
+        }).join('')}
+        ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-[10px] t-disabled hover:t-primary ml-1">✕</button>` : ''}
+      </div>`
+    : '';
+  // Filtre emplacement puis statut
+  const afterEmp = _prSelectedEmps.size
+    ? monRayon.filter(a => _prSelectedEmps.has(a.emplacement || ''))
     : monRayon;
+  const displayed = _prRayonFilter
+    ? afterEmp.filter(a => a.status === _prRayonFilter)
+    : afterEmp;
   // Pills filtrables
   const _pill = (key, count, icon, label, color, bg, fw) => {
     if (!count) return '';
@@ -424,6 +442,7 @@ function _prRenderRayon(data) {
   return `<div class="mb-3 text-[11px] t-secondary">
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
+  ${empPills}
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
     ${_pill('pepite',     pepites,  '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
     ${_pill('standard',   standard, '⚪', 'standard',    '#94a3b8', 'rgba(148,163,184,0.2)', 500)}
@@ -1070,6 +1089,7 @@ window._prOpenDetail = function(codeFam) {
   _prMetierDist = 0;
   _prSelectedSFs.clear();
   _prSelectedMarques.clear();
+  _prSelectedEmps.clear();
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
@@ -1092,7 +1112,23 @@ window._prCloseDetail = function() {
   _prEmpFilter = '';
   _prSelectedSFs.clear();
   _prSelectedMarques.clear();
+  _prSelectedEmps.clear();
   _prRerender();
+};
+
+window._prToggleEmp = function(emp) {
+  if (_prSelectedEmps.has(emp)) _prSelectedEmps.delete(emp);
+  else _prSelectedEmps.add(emp);
+  const el = document.getElementById('prDetailContent');
+  if (!el || !_S._prRayonData) return;
+  el.innerHTML = _prRenderRayon(_S._prRayonData);
+};
+
+window._prClearEmps = function() {
+  _prSelectedEmps.clear();
+  const el = document.getElementById('prDetailContent');
+  if (!el || !_S._prRayonData) return;
+  el.innerHTML = _prRenderRayon(_S._prRayonData);
 };
 
 window._prToggleSF = function(csf) {
