@@ -1320,11 +1320,33 @@ function _prBuildDiagText(codeFam) {
       }
     }
   }
-  const contexteLabel = _prOpenSousFam
+  const sousFamFilter = _prOpenSousFam || '';
+  const contexteLabel = sousFamFilter
     ? `${fam.libFam} (${codeFam}) › ${sousFamLib}`
     : `${fam.libFam} (${codeFam})`;
 
-  let txt = `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
+  // Emplacements connus pour cette famille / sous-famille
+  const empsKnown = [...new Set(
+    (_S.finalData || [])
+      .filter(r => {
+        const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+        if (cf !== codeFam) return false;
+        if (sousFamFilter) {
+          const csf = catFam?.get(r.code)?.codeSousFam || '';
+          if (csf !== sousFamFilter) return false;
+        }
+        return r.emplacement?.trim();
+      })
+      .map(r => r.emplacement.trim())
+  )].sort();
+
+  let txt = `╔══════════════════════════════════════════════╗\n`;
+  txt += `  DIAGNOSTIC RAYON — ${fam.libFam.toUpperCase()}\n`;
+  if (sousFamLib) txt += `  Sous-famille : ${sousFamLib}\n`;
+  txt += `  Agence : ${agence}\n`;
+  if (empsKnown.length) txt += `  Emplacements : ${empsKnown.join(', ')}\n`;
+  txt += `╚══════════════════════════════════════════════╝\n\n`;
+  txt += `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
   txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
   txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
@@ -1411,7 +1433,6 @@ function _prBuildDiagText(codeFam) {
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
 
   if (sqData) {
-    const sousFamFilter = _prOpenSousFam || '';
     const toImpl = [];
     for (const d of sqData.directions) {
       for (const a of (d.implanter || [])) {
