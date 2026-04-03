@@ -111,8 +111,11 @@ function computePlanStock() {
     }
   }
 
-  if (_S.ventesClientArticle) {
-    for (const [, artMap] of _S.ventesClientArticle) {
+  // nbClients : utiliser la version full (toute période) pour cohérence structurelle
+  const vcaFull = _S.ventesClientArticleFull?.size
+    ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  if (vcaFull) {
+    for (const [, artMap] of vcaFull) {
       const seen = new Set();
       for (const code of artMap.keys()) {
         if (!filteredCodes.has(code)) continue;
@@ -151,6 +154,50 @@ function computePlanStock() {
       f.classifGlobal = 'potentiel';
     else
       f.classifGlobal = 'surveiller';
+  }
+
+  // ── Enrichissement depuis filteredData (écrase les valeurs Squelette) ──
+  // Garantit cohérence même quand un article n'a pas de signal externe
+  const myStore = _S.selectedMyStore;
+  const vpm = _S.ventesParMagasin || {};
+
+  // S'assurer que toutes les familles de filteredData ont une entrée
+  for (const r of filteredData) {
+    const fi = getFamInfo(r.code);
+    if (fi && !famMap.has(fi.codeFam)) _ensure(fi.codeFam, fi.libFam);
+  }
+
+  // Recalculer nbEnRayon et caAgence depuis filteredData
+  for (const f of famMap.values()) { f.nbEnRayon = 0; f.caAgence = 0; }
+  for (const r of filteredData) {
+    const fi = getFamInfo(r.code);
+    if (!fi) continue;
+    const f = famMap.get(fi.codeFam);
+    if (!f) continue;
+    if ((r.stockActuel || 0) > 0) f.nbEnRayon++;
+    f.caAgence += vpm[myStore]?.[r.code]?.sumCA || 0;
+  }
+
+  // Recalculer nbClients depuis ventesClientArticleFull × filteredCodes
+  for (const f of famMap.values()) f.nbClients = 0;
+  const vcaC = _S.ventesClientArticleFull?.size
+    ? _S.ventesClientArticleFull : (_S.ventesClientArticle || new Map());
+  for (const [, artMap] of vcaC) {
+    const seen = new Set();
+    for (const code of artMap.keys()) {
+      if (!filteredCodes.has(code)) continue;
+      const fi = getFamInfo(code);
+      if (fi && !seen.has(fi.codeFam)) {
+        seen.add(fi.codeFam);
+        const f = famMap.get(fi.codeFam);
+        if (f) f.nbClients++;
+      }
+    }
+  }
+
+  // Recalculer couverture après les updates
+  for (const [, f] of famMap) {
+    f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
   }
 
   const families = [...famMap.values()]
