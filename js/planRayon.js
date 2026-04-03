@@ -549,6 +549,10 @@ function _prRenderSquelette(fam) {
             const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
             if (csf !== _prOpenSousFam) continue;
           }
+          if (_prSelectedSFs.size > 0) {
+            const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
+            if (!_prSelectedSFs.has(csf)) continue;
+          }
           arts.push({ ...a, _g: g });
         }
       }
