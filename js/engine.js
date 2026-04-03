@@ -1941,9 +1941,11 @@ export function computeMonRayon(codeFam, codeSousFam) {
       sousFam: catFam?.get(r.code)?.sousFam || '',
       stockActuel: r.stockActuel || 0,
       W: r.W || 0,
-      abcClass: r.abcClass || '',
-      fmrClass: r.fmrClass || '',
-      caAgence: vpm[myStore]?.[r.code]?.sumCA || 0,
+      abcClass:    r.abcClass    || '',
+      fmrClass:    r.fmrClass    || '',
+      statut:      r.statut      || '',
+      emplacement: r.emplacement || '',
+      caAgence:    vpm[myStore]?.[r.code]?.sumCA || 0,
       valeurStock: (r.stockActuel || 0) * (r.prixUnitaire || 0),
       status: 'standard'
     });
