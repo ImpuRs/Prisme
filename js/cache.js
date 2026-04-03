@@ -452,11 +452,6 @@ export async function _restoreSessionFromIDB() {
     _S.livraisonsReady = data.livraisonsReady || false;
     _S.livraisonsClientCount = data.livraisonsClientCount || 0;
 
-    // ── Raw Excel rows — permet le recalcul période post-restore ──
-    _S._rawDataC         = data._rawDataC         || {headers:[], rows:[]};
-    _S._rawDataCFiltered = data._rawDataCFiltered || {headers:[], rows:[]};
-    _S._rawDataS         = data._rawDataS         || {headers:[], rows:[]};
-
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
     return true;

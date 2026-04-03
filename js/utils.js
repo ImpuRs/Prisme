@@ -164,13 +164,7 @@ export function extractStoreCode(row) {
   return key ? (row[key] || '').toString().trim().toUpperCase() : '';
 }
 
-export function readExcel(f, onProgress, dense = false) {
-  function _toResult(wb) {
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    if (!dense) return XLSX.utils.sheet_to_json(sheet, {defval:''});
-    const raw = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-    return raw.length ? {headers: raw[0], rows: raw.slice(1)} : {headers:[], rows:[]};
-  }
+export function readExcel(f, onProgress) {
   // Fichiers < 20 Mo : inline (rapide, pas d'overhead Worker)
   if (f.size < 20 * 1024 * 1024) {
     return new Promise((res, rej) => {
@@ -181,7 +175,7 @@ export function readExcel(f, onProgress, dense = false) {
             type:'array', dense:true, cellDates:true,
             cellFormula:false, cellHTML:false, cellStyles:false
           });
-          res(_toResult(w));
+          res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], {defval:''}));
         } catch(err) { rej(err); }
       };
       r.onerror = () => rej(new Error('Lecture impossible'));
@@ -203,7 +197,7 @@ export function readExcel(f, onProgress, dense = false) {
       };
       worker.onerror = err => { worker.terminate(); rej(new Error('Worker: ' + err.message)); };
       // PAS de Transferable — envoyer une copie (prouvé fonctionnel)
-      worker.postMessage({buffer: buffer, dense: dense});
+      worker.postMessage({buffer: buffer});
     };
     r.onerror = () => rej(new Error('Lecture impossible'));
     r.readAsArrayBuffer(f);
