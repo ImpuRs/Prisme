@@ -415,7 +415,7 @@ function openArticlePanel(code,source){
     const pctDcs=caTot>0?Math.round(r.caDcs/caTot*100):0;
     const noteWeb=r.caWeb>(r.caAnnuel||0)
       ?`<p class="text-[10px] c-caution mt-1">Cet article est principalement acheté en ligne par vos clients (zone chalandise).</p>`:'';
-    canalHtml=`<div class="mt-4 p-3 s-card-alt rounded-xl border">
+    canalHtml=`<div class="mt-4 p-3 rounded-xl border" style="border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.05)">
       <p class="text-xs font-bold t-primary mb-2">Répartition des achats
         <span class="text-[10px] font-normal t-disabled ml-1" title="Source : clients de la zone de chalandise uniquement (${_S.chalandiseData?.size||0} clients analysés).">ⓘ</span>
       </p>
@@ -475,9 +475,9 @@ function openArticlePanel(code,source){
       const stockBadge=c.inStock
         ?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e">En stock</span>'
         :'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444">Absent</span>';
-      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs t-primary">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
+      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
     }).join('');
-    coAchatHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="t-disabled text-xs">Sur ${totalBLWithArticle} BL · tous canaux</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] t-tertiary mt-1.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
+    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">Sur ${totalBLWithArticle} BL · tous canaux</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
   }
   // Render
   panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
