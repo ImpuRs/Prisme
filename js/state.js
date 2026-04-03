@@ -244,6 +244,7 @@ _S._missedSortDir = 'desc';         // direction tri missed
 _S._rawDataC = [];                  // données brutes consommé COMPLET (pour benchmark réseau)
 _S._rawDataCFiltered = [];          // données brutes consommé filtrées agence (pour refilter période)
 _S._rawDataS = [];                  // données brutes stock (pour refilter période)
+_S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
 _S._reseauMissedFamFilter = '';     // filtre famille missed réseau
 _S._reseauMissedPage = 0;           // pagination missed réseau
 _S._reseauMissedShowAll = false;    // mode "voir tout" missed
