@@ -13,9 +13,29 @@
 import { _S } from './state.js';
 
 
-const CACHE_KEY      = 'PRISME_PREFS';
-const CACHE_KEY_OLD  = 'PRISME_CACHE_OLD'; // ancienne clé volumineuse — purgée au démarrage
-const EXCL_KEY       = 'PRISME_EXCLUSIONS';
+const CACHE_KEY       = 'PRISME_PREFS';
+const CACHE_KEY_OLD   = 'PRISME_CACHE_OLD'; // ancienne clé volumineuse — purgée au démarrage
+const EXCL_KEY        = 'PRISME_EXCLUSIONS';
+const FILE_HASHES_KEY = 'prisme_fileHashes'; // OPT 1 — hash des fichiers chargés
+
+// OPT 1 — Hash-check fichiers (premiers 64 Ko) via SubtleCrypto SHA-1
+export async function _getFileHash(file) {
+  try {
+    const buf = await file.slice(0, 64 * 1024).arrayBuffer();
+    const hBuf = await crypto.subtle.digest('SHA-1', buf);
+    return Array.from(new Uint8Array(hBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (_) { return ''; }
+}
+export function _checkFilesUnchanged(hashC, hashS) {
+  if (!hashC) return false;
+  try {
+    const s = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
+    return s && s.c === hashC && s.s === hashS;
+  } catch (_) { return false; }
+}
+export function _saveFileHashes(hashC, hashS) {
+  try { localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({c: hashC, s: hashS})); } catch (_) {}
+}
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
@@ -169,6 +189,7 @@ export async function _onPurgeCache() {
   await _clearIDB();
   _clearCache();
   localStorage.removeItem('prisme_selectedStore');
+  localStorage.removeItem(FILE_HASHES_KEY);
   location.reload();
 }
 
@@ -306,9 +327,9 @@ export async function _saveSessionToIDB() {
       livraisonsReady:       _S.livraisonsReady || false,
       livraisonsClientCount: _S.livraisonsClientCount || 0,
       // ── Raw Excel rows — nécessaires pour recalculer les agrégats sur une nouvelle période ──
-      _rawDataC:             _S._rawDataC || [],
-      _rawDataCFiltered:     _S._rawDataCFiltered || [],
-      _rawDataS:             _S._rawDataS || [],
+      _rawDataC:             _S._rawDataC || {headers:[], rows:[]},
+      _rawDataCFiltered:     _S._rawDataCFiltered || {headers:[], rows:[]},
+      _rawDataS:             _S._rawDataS || {headers:[], rows:[]},
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -427,9 +448,9 @@ export async function _restoreSessionFromIDB() {
     _S.livraisonsClientCount = data.livraisonsClientCount || 0;
 
     // ── Raw Excel rows — permet le recalcul période post-restore ──
-    _S._rawDataC = data._rawDataC || [];
-    _S._rawDataCFiltered = data._rawDataCFiltered || [];
-    _S._rawDataS = data._rawDataS || [];
+    _S._rawDataC         = data._rawDataC         || {headers:[], rows:[]};
+    _S._rawDataCFiltered = data._rawDataCFiltered || {headers:[], rows:[]};
+    _S._rawDataS         = data._rawDataS         || {headers:[], rows:[]};
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');

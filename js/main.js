@@ -15,7 +15,7 @@ import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from '.
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors, computeRecoStock } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB } from './cache.js';
+import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { DataStore } from './store.js';
@@ -53,8 +53,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     invalidateCache('tab', 'terr');
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
-    const _refilterDataC=_S._rawDataCFiltered&&_S._rawDataCFiltered.length?_S._rawDataCFiltered:_S._rawDataC;
-    if(_refilterDataC&&_refilterDataC.length){processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});}else{
+    const _refilterDataC=(_S._rawDataCFiltered?.rows??_S._rawDataCFiltered)?.length?_S._rawDataCFiltered:_S._rawDataC;
+    if((_refilterDataC?.rows??_refilterDataC)?.length){processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});}else{
       // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
       // Les agrégats période-dépendants (ventesClientArticle, canalAgence…) restent figés à la
       // période de la dernière sauvegarde ; seul le rendu (labels, territoire, filtres) est mis à jour.
@@ -452,6 +452,16 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    // OPT 1 — Hash-check : si les mêmes fichiers sont rechargés, skip le parsing
+    let _hashC='',_hashS='';
+    try{
+      showLoading('Vérification fichiers…','');await yieldToMain();
+      [_hashC,_hashS]=await Promise.all([_getFileHash(f1),f2?_getFileHash(f2):Promise.resolve('')]);
+      if(_checkFilesUnchanged(_hashC,_hashS)&&_S.finalData.length>0){
+        showToast('⚡ Fichiers identiques — données conservées (purger pour forcer le rechargement)','info',5000);
+        btn.disabled=false;hideLoading();renderAll();buildPeriodFilter();return;
+      }
+    }catch(_){}
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
     const _selStore=document.getElementById('selectMyStore');
@@ -473,21 +483,24 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers (parallèle)…');
       [dataC,dataS]=await Promise.all([
-        readExcel(f1, (msg, pct) => updateProgress(pct, 100, msg)),
-        f2 ? readExcel(f2) : Promise.resolve([])
+        readExcel(f1, (msg, pct) => updateProgress(pct, 100, msg), true),
+        f2 ? readExcel(f2, null, true) : Promise.resolve({headers:[],rows:[]})
       ]);
       updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
     _S._rawDataC=dataC;_S._rawDataS=dataS;
 
     // ── Scan rapide : détecter les agences dans dataC et dataS ──
+    // OPT 2 — format dense {headers, rows} : index par position, pas par clé
     updateProgress(42,100,'Détection agences…');
-    const storeColumnC=_detectStoreColumn(dataC[0]);
+    const _hdrC=dataC.headers||[];const _rowsC=dataC.rows||dataC;
+    const _scIdxC=_hdrC.findIndex(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ').trim();return l==='code pdv'||l==='pdv'||l==='code agence'||l==='agence'||l==='code depot'||l==='dépôt'||l==='depot';});
     const storesFoundC=new Set();
-    for(const row of dataC){const s=storeColumnC?(row[storeColumnC]||'').toString().trim().toUpperCase():'';if(s)storesFoundC.add(s);}
-    const storeColumnS=_detectStoreColumn((dataS&&dataS[0])||null);
+    for(const row of _rowsC){const s=_scIdxC>=0?(row[_scIdxC]||'').toString().trim().toUpperCase():'';if(s)storesFoundC.add(s);}
+    const _hdrS=(dataS&&dataS.headers)||[];const _rowsS=(dataS&&dataS.rows)||dataS||[];
+    const _scIdxS=_hdrS.findIndex(k=>{const l=k.toLowerCase().replace(/[\r\n]/g,' ').trim();return l==='code pdv'||l==='pdv'||l==='code agence'||l==='agence'||l==='code depot'||l==='dépôt'||l==='depot';});
     const storesFoundS=new Set();
-    if(dataS&&dataS.length){for(const row of dataS){const s=storeColumnS?(row[storeColumnS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
+    if(_rowsS.length){for(const row of _rowsS){const s=_scIdxS>=0?(row[_scIdxS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
     if(storesFoundS.size){_S.storesIntersection=new Set();for(const s of storesFoundC)if(storesFoundS.has(s))_S.storesIntersection.add(s);}
     else{_S.storesIntersection=new Set(storesFoundC);}
     _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
@@ -518,6 +531,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       await processDataFromRaw(dataC,dataS,{isRefilter:true});
     }
     buildPeriodFilter();
+    // OPT 1 — Sauvegarder les hashes après parse réussi
+    if(_hashC)_saveFileHashes(_hashC,_hashS);
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -629,6 +644,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
+      // OPT 2 — Normalisation format dense → array-of-objects (une seule passe, avant tout accès dataC/dataS)
+      if(dataC&&!Array.isArray(dataC)){const _h=dataC.headers;dataC=dataC.rows.map(r=>{const o={};_h.forEach((k,i)=>{o[k]=r[i];});return o;});}
+      if(dataS&&!Array.isArray(dataS)){const _h=dataS.headers;dataS=dataS.rows.map(r=>{const o={};_h.forEach((k,i)=>{o[k]=r[i];});return o;});}
       let headersC=null;
       if(!isRefilter){headersC=Object.keys(dataC[0]||{}).join(' ').toLowerCase();if(!headersC.includes('article')&&!headersC.includes('code')){showToast('⚠️ Le fichier Ventes ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}if(dataS&&dataS.length){const headersS=Object.keys(dataS[0]||{}).join(' ').toLowerCase();if(!headersS.includes('article')&&!headersS.includes('code')){showToast('⚠️ Le fichier Stock ne semble pas contenir de colonne Article/Code.','error');btn.disabled=false;hideLoading();return;}}}
 
@@ -1639,8 +1657,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
-      const _rfDC2=_S._rawDataCFiltered&&_S._rawDataCFiltered.length?_S._rawDataCFiltered:_S._rawDataC;
-      if(_rfDC2&&_rfDC2.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
+      const _rfDC2=(_S._rawDataCFiltered?.rows??_S._rawDataCFiltered)?.length?_S._rawDataCFiltered:_S._rawDataC;
+      if((_rfDC2?.rows??_rfDC2)?.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
         await processDataFromRaw(_rfDC2,_S._rawDataS||[],{isRefilter:true});
       }else{
         renderCanalAgence();renderCurrentTab();renderIRABanner();
