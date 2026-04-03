@@ -565,7 +565,7 @@ function _quickScanFamilleStock() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// #6 — Emplacement × Performance
+// #6 — Arbitrage rayon
 // ═══════════════════════════════════════════════════════════════
 
 let _empData=null,_empSort={col:'ca',asc:false};
@@ -590,7 +590,7 @@ function _renderPerfEmpTable(rows){
   const th=(label,key,align)=>`<th class="py-2 px-3 ${align} text-[10px] cursor-pointer select-none hover:c-action" onclick="window._laboSortEmp('${key}')">${label} ${arrow(key)}</th>`;
   const avgRendement=rows.length>0?rows.reduce((s,r)=>s+r.rendement,0)/rows.length:0;
   let html=`<div class="flex items-center gap-2 mb-3">
-    <span class="text-[13px] font-bold t-primary">📍 Emplacement × Performance</span>
+    <span class="text-[13px] font-bold t-primary">📍 Arbitrage rayon</span>
     <span class="text-[10px] t-disabled ml-2">${sorted.length} emplacements · rendement moyen ${avgRendement>=10?avgRendement.toFixed(0):avgRendement.toFixed(1)}×</span>
   </div>
   <div class="list-scroll" style="max-height:400px"><table class="min-w-full text-xs">
@@ -974,7 +974,7 @@ window._laboSaisonExportCSV = function() {
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
-// #8 — SQUELETTE — Plan de Stock Stratégique
+// #8 — Arbitrage rayon — Plan de Stock Stratégique
 // ═══════════════════════════════════════════════════════════════
 
 let _sqFilterClassif = '', _sqFilterDir = '', _sqPageMap = {};
@@ -1612,7 +1612,7 @@ const LABO_TOOLTIPS = {
     Détecte les familles fortement commandées en ligne (Internet, DCS) mais absentes ou sous-stockées en rayon.<br>
     <em>Source :</em> ventesClientHorsMagasin × finalData (stock actuel).<br>
     <em>Potentiel bascule :</em> CA hors-magasin récupérable si articles en rayon.`,
-  emp: `<strong>Emplacement × Performance</strong><br>
+  emp: `<strong>Arbitrage rayon</strong><br>
     Analyse le rendement de chaque emplacement : CA généré ÷ valeur stock immobilisée.<br>
     <em>Source :</em> finalData (emplacement, stockActuel, PRMP) × ventesParMagasin (CA PDV).<br>
     <em>Rendement :</em> un ratio &gt;10× indique un emplacement très productif.`,
@@ -1620,7 +1620,7 @@ const LABO_TOOLTIPS = {
     Croise l'historique d'achat de chaque client avec le calendrier saisonnier des familles.<br>
     <em>Source :</em> articleMonthlySales × seasonalIndex × ventesClientArticle.<br>
     <em>Opportunité :</em> clients qui achètent habituellement ce mois mais pas encore cette année.`,
-  squelette: `<strong>SQUELETTE — Plan de stock stratégique</strong><br>
+  squelette: `<strong>Arbitrage rayon — Plan de stock stratégique</strong><br>
     Croise <strong>4 sources</strong> pour chaque article :<br>
     🏪 Réseau (vendu par d'autres agences)<br>
     📋 Chalandise (demandé par les clients zone)<br>
@@ -1650,12 +1650,12 @@ const LABO_TOOLTIPS = {
     📋 Le catalogue complet (par sous-famille, par marque)<br><br>
     <em>Source :</em> stock × catalogue × consommé × chalandise × réseau.`,
   radar: `<strong>Radar Famille — Vue 360° par famille</strong><br>
-    Fusionne SQUELETTE + Ma Clientèle + Mon Rayon, organisé par famille.<br>
+    Fusionne Arbitrage rayon + Ma Clientèle + Mon Rayon, organisé par famille.<br>
     Pour chaque famille :<br>
     🟢 Socle · 🔵 À implanter · 🔴 Challenger · 🟡 Potentiel<br>
     📊 Couverture catalogue · 👥 Clients · Sources actives<br><br>
     Cliquez sur une famille pour le diagnostic complet en 4 onglets.<br>
-    <em>Source :</em> Squelette (4 sources) × consommé × catalogue × chalandise.`
+    <em>Source :</em> Arbitrage rayon (4 sources) × consommé × catalogue × chalandise.`
 };
 
 const _infoIcon = (key) => LABO_TOOLTIPS[key]
@@ -1702,7 +1702,8 @@ function _renderTileGrid(el) {
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('emp')">
       ${_infoIcon('emp')}
       <div class="text-lg mb-1">📍</div>
-      <div class="text-[13px] font-bold t-primary mb-1">Emplacement × Performance</div>
+      <div class="text-[13px] font-bold t-primary mb-0.5">Arbitrage rayon</div>
+      <div class="text-[10px] t-disabled mb-1">Stock × Demande clients</div>
       <div class="text-[10px] t-secondary" id="laboTileEmpSub">${empSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('saison')">
