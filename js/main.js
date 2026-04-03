@@ -1855,6 +1855,15 @@ window.toggleTabPeriodDropdown = toggleTabPeriodDropdown;
 window._onPurgeCache = _onPurgeCache;
 window._onReloadFiles = _onReloadFiles;
 window._clearCache = _clearCache;
+window._cancelLoad = function() {
+  _S._activeClientWorker?.terminate();
+  _S._activeClientWorker = null;
+  const dbs = ['PRISME', 'prismeDB'];
+  Promise.all(dbs.map(name => new Promise(res => {
+    const r = indexedDB.deleteDatabase(name);
+    r.onsuccess = r.onerror = res;
+  }))).then(() => location.reload());
+};
 window._showCacheBanner = _showCacheBanner;
 window.resetTerrFilters = resetTerrFilters;
 window.exportContribCSV = exportContribCSV;
