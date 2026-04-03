@@ -751,7 +751,7 @@ function _prRenderAnalyse(fam) {
   const sfRows = sfSorted.map(({ sf, nbCat, nbStock, codeSousFam }) => {
     const pct = nbCat > 0 ? Math.round(nbStock / nbCat * 100) : 0;
     const sel = _prSelectedSFs.has(codeSousFam);
-    const dimmed = empList && nbStock === 0 ? 'style="opacity:0.45"' : '';
+    const dimmed = empList && nbStock === 0 && !_prSelectedSFs.has(codeSousFam) ? 'style="opacity:0.45"' : '';
     const csf = codeSousFam;
     return `<tr onclick="window._prToggleSF('${csf.replace(/'/g, "\\'")}')"
       class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}" ${dimmed}>
