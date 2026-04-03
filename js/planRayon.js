@@ -284,15 +284,15 @@ function _prBuildCards(data, searchText = '') {
   }
 
   let families = data.families;
+  if (empFamilles !== null) {
+    families = families.filter(f => empFamilles.has(f.codeFam));
+  }
   if (_prFilterClassif) families = families.filter(f => f.classifGlobal === _prFilterClassif);
   if (searchText) families = families.filter(f =>
     f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
   );
-  if (!_prFilterClassif && !searchText && _prOpenFam) {
+  if (!_prFilterClassif && !searchText && !_prEmpFilter && _prOpenFam) {
     families = families.filter(f => f.codeFam === _prOpenFam);
-  }
-  if (empFamilles !== null) {
-    families = families.filter(f => empFamilles.has(f.codeFam));
   }
   if (!families.length) return `<div class="col-span-2 text-center py-6 t-disabled text-[12px]">${_prEmpFilter ? `Aucune famille trouvée à l'emplacement "${escapeHtml(_prEmpFilter)}".` : 'Aucune famille pour ce filtre.'}</div>`;
   let out = '';
@@ -813,7 +813,7 @@ function _renderPlanRayonContent(data) {
     ${legend}
   </div>
   <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    ${(_prFilterClassif || _prSearchText || _prOpenFam)
+    ${(_prFilterClassif || _prSearchText || _prOpenFam || _prEmpFilter)
       ? _prBuildCards(data, _prSearchText)
       : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
   </div>
