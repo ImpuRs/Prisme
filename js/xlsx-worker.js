@@ -5,6 +5,7 @@ importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.
 self.onmessage = function(e) {
   try {
     var arr = new Uint8Array(e.data.buffer);
+    var dense = e.data.dense || false;
     self.postMessage({type:'progress', msg:'Parsing XLSX...', pct:30});
     var wb = XLSX.read(arr, {
       type:'array', dense:true, cellDates:true,
@@ -12,9 +13,15 @@ self.onmessage = function(e) {
     });
     self.postMessage({type:'progress', msg:'Conversion JSON...', pct:70});
     var ws = wb.Sheets[wb.SheetNames[0]];
-    var data = XLSX.utils.sheet_to_json(ws, {defval:''});
+    var data;
+    if (dense) {
+      var raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      data = raw.length ? {headers: raw[0], rows: raw.slice(1)} : {headers:[], rows:[]};
+    } else {
+      data = XLSX.utils.sheet_to_json(ws, {defval:''});
+    }
     self.postMessage({type:'progress', msg:'Transfert...', pct:90});
-    self.postMessage({type:'result', data:data, rows:data.length});
+    self.postMessage({type:'result', data: data, rows: dense ? data.rows.length : data.length});
   } catch(err) {
     self.postMessage({type:'error', msg:err.message || 'Erreur parsing Worker'});
   }
