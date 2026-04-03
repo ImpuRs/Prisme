@@ -20,7 +20,6 @@ let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs   = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
 let _prSelectedEmps  = new Set(); // Set<emplacement> actifs dans Mon Rayon
-let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -753,20 +752,15 @@ function _prRenderAnalyse(fam) {
   const marqueRows = [...marqueCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([m, nbCat]) => {
     const nbStock = stockByMarque.get(m) || 0;
     const pct = Math.round(nbStock / nbCat * 100);
-    const sel = _prSelectedMarques.has(m);
-    return `<tr onclick="window._prToggleMarque('${m.replace(/'/g, "\\'")}')"
-      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}">
-      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">
-        <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
-        ${escapeHtml(m)}
-      </td>
+    return `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">${escapeHtml(m)}</td>
       <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
       <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune marque détectée.</td></tr>`;
 
-  const nbSel = _prSelectedSFs.size + _prSelectedMarques.size;
+  const nbSel = _prSelectedSFs.size;
   const selBar = nbSel ? `<div class="mt-3 flex items-center gap-2">
     <button onclick="window._prApplyAnalyseFilter()"
       class="text-[11px] px-3 py-1.5 rounded-lg s-panel-inner t-inverse cursor-pointer">
@@ -817,17 +811,12 @@ function _prGetTabContent(tab, fam) {
       if (stat && (a.statut  || '') !== stat) return false;
       return true;
     });
-    // Filtre Analyse SF/Marque
+    // Filtre Analyse SF
     let filteredMonRayon2 = filteredMonRayon;
-    if (_prSelectedSFs.size || _prSelectedMarques.size) {
-      filteredMonRayon2 = filteredMonRayon.filter(a => {
-        const sfOk = !_prSelectedSFs.size || _prSelectedSFs.has(
-          _S.catalogueFamille?.get(a.code)?.codeSousFam || ''
-        );
-        const marOk = !_prSelectedMarques.size ||
-          _prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '');
-        return sfOk && marOk;
-      });
+    if (_prSelectedSFs.size) {
+      filteredMonRayon2 = filteredMonRayon.filter(a =>
+        _prSelectedSFs.has(_S.catalogueFamille?.get(a.code)?.codeSousFam || '')
+      );
     }
     const filteredMonRayonFinal = filteredMonRayon2;
     // Annoter sqClassif sans toucher à status
@@ -1081,7 +1070,6 @@ window._prOpenDetail = function(codeFam) {
   _prSqSort = 'reseau';
   _prMetierDist = 0;
   _prSelectedSFs.clear();
-  _prSelectedMarques.clear();
   _prSelectedEmps.clear();
   _prRerender();
   setTimeout(() => {
@@ -1104,7 +1092,6 @@ window._prCloseDetail = function() {
   _prMetierDist = 0;
   _prEmpFilter = '';
   _prSelectedSFs.clear();
-  _prSelectedMarques.clear();
   _prSelectedEmps.clear();
   _prRerender();
 };
@@ -1134,16 +1121,6 @@ window._prToggleSF = function(csf) {
   }
 };
 
-window._prToggleMarque = function(marque) {
-  if (_prSelectedMarques.has(marque)) _prSelectedMarques.delete(marque);
-  else _prSelectedMarques.add(marque);
-  const el = document.getElementById('prDetailContent');
-  if (el && _S._prData && _prOpenFam) {
-    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
-    if (fam) el.innerHTML = _prGetTabContent('analyse', fam);
-  }
-};
-
 window._prApplyAnalyseFilter = function() {
   _prDetailTab = 'rayon';
   const el = document.getElementById('prDetailContent');
@@ -1155,7 +1132,6 @@ window._prApplyAnalyseFilter = function() {
 
 window._prClearAnalyseFilter = function() {
   _prSelectedSFs.clear();
-  _prSelectedMarques.clear();
   const el = document.getElementById('prDetailContent');
   if (el && _S._prData && _prOpenFam) {
     const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
