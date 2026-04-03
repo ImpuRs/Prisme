@@ -15,6 +15,7 @@ let _prGridVisible   = false;
 let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 let _prSqPage        = 50;   // nb articles affichés dans le Squelette
+let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 const PAGE_SIZE = 20;
@@ -443,6 +444,14 @@ function _prRenderRayon(data) {
 }
 
 // ── Onglet Squelette ─────────────────────────────────────────────────
+const _SQ_CLASSIF_ORDER = ['socle','implanter','challenger','potentiel','surveiller'];
+const _SQ_SORT_FNS = {
+  agence:    (a, b) => (b.W || 0) - (a.W || 0),
+  reseau:    (a, b) => (b.nbAgencesReseau || 0) - (a.nbAgencesReseau || 0),
+  livraison: (a, b) => (b.nbBLLivraisons  || 0) - (a.nbBLLivraisons  || 0),
+  classif:   (a, b) => _SQ_CLASSIF_ORDER.indexOf(a._g) - _SQ_CLASSIF_ORDER.indexOf(b._g),
+};
+
 function _prBuildSqTable(arts) {
   const filter = _S._prSqFilter || '';
   const filtered = filter === 'absent'
@@ -451,7 +460,17 @@ function _prBuildSqTable(arts) {
       ? arts.filter(a => a._g === filter)
       : arts;
   if (!filtered.length) return '<div class="t-disabled text-sm text-center py-4">Aucun article.</div>';
-  const shown = filtered.slice(0, _prSqPage);
+
+  const sorted = [...filtered].sort(_SQ_SORT_FNS[_prSqSort] || _SQ_SORT_FNS.reseau);
+  const shown = sorted.slice(0, _prSqPage);
+
+  const _thSort = (key, label, align = 'text-right') => {
+    const active = _prSqSort === key;
+    return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary select-none"
+      style="color:${active ? 'var(--c-action,#8b5cf6)' : 'var(--t-secondary)'};font-weight:${active ? 700 : 500}"
+      onclick="window._prSqSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
+  };
+
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer"
@@ -460,20 +479,28 @@ function _prBuildSqTable(arts) {
       <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
       <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
       <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.nbAgencesReseau || 0}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.nbBLLivraisons || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.enStock ? a.stockActuel : '—'}</td>
-      <td class="py-1.5 px-2 text-right font-bold t-primary">${a.caAgence > 0 ? formatEuro(a.caAgence) : '—'}</td>
     </tr>`;
   }).join('');
+
   return `<div class="overflow-x-auto" id="prSqTable">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
+      <thead><tr class="border-b b-light text-[10px]">
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
+        ${_thSort('agence',    'BL Agence')}
+        ${_thSort('reseau',    'BL Réseau')}
+        ${_thSort('livraison', 'BL Livr.')}
+        ${_thSort('classif',   'Stock', 'text-right')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${filtered.length > _prSqPage ? `<div class="mt-2 text-center"><button onclick="window._prMoreSq()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${filtered.length - _prSqPage} restants)</button></div>` : ''}
+    ${sorted.length > _prSqPage ? `<div class="mt-2 text-center"><button onclick="window._prMoreSq()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light">Voir plus (${sorted.length - _prSqPage} restants)</button></div>` : ''}
   </div>`;
 }
 
@@ -981,6 +1008,7 @@ window._prOpenDetail = function(codeFam) {
   _S._prSqFilter = '';
   _S._prSqData = null;
   _prSqPage = 50;
+  _prSqSort = 'reseau';
   _prMetierDist = 0;
   _prRerender();
   setTimeout(() => {
@@ -1028,9 +1056,17 @@ window._prSetRayonFilter = function(key) {
 window._prSqFilterFn = function(key) {
   _S._prSqFilter = _S._prSqFilter === key ? '' : key;
   _prSqPage = 50;
+  _prSqSort = 'reseau';
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
   const el  = document.getElementById('prDetailContent');
   if (el && fam) el.innerHTML = _prRenderSquelette(fam);
+};
+
+window._prSqSortFn = function(key) {
+  _prSqSort = key;
+  const el = document.getElementById('prDetailContent');
+  if (!el || !_S._prSqArts) return;
+  el.innerHTML = _prBuildSqTable(_S._prSqArts);
 };
 
 window._prMetierDistChange = function(val) {
