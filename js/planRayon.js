@@ -1137,7 +1137,7 @@ function _prBuildDiagText(codeFam) {
   if (!fam) return '';
 
   const agence = _S.selectedMyStore || 'agence';
-  const rayonData = _S._prRayonData || computeMonRayon(codeFam, '');
+  const rayonData = _S._prRayonData || computeMonRayon(codeFam, _prOpenSousFam || '');
   const sqData = computeSquelette();
   const catFam = _S.catalogueFamille;
 
