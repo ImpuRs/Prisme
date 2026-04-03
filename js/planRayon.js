@@ -1488,6 +1488,18 @@ function _prBuildDiagText(codeFam) {
   txt += `- Les challengers et dormants : liste-les TOUS avec leur code pour que le logisticien puisse bloquer les réassorts un par un\n`;
   txt += `- Sois direct et concret. Max 500 mots.\n`;
   txt += `- Le destinataire est le LOGISTICIEN qui a besoin des codes pour agir dans l'ERP\n`;
+  txt += `VOCABULAIRE — définis ces termes la première fois que tu les utilises :\n`;
+  txt += `- AF (ou Pépite AF) = article ABC-A FMR-F = très vendu, très fréquent = ne jamais rompre\n`;
+  txt += `- W = fréquence de vente hebdomadaire (W=15 = vendu en moyenne 15 fois par semaine)\n`;
+  txt += `- Valeur immobilisée = valeur d'achat du stock (prix unitaire × quantité en stock)\n`;
+  txt += `- Socle réseau = article justifié par les ventes des autres agences ou clients locaux\n`;
+  txt += `- MAX = quantité maximale paramétrée dans l'ERP pour le réapprovisionnement automatique\n\n`;
+  txt += `STYLE :\n`;
+  txt += `- Sections 1 et 2 : maximum 3 phrases chacune, pas de jargon sans définition\n`;
+  txt += `- Remplace "valeur immobilisée" par "stock valorisé à X€ (prix d'achat)"\n`;
+  txt += `- Remplace "pépites AF" par "meilleures ventes (AF)"\n`;
+  txt += `- Remplace "socle réseau" par "références validées par le réseau"\n`;
+  txt += `- Section 3 reste technique avec les codes — c'est pour le logisticien\n`;
 
   return txt;
 }
