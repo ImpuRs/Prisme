@@ -1380,18 +1380,19 @@ function _prBuildDiagText(codeFam) {
   txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
 
+  // nbCat filtré sur SFs sélectionnées (déclaré ici pour être accessible dans CATALOGUE)
+  let nbCatalogueFiltered = 0;
+  if (_prSelectedSFs.size > 0 && _S.catalogueFamille) {
+    for (const [, f] of _S.catalogueFamille) {
+      if (f.codeFam !== codeFam) continue;
+      if (!_prSelectedSFs.has(f.codeSousFam || '')) continue;
+      nbCatalogueFiltered++;
+    }
+  }
+  const nbCat = nbCatalogueFiltered > 0 ? nbCatalogueFiltered : (rayonData?.nbCatalogue ?? fam.nbCatalogue);
+
   txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
   if (rayonData) {
-    // Recalculer nbCatalogue filtré sur les SFs sélectionnées
-    let nbCatalogueFiltered = 0;
-    if (_prSelectedSFs.size > 0 && _S.catalogueFamille) {
-      for (const [, f] of _S.catalogueFamille) {
-        if (f.codeFam !== codeFam) continue;
-        if (!_prSelectedSFs.has(f.codeSousFam || '')) continue;
-        nbCatalogueFiltered++;
-      }
-    }
-    const nbCat = nbCatalogueFiltered > 0 ? nbCatalogueFiltered : rayonData.nbCatalogue;
     txt += `${rayonData.monRayon.length} articles en stock · `;
     txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
     txt += ` (${rayonData.monRayon.length}/${nbCat})`;
