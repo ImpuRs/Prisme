@@ -1382,7 +1382,21 @@ function _prBuildDiagText(codeFam) {
 
   txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
   if (rayonData) {
-    txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
+    // Recalculer nbCatalogue filtré sur les SFs sélectionnées
+    let nbCatalogueFiltered = 0;
+    if (_prSelectedSFs.size > 0 && _S.catalogueFamille) {
+      for (const [, f] of _S.catalogueFamille) {
+        if (f.codeFam !== codeFam) continue;
+        if (!_prSelectedSFs.has(f.codeSousFam || '')) continue;
+        nbCatalogueFiltered++;
+      }
+    }
+    const nbCat = nbCatalogueFiltered > 0 ? nbCatalogueFiltered : rayonData.nbCatalogue;
+    txt += `${rayonData.monRayon.length} articles en stock · `;
+    txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
+    txt += ` (${rayonData.monRayon.length}/${nbCat})`;
+    if (_prSelectedSFs.size > 0) txt += ` sur les sous-familles sélectionnées`;
+    txt += ` · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
 
       const _minMax = (a) => {
       if (a.nouveauMax > 0) return { min: a.nouveauMin, max: a.nouveauMax, src: 'PRISME' };
@@ -1438,19 +1452,20 @@ function _prBuildDiagText(codeFam) {
     }
   }
 
-  // Totaux Squelette filtrés sur sous-famille si active
+  // Totaux Squelette filtrés sur sous-famille et/ou _prSelectedSFs si actifs
   let sqTotals = {
     socle: fam.socle, implanter: fam.implanter,
     challenger: fam.challenger, potentiel: fam.potentiel, surveiller: fam.surveiller
   };
-  if (_prOpenSousFam && sqData) {
+  if ((_prOpenSousFam || _prSelectedSFs.size > 0) && sqData) {
     sqTotals = { socle:0, implanter:0, challenger:0, potentiel:0, surveiller:0 };
     for (const d of sqData.directions) {
       for (const g of ['socle','implanter','challenger','potentiel','surveiller']) {
         for (const a of (d[g] || [])) {
           const cf = catFam?.get(a.code);
           if (cf?.codeFam !== codeFam) continue;
-          if (cf?.codeSousFam !== _prOpenSousFam) continue;
+          if (_prOpenSousFam && cf?.codeSousFam !== _prOpenSousFam) continue;
+          if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf?.codeSousFam || '')) continue;
           sqTotals[g]++;
         }
       }
