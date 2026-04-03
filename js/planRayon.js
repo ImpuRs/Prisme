@@ -931,7 +931,7 @@ function _renderPlanRayonContent(data) {
       ${_badge('surveiller', totals.surveiller)}
     </div>
     <div class="relative mb-3">
-      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement (ex: E1;E2;F2)…"
+      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
       <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-96 overflow-y-auto z-50"></div>
@@ -970,13 +970,6 @@ function _initPrSearch() {
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       const q = input.value.trim().toLowerCase();
-      if (q.includes(';')) {
-        results.classList.add('hidden');
-        _prEmpFilter = input.value.trim();
-        const grid = document.getElementById('prFamGrid');
-        if (grid && _S._prData) grid.innerHTML = _prBuildCards(_S._prData);
-        return;
-      }
       if (q.length < 2) { results.classList.add('hidden'); return; }
       if (!searchIndex.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
