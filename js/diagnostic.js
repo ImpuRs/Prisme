@@ -45,15 +45,19 @@ function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn
 
 function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
 
-function openClient360(clientCode,source){
-  // Fermer la modal article si elle est ouverte
-  closeArticlePanel();
-  const overlay=document.getElementById('articlePanelOverlay');
-  const panel=document.getElementById('articlePanel');
-  if(!overlay||!panel)return;
+function openClient360(clientCode, source) {
+  // Fermer la modal article si ouverte (z-index conflict)
+  const artOverlay = document.getElementById('articlePanelOverlay');
+  if (artOverlay?.classList.contains('active')) {
+    artOverlay.classList.remove('active');
+  }
+
+  const overlay = document.getElementById('diagnosticOverlay');
+  const panel   = document.getElementById('diagnosticPanel');
+  if (!overlay || !panel) return;
   overlay.classList.add('active');
-  panel.style.maxWidth='780px';
-  panel.innerHTML=_renderClient360(clientCode,source);
+  panel.style.maxWidth = '780px';
+  panel.innerHTML = _renderClient360(clientCode, source);
 }
 
 function _renderClient360(clientCode,source){
