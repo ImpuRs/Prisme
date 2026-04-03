@@ -434,15 +434,40 @@ function openArticlePanel(code,source){
       ${noteWeb}
     </div>`;
   }
-  // Plan d'action
-  const acts=[];
-  if(r.stockActuel<=0&&r.nouveauMin>0)acts.push(`<div class="diag-action-row"><span class="c-ok font-bold">1.</span><span class="flex-1 ml-2 text-sm">Commander — MIN recalculé : <strong>${r.nouveauMin}</strong></span><button onclick="navigator.clipboard.writeText('${code}').catch(()=>{})" class="diag-btn bg-violet-900 text-violet-200 border border-violet-500 text-[10px]">📋 Copier</button></div>`);
-  const topBuyer=buyerList.find(b=>b.caArt>0);
-  if(topBuyer&&topBuyer.daysSince!==null&&topBuyer.daysSince>30)acts.push(`<div class="diag-action-row"><span class="c-caution font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Appeler <strong>${escapeHtml(topBuyer.nom)}</strong> — plus gros acheteur, <strong class="c-danger">${topBuyer.daysSince}j</strong> sans commande</span></div>`);
-  if(_S.storesIntersection.size>1&&_S.selectedMyStore){const myF=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;const fr=[..._S.storesIntersection].map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);if(fr.length>1&&myF<_median(fr)*0.7)acts.push(`<div class="diag-action-row"><span class="text-violet-300 font-bold">${acts.length+1}.</span><span class="flex-1 ml-2 text-sm">Vérifier visibilité rayon — fréquence <strong class="c-caution">${myF}</strong> vs médiane réseau <strong>${_median(fr).toFixed(0)}</strong></span></div>`);}
-  const planHtml=acts.length?`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">⚡ Plan d'action</span></div>${acts.join('')}</div>`:'';
+  // Co-achats depuis blData
+  const coCount=new Map();
+  let totalBLWithArticle=0;
+  for(const [,blInfo] of Object.entries(_S.blData||{})){
+    if(!blInfo.codes?.has(code))continue;
+    totalBLWithArticle++;
+    for(const otherCode of blInfo.codes){
+      if(otherCode===code)continue;
+      if(!/^\d{6}$/.test(otherCode))continue;
+      coCount.set(otherCode,(coCount.get(otherCode)||0)+1);
+    }
+  }
+  const topCo=[...coCount.entries()]
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,8)
+    .map(([c,nb])=>({
+      code:c,
+      libelle:(_S.libelleLookup?.[c]||c).replace(/^\d{6} - /,''),
+      nb,
+      pct:totalBLWithArticle>0?Math.round(nb/totalBLWithArticle*100):0,
+      inStock:(DataStore.finalData.find(r=>r.code===c)?.stockActuel||0)>0,
+    }));
+  let coAchatHtml='';
+  if(topCo.length&&totalBLWithArticle>0){
+    const rows=topCo.map(c=>{
+      const stockBadge=c.inStock
+        ?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e">En stock</span>'
+        :'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444">Absent</span>';
+      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs t-primary">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
+    }).join('');
+    coAchatHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="t-disabled text-xs">Sur ${totalBLWithArticle} BL contenant cet article</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] t-tertiary mt-1.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
+  }
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${planHtml}`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
   overlay.classList.add('active');
 }
 
