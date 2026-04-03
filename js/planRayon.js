@@ -252,6 +252,20 @@ function _buildPrSearchIndex() {
 
 // ── Render cartes famille ────────────────────────────────────────────
 function _prBuildCards(data, searchText = '') {
+  // Si filtre emplacement actif → ne montrer que les familles
+  // qui ont au moins 1 article à cet emplacement
+  let empFamilles = null;
+  if (_prEmpFilter) {
+    const q = _prEmpFilter.toLowerCase();
+    empFamilles = new Set();
+    const catFam = _S.catalogueFamille;
+    for (const r of (_S.finalData || [])) {
+      if (!(r.emplacement || '').toLowerCase().includes(q)) continue;
+      const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+      if (cf) empFamilles.add(cf);
+    }
+  }
+
   let families = data.families;
   if (_prFilterClassif) families = families.filter(f => f.classifGlobal === _prFilterClassif);
   if (searchText) families = families.filter(f =>
@@ -260,7 +274,10 @@ function _prBuildCards(data, searchText = '') {
   if (!_prFilterClassif && !searchText && _prOpenFam) {
     families = families.filter(f => f.codeFam === _prOpenFam);
   }
-  if (!families.length) return '<div class="col-span-2 text-center py-6 t-disabled text-[12px]">Aucune famille pour ce filtre.</div>';
+  if (empFamilles !== null) {
+    families = families.filter(f => empFamilles.has(f.codeFam));
+  }
+  if (!families.length) return `<div class="col-span-2 text-center py-6 t-disabled text-[12px]">${_prEmpFilter ? `Aucune famille trouvée à l'emplacement "${escapeHtml(_prEmpFilter)}".` : 'Aucune famille pour ce filtre.'}</div>`;
   let out = '';
   for (const f of families) {
     const b = ACTION_BADGE[f.classifGlobal] || ACTION_BADGE.potentiel;
