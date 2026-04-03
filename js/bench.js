@@ -205,20 +205,6 @@ function renderReseauNomades() {
   el.innerHTML = html;
 }
 
-function renderReseauOrphelins() {
-  const el = document.getElementById('reseauOrphelinsContainer');
-  if (!el) return;
-  const list = _S.reseauOrphelins || [];
-  if (!list.length) { el.innerHTML = '<p class="t-disabled text-sm p-4">Aucun orphelin réseau (articles vendus par ≥ 50% des agences, absents chez moi).</p>'; return; }
-  let html = `<p class="text-[11px] t-tertiary mb-2">Top <strong>${list.length}</strong> articles vendus par ≥ 50% des agences du réseau, absents dans cette agence.</p>`;
-  html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-left">Famille</th><th class="py-1 px-2 text-center">Nb agences</th><th class="py-1 px-2 text-center">Fréq. réseau</th></tr></thead><tbody>';
-  for (const art of list) {
-    const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
-    html += `<tr class="border-b b-light hover:i-caution-bg"><td class="py-1 px-2 font-mono text-[10px]">${art.code}</td><td class="py-1 px-2 font-semibold max-w-[200px] truncate" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-tertiary">${escapeHtml(art.fam || '—')}</td><td class="py-1 px-2 text-center font-bold c-danger">${art.nbStores}</td><td class="py-1 px-2 text-center t-secondary">${art.totalFreq}</td></tr>`;
-  }
-  html += '</tbody></table></div>';
-  el.innerHTML = html;
-}
 
 function renderReseauFuites() {
   const el = document.getElementById('reseauFuitesContainer');
@@ -765,7 +751,7 @@ export {
   onBenchBassinChange,
   renderReseauHeatmap,
   renderReseauNomades,
-  renderReseauOrphelins,
+
   renderReseauFuites,
   renderNomadesMissedArts,
   renderHeatmapFamilleCommercial,
@@ -798,7 +784,7 @@ window.renderBenchmark = renderBenchmark;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;
-window.renderReseauOrphelins = renderReseauOrphelins;
+
 window.renderReseauFuites = renderReseauFuites;
 window.renderNomadesMissedArts = renderNomadesMissedArts;
 window.onObsCompareChange = onObsCompareChange;
