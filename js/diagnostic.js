@@ -208,6 +208,7 @@ function _renderClient360(clientCode,source){
     const famsHors=new Map();
     if(horsMag)for(const[code,d]of horsMag){const raw=_S.articleFamille?.[code];if(!raw)continue;const f=famLib(raw)||raw;if(!famsHors.has(f))famsHors.set(f,{ca:0,canal:d.canal||''});famsHors.get(f).ca+=d.sumCA||0;}
     const total=omni.caPDV+omni.caHors;
+    const pdvShare=total>0?omni.caPDV/total:0;
     const nbCanaux=omni.nbCanaux||omni.score||1;
     const SEG={purComptoir:{icon:'🏪',label:'Pur Comptoir',color:'var(--c-ok)',desc:'Uniquement MAGASIN — 1 canal.'},purHors:{icon:'📦',label:'Pur Hors-Magasin',color:'var(--c-danger)',desc:'Jamais au comptoir — uniquement DCS/Internet/Représentant.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'MAGASIN + 1 ou 2 autres canaux.'},full:{icon:'⭐',label:'Full Omnicanal',color:'var(--c-caution)',desc:'4+ canaux distincts — client pleinement omnicanal.'}};
     const seg=SEG[omni.segment]||SEG.purComptoir;
