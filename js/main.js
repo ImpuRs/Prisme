@@ -529,15 +529,15 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     await processDataFromRaw(dataC,dataS,{storeOverride:selectedStore||'',_f1:f1,_f2:f2||null});
 
     // Snapshot période-invariante des ventes client (avant refilter qui les écrase)
-    console.log('[PRISME] ventesClientArticle avant snapshot:', _S.ventesClientArticle.size);
-    _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
-    console.log('[PRISME] ventesClientArticleFull après snapshot:', _S.ventesClientArticleFull.size);
+    // Conditionné pour ne s'exécuter qu'une seule fois (processDataFromRaw peut l'avoir déjà fait)
+    if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
+      _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+    }
     // 2) Positionner le filtre sur le mois le plus récent, puis re-parse léger (isRefilter)
     const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     if(_maxD){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);
       await processDataFromRaw(dataC,dataS,{isRefilter:true});
     }
-    console.log('[PRISME] ventesClientArticleFull après refilter:', _S.ventesClientArticleFull.size);
     buildPeriodFilter();
   }
 
@@ -934,7 +934,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore){console.log('[DBG] IDB SAVE (client worker async), ventesClientArticleFull.size:',_S.ventesClientArticleFull.size);_saveSessionToIDB();}}).catch(err=>console.warn('Client worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
@@ -943,13 +943,11 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(!isRefilter){switchTab('labo');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // Snapshot full-period avant IDB save — garantit que ventesClientArticleFull est peuplé
       // même sans fichier territoire (processData() fait ce snapshot APRÈS le retour de cette fonction)
-      if(!isRefilter){console.log('[DBG] AVANT snapshot, ventesClientArticle.size:',_S.ventesClientArticle.size,'ventesClientArticleFull.size:',_S.ventesClientArticleFull.size);}
       if(!isRefilter&&!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
-      if(!isRefilter){console.log('[DBG] APRES snapshot, ventesClientArticleFull.size:',_S.ventesClientArticleFull.size);}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { console.log('[DBG] IDB SAVE (sync), ventesClientArticleFull.size:',_S.ventesClientArticleFull.size); localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
