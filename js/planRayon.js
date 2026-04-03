@@ -860,7 +860,7 @@ function _initPrSearch() {
           }
         }
       } else {
-        matches = searchIndex.filter(e => e.level <= 5 && e.searchText.includes(q)).slice(0, 15);
+        matches = searchIndex.filter(e => e.level <= 5 && e.searchText.includes(q)).sort((a, b) => a.level - b.level).slice(0, 15);
       }
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
