@@ -27,7 +27,7 @@ import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 // ── P3 Modules — extracted from main.js ──
 import { _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _onDistanceSlider, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _renderCommercialSummary, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, exportTop5CSV, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './territoire.js';
-import { onBenchParamChange, buildBenchCheckboxes, getBenchCompareStores, recalcBenchmarkInstant, renderBenchmark, buildBenchBassinSelect, renderReseauHeatmap, renderReseauNomades, renderReseauOrphelins, renderReseauFuites, renderNomadesMissedArts, renderHeatmapFamilleCommercial, _obsNav, renderObservatoire, buildObsCompareSelect, _buildObsUniversDropdown, onObsCompareChange, onObsFilterChange, resetObsFilters, _setBenchPeriode, renderObsArticleSearch, copyObsActionPlan, copyObsArticleList, toggleObsFamily, copyObsSection, copyPepitesList, copyPepitesOtherList, openNomadeArticleModal, closeNomadeArticleModal, _copyNomadeClientsClipboard, copyNomadesMissedArts, exportBenchList } from './bench.js';
+import { onBenchParamChange, buildBenchCheckboxes, getBenchCompareStores, recalcBenchmarkInstant, renderBenchmark, buildBenchBassinSelect, renderReseauHeatmap, renderReseauNomades, renderReseauFuites, renderNomadesMissedArts, renderHeatmapFamilleCommercial, _obsNav, renderObservatoire, buildObsCompareSelect, _buildObsUniversDropdown, onObsCompareChange, onObsFilterChange, resetObsFilters, _setBenchPeriode, renderObsArticleSearch, copyObsActionPlan, copyObsArticleList, toggleObsFamily, copyObsSection, copyPepitesList, copyPepitesOtherList, openNomadeArticleModal, closeNomadeArticleModal, _copyNomadeClientsClipboard, copyNomadesMissedArts, exportBenchList } from './bench.js';
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
 import { _renderRecoStock, _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './terrain.js';
 import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitEquation, renderCockpitRupClients, renderMesClients, _switchClientsTab } from './commerce.js';
@@ -912,7 +912,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauOrphelins();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
@@ -1624,7 +1624,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
         renderBenchmark();
         launchReseauWorker().then(()=>{
           renderNomadesMissedArts();
-          renderReseauOrphelins();
         }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
       }
       if(_S.territoireReady){renderTerritoireTab();}
@@ -1808,7 +1807,7 @@ window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;
-window.renderReseauOrphelins = renderReseauOrphelins;
+
 window.renderReseauFuites = renderReseauFuites;
 window.renderNomadesMissedArts = renderNomadesMissedArts;
 window.renderTable = renderTable;
