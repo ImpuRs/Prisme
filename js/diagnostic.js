@@ -446,14 +446,27 @@ function openArticlePanel(code,source){
       coCount.set(otherCode,(coCount.get(otherCode)||0)+1);
     }
   }
+  // ── Enrichir avec co-achats par client (tous canaux) ──
+  const clientsOfArticle=_S.articleClients?.get(code);
+  if(clientsOfArticle?.size){
+    for(const cc of clientsOfArticle){
+      const artSet=_S.clientArticles?.get(cc);
+      if(!artSet)continue;
+      for(const otherCode of artSet){
+        if(otherCode===code)continue;
+        if(!/^\d{6}$/.test(otherCode))continue;
+        coCount.set(otherCode,(coCount.get(otherCode)||0)+0.5);
+      }
+    }
+  }
   const topCo=[...coCount.entries()]
     .sort((a,b)=>b[1]-a[1])
     .slice(0,8)
-    .map(([c,nb])=>({
+    .map(([c,score])=>({
       code:c,
       libelle:(_S.libelleLookup?.[c]||c).replace(/^\d{6} - /,''),
-      nb,
-      pct:totalBLWithArticle>0?Math.round(nb/totalBLWithArticle*100):0,
+      nb:Math.round(score),
+      pct:totalBLWithArticle>0?Math.round(score/totalBLWithArticle*100):0,
       inStock:(DataStore.finalData.find(r=>r.code===c)?.stockActuel||0)>0,
     }));
   let coAchatHtml='';
@@ -464,7 +477,7 @@ function openArticlePanel(code,source){
         :'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444">Absent</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs t-primary">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
     }).join('');
-    coAchatHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="t-disabled text-xs">Sur ${totalBLWithArticle} BL contenant cet article</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] t-tertiary mt-1.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
+    coAchatHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="t-disabled text-xs">Sur ${totalBLWithArticle} BL · tous canaux</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] t-tertiary mt-1.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
   }
   // Render
   panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
