@@ -563,7 +563,13 @@ function _prRenderSquelette(fam) {
       }
     }
   }
-  _S._prSqArts = arts;
+  // Enrichir avec W depuis finalData (computeSquelette ne porte pas W)
+  const _wLookup = new Map();
+  for (const r of (_S.finalData || [])) {
+    if (r.code && r.W) _wLookup.set(r.code, r.W);
+  }
+  const artsWithW = arts.map(a => ({ ...a, W: _wLookup.get(a.code) || 0 }));
+  _S._prSqArts = artsWithW;
 
   const sousFamLib = _prOpenSousFam
     ? (_S.catalogueFamille
@@ -598,7 +604,7 @@ function _prRenderSquelette(fam) {
     ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">· filtré sur <em>${escapeHtml(sousFamLib)}</em></span>`
     : '';
 
-  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prBuildSqTable(arts)}`;
+  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prBuildSqTable(artsWithW)}`;
 }
 
 // ── Onglet Métiers ───────────────────────────────────────────────────
