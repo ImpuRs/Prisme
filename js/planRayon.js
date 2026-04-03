@@ -1569,7 +1569,7 @@ function _prBuildDiagText(codeFam) {
     const metierCA = new Map();
     const metierCli = new Map();
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
-      const metier = _S.chalandiseData?.get(cc)?.metier || 'Non classifié';
+      const metier = _S.chalandiseData?.get(cc)?.metier || 'Hors chalandise';
       let caFam = 0;
       for (const [code, data] of artMap) {
         const cf = catFam?.get(code);
