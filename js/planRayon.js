@@ -1378,7 +1378,10 @@ function _prBuildDiagText(codeFam) {
   txt += `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
   txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
   txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
-  txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
+  txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n`;
+  const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
+  if (isRayonVide) txt += `Mode : RÉFÉRENCEMENT INITIAL (famille non exploitée)\n`;
+  txt += '\n';
 
   // nbCat filtré sur SFs sélectionnées (déclaré ici pour être accessible dans CATALOGUE)
   let nbCatalogueFiltered = 0;
@@ -1391,8 +1394,12 @@ function _prBuildDiagText(codeFam) {
   }
   const nbCat = nbCatalogueFiltered > 0 ? nbCatalogueFiltered : (rayonData?.nbCatalogue ?? fam.nbCatalogue);
 
-  txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
-  if (rayonData) {
+  if (isRayonVide) {
+    txt += `═══ FAMILLE NON EXPLOITÉE ═══\n`;
+    txt += `0 article en stock. Cette famille n'est pas encore référencée.\n`;
+    txt += `Couverture catalogue : 0/${nbCat} références disponibles.\n\n`;
+  } else {
+    txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
     txt += `${rayonData.monRayon.length} articles en stock · `;
     txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
     txt += ` (${rayonData.monRayon.length}/${nbCat})`;
@@ -1496,9 +1503,20 @@ function _prBuildDiagText(codeFam) {
       }
     }
     if (toImpl.length) {
-      txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
-      toImpl.slice(0, 15).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
-      if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
+      if (isRayonVide) {
+        txt += `═══ RECOMMANDATION DE RÉFÉRENCEMENT ═══\n`;
+        txt += `Articles à fort signal réseau — à référencer en priorité :\n`;
+        toImpl.forEach(a => {
+          txt += `  • [${a.code}] ${a.libelle}`;
+          txt += ` — ${a.nbAgencesReseau||0} agences réseau`;
+          if (a.nbClientsZone > 0) txt += `, ${a.nbClientsZone} clients zone`;
+          txt += ` → MAX à paramétrer\n`;
+        });
+      } else {
+        txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
+        toImpl.slice(0, 15).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
+        if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
+      }
       txt += '\n';
     }
   }
@@ -1559,6 +1577,14 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ INSTRUCTION ═══\n`;
+  if (isRayonVide) {
+    txt += `CONTEXTE SPÉCIAL : famille non exploitée dans cette agence.\n`;
+    txt += `Génère un PLAN DE RÉFÉRENCEMENT INITIAL :\n`;
+    txt += `1) Pourquoi référencer cette famille (signal réseau + métiers)\n`;
+    txt += `2) Les 5-10 premières références à commander pour démarrer\n`;
+    txt += `3) Les métiers cibles à démarcher une fois le stock constitué\n`;
+    txt += `Sois prescriptif — dis exactement quoi commander et combien.\n\n`;
+  }
   txt += `Génère un diagnostic actionnable en français pour le chef de rayon et son logisticien.\n`;
   txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires\n\n`;
   txt += `RÈGLES ABSOLUES :\n`;
