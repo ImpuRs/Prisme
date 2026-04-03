@@ -1102,23 +1102,23 @@ function _prBuildDiagText(codeFam) {
 
     if (rupturesUrgentes.length) {
       txt += `🚨 RUPTURES URGENTES (fréquentes — réappro immédiate) :\n`;
-      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (pepites.length) {
       txt += `Pépites AF (ne jamais rompre) :\n`;
-      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'})${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€\n`);
+      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, ${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€${(a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠️ STOCK BAS' : ''}\n`);
       txt += '\n';
     }
     if (socles.length) {
       txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      socles.forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
       if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
       txt += '\n';
     }
     if (challengers.length) {
       txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      challengers.forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (dormants.length) {
@@ -1201,6 +1201,8 @@ function _prBuildDiagText(codeFam) {
   txt += `Génère un diagnostic actionnable en français pour le chef de rayon et son logisticien.\n`;
   txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires\n\n`;
   txt += `RÈGLES ABSOLUES :\n`;
+  txt += `W = fréquence de vente hebdomadaire moyenne (W=15 = vendu 15 fois/semaine en moyenne).\n`;
+  txt += `Un article avec W élevé et stock bas = rupture imminente = priorité absolue.\n`;
   txt += `- Commence TOUJOURS par les ruptures urgentes (W ≥ 3) si elles existent\n`;
   txt += `- Pour chaque section (Garder / Challenger / Liquider / Réappro), liste TOUS les articles concernés avec leur code entre crochets\n`;
   txt += `- Ne dis JAMAIS "notamment" ou "par exemple" — cite TOUT\n`;
