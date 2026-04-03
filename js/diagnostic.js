@@ -46,18 +46,24 @@ function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn
 function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
 
 function openClient360(clientCode, source) {
-  // Fermer la modal article si ouverte (z-index conflict)
   const artOverlay = document.getElementById('articlePanelOverlay');
-  if (artOverlay?.classList.contains('active')) {
-    artOverlay.classList.remove('active');
-  }
-
+  if (artOverlay) artOverlay.classList.remove('active');
   const overlay = document.getElementById('diagnosticOverlay');
   const panel   = document.getElementById('diagnosticPanel');
-  if (!overlay || !panel) return;
+  if (!overlay || !panel) {
+    console.error('[openClient360] overlay ou panel introuvable', {overlay:!!overlay, panel:!!panel});
+    return;
+  }
   overlay.classList.add('active');
   panel.style.maxWidth = '780px';
-  panel.innerHTML = _renderClient360(clientCode, source);
+  try {
+    const html = _renderClient360(clientCode, source);
+    console.log('[openClient360] HTML length:', html?.length, 'clientCode:', clientCode);
+    panel.innerHTML = html || '<p style="color:red">_renderClient360 a retourné vide</p>';
+  } catch(e) {
+    console.error('[openClient360] erreur dans _renderClient360:', e);
+    panel.innerHTML = `<p style="color:red;padding:20px">Erreur : ${e.message}</p>`;
+  }
 }
 
 function _renderClient360(clientCode,source){
