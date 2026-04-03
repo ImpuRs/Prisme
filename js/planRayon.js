@@ -16,6 +16,7 @@ let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 let _prSqPage        = 50;   // nb articles affichés dans le Squelette
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
+let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -37,22 +38,18 @@ const CLASSIF_BADGE = {
 
 // ── computePlanStock ─────────────────────────────────────────────────
 function computePlanStock() {
-  // Filtrer sur critères structurels uniquement (pas l'âge/période)
-  const fam  = (document.getElementById('filterFamille')?.value || '').trim().toLowerCase();
-  const sFam = (document.getElementById('filterSousFamille')?.value || '').trim().toLowerCase();
-  const emp  = (document.getElementById('filterEmplacement')?.value || '').trim().toLowerCase();
-  const stat = document.getElementById('filterStatut')?.value || '';
-  const abc  = document.getElementById('filterABC')?.value || '';
-  const fmr  = document.getElementById('filterFMR')?.value || '';
+  // Filtres structurels uniquement — PAS l'emplacement ni l'âge
+  const fam_f  = (document.getElementById('filterFamille')?.value || '').trim().toLowerCase();
+  const abc_f  = document.getElementById('filterABC')?.value || '';
+  const fmr_f  = document.getElementById('filterFMR')?.value || '';
+  const stat_f = document.getElementById('filterStatut')?.value || '';
 
   const filteredData = (_S.finalData || []).filter(r => {
-    if (fam  && !famLib(r.famille || '').toLowerCase().includes(fam)
-             && !(r.famille || '').toLowerCase().includes(fam)) return false;
-    if (sFam && !(r.sousFamille || '').toLowerCase().includes(sFam)) return false;
-    if (emp  && !(r.emplacement || '').toLowerCase().includes(emp)) return false;
-    if (stat && r.statut !== stat) return false;
-    if (abc  && r.abcClass !== abc) return false;
-    if (fmr  && r.fmrClass !== fmr) return false;
+    if (fam_f  && !(r.famille||'').toLowerCase().includes(fam_f)
+               && !famLib(r.famille||'').toLowerCase().includes(fam_f)) return false;
+    if (abc_f  && r.abcClass !== abc_f) return false;
+    if (fmr_f  && r.fmrClass !== fmr_f) return false;
+    if (stat_f && r.statut   !== stat_f) return false;
     return true;
   });
   const filteredCodes = new Set(filteredData.map(r => r.code));
@@ -154,50 +151,6 @@ function computePlanStock() {
       f.classifGlobal = 'potentiel';
     else
       f.classifGlobal = 'surveiller';
-  }
-
-  // ── Enrichissement depuis filteredData (écrase les valeurs Squelette) ──
-  // Garantit cohérence même quand un article n'a pas de signal externe
-  const myStore = _S.selectedMyStore;
-  const vpm = _S.ventesParMagasin || {};
-
-  // S'assurer que toutes les familles de filteredData ont une entrée
-  for (const r of filteredData) {
-    const fi = getFamInfo(r.code);
-    if (fi && !famMap.has(fi.codeFam)) _ensure(fi.codeFam, fi.libFam);
-  }
-
-  // Recalculer nbEnRayon et caAgence depuis filteredData
-  for (const f of famMap.values()) { f.nbEnRayon = 0; f.caAgence = 0; }
-  for (const r of filteredData) {
-    const fi = getFamInfo(r.code);
-    if (!fi) continue;
-    const f = famMap.get(fi.codeFam);
-    if (!f) continue;
-    if ((r.stockActuel || 0) > 0) f.nbEnRayon++;
-    f.caAgence += vpm[myStore]?.[r.code]?.sumCA || 0;
-  }
-
-  // Recalculer nbClients depuis ventesClientArticleFull × filteredCodes
-  for (const f of famMap.values()) f.nbClients = 0;
-  const vcaC = _S.ventesClientArticleFull?.size
-    ? _S.ventesClientArticleFull : (_S.ventesClientArticle || new Map());
-  for (const [, artMap] of vcaC) {
-    const seen = new Set();
-    for (const code of artMap.keys()) {
-      if (!filteredCodes.has(code)) continue;
-      const fi = getFamInfo(code);
-      if (fi && !seen.has(fi.codeFam)) {
-        seen.add(fi.codeFam);
-        const f = famMap.get(fi.codeFam);
-        if (f) f.nbClients++;
-      }
-    }
-  }
-
-  // Recalculer couverture après les updates
-  for (const [, f] of famMap) {
-    f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
   }
 
   const families = [...famMap.values()]
@@ -711,15 +664,14 @@ function _prGetTabContent(tab, fam) {
       }
     }
     // Filtres structurels uniquement — ruptures (stockActuel=0) incluses
-    const emp  = (document.getElementById('filterEmplacement')?.value || '').trim().toLowerCase();
     const abc  = document.getElementById('filterABC')?.value || '';
     const fmr  = document.getElementById('filterFMR')?.value || '';
     const stat = document.getElementById('filterStatut')?.value || '';
-    const filteredMonRayon = (rayonData?.monRayon || []).filter(r => {
-      if (emp  && !(r.emplacement || '').toLowerCase().includes(emp)) return false;
-      if (abc  && r.abcClass !== abc) return false;
-      if (fmr  && r.fmrClass !== fmr) return false;
-      if (stat && r.statut  !== stat) return false;
+    const filteredMonRayon = (rayonData?.monRayon || []).filter(a => {
+      if (_prEmpFilter && !(a.emplacement || '').toLowerCase().includes(_prEmpFilter.toLowerCase())) return false;
+      if (abc  && a.abcClass !== abc) return false;
+      if (fmr  && a.fmrClass !== fmr) return false;
+      if (stat && (a.statut  || '') !== stat) return false;
       return true;
     });
     // Annoter sqClassif sans toucher à status
@@ -822,6 +774,17 @@ function _renderPlanRayonContent(data) {
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
       <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-96 overflow-y-auto z-50"></div>
+    </div>
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-[11px] t-secondary">📍 Emplacement :</span>
+      <input type="text" id="prEmpInput"
+        placeholder="ex: ARROSAGE, GANTS…"
+        autocomplete="off"
+        value="${_prEmpFilter || ''}"
+        oninput="window._prEmpChange(this.value)"
+        class="px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
+        style="max-width:200px">
+      ${_prEmpFilter ? `<button onclick="window._prEmpChange('')" class="text-[10px] t-disabled hover:t-primary">✕ Reset</button>` : ''}
     </div>
     ${legend}
   </div>
@@ -959,9 +922,23 @@ window._prOpenDetail = function(codeFam) {
   }, 50);
 };
 
+window._prEmpChange = function(val) {
+  _prEmpFilter = val.trim();
+  const empInput = document.getElementById('prEmpInput');
+  if (empInput) empInput.value = _prEmpFilter;
+  if (_prOpenFam && _prDetailTab === 'rayon') {
+    const el = document.getElementById('prDetailContent');
+    if (el && _S._prData) {
+      const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+      if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
+    }
+  }
+};
+
 window._prCloseDetail = function() {
   _prOpenFam = null;
   _prMetierDist = 0;
+  _prEmpFilter = '';
   _prRerender();
 };
 
@@ -1083,34 +1060,34 @@ function _prBuildDiagText(codeFam) {
 
     if (rupturesUrgentes.length) {
       txt += `🚨 RUPTURES URGENTES (W ≥ 3 — CA perdu en cours) :\n`;
-      rupturesUrgentes.forEach(a => txt += `  ⚠️ ${a.libelle} — W=${a.W}, stock=0 → RÉAPPRO IMMÉDIATE\n`);
+      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle} — W=${a.W}, stock=0 → RÉAPPRO IMMÉDIATE\n`);
       txt += '\n';
     }
     if (pepites.length) {
       txt += `Pépites AF (ne jamais rompre) :\n`;
-      pepites.forEach(a => txt += `  • ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
+      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
       txt += '\n';
     }
     if (socles.length) {
       txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.slice(0, 10).forEach(a => txt += `  • ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
       if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
       txt += '\n';
     }
     if (challengers.length) {
       txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.slice(0, 10).forEach(a => txt += `  • ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
       txt += '\n';
     }
     if (dormants.length) {
       txt += `Dormants (W=0, stock immobilisé) :\n`;
-      dormants.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
+      dormants.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
       if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
       txt += '\n';
     }
     if (rupturesNormales.length) {
       txt += `Ruptures (W < 3, moins urgentes) :\n`;
-      rupturesNormales.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
+      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
       txt += '\n';
     }
   }
@@ -1129,7 +1106,7 @@ function _prBuildDiagText(codeFam) {
     }
     if (toImpl.length) {
       txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
-      toImpl.slice(0, 8).forEach(a => txt += `  • ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
+      toImpl.slice(0, 8).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
       if (toImpl.length > 8) txt += `  ... et ${toImpl.length - 8} autres\n`;
       txt += '\n';
     }
@@ -1221,6 +1198,7 @@ export function renderPlanRayon() {
   const el = document.getElementById('planRayonBlock');
   if (!el) return;
   _prMetierDist = 0;
+  _prEmpFilter = '';
 
   if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length || !_S.finalData?.length) {
     el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
