@@ -469,6 +469,9 @@ function openArticlePanel(code,source){
       pct:totalBLWithArticle>0?Math.round(score/totalBLWithArticle*100):0,
       inStock:(DataStore.finalData.find(r=>r.code===c)?.stockActuel||0)>0,
     }));
+  const periodeLabel=_S._globalPeriodePreset||
+    document.getElementById('periodeSelect')?.selectedOptions?.[0]?.text||
+    'période sélectionnée';
   let coAchatHtml='';
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
@@ -477,7 +480,8 @@ function openArticlePanel(code,source){
         :'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444">Absent</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
     }).join('');
-    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">Sur ${totalBLWithArticle} BL · tous canaux</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p></div>`;
+    const lowBLNote=totalBLWithArticle<5?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">⚠️ Peu de BL sur cette période — élargis la période pour plus de données</p>`:'';
+    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
   }
   // Render
   panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
