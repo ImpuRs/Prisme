@@ -332,10 +332,6 @@ export async function _saveSessionToIDB() {
       livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
       livraisonsReady:       _S.livraisonsReady || false,
       livraisonsClientCount: _S.livraisonsClientCount || 0,
-      // ── Raw Excel rows — nécessaires pour recalculer les agrégats sur une nouvelle période ──
-      _rawDataC:             _S._rawDataC || {headers:[], rows:[]},
-      _rawDataCFiltered:     _S._rawDataCFiltered || {headers:[], rows:[]},
-      _rawDataS:             _S._rawDataS || {headers:[], rows:[]},
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
