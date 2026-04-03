@@ -203,14 +203,37 @@ function _buildPrSearchIndex() {
     }
   }
 
+  // Index libellés par sous-famille pour enrichir la search
+  const sfLibelles = new Map(); // "codeFam|codeSousFam" → Set<mot>
+  if (_S.catalogueDesignation?.size) {
+    for (const [code, desig] of _S.catalogueDesignation) {
+      const cf = catFam?.get(code);
+      if (!cf?.codeFam || !cf?.codeSousFam) continue;
+      const key = `${cf.codeFam}|${cf.codeSousFam}`;
+      if (!sfLibelles.has(key)) sfLibelles.set(key, new Set());
+      // Extraire les mots du libellé (≥4 lettres pour éviter le bruit)
+      const mots = desig.toLowerCase().split(/\W+/).filter(m => m.length >= 4);
+      for (const mot of mots) sfLibelles.get(key).add(mot);
+    }
+  }
+
   for (const [cf, agg] of famAgg) {
+    const famMots = new Set();
+    for (const [key, mots] of sfLibelles) {
+      if (key.startsWith(cf + '|')) for (const m of mots) famMots.add(m);
+    }
+    const famMotsStr = famMots.size ? ' ' + [...famMots].slice(0, 100).join(' ') : '';
     index.push({ codeFam: cf, codeSousFam: '', libFam: agg.libFam, sousFam: '',
       level: 1, nbArticlesCat: agg.totalCount,
-      searchText: `${cf} ${agg.libFam}`.toLowerCase() });
+      searchText: `${cf} ${agg.libFam}${famMotsStr}`.toLowerCase() });
     for (const [csf, sf] of agg.sousFams) {
+      const sfKey = `${cf}|${csf}`;
+      const sfMots = sfLibelles.has(sfKey)
+        ? ' ' + [...sfLibelles.get(sfKey)].slice(0, 50).join(' ')
+        : '';
       index.push({ codeFam: cf, codeSousFam: csf, libFam: agg.libFam, sousFam: sf.sousFam,
         level: 2, nbArticlesCat: sf.count,
-        searchText: `${cf} ${csf} ${agg.libFam} ${sf.sousFam}`.toLowerCase() });
+        searchText: `${cf} ${csf} ${agg.libFam} ${sf.sousFam}${sfMots}`.toLowerCase() });
     }
   }
 
