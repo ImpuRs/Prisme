@@ -1074,12 +1074,18 @@ function _prBuildDiagText(codeFam) {
   if (rayonData) {
     txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
 
+    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort((a, b) => (b.W || 0) - (a.W || 0));
+    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3);
     const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite');
     const socles      = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite');
     const challengers = rayonData.monRayon.filter(a => a.status === 'challenger' || a.sqClassif === 'challenger');
     const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant');
-    const ruptures    = rayonData.monRayon.filter(a => a.status === 'rupture');
 
+    if (rupturesUrgentes.length) {
+      txt += `🚨 RUPTURES URGENTES (W ≥ 3 — CA perdu en cours) :\n`;
+      rupturesUrgentes.forEach(a => txt += `  ⚠️ ${a.libelle} — W=${a.W}, stock=0 → RÉAPPRO IMMÉDIATE\n`);
+      txt += '\n';
+    }
     if (pepites.length) {
       txt += `Pépites AF (ne jamais rompre) :\n`;
       pepites.forEach(a => txt += `  • ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
@@ -1102,9 +1108,9 @@ function _prBuildDiagText(codeFam) {
       if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
       txt += '\n';
     }
-    if (ruptures.length) {
-      txt += `Ruptures (référencés mais stock=0) :\n`;
-      ruptures.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
+    if (rupturesNormales.length) {
+      txt += `Ruptures (W < 3, moins urgentes) :\n`;
+      rupturesNormales.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
       txt += '\n';
     }
   }
@@ -1177,6 +1183,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Génère un diagnostic actionnable en français pour le chef de rayon de cette agence.\n`;
   txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires (garder/implanter/challenger/réappro)\n`;
   txt += `Sois direct, concret, sans jargon inutile. Max 400 mots.\n`;
+  txt += `IMPORTANT : commence par les ruptures urgentes (W ≥ 3) — ce sont des ventes perdues chaque jour. Mets-les en tête du diagnostic.\n`;
 
   return txt;
 }
