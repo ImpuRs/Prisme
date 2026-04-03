@@ -383,7 +383,8 @@ function _prRenderRayon(data) {
       ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${isCleEntree ? ' <span title="Clé d\'entrée métier — dormant mais socle réseau" style="cursor:help">🔑</span>' : ''}`
       : '<span class="t-disabled text-[9px]">—</span>';
     const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
-    return `<tr class="border-b b-light hover:s-hover text-[11px]${isCleEntree ? ' bg-amber-950/20' : ''}">
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer${isCleEntree ? ' bg-amber-950/20' : ''}"
+      onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
       <td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-[10px]" style="color:var(--t-secondary)">${escapeHtml(a.sousFam || '')}</td>
@@ -439,7 +440,8 @@ function _prBuildSqTable(arts) {
   const shown = filtered.slice(0, _prSqPage);
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
-    return `<tr class="border-b b-light text-[11px]">
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer"
+      onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
       <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
       <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
