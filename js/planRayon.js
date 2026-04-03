@@ -245,6 +245,23 @@ function _buildPrSearchIndex() {
     index._articleCodes = articleCodes;
   }
 
+  // Level 5 : emplacements
+  const empCount = new Map();
+  for (const r of (_S.finalData || [])) {
+    if (!r.emplacement?.trim()) continue;
+    const emp = r.emplacement.trim();
+    empCount.set(emp, (empCount.get(emp) || 0) + 1);
+  }
+  for (const [emp, cnt] of empCount) {
+    index.push({
+      level: 5,
+      codeFam: '', codeSousFam: '', libFam: '', sousFam: '',
+      emplacement: emp,
+      nbArticlesCat: cnt,
+      searchText: emp.toLowerCase(),
+    });
+  }
+
   index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
   _prSearchIndex = index;
   return index;
@@ -787,25 +804,12 @@ function _renderPlanRayonContent(data) {
       ${_badge('surveiller', totals.surveiller)}
     </div>
     <div class="relative mb-3">
-      <input type="text" id="prSearchInput" placeholder="🔍 Rechercher une famille, marque ou code article…"
+      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code article ou emplacement…"
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
       <div id="prSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-96 overflow-y-auto z-50"></div>
     </div>
-    <div class="flex items-center gap-2 mb-3">
-      <span class="text-[11px] t-secondary">📍 Emplacement :</span>
-      <div class="relative" style="max-width:220px">
-        <input type="text" id="prEmpInput"
-          placeholder="ex: ARROSAGE, GANTS…"
-          autocomplete="off"
-          value="${_prEmpFilter || ''}"
-          oninput="window._prEmpChange(this.value)"
-          onfocus="window._prEmpShowList()"
-          class="w-full px-2 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
-        <div id="prEmpResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-48 overflow-y-auto z-50"></div>
-      </div>
-      ${_prEmpFilter ? `<button onclick="window._prEmpChange('')" class="text-[10px] t-disabled hover:t-primary">✕ Reset</button>` : ''}
-    </div>
+    ${_prEmpFilter ? `<div class="flex items-center gap-2 mb-2"><span class="text-[11px] t-secondary">📍 ${escapeHtml(_prEmpFilter)}</span><button onclick="window._prSelectEmp('')" class="text-[10px] t-disabled hover:t-primary">✕</button></div>` : ''}
     ${legend}
   </div>
   <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -856,7 +860,7 @@ function _initPrSearch() {
           }
         }
       } else {
-        matches = searchIndex.filter(e => e.level <= 3 && e.searchText.includes(q)).slice(0, 15);
+        matches = searchIndex.filter(e => e.level <= 5 && e.searchText.includes(q)).slice(0, 15);
       }
       if (!matches.length) {
         results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Aucune famille trouvée</div>';
@@ -874,13 +878,19 @@ function _initPrSearch() {
         } else if (e.level === 3) {
           label = `<span class="font-bold t-primary">🏷 ${escapeHtml(e.marque)}</span> <span class="t-disabled ml-1">dans ${escapeHtml(e.libFam)}</span>`;
           safeCSF = '';
+        } else if (e.level === 5) {
+          label = `<span class="font-bold t-primary">📍 ${escapeHtml(e.emplacement)}</span>
+                   <span class="t-disabled ml-2">${e.nbArticlesCat} articles</span>`;
         } else {
           label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
         }
         const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
+        const onclick = e.level === 5
+          ? `window._prSelectEmp('${e.emplacement.replace(/'/g, "\\'")}')`
+          : `window._prSelectFam('${safeCF}','${safeCSF}')`;
         return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[13px]"
-          onclick="window._prSelectFam('${safeCF}','${safeCSF}')">
-          ${label}${refsLabel}
+          onclick="${onclick}">
+          ${label}${e.level < 4 ? refsLabel : ''}
         </div>`;
       }).join('');
       results.classList.remove('hidden');
@@ -942,62 +952,14 @@ window._prOpenDetail = function(codeFam) {
   }, 50);
 };
 
-function _buildEmpList() {
-  const emps = new Set();
-  for (const r of (_S.finalData || [])) {
-    if (r.emplacement && r.emplacement.trim()) emps.add(r.emplacement.trim());
-  }
-  return [...emps].sort();
-}
-
-window._prEmpShowList = function() {
-  const input   = document.getElementById('prEmpInput');
-  const results = document.getElementById('prEmpResults');
-  if (!input || !results) return;
-  const q = input.value.trim().toLowerCase();
-  const emps = _buildEmpList().filter(e => !q || e.toLowerCase().includes(q));
-  if (!emps.length) { results.classList.add('hidden'); return; }
-  results.innerHTML = emps.slice(0, 20).map(e =>
-    `<div class="px-3 py-2 hover:s-hover cursor-pointer text-[12px] t-primary border-b b-light"
-      onclick="window._prEmpSelect('${e.replace(/'/g, "\\'")}')">${e}</div>`
-  ).join('');
-  results.classList.remove('hidden');
+window._prSelectEmp = function(emp) {
+  const results = document.getElementById('prSearchResults');
+  if (results) results.classList.add('hidden');
+  const input = document.getElementById('prSearchInput');
+  if (input) input.value = '';
+  _prEmpFilter = emp;
+  _prRerender();
 };
-
-window._prEmpSelect = function(val) {
-  _prEmpFilter = val;
-  const input = document.getElementById('prEmpInput');
-  if (input) input.value = val;
-  document.getElementById('prEmpResults')?.classList.add('hidden');
-  if (_prOpenFam && _prDetailTab === 'rayon') {
-    const el = document.getElementById('prDetailContent');
-    if (el && _S._prData) {
-      const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
-      if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
-    }
-  }
-};
-
-window._prEmpChange = function(val) {
-  _prEmpFilter = val.trim();
-  window._prEmpShowList();
-  if (_prOpenFam && _prDetailTab === 'rayon') {
-    const el = document.getElementById('prDetailContent');
-    if (el && _S._prData) {
-      const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
-      if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
-    }
-  }
-};
-
-document.addEventListener('click', function _prEmpOutside(e) {
-  const input   = document.getElementById('prEmpInput');
-  const results = document.getElementById('prEmpResults');
-  if (!input || !results) { document.removeEventListener('click', _prEmpOutside); return; }
-  if (!input.contains(e.target) && !results.contains(e.target)) {
-    results.classList.add('hidden');
-  }
-});
 
 window._prCloseDetail = function() {
   _prOpenFam = null;
