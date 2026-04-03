@@ -1120,19 +1120,17 @@ function _prBuildDiagText(codeFam) {
     txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
 
       const _minMax = (a) => {
-      if ((a.nouveauMax || 0) > 0) return { min: a.nouveauMin, max: a.nouveauMax };
-      if ((a.ancienMax  || 0) > 0) return { min: a.ancienMin,  max: a.ancienMax  };
+      if (a.nouveauMax > 0) return { min: a.nouveauMin, max: a.nouveauMax, src: 'PRISME' };
+      if (a.ancienMax  > 0) return { min: a.ancienMin,  max: a.ancienMax,  src: 'ERP'   };
       return null;
     };
     const _cmdLine = (a) => {
       const mm = _minMax(a);
-      if (mm?.max > 0) {
-        const qte = Math.max(0, mm.max - (a.stockActuel || 0));
-        return qte > 0
-          ? ` → stock ${a.stockActuel||0}, MAX ${mm.max} → Commander ${qte} unité${qte>1?'s':''}`
-          : ` → stock ${a.stockActuel||0}, MAX ${mm.max} → OK`;
-      }
-      return ` → stock ${a.stockActuel||0} (pas de MAX configuré)`;
+      if (!mm) return ` → stock ${a.stockActuel ?? 0} (⚠️ aucun MAX configuré — paramétrer dans l'ERP)`;
+      const qte = Math.max(0, mm.max - (a.stockActuel || 0));
+      if (qte > 0)
+        return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Commander ${qte} unité${qte > 1 ? 's' : ''}`;
+      return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Stock OK`;
     };
 
     const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort((a, b) => (b.W || 0) - (a.W || 0));

@@ -1945,6 +1945,11 @@ export function computeMonRayon(codeFam, codeSousFam) {
       fmrClass:    r.fmrClass    || '',
       statut:      r.statut      || '',
       emplacement: r.emplacement || '',
+      ancienMin:   r.ancienMin   || 0,
+      ancienMax:   r.ancienMax   || 0,
+      nouveauMin:  r.nouveauMin  || 0,
+      nouveauMax:  r.nouveauMax  || 0,
+      prixUnitaire: r.prixUnitaire || 0,
       caAgence:    vpm[myStore]?.[r.code]?.sumCA || 0,
       valeurStock: (r.stockActuel || 0) * (r.prixUnitaire || 0),
       status: 'standard'
