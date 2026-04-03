@@ -18,6 +18,8 @@ let _prSqPage        = 50;   // nb articles affichés dans le Squelette
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
+let _prSelectedSFs   = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
+let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
 const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
@@ -668,17 +670,19 @@ function _prRenderAnalyse(fam) {
   const catFam = _S.catalogueFamille;
   const filteredData = (typeof getFilteredData === 'function') ? getFilteredData() : (_S.finalData || []);
 
-  // Sous-familles — catalogue + stock
-  const sfCount = new Map();
+  // Sous-familles — catalogue + stock (keyed by codeSousFam)
+  const sfMap = new Map(); // codeSousFam → { libelle, nbCat }
   if (catFam) for (const [, f] of catFam) {
-    if (f.codeFam === fam.codeFam && f.sousFam)
-      sfCount.set(f.sousFam, (sfCount.get(f.sousFam) || 0) + 1);
+    if (f.codeFam === fam.codeFam && f.codeSousFam && f.sousFam) {
+      if (!sfMap.has(f.codeSousFam)) sfMap.set(f.codeSousFam, { libelle: f.sousFam, nbCat: 0 });
+      sfMap.get(f.codeSousFam).nbCat++;
+    }
   }
-  const stockBySF = new Map();
+  const stockBySF = new Map(); // codeSousFam → nbStock
   for (const r of filteredData) {
     const cf = catFam?.get(r.code);
-    if (cf?.codeFam !== fam.codeFam || !cf.sousFam) continue;
-    if (r.stockActuel > 0) stockBySF.set(cf.sousFam, (stockBySF.get(cf.sousFam) || 0) + 1);
+    if (cf?.codeFam !== fam.codeFam || !cf.codeSousFam) continue;
+    if (r.stockActuel > 0) stockBySF.set(cf.codeSousFam, (stockBySF.get(cf.codeSousFam) || 0) + 1);
   }
   const thSF = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
     <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
@@ -687,11 +691,16 @@ function _prRenderAnalyse(fam) {
       <th class="py-1.5 px-2 text-right">Réf. cat.</th>
       <th class="py-1.5 px-2">Couverture</th>
     </tr></thead>`;
-  const sfRows = [...sfCount.entries()].sort((a, b) => b[1] - a[1]).map(([sf, nbCat]) => {
-    const nbStock = stockBySF.get(sf) || 0;
+  const sfRows = [...sfMap.entries()].sort((a, b) => b[1].nbCat - a[1].nbCat).map(([csf, { libelle, nbCat }]) => {
+    const nbStock = stockBySF.get(csf) || 0;
     const pct = Math.round(nbStock / nbCat * 100);
-    return `<tr class="border-b b-light text-[11px]">
-      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(sf)}">${escapeHtml(sf)}</td>
+    const sel = _prSelectedSFs.has(csf);
+    return `<tr onclick="window._prToggleSF('${csf.replace(/'/g, "\\'")}')"
+      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}">
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(libelle)}">
+        <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
+        ${escapeHtml(libelle)}
+      </td>
       <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
       <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
@@ -725,13 +734,28 @@ function _prRenderAnalyse(fam) {
   const marqueRows = [...marqueCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([m, nbCat]) => {
     const nbStock = stockByMarque.get(m) || 0;
     const pct = Math.round(nbStock / nbCat * 100);
-    return `<tr class="border-b b-light text-[11px]">
-      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">${escapeHtml(m)}</td>
+    const sel = _prSelectedMarques.has(m);
+    return `<tr onclick="window._prToggleMarque('${m.replace(/'/g, "\\'")}')"
+      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}">
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(m)}">
+        <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
+        ${escapeHtml(m)}
+      </td>
       <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
       <td class="py-1.5 px-2">${_prCouvertureBar(pct)}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="4" class="py-2 text-center t-disabled text-[11px]">Aucune marque détectée.</td></tr>`;
+
+  const nbSel = _prSelectedSFs.size + _prSelectedMarques.size;
+  const selBar = nbSel ? `<div class="mt-3 flex items-center gap-2">
+    <button onclick="window._prApplyAnalyseFilter()"
+      class="text-[11px] px-3 py-1.5 rounded-lg s-panel-inner t-inverse cursor-pointer">
+      📊 Voir dans Mon Rayon (${nbSel} sélection${nbSel > 1 ? 's' : ''})
+    </button>
+    <button onclick="window._prClearAnalyseFilter()"
+      class="text-[11px] px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
+  </div>` : '';
 
   return `<div class="grid grid-cols-2 gap-6">
     <div>
@@ -742,7 +766,7 @@ function _prRenderAnalyse(fam) {
       <h4 class="text-[11px] font-bold t-primary mb-2">Marques (top 15)</h4>
       <div class="overflow-x-auto"><table class="w-full text-[11px]">${thM}<tbody>${marqueRows}</tbody></table></div>
     </div>
-  </div>`;
+  </div>${selBar}`;
 }
 
 // ── Contenu onglet détail ────────────────────────────────────────────
@@ -774,11 +798,24 @@ function _prGetTabContent(tab, fam) {
       if (stat && (a.statut  || '') !== stat) return false;
       return true;
     });
+    // Filtre Analyse SF/Marque
+    let filteredMonRayon2 = filteredMonRayon;
+    if (_prSelectedSFs.size || _prSelectedMarques.size) {
+      filteredMonRayon2 = filteredMonRayon.filter(a => {
+        const sfOk = !_prSelectedSFs.size || _prSelectedSFs.has(
+          _S.catalogueFamille?.get(a.code)?.codeSousFam || ''
+        );
+        const marOk = !_prSelectedMarques.size ||
+          _prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '');
+        return sfOk && marOk;
+      });
+    }
+    const filteredMonRayonFinal = filteredMonRayon2;
     // Annoter sqClassif sans toucher à status
-    for (const a of filteredMonRayon) {
+    for (const a of filteredMonRayonFinal) {
       a.sqClassif = sqClassif.get(a.code) || null;
     }
-    const filtered = rayonData ? { ...rayonData, monRayon: filteredMonRayon } : null;
+    const filtered = rayonData ? { ...rayonData, monRayon: filteredMonRayonFinal } : null;
     _S._prRayonData = filtered;
     _S._prPageRayon = PAGE_SIZE;
     _prRayonFilter  = '';
@@ -1031,6 +1068,8 @@ window._prOpenDetail = function(codeFam) {
   _prSqPage = 50;
   _prSqSort = 'reseau';
   _prMetierDist = 0;
+  _prSelectedSFs.clear();
+  _prSelectedMarques.clear();
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
@@ -1051,7 +1090,48 @@ window._prCloseDetail = function() {
   _prOpenFam = null;
   _prMetierDist = 0;
   _prEmpFilter = '';
+  _prSelectedSFs.clear();
+  _prSelectedMarques.clear();
   _prRerender();
+};
+
+window._prToggleSF = function(csf) {
+  if (_prSelectedSFs.has(csf)) _prSelectedSFs.delete(csf);
+  else _prSelectedSFs.add(csf);
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prData && _prOpenFam) {
+    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+    if (fam) el.innerHTML = _prGetTabContent('analyse', fam);
+  }
+};
+
+window._prToggleMarque = function(marque) {
+  if (_prSelectedMarques.has(marque)) _prSelectedMarques.delete(marque);
+  else _prSelectedMarques.add(marque);
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prData && _prOpenFam) {
+    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+    if (fam) el.innerHTML = _prGetTabContent('analyse', fam);
+  }
+};
+
+window._prApplyAnalyseFilter = function() {
+  _prDetailTab = 'rayon';
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prData && _prOpenFam) {
+    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+    if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
+  }
+};
+
+window._prClearAnalyseFilter = function() {
+  _prSelectedSFs.clear();
+  _prSelectedMarques.clear();
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prData && _prOpenFam) {
+    const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+    if (fam) el.innerHTML = _prGetTabContent('analyse', fam);
+  }
 };
 
 window._prSetTab = function(tab) {
