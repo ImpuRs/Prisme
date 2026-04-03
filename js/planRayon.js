@@ -713,7 +713,14 @@ function _prRenderDetail(codeFam) {
         ${sousFamLib ? `<span class="text-[10px] t-disabled mx-1">›</span><span class="text-[12px] t-secondary font-medium">${escapeHtml(sousFamLib)}</span>` : ''}
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
-      <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="window._prExportDiag('${fam.codeFam}')"
+          class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
+          title="Copier le diagnostic pour IA">
+          🤖 Diagnostic IA
+        </button>
+        <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
+      </div>
     </div>
     <div class="flex flex-wrap gap-1.5 mb-3">
       ${tabs.map(t => `<button onclick="window._prSetTab('${t.key}')" data-prtab="${t.key}"
@@ -993,6 +1000,160 @@ window._prExportRayon = function() {
   const a = document.createElement('a');
   a.href = url; a.download = `plan_rayon_${codeFam}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// ── Diagnostic IA ──────────────────────────────────────────────────────
+function _prBuildDiagText(codeFam) {
+  const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
+  if (!fam) return '';
+
+  const agence = _S.selectedMyStore || 'agence';
+  const rayonData = _S._prRayonData || computeMonRayon(codeFam, '');
+  const sqData = computeSquelette();
+  const catFam = _S.catalogueFamille;
+
+  let txt = `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
+  txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
+  txt += `Agence : ${agence}. Famille analysée : ${fam.libFam} (${fam.codeFam})\n`;
+  txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
+
+  txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
+  if (rayonData) {
+    txt += `${rayonData.monRayon.length} articles en stock · ${rayonData.couverture}% couverture catalogue (${rayonData.monRayon.length}/${rayonData.nbCatalogue}) · ${Math.round(rayonData.valeurTotale)}€ valeur stock\n\n`;
+
+    const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite');
+    const socles      = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite');
+    const challengers = rayonData.monRayon.filter(a => a.status === 'challenger' || a.sqClassif === 'challenger');
+    const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant');
+    const ruptures    = rayonData.monRayon.filter(a => a.status === 'rupture');
+
+    if (pepites.length) {
+      txt += `Pépites AF (ne jamais rompre) :\n`;
+      pepites.forEach(a => txt += `  • ${a.libelle} (${a.marque || '?'}) — W=${a.W}, stock ${a.stockActuel}, CA ${Math.round(a.caAgence)}€\n`);
+      txt += '\n';
+    }
+    if (socles.length) {
+      txt += `Socle réseau (justifiés par les sources) :\n`;
+      socles.slice(0, 10).forEach(a => txt += `  • ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
+      txt += '\n';
+    }
+    if (challengers.length) {
+      txt += `Challengers (en stock mais non justifiés) :\n`;
+      challengers.slice(0, 10).forEach(a => txt += `  • ${a.libelle} — W=${a.W}, stock ${a.stockActuel}\n`);
+      txt += '\n';
+    }
+    if (dormants.length) {
+      txt += `Dormants (W=0, stock immobilisé) :\n`;
+      dormants.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
+      if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
+      txt += '\n';
+    }
+    if (ruptures.length) {
+      txt += `Ruptures (référencés mais stock=0) :\n`;
+      ruptures.slice(0, 5).forEach(a => txt += `  • ${a.libelle} — W=${a.W} (à réapprovisionner)\n`);
+      txt += '\n';
+    }
+  }
+
+  txt += `═══ SQUELETTE RÉSEAU (4 sources croisées) ═══\n`;
+  txt += `🟢 Socle : ${fam.socle} articles · 🔵 À implanter : ${fam.implanter} · 🔴 Challenger : ${fam.challenger} · 🟡 Potentiel : ${fam.potentiel} · 👁 Surveiller : ${fam.surveiller}\n`;
+  txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
+
+  if (sqData) {
+    const toImpl = [];
+    for (const d of sqData.directions) {
+      for (const a of (d.implanter || [])) {
+        const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
+        if (cf === codeFam) toImpl.push(a);
+      }
+    }
+    if (toImpl.length) {
+      txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
+      toImpl.slice(0, 8).forEach(a => txt += `  • ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
+      if (toImpl.length > 8) txt += `  ... et ${toImpl.length - 8} autres\n`;
+      txt += '\n';
+    }
+  }
+
+  txt += `═══ CATALOGUE ═══\n`;
+  txt += `${fam.nbCatalogue} références disponibles chez Legallais dans cette famille (couverture actuelle ${fam.couverture}%)\n`;
+
+  const sfCount = new Map();
+  if (catFam) for (const [,f] of catFam) {
+    if (f.codeFam === codeFam && f.sousFam) sfCount.set(f.sousFam, (sfCount.get(f.sousFam)||0)+1);
+  }
+  if (sfCount.size) {
+    txt += `Sous-familles : ${[...sfCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([sf,n])=>`${sf} (${n})`).join(', ')}\n`;
+  }
+
+  const marCount = new Map();
+  if (_S.marqueArticles) for (const [m,codes] of _S.marqueArticles) {
+    let cnt = 0;
+    for (const c of codes) if (catFam?.get(c)?.codeFam === codeFam) cnt++;
+    if (cnt > 0) marCount.set(m, cnt);
+  }
+  if (marCount.size) {
+    txt += `Marques principales : ${[...marCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([m,n])=>`${m} (${n} réf)`).join(', ')}\n`;
+  }
+  txt += '\n';
+
+  if (_S.chalandiseReady && _S.chalandiseData?.size) {
+    txt += `═══ MÉTIERS CLIENTS (chalandise) ═══\n`;
+    const metierCA = new Map();
+    const metierCli = new Map();
+    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+      const metier = _S.chalandiseData.get(cc)?.metier || 'Non classifié';
+      let caFam = 0;
+      for (const [code, data] of artMap) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf === codeFam) caFam += data.sumCA || 0;
+      }
+      if (caFam > 0) {
+        metierCA.set(metier, (metierCA.get(metier)||0) + caFam);
+        metierCli.set(metier, (metierCli.get(metier)||0) + 1);
+      }
+    }
+    [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([m,ca]) => {
+      txt += `  • ${m} : ${metierCli.get(m)} clients, ${Math.round(ca)}€ CA famille\n`;
+    });
+    txt += '\n';
+  }
+
+  txt += `═══ INSTRUCTION ═══\n`;
+  txt += `Génère un diagnostic actionnable en français pour le chef de rayon de cette agence.\n`;
+  txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires (garder/implanter/challenger/réappro)\n`;
+  txt += `Sois direct, concret, sans jargon inutile. Max 400 mots.\n`;
+
+  return txt;
+}
+
+function _prDownloadDiag(txt, codeFam) {
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `diagnostic_${codeFam}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+window._prExportDiag = function(codeFam) {
+  const txt = _prBuildDiagText(codeFam);
+  if (!txt) return;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(txt).then(() => {
+      const btn = document.querySelector('[onclick*="_prExportDiag"]');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copié !';
+        btn.style.color = '#22c55e';
+        setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+      }
+    }).catch(() => _prDownloadDiag(txt, codeFam));
+  } else {
+    _prDownloadDiag(txt, codeFam);
+  }
 };
 
 // ── Export ─────────────────────────────────────────────────────────────
