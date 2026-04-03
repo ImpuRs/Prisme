@@ -1112,19 +1112,18 @@ function _prBuildDiagText(codeFam) {
     }
     if (socles.length) {
       txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      socles.forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
       txt += '\n';
     }
     if (challengers.length) {
       txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.slice(0, 10).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      challengers.forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
       txt += '\n';
     }
     if (dormants.length) {
       txt += `Dormants (stock immobilisé, fréquence nulle) :\n`;
-      dormants.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
-      if (dormants.length > 5) txt += `  ... et ${dormants.length - 5} autres dormants\n`;
+      dormants.forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
       txt += '\n';
     }
     if (rupturesNormales.length) {
@@ -1148,8 +1147,8 @@ function _prBuildDiagText(codeFam) {
     }
     if (toImpl.length) {
       txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
-      toImpl.slice(0, 8).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
-      if (toImpl.length > 8) txt += `  ... et ${toImpl.length - 8} autres\n`;
+      toImpl.slice(0, 15).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
+      if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
       txt += '\n';
     }
   }
@@ -1199,11 +1198,18 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ INSTRUCTION ═══\n`;
-  txt += `Génère un diagnostic actionnable en français pour le chef de rayon de cette agence.\n`;
-  txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires (garder/implanter/challenger/réappro)\n`;
-  txt += `Sois direct, concret, sans jargon inutile. Max 400 mots.\n`;
-  txt += `IMPORTANT : commence par les ruptures urgentes (W ≥ 3) — ce sont des ventes perdues chaque jour. Mets-les en tête du diagnostic.\n`;
-  txt += `Pour chaque article cité, indique toujours la quantité à commander (MAX - stock actuel) quand le MAX est disponible. Le destinataire est le logisticien, pas le chef de rayon.\n`;
+  txt += `Génère un diagnostic actionnable en français pour le chef de rayon et son logisticien.\n`;
+  txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires\n\n`;
+  txt += `RÈGLES ABSOLUES :\n`;
+  txt += `- Commence TOUJOURS par les ruptures urgentes (W ≥ 3) si elles existent\n`;
+  txt += `- Pour chaque section (Garder / Challenger / Liquider / Réappro), liste TOUS les articles concernés avec leur code entre crochets\n`;
+  txt += `- Ne dis JAMAIS "notamment" ou "par exemple" — cite TOUT\n`;
+  txt += `- Format de chaque article : [CODE] Libellé — stock X → action concrète\n`;
+  txt += `- Quand le MAX est configuré : indique la quantité à commander (MAX - stock)\n`;
+  txt += `- Quand le MAX n'est PAS configuré : indique "MAX à paramétrer" pour les articles à garder\n`;
+  txt += `- Les challengers et dormants : liste-les TOUS avec leur code pour que le logisticien puisse bloquer les réassorts un par un\n`;
+  txt += `- Sois direct et concret. Max 500 mots.\n`;
+  txt += `- Le destinataire est le LOGISTICIEN qui a besoin des codes pour agir dans l'ERP\n`;
 
   return txt;
 }
