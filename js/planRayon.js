@@ -882,7 +882,7 @@ function _renderPlanRayonContent(data) {
   <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     ${(_prFilterClassif || _prSearchText || _prOpenFam || _prEmpFilter)
       ? _prBuildCards(data, _prSearchText)
-      : '<div class="col-span-2 text-center py-24 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
+      : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
   </div>
   ${_prOpenFam ? _prRenderDetail(_prOpenFam) : ''}`;
 }
@@ -994,7 +994,7 @@ window._prSetFilter = function(key) {
   const grid = document.getElementById('prFamGrid');
   if (grid && _S._prData) grid.innerHTML = _prFilterClassif
     ? _prBuildCards(_S._prData, '')
-    : '<div class="col-span-2 text-center py-24 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>';
+    : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>';
   const panel = document.getElementById('prDetailPanel');
   if (panel) panel.remove();
   document.querySelectorAll('[data-prbadge]').forEach(btn => {
