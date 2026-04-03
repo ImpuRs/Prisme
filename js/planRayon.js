@@ -1306,9 +1306,28 @@ function _prBuildDiagText(codeFam) {
   if (!fam) return '';
 
   const agence = _S.selectedMyStore || 'agence';
-  const rayonData = _S._prRayonData || computeMonRayon(codeFam, _prOpenSousFam || '');
-  const sqData = computeSquelette();
   const catFam = _S.catalogueFamille;
+  const sqData = computeSquelette();
+
+  // Calcul rayonData selon sélection sous-familles
+  let rayonData;
+  if (_prSelectedSFs.size === 0) {
+    rayonData = _S._prRayonData || computeMonRayon(codeFam, _prOpenSousFam || '');
+  } else if (_prSelectedSFs.size === 1) {
+    rayonData = computeMonRayon(codeFam, [..._prSelectedSFs][0]);
+  } else {
+    rayonData = computeMonRayon(codeFam, '');
+  }
+  // Clone monRayon pour mutation sûre, puis filtre SF si multi-sélection
+  if (rayonData) {
+    rayonData = { ...rayonData, monRayon: [...rayonData.monRayon] };
+    if (_prSelectedSFs.size > 1) {
+      rayonData.monRayon = rayonData.monRayon.filter(a => {
+        const csf = catFam?.get(a.code)?.codeSousFam || '';
+        return _prSelectedSFs.has(csf);
+      });
+    }
+  }
 
   // Label contexte : sous-famille si active
   let sousFamLib = '';
@@ -1344,7 +1363,17 @@ function _prBuildDiagText(codeFam) {
   txt += `  DIAGNOSTIC RAYON — ${fam.libFam.toUpperCase()}\n`;
   if (sousFamLib) txt += `  Sous-famille : ${sousFamLib}\n`;
   txt += `  Agence : ${agence}\n`;
-  if (empsKnown.length) txt += `  Emplacements : ${empsKnown.join(', ')}\n`;
+  if (_prSelectedSFs.size > 0) {
+    const sfNames = [..._prSelectedSFs].map(csf =>
+      [...(catFam?.values() || [])].find(f => f.codeFam === codeFam && f.codeSousFam === csf)?.sousFam || csf
+    );
+    txt += `  Sous-familles sélectionnées : ${sfNames.join(', ')}\n`;
+  }
+  if (_prSelectedEmps.size > 0) {
+    txt += `  Emplacements : ${[..._prSelectedEmps].sort().join(', ')}\n`;
+  } else if (empsKnown.length) {
+    txt += `  Emplacements : ${empsKnown.join(', ')}\n`;
+  }
   txt += `╚══════════════════════════════════════════════╝\n\n`;
   txt += `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
   txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
@@ -1441,6 +1470,10 @@ function _prBuildDiagText(codeFam) {
         if (sousFamFilter) {
           const csf = catFam?.get(a.code)?.codeSousFam || '';
           if (csf !== sousFamFilter) continue;
+        }
+        if (_prSelectedSFs.size > 0) {
+          const csf = catFam?.get(a.code)?.codeSousFam || '';
+          if (!_prSelectedSFs.has(csf)) continue;
         }
         toImpl.push(a);
       }
