@@ -710,36 +710,37 @@ function _prRenderAnalyse(fam) {
       </div>`
     : '';
 
-  // Articles actifs si filtre emplacement
-  const activeCodes = _prSelectedEmps.size > 0
-    ? new Set((_S.finalData || []).filter(r => _prSelectedEmps.has(r.emplacement || '')).map(r => r.code))
-    : null;
-
-  // Sous-familles — catalogue + stock (keyed by codeSousFam)
-  const sfMap = new Map(); // codeSousFam → { libelle, nbCat }
+  // nbCat par sousFam — catalogue INVARIANT (pas de filtre emplacement)
+  const sfCatCount = new Map(); // sousFam → nbCat
   if (catFam) for (const [, f] of catFam) {
-    if (f.codeFam === fam.codeFam && f.codeSousFam && f.sousFam) {
-      if (!sfMap.has(f.codeSousFam)) sfMap.set(f.codeSousFam, { libelle: f.sousFam, nbCat: 0 });
-      sfMap.get(f.codeSousFam).nbCat++;
-    }
+    if (f.codeFam !== fam.codeFam || !f.sousFam) continue;
+    sfCatCount.set(f.sousFam, (sfCatCount.get(f.sousFam) || 0) + 1);
   }
-  // Filtrer sfMap sur activeCodes si emplacement actif
-  if (activeCodes) {
-    for (const [csf] of [...sfMap]) {
-      let cnt = 0;
-      for (const [code, f] of (catFam || new Map())) {
-        if (f.codeFam === fam.codeFam && f.codeSousFam === csf && activeCodes.has(code)) cnt++;
-      }
-      if (cnt === 0) sfMap.delete(csf);
-      else sfMap.get(csf).nbCat = cnt;
-    }
-  }
-  const stockBySF = new Map(); // codeSousFam → nbStock
-  for (const r of filteredData) {
+
+  // nbStock par sousFam — filtré sur emplacements si actif
+  const sfStockCount = new Map(); // sousFam → nbStock
+  const empList = _prSelectedEmps.size > 0 ? _prSelectedEmps : null;
+  for (const r of (_S.finalData || [])) {
     const cf = catFam?.get(r.code);
-    if (cf?.codeFam !== fam.codeFam || !cf.codeSousFam) continue;
-    if (r.stockActuel > 0) stockBySF.set(cf.codeSousFam, (stockBySF.get(cf.codeSousFam) || 0) + 1);
+    if (!cf || cf.codeFam !== fam.codeFam || !cf.sousFam) continue;
+    if (empList && !empList.has(r.emplacement || '')) continue;
+    if ((r.stockActuel || 0) > 0)
+      sfStockCount.set(cf.sousFam, (sfStockCount.get(cf.sousFam) || 0) + 1);
   }
+
+  // Liste finale : toutes les SFs du catalogue, triées par nbCat desc
+  const sfSorted = [...sfCatCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([sf, nbCat]) => ({
+      sf,
+      nbCat,
+      nbStock: sfStockCount.get(sf) || 0,
+      codeSousFam: [...(catFam?.values() || [])].find(f =>
+        f.codeFam === fam.codeFam && f.sousFam === sf
+      )?.codeSousFam || '',
+    }));
+
+  // Quand filtre emplacement actif, masquer (opacity) les SFs sans stock dans ces emplacements
   const thSF = `<thead style="border-bottom:1px solid var(--color-border-tertiary)">
     <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
       <th class="py-1.5 px-2 text-left">Sous-famille</th>
@@ -747,15 +748,16 @@ function _prRenderAnalyse(fam) {
       <th class="py-1.5 px-2 text-right">Réf. cat.</th>
       <th class="py-1.5 px-2">Couverture</th>
     </tr></thead>`;
-  const sfRows = [...sfMap.entries()].sort((a, b) => b[1].nbCat - a[1].nbCat).map(([csf, { libelle, nbCat }]) => {
-    const nbStock = stockBySF.get(csf) || 0;
-    const pct = Math.round(nbStock / nbCat * 100);
-    const sel = _prSelectedSFs.has(csf);
+  const sfRows = sfSorted.map(({ sf, nbCat, nbStock, codeSousFam }) => {
+    const pct = nbCat > 0 ? Math.round(nbStock / nbCat * 100) : 0;
+    const sel = _prSelectedSFs.has(codeSousFam);
+    const dimmed = empList && nbStock === 0 ? 'style="opacity:0.45"' : '';
+    const csf = codeSousFam;
     return `<tr onclick="window._prToggleSF('${csf.replace(/'/g, "\\'")}')"
-      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}">
-      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(libelle)}">
+      class="border-b b-light hover:s-hover cursor-pointer text-[11px] ${sel ? 's-hover' : ''}" ${dimmed}>
+      <td class="py-1.5 px-2 t-primary truncate max-w-[140px]" title="${escapeHtml(sf)}">
         <input type="checkbox" ${sel ? 'checked' : ''} style="pointer-events:none;margin-right:6px">
-        ${escapeHtml(libelle)}
+        ${escapeHtml(sf)}
       </td>
       <td class="py-1.5 px-2 text-right font-semibold t-primary">${nbStock}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbCat}</td>
