@@ -303,12 +303,11 @@ function _prRenderRayon(data) {
   if (!data) return '<div class="t-disabled text-sm text-center py-6">Aucune donnée rayon pour cette famille.</div>';
   const { monRayon, nbCatalogue, couverture, valeurTotale } = data;
   const page = _S._prPageRayon || PAGE_SIZE;
-  const pepites    = monRayon.filter(a => a.status === 'pepite').length;
-  const challeng   = monRayon.filter(a => a.status === 'challenger').length;
-  const dormants   = monRayon.filter(a => a.status === 'dormant').length;
-  const socle      = monRayon.filter(a => a.status === 'socle').length;
-  const surveiller = monRayon.filter(a => a.status === 'surveiller').length;
-  const potentiel  = monRayon.filter(a => a.status === 'potentiel').length;
+  const pepites  = monRayon.filter(a => a.status === 'pepite').length;
+  const challeng = monRayon.filter(a => a.status === 'challenger').length;
+  const dormants = monRayon.filter(a => a.status === 'dormant').length;
+  const ruptures = monRayon.filter(a => a.status === 'rupture').length;
+  const standard = monRayon.length - pepites - challeng - dormants - ruptures;
   // Filtre local par statut
   const displayed = _prRayonFilter
     ? monRayon.filter(a => a.status === _prRayonFilter)
@@ -322,26 +321,30 @@ function _prRenderRayon(data) {
     return `<button onclick="window._prSetRayonFilter('${key}')" style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:${fw};background:${pillBg};color:${color};border:${pillBorder};cursor:pointer">${icon} ${count} ${label}</button>`;
   };
   const rows = displayed.slice(0, page).map(a => {
-    const s = a.status || 'socle';
+    const s = a.status || 'standard';
     let sBg, sC, sL;
     if (s === 'pepite')          { sBg='rgba(34,197,94,0.2)';    sC='#22c55e';            sL='🟢 Pépite'; }
-    else if (s === 'socle')      { sBg='rgba(34,197,94,0.15)';   sC='#22c55e';            sL='✅ Socle'; }
     else if (s === 'challenger') { sBg='rgba(239,68,68,0.2)';    sC='#ef4444';            sL='🔴 Challenger'; }
-    else if (s === 'potentiel')  { sBg='rgba(245,158,11,0.2)';   sC='#f59e0b';            sL='🟡 Potentiel'; }
-    else if (s === 'surveiller') { sBg='rgba(148,163,184,0.2)';  sC='var(--t-secondary)'; sL='👁 Surveiller'; }
     else if (s === 'dormant')    { sBg='rgba(148,163,184,0.2)';  sC='var(--t-secondary)'; sL='💤 Dormant'; }
     else if (s === 'rupture')    { sBg='rgba(245,158,11,0.2)';   sC='#f59e0b';            sL='⚠️ Rupture'; }
-    else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ —'; }
+    else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ Standard'; }
+    const sq = a.sqClassif;
+    const cb = sq ? (CLASSIF_BADGE[sq] || CLASSIF_BADGE.potentiel) : null;
+    const isCleEntree = s === 'dormant' && sq === 'socle';
+    const sqBadge = cb
+      ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${isCleEntree ? ' <span title="Clé d\'entrée métier — dormant mais socle réseau" style="cursor:help">🔑</span>' : ''}`
+      : '<span class="t-disabled text-[9px]">—</span>';
     const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
-    return `<tr class="border-b b-light hover:s-hover text-[11px]">
+    return `<tr class="border-b b-light hover:s-hover text-[11px]${isCleEntree ? ' bg-amber-950/20' : ''}">
       <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
-      <td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
+      <td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-[10px]" style="color:var(--t-secondary)">${escapeHtml(a.sousFam || '')}</td>
       <td class="py-1.5 px-2 text-right" style="color:var(--t-primary)">${a.stockActuel}</td>
       <td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.W || 0}</td>
       <td class="py-1.5 px-2 text-center">
         <span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${sBg};color:${sC}">${sL}</span>
       </td>
+      <td class="py-1.5 px-2 text-center">${sqBadge}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--t-primary)">${formatEuro(a.caAgence)}</td>
     </tr>`;
   }).join('');
@@ -352,12 +355,11 @@ function _prRenderRayon(data) {
     ${monRayon.length} articles en rayon · ${couverture}% couverture (${monRayon.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
-    ${_pill('pepite',     pepites,    '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
-    ${_pill('socle',      socle,      '✅', 'socle',       '#22c55e', 'rgba(34,197,94,0.2)',   500)}
-    ${_pill('challenger', challeng,   '🔴', 'challenger',  '#ef4444', 'rgba(239,68,68,0.2)',   600)}
-    ${_pill('dormant',    dormants,   '💤', 'dormants',    '#94a3b8', 'rgba(148,163,184,0.2)', 600)}
-    ${_pill('surveiller', surveiller, '👁', 'surveiller',  '#94a3b8', 'rgba(148,163,184,0.2)', 600)}
-    ${_pill('potentiel',  potentiel,  '🟡', 'potentiel',   '#f59e0b', 'rgba(245,158,11,0.2)',  600)}
+    ${_pill('pepite',     pepites,  '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
+    ${_pill('standard',   standard, '⚪', 'standard',    '#94a3b8', 'rgba(148,163,184,0.2)', 500)}
+    ${_pill('challenger', challeng, '🔴', 'challenger',  '#ef4444', 'rgba(239,68,68,0.2)',   600)}
+    ${_pill('dormant',    dormants, '💤', 'dormants',    '#94a3b8', 'rgba(148,163,184,0.2)', 600)}
+    ${_pill('rupture',    ruptures, '⚠️', 'ruptures',    '#f59e0b', 'rgba(245,158,11,0.2)',  600)}
     ${filteredNote}
   </div>
   <div class="overflow-x-auto">
@@ -365,8 +367,8 @@ function _prRenderRayon(data) {
       <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sous-fam.</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">W</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Statut</th>
-        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">W</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Mon Rayon</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Squelette</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -666,7 +668,7 @@ function _prRenderAnalyse(fam) {
 function _prGetTabContent(tab, fam) {
   if (tab === 'rayon') {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
-    // Enrichir avec classification Squelette
+    // Index code → classification Squelette (sans écraser status Mon Rayon)
     const sqData = _S._prSqData || computeSquelette();
     _S._prSqData = sqData;
     const sqClassif = new Map();
@@ -674,14 +676,6 @@ function _prGetTabContent(tab, fam) {
       for (const d of sqData.directions) {
         for (const g of ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller']) {
           for (const a of (d[g] || [])) sqClassif.set(a.code, g);
-        }
-      }
-    }
-    if (rayonData) {
-      for (const a of rayonData.monRayon) {
-        const sq = sqClassif.get(a.code);
-        if (sq && a.status !== 'pepite' && a.status !== 'dormant' && a.status !== 'rupture') {
-          a.status = sq;
         }
       }
     }
@@ -695,6 +689,10 @@ function _prGetTabContent(tab, fam) {
       if (fmr && r.fmrClass !== fmr) return false;
       return true;
     });
+    // Annoter sqClassif sans toucher à status
+    for (const a of filteredMonRayon) {
+      a.sqClassif = sqClassif.get(a.code) || null;
+    }
     const filtered = rayonData ? { ...rayonData, monRayon: filteredMonRayon } : null;
     _S._prRayonData = filtered;
     _S._prPageRayon = PAGE_SIZE;
