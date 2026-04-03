@@ -46,6 +46,8 @@ function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn
 function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
 
 function openClient360(clientCode,source){
+  // Fermer la modal article si elle est ouverte
+  closeArticlePanel();
   const overlay=document.getElementById('articlePanelOverlay');
   const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
