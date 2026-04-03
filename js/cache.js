@@ -246,6 +246,8 @@ export function _openDB() {
 
 // Sauvegarde complète — appelé de façon non bloquante (sans await dans le flux principal)
 export async function _saveSessionToIDB() {
+  if (_S._idbSaving) return; // guard anti-boucle
+  _S._idbSaving = true;
   try {
     const db = await _openDB();
     const tx = db.transaction(IDB_STORE, 'readwrite');
@@ -342,7 +344,9 @@ export async function _saveSessionToIDB() {
     console.log('[PRISME] IDB save - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
     console.log('[PRISME] session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
   } catch (e) {
-    console.warn('[PRISME] sauvegarde IndexedDB échouée :', e.message);
+    console.error('[PRISME] IDB save error:', e);
+  } finally {
+    _S._idbSaving = false;
   }
 }
 
