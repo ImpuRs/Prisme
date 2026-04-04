@@ -610,7 +610,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if (_hashes) {
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
         if (_idbOk && DataStore.finalData.length > 0) {
-          const _unchanged = await _checkFilesUnchanged(f1, f2 || null);
+          const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null);
           const _fTerr = document.getElementById('fileLivraisons').files[0];
           const _hasNewTerr = !!(_fTerr && _fTerr.size > 0);
           if (_unchanged && !(_hasNewTerr && !_S.territoireReady)) {
@@ -884,7 +884,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       if(_S.chalandiseReady)_computeChalandiseDistances();
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       const _chalandiseWorkerReady=_S.chalandiseReady&&DataStore.ventesClientArticle.size>0;
-      if(_chalandiseWorkerReady){launchClientWorker().then(async()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;if(f1)await _saveFileHashes(f1,f2);}}).catch(err=>console.warn('Client worker error:',err));}
+      if(_chalandiseWorkerReady){launchClientWorker().then(async()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3);}}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;
       if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       renderAll();
@@ -904,7 +904,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
       // _saveToCache (léger) — toujours. IDB complète — seulement si launchClientWorker pas lancé
       if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();}
-      if(!_chalandiseWorkerReady&&_S.selectedMyStore){_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2);}
+      if(!_chalandiseWorkerReady&&_S.selectedMyStore){_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null);}
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
   }
@@ -1321,7 +1321,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('labo');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
