@@ -741,7 +741,7 @@ function _buildCockpitClient(){
   }
   function renderBlock(title,emoji,bgColor,borderColor,scoreColor,clients,caField,raisonFn,listId,topN=10){
     const total=clients.length;
-    const isOpen=listId==='cockpit-sil-full';
+    const isOpen=false;
     const arrow=isOpen?'▼':'▶';
     const bodyDisplay=isOpen?'':'display:none';
     if(!total)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs t-disabled px-4 pb-4">${emptyMsg}</p></div></div>`;
