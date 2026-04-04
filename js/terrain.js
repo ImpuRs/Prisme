@@ -38,9 +38,14 @@ function _renderRecoStock() {
     : `PRISME identifie les articles vendus par d'autres agences du réseau mais absents de votre stock. Chargez le fichier Livraisons pour enrichir avec les BL terrain.`;
 
   const dirsHtml = data.map((d, idx) => {
+    d.recos.sort((a, b) => (b.ca || 0) - (a.ca || 0));
     const top10 = d.recos.slice(0, 10);
     const hasMore = d.recos.length > 10;
-    const rowsHtml = top10.map(r => {
+    // Colonnes header adaptatives (déclarées avant moreHtml pour le template)
+    const thBL = enriched ? '<th class="py-1.5 px-2 text-right">Nb BL</th>' : '';
+    const thCli = enriched ? '<th class="py-1.5 px-2 text-right">Clients</th>' : '';
+    const thCA = enriched ? 'CA Terrain' : 'CA zone';
+    const _mkRow = r => {
       const typeBadge = r.type === 'rupture'
         ? '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture</span>'
         : '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
@@ -49,7 +54,6 @@ function _renderRecoStock() {
         : r.nbAgencesReseau > 0
           ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">${r.nbAgencesReseau} ag.</span>`
           : '';
-      // Colonnes adaptatives selon le mode
       const blCell = enriched ? `<td class="py-1.5 px-2 text-right font-bold">${r.nbBL}</td>` : '';
       const cliCell = enriched ? `<td class="py-1.5 px-2 text-right">${r.nbClients}</td>` : '';
       const caLabel = enriched ? formatEuro(r.ca) : (r.ca > 0 ? formatEuro(r.ca) : '—');
@@ -61,15 +65,25 @@ function _renderRecoStock() {
         <td class="py-1.5 px-2 text-right font-bold c-action">${caLabel}</td>
         <td class="py-1.5 px-2 text-center">${reseauBadge}</td>
       </tr>`;
-    }).join('');
+    };
+    const rowsHtml = top10.map(_mkRow).join('');
     const moreHtml = hasMore
-      ? `<div class="px-3 py-2 text-[10px] t-disabled">… et ${d.recos.length - 10} autres articles</div>`
+      ? `<details class="border-t b-light">
+          <summary class="px-4 py-2 text-[10px] c-action cursor-pointer select-none hover:underline">Voir les ${d.recos.length - 10} autres articles →</summary>
+          <div class="overflow-x-auto"><table class="min-w-full">
+            <thead class="s-panel-inner t-inverse text-[10px]"><tr>
+              <th class="py-1.5 px-2 text-left">Code</th>
+              <th class="py-1.5 px-2 text-left">Libellé</th>
+              <th class="py-1.5 px-2 text-center">Statut</th>
+              ${thBL}${thCli}
+              <th class="py-1.5 px-2 text-right">${thCA}</th>
+              <th class="py-1.5 px-2 text-center">Réseau</th>
+            </tr></thead>
+            <tbody>${d.recos.slice(10).map(_mkRow).join('')}</tbody>
+          </table></div>
+        </details>`
       : '';
     const csvBtn = `<button onclick="event.stopPropagation();window._exportRecoCSV('${escapeHtml(d.direction)}')" class="text-[9px] px-2 py-1 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Export CSV">CSV</button>`;
-    // Colonnes header adaptatives
-    const thBL = enriched ? '<th class="py-1.5 px-2 text-right">Nb BL</th>' : '';
-    const thCli = enriched ? '<th class="py-1.5 px-2 text-right">Clients</th>' : '';
-    const thCA = enriched ? 'CA Terrain' : 'CA zone';
     return `<details class="border-b b-light" ${idx === 0 ? 'open' : ''}>
       <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
         <div class="flex items-center gap-2">
