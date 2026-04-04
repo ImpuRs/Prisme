@@ -443,9 +443,8 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',hasData||hasConsomme);
     // terrDegradedBlock: degraded mode only
     const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
-    // terrFiltersBlock (search/direction/secteur/rayon) masqué — ces filtres article BL
-    // n'ont pas leur place dans le sidebar Commerce (livraisons remplace territoire)
-    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.add('hidden');
+    // terrFiltersBlock (search/direction/secteur/rayon) — visible si fichier territoire chargé
+    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
     // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
