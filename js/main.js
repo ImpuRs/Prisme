@@ -901,7 +901,7 @@ _S.canalAgence=newCanalAgence;
 
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
-      switchTab('labo');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
+      switchTab('omni');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
       const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
