@@ -226,6 +226,10 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 // ── Opportunité nette Client×Famille (C1) ──
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 
+// ── Accumulation mensuelle pour filtre période instantané ──
+_S._byMonth = null;      // accumulation mensuelle cc→code→monthIdx→agg
+_S._byMonthCanal = null; // accumulation mensuelle store→canal→monthIdx→agg
+
 // ── Active workers (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
 _S._activeClientWorker = null;
@@ -399,6 +403,7 @@ export function resetAppState() {
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._bufC = null; _S._bufS = null;
+  _S._byMonth = null; _S._byMonthCanal = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S._top5Semaine = [];

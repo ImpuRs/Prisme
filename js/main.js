@@ -52,13 +52,23 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.periodFilterStart=startTs?new Date(+startTs):null;
     _S.periodFilterEnd=endTs?new Date(+endTs):null;
     invalidateCache('tab', 'terr');
+
+    // Chemin rapide — byMonth disponible (nouveau worker) → refilter <100ms
+    if(_S._byMonth){
+      _refilterFromByMonth();
+      buildPeriodFilter();
+      computeClientCrossing();_computeClientDominantUnivers();
+      renderCanalAgence();renderCurrentTab();renderIRABanner?.();
+      return;
+    }
+
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
     const _refilterDataC=(_S._rawDataCFiltered?.rows?.length)?_S._rawDataCFiltered:_S._rawDataC;
     if(_refilterDataC?.rows?.length){
       // Données brutes disponibles (ancienne session) — re-parser via processDataFromRaw
       processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});
     }else if(_S._bufC){
-      // Buffers disponibles (nouveau système worker) — re-lancer le parse worker avec le filtre période
+      // Fallback — buffers disponibles mais byMonth absent (edge case IDB ancien cache)
       (async()=>{
         showLoading('Recalcul période…','');
         try{
@@ -92,6 +102,93 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
       renderCanalAgence();renderCurrentTab();renderIRABanner();
     }
+  }
+
+  // ── _refilterFromByMonth — reconstruction instantanée ventesClientArticle + canalAgence ──
+  // Appelé quand _S._byMonth est disponible. Opère en <100ms sans re-lancer le Worker.
+  function _refilterFromByMonth(){
+    const pStart=_S.periodFilterStart;
+    const pEnd=_S.periodFilterEnd;
+    const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
+    const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+
+    // ── Reconstruire ventesClientArticle ──
+    const newVCA=new Map();
+    const newClientsMagasin=new Set();
+    const newClientsMagasinFreq=new Map();
+
+    const bm=_S._byMonth;
+    if(bm){
+      for(const cc in bm){
+        const articles=bm[cc];
+        for(const code in articles){
+          const months=articles[code];
+          for(const midxStr in months){
+            const midx=+midxStr;
+            if(midx<startIdx||midx>endIdx)continue;
+            const d=months[midxStr];
+            if(!d.sumCA&&!d.sumPrelevee)continue;
+            if(!newVCA.has(cc))newVCA.set(cc,new Map());
+            const artMap=newVCA.get(cc);
+            if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
+            const e=artMap.get(code);
+            e.sumCA+=d.sumCA;
+            e.sumPrelevee+=d.sumPrelevee;
+            e.sumCAPrelevee+=d.sumCAPrelevee||0;
+            e.countBL+=d.countBL;
+            if(d.sumPrelevee>0||d.sumCA>0){
+              newClientsMagasin.add(cc);
+              newClientsMagasinFreq.set(cc,(newClientsMagasinFreq.get(cc)||0)+d.countBL);
+            }
+          }
+        }
+      }
+    }
+
+    // sumCAAll : copier depuis ventesClientArticleFull (pleine période)
+    if(_S.ventesClientArticleFull?.size){
+      for(const[cc,artMap]of newVCA){
+        const fullMap=_S.ventesClientArticleFull.get(cc);
+        if(!fullMap)continue;
+        for(const[code,e]of artMap){
+          const ef=fullMap.get(code);
+          if(ef)e.sumCAAll=ef.sumCAAll||0;
+        }
+      }
+    }
+
+    _S.ventesClientArticle=newVCA;
+    _S.clientsMagasin=newClientsMagasin;
+    _S.clientsMagasinFreq=newClientsMagasinFreq;
+
+    // ── Reconstruire canalAgence depuis byMonthCanal ──
+    const bmc=_S._byMonthCanal;
+    if(bmc){
+      const newCanalAgence={};
+      for(const store in bmc){
+        if(_S.selectedMyStore&&store!=='INCONNU'&&store!==_S.selectedMyStore)continue;
+        for(const canal in bmc[store]){
+          const months=bmc[store][canal];
+          for(const midxStr in months){
+            const midx=+midxStr;
+            if(midx<startIdx||midx>endIdx)continue;
+            const d=months[midxStr];
+            if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,ca:0,caP:0,caE:0};
+            newCanalAgence[canal].bl+=d.countBL;
+            newCanalAgence[canal].ca+=d.sumCA;
+            newCanalAgence[canal].caP+=d.sumPrelevee||0;
+            newCanalAgence[canal].caE+=(d.sumCA-(d.sumPrelevee||0));
+          }
+        }
+      }
+      _S.canalAgence=newCanalAgence;
+    }
+
+    // ── Recalculer consommePeriodMin/Max ──
+    if(pStart)_S.consommePeriodMin=pStart;
+    if(pEnd)_S.consommePeriodMax=pEnd;
+
+    invalidateCache('tab','terr');
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
@@ -684,6 +781,10 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
     // hasCommandeCol — stocker pour info
     _S._hasCommandeCol = r.hasCommandeCol;
+
+    // Accumulation mensuelle — filtre période instantané
+    _S._byMonth      = r.byMonth      || null;
+    _S._byMonthCanal = r.byMonthCanal || null;
 
     // selectedMyStore
     _S.selectedMyStore = selectedStore || '';
