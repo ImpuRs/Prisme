@@ -819,9 +819,15 @@ function _renderClientSaisonnier(opps, monthOffset) {
   }
 
   const totalMontant = filtered.reduce((s, o) => s + o.montantPotentiel, 0);
+  const isReachat = !_hasFullYear();
 
-  // Toggle
-  const toggleHtml = `<div class="flex items-center gap-2 mb-3">
+  // Toggle — masqué en mode réachat (pas de données full-year pour naviguer)
+  const toggleHtml = isReachat
+    ? `<div class="flex items-center gap-2 mb-3">
+    <span class="text-sm font-bold t-inverse">📅 Opportunités de réachat</span>
+    <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
+   </div>`
+    : `<div class="flex items-center gap-2 mb-3">
     <button onclick="window._laboSaisonToggle(0)" class="text-[10px] px-3 py-1 rounded-full border ${isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[new Date().getMonth()]}</button>
     <button onclick="window._laboSaisonToggle(1)" class="text-[10px] px-3 py-1 rounded-full border ${!isThis ? 's-panel-inner font-bold t-inverse b-dark' : 's-card t-secondary b-light'}">${MOIS_NOMS[(new Date().getMonth() + 1) % 12]}</button>
     <span class="text-[10px] t-disabled ml-2">${filtered.length} opportunités · ${formatEuro(totalMontant)} potentiel</span>
@@ -898,11 +904,12 @@ function _quickScanSaisonnier() {
     return { n: _saisonData.length, ca: _saisonData.reduce((s, o) => s + o.montantPotentiel, 0) };
   }
 
-  // Quick check : has data at all?
   const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
   if (!_fullPDV?.size) return { n: 0, ca: 0 };
 
-  return { n: '?', ca: 0 };
+  // Estimation rapide avant premier clic — nb clients avec historique
+  const n = Math.min(_fullPDV.size, 999);
+  return { n: n > 0 ? n + '+' : 0, ca: 0 };
 }
 
 function _rerenderSaisonView() {
@@ -1674,7 +1681,7 @@ function _renderTileGrid(el) {
   const famSubtitle = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
   const stockSubtitle = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
   const empSubtitle = empScan.n > 0 ? `${empScan.n} emplacements · rendement moyen ${empScan.avg>=10?empScan.avg.toFixed(0):empScan.avg.toFixed(1)}×` : 'Cliquez pour analyser';
-  const saisonSubtitle = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
+  const saisonSubtitle = saisonScan.n !== 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
   const sqScan = _quickScanSquelette();
   const sqSubtitle = sqScan.n === '?' ? 'Cliquez pour analyser' : `${sqScan.impl} à implanter · ${sqScan.chall} à challenger`;
   const clScan = _quickScanClientele();
@@ -1883,7 +1890,7 @@ export function updateLaboTiles() {
 
   const saisonScan = _quickScanSaisonnier();
   const saisonSub = document.getElementById('laboTileSaisonSub');
-  if (saisonSub) saisonSub.textContent = saisonScan.n === '?' ? 'Cliquez pour analyser' : saisonScan.n > 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
+  if (saisonSub) saisonSub.textContent = saisonScan.n !== 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
 
   const sqScan = _quickScanSquelette();
   const sqSub = document.getElementById('laboTileSqSub');
