@@ -115,9 +115,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     const pEnd=_S.periodFilterEnd;
     const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
     const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
-    console.log('[refilter] start - byMonthCanal stores:', Object.keys(_S._byMonthCanal||{}));
-    console.log('[refilter] selectedMyStore:', _S.selectedMyStore);
-    console.log('[refilter] startIdx:', startIdx, 'endIdx:', endIdx);
 
     // ── Reconstruire ventesClientArticle ──
     const newVCA=new Map();
@@ -190,8 +187,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
           }
         }
       }
-      console.log('[refilter] newCanalAgence CA total:', Object.values(newCanalAgence).reduce((s,d)=>s+(d.ca||0),0));
-      _S.canalAgence=newCanalAgence;
+_S.canalAgence=newCanalAgence;
     }
 
     // ── Recalculer consommePeriodMin/Max ──

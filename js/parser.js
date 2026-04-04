@@ -17,8 +17,7 @@ import { _S, resetAppState, invalidateCache } from './state.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
 export async function parseChalandise(file) {
-  console.trace('[parseChalandise] appelée — fichier:', file?.name);
-  const isCSV = file.name.toLowerCase().endsWith('.csv');
+const isCSV = file.name.toLowerCase().endsWith('.csv');
   let data;
   if (isCSV) {
     const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'UTF-8'); });
