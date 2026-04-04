@@ -849,6 +849,15 @@ _S.canalAgence=newCanalAgence;
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
 
+      // Positionner sur le mois le plus récent par défaut
+      if (_S._byMonth && !_S.periodFilterStart) {
+        const _maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
+        if (_maxD) {
+          const _y = _maxD.getFullYear(), _m = _maxD.getMonth();
+          _S.periodFilterStart = new Date(_y, _m, 1);
+          _S.periodFilterEnd = new Date(_y, _m+1, 0, 23, 59, 59);
+        }
+      }
       // Initialiser canalAgence depuis byMonthCanal (pleine période ou filtre actif)
       if (_S._byMonth) _refilterFromByMonth();
 
