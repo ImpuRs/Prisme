@@ -111,6 +111,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     const pEnd=_S.periodFilterEnd;
     const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
     const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+    console.log('[refilter] start - byMonthCanal stores:', Object.keys(_S._byMonthCanal||{}));
+    console.log('[refilter] selectedMyStore:', _S.selectedMyStore);
+    console.log('[refilter] startIdx:', startIdx, 'endIdx:', endIdx);
 
     // ── Reconstruire ventesClientArticle ──
     const newVCA=new Map();
@@ -183,6 +186,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
           }
         }
       }
+      console.log('[refilter] newCanalAgence CA total:', Object.values(newCanalAgence).reduce((s,d)=>s+(d.ca||0),0));
       _S.canalAgence=newCanalAgence;
     }
 
@@ -735,6 +739,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.articleUnivers     = r.articleUnivers || {};
     _S.libelleLookup      = r.libelleLookup || {};
     _S.canalAgence        = r.canalAgence || {};
+    _S._byMonth           = r.byMonth      || null;
+    _S._byMonthCanal      = r.byMonthCanal || null;
     _S.finalData          = r.finalData || [];
     _S.abcMatrixData      = r.abcMatrixData || {};
     _S.stockParMagasin    = r.stockParMagasin || {};
@@ -796,10 +802,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     // hasCommandeCol — stocker pour info
     _S._hasCommandeCol = r.hasCommandeCol;
 
-    // Accumulation mensuelle — filtre période instantané
-    _S._byMonth      = r.byMonth      || null;
-    _S._byMonthCanal = r.byMonthCanal || null;
-
     // selectedMyStore
     _S.selectedMyStore = selectedStore || '';
     if (selectedStore) localStorage.setItem('prisme_selectedStore', selectedStore);
@@ -817,6 +819,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
+
+      // Initialiser canalAgence depuis byMonthCanal (pleine période ou filtre actif)
+      if (_S._byMonth) _refilterFromByMonth();
 
       // Fix articleFamille depuis stock (stock est master)
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
