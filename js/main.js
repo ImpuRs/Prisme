@@ -54,13 +54,44 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     invalidateCache('tab', 'terr');
     buildPeriodFilter(); // mettre à jour labels boutons + état pills
     const _refilterDataC=(_S._rawDataCFiltered?.rows?.length)?_S._rawDataCFiltered:_S._rawDataC;
-    if(_refilterDataC?.rows?.length){processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});}else{
+    if(_refilterDataC?.rows?.length){
+      // Données brutes disponibles (ancienne session) — re-parser via processDataFromRaw
+      processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});
+    }else if(_S._bufC){
+      // Buffers disponibles (nouveau système worker) — re-lancer le parse worker avec le filtre période
+      (async()=>{
+        showLoading('Recalcul période…','');
+        try{
+          const parseResult=await launchParseWorker(_S._bufC.slice(0),_S._bufS?_S._bufS.slice(0):null,{
+            selectedStore:_S.selectedMyStore||'',
+            storesIntersection:[..._S.storesIntersection],
+            periodStart:_S.periodFilterStart?_S.periodFilterStart.getTime():null,
+            periodEnd:_S.periodFilterEnd?_S.periodFilterEnd.getTime():null,
+            isRefilter:true,
+          });
+          // Sauvegarder les données période-invariantes avant hydratation
+          const _savedFull=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
+          const _savedHors=_S.ventesClientHorsMagasin;
+          const _savedLastOrderAll=_S.clientLastOrderAll;
+          const _savedLastOrderByCanal=_S.clientLastOrderByCanal;
+          _hydrateStateFromParseResult(parseResult,_S.selectedMyStore);
+          // Restaurer les invariants période (hors-MAGASIN ne change pas au refilter)
+          if(!_S.ventesClientArticleFull.size&&_savedFull.size)_S.ventesClientArticleFull=_savedFull;
+          if(!_S.ventesClientHorsMagasin.size&&_savedHors.size)_S.ventesClientHorsMagasin=_savedHors;
+          if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
+          if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
+          enrichPrixUnitaire();_enrichFinalDataWithCA();
+          if(_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}
+          computeClientCrossing();_computeClientDominantUnivers();
+          renderCanalAgence();renderCurrentTab();renderIRABanner();
+        }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();renderIRABanner();}
+        finally{hideLoading();}
+      })();
+    }else{
       // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
-      // Les agrégats période-dépendants (ventesClientArticle, canalAgence…) restent figés à la
-      // période de la dernière sauvegarde ; seul le rendu (labels, territoire, filtres) est mis à jour.
       showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
       renderCanalAgence();renderCurrentTab();renderIRABanner();
-    } // recalcul complet des agrégats sur la période filtrée
+    }
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
@@ -495,55 +526,270 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     }
 
     showLoading('Lecture…','');await yieldToMain();
-    let dataC,dataS;
+
+    // ── Lecture parallèle des ArrayBuffers ──
+    let bufC, bufS;
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
-      updateProgress(10,100,'Lecture fichiers (parallèle)…');
-      [dataC,dataS]=await Promise.all([
-        readExcel(f1, (msg, pct) => updateProgress(pct, 100, msg)),
-        f2 ? readExcel(f2) : Promise.resolve({headers:[], rows:[]})
+      updateProgress(10,100,'Lecture fichiers…');
+      [bufC, bufS] = await Promise.all([
+        f1.arrayBuffer(),
+        f2 ? f2.arrayBuffer() : Promise.resolve(null)
       ]);
-      dataS = readExcelAsObjects(dataS); // stock: convert to objects (small file, ~7k rows)
-      updateProgress(40,100,'Fichiers chargés…');await yieldToMain();
+      updateProgress(18,100,'Buffers prêts…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
-    _S._rawDataC=dataC;_S._rawDataS=dataS;
 
-    // ── Scan rapide : détecter les agences dans dataC et dataS ──
-    updateProgress(42,100,'Détection agences…');
-    const storeIdxC=_detectStoreColumnIdx(dataC.headers);
-    const storesFoundC=new Set();
-    for(const row of dataC.rows){const s=storeIdxC>=0?(row[storeIdxC]??'').toString().trim().toUpperCase():'';if(s)storesFoundC.add(s);}
-    const storeColumnS=_detectStoreColumn((dataS&&dataS[0])||null);
-    const storesFoundS=new Set();
-    if(dataS&&dataS.length){for(const row of dataS){const s=storeColumnS?(row[storeColumnS]||'').toString().trim().toUpperCase():'';if(s)storesFoundS.add(s);}}
-    if(storesFoundS.size){_S.storesIntersection=new Set();for(const s of storesFoundC)if(storesFoundS.has(s))_S.storesIntersection.add(s);}
-    else{_S.storesIntersection=new Set(storesFoundC);}
-    _S.storeCountConsomme=storesFoundC.size;_S.storeCountStock=storesFoundS.size;
+    // Stocker les buffers pour refilter période ultérieur
+    // Note: slice() pour ne pas transférer l'original (il sera transféré au worker)
+    _S._bufC = bufC.slice(0);
+    _S._bufS = bufS ? bufS.slice(0) : null;
+    _S._rawDataC = null; _S._rawDataS = [];
+
+    // ── Lancement du worker de parsing ──
+    updateProgress(20,100,'Parsing en cours (Worker)…');
+    let parseResult;
+    try{
+      parseResult = await launchParseWorker(bufC, bufS, {
+        selectedStore: selectedStore || '',
+        storesIntersection: [],  // worker va détecter lui-même
+      });
+    }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
+
+    // ── Agences détectées par le worker ──
+    const storesFoundC = new Set(parseResult.storesFoundC || []);
+    const storesFoundS = new Set(parseResult.storesFoundS || []);
+    _S.storesIntersection = new Set(parseResult.storesIntersection || []);
+    _S.storeCountConsomme = storesFoundC.size;
+    _S.storeCountStock = storesFoundS.size;
 
     // ── Valider l'agence pré-sélectionnée contre les données réelles ──
-    // (cas où AGENCE_CP était utilisé mais l'agence n'est pas dans ce fichier)
     if(selectedStore&&!_S.storesIntersection.has(selectedStore))selectedStore='';
     if(_S.storesIntersection.size>1&&!selectedStore){
-      // Fallback : sélecteur avec les agences réelles du fichier
       selectedStore=await _showStoreSelector(_S.storesIntersection);
     }
     if(_S.storesIntersection.size===1)selectedStore=[..._S.storesIntersection][0];
-    _S.selectedMyStore=selectedStore;
+
+    // Si l'agence change après le parse worker, on devra re-parser — mais dans la plupart des cas
+    // l'agence était déjà connue (pré-sélectionnée). Si elle a changé, relancer le worker avec la bonne agence.
+    if(selectedStore && parseResult.storesIntersection && !parseResult.storesIntersection.includes(selectedStore)){
+      // Agence nouvellement sélectionnée — re-lancer le worker avec le bon store
+      updateProgress(20,100,'Re-parsing pour agence '+selectedStore+'…');
+      try{
+        parseResult = await launchParseWorker(_S._bufC.slice(0), _S._bufS ? _S._bufS.slice(0) : null, {
+          selectedStore: selectedStore,
+          storesIntersection: [..._S.storesIntersection],
+        });
+      }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
+    }
+
+    // ── Hydrater _S depuis le résultat du worker ──
+    _hydrateStateFromParseResult(parseResult, selectedStore);
+
+    _S.selectedMyStore = selectedStore;
     if(selectedStore)localStorage.setItem('prisme_selectedStore',selectedStore);
-    // Mettre à jour le dropdown pour que processDataFromRaw le retrouve
     if(_selStore&&selectedStore){_selStore.innerHTML='<option value="">—</option>'+[..._S.storesIntersection].sort().map(s=>`<option value="${s}">${s}</option>`).join('');_selStore.value=selectedStore;}
     document.getElementById('storeSelector').classList.add('hidden');
 
-    // Pré-scan O(n) pour trouver la date max → filtre période positionné AVANT le parse unique
-    _S.periodFilterStart=null;_S.periodFilterEnd=null;
-    if(dataC.rows.length){
-      const _ps_hC=dataC.headers;const _ps_nrm=s=>(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const _ps_fc=(...t)=>_ps_hC.findIndex(h=>t.some(s=>_ps_nrm(h).includes(_ps_nrm(s))));const _ps_jourIdx=_ps_fc('jour','date');
-      if(_ps_jourIdx>=0){let _ps_maxTs=0;for(let _pi=0;_pi<dataC.rows.length;_pi++){const _pd=parseExcelDate(dataC.rows[_pi][_ps_jourIdx]);if(_pd&&!isNaN(_pd)){const _ts=_pd.getTime();if(_ts>_ps_maxTs)_ps_maxTs=_ts;}}
-      if(_ps_maxTs>0){const _pD=new Date(_ps_maxTs);const _py=_pD.getFullYear(),_pm=_pD.getMonth();_S.periodFilterStart=new Date(_py,_pm,1);_S.periodFilterEnd=new Date(_py,_pm+1,0,23,59,59);}}
-    }
-    // Parse unique — W/V/MIN/MAX et ventesClientArticleFull hoistés avant le filtre période
-    await processDataFromRaw(dataC,dataS,{storeOverride:selectedStore||'',_f1:f1,_f2:f2||null});
+    // ── Suite du pipeline (enrichissement, chalandise, benchmark, render) ──
+    // Étapes post-hydratation côté main thread : enrichPrixUnitaire, chalandise, benchmark, render
+    await _postParseMain({storeOverride: selectedStore||'', _f1: f1, _f2: f2||null});
     buildPeriodFilter();
+  }
+
+  // ── launchParseWorker — lance parse-worker.js et retourne le payload ──
+  function launchParseWorker(bufC, bufS, opts) {
+    return new Promise(function(resolve, reject) {
+      const worker = new Worker('js/parse-worker.js');
+      worker.onmessage = function(ev) {
+        const msg = ev.data;
+        if (msg.type === 'progress') {
+          updateProgress(msg.pct, 100, msg.msg);
+        } else if (msg.type === 'done') {
+          worker.terminate();
+          resolve(msg.payload);
+        } else if (msg.type === 'error') {
+          worker.terminate();
+          reject(new Error(msg.msg));
+        }
+      };
+      worker.onerror = function(err) { worker.terminate(); reject(new Error('ParseWorker: ' + (err.message||'erreur'))); };
+      const transferables = [bufC];
+      if (bufS) transferables.push(bufS);
+      worker.postMessage(Object.assign({ bufC: bufC, bufS: bufS || null }, opts), transferables);
+    });
+  }
+
+  // ── _hydrateStateFromParseResult — reconstruit _S depuis le payload worker ──
+  function _hydrateStateFromParseResult(r, selectedStore) {
+    // Objets plain
+    _S.articleRaw         = r.articleRaw || {};
+    _S.articleMonthlySales= r.monthlySales || {};
+    _S.ventesParMagasin   = r.ventesParMagasin || {};
+    _S.ventesParMagasinByCanal = r.ventesParMagasinByCanal || {};
+    _S.clientNomLookup    = r.clientNomLookup || {};
+    _S.articleFamille     = r.articleFamille || {};
+    _S.articleUnivers     = r.articleUnivers || {};
+    _S.libelleLookup      = r.libelleLookup || {};
+    _S.canalAgence        = r.canalAgence || {};
+    _S.finalData          = r.finalData || [];
+    _S.abcMatrixData      = r.abcMatrixData || {};
+    _S.stockParMagasin    = r.stockParMagasin || {};
+    _S.ventesAnalysis     = r.ventesAnalysis || { refParBL:0, famParBL:0, totalBL:0, refActives:0, attractivite:{}, nbPassages:0, txMarge:null, vmc:null };
+    _S.globalJoursOuvres  = r.joursOuvres || 250;
+    _S.consommeMoisCouverts = r.consommeMoisCouverts || 0;
+    _S._hasStock = _S.finalData.length > 0;
+
+    // Reconstruire ventesClientsPerStore (Sets)
+    const vcps = r.ventesClientsPerStore || {};
+    _S.ventesClientsPerStore = {};
+    for (const sk in vcps) { _S.ventesClientsPerStore[sk] = new Set(vcps[sk]); }
+
+    // blData — worker retourne { codesSize, famillesSize } uniquement (Sets non sérialisables)
+    // On recrée une structure allégée compatible avec le reste du code
+    _S.blData = {};
+    const blDataSer = r.blData || {};
+    for (const blk in blDataSer) {
+      _S.blData[blk] = { codes: new Set(), familles: new Set() };
+      // On ne peut pas reconstruire les sets exacts, mais blConsommeSet est recalculé ci-dessous
+    }
+    _S.blConsommeSet = new Set(Object.keys(_S.blData));
+
+    // Dates
+    _S.consommePeriodMin = r.minDateVente ? new Date(r.minDateVente) : null;
+    _S.consommePeriodMax = r.maxDateVente ? new Date(r.maxDateVente) : null;
+    _S.consommePeriodMinFull = _S.consommePeriodMin;
+    _S.consommePeriodMaxFull = _S.consommePeriodMax;
+    _S.periodFilterStart = r.periodFilterStart ? new Date(r.periodFilterStart) : null;
+    _S.periodFilterEnd   = r.periodFilterEnd   ? new Date(r.periodFilterEnd)   : null;
+
+    // Maps imbriquées
+    _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesClientArticleFull = new Map((r.ventesClientArticleFull||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesClientHorsMagasin = new Map((r.ventesClientHorsMagasin||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
+    _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
+    _S.clientLastOrderByCanal  = new Map((r.clientLastOrderByCanal||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.clientArticles          = new Map((r.clientArticles||[]).map(([k,v]) => [k, new Set(v)]));
+    _S.articleClients          = new Map((r.articleClients||[]).map(([k,v]) => [k, new Set(v)]));
+    _S.articleCanalCA          = new Map((r.articleCanalCA||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.blCanalMap              = new Map(r.blCanalMap||[]);
+    _S.clientsMagasin          = new Set(r.clientsMagasin||[]);
+    _S.clientsMagasinFreq      = new Map(r.clientsMagasinFreq||[]);
+    _S.cannauxHorsMagasin      = new Set(r.cannauxHorsMagasin||[]);
+    _S.blPreleveeSet           = new Set(r.blPreleveeSet||[]);
+
+    // Recalcul seasonalIndex depuis monthlySales (B3)
+    _computeSeasonalIndex(_S.articleMonthlySales);
+
+    // storesIntersection (si pas déjà set par processData)
+    if (r.storesIntersection && r.storesIntersection.length) {
+      _S.storesIntersection = new Set(r.storesIntersection);
+    }
+    _S.storeCountConsomme = (r.storesFoundC||[]).length;
+    _S.storeCountStock    = (r.storesFoundS||[]).length;
+
+    // hasCommandeCol — stocker pour info
+    _S._hasCommandeCol = r.hasCommandeCol;
+
+    // selectedMyStore
+    _S.selectedMyStore = selectedStore || '';
+    if (selectedStore) localStorage.setItem('prisme_selectedStore', selectedStore);
+  }
+
+  // ── _postParseMain — étapes post-hydratation côté main thread ────────────
+  // Equivalent à la fin de processDataFromRaw() mais sans re-parser les fichiers.
+  async function _postParseMain(opts) {
+    const {storeOverride='', _f1=null, _f2=null} = opts;
+    const t0 = performance.now();
+    const btn = document.getElementById('btnCalculer'); btn.disabled = true;
+    try {
+      const useMulti = _S.storesIntersection.size > 1 && _S.selectedMyStore;
+
+      // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
+      enrichPrixUnitaire();
+      _enrichFinalDataWithCA();
+
+      // Fix articleFamille depuis stock (stock est master)
+      for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
+      // Recalcul seasonalIndex après enrichissement articleFamille
+      _computeSeasonalIndex(_S.articleMonthlySales);
+
+      // Patch obsKpis.mine depuis canalAgence (si benchmark déjà présent)
+      if (_S.periodFilterStart || _S.periodFilterEnd) {
+        if (_S.benchLists?.obsKpis) {
+          const _ca = Object.values(_S.canalAgence).reduce((t,v)=>t+(v.ca||0),0);
+          _S.benchLists.obsKpis.mine = {
+            ca: _ca,
+            ref: _S.benchLists.obsKpis.mine?.ref||0,
+            freq: Object.values(_S.canalAgence).reduce((t,v)=>t+(v.bl||0),0),
+            serv: _S.benchLists.obsKpis.mine?.serv||0,
+            pdm: _S.benchLists.obsKpis.mine?.pdm||0,
+            txMarge: _S.benchLists.obsKpis.mine?.txMarge||0
+          };
+          invalidateCache('bench');
+        }
+      }
+
+      updatePipeline('consomme','done');
+      updatePipeline('stock','done');
+
+      // Chalandise + livraisons (si fichiers chargés)
+      {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(f4);}finally{_S._chalandiseLoading=false;}}}
+      {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);}
+
+      // ABC/FMR + selects
+      if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
+      updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();
+      assertPostParseInvariants();
+      updateProgress(95,100,'Affichage…');await yieldToMain();
+
+      // Repeupler les selects depuis finalData
+      const familles=new Set(),sousFamilles=new Set(),emplacements=new Set(),statuts=new Set();
+      for(const r of DataStore.finalData){
+        if(r.famille&&r.famille!=='Non Classé')familles.add(r.famille);
+        if(r.sousFamille)sousFamilles.add(r.sousFamille);
+        if(r.emplacement)emplacements.add(r.emplacement);
+        if(r.statut)statuts.add(r.statut);
+      }
+      populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
+
+      const elapsed=((performance.now()-t0)/1000).toFixed(1);
+      document.getElementById('navStats').textContent=DataStore.finalData.length.toLocaleString('fr')+' art.';document.getElementById('navStats').classList.remove('hidden');
+      document.getElementById('navPerf').textContent=elapsed+'s';document.getElementById('navPerf').classList.remove('hidden');
+      const _navSt=document.getElementById('navStore');if(_navSt){_navSt.textContent=_S.selectedMyStore||'';_navSt.classList.toggle('hidden',!_S.selectedMyStore);}
+      document.getElementById('navReportingBtn').classList.remove('hidden');
+      document.getElementById('globalFilters').classList.remove('hidden');
+      document.body.classList.add('pilot-loaded');
+      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
+      const _terrBtn=document.getElementById('btnTabTerritoire');_terrBtn.classList.remove('hidden');
+      const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
+      const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
+
+      computeClientCrossing();computeReconquestCohort();
+      if(_S.chalandiseReady)_computeChalandiseDistances();
+      if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      _S.currentPage=0;
+      if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
+      renderAll();
+      _syncTabAccess();
+
+      // Auto-YTD si consommé court
+      if(_S.consommeMoisCouverts<6&&(_S._globalPeriodePreset||'12M')==='12M'){_S._globalPeriodePreset='YTD';setPeriodePreset('YTD');}
+
+      if(_S.cannauxHorsMagasin.size>0){const _labelsCanaux={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS'};const _listeCanaux=[..._S.cannauxHorsMagasin].map(c=>_labelsCanaux[c]||c).join(', ');showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`,'success',6000);}
+
+      updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
+      renderSidebarAgenceSelector();
+      switchTab('labo');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
+      const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
+      collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
+      const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
+
+      if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2);}
+    }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
+    finally{btn.disabled=false;hideLoading();}
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
