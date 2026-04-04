@@ -108,6 +108,10 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
   // Appelé quand _S._byMonth est disponible. Opère en <100ms sans re-lancer le Worker.
   let _refilterRunning=false;
   function _refilterFromByMonth(){
+    if(!_S._byMonth){
+      applyPeriodFilter(_S.periodFilterStart?.getTime()||null,_S.periodFilterEnd?.getTime()||null);
+      return;
+    }
     if(_refilterRunning){console.warn('[refilter] appel concurrent bloqué');return;}
     _refilterRunning=true;
     try{
@@ -2234,7 +2238,7 @@ window._toggleReseauCanal = function(canal) {
   renderBenchmark();
 };
 window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('bench');[['resMagModeAll','all'],['resMagModePrel','preleve'],['resMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});computeBenchmark(_S._reseauCanaux||new Set());renderBenchmark();};
-window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});if(_S._byMonth)window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
+window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
 window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauUnderPage=0;_S._reseauMissedShowAll=false;_S._reseauUnderShowAll=false;renderBenchmark();};
 // (moved to ACTION_REGISTRY: _reseauShowAll, _reseauPage)
 window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._reseauMissedPage=0;_S._reseauMissedShowAll=false;renderBenchmark();};

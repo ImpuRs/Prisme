@@ -139,7 +139,7 @@ export function _setGlobalCanal(canal) {
   const _mmBar = document.getElementById('globalMagasinModeBar');
   if (_mmBar) _mmBar.classList.toggle('hidden', canal !== 'MAGASIN');
   // Refilter ventesClientArticle + canalAgence pour le canal actif
-  if (_S._byMonth) window._refilterFromByMonth?.();
+  window._refilterFromByMonth?.();
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
