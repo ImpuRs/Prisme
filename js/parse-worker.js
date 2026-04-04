@@ -414,12 +414,20 @@ self.onmessage = async function(ev) {
       var idx = headersC.findIndex(function(h) { return t.some(function(s) { return _nrm(h).includes(_nrm(s)); }); });
       return idx >= 0 ? idx : null;
     };
+    var MOIS_FR = {
+      'janv.':0,'févr.':1,'mars':2,'avr.':3,'mai':4,'juin':5,
+      'juil.':6,'août':7,'sept.':8,'oct.':9,'nov.':10,'déc.':11,
+      // variantes sans point
+      'janv':0,'févr':1,'avr':3,'juil':6,'sept':8,'oct':9,'nov':10,'déc':11
+    };
     var CI = {
       store: _fc('code pdv', 'pdv', 'code agence', 'agence', 'code depot', 'depot'),
       article: _fc('code - désignation', 'code et nom article', 'article'),
       client: _fc('code et nom client', 'code client', 'client'),
       canal: _fc('canal commande', 'canal'),
       jour: _fc('jour', 'date'),
+      annee: _fc('année', 'annee', 'year'),
+      mois: _fc('mois'),
       bl: _fc('n° bl', 'numéro de bl', 'numero bl'),
       commande: _fc('numéro de commande', 'n° commande'),
       caE: _fc('ca enlevé', 'ca enleve'),
@@ -435,15 +443,29 @@ self.onmessage = async function(ev) {
     if (CI.famille < 0) CI.famille = null;
     if (CI.univers < 0) CI.univers = null;
 
+    // Helper date CSV : reconstruit depuis colonne jour OU colonnes annee+mois
+    var _parseDateRow = function(prow) {
+      if (CI.jour !== null && prow[CI.jour] != null && prow[CI.jour] !== '') {
+        return parseExcelDate(prow[CI.jour]);
+      }
+      if (CI.annee !== null && CI.mois !== null) {
+        var yr = parseInt(prow[CI.annee] || '', 10);
+        var mStr = (prow[CI.mois] || '').toString().trim().toLowerCase();
+        var mi = MOIS_FR[mStr];
+        if (!isNaN(yr) && mi !== undefined) return new Date(yr, mi, 1);
+      }
+      return null;
+    };
+
     var periodFilterStart = periodStart;
     var periodFilterEnd = periodEnd;
 
     // Pré-scan si pas de période fournie
-    if (!isRefilter && !periodFilterStart && CI.jour !== null) {
+    if (!isRefilter && !periodFilterStart && (CI.jour !== null || (CI.annee !== null && CI.mois !== null))) {
       var _ps_maxTs = 0;
       for (var psi = 1; psi < dataC.rows.length; psi++) {
         var prow = dataC.rows[psi]; if (!prow) continue;
-        var _pd = parseExcelDate(prow[CI.jour] != null ? prow[CI.jour] : null);
+        var _pd = _parseDateRow(prow);
         if (_pd && !isNaN(_pd)) { var ts = _pd.getTime(); if (ts > _ps_maxTs) _ps_maxTs = ts; }
       }
       if (_ps_maxTs > 0) {
@@ -512,7 +534,7 @@ self.onmessage = async function(ev) {
       var _rnc = (CI.commande !== null ? (row[CI.commande] != null ? row[CI.commande] : '').toString() : '').trim();
       var _rbl2 = (CI.bl !== null ? (row[CI.bl] != null ? row[CI.bl] : '').toString() : '').trim();
       var _rncb = _rnc || _rbl2;
-      var _rj = CI.jour !== null ? row[CI.jour] : null;
+      var _rj = isCsvC ? _parseDateRow(row) : (CI.jour !== null ? row[CI.jour] : null);
       var canal = (CI.canal !== null ? (row[CI.canal] != null ? row[CI.canal] : '') : '').toString().trim().toUpperCase();
 
       // Period-independent blocks (always on first parse — isRefilter=false in worker)
