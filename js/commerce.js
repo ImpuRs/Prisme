@@ -891,7 +891,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
   }
 
   function renderMesClients(){
-    const el=document.getElementById('tabClients');
+    const el=document.getElementById('tabCommerce');
     if(!el)return;
     const pane=document.getElementById('clientsPane-priorites');
     if(!pane)return;
