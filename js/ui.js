@@ -122,6 +122,9 @@ export function expandImportZone() {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
+  // Invalider le hash-check — le prochain Analyser fera un parse complet avec sélecteur d'agence
+  localStorage.removeItem('prisme_fileHashes');
+  localStorage.removeItem('prisme_idbSavedAt');
 }
 
 // ── Canal global — pill selector ──────────────────────────────
