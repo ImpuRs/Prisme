@@ -839,7 +839,6 @@ function _renderClientSaisonnier(opps, monthOffset) {
   </div>`;
 
   // Mode label
-  const isReachat = filtered.length > 0 && filtered[0].mode === 'reachat';
   const modeLabel = isReachat
     ? `<div class="text-[9px] t-disabled mb-2 px-1">📊 Historique &lt; 12 mois — mode réachat : articles achetés précédemment mais pas ce mois-ci</div>`
     : '';
