@@ -292,12 +292,25 @@ function _median(arr) {
 // ════════════════════════════════════════════════════════════════════════════
 // HANDLER PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
-self.onmessage = function(ev) {
+
+// Attendre un message {type:'continue'} du main thread (sélection agence)
+function waitForContinue() {
+  return new Promise(function(resolve) {
+    var prev = self.onmessage;
+    self.onmessage = function(ev) {
+      if (ev.data && ev.data.type === 'continue') {
+        self.onmessage = prev;
+        resolve((ev.data.selectedStore || '').toUpperCase());
+      }
+    };
+  });
+}
+
+self.onmessage = async function(ev) {
   var data = ev.data;
+  if (data.type === 'continue') return; // message tardif, ignorer
   var bufC = data.bufC;
   var bufS = data.bufS;
-  var selectedStore = (data.selectedStore || '').toUpperCase();
-  var storesIntersection = new Set(data.storesIntersection || []);
   var periodStart = data.periodStart ? new Date(data.periodStart) : null;
   var periodEnd = data.periodEnd ? new Date(data.periodEnd) : null;
   var isRefilter = !!data.isRefilter;
@@ -346,8 +359,23 @@ self.onmessage = function(ev) {
     } else {
       computedIntersection = new Set(storesFoundC);
     }
-    // Use provided storesIntersection if already computed (passed from main thread), else use computed
-    if (storesIntersection.size === 0) storesIntersection = computedIntersection;
+    var storesIntersection = computedIntersection;
+
+    // ── 3b. Sélection agence — déléguer au main thread si premier parse ──
+    var selectedStore;
+    if (isRefilter) {
+      // Refilter : agence déjà connue, main thread la fournit directement
+      selectedStore = (data.selectedStore || '').toUpperCase();
+    } else {
+      // Premier parse : envoyer la liste des agences et attendre le choix
+      self.postMessage({
+        type: 'stores',
+        storesFoundC: [...storesFoundC],
+        storesFoundS: [...storesFoundS],
+        storesIntersection: [...storesIntersection],
+      });
+      selectedStore = await waitForContinue();
+    }
 
     var hasMulti = storesIntersection.size > 1;
     var useMulti = hasMulti && selectedStore;
@@ -1084,6 +1112,7 @@ self.onmessage = function(ev) {
         storesIntersection: Array.from(storesIntersection),
         hasCommandeCol: _hasCommandeCol,
         headersC: headersC,
+        _resolvedStore: selectedStore,
         // Maps sérialisées
         ventesClientArticle: serMap(ventesClientArticle),
         ventesClientArticleFull: serMap(ventesClientArticleFull),
