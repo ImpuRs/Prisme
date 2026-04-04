@@ -698,11 +698,11 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     if(canal){
       txMarge=_S.ventesAnalysis?.txMarge;vmc=_S.ventesAnalysis?.vmc;
     }else{
-      // Tx marge tous canaux — VMB depuis ventesParMagasinByCanal[selectedMyStore]
-      let _vmbTC=0;const _vpmbc=_S.ventesParMagasinByCanal?.[_S.selectedMyStore]||{};
-      for(const arts of Object.values(_vpmbc))for(const d of Object.values(arts))_vmbTC+=d.sumVMB||0;
+      // Tx marge tous canaux — VMB depuis canalAgence (recalculé par _refilterFromByMonth)
+      let _vmbTC=0;
+      for(const d of Object.values(_S.canalAgence||{}))_vmbTC+=d.sumVMB||0;
       txMarge=ca>0?(_vmbTC/ca*100):null;
-      vmc=nbBL>0?Math.round(ca/nbBL):null;
+      vmc=nbBL>0?ca/nbBL:null;
     }
     const extraParts=[];if(txMarge>0)extraParts.push(`Tx\u00a0marge\u00a0: <strong>${txMarge.toFixed(2)}%</strong>`);if(vmc>0)extraParts.push(`VMC\u00a0: <strong>${Math.round(vmc).toLocaleString('fr')}\u00a0€</strong>`);
     const pS=_S.periodFilterStart||_S.consommePeriodMin;const pE=_S.periodFilterEnd||_S.consommePeriodMax;
