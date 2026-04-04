@@ -886,7 +886,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
       computeClientCrossing();computeReconquestCohort();
-      if(_S.chalandiseReady)_computeChalandiseDistances();
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
