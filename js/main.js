@@ -852,8 +852,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       updatePipeline('consomme','done');
       updatePipeline('stock','done');
 
-      // Chalandise + livraisons (si fichiers chargés)
-      {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(f4);}finally{_S._chalandiseLoading=false;}}}
+      // Livraisons (chalandise parsée dans processDataFromRaw — évite double parse)
       {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);}
 
@@ -1288,9 +1287,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       _S._hasStock = _S.finalData.length > 0;
       }else{updatePipeline('stock','skip');} // ── fin bloc stock ──────────────────────
 
-      // Re-parse livraisons + benchmark — skipped for isRefilter (period-independent)
-      // Chalandise : géré dans _postParseMain uniquement (évite double parse)
+      // Re-parse chalandise/livraisons + benchmark — skipped for isRefilter (period-independent)
       if(!isRefilter){
+        {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(f4);}finally{_S._chalandiseLoading=false;}}}
         {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
         if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
       }
