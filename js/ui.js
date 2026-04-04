@@ -190,7 +190,12 @@ export function switchTab(id) {
 export function openFilterDrawer() {
   const panel = document.getElementById('filterPanel');
   const overlay = document.getElementById('filterOverlay');
-  if (panel) panel.classList.add('drawer-open');
+  if (panel) {
+    const hh = (document.getElementById('stickyHeader')?.offsetHeight || 0);
+    panel.style.top = hh + 'px';
+    panel.style.height = `calc(100dvh - ${hh}px)`;
+    panel.classList.add('drawer-open');
+  }
   if (overlay) overlay.classList.add('active');
 }
 

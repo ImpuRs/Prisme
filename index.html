@@ -435,7 +435,7 @@
     /* Chrome 131+ makes <summary> position:sticky by default — override to prevent z-index bleed */
     details>summary{position:relative}
     /* Mobile drawer */
-    #filterPanel.drawer-open{display:flex!important;position:fixed;top:0;left:0;height:100dvh;max-height:100dvh;z-index:70;transform:translateX(0);overflow:hidden}
+    #filterPanel.drawer-open{display:flex!important;position:fixed;left:0;z-index:70;transform:translateX(0);overflow:hidden}
     #filterPanel.drawer-open #filterPanelContent{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0}
     #filterOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60}
     #filterOverlay.active{display:block}
