@@ -464,6 +464,8 @@ self.onmessage = async function(ev) {
     var minDateVente = Infinity, maxDateVente = 0;
     var _tempCAAll = new Map();
     var _tempCAAllFull = new Map();
+    var byMonth = {};        // cc → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBP, sumCAPrelevee}
+    var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
 
     var rows = dataC.rows;
     var totalRows = rows.length;
@@ -548,6 +550,19 @@ self.onmessage = async function(ev) {
           var _prevC = _cMap.get(_cByC);
           if (!_prevC || dateV > _prevC) _cMap.set(_cByC, dateV);
         }
+      }
+
+      // byMonthCanal — accumulation mensuelle tous canaux pour reconstruction canalAgence par période
+      if (dateV && canal && (!selectedStore || _rs === 'INCONNU' || _rs === selectedStore)) {
+        var _midxC = dateV.getFullYear() * 12 + dateV.getMonth();
+        var _skC = _rs;
+        if (!byMonthCanal[_skC]) byMonthCanal[_skC] = {};
+        if (!byMonthCanal[_skC][canal]) byMonthCanal[_skC][canal] = {};
+        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, countBL: 0 };
+        var _bmce = byMonthCanal[_skC][canal][_midxC];
+        _bmce.sumCA += _rcp + _rce;
+        if (_rqp > 0) _bmce.sumPrelevee += _rcp;
+        _bmce.countBL++;
       }
 
       // _tempCAAll (période filtrée, tous canaux)
@@ -678,6 +693,21 @@ self.onmessage = async function(ev) {
         if (qteP > 0) { _eF.sumPrelevee += qteP; _eF.sumCAPrelevee += caP; }
         _eF.sumCA += caP + caE;
         if (qteP > 0 || qteE > 0) _eF.countBL++;
+      }
+
+      // byMonth — accumulation mensuelle pleine période pour filtre instantané (MAGASIN, myStore)
+      if (dateV && cc2 && code && (!selectedStore || sk === selectedStore)) {
+        var _monthIdx = dateV.getFullYear() * 12 + dateV.getMonth();
+        if (!byMonth[cc2]) byMonth[cc2] = {};
+        if (!byMonth[cc2][code]) byMonth[cc2][code] = {};
+        var _bm = byMonth[cc2][code];
+        if (!_bm[_monthIdx]) _bm[_monthIdx] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBP: 0, sumCAPrelevee: 0 };
+        var _bme = _bm[_monthIdx];
+        _bme.sumCA += caP + caE;
+        if (qteP > 0) { _bme.sumPrelevee += qteP; _bme.sumCAPrelevee += caP; }
+        if (qteP > 0 || qteE > 0) _bme.countBL++;
+        _bme.sumVMB += _rvp + _rve;
+        _bme.sumVMBP += _rvp;
       }
 
       // Filtre période
@@ -1129,6 +1159,8 @@ self.onmessage = async function(ev) {
         cannauxHorsMagasin: Array.from(cannauxHorsMagasin),
         blPreleveeSet: Array.from(blPreleveeSet),
         passagesUniques: Array.from(passagesUniques),
+        byMonth: byMonth,
+        byMonthCanal: byMonthCanal,
       }
     });
 
