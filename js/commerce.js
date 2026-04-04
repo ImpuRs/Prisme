@@ -444,7 +444,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     // terrDegradedBlock: degraded mode only
     const terrDeg=document.getElementById('terrDegradedBlock');if(terrDeg)terrDeg.classList.toggle('hidden',hasTerr||(!hasData&&!hasConsomme));
     // terrFiltersBlock (search/direction/secteur/rayon) — visible si fichier territoire chargé
-    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasTerr);
+    const terrFilBlk=document.getElementById('terrFiltersBlock');if(terrFilBlk)terrFilBlk.classList.toggle('hidden',!hasData&&!hasConsomme);
     const terrFamFil=document.getElementById('terrFamilleFilter');if(terrFamFil)terrFamFil.classList.toggle('hidden',!degraded);
 
     // [Feature C] Bandeau dégradé : filtre canal actif mais pas de territoire (données agence uniquement)
