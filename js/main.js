@@ -883,7 +883,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       computeClientCrossing();computeReconquestCohort();
       if(_S.chalandiseReady)_computeChalandiseDistances();
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      const _chalandiseWorkerReady=_S.chalandiseReady&&DataStore.ventesClientArticle.size>0;
+      if(_chalandiseWorkerReady){launchClientWorker().then(async()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;if(f1)await _saveFileHashes(f1,f2);}}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;
       if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       renderAll();
@@ -901,7 +902,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
 
-      if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2);}
+      // _saveToCache (léger) — toujours. IDB complète — seulement si launchClientWorker pas lancé
+      if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();}
+      if(!_chalandiseWorkerReady&&_S.selectedMyStore){_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2);}
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
   }
