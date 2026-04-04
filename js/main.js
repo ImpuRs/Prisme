@@ -2249,6 +2249,7 @@ window._cematinSearch = _cematinSearch;
 window.showSilencieux60 = showSilencieux60;
 window.renderMesClients = renderMesClients;
 window.renderCurrentTab = renderCurrentTab;
+window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
 window.openDiagnosticCell = openDiagnosticCell;
 window.openDiagnosticMetier = openDiagnosticMetier;

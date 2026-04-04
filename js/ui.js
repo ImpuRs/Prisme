@@ -138,6 +138,8 @@ export function _setGlobalCanal(canal) {
   // Sous-pills Prélevé/Enlevé — visibles uniquement si Magasin actif
   const _mmBar = document.getElementById('globalMagasinModeBar');
   if (_mmBar) _mmBar.classList.toggle('hidden', canal !== 'MAGASIN');
+  // Refilter ventesClientArticle + canalAgence pour le canal actif
+  if (_S._byMonth) window._refilterFromByMonth?.();
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
