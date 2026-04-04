@@ -1,6 +1,6 @@
 /* js/xlsx-worker.js — Web Worker pour parsing XLSX volumineux */
 'use strict';
-importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+importScripts('https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js');
 
 self.onmessage = function(e) {
   try {
