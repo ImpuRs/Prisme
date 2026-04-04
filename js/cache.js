@@ -31,13 +31,14 @@ export async function _checkFilesUnchanged(f1, f2) {
     const saved = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
     if (!saved) return false;
     const [hC, hS] = await Promise.all([_getFileHash(f1), f2 ? _getFileHash(f2) : Promise.resolve('')]);
-    return !!hC && saved.c === hC && saved.s === hS;
+    const currentStore = localStorage.getItem('prisme_selectedStore') || '';
+    return !!hC && saved.c === hC && saved.s === hS && saved.store === currentStore;
   } catch (_) { return false; }
 }
 export async function _saveFileHashes(f1, f2) {
   try {
     const [hC, hS] = await Promise.all([_getFileHash(f1), f2 ? _getFileHash(f2) : Promise.resolve('')]);
-    if (hC) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({c: hC, s: hS}));
+    if (hC) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({c: hC, s: hS, store: _S.selectedMyStore || ''}));
   } catch (_) {}
 }
 
