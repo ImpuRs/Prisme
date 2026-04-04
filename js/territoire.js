@@ -766,8 +766,9 @@ function _buildCockpitClient(){
   // ── Render into 3 separate blocks ──
   const _silTitle=`⏰ Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
   const _perduTitle=`🔴 Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
-  // terrSilencieux / terrPerdus / terrACapter appartiennent au cockpit Commerce
-  // (renderMesClients) — ne pas écraser depuis territoire.js
+  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
+  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
+  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 À capter — Jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
   // terrCockpitClient now unused as wrapper — hide it
   el.classList.add('hidden');
 }

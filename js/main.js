@@ -1914,7 +1914,6 @@ _S.canalAgence=newCanalAgence;
         break;
       case 'commerce':
         renderTerritoireTab();
-        renderMesClients();
         break;
       case 'omni':
         renderCockpitEquation();
@@ -1922,6 +1921,9 @@ _S.canalAgence=newCanalAgence;
         break;
       case 'reseau':
         renderBenchmark();
+        break;
+      case 'clients':
+        renderMesClients();
         break;
       case 'animation':
         await renderAnimationTab();
