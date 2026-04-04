@@ -101,7 +101,9 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
   if (!iz || !bannerRight || !banner) return;
-  bannerRight.innerHTML = `<button onclick="expandImportZone()" style="font-size:var(--fs-xs);color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s" onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'">Modifier les fichiers</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" style="font-size:var(--fs-xs);color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;margin-left:6px;transition:color .15s,border-color .15s" onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'">Glossaire</button>`;
+  const _btnStyle = `font-size:var(--fs-xs);color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s`;
+  const _btnHover = `onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'"`;
+  bannerRight.innerHTML = `<button onclick="expandImportZone()" style="${_btnStyle}" ${_btnHover}>Modifier les fichiers</button><button onclick="_onPurgeCache()" style="${_btnStyle};margin-left:6px" ${_btnHover}>🗑️ Purger le cache</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" style="${_btnStyle};margin-left:6px" ${_btnHover}>Glossaire</button>`;
   iz.classList.add('hidden');
   document.getElementById('onboardingBlock')?.classList.add('hidden');
   banner.classList.remove('hidden');
@@ -122,9 +124,6 @@ export function expandImportZone() {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
-  // Invalider le hash-check — le prochain Analyser fera un parse complet avec sélecteur d'agence
-  localStorage.removeItem('prisme_fileHashes');
-  localStorage.removeItem('prisme_idbSavedAt');
 }
 
 // ── Canal global — pill selector ──────────────────────────────
