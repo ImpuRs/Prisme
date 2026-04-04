@@ -767,7 +767,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
         <div style="font-size:22px;font-weight:800;${color?`color:${color}`:''}">${val}</div>
         <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">${sub}</div>
       </div>`;
-    return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+    return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%">
       ${_c('Clients zone', ov.nbZone.toLocaleString('fr-FR'), _S.chalandiseReady?'dans la zone de chalandise':'Chargez la chalandise')}
       ${_c('Captés Leg.', ov.nbCaptesLeg.toLocaleString('fr-FR'), pctLeg+'% de la zone', '#378ADD')}
       ${_c('Captés PDV', ov.nbCaptesPDV.toLocaleString('fr-FR'), pctPDV+'% de la zone', '#22c55e')}
@@ -842,11 +842,11 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
         ${vPlus}
       </div>`;
     };
-    return `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px">
-      ${_col('Silencieux 30–60j', '#EF9F27', silencieux.map(_rowSil), totalSil?String(totalSil):'', totalSil > silencieux.length ? 'clientsTopPDV' : '')}
-      ${_col('Perdus >60j', '#E24B4A', perdus.map(_rowPerdu), totalPerd?String(totalPerd):'', totalPerd > perdus.length ? 'clientsReconquete' : '')}
-      ${_col('À capter', '#378ADD', acapterTop.map(_rowCapter), totalPot?`${totalPot} potentiels`:'', '')}
-    </div>`;
+    return {
+      sil:    _col('Silencieux 30–60j', '#EF9F27', silencieux.map(_rowSil),    totalSil ?String(totalSil):'',           totalSil  > silencieux.length  ? 'terrTopPDV'    : ''),
+      perdu:  _col('Perdus >60j',       '#E24B4A', perdus.map(_rowPerdu),      totalPerd?String(totalPerd):'',          totalPerd > perdus.length      ? 'terrReconquete': ''),
+      capter: _col('À capter',          '#378ADD', acapterTop.map(_rowCapter), totalPot ?`${totalPot} potentiels`:'',   ''),
+    };
   }
 
   function _renderCockpitBottomGrid(k) {
@@ -867,7 +867,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const oppSection = `<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px;border:1px solid var(--color-border)">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-secondary);margin-bottom:10px">Opportunités nettes <span style="font-weight:400;text-transform:none;font-size:9px;color:var(--color-text-tertiary)">${totalOpp>0?'top 5 familles':''}</span></div>
       ${oppRows || `<div style="padding:12px 0;text-align:center;font-size:11px;color:var(--color-text-tertiary)">${_S.chalandiseReady?'Aucune opportunité':'Chargez la chalandise'}</div>`}
-      ${totalOpp>5?`<div style="padding-top:8px;text-align:right"><button style="font-size:10px;color:#378ADD;cursor:pointer;background:none;border:none;padding:0" onclick="document.getElementById('clientsOpportunites')?.scrollIntoView({behavior:'smooth'})">Voir toutes (${totalOpp}) →</button></div>`:''}
+      ${totalOpp>5?`<div style="padding-top:8px;text-align:right"><button style="font-size:10px;color:#378ADD;cursor:pointer;background:none;border:none;padding:0" onclick="document.getElementById('terrOpportunites')?.scrollIntoView({behavior:'smooth'})">Voir toutes (${totalOpp}) →</button></div>`:''}
     </div>`;
     const topRows = k.topPDVRows.slice(0, 5);
     const maxCA = topRows.length ? topRows[0].caPDV : 1;
@@ -882,21 +882,18 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const pdvSection = `<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px;border:1px solid var(--color-border)">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-secondary);margin-bottom:10px">Top clients PDV</div>
       ${pdvBars || `<div style="padding:12px 0;text-align:center;font-size:11px;color:var(--color-text-tertiary)">Aucun client PDV</div>`}
-      ${k.topPDVRows.length>5?`<div style="padding-top:8px;text-align:right"><button style="font-size:10px;color:#378ADD;cursor:pointer;background:none;border:none;padding:0" onclick="document.getElementById('clientsTopPDV')?.scrollIntoView({behavior:'smooth'})">Voir tous (${k.topPDVRows.length}) →</button></div>`:''}
+      ${k.topPDVRows.length>5?`<div style="padding-top:8px;text-align:right"><button style="font-size:10px;color:#378ADD;cursor:pointer;background:none;border:none;padding:0" onclick="document.getElementById('terrTopPDV')?.scrollIntoView({behavior:'smooth'})">Voir tous (${k.topPDVRows.length}) →</button></div>`:''}
     </div>`;
-    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-      ${oppSection}
-      ${pdvSection}
-    </div>`;
+    return {opps: oppSection, pdv: pdvSection};
   }
 
   function renderMesClients(){
     const el=document.getElementById('tabCommerce');
     if(!el)return;
-    const pane=document.getElementById('clientsPane-priorites');
-    if(!pane)return;
+    const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
     if(!_S.ventesClientArticle.size && !_S.finalData.length){
-      pane.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
+      _setEl('terrTop5','<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>');
+      ['terrSilencieux','terrPerdus','terrACapter','terrOpportunites','terrTopPDV','terrReconquete','terrLivSansPDV'].forEach(id=>_setEl(id,''));
       return;
     }
     const k=computeClientsKPIs();
@@ -943,79 +940,20 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
       return`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">${_livAllB.length} clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
     })();
 
-    const oppsHtml = renderOppNetteTable();
-
-    let topPDVHtml='';
-    {const topRows=k.topPDVRows;
-      const top=topRows.slice(0,20);
-      if(top.length){
-        const nowMs=Date.now();
-        const rows=top.map(r=>{
-          const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
-          const silence=daysSince!==null?`${daysSince}j`:'—';
-          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-          const _dc=deltaColor(r.caHors,r.caPDV);
-          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<span class="text-[9px] t-disabled font-normal ml-1">${escapeHtml(r.metier||'')}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-        }).join('');
-        const _nBelow100=_S.ventesClientArticle.size-topRows.length;
-        const _pdvTip=`${topRows.length} clients avec CA PDV ≥ 100 €, sur ${_S.ventesClientArticle.size} clients MAGASIN totaux (${_nBelow100} exclus car CA PDV < 100 €). Source : consommé canal MAGASIN, agence sélectionnée uniquement. Aucun filtre actif appliqué ici.`;
-        topPDVHtml=`<div id="clientsTopPDV" class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_pdvTip}">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-      }
-    }
-
-    let horsZoneHtml='';
-    {const hors=k.horsZone;
-      const nowMs=Date.now();
-      if(hors.length){
-        const rows=hors.slice(0,20).map(r=>{
-          const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
-          const silence=daysSince!==null?`${daysSince}j`:'—';
-          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-          const _dc=deltaColor(r.caHors,r.caPDV);
-          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-        }).join('');
-        horsZoneHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-      }
-    }
-
-    let digitauxHtml='';
-    {const digitaux=k.digitaux;
-      const _digTop=digitaux.slice(0,8);
-      if(_digTop.length){
-        const cIcon=c=>c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
-        const cards=_digTop.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${r.cc}','digitaux')">
-  <div class="flex items-start justify-between mb-1">
-    <div class="min-w-0"><div class="text-[11px] font-bold t-primary truncate">${r.nom}</div><div class="text-[9px] t-disabled">${r.metier||'—'}</div></div>
-    <span class="text-[9px] shrink-0 ml-2" style="color:var(--c-caution)">${r.pdvSilence}j sans PDV</span>
-  </div>
-  <div class="flex gap-3 mt-1.5 text-[9px]">
-    <span>${cIcon(r.mainCanal)}\u00a0<strong>${formatEuro(r.caHors)}</strong> <span class="t-disabled">digital</span></span>
-    <span class="t-disabled">vs ${formatEuro(r.caPDV)} PDV hist.</span>
-  </div>
-</div>`).join('');
-        digitauxHtml=`<div class="mb-5">
-  <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📱 Clients devenus digitaux <span class="font-normal normal-case">(${digitaux.length})</span></h3>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}</div>
-  <p class="text-[9px] t-disabled mt-2">PDV silencieux depuis &gt;90j mais actifs en ligne ou par représentant — potentiel de récupération au comptoir</p>
-</div>`;
-      }
-    }
-
-    pane.innerHTML = `
-      ${_renderCockpitKPIBand(ovStats)}
-      ${_renderCockpitColumns(k)}
-      ${_renderCockpitBottomGrid(k)}
-      <div class="mt-6 border-t b-default pt-4">
-        ${top5Html}
-        ${top5ReconqHtml}
-        ${reconqHtml}
-        ${livSPDVHtml}
-        ${oppsHtml}
-        ${topPDVHtml}
-        ${horsZoneHtml}
-        ${digitauxHtml}
-      </div>
-    `;
+    // ── Cockpit slots ────────────────────────────────────────────────────
+    const _bar=document.getElementById('terrSummaryBar');
+    if(_bar){_bar.innerHTML=_renderCockpitKPIBand(ovStats);_bar.classList.remove('hidden');}
+    const cols=_renderCockpitColumns(k);
+    _setEl('terrSilencieux', cols.sil);
+    _setEl('terrPerdus',     cols.perdu);
+    _setEl('terrACapter',    cols.capter);
+    const grid=_renderCockpitBottomGrid(k);
+    _setEl('terrOpportunites', grid.opps);
+    _setEl('terrTopPDV',       grid.pdv);
+    // ── Accordéons détail ────────────────────────────────────────────────
+    _setEl('terrTop5',       top5Html);
+    _setEl('terrReconquete', top5ReconqHtml + reconqHtml);
+    _setEl('terrLivSansPDV', livSPDVHtml);
   }
 
 
