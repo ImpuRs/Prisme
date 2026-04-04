@@ -144,7 +144,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
               const artMap=newVCA.get(cc);
               if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
               const e=artMap.get(code);
-              const _caP=d.sumCAPrelevee||d.sumPrelevee||0;
+              const _caP=d.sumCAPrelevee||0;
               const _caMode=mode==='preleve'?_caP:mode==='enleve'?(d.sumCA-_caP):d.sumCA;
               e.sumCA+=_caMode;
               e.sumPrelevee+=d.sumPrelevee;
@@ -170,7 +170,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
             const artMapNew=newVCA.get(cc);
             if(!artMapNew.has(code))artMapNew.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
             const e=artMapNew.get(code);
-            const _caP=d.sumCAPrelevee||d.sumPrelevee||0;
+            const _caP=d.sumCAPrelevee||0;
             const _caMode=mode==='preleve'?_caP:mode==='enleve'?((d.sumCA||0)-_caP):(d.sumCA||0);
             e.sumCA+=_caMode;
             e.sumPrelevee+=d.sumPrelevee||0;
