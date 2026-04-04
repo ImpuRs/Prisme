@@ -696,6 +696,7 @@ _S.canalAgence=newCanalAgence;
       parseResult = await launchParseWorker(bufC, bufS, {
         selectedStore: selectedStore || '',
         storesIntersection: [],  // worker va détecter lui-même
+        filenameC: f1 ? f1.name : '',
       });
     }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
