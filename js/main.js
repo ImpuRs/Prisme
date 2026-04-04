@@ -106,7 +106,11 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
 
   // ── _refilterFromByMonth — reconstruction instantanée ventesClientArticle + canalAgence ──
   // Appelé quand _S._byMonth est disponible. Opère en <100ms sans re-lancer le Worker.
+  let _refilterRunning=false;
   function _refilterFromByMonth(){
+    if(_refilterRunning){console.warn('[refilter] appel concurrent bloqué');return;}
+    _refilterRunning=true;
+    try{
     const pStart=_S.periodFilterStart;
     const pEnd=_S.periodFilterEnd;
     const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
@@ -206,6 +210,7 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     });
 
     invalidateCache('tab','terr');
+    }finally{_refilterRunning=false;}
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
   function _buildPeriodeOptions(){
@@ -883,8 +888,12 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       computeClientCrossing();computeReconquestCohort();
       if(_S.chalandiseReady)_computeChalandiseDistances();
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
-      const _chalandiseWorkerReady=_S.chalandiseReady&&DataStore.ventesClientArticle.size>0;
-      if(_chalandiseWorkerReady){launchClientWorker().then(async()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3);}}).catch(err=>console.warn('Client worker error:',err));}
+      // launchClientWorker — toujours lancé (gère chalandise vide en interne)
+      // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
+      launchClientWorker().then(async()=>{
+        if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3);}
+      }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
       if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       renderAll();
@@ -902,9 +911,6 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
 
-      // _saveToCache (léger) — toujours. IDB complète — seulement si launchClientWorker pas lancé
-      if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();}
-      if(!_chalandiseWorkerReady&&_S.selectedMyStore){_saveSessionToIDB();if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null);}
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;hideLoading();}
   }
@@ -2135,12 +2141,13 @@ window.onConsommeReseauSelected = function(input) {
 window.onChalandiseSelected = async function(input) {
   onFileSelected(input, 'dropChalandise');
   if (!input.files || !input.files[0]) return;
-  await parseChalandise(input.files[0]);
-  // Si les données sont déjà chargées, recalculer le benchmark avec la chalandise
-  if (DataStore.finalData.length > 0 && _S.storesIntersection.size > 1) {
-    computeBenchmark(_S._globalCanal || null);
-    renderBenchmark();
-  }
+  // Parser immédiatement seulement si les données sont déjà chargées (recalcul à chaud).
+  // Sinon, _postParseMain appellera parseChalandise après Analyser — évite le double parse.
+  if (DataStore.finalData.length === 0) return;
+  if (_S._chalandiseLoading || _S.chalandiseReady) return;
+  _S._chalandiseLoading = true;
+  try { await parseChalandise(input.files[0]); } finally { _S._chalandiseLoading = false; }
+  if (_S.storesIntersection.size > 1) { computeBenchmark(_S._globalCanal || null); renderBenchmark(); }
 };
 window.exportSaisonCSV = exportSaisonCSV;
 window.exportTerritoireCSV = exportTerritoireCSV;
