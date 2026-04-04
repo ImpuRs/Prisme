@@ -484,7 +484,7 @@ self.onmessage = async function(ev) {
       var _rve = CI.vmbE !== null ? (+row[CI.vmbE] || 0) : 0;
       var _rnc = (CI.commande !== null ? (row[CI.commande] != null ? row[CI.commande] : '').toString() : '').trim();
       var _rbl2 = (CI.bl !== null ? (row[CI.bl] != null ? row[CI.bl] : '').toString() : '').trim();
-      var _rncb = _rnc || _rbl2;
+      var _rncb = _rbl2 || _rnc;
       var _rj = CI.jour !== null ? row[CI.jour] : null;
       var canal = (CI.canal !== null ? (row[CI.canal] != null ? row[CI.canal] : '') : '').toString().trim().toUpperCase();
 
@@ -772,7 +772,7 @@ self.onmessage = async function(ev) {
 
       // commandesPDV + passagesUniques
       if (!selectedStore || sk === selectedStore) {
-        if (_rnc) commandesPDV.add(_rnc);
+        if (_rbl2 || _rnc) commandesPDV.add(_rbl2 || _rnc);
         if ((qteP > 0 || qteE > 0) && cc2 && dateV && !isNaN(dateV.getTime())) {
           passagesUniques.add(cc2 + '_' + formatLocalYMD(dateV));
         }
