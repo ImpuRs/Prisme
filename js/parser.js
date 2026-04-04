@@ -179,9 +179,22 @@ export async function parseLivraisons(file) {
       data = parseCSVText(text, sep);
     } else {
       const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
-      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const wb = XLSX.read(buf, { type: 'array', cellDates: false, dense: true });
       _S._livraisonsDebug.sheets = wb.SheetNames;
-      data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const _ws = wb.Sheets[wb.SheetNames[0]];
+      const _csv = XLSX.utils.sheet_to_csv(_ws, { FS: '\t', RS: '\n' });
+      const _lines = _csv.split('\n');
+      const _headers = _lines[0].split('\t').map(h => h.trim());
+      const _colIdx = {};
+      _headers.forEach((h, i) => { _colIdx[h] = i; });
+      data = [];
+      for (let _li = 1; _li < _lines.length; _li++) {
+        const _cells = _lines[_li].split('\t');
+        if (!_cells.length || (_cells.length === 1 && !_cells[0])) continue;
+        const _obj = {};
+        _headers.forEach((h, i) => { _obj[h] = _cells[i] !== undefined ? _cells[i] : ''; });
+        data.push(_obj);
+      }
     }
     const headersFound = Object.keys(data[0] || {});
     _S._livraisonsDebug.step = 'parsed';
@@ -333,8 +346,20 @@ export async function parseTerritoireFile(f) {
     } else {
       reader.onload = e => {
         try {
-          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true, cellFormula: false, cellHTML: false, cellStyles: false });
-          res(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' }));
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: false, cellFormula: false, cellHTML: false, cellStyles: false, dense: true });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const csv = XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n' });
+          const lines = csv.split('\n');
+          const headers = lines[0].split('\t').map(h => h.trim());
+          const rows = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cells = lines[i].split('\t');
+            if (!cells.length || (cells.length === 1 && !cells[0])) continue;
+            const obj = {};
+            headers.forEach((h, j) => { obj[h] = cells[j] !== undefined ? cells[j] : ''; });
+            rows.push(obj);
+          }
+          res(rows);
         } catch (err) { rej(err); }
       };
       reader.readAsArrayBuffer(f);
