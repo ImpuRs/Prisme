@@ -351,7 +351,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
         const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
         const caTotal=caPDV+caHors;
-        const lastDate=_S.clientLastOrder?.get(cc);
+        const lastDate=_S.clientLastOrderAll?.get(cc)?.date||_S.clientLastOrder?.get(cc);
         const info=_S.chalandiseData?.get(cc);
         const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
         topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
