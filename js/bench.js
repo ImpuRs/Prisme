@@ -306,8 +306,6 @@ function _obsNav(t){
   if(t==='silencieux'){
     switchTab('commerce');
     setTimeout(()=>{
-      const sil=document.getElementById('cockpit-sil-full-body');
-      if(sil&&sil.style.display==='none')_cockpitToggleSection('cockpit-sil-full');
       const el=document.getElementById('cockpit-sil-full');
       if(el)el.scrollIntoView({behavior:'smooth'});
     },300);
