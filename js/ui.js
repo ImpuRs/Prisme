@@ -350,8 +350,8 @@ export function renderInsightsBanner() {
   const parts = [];
   parts.push(mkAction(ruptures, `rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')", 'var(--i-error-dark-text)'));
   if (hasTerr) {
-    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `territoire`, 'var(--i-warn-dark-text)'));
-    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `territoire`, 'var(--i-warn-dark-text)'));
+    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `commerce`, 'var(--i-warn-dark-text)'));
+    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `commerce`, 'var(--i-warn-dark-text)'));
   } else {
     parts.push(mkAction(dormants, `dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')", 'var(--i-warn-dark-text)'));
   }

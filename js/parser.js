@@ -116,9 +116,9 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   const nbActifs = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('actif') && !s.includes('inactif'); }).length;
   const nbPerdus = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('perdu') || s.includes('inactif'); }).length;
   showToast(`📋 Chalandise : ${_S.chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus`, 'success');
-  // Show territoire tab if chalandise loaded (even without territoire file)
-  const terrBtn = document.getElementById('btnTabTerritoire'); if (terrBtn) terrBtn.classList.remove('hidden');
-  // Rebuild overview if already on territoire tab
+  // Show commerce tab if chalandise loaded (even without territoire file)
+  const terrBtn = document.getElementById('btnTabCommerce'); if (terrBtn) terrBtn.classList.remove('hidden');
+  // Rebuild overview if already on commerce tab
   if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.renderAll?.(); }
   // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
 }
