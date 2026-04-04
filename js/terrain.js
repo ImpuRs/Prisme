@@ -3,148 +3,9 @@
 import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, famLib, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, getSecteurDirection } from './utils.js';
-import { computeRecoStock, _clientStatusBadge, _unikLink } from './engine.js';
+import { _clientStatusBadge, _unikLink } from './engine.js';
 import { showToast } from './ui.js';
 import { getSelectedSecteurs } from './parser.js';
-
-// ── Recommandations stock par direction (Omnicanalité) ──────────
-function _renderRecoStock() {
-  const el = document.getElementById('terrRecoStockBlock');
-  if (!el) return;
-  const data = computeRecoStock();
-  if (!data || !data.length) {
-    // Show empty message if we have réseau data but no recos
-    if (_S.ventesParMagasin && Object.keys(_S.ventesParMagasin).length > 1) {
-      el.innerHTML = `<div class="s-card rounded-xl border p-4 t-disabled text-[11px]">
-        📦 Recommandations stock — aucun article absent/rupture détecté dans le réseau.
-      </div>`;
-    } else {
-      el.innerHTML = '';
-    }
-    return;
-  }
-  const enriched = data._enriched;
-  const totalRecos = data.reduce((s, d) => s + d.recos.length, 0);
-  const totalCA = data.reduce((s, d) => s + d.totalCA, 0);
-
-  // Badge mode
-  const modeBadge = enriched
-    ? '<span class="text-[8px] px-2 py-0.5 rounded-full font-bold ml-2" style="background:#ede9fe;color:#6d28d9">📦 Enrichi Livraisons</span>'
-    : '<span class="text-[8px] px-2 py-0.5 rounded-full font-bold ml-2" style="background:#e0f2fe;color:#0369a1">🏪 Réseau uniquement</span>';
-
-  // Tooltip adaptatif
-  const infoTip = enriched
-    ? `PRISME croise les BL livrés hors agence (fichier Livraisons) avec votre stock, le réseau et la chalandise. Les articles sont triés par fréquence BL × présence réseau.`
-    : `PRISME identifie les articles vendus par d'autres agences du réseau mais absents de votre stock. Chargez le fichier Livraisons pour enrichir avec les BL terrain.`;
-
-  const dirsHtml = data.map((d, idx) => {
-    d.recos.sort((a, b) => (b.ca || 0) - (a.ca || 0));
-    const top10 = d.recos.slice(0, 10);
-    const hasMore = d.recos.length > 10;
-    // Colonnes header adaptatives (déclarées avant moreHtml pour le template)
-    const thBL = enriched ? '<th class="py-1.5 px-2 text-right">Nb BL</th>' : '';
-    const thCli = enriched ? '<th class="py-1.5 px-2 text-right">Clients</th>' : '';
-    const thCA = enriched ? 'CA Terrain' : 'CA zone';
-    const _mkRow = r => {
-      const typeBadge = r.type === 'rupture'
-        ? '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture</span>'
-        : '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
-      const reseauBadge = r.nbAgencesReseau >= 3
-        ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dbeafe;color:#1e40af">${r.nbAgencesReseau} agences</span>`
-        : r.nbAgencesReseau > 0
-          ? `<span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">${r.nbAgencesReseau} ag.</span>`
-          : '';
-      const blCell = enriched ? `<td class="py-1.5 px-2 text-right font-bold">${r.nbBL}</td>` : '';
-      const cliCell = enriched ? `<td class="py-1.5 px-2 text-right">${r.nbClients}</td>` : '';
-      const caLabel = enriched ? formatEuro(r.ca) : (r.ca > 0 ? formatEuro(r.ca) : '—');
-      return `<tr class="border-b b-light hover:s-hover text-[11px]">
-        <td class="py-1.5 px-2">${_copyCodeBtn(r.code)}</td>
-        <td class="py-1.5 px-2">${escapeHtml(r.libelle)}</td>
-        <td class="py-1.5 px-2 text-center">${typeBadge}</td>
-        ${blCell}${cliCell}
-        <td class="py-1.5 px-2 text-right font-bold c-action">${caLabel}</td>
-        <td class="py-1.5 px-2 text-center">${reseauBadge}</td>
-      </tr>`;
-    };
-    const rowsHtml = top10.map(_mkRow).join('');
-    const moreHtml = hasMore
-      ? `<details class="border-t b-light">
-          <summary class="px-4 py-2 text-[10px] c-action cursor-pointer select-none hover:underline">Voir les ${d.recos.length - 10} autres articles →</summary>
-          <div class="overflow-x-auto"><table class="min-w-full">
-            <thead class="s-panel-inner t-inverse text-[10px]"><tr>
-              <th class="py-1.5 px-2 text-left">Code</th>
-              <th class="py-1.5 px-2 text-left">Libellé</th>
-              <th class="py-1.5 px-2 text-center">Statut</th>
-              ${thBL}${thCli}
-              <th class="py-1.5 px-2 text-right">${thCA}</th>
-              <th class="py-1.5 px-2 text-center">Réseau</th>
-            </tr></thead>
-            <tbody>${d.recos.slice(10).map(_mkRow).join('')}</tbody>
-          </table></div>
-        </details>`
-      : '';
-    const csvBtn = `<button onclick="event.stopPropagation();window._exportRecoCSV('${escapeHtml(d.direction)}')" class="text-[9px] px-2 py-1 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Export CSV">CSV</button>`;
-    return `<details class="border-b b-light" ${idx === 0 ? 'open' : ''}>
-      <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:s-hover">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-[12px] t-primary">${escapeHtml(d.direction)}</span>
-          <span class="text-[9px] t-disabled">${d.recos.length} articles</span>
-          <span class="text-[9px] font-bold c-danger">${d.nbAbsents} absents</span>
-          <span class="text-[9px] font-bold c-caution">${d.nbRuptures} ruptures</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] font-bold t-primary">${formatEuro(d.totalCA)}</span>
-          ${csvBtn}
-          <span class="acc-arrow t-disabled">▶</span>
-        </div>
-      </summary>
-      <div class="overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="s-panel-inner t-inverse text-[10px]">
-            <tr>
-              <th class="py-1.5 px-2 text-left">Code</th>
-              <th class="py-1.5 px-2 text-left">Libellé</th>
-              <th class="py-1.5 px-2 text-center">Statut</th>
-              ${thBL}${thCli}
-              <th class="py-1.5 px-2 text-right">${thCA}</th>
-              <th class="py-1.5 px-2 text-center">Réseau</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </div>
-      ${moreHtml}
-    </details>`;
-  }).join('');
-  // Update inline summary
-  const _recoInline = document.getElementById('recoStockInline');
-  if (_recoInline) _recoInline.textContent = `${totalRecos.toLocaleString('fr-FR')} articles · ${formatEuro(totalCA)}`;
-
-  el.innerHTML = `<div class="flex items-center gap-2 mb-3">
-    ${modeBadge}
-    <span class="labo-info-tip" onclick="event.stopPropagation()" style="position:relative;display:inline-block">ⓘ<span class="labo-info-bubble" style="top:20px;left:-140px;width:300px">${infoTip}</span></span>
-  </div>
-  <div>${dirsHtml}</div>`;
-}
-
-window._exportRecoCSV = function(direction) {
-  const data = computeRecoStock();
-  if (!data) return;
-  const dirData = data.find(d => d.direction === direction);
-  if (!dirData) return;
-  const sep = ';';
-  const header = ['Code', 'Libellé', 'Statut', 'Nb BL', 'Nb Clients', 'CA Terrain', 'Agences Réseau', 'Score'].join(sep);
-  const rows = dirData.recos.map(r =>
-    [r.code, `"${(r.libelle || '').replace(/"/g, '""')}"`, r.type, r.nbBL, r.nbClients, r.ca.toFixed(2), r.nbAgencesReseau, r.score.toFixed(1)].join(sep)
-  );
-  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `PRISME_Reco_Stock_${direction.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-};
 
 function _renderGhostArticles() {
   const el = document.getElementById('ghostArticlesBlock');
@@ -720,7 +581,6 @@ function exportTerritoireCSV(){
 
 // ── Exports ──────────────────────────────────────────────────────
 export {
-  _renderRecoStock,
   _renderGhostArticles,
   toggleTerrDir,
   renderTerrDirFamilles,
@@ -769,5 +629,4 @@ window._loadMoreTerrDirStatus = _loadMoreTerrDirStatus;
 window._loadMoreTerrFamArt = _loadMoreTerrFamArt;
 window._loadMoreSecteurs = _loadMoreSecteurs;
 window._loadMoreClients = _loadMoreClients;
-window._renderRecoStock = _renderRecoStock;
 window._renderGhostArticles = _renderGhostArticles;
