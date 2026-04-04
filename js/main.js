@@ -919,8 +919,8 @@ _S.canalAgence=newCanalAgence;
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
-      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-      const _terrBtn=document.getElementById('btnTabTerritoire');_terrBtn.classList.remove('hidden');
+      if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabReseau').classList.add('hidden');
+      const _terrBtn=document.getElementById('btnTabCommerce');_terrBtn.classList.remove('hidden');
       const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
@@ -1347,8 +1347,8 @@ _S.canalAgence=newCanalAgence;
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
       if(!isRefilter){
-        if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabBench').classList.add('hidden');
-        const _terrBtn=document.getElementById('btnTabTerritoire');_terrBtn.classList.remove('hidden');
+        if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabReseau').classList.add('hidden');
+        const _terrBtn=document.getElementById('btnTabCommerce');_terrBtn.classList.remove('hidden');
         const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
         const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
       }
@@ -2033,9 +2033,9 @@ _S.canalAgence=newCanalAgence;
       document.body.classList.add('pilot-loaded');
       document.getElementById('storeSelector').classList.add('hidden');
       const useMulti = _S.storesIntersection.size > 1;
-      if(useMulti){document.getElementById('btnTabBench').classList.remove('hidden');buildBenchCheckboxes();}
-      else{document.getElementById('btnTabBench').classList.add('hidden');}
-      document.getElementById('btnTabTerritoire').classList.remove('hidden');
+      if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}
+      else{document.getElementById('btnTabReseau').classList.add('hidden');}
+      document.getElementById('btnTabCommerce').classList.remove('hidden');
       const terrNoC=document.getElementById('terrNoChalandise');
       if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
