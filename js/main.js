@@ -763,8 +763,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.consommePeriodMax = r.maxDateVente ? new Date(r.maxDateVente) : null;
     _S.consommePeriodMinFull = _S.consommePeriodMin;
     _S.consommePeriodMaxFull = _S.consommePeriodMax;
-    _S.periodFilterStart = r.periodFilterStart ? new Date(r.periodFilterStart) : null;
-    _S.periodFilterEnd   = r.periodFilterEnd   ? new Date(r.periodFilterEnd)   : null;
+    // Période complète par défaut — l'utilisateur choisit son mois via le filtre (refilter instantané)
+    _S.periodFilterStart = null;
+    _S.periodFilterEnd   = null;
 
     // Maps imbriquées
     _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
@@ -2024,27 +2025,14 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       // 5. Activer PRISME + replier l'import
       switchTab('labo');
       collapseImportZone();
-      // Positionner le filtre période sur le mois courant des données puis recalculer les agrégats
-      {const _maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_maxD&&!_S.periodFilterStart&&!_S.periodFilterEnd){const _y=_maxD.getFullYear(),_m=_maxD.getMonth();_S.periodFilterStart=new Date(_y,_m,1);_S.periodFilterEnd=new Date(_y,_m+1,0,23,59,59);}
-      invalidateCache('tab', 'terr');buildPeriodFilter();
-      // ── Recalcul complet des agrégats période-dépendants (canalAgence, ventesParMagasin, etc.) ──
-      // Snapshot full-period ventesClientArticle avant refilter (IDB contient la version complète)
+      // Période complète par défaut — refilter instantané via byMonth si l'utilisateur change
+      _S.periodFilterStart = null;
+      _S.periodFilterEnd   = null;
       if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
-      const _rfDC2=(_S._rawDataCFiltered?.rows?.length)?_S._rawDataCFiltered:_S._rawDataC;
-      if(_rfDC2?.rows?.length&&(_S.periodFilterStart||_S.periodFilterEnd)){
-        // Si les agrégats IDB sont récents (< 1h), skip le refilter — données déjà correctes
-        const _idbTs=localStorage.getItem('prisme_idbSavedAt');
-        const _idbAge=_idbTs?Date.now()-parseInt(_idbTs):Infinity;
-        if(_idbAge<3600000){
-          renderCanalAgence();renderCurrentTab();renderIRABanner();
-        }else{
-          await processDataFromRaw(_rfDC2,_S._rawDataS||[],{isRefilter:true});
-        }
-      }else{
-        renderCanalAgence();renderCurrentTab();renderIRABanner();
-      }}
+      invalidateCache('tab','terr');buildPeriodFilter();
+      renderCanalAgence();renderCurrentTab();renderIRABanner();
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
