@@ -661,27 +661,8 @@ function _diagAFRenderStock(famille,v1) {
 
 // ── TAB 2 — Clientèle ─────────────────────────────────────────────
 function _diagAFRenderClientele(famille,v2) {
-  if(!_S.chalandiseReady)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="t-disabled text-sm">🔒 Chargez la Zone de Chalandise pour activer cette analyse.</p></div>`;
-  const famArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
-  const acheteurs=new Set();
-  if(DataStore.ventesClientArticle?.size){
-    for(const[cc,artMap]of DataStore.ventesClientArticle){
-      for(const code of artMap.keys()){if(famArts.has(code)){acheteurs.add(cc);break;}}
-    }
-  }
-  const nbActifs=acheteurs.size;
-  const domMetier=v2?.metiers?.[0]?.metier||null;
-  let nbZone=0;
-  if(domMetier&&_S.chalandiseData?.size){for(const[,info]of _S.chalandiseData){if(info.metier===domMetier)nbZone++;}}
-  const txPen=(nbActifs>0&&nbZone>0)?Math.round(nbActifs/nbZone*100):null;
-  const penCol=txPen===null?'t-disabled':txPen>40?'c-ok':txPen>=20?'c-caution':'c-danger';
-  const barBg=txPen===null?'rgba(148,163,184,0.3)':txPen>40?'#22c55e':txPen>=20?'#f59e0b':'#ef4444';
-  const barRow=txPen!==null?`<div class="flex items-center gap-2 mt-2"><span class="text-[10px] t-disabled w-28 shrink-0">Taux pénétration</span><div class="flex-1 h-2 rounded-full overflow-hidden" style="background:rgba(148,163,184,0.2)"><div class="h-full rounded-full" style="width:${Math.min(txPen,100)}%;background:${barBg}"></div></div><span class="text-[11px] font-bold ${penCol} w-8 text-right">${txPen}%</span></div>`:'';
-  const penBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl mb-3"><p class="text-[11px] mb-1" style="color:var(--t-primary)"><strong>${nbActifs}</strong> acheteurs actifs sur cette famille</p>${domMetier&&nbZone>0?`<p class="text-[11px] mb-0" style="color:var(--t-primary)"><strong>${nbZone}</strong> clients <em>${escapeHtml(domMetier)}</em> dans ta zone chalandise</p>`:''}${barRow}${txPen===null&&nbZone===0?'<p class="text-[10px] t-disabled mt-1">Métier dominant non identifié dans la chalandise.</p>':''}</div>`;
-  const nbPerdus=v2?.perdus||0;
-  const potentiel=v2?.potentiel||0;
-  const reconBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl">${nbPerdus>0?`<p class="text-[11px] font-bold c-caution mb-2">⚠ ${nbPerdus} client${nbPerdus>1?'s':''} perdu${nbPerdus>1?'s':''}${potentiel>0?' · '+formatEuro(potentiel)+' récupérable':''}</p><button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();switchTab('territoire')">→ Voir dans Le Terrain</button>`:'<p class="text-[11px] c-ok">✅ Aucun client perdu identifié pour cette famille.</p>'}</div>`;
-  return penBlock+reconBlock;
+  const v=(v2?.metiers)?v2:_diagVoyant2(famille,_S.chalandiseReady,_S._diagMetierFilter||'');
+  return _diagRenderV2(v,_S.chalandiseReady);
 }
 
 // ── TAB 3 — Co-achats ─────────────────────────────────────────────
