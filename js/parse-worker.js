@@ -558,11 +558,11 @@ self.onmessage = async function(ev) {
         var _skC = _rs;
         if (!byMonthCanal[_skC]) byMonthCanal[_skC] = {};
         if (!byMonthCanal[_skC][canal]) byMonthCanal[_skC][canal] = {};
-        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, countBL: 0 };
+        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, _cmds: new Set() };
         var _bmce = byMonthCanal[_skC][canal][_midxC];
         _bmce.sumCA += _rcp + _rce;
         if (_rqp > 0) _bmce.sumPrelevee += _rcp;
-        _bmce.countBL++;
+        if (_rncb) _bmce._cmds.add(_rncb);
       }
 
       // _tempCAAll (période filtrée, tous canaux)
@@ -840,6 +840,16 @@ self.onmessage = async function(ev) {
     for (var ck in canalAgence) {
       canalAgence[ck].bl = canalAgence[ck].bl.size;
       delete canalAgence[ck].blNums;
+    }
+    // Convertir les Sets _cmds de byMonthCanal en counts avant sérialisation
+    for (var _bmsk in byMonthCanal) {
+      for (var _bmc in byMonthCanal[_bmsk]) {
+        for (var _bmmidx in byMonthCanal[_bmsk][_bmc]) {
+          var _bme2 = byMonthCanal[_bmsk][_bmc][_bmmidx];
+          _bme2.countBL = _bme2._cmds ? _bme2._cmds.size : 0;
+          delete _bme2._cmds;
+        }
+      }
     }
 
     // ── Recalcul canalAgence période-filtrée (si filtre actif) ───────────
