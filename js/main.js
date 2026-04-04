@@ -1002,8 +1002,8 @@ _S.canalAgence=newCanalAgence;
   // Grise les onglets selon les fichiers chargés — appelé après chaque chargement complet
   function _syncTabAccess(){
     const hasStock=!!_S._hasStock;
-    const needsStock=['table','dash'];
-    const needsConsomme=['territoire'];
+    const needsStock=['table','stock'];
+    const needsConsomme=['commerce'];
     needsStock.forEach(tab=>{
       const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
       if(!hasStock){btn.classList.add('tab-locked');btn.title="Chargez l'État du Stock pour activer cet onglet";}
@@ -1905,20 +1905,20 @@ _S.canalAgence=newCanalAgence;
       case 'table':
         renderTable(true); // articles always re-renders; no cache flag
         return;
-      case 'dash':
+      case 'stock':
         renderDashboardAndCockpit();
         renderABCTab();
         renderHealthScore();
         renderTabBadges();
         break;
-      case 'territoire':
+      case 'commerce':
         renderTerritoireTab();
         break;
       case 'omni':
         renderCockpitEquation();
         renderOmniTab();
         break;
-      case 'bench':
+      case 'reseau':
         renderBenchmark();
         break;
       case 'clients':

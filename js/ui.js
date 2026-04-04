@@ -146,7 +146,7 @@ if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
-  if (id === 'abc') id = 'dash'; // abc fusionné dans dash
+  if (id === 'abc') id = 'stock'; // abc fusionné dans stock
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -158,8 +158,8 @@ export function switchTab(id) {
     if (!_S._tabRendered[id] && (DataStore.finalData.length > 0 || _S.ventesClientArticle?.size > 0)) renderCurrentTab();
   }
   // Update filter panel groups based on active tab
-  const groups = { stock: 'filterGroupStock', territoire: 'filterGroupTerritoire', bench: 'filterGroupBench' };
-  const activeGroup = id === 'bench' ? 'bench' : (id === 'territoire' || id === 'omni' || id === 'labo') ? 'territoire' : 'stock';
+  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', reseau: 'filterGroupBench' };
+  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'omni' || id === 'labo') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
@@ -168,17 +168,17 @@ export function switchTab(id) {
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
   // Filtre canal global — visible sur territoire/omni uniquement
-  const _CANAL_TABS = new Set(['territoire', 'omni']);
+  const _CANAL_TABS = new Set(['commerce', 'omni']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", dash: 'Filtres Analyse du stock', table: 'Filtres', territoire: 'Filtres Commerce', omni: 'Filtres Omnicanalité', bench: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Commerce', omni: 'Filtres Omnicanalité', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
   // Alertes stock pills — visibles uniquement sur Analyse du stock
   const sap = document.getElementById('stockAlertPills');
-  if (sap) sap.classList.toggle('hidden', id !== 'dash');
+  if (sap) sap.classList.toggle('hidden', id !== 'stock');
   // Blocs sidebar Ce matin — visibles uniquement sur Ce matin
   const csb = document.getElementById('cematinScoreBlock');
   if (csb) csb.classList.toggle('hidden', id !== 'action');
@@ -435,14 +435,14 @@ const _CMD_ACTIONS = [
   { kw: ['dormant','dormants'], icon: '💤', label: 'Voir les dormants', fn: () => { showCockpitInTable('dormants'); } },
   { kw: ['anomalie','anomalies'], icon: '⚠️', label: 'Voir les anomalies', fn: () => { showCockpitInTable('anomalies'); } },
   { kw: ['saso'], icon: '📦', label: 'Voir les SASO', fn: () => { showCockpitInTable('saso'); } },
-  { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('territoire'); } },
+  { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('commerce'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
   { kw: ['mes clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Mes clients', fn: () => { switchTab('clients'); } },
-  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Analyse du stock (ABC/FMR)', fn: () => { switchTab('dash'); } },
-  { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('territoire'); } },
-  { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('bench'); } },
+  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Analyse du stock (ABC/FMR)', fn: () => { switchTab('stock'); } },
+  { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('commerce'); } },
+  { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('reseau'); } },
   { kw: ['labo','croisement','commercial','silencieux','opportunités','prisme'], icon: '🧪', label: 'Onglet Labo', fn: () => { switchTab('labo'); } },
-  { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('dash'); } },
+  { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('stock'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
   { kw: ['glossaire'], icon: '🧠', label: 'Afficher le glossaire', fn: () => { const g = document.getElementById('glossaire'); if (g) { g.classList.toggle('hidden'); g.scrollIntoView({ behavior: 'smooth' }); } } },
@@ -556,7 +556,7 @@ export function _cmdBuildResults(q) {
           badge: isActif ? 'Actif' : (info.statut || ''),
           badgeCls: isActif ? 'i-ok-bg c-ok' : 's-hover t-tertiary',
           fn: () => {
-            switchTab('territoire');
+            switchTab('commerce');
             setTimeout(() => {
               const searchInput = document.getElementById('terrClientSearch');
               if (searchInput) { searchInput.value = info.nom || code; searchInput.dispatchEvent(new Event('input')); }
@@ -578,7 +578,7 @@ export function _cmdBuildResults(q) {
           main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(nom || code)}`,
           sub: '',
           fn: () => {
-            switchTab('territoire');
+            switchTab('commerce');
             setTimeout(() => {
               const searchInput = document.getElementById('terrClientSearch');
               if (searchInput) { searchInput.value = nom || code; searchInput.dispatchEvent(new Event('input')); }
@@ -627,7 +627,7 @@ export function _cmdBuildResults(q) {
           sub: 'Comparer dans Le Réseau',
           badge: s === _S.selectedMyStore ? 'Mon agence' : '',
           fn: () => {
-            switchTab('bench');
+            switchTab('reseau');
             const sel = document.getElementById('obsCompareSelect');
             if (sel) { sel.value = s; sel.dispatchEvent(new Event('change')); }
           }
@@ -977,7 +977,7 @@ export function dqFocus(idx) {
     case 'rupture':
     case 'alerte_prev':
       showCockpitInTable('ruptures');
-      switchTab('dash');
+      switchTab('stock');
       break;
     case 'saisonnalite_prev': {
       const si = document.getElementById('searchInput');
@@ -991,26 +991,26 @@ export function dqFocus(idx) {
     case 'client':
     case 'client_silence':
       if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
-      else switchTab('territoire');
+      else switchTab('commerce');
       break;
     case 'captation':
-      switchTab('territoire');
+      switchTab('commerce');
       break;
     case 'livres_sans_pdv':
     case 'opps_nettes':
       switchTab('clients');
       break;
     case 'concentration':
-      switchTab('territoire');
+      switchTab('commerce');
       break;
     case 'opportunite':
     case 'client_web_actif':
     case 'client_digital_drift':
       if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
-      else switchTab('territoire');
+      else switchTab('commerce');
       break;
     case 'dormants':
-      switchTab('dash');
+      switchTab('stock');
       showCockpitInTable('dormants');
       break;
     case 'fragilite':
@@ -1019,17 +1019,17 @@ export function dqFocus(idx) {
       break;
     case 'erp_incoherence':
     case 'anomalie_minmax':
-      switchTab('dash');
+      switchTab('stock');
       showCockpitInTable('anomalies');
       break;
     case 'famille_fuite':
-      switchTab('bench');
+      switchTab('reseau');
       break;
     case 'stock_synthesis':
-      switchTab('dash');
+      switchTab('stock');
       break;
     default:
-      switchTab('dash');
+      switchTab('stock');
       break;
   }
 }
@@ -1125,7 +1125,7 @@ export function renderTabBadges() {
   }
 
   // Task 7: grise Articles + Mon Stock si stock non chargé
-  ['table', 'dash'].forEach(tabId => {
+  ['table', 'stock'].forEach(tabId => {
     const btn = document.querySelector(`[onclick*="switchTab('${tabId}')"]`);
     if (btn) {
       if (!_S._hasStock) {
@@ -1683,7 +1683,7 @@ document.addEventListener('keydown', function(e) {
 
   // 1–7 : switcher d'onglet (uniquement sans modificateur)
   if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'dash', '4': 'clients', '5': 'territoire', '6': 'bench', '7': 'animation' };
+    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'stock', '4': 'clients', '5': 'commerce', '6': 'reseau', '7': 'animation' };
     const tab = TAB_MAP[e.key];
     if (tab) {
       const btn = document.querySelector(`[data-tab="${tab}"]`);

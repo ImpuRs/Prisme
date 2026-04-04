@@ -30,7 +30,7 @@ function openDiagnostic(famille,source){
 }
 function openDiagnosticMetier(metier){
   const overlay=document.getElementById('diagnosticOverlay');
-  if(overlay){overlay.classList.add('active');_S._diagCurrentFamille='@metier:'+metier;_S._diagCurrentSource='territoire';_S._diagMetierFilter='';renderDiagnosticPanel('@metier:'+metier,'territoire');}
+  if(overlay){overlay.classList.add('active');_S._diagCurrentFamille='@metier:'+metier;_S._diagCurrentSource='commerce';_S._diagMetierFilter='';renderDiagnosticPanel('@metier:'+metier,'commerce');}
 }
 function closeDiagnostic(){
   const overlay=document.getElementById('diagnosticOverlay');
@@ -769,7 +769,7 @@ function _diagCellRenderClientele(key,v2) {
   const penBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl mb-3"><p class="text-[11px] mb-1" style="color:var(--t-primary)"><strong>${nbActifs}</strong> acheteurs actifs sur cette case</p>${domMetier&&nbZone>0?`<p class="text-[11px] mb-0" style="color:var(--t-primary)"><strong>${nbZone}</strong> clients <em>${escapeHtml(domMetier)}</em> dans ta zone chalandise</p>`:''}${barRow}${txPen===null&&nbZone===0?'<p class="text-[10px] t-disabled mt-1">Métier dominant non identifié dans la chalandise.</p>':''}</div>`;
   const nbPerdus=v2?.perdus||0;
   const potentiel=v2?.potentiel||0;
-  const reconBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl">${nbPerdus>0?`<p class="text-[11px] font-bold c-caution mb-2">⚠ ${nbPerdus} client${nbPerdus>1?'s':''} perdu${nbPerdus>1?'s':''}${potentiel>0?' · '+formatEuro(potentiel)+' récupérable':''}</p><button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();switchTab('territoire')">→ Voir dans Le Terrain</button>`:'<p class="text-[11px] c-ok">✅ Aucun client perdu identifié pour cette case.</p>'}</div>`;
+  const reconBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl">${nbPerdus>0?`<p class="text-[11px] font-bold c-caution mb-2">⚠ ${nbPerdus} client${nbPerdus>1?'s':''} perdu${nbPerdus>1?'s':''}${potentiel>0?' · '+formatEuro(potentiel)+' récupérable':''}</p><button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();switchTab('commerce')">→ Voir dans Le Terrain</button>`:'<p class="text-[11px] c-ok">✅ Aucun client perdu identifié pour cette case.</p>'}</div>`;
   return penBlock+reconBlock;
 }
 
@@ -821,8 +821,8 @@ function renderDiagnosticPanel(famille,source){
   if(!isMetierMode){try{famille=decodeURIComponent(famille);}catch(e){/* already plain string */}}
   const hasMulti=_S.storesIntersection.size>1;
   const hasChal=_S.chalandiseReady;
-  const srcLabel=source==='bench'?'Retour à Le Réseau':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='territoire'?'Retour au Terrain':source==='stock'?'Retour au Stock':'Retour';
-  const srcTab=source==='bench'?'bench':source==='cockpit'?'action':source==='abc'?'abc':source==='territoire'?'territoire':'dash';
+  const srcLabel=source==='reseau'?'Retour à Le Réseau':source==='cockpit'?'Retour au Cockpit':source==='abc'?'Retour au Radar':source==='commerce'?'Retour au Terrain':source==='stock'?'Retour au Stock':'Retour';
+  const srcTab=source==='reseau'?'reseau':source==='cockpit'?'action':source==='abc'?'abc':source==='commerce'?'commerce':'stock';
   const agenceLabel=_S.selectedMyStore||'Votre agence';
   const nbAgences=_S.storesIntersection.size;
   const agenceCtxHtml=`<p class="text-xs text-cyan-300 font-semibold mt-1">🏪 ${agenceLabel}${hasMulti?` <span class="t-inverse-muted font-normal">(${nbAgences} agences chargées)</span>`:'<span class="t-inverse-muted font-normal"> (mono-agence)</span>'}</p>`;
@@ -961,7 +961,7 @@ function _renderDiagnosticCellPanel(key,cellArts){
   const acts=[];
   if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',codes:ruptures.map(r=>r.code),label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});}
   if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});}
-  if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('territoire');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
+  if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('commerce');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
   if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
   _S._diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
   _S._diagCellKey=key;
@@ -1492,7 +1492,7 @@ function _diagRenderL3Metier(l){
     const barColor=pctCov>=70?'bg-emerald-500':pctCov>=40?'bg-amber-500':'bg-red-500';
     const textColor=pctCov>=70?'c-ok':pctCov>=40?'c-caution':'c-danger';
     const famAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    const diagBtn=`<button class="diag-btn ml-1 s-card-alt t-secondary text-[9px]" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'territoire')">🔍</button>`;
+    const diagBtn=`<button class="diag-btn ml-1 s-card-alt t-secondary text-[9px]" data-fam="${famAttr}" onclick="openDiagnostic(this.dataset.fam,'commerce')">🔍</button>`;
     return`<tr class="border-t b-dark"><td class="py-1 px-2 max-w-[160px] truncate text-[11px]">${f.fam}${diagBtn}</td><td class="py-1 px-2 text-center">${f.nbArts}</td><td class="py-1 px-2 text-center c-ok">${f.enStock}</td><td class="py-1 px-2 text-center c-caution">${f.rupture}</td><td class="py-1 px-2 text-center c-danger">${f.absent}</td><td class="py-1 px-2 text-right"><div class="flex items-center justify-end gap-1"><div class="w-10 s-panel-inner rounded-full h-1.5 overflow-hidden"><div class="${barColor} h-1.5 rounded-full" style="width:${pctCov}%"></div></div><span class="text-[10px] ${textColor}">${pctCov}%</span></div></td></tr>`;
   }).join('');
   return`<div class="diag-level">
@@ -1532,7 +1532,7 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
     const detailHtml=top5.map(r=>`<span class="font-mono t-inverse-muted">${r.code}</span> ${r.lib} : ${r.ancienMin}→${r.nouveauMin}`).join(' · ');
     acts.push({priority:2,star:'⭐',label:`Recalibrer MIN/MAX — ${nbMM} au total, les 5 prioritaires : ${detailHtml}`,fn:()=>{closeDiagnostic();clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});
   }
-  if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(_S.territoireReady)switchTab('territoire');}});
+  if(l3&&l3.status!=='lock'&&l3.pct<70)acts.push({priority:3,star:'⭐⭐',label:`Améliorer la couverture rayon pour les ${metier}s (${l3.pct}% actuellement)`,fn:()=>{closeDiagnostic();if(_S.territoireReady)switchTab('commerce');}});
   if(l4&&l4.perdus>0){
     const potLabel=l4.potentiel>0?formatEuro(l4.potentiel):null;
     acts.push({priority:4,star:'⭐⭐⭐',label:`Démarcher ${l4.perdus} ${metier}${l4.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{
@@ -1550,7 +1550,7 @@ function _diagGenActionsMetier(metier,l1,l2,l3,l4){
       window.scrollTo(0,0);
       if(_mc)_mc.scrollTop=0;
       // 3. Naviguer
-      switchTab('territoire');
+      switchTab('commerce');
       // 4. Poll position cumulative stable, puis scroll
       let _lastTop=-1,_tries=0;
       const _poll=setInterval(()=>{
@@ -1662,12 +1662,12 @@ function _diagGenActions(famille,v1,v2,v3){
   // 👥 MES CLIENTS actions
   if(v2&&v2.status!=='lock'&&v2.perdus>0){
     const potLabel=v2.potentiel>0?formatEuro(v2.potentiel):null;
-    acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc1069=document.getElementById('mainContent');if(_mc1069){_mc1069.style.overflow='';_mc1069.scrollTop=0;}switchTab('territoire');let _lt1069=-1,_tr1069=0;const _pv1069=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr1069>40)clearInterval(_pv1069);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt1069&&t>0)||_tr1069++>40){clearInterval(_pv1069);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${famille}</strong> — ${v2.perdus} client${v2.perdus>1?'s':''} perdu${v2.perdus>1?'s':''}${potLabel?' · potentiel '+potLabel:''} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt1069=t;},100);}});
+    acts.push({priority:3,src:'👥',label:`Démarcher ${v2.perdus} client${v2.perdus>1?'s':''} perdus${potLabel?' — potentiel '+potLabel:''}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc1069=document.getElementById('mainContent');if(_mc1069){_mc1069.style.overflow='';_mc1069.scrollTop=0;}switchTab('commerce');let _lt1069=-1,_tr1069=0;const _pv1069=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr1069>40)clearInterval(_pv1069);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt1069&&t>0)||_tr1069++>40){clearInterval(_pv1069);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${famille}</strong> — ${v2.perdus} client${v2.perdus>1?'s':''} perdu${v2.perdus>1?'s':''}${potLabel?' · potentiel '+potLabel:''} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt1069=t;},100);}});
   }
   // 🔭 LE RÉSEAU actions
   if(v3&&v3.status!=='lock'){
     if(v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('bench');}});
+      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('reseau');}});
     }
     // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
     if(v3.medCA>0&&v3.medCA<1000){

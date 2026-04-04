@@ -122,7 +122,7 @@ function _navigateToOverviewMetier(metier){
   window.scrollTo(0,0);
   const _mcNav=document.getElementById('mainContent');
   if(_mcNav){_mcNav.style.overflow='';_mcNav.scrollTop=0;}
-  switchTab('territoire');
+  switchTab('commerce');
   // Poll position cumulative stable puis scroll + filtre métier
   let _ltNav=-1,_trNav=0;
   const _pvNav=setInterval(()=>{

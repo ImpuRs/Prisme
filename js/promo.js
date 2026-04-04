@@ -1407,7 +1407,7 @@ function _nlBenchSousMediane(){
       moi:f.my,
       med:f.med,
       pct:pct!==null?`<span class="font-bold ${pct<50?'c-danger':pct<100?'c-caution':''}">${pct}%</span>`:'—',
-      diag:pct!==null&&pct<50?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" data-fam="${escapeHtml(f.fam)}" onclick="openDiagnostic(this.dataset.fam,'bench')">🔍</button>`:'',
+      diag:pct!==null&&pct<50?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" data-fam="${escapeHtml(f.fam)}" onclick="openDiagnostic(this.dataset.fam,'reseau')">🔍</button>`:'',
     };
   }),[
     {key:'fam',label:'Famille',cls:'text-xs font-semibold'},
@@ -1660,7 +1660,7 @@ function _nlRupturesTopClients({topN}){
     abc:`<span class="font-bold ${r.abc==='A'?'c-danger':r.abc==='B'?'c-caution':'t-disabled'}">${r.abc}</span>`,
     clients:r.clients.size+'/'+topN,
     ca:formatEuro(r.ca),
-    diag:r.fam?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" data-fam="${escapeHtml(r.fam)}" onclick="openDiagnostic(this.dataset.fam,'bench')">🔍</button>`:'',
+    diag:r.fam?`<button class="diag-btn i-danger-bg c-danger text-[9px] py-0.5 px-1.5" data-fam="${escapeHtml(r.fam)}" onclick="openDiagnostic(this.dataset.fam,'reseau')">🔍</button>`:'',
   })).sort((a,b)=>parseInt(b.clients)-parseInt(a.clients));
   _renderNLResult(`Ruptures chez top ${topN||5} clients`,rows,[
     {key:'lib',label:'Article',cls:'text-xs font-semibold'},

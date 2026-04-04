@@ -746,7 +746,7 @@ function _nlQ_FamillesSousMediane() {
   const rows = lose.slice(0,12).map(f=>{
     const ecartStr = `${f.ecartPct>0?'+':''}${f.ecartPct}%`;
     const potStr = f.caTheorique>0 ? `<span class="text-[8px] t-disabled">(théorique\u00a0${formatEuro(f.caTheorique)})</span>` : '';
-    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${f.fam.replace(/'/g,"\\'")}','bench')"><td class="py-1 pr-2 font-semibold">${f.fam}</td><td class="py-1 pr-3 text-right font-bold">${formatEuro(f.caMe)}</td><td class="py-1 pr-3 text-right t-disabled">${formatEuro(f.caOther)}</td><td class="py-1 text-right font-bold" style="color:var(--c-danger)">${ecartStr} ${potStr}</td><td class="py-1 pl-1 text-[8px] t-disabled">🔍</td></tr>`;
+    return `<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openDiagnostic('${f.fam.replace(/'/g,"\\'")}','reseau')"><td class="py-1 pr-2 font-semibold">${f.fam}</td><td class="py-1 pr-3 text-right font-bold">${formatEuro(f.caMe)}</td><td class="py-1 pr-3 text-right t-disabled">${formatEuro(f.caOther)}</td><td class="py-1 text-right font-bold" style="color:var(--c-danger)">${ecartStr} ${potStr}</td><td class="py-1 pl-1 text-[8px] t-disabled">🔍</td></tr>`;
   }).join('');
   const totalEcart = lose.reduce((s,f)=>s+Math.max(0,(f.caOther||0)-(f.caMe||0)),0);
   return { title:`Familles sous la médiane réseau — ${lose.length} familles (potentiel\u00a0${formatEuro(totalEcart)})`,
