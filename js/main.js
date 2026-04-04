@@ -211,7 +211,9 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
             const d=months[midxStr];
             if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,ca:0,caP:0,caE:0,sumVMB:0,sumVMBP:0};
             newCanalAgence[canal].bl+=d.countBL;
-            newCanalAgence[canal].ca+=d.sumCA;
+            const _caP_c=d.sumCAPrelevee||0;
+            const _caMode_c=(canal==='MAGASIN'&&mode==='preleve')?_caP_c:(canal==='MAGASIN'&&mode==='enleve')?(d.sumCA-_caP_c):d.sumCA;
+            newCanalAgence[canal].ca+=_caMode_c;
             newCanalAgence[canal].caP+=d.sumPrelevee||0;
             newCanalAgence[canal].caE+=(d.sumCA-(d.sumCAPrelevee||d.sumPrelevee||0));
             newCanalAgence[canal].sumVMB+=d.sumVMB||0;
