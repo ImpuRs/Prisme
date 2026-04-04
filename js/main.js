@@ -115,42 +115,70 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     const pEnd=_S.periodFilterEnd;
     const startIdx=pStart?(pStart.getFullYear()*12+pStart.getMonth()):0;
     const endIdx=pEnd?(pEnd.getFullYear()*12+pEnd.getMonth()):999999;
+    const activeCanal=_S._globalCanal||'';
+    const mode=_S._reseauMagasinMode||'all';
 
     // ── Reconstruire ventesClientArticle ──
     const newVCA=new Map();
     const newClientsMagasin=new Set();
     const newClientsMagasinFreq=new Map();
 
-    const bm=_S._byMonth;
-    if(bm){
-      for(const cc in bm){
-        const articles=bm[cc];
-        for(const code in articles){
-          const months=articles[code];
-          for(const midxStr in months){
-            const midx=+midxStr;
-            if(midx<startIdx||midx>endIdx)continue;
-            const d=months[midxStr];
-            if(!d.sumCA&&!d.sumPrelevee)continue;
-            if(!newVCA.has(cc))newVCA.set(cc,new Map());
-            const artMap=newVCA.get(cc);
-            if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
-            const e=artMap.get(code);
-            e.sumCA+=d.sumCA;
-            e.sumPrelevee+=d.sumPrelevee;
-            e.sumCAPrelevee+=d.sumCAPrelevee||0;
-            e.countBL+=d.countBL;
-            if(d.sumPrelevee>0||d.sumCA>0){
-              newClientsMagasin.add(cc);
-              newClientsMagasinFreq.set(cc,(newClientsMagasinFreq.get(cc)||0)+d.countBL);
+    if(!activeCanal||activeCanal==='MAGASIN'){
+      // Chemin MAGASIN — byMonth avec filtrage période + mode prélevé/enlevé
+      const bm=_S._byMonth;
+      if(bm){
+        for(const cc in bm){
+          const articles=bm[cc];
+          for(const code in articles){
+            const months=articles[code];
+            for(const midxStr in months){
+              const midx=+midxStr;
+              if(midx<startIdx||midx>endIdx)continue;
+              const d=months[midxStr];
+              if(!d.sumCA&&!d.sumPrelevee)continue;
+              if(!newVCA.has(cc))newVCA.set(cc,new Map());
+              const artMap=newVCA.get(cc);
+              if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
+              const e=artMap.get(code);
+              const _caP=d.sumCAPrelevee||d.sumPrelevee||0;
+              const _caMode=mode==='preleve'?_caP:mode==='enleve'?(d.sumCA-_caP):d.sumCA;
+              e.sumCA+=_caMode;
+              e.sumPrelevee+=d.sumPrelevee;
+              e.sumCAPrelevee+=_caP;
+              e.countBL+=d.countBL;
+              if(d.sumPrelevee>0||d.sumCA>0){
+                newClientsMagasin.add(cc);
+                newClientsMagasinFreq.set(cc,(newClientsMagasinFreq.get(cc)||0)+d.countBL);
+              }
             }
+          }
+        }
+      }
+    } else {
+      // Chemin hors-MAGASIN — ventesClientHorsMagasin filtré par canal
+      // Pas de filtrage période au niveau client (byMonth n'existe que pour MAGASIN)
+      const vchm=_S.ventesClientHorsMagasin;
+      if(vchm){
+        for(const[cc,artMap]of vchm){
+          for(const[code,d]of artMap){
+            if(d.canal!==activeCanal)continue;
+            if(!newVCA.has(cc))newVCA.set(cc,new Map());
+            const artMapNew=newVCA.get(cc);
+            if(!artMapNew.has(code))artMapNew.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});
+            const e=artMapNew.get(code);
+            const _caP=d.sumCAPrelevee||d.sumPrelevee||0;
+            const _caMode=mode==='preleve'?_caP:mode==='enleve'?((d.sumCA||0)-_caP):(d.sumCA||0);
+            e.sumCA+=_caMode;
+            e.sumPrelevee+=d.sumPrelevee||0;
+            e.sumCAPrelevee+=_caP;
+            e.countBL+=d.countBL||0;
           }
         }
       }
     }
 
-    // sumCAAll : copier depuis ventesClientArticleFull (pleine période)
-    if(_S.ventesClientArticleFull?.size){
+    // sumCAAll : copier depuis ventesClientArticleFull (pleine période) — MAGASIN uniquement
+    if((!activeCanal||activeCanal==='MAGASIN')&&_S.ventesClientArticleFull?.size){
       for(const[cc,artMap]of newVCA){
         const fullMap=_S.ventesClientArticleFull.get(cc);
         if(!fullMap)continue;
