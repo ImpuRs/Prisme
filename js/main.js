@@ -517,13 +517,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _restoreExclusions();
     resetPromo();
 
-    // ── FIX 2 : sélecteur agence AVANT lecture fichier ──
-    // Si aucune agence mémorisée, demander à l'utilisateur MAINTENANT (avant les 4+ min de readExcel)
+    // Agence pré-remplie si mémorisée — le Worker validera et demandera si besoin
     let selectedStore=_storeOverride||localStorage.getItem('prisme_selectedStore')||'';
-    if(!selectedStore){
-      selectedStore=await _showStoreSelector(new Set(Object.keys(AGENCE_CP)));
-      if(selectedStore)localStorage.setItem('prisme_selectedStore',selectedStore);
-    }
 
     showLoading('Lecture…','');await yieldToMain();
 
@@ -555,32 +550,8 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
       });
     }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
-    // ── Agences détectées par le worker ──
-    const storesFoundC = new Set(parseResult.storesFoundC || []);
-    const storesFoundS = new Set(parseResult.storesFoundS || []);
-    _S.storesIntersection = new Set(parseResult.storesIntersection || []);
-    _S.storeCountConsomme = storesFoundC.size;
-    _S.storeCountStock = storesFoundS.size;
-
-    // ── Valider l'agence pré-sélectionnée contre les données réelles ──
-    if(selectedStore&&!_S.storesIntersection.has(selectedStore))selectedStore='';
-    if(_S.storesIntersection.size>1&&!selectedStore){
-      selectedStore=await _showStoreSelector(_S.storesIntersection);
-    }
-    if(_S.storesIntersection.size===1)selectedStore=[..._S.storesIntersection][0];
-
-    // Si l'agence change après le parse worker, on devra re-parser — mais dans la plupart des cas
-    // l'agence était déjà connue (pré-sélectionnée). Si elle a changé, relancer le worker avec la bonne agence.
-    if(selectedStore && parseResult.storesIntersection && !parseResult.storesIntersection.includes(selectedStore)){
-      // Agence nouvellement sélectionnée — re-lancer le worker avec le bon store
-      updateProgress(20,100,'Re-parsing pour agence '+selectedStore+'…');
-      try{
-        parseResult = await launchParseWorker(_S._bufC.slice(0), _S._bufS ? _S._bufS.slice(0) : null, {
-          selectedStore: selectedStore,
-          storesIntersection: [..._S.storesIntersection],
-        });
-      }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
-    }
+    // ── Agence sélectionnée — résolue dans launchParseWorker (message 'stores') ──
+    selectedStore = parseResult._resolvedStore || selectedStore;
 
     // ── Hydrater _S depuis le résultat du worker ──
     _hydrateStateFromParseResult(parseResult, selectedStore);
@@ -600,10 +571,33 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
   function launchParseWorker(bufC, bufS, opts) {
     return new Promise(function(resolve, reject) {
       const worker = new Worker('js/parse-worker.js');
-      worker.onmessage = function(ev) {
+      worker.onmessage = async function(ev) {
         const msg = ev.data;
         if (msg.type === 'progress') {
           updateProgress(msg.pct, 100, msg.msg);
+        } else if (msg.type === 'stores') {
+          // Le Worker a détecté les agences — sélectionner et répondre
+          const storesI = new Set(msg.storesIntersection || []);
+          _S.storesIntersection = storesI;
+          _S.storeCountConsomme = (msg.storesFoundC || []).length;
+          _S.storeCountStock = (msg.storesFoundS || []).length;
+          let store = (opts.selectedStore || '').toUpperCase();
+          if (storesI.size === 1) {
+            store = [...storesI][0];
+          } else if (storesI.size > 1 && (!store || !storesI.has(store))) {
+            store = await _showStoreSelector(storesI) || '';
+          }
+          if (store) localStorage.setItem('prisme_selectedStore', store);
+          // Mettre à jour le dropdown agence
+          const _selStore = document.getElementById('selectMyStore');
+          if (_selStore && storesI.size) {
+            _selStore.innerHTML = '<option value="">—</option>' + [...storesI].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+            if (store) _selStore.value = store;
+          }
+          document.getElementById('storeSelector')?.classList.add('hidden');
+          // Confirmer au Worker — il peut continuer le parse complet
+          opts._resolvedStore = store;
+          worker.postMessage({ type: 'continue', selectedStore: store });
         } else if (msg.type === 'done') {
           worker.terminate();
           resolve(msg.payload);
