@@ -241,8 +241,8 @@ _S._activeReseauWorker = null;
 _S._commerceView = 'clients';       // 'clients' | 'familles' — vue commerce terrain
 _S._missedSortCol = 'freq';         // tri articles manquants réseau
 _S._missedSortDir = 'desc';         // direction tri missed
-_S._rawDataC = [];                  // données brutes consommé COMPLET (pour benchmark réseau)
-_S._rawDataCFiltered = [];          // données brutes consommé filtrées agence (pour refilter période)
+_S._rawDataC = null;                 // données brutes consommé COMPLET — {headers, rows} (pour benchmark réseau)
+_S._rawDataCFiltered = null;        // données brutes consommé filtrées agence — {headers, rows} (pour refilter période)
 _S._rawDataS = [];                  // données brutes stock (pour refilter période)
 _S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
 _S._livraisonsLoading = false;      // guard anti-appels concurrents parseLivraisons
@@ -395,7 +395,7 @@ export function resetAppState() {
 
   // Propriétés anciennement non déclarées (Sprint 0)
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
-  _S._rawDataC = []; _S._rawDataCFiltered = []; _S._rawDataS = [];
+  _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S._top5Semaine = [];

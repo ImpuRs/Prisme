@@ -8,7 +8,7 @@
 'use strict';
 
 import { METIERS_STRATEGIQUES } from './constants.js';
-import { cleanCode, formatEuro, readExcel, escapeHtml, formatLocalYMD, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
+import { cleanCode, formatEuro, readExcel, readExcelAsObjects, escapeHtml, formatLocalYMD, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { computeSPC, _clientPassesFilters } from './engine.js';
@@ -847,7 +847,7 @@ async function runPromoImport(){
   const fileInput=document.getElementById('promoImportFile');
   if(fileInput&&fileInput.files[0]){
     try{
-      const data=await readExcel(fileInput.files[0]);
+      const data=readExcelAsObjects(await readExcel(fileInput.files[0]));
       // Detect Qlik promo format
       const colMap={};if(data[0]){for(const k of Object.keys(data[0])){const kl=k.toLowerCase().trim();if(kl.includes('code article')||kl==='code')colMap.code=k;else if(kl.includes('opération')||kl.includes('operation'))colMap.op=k;}}
       for(const row of data){

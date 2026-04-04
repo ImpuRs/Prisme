@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
 
 
@@ -30,7 +30,7 @@ export async function parseChalandise(file) {
       data = parseCSVText(text2, sep);
     }
   } else {
-    data = await readExcel(file);
+    data = readExcelAsObjects(await readExcel(file));
   }
   if (!data || !data.length) { showToast('⚠️ Fichier Chalandise vide ou illisible', 'error'); return; }
   const sample = data[0];

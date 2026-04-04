@@ -62,9 +62,13 @@ export function formatEuro(n) {
 export function pct(p, t) { return t > 0 ? ((p / t) * 100).toFixed(1) + '%' : '0%'; }
 
 export function parseExcelDate(v) {
-  if (!v) return null;
+  if (!v && v !== 0) return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
-  if (typeof v === 'number') return new Date(Math.round((v - 25569) * 864e5));
+  // Numéro sérial Excel (cellDates:false) — plage réaliste 2009-2036
+  if (typeof v === 'number') {
+    if (v > 39000 && v < 60000) return new Date(Math.round((v - 25569) * 864e5));
+    return null; // nombre hors plage dates : pas une date
+  }
   if (typeof v === 'string') {
     const s = v.split(' ')[0]; // strip time part
     const p = s.split(/[-/]/);
@@ -169,16 +173,16 @@ export function readExcel(f, onProgress) {
   if (f.size < 20 * 1024 * 1024) {
     return new Promise((res, rej) => {
       const r = new FileReader();
+      r.onerror = () => rej(new Error('Lecture impossible'));
       r.onload = e => {
         try {
-          const w = XLSX.read(new Uint8Array(e.target.result), {
-            type:'array', dense:true, cellDates:true,
-            cellFormula:false, cellHTML:false, cellStyles:false
+          const wb = XLSX.read(new Uint8Array(e.target.result), {
+            type: 'array', dense: true, cellDates: false,
+            cellFormula: false, cellHTML: false, cellStyles: false
           });
-          res(XLSX.utils.sheet_to_json(w.Sheets[w.SheetNames[0]], {defval:''}));
+          res(_wsToHR(wb.Sheets[wb.SheetNames[0]]));
         } catch(err) { rej(err); }
       };
-      r.onerror = () => rej(new Error('Lecture impossible'));
       r.readAsArrayBuffer(f);
     });
   }
@@ -186,8 +190,8 @@ export function readExcel(f, onProgress) {
   // Fichiers >= 20 Mo : Worker (pas de freeze UI)
   return new Promise((res, rej) => {
     const r = new FileReader();
+    r.onerror = () => rej(new Error('Lecture impossible'));
     r.onload = e => {
-      const buffer = e.target.result;
       const worker = new Worker('js/xlsx-worker.js');
       worker.onmessage = evt => {
         const msg = evt.data;
@@ -196,12 +200,38 @@ export function readExcel(f, onProgress) {
         else if (msg.type === 'error') { worker.terminate(); rej(new Error(msg.msg)); }
       };
       worker.onerror = err => { worker.terminate(); rej(new Error('Worker: ' + err.message)); };
-      // PAS de Transferable — envoyer une copie (prouvé fonctionnel)
-      worker.postMessage({buffer: buffer});
+      worker.postMessage({buffer: e.target.result});
     };
-    r.onerror = () => rej(new Error('Lecture impossible'));
     r.readAsArrayBuffer(f);
   });
+}
+
+// Internal: ws['!data'] (dense:true) → {headers, rows}
+function _wsToHR(ws) {
+  const raw = ws['!data'] || [];
+  if (!raw.length) return { headers: [], rows: [] };
+  const headers = (raw[0] || []).map(cell => cell != null && cell.v != null ? String(cell.v).trim() : '');
+  const nCols = headers.length;
+  const rows = [];
+  for (let r = 1; r < raw.length; r++) {
+    const src = raw[r];
+    const row = new Array(nCols);
+    if (src) {
+      for (let c = 0; c < nCols; c++) {
+        const cell = src[c];
+        row[c] = cell != null ? (cell.v != null ? cell.v : '') : '';
+      }
+    } else {
+      row.fill('');
+    }
+    rows.push(row);
+  }
+  return { headers, rows };
+}
+
+// Converts {headers, rows} → array of objects (for small-file parsers)
+export function readExcelAsObjects({ headers, rows }) {
+  return rows.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ''])));
 }
 
 export function yieldToMain() { return new Promise(r => setTimeout(r, 0)); }
