@@ -55,8 +55,7 @@ export function csvCell(v) {
 // @returns {string} HTML <details> complet
 export function renderOppNetteTable() {
   const _OPP_PAGE = 20;
-  const _gc = _S._globalCanal || '';
-  const _oppAll = (_S.opportuniteNette || []).filter(o => !_gc || (o.canalBreakdown && (o.canalBreakdown[_gc] || 0) > 0));
+  const _oppAll = _S.opportuniteNette || [];
   const _oppMaxP = Math.max(1, Math.ceil(_oppAll.length / _OPP_PAGE));
   const _oppCur = Math.max(1, Math.min(_S._oppNettePage || 1, _oppMaxP));
   if (_S._oppNettePage !== _oppCur) _S._oppNettePage = _oppCur;
