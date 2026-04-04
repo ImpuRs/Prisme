@@ -1922,7 +1922,7 @@ _S.canalAgence=newCanalAgence;
       case 'reseau':
         renderBenchmark();
         break;
-      case 'clients':
+      case 'commerce':
         renderMesClients();
         break;
       case 'animation':
