@@ -854,34 +854,6 @@ self.onmessage = async function(ev) {
       }
     }
 
-    // ── Recalcul canalAgence période-filtrée (si filtre actif) ───────────
-    if (periodFilterStart || periodFilterEnd) {
-      var _canalAgencePF = {};
-      var _tmpBLca = {};
-      for (var pfi = 0; pfi < rows.length; pfi++) {
-        var prow2 = rows[pfi];
-        var pfCanal = (CI.canal !== null ? (prow2[CI.canal] != null ? prow2[CI.canal] : '') : '').toString().trim().toUpperCase();
-        if (!pfCanal) continue;
-        var pfSk = (CI.store !== null ? (prow2[CI.store] != null ? prow2[CI.store] : '').toString().trim().toUpperCase() : '') || 'INCONNU';
-        if (selectedStore && pfSk !== 'INCONNU' && pfSk !== selectedStore) continue;
-        var pfDate = parseExcelDate(CI.jour !== null ? prow2[CI.jour] : null);
-        if (periodFilterStart && pfDate && pfDate < periodFilterStart) continue;
-        if (periodFilterEnd && pfDate && pfDate > periodFilterEnd) continue;
-        var pfNc = ((CI.commande !== null ? (prow2[CI.commande] != null ? prow2[CI.commande] : '').toString() : (CI.bl !== null ? (prow2[CI.bl] != null ? prow2[CI.bl] : '').toString() : ''))). trim();
-        var pfCaP = CI.caP !== null ? (+prow2[CI.caP] || 0) : 0;
-        var pfCaE = CI.caE !== null ? (+prow2[CI.caE] || 0) : 0;
-        if (!_canalAgencePF[pfCanal]) _canalAgencePF[pfCanal] = { bl: 0, ca: 0, caP: 0, caE: 0 };
-        if (pfNc) {
-          if (!_tmpBLca[pfCanal]) _tmpBLca[pfCanal] = new Set();
-          if (!_tmpBLca[pfCanal].has(pfNc)) { _tmpBLca[pfCanal].add(pfNc); _canalAgencePF[pfCanal].bl++; }
-        }
-        _canalAgencePF[pfCanal].caP += pfCaP;
-        _canalAgencePF[pfCanal].caE += pfCaE;
-        _canalAgencePF[pfCanal].ca += pfCaP + pfCaE;
-      }
-      canalAgence = _canalAgencePF;
-    }
-
     // ── clientsMagasinFreq ────────────────────────────────────────────────
     _clientMagasinBLsTemp.forEach(function(bls, cc) {
       clientsMagasinFreq.set(cc, bls.size);
