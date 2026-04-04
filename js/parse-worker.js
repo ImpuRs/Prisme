@@ -343,12 +343,30 @@ self.onmessage = async function(ev) {
       }
       dataC = { headers: headersC_csv, rows: csvRows };
     } else {
-      self.postMessage({ type: 'progress', pct: 15, msg: 'Parsing consommé XLSX…' });
+      self.postMessage({ type: 'progress', pct: 15, msg: 'Parsing consommé XLSX→CSV…' });
+      var _t0 = Date.now();
       var wbC = XLSX.read(new Uint8Array(bufC), {
         type: 'array', dense: true, cellDates: false,
         cellFormula: false, cellHTML: false, cellStyles: false
       });
-      dataC = _wsToHR(wbC.Sheets[wbC.SheetNames[0]]);
+      var _wsC = wbC.Sheets[wbC.SheetNames[0]];
+      var _t1 = Date.now();
+      // Convertir en CSV interne pour contourner sheet_to_json — TEST PERF
+      var _csvInternal = XLSX.utils.sheet_to_csv(_wsC, { FS: ';', RS: '\n' });
+      var _t2 = Date.now();
+      console.log('[perf] XLSX.read:', _t1-_t0, 'ms | sheet_to_csv:', _t2-_t1, 'ms | total:', _t2-_t0, 'ms');
+      var _csvLinesInt = _csvInternal.split('\n');
+      var _hdrInt = _csvLinesInt[0].split(';').map(function(h){ return h.trim().replace(/\r/g,'').replace(/^"|"$/g,''); });
+      var _rowsInt = [];
+      for (var _ci2 = 1; _ci2 < _csvLinesInt.length; _ci2++) {
+        var _ln = _csvLinesInt[_ci2].replace(/\r/g,'');
+        if (!_ln) continue;
+        var _cells = _ln.split(';');
+        while (_cells.length < _hdrInt.length) _cells.push('');
+        _rowsInt.push(_cells);
+      }
+      dataC = { headers: _hdrInt, rows: _rowsInt };
+      isCsvC = true; // activer cleanPrice() pour les numériques
     }
 
     // ── 2. Parse XLSX stock ──────────────────────────────────────────────
