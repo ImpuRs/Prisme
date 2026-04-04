@@ -190,6 +190,17 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     if(pStart)_S.consommePeriodMin=pStart;
     if(pEnd)_S.consommePeriodMax=pEnd;
 
+    // ── Recalculer ventesAnalysis depuis canalAgence reconstruit ──
+    const _magData=_S.canalAgence?.['MAGASIN']||{};
+    const _caMag=_magData.ca||0;
+    const _vmbMag=_magData.sumVMB||0;
+    const _blMag=_magData.bl||0;
+    _S.ventesAnalysis=Object.assign({},_S.ventesAnalysis,{
+      txMarge:_caMag>0?_vmbMag/_caMag*100:null,
+      vmc:_blMag>0?_caMag/_blMag:null,
+      totalBL:_blMag,
+    });
+
     invalidateCache('tab','terr');
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
