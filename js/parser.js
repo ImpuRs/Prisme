@@ -17,6 +17,7 @@ import { _S, resetAppState, invalidateCache } from './state.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
 export async function parseChalandise(file) {
+  console.trace('[parseChalandise] appelée — fichier:', file?.name);
   const isCSV = file.name.toLowerCase().endsWith('.csv');
   let data;
   if (isCSV) {
