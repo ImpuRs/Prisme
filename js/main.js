@@ -173,11 +173,13 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
             const midx=+midxStr;
             if(midx<startIdx||midx>endIdx)continue;
             const d=months[midxStr];
-            if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,ca:0,caP:0,caE:0};
+            if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,ca:0,caP:0,caE:0,sumVMB:0,sumVMBP:0};
             newCanalAgence[canal].bl+=d.countBL;
             newCanalAgence[canal].ca+=d.sumCA;
             newCanalAgence[canal].caP+=d.sumPrelevee||0;
-            newCanalAgence[canal].caE+=(d.sumCA-(d.sumPrelevee||0));
+            newCanalAgence[canal].caE+=(d.sumCA-(d.sumCAPrelevee||d.sumPrelevee||0));
+            newCanalAgence[canal].sumVMB+=d.sumVMB||0;
+            newCanalAgence[canal].sumVMBP+=d.sumVMBP||0;
           }
         }
       }

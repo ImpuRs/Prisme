@@ -558,10 +558,12 @@ self.onmessage = async function(ev) {
         var _skC = _rs;
         if (!byMonthCanal[_skC]) byMonthCanal[_skC] = {};
         if (!byMonthCanal[_skC][canal]) byMonthCanal[_skC][canal] = {};
-        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, _cmds: new Set() };
+        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, sumVMB: 0, sumVMBP: 0, _cmds: new Set() };
         var _bmce = byMonthCanal[_skC][canal][_midxC];
         _bmce.sumCA += _rcp + _rce;
         if (_rqp > 0) _bmce.sumPrelevee += _rcp;
+        _bmce.sumVMB += _rvp + _rve;
+        _bmce.sumVMBP += _rvp;
         if (_rncb) _bmce._cmds.add(_rncb);
       }
 
