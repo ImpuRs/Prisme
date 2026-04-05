@@ -65,7 +65,8 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   const metiersSet = new Set();
   for (const row of data) {
     const rawCode = (cCode ? row[cCode] || '' : '').toString().trim();
-    const cc = extractClientCode(rawCode);
+    const ccRaw2 = extractClientCode(rawCode);
+    const cc = ccRaw2.replace(/^0+/, '') || ccRaw2;
     if (!cc) continue;
     const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
     if (metier) metiersSet.add(metier);
@@ -371,7 +372,7 @@ export async function parseTerritoireFile(f) {
 export function _terrWorker() {
   'use strict';
   function cleanOmniPrice(v) { if (!v) return 0; const s = v.toString().replace(/\s/g, '').replace(/€/g, '').replace(/,/g, '.'); return parseFloat(s) || 0; }
-  function extractClientCode(val) { const s = (val || '').toString().trim(); const idx = s.indexOf(' - '); return idx >= 0 ? s.slice(0, idx).trim() : s; }
+  function extractClientCode(val) { const s = (val || '').toString().trim(); const idx = s.indexOf(' - '); const code = idx >= 0 ? s.slice(0, idx).trim() : s; return code.replace(/^0+/, '') || code; }
   self.onmessage = function (ev) {
     const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
     const blConsommeSet = new Set(blConsommeArr);
