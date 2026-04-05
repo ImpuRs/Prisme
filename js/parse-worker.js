@@ -75,7 +75,9 @@ function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''; }
 function extractClientCode(val) {
   var s = (val || '').toString().trim();
   var idx = s.indexOf(' - ');
-  return idx >= 0 ? s.slice(0, idx).trim() : s;
+  var code = idx >= 0 ? s.slice(0, idx).trim() : s;
+  // Padder à 6 chiffres si code numérique (1853 → 001853)
+  return /^\d+$/.test(code) ? code.padStart(6, '0') : code;
 }
 
 function cleanPrice(v) {
