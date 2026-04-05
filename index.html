@@ -459,7 +459,6 @@
       /* Accordion headers: allow title to wrap, no truncation */
       details>summary>h3,details>summary>div>h3{white-space:normal;word-break:break-word;flex-shrink:1;min-width:0}
       details>summary>div{min-width:0;flex-shrink:1}
-      #benchUnderperformBanner{white-space:normal;word-break:break-word}
       /* Cockpit cockpitLists: single column */
       #tabAction .grid-cols-2{grid-template-columns:1fr!important}
       /* Filter drawer button: above bottom nav */
@@ -960,7 +959,6 @@
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📐 PDM bassin</h4><p class="text-xs t-secondary mt-1">Part de marché = poids de mon agence × CA total du bassin par famille.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🧮 CA théorique</h4><p class="text-xs t-secondary mt-1">CA que mon agence devrait réaliser si elle avait la performance moyenne du réseau, pondéré par sa taille.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">📊 Médiane réseau</h4><p class="text-xs t-secondary mt-1">Valeur centrale des agences comparables. Plus robuste que la moyenne (non biaisée par les extrêmes).</p></div>
-        <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">💪 Forces / ⚠️ Faiblesses</h4><p class="text-xs t-secondary mt-1"><strong>Forces</strong> = familles où mon CA &gt; médiane réseau. À consolider.<br><strong>Faiblesses</strong> = mon CA &lt; médiane. Potentiel de progression.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🚫 Articles manquants</h4><p class="text-xs t-secondary mt-1">Vendus par ≥50% du réseau mais absents chez moi. Opportunité de référencement.</p></div>
         <div class="s-card p-4 rounded-lg shadow-sm border-l-4 border-cyan-500"><h4 class="font-bold text-sm">🏆 Exclusivités</h4><p class="text-xs t-secondary mt-1">Articles que seule mon agence vend (ou &lt;2 agences). Avantage compétitif local à valoriser.</p></div>
       </div>
@@ -1605,28 +1603,7 @@
           <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA (bassin)</th><th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché sur cette famille dans le bassin.">ℹ</em></th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
         </details>
       </div>
-      <!-- FORCES & FAIBLESSES — ouvert par défaut -->
-      <details open class="s-card rounded-xl shadow-md border mb-6">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-          <h3 class="font-extrabold t-primary text-sm flex items-center gap-2">📊 Forces &amp; Faiblesses par Famille<em class="info-tip" data-tip="Comparaison de votre fréquence de vente par famille vs la médiane du réseau. Vert = ≥100% médiane · Orange = 50–99% · Rouge = &lt;50%.">ℹ</em><span id="obsFamilyBadge" class="hidden badge bg-red-500 text-white"></span></h3>
-          <span class="acc-arrow t-tertiary">▶</span>
-        </summary>
-        <div id="benchUnderperformBanner" class="hidden px-5 py-2 i-danger-bg c-danger text-xs font-bold border-b"></div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead class="s-hover t-primary font-bold sticky top-0">
-              <tr>
-                <th class="py-2 px-3 text-left">Famille</th>
-                <th class="py-2 px-3 text-right">% médiane</th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché dans le bassin : mon CA famille ÷ CA total bassin sur cette famille. Normalise la taille des agences.">ℹ</em></th>
-                <th class="py-2 px-3 text-center">Écart CA</th>
-              </tr>
-            </thead>
-            <tbody id="benchFamilyTable"></tbody>
-          </table>
-        </div>
-        <p id="benchFamilyNote" class="hidden text-[10px] t-disabled italic px-4 py-2 border-t"></p>
-      </details>
+
       <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
       <details class="s-card rounded-xl shadow-md border-2 border-orange-300 mb-6">
         <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
