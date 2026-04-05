@@ -25,8 +25,22 @@ function computePerfEmplacement() {
     }
   }
 
-  // articleMonthlySales = quantités [12 mois] → ratio qty3m/qtyTotal pour approx CA 3 mois
-  const ms = _S.articleMonthlySales || {};
+  // CA 3 derniers mois depuis _byMonth (CA prélevé réel, pas approximation)
+  const periodEnd = _S.periodFilterEnd || _S.consommePeriodMax || new Date();
+  const m2 = periodEnd.getFullYear() * 12 + periodEnd.getMonth();
+  const last3Months = new Set([m2 - 2, m2 - 1, m2]);
+  const ca3mByArticle = new Map();
+  const byMonth = _S._byMonth;
+  if (byMonth) {
+    for (const [, artMap] of Object.entries(byMonth)) {
+      for (const [code, monthMap] of Object.entries(artMap)) {
+        for (const [midx, agg] of Object.entries(monthMap)) {
+          if (!last3Months.has(parseInt(midx))) continue;
+          ca3mByArticle.set(code, (ca3mByArticle.get(code) || 0) + (agg.sumCAPrelevee || agg.sumPrelevee || 0));
+        }
+      }
+    }
+  }
 
   const map = {};
   for (const r of data) {
@@ -35,16 +49,9 @@ function computePerfEmplacement() {
     const e = map[emp];
 
     const caPeriode = caByArticle.get(r.code) || 0;
-    const months = ms[r.code];
-    let ca3m = 0;
-    if (months && caPeriode > 0) {
-      const qtyTotal = months.reduce((s, v) => s + v, 0);
-      const qty3m = months.slice(-3).reduce((s, v) => s + v, 0);
-      ca3m = qtyTotal > 0 ? caPeriode * (qty3m / qtyTotal) : 0;
-    }
 
     e.caPeriode += caPeriode;
-    e.ca3m += ca3m;
+    e.ca3m += ca3mByArticle.get(r.code) || 0;
     e.valStock += (r.valeurStock || 0);
     e.nbRef++;
     e.sumW += (r.W || 0);
