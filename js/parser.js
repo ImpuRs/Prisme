@@ -241,31 +241,30 @@ export async function parseLivraisons(file) {
       const blNum = String(row[cBL] || '').trim();
       const articleStr = String(row[cArt] || '').trim();
       const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
-      if (!/^\d{6}$/.test(codeArticle)) continue;
+      if (!codeArticle) continue;
+      const isSpecial = !/^\d{6}$/.test(codeArticle);
       const qty = parseInt(row[cQty]) || 0;
       const rawDate = cDate ? row[cDate] : null;
       // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
       const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
 
-      // — livraisonsData —
-      if (!_S.livraisonsData.has(cc)) {
-        _S.livraisonsData.set(cc, { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null });
-      }
-      const d = _S.livraisonsData.get(cc);
-      d.ca += ca; d.vmb += vmb;
-      if (blNum) d.bl.add(blNum);
-      if (codeArticle) {
+      // — livraisonsData — codes 6 chiffres uniquement
+      if (!isSpecial) {
+        if (!_S.livraisonsData.has(cc)) {
+          _S.livraisonsData.set(cc, { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null });
+        }
+        const d = _S.livraisonsData.get(cc);
+        d.ca += ca; d.vmb += vmb;
+        if (blNum) d.bl.add(blNum);
         if (!d.articles.has(codeArticle)) d.articles.set(codeArticle, { ca: 0, qty: 0 });
         const a = d.articles.get(codeArticle); a.ca += ca; a.qty += qty;
+        if (dateObj && (!d.lastDate || dateObj > d.lastDate)) d.lastDate = dateObj;
       }
-      if (dateObj && (!d.lastDate || dateObj > d.lastDate)) d.lastDate = dateObj;
 
-      // — territoireLines —
-      if (!codeArticle) continue;
+      // — territoireLines — tous codes y compris spéciaux (isSpecial = true pour non-stockables)
       const direction = String(row[cDir] || '').trim() || 'Non défini';
       const secteur = String(row[cSect] || '').trim();
       const clientNom = String(row[cNomC] || '').trim();
-      const isSpecial = !/^\d{6}$/.test(codeArticle);
       const stockItem = _S.finalData?.find(a => a.code === codeArticle);
       const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
       const clientType = _S.clientsMagasin?.has(cc) ? 'mixte' : 'exterieur';
