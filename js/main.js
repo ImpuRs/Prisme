@@ -767,7 +767,8 @@ _S.canalAgence=newCanalAgence;
   function _hydrateStateFromParseResult(r, selectedStore) {
     // Objets plain
     _S.articleRaw         = r.articleRaw || {};
-    _S.articleMonthlySales= r.monthlySales || {};
+    _S.articleMonthlySales    = r.monthlySales || {};
+    _S.seasonalIndexReseau    = r.seasonalIndexReseau || {};
     _S.ventesParMagasin   = r.ventesParMagasin || {};
     _S.ventesParMagasinByCanal = r.ventesParMagasinByCanal || {};
     _S.clientNomLookup    = r.clientNomLookup || {};

@@ -484,6 +484,7 @@ self.onmessage = async function(ev) {
     // Agrégats locaux
     var articleRaw = {};
     var monthlySales = {};
+    var monthlySalesReseau = {};
     var ventesParMagasin = {};
     var ventesParMagasinByCanal = {};
     var ventesClientArticle = new Map();
@@ -724,6 +725,11 @@ self.onmessage = async function(ev) {
       if (dateV && code && (!selectedStore || sk === selectedStore) && qteP > 0) {
         if (!monthlySales[code]) monthlySales[code] = new Array(12).fill(0);
         monthlySales[code][dateV.getMonth()] += qteP;
+      }
+      // Réseau : toutes agences (pour seasonalIndexReseau)
+      if (dateV && code && qteP > 0) {
+        if (!monthlySalesReseau[code]) monthlySalesReseau[code] = new Array(12).fill(0);
+        monthlySalesReseau[code][dateV.getMonth()] += qteP;
       }
       if (!useMulti || sk === selectedStore) {
         if (!articleRaw[code]) articleRaw[code] = { tpp: 0, tpn: 0, te: 0, bls: {}, cbl: 0 };
@@ -1138,6 +1144,22 @@ self.onmessage = async function(ev) {
     // ── Retourner les résultats ───────────────────────────────────────────
     self.postMessage({ type: 'progress', pct: 95, msg: 'Sérialisation…' });
 
+    // seasonalIndexReseau : agrège monthlySalesReseau par famille → coefficients réseau
+    var seasonalIndexReseau = {};
+    var famMonthlyReseau = {};
+    for (var _srCode in monthlySalesReseau) {
+      var _srFam = articleFamille[_srCode]; if (!_srFam) continue;
+      if (!famMonthlyReseau[_srFam]) famMonthlyReseau[_srFam] = new Array(12).fill(0);
+      var _srMonths = monthlySalesReseau[_srCode];
+      for (var _srM = 0; _srM < 12; _srM++) famMonthlyReseau[_srFam][_srM] += _srMonths[_srM];
+    }
+    for (var _srFam2 in famMonthlyReseau) {
+      var _srMths = famMonthlyReseau[_srFam2];
+      var _srAvg = _srMths.reduce(function(s, v) { return s + v; }, 0) / 12;
+      if (_srAvg <= 0) continue;
+      seasonalIndexReseau[_srFam2] = _srMths.map(function(v) { return Math.round(v / _srAvg * 100) / 100; });
+    }
+
     // Serialize ventesClientsPerStore (Map de Sets → obj de arrays)
     var ventesClientsPerStoreSer = {};
     for (var vsk in ventesClientsPerStore) {
@@ -1150,6 +1172,7 @@ self.onmessage = async function(ev) {
         // Objets plain
         articleRaw: articleRaw,
         monthlySales: monthlySales,
+        seasonalIndexReseau: seasonalIndexReseau,
         ventesParMagasin: ventesParMagasin,
         ventesParMagasinByCanal: ventesParMagasinByCanal,
         ventesClientsPerStore: ventesClientsPerStoreSer,
