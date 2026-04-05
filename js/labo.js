@@ -381,190 +381,6 @@ function _quickScanFamille() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Tile 3 — Familles en ligne × Stock
-// ═══════════════════════════════════════════════════════════════
-
-const TAUX_CONVERSION = 0.30; // taux conservateur pour potentiel bascule
-
-function computeFamilleStock() {
-  // 1. Aggregate CA par famille : magasin + hors-agence
-  const famData = {}; // famKey → {caMag, caHors, articles: Map<code, {caHors}>}
-  const fd = DataStore.finalData;
-  // Build article → famille map
-  const artFam = {};
-  for (const r of fd) { if (r.code && r.famille) artFam[r.code] = famLib(r.famille); }
-
-  // CA magasin par famille via finalData (caAnnuel = CA magasin)
-  for (const r of fd) {
-    const fk = artFam[r.code]; if (!fk) continue;
-    if (!famData[fk]) famData[fk] = { caMag: 0, caHors: 0, articles: new Map() };
-    famData[fk].caMag += r.caAnnuel || 0;
-    famData[fk].caHors += r.caHorsMagasin || 0;
-    if ((r.caHorsMagasin || 0) > 0) {
-      const prev = famData[fk].articles.get(r.code);
-      famData[fk].articles.set(r.code, { caHors: (prev?.caHors || 0) + (r.caHorsMagasin || 0) });
-    }
-  }
-
-  // Also count CA hors from ventesClientHorsMagasin for articles not in finalData
-  for (const [, artMap] of _S.ventesClientHorsMagasin?.entries() || []) {
-    for (const [code, d] of artMap.entries()) {
-      const fk = artFam[code]; if (!fk) continue;
-      // Already counted via finalData.caHorsMagasin — skip to avoid double-counting
-    }
-  }
-
-  // 2. Cross with stock data
-  const famStock = {}; // famKey → {nbRefTotal, nbEnStock, nbSansEmplacement, valeurStock}
-  for (const r of fd) {
-    const fk = artFam[r.code]; if (!fk) continue;
-    if (!famStock[fk]) famStock[fk] = { nbRefTotal: 0, nbEnStock: 0, nbSansEmplacement: 0, valeurStock: 0 };
-    const fs = famStock[fk];
-    if (!/^\d{6}$/.test(r.code)) continue; // only stockable articles
-    fs.nbRefTotal++;
-    if ((r.stockActuel || 0) > 0) {
-      fs.nbEnStock++;
-      fs.valeurStock += (r.stockActuel || 0) * (r.prixUnitaire || 0);
-    }
-    if (!r.emplacement || r.emplacement === '') fs.nbSansEmplacement++;
-  }
-
-  // 3. Build result rows
-  const rows = [];
-  for (const [fk, d] of Object.entries(famData)) {
-    if (d.caHors <= 0) continue;
-    const stock = famStock[fk] || { nbRefTotal: 0, nbEnStock: 0, nbSansEmplacement: 0, valeurStock: 0 };
-    if (stock.nbRefTotal === 0) continue;
-    const couverture = stock.nbEnStock / stock.nbRefTotal;
-    const score = d.caHors * (1 - couverture);
-    const pctEnLigne = (d.caMag + d.caHors) > 0 ? d.caHors / (d.caMag + d.caHors) : 0;
-    const potentielBascule = d.caHors * TAUX_CONVERSION;
-
-    // Detail: articles of this family sold online but not in stock or without emplacement
-    const detailArts = [];
-    for (const r of fd) {
-      if (artFam[r.code] !== fk) continue;
-      if (!/^\d{6}$/.test(r.code)) continue;
-      const artCaHors = r.caHorsMagasin || 0;
-      if (artCaHors <= 0) continue;
-      if ((r.stockActuel || 0) <= 0 || !r.emplacement || r.emplacement === '') {
-        detailArts.push({
-          code: r.code,
-          libelle: r.libelle || _S.libelleLookup?.[r.code] || r.code,
-          caHors: artCaHors,
-          hasStock: (r.stockActuel || 0) > 0,
-          hasEmplacement: !!r.emplacement && r.emplacement !== ''
-        });
-      }
-    }
-    detailArts.sort((a, b) => b.caHors - a.caHors);
-
-    rows.push({
-      famille: fk, caMag: d.caMag, caHors: d.caHors, pctEnLigne, score,
-      nbRefTotal: stock.nbRefTotal, nbEnStock: stock.nbEnStock,
-      nbSansEmplacement: stock.nbSansEmplacement, valeurStock: stock.valeurStock,
-      potentielBascule, detailArts
-    });
-  }
-
-  rows.sort((a, b) => b.score - a.score);
-  return rows;
-}
-
-function _renderFamilleStock(data) {
-  if (!data.length) return '<p class="text-xs t-disabled p-3 text-center">Aucune famille avec CA hors-agence détectée.</p>';
-
-  const headerRow = `<thead><tr class="text-[9px] t-disabled border-b b-light">
-    <th class="text-left py-1 px-2">Famille</th>
-    <th class="text-right py-1 px-2">CA Magasin</th>
-    <th class="text-right py-1 px-2">CA Hors-agence</th>
-    <th class="text-center py-1 px-2">% en ligne</th>
-    <th class="text-center py-1 px-2">Réf en stock</th>
-    <th class="text-center py-1 px-2">Sans emplacement</th>
-    <th class="text-right py-1 px-2">Potentiel bascule</th>
-  </tr></thead>`;
-
-  const bodyRows = data.slice(0, 40).map((r, idx) => {
-    const pctCol = r.pctEnLigne >= 0.5 ? 'color:var(--c-danger)' : r.pctEnLigne >= 0.3 ? 'color:var(--c-caution)' : '';
-    const hasDetail = r.detailArts.length > 0;
-    const detailRows = r.detailArts.slice(0, 30).map(a => {
-      const statusBadge = !a.hasStock
-        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-danger)">Pas en stock</span>'
-        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full s-panel-inner border b-light" style="color:var(--c-caution)">Sans empl.</span>';
-      return `<tr class="text-[10px] border-b" style="border-color:var(--b-dark)">
-        <td class="py-1 pr-2 font-mono t-inverse-muted">${escapeHtml(a.code)}</td>
-        <td class="py-1 pr-2 t-inverse">${escapeHtml(a.libelle)}</td>
-        <td class="py-1 pr-2 text-right t-inverse">${formatEuro(a.caHors)}</td>
-        <td class="py-1 pr-2 text-center">${statusBadge}</td>
-        <td class="py-1 text-center"><button data-copy-art="${escapeHtml(a.code)}" onclick="event.stopPropagation();window._laboCopyArticle('${escapeHtml(a.code)}')" class="text-[9px] px-1.5 py-0.5 rounded border b-light hover:bg-gray-100 dark:hover:bg-gray-700" title="Copier code ERP">📋</button></td>
-      </tr>`;
-    }).join('');
-
-    return `<tr class="text-[11px] b-light border-b ${hasDetail ? 'cursor-pointer' : ''} hover:bg-gray-50 dark:hover:bg-gray-800/30" ${hasDetail ? `onclick="window._laboToggleStockDetail(${idx})"` : ''}>
-      <td class="py-2 px-2 font-bold t-primary">${escapeHtml(r.famille)}</td>
-      <td class="py-2 px-2 text-right t-primary">${formatEuro(r.caMag)}</td>
-      <td class="py-2 px-2 text-right font-bold" style="color:var(--c-caution)">${formatEuro(r.caHors)}</td>
-      <td class="py-2 px-2 text-center font-bold" style="${pctCol}">${Math.round(r.pctEnLigne * 100)}%</td>
-      <td class="py-2 px-2 text-center t-primary">${r.nbEnStock}/${r.nbRefTotal}</td>
-      <td class="py-2 px-2 text-center" style="color:var(--c-caution)">${r.nbSansEmplacement || '—'}</td>
-      <td class="py-2 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(r.potentielBascule)}</td>
-    </tr>
-    ${hasDetail ? `<tr id="laboStockDetail${idx}" class="hidden">
-      <td colspan="7" class="p-0">
-        <div class="px-4 py-2 s-panel-inner">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[9px] t-inverse-muted">Articles vendus en ligne sans stock ou sans emplacement</span>
-          </div>
-          <table class="w-full"><thead><tr class="text-[9px] t-inverse-muted border-b" style="border-color:var(--b-dark)">
-            <th class="text-left py-1 pr-2">Code</th><th class="text-left py-1 pr-2">Libellé</th><th class="text-right py-1 pr-2">CA Hors-ag.</th><th class="text-center py-1 pr-2">Statut</th><th class="text-center py-1">Action</th>
-          </tr></thead><tbody>${detailRows}</tbody></table>
-        </div>
-      </td>
-    </tr>` : ''}`;
-  }).join('');
-
-  const totalPotentiel = data.reduce((s, r) => s + r.potentielBascule, 0);
-
-  return `<div class="flex items-center justify-between mb-3">
-    <div>
-      <span class="text-[13px] font-bold t-primary">🛒 Familles en ligne × Stock</span>
-      <span class="text-[10px] t-disabled ml-2">${data.length} familles · potentiel bascule ${formatEuro(totalPotentiel)}</span>
-    </div>
-    <span class="text-[9px] t-disabled">Taux conversion estimé : ${Math.round(TAUX_CONVERSION * 100)}%</span>
-  </div>
-  <div class="overflow-x-auto"><table class="w-full">${headerRow}<tbody>${bodyRows}</tbody></table></div>
-  <p class="text-[9px] t-disabled mt-2">Potentiel bascule = CA hors-agence × ${Math.round(TAUX_CONVERSION * 100)}% · Cliquer sur une famille pour voir les articles manquants</p>`;
-}
-
-function _quickScanFamilleStock() {
-  if (_S._laboStockData) {
-    return { n: _S._laboStockData.length, ca: _S._laboStockData.reduce((s, r) => s + r.potentielBascule, 0) };
-  }
-  // Quick lightweight scan
-  const famHors = {};
-  const famStock = {};
-  for (const r of DataStore.finalData) {
-    if (!r.famille || !r.code) continue;
-    const fk = famLib(r.famille);
-    if (!famHors[fk]) famHors[fk] = 0;
-    famHors[fk] += r.caHorsMagasin || 0;
-    if (/^\d{6}$/.test(r.code)) {
-      if (!famStock[fk]) famStock[fk] = { total: 0, inStock: 0 };
-      famStock[fk].total++;
-      if ((r.stockActuel || 0) > 0) famStock[fk].inStock++;
-    }
-  }
-  let n = 0, ca = 0;
-  for (const [fk, hors] of Object.entries(famHors)) {
-    if (hors <= 0) continue;
-    const s = famStock[fk]; if (!s || !s.total) continue;
-    const couverture = s.inStock / s.total;
-    if (couverture < 1) { n++; ca += hors * TAUX_CONVERSION; }
-  }
-  return { n, ca };
-}
-
-
 // ═══════════════════════════════════════════════════════════════
 // #7 — Client × Saisonnalité
 // ═══════════════════════════════════════════════════════════════
@@ -1339,10 +1155,6 @@ const LABO_TOOLTIPS = {
     Pour chaque commercial, identifie les familles achetées par ses clients vs. les familles attendues (inférées depuis le réseau).<br>
     <em>Source :</em> chalandise.metier × ventesClientArticle × FAMILLE_LOOKUP.<br>
     <em>Opportunité :</em> nb clients du métier sans achat dans la famille attendue.`,
-  stock: `<strong>Familles en ligne × Stock</strong><br>
-    Détecte les familles fortement commandées en ligne (Internet, DCS) mais absentes ou sous-stockées en rayon.<br>
-    <em>Source :</em> ventesClientHorsMagasin × finalData (stock actuel).<br>
-    <em>Potentiel bascule :</em> CA hors-magasin récupérable si articles en rayon.`,
   saison: `<strong>Client × Saisonnalité</strong><br>
     Croise l'historique d'achat de chaque client avec le calendrier saisonnier des familles.<br>
     <em>Source :</em> articleMonthlySales × seasonalIndex × ventesClientArticle.<br>
@@ -1381,12 +1193,10 @@ const _infoIcon = (key) => LABO_TOOLTIPS[key]
 function _renderTileGrid(el) {
   const silScan = _quickScanSilencieux();
   const famScan = _quickScanFamille();
-  const stockScan = _quickScanFamilleStock();
   const saisonScan = _quickScanSaisonnier();
 
   const silSubtitle = `${silScan.n} clients à risque · ${formatEuro(silScan.ca)} en jeu`;
   const famSubtitle = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
-  const stockSubtitle = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
   const saisonSubtitle = saisonScan.n !== 0 ? `${saisonScan.n} opportunités ce mois` : 'Aucune opportunité ce mois';
   const clScan = _quickScanClientele();
   const clSubtitle = clScan.n === '?' ? 'Nécessite la chalandise' : `${clScan.n} métiers · ${clScan.nbClients} clients`;
@@ -1403,12 +1213,6 @@ function _renderTileGrid(el) {
       <div class="text-lg mb-1">🧬</div>
       <div class="text-[13px] font-bold t-primary mb-1">Famille × Commercial</div>
       <div class="text-[10px] t-secondary" id="laboTileFamSub">${famSubtitle}</div>
-    </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('stock')">
-      ${_infoIcon('stock')}
-      <div class="text-lg mb-1">🛒</div>
-      <div class="text-[13px] font-bold t-primary mb-1">Familles en ligne × Stock</div>
-      <div class="text-[10px] t-secondary" id="laboTileStockSub">${stockSubtitle}</div>
     </div>
     <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('saison')">
       ${_infoIcon('saison')}
@@ -1467,10 +1271,6 @@ window._laboOpenTile = function(tile) {
     const familleData = computeFamilleCommercial();
     _S._laboFamData = familleData;
     content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderFamilleCommercial(familleData)}</div>`;
-  } else if (tile === 'stock') {
-    const stockData = computeFamilleStock();
-    _S._laboStockData = stockData;
-    content.innerHTML = backBtn + `<div class="s-card rounded-xl border p-3">${_renderFamilleStock(stockData)}</div>`;
   } else if (tile === 'saison') {
     _saisonData = computeClientSaisonnier(0);
     _saisonMonth = _getSaisonTargetMonth(0);
@@ -1552,16 +1352,12 @@ export function updateLaboTiles() {
 
   const silScan = _quickScanSilencieux();
   const famScan = _quickScanFamille();
-  const stockScan = _quickScanFamilleStock();
 
   const silSub = document.getElementById('laboTileSilSub');
   if (silSub) silSub.textContent = `${silScan.n} clients à risque · ${formatEuro(silScan.ca)} en jeu`;
 
   const famSub = document.getElementById('laboTileFamSub');
   if (famSub) famSub.textContent = famScan.n === '?' ? 'Cliquez pour analyser' : `${famScan.n} opportunités · ${formatEuro(famScan.ca)} potentiel`;
-
-  const stockSub = document.getElementById('laboTileStockSub');
-  if (stockSub) stockSub.textContent = stockScan.n > 0 ? `${stockScan.n} familles sous-représentées · ${formatEuro(stockScan.ca)} potentiel bascule` : 'Cliquez pour analyser';
 
   const saisonScan = _quickScanSaisonnier();
   const saisonSub = document.getElementById('laboTileSaisonSub');
@@ -1584,18 +1380,6 @@ window._laboToggleDetail = function(idx) {
 window._laboToggleFamDetail = function(idx) {
   const row = document.getElementById('laboFamDetail' + idx);
   if (row) row.classList.toggle('hidden');
-};
-
-window._laboToggleStockDetail = function(idx) {
-  const row = document.getElementById('laboStockDetail' + idx);
-  if (row) row.classList.toggle('hidden');
-};
-
-window._laboCopyArticle = function(code) {
-  navigator.clipboard.writeText(code).then(() => {
-    const btn = document.querySelector(`[data-copy-art="${code}"]`);
-    if (btn) { const orig = btn.textContent; btn.textContent = '✓'; setTimeout(() => btn.textContent = orig, 1500); }
-  });
 };
 
 window._laboCopyERP = function(idx) {

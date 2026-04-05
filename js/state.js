@@ -418,7 +418,6 @@ export function resetAppState() {
   _S._laboSeuilPenetration = 0.20;
   _S._laboSilData = null;
   _S._laboFamData = null;
-  _S._laboStockData = null;
   _S._squeletteScan = null;
   _S._squeletteFull = null;
   _S._clienteleMetier = null;
