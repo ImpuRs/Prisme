@@ -217,7 +217,7 @@ function _renderClient360(clientCode,source){
     const nbCanaux=omni.nbCanaux||omni.score||1;
     const SEG={purComptoir:{icon:'🏪',label:'Pur Comptoir',color:'var(--c-ok)',desc:'Uniquement MAGASIN — 1 canal.'},purHors:{icon:'📦',label:'Pur Hors-Magasin',color:'var(--c-danger)',desc:'Jamais au comptoir — uniquement DCS/Internet/Représentant.'},hybride:{icon:'🔀',label:'Hybride',color:'var(--c-info,#3b82f6)',desc:'MAGASIN + 1 ou 2 autres canaux.'},full:{icon:'⭐',label:'Full Omnicanal',color:'var(--c-caution)',desc:'4+ canaux distincts — client pleinement omnicanal.'}};
     const seg=SEG[omni.segment]||SEG.purComptoir;
-    const scoreColor=omni.score>=4?'var(--c-ok)':omni.score>=2?'var(--c-caution)':'var(--c-danger)';
+    const scoreColor=omni.score>=70?'var(--c-ok)':omni.score>=40?'var(--c-caution)':'var(--c-danger)';
     const barRow=(label,val,max,color)=>`<div class="flex items-center gap-2 mb-1"><span class="text-[9px] t-inverse-muted w-20 shrink-0">${label}</span><div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div style="width:${Math.round(val/max*100)}%;background:${color}" class="h-full rounded-full"></div></div><span class="text-[9px] font-bold t-inverse w-10 text-right">${val}/${max}</span></div>`;
     const onlyHors=[...famsHors.entries()].filter(([f])=>!famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);
     const both=[...famsHors.entries()].filter(([f])=>famsPDV.has(f)).sort((a,b)=>b[1].ca-a[1].ca);

@@ -1097,7 +1097,7 @@ export function computeReseauHeatmap() {
 //   purHors     = jamais MAGASIN, uniquement DCS/Internet/Représentant/Autre
 //   hybride     = MAGASIN + 1 ou 2 autres canaux (2-3 canaux)
 //   full        = 4+ canaux distincts
-// Score omnicanal = nombre de canaux distincts (1 à 4+)
+// Score omnicanal composite 0-100 : canaux(30) + équilibre PDV/hors(30) + récence PDV(20) + familles cross-canal(20)
 // Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays}>
 export function computeOmniScores() {
   const scores = new Map();
@@ -1132,8 +1132,20 @@ export function computeOmniScores() {
     else if (canaux.has('MAGASIN') && nbCanaux >= 2) segment = 'hybride';
     else if (!canaux.has('MAGASIN') && nbCanaux >= 1) segment = 'purHors';
     else segment = 'purComptoir'; // MAGASIN uniquement (ou aucun canal avec CA)
-    // Score = nombre de canaux distincts
-    const score = nbCanaux;
+    // Score composite 0-100
+    // 1. Nb canaux (30pts)
+    const _sCanaux = nbCanaux >= 4 ? 30 : nbCanaux === 3 ? 22 : nbCanaux === 2 ? 15 : 5;
+    // 2. Équilibre PDV/hors-agence (30pts)
+    const _sEquilibre = (caPDV > 0 && caHors > 0) ? Math.round(Math.min(caPDV, caHors) / Math.max(caPDV, caHors) * 30) : 0;
+    // 3. Récence PDV (20pts)
+    const _sRecence = silenceDays <= 30 ? 20 : silenceDays <= 90 ? 15 : silenceDays <= 180 ? 10 : 0;
+    // 4. Profondeur familles cross-canal (20pts) : familles achetées sur 2+ canaux distincts
+    const _famCanaux = new Map();
+    if (pdvArts) for (const [code] of pdvArts) { const f = _S.articleFamille?.[code]; if (f) { if (!_famCanaux.has(f)) _famCanaux.set(f, new Set()); _famCanaux.get(f).add('MAGASIN'); } }
+    if (horArts) for (const [code, v] of horArts) { const f = _S.articleFamille?.[code]; if (f) { if (!_famCanaux.has(f)) _famCanaux.set(f, new Set()); _famCanaux.get(f).add(v.canal || 'HORS'); } }
+    const _nbFamsCross = [..._famCanaux.values()].filter(s => s.size >= 2).length;
+    const _sFams = _nbFamsCross >= 5 ? 20 : _nbFamsCross >= 3 ? 13 : _nbFamsCross >= 1 ? 6 : 0;
+    const score = Math.min(100, _sCanaux + _sEquilibre + _sRecence + _sFams);
     scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });
   }
   _S.clientOmniScore = scores;
