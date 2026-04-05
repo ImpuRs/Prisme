@@ -798,7 +798,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
 
     // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
     let topPDVHtml='';
-    {const _qS=_S._terrClientSearch||'';const topRows=_qS?k.topPDVRows.filter(r=>r.cc.toLowerCase().includes(_qS)||(r.nom||'').toLowerCase().includes(_qS)):k.topPDVRows;
+    {const _qS=_S._terrClientSearch||'';const _matchClient=(r)=>r.cc.toLowerCase().includes(_qS)||(r.nom||'').toLowerCase().includes(_qS)||(_S.clientNomLookup?.[r.cc]||'').toLowerCase().includes(_qS)||(_S.chalandiseData?.get(r.cc)?.nom||'').toLowerCase().includes(_qS);const topRows=_qS?k.topPDVRows.filter(_matchClient):k.topPDVRows;
       const top=topRows.slice(0,20);
       if(top.length){
         const now=Date.now();
@@ -938,7 +938,8 @@ function _onCommercialFilter(val){const commercials=new Set();for(const info of 
 function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_buildChalandiseOverview();}
 function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
-  _S._terrClientSearch=(document.getElementById('terrClientSearch')?.value||'').toLowerCase().trim();
+  const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
+  _S._terrClientSearch=raw;
   _terrClientSearchTimer=setTimeout(()=>{window.renderMesClients?.();window.renderTerritoireTab?.();},300);
 }
 function _onMetierFilter(val){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_S._selectedMetier=(!val||metiers.has(val))?val:'';if(_S._selectedMetier===val)_buildChalandiseOverview();}

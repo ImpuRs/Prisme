@@ -517,11 +517,7 @@ function renderContribArticles(rowId,clientCode){
 // Reset all territoire local filters + close all accordions
 function resetTerrFilters(){
   const s=document.getElementById('terrSearch');if(s)s.value='';
-  const cs=document.getElementById('terrClientSearch');if(cs)cs.value='';
-  // Reset secteur multi-select
-  document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>cb.checked=true);
-  const allCb=document.getElementById('terrSecteurAll');if(allCb)allCb.checked=true;
-  const label=document.getElementById('terrSecteurLabel');if(label)label.textContent='Tous Secteurs';
+  _S._terrClientSearch='';
   // Close all direction/famille detail rows
   document.querySelectorAll('[id^="terr-dir-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
   document.querySelectorAll('[id^="terr-fam-"]').forEach(el=>{if(el.tagName==='TR'&&el.style)el.style.display='none';});
@@ -531,6 +527,7 @@ function resetTerrFilters(){
   document.querySelectorAll('.contrib-dir-detail.open,.contrib-sect-detail.open,.contrib-client-detail.open').forEach(el=>el.classList.remove('open'));
   document.querySelectorAll('.contrib-dir-row.open,.contrib-sect-row.open,.contrib-client-row.open').forEach(el=>el.classList.remove('open'));
   window.renderTerritoireTab();
+  window.renderMesClients?.();
 }
 
 // VOLET 2bis: Export CSV — tous les secteurs avec leurs métriques

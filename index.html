@@ -746,15 +746,9 @@
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
-            <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
-            <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
-          </div>
-
-          <!-- Client search + famille filter (degraded mode) — always shown when Le Terrain is active -->
-          <div id="terrClientSearchBlock" class="flex flex-col gap-1">
-            <hr class="b-default my-0.5">
-            <input type="text" id="terrClientSearch" placeholder="👤 Rechercher un client (nom ou code)…" oninput="_onTerrClientSearch()" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+            <input type="text" id="terrSearch" oninput="_onTerrClientSearch()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, client, direction…">
             <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><option value="">Toutes familles</option></select>
+            <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
