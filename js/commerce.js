@@ -635,7 +635,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const t100El=document.getElementById('terrTop100Table');if(t100El)t100El.innerHTML=p100||'<tr><td colspan="7" class="text-center py-4 t-disabled">Aucun article</td></tr>';
 
     // Clients top 50 — filtered by same filters as direction/top100 views + client search
-    const qCli=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+    const qCli=_S._terrClientSearch||'';
     const clientsList=Object.values(clientsMapFiltered).filter(c=>!qCli||c.code.toLowerCase().includes(qCli)||(c.nom||'').toLowerCase().includes(qCli)).sort((a,b)=>b.ca-a.ca).slice(0,50);
     let pCli='';
     for(const c of clientsList){
@@ -798,7 +798,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
 
     // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
     let topPDVHtml='';
-    {const topRows=k.topPDVRows;
+    {const _qS=_S._terrClientSearch||'';const topRows=_qS?k.topPDVRows.filter(r=>r.cc.toLowerCase().includes(_qS)||(r.nom||'').toLowerCase().includes(_qS)):k.topPDVRows;
       const top=topRows.slice(0,20);
       if(top.length){
         const now=Date.now();
@@ -938,7 +938,8 @@ function _onCommercialFilter(val){const commercials=new Set();for(const info of 
 function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_buildChalandiseOverview();}
 function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
-  _terrClientSearchTimer=setTimeout(()=>window.renderTerritoireTab(),300);
+  _S._terrClientSearch=(document.getElementById('terrClientSearch')?.value||'').toLowerCase().trim();
+  _terrClientSearchTimer=setTimeout(()=>{window.renderMesClients?.();window.renderTerritoireTab?.();},300);
 }
 function _onMetierFilter(val){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_S._selectedMetier=(!val||metiers.has(val))?val:'';if(_S._selectedMetier===val)_buildChalandiseOverview();}
 function _navigateToOverviewMetier(metier){
@@ -1509,7 +1510,7 @@ function _buildDegradedCockpit(){
   const el=document.getElementById('terrDegradedBlock');if(!el)return;
   if(!DataStore.finalData.length && !_S.ventesClientArticle.size)return;
   _populateTerrFamilleFilter();
-  const qClient=((document.getElementById('terrClientSearch')||{}).value||'').toLowerCase().trim();
+  const qClient=_S._terrClientSearch||'';
   const selFam=((document.getElementById('terrFamilleFilter')||{}).value||'').trim();
   const _today=new Date();
   const famMap=new Map(DataStore.finalData.map(r=>[r.code,r.famille]));

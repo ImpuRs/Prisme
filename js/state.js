@@ -116,6 +116,8 @@ _S._selectedUnivers = new Set();
 _S._selectedCommercial = '';
 _S._selectedMetier = '';
 _S._filterStrategiqueOnly = false;
+_S._filterHorsAgence = false;    // filtre Articles : uniquement articles avec CA hors agence
+_S._terrClientSearch = '';       // filtre clients Commerce : recherche nom/code
 _S._distanceMaxKm = 0; // 0 = pas de filtre distance
 _S._cpCoords = null; // table CP → [lat, lon], chargée au démarrage
 _S._agenceCoords = null; // [lat, lon] de l'agence sélectionnée
@@ -347,7 +349,7 @@ export function resetAppState() {
   _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
-  _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false; _S._distanceMaxKm = 0; _S._agenceCoords = null;
+  _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false; _S._filterHorsAgence = false; _S._terrClientSearch = ''; _S._distanceMaxKm = 0; _S._agenceCoords = null;
   _S._clientDominantUnivers = new Map();
   _S._clientsActiveTab = 'priorites';
   _S._hasStock = false;

@@ -747,17 +747,6 @@
         <div id="filterGroupTerritoire" class="hidden">
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
-            <div class="relative" id="terrSecteurDropdown">
-              <button type="button" onclick="toggleSecteurDropdown()" class="py-1 px-2 border rounded-lg text-xs font-semibold s-card w-full text-left flex items-center justify-between gap-1">
-                <span id="terrSecteurLabel">Tous Secteurs</span><span class="t-disabled text-[10px]">▼</span>
-              </button>
-              <div id="terrSecteurPanel" class="hidden absolute z-50 mt-1 s-card border rounded-lg shadow-lg p-2 max-h-60 overflow-y-auto min-w-[240px]" style="left:0">
-                <label class="flex items-center gap-2 p-1.5 rounded hover:i-info-bg cursor-pointer text-xs font-bold text-violet-700 border-b mb-1 pb-1.5">
-                  <input type="checkbox" id="terrSecteurAll" checked onchange="toggleAllSecteurs(this.checked)" class="rounded"> Tout sélectionner
-                </label>
-                <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
-              </div>
-            </div>
             <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
 
