@@ -13,13 +13,14 @@ import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
 function computePerfEmplacement() {
   const data = DataStore.finalData;
   if (!data.length) return [];
+  const myStore = _S.selectedMyStore;
+  const ventesStore = _S.ventesParMagasin?.[myStore] || {};
   const map = {};
   for (const r of data) {
     const emp = r.emplacement || '(vide)';
     if (!map[emp]) map[emp] = { ca: 0, valStock: 0, nbRef: 0, clients: new Set(), sumW: 0 };
     const e = map[emp];
-    const myStore = _S.selectedMyStore;
-    const ventes = _S.ventesParMagasin?.[myStore]?.[r.code];
+    const ventes = ventesStore[r.code];
     e.ca += (ventes?.sumCA || ventes?.sumPrelevee || r.caAnnuel || 0);
     e.valStock += (r.valeurStock || 0);
     e.nbRef++;
