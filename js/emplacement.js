@@ -88,6 +88,7 @@ function _renderArbitrageRayon(rows) {
   const rendements = rowsAvecCA.map(r => r.rendementPeriode).sort((a, b) => a - b);
   const median = rendements.length ? rendements[Math.floor(rendements.length / 2)] : 0;
   const medFmt = median >= 10 ? median.toFixed(0) : median.toFixed(1);
+  const caTotalPeriode = rows.reduce((s, r) => s + r.caPeriode, 0);
 
   const rdFmt = v => v >= 10 ? v.toFixed(0) + '\xd7' : v.toFixed(1) + '\xd7';
   const rdCol = v => v >= 2 ? 'c-ok' : v >= 1 ? 'c-caution' : 'c-danger';
@@ -117,7 +118,7 @@ function _renderArbitrageRayon(rows) {
     <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:brightness-95">
       <div class="flex items-center gap-2">
         <span class="font-extrabold text-sm t-primary">&#128205; Arbitrage rayon</span>
-        <span class="text-[10px] t-disabled">${rows.length} emplacements \xb7 rendement m\xe9dian ${medFmt}\xd7</span>
+        <span class="text-[10px] t-disabled">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} \xb7 rendement m\xe9dian ${medFmt}\xd7</span>
       </div>
       <span class="acc-arrow t-disabled">&#9654;</span>
     </summary>
