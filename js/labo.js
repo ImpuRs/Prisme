@@ -1810,7 +1810,7 @@ window._laboOpenTile = function(tile) {
           placeholder="🔍 Famille, sous-famille ou code… (ex: lunettes, E07, fixation)"
           class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
           autocomplete="off">
-        <div id="rayonSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+        <div id="rayonSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl overflow-y-auto z-50" style="max-height:320px"></div>
       </div>
       <div id="rayonContent"></div>
     </div>`;
@@ -2091,7 +2091,7 @@ function _initRayonSearch() {
           label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
         }
         const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
-        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
+        return `<div class="hover:s-hover cursor-pointer border-b b-light text-[12px]" style="padding:10px 14px"
           onclick="window._selectRayon('${safeCF}','${safeCSF}')">
           ${label}${refsLabel}
         </div>`;
@@ -2168,7 +2168,7 @@ function _initRfSearch() {
           label = `<span class="font-mono font-bold t-primary">${escapeHtml(e.code)}</span> <span class="t-primary ml-1">${escapeHtml((e.libelle || '').slice(0, 40))}</span> <span class="t-disabled ml-1">${escapeHtml(e.marque)}</span>`;
         }
         const refsLabel = e.level < 4 ? `<span class="t-disabled ml-2">${e.nbArticlesCat} réf.</span>` : '';
-        return `<div class="px-3 py-2 hover:s-hover cursor-pointer border-b b-light text-[12px]"
+        return `<div class="hover:s-hover cursor-pointer border-b b-light text-[12px]" style="padding:10px 14px"
           onclick="window._rfSelectFam('${safeCF}','${safeCSF}')">
           ${label}${refsLabel}
         </div>`;
@@ -2619,7 +2619,7 @@ function _renderRadarFamille(data) {
       <input type="text" id="rfSearchInput" placeholder="🔍 Rechercher une famille… (ex: protection, fixation)"
         autocomplete="off"
         class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
-      <div id="rfSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
+      <div id="rfSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl overflow-y-auto z-50" style="max-height:320px"></div>
     </div>
   </div>`;
 
