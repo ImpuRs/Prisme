@@ -935,6 +935,7 @@ function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPane
 function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
 function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
 function _onCommercialFilter(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';if(_S._selectedCommercial===val)_buildChalandiseOverview();}
+function _onCommercialGoTo(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';_setClientView('tous');window.switchTab('commerce');}
 function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_buildChalandiseOverview();}
 function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
@@ -1089,7 +1090,7 @@ function _renderCommercialSummary(){
   function rowHtml(com,d,labelOverride){
     const isRowSel=sel===com;
     const label=labelOverride||com;
-    return`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialFilter(this.dataset.com)">
+    return`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialGoTo(this.dataset.com)">
       <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
       <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
       <td class="py-1.5 px-2 text-center font-bold t-primary">${d.nb}</td>
@@ -1840,6 +1841,7 @@ export {
   _toggleDirectionDropdown,
   _toggleStrategiqueFilter,
   _onCommercialFilter,
+  _onCommercialGoTo,
   _onDistanceSlider,
   _onTerrClientSearch,
   _onMetierFilter,
@@ -1904,6 +1906,7 @@ window._toggleStatutDropdown      = _toggleStatutDropdown;
 window._toggleDirectionDropdown   = _toggleDirectionDropdown;
 window._toggleStrategiqueFilter   = _toggleStrategiqueFilter;
 window._onCommercialFilter        = _onCommercialFilter;
+window._onCommercialGoTo          = _onCommercialGoTo;
 window._onDistanceSlider          = _onDistanceSlider;
 window._onTerrClientSearch        = _onTerrClientSearch;
 window._onMetierFilter            = _onMetierFilter;
