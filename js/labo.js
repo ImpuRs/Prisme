@@ -783,9 +783,9 @@ function _renderClientSaisonnier(opps, monthOffset) {
     return `<tr class="text-[10px] b-light border-b hover:bg-gray-50 dark:hover:bg-gray-800/30">
       <td class="py-1.5 pr-2 font-mono t-inverse-muted">${_unikLink(o.cc)}</td>
       <td class="py-1.5 pr-2 t-primary">${escapeHtml(o.nom)}</td>
-      <td class="py-1.5 pr-2 font-mono t-inverse-muted">${escapeHtml(o.code)}</td>
-      <td class="py-1.5 pr-2 t-inverse">${escapeHtml(o.libelle)}</td>
-      <td class="py-1.5 pr-2 t-inverse-muted text-[9px]">${escapeHtml(o.famille)}</td>
+      <td class="py-1.5 pr-2 font-mono t-secondary">${escapeHtml(o.code)}</td>
+      <td class="py-1.5 pr-2 t-primary">${escapeHtml(o.libelle)}</td>
+      <td class="py-1.5 pr-2 t-secondary text-[10px]">${escapeHtml(o.famille)}</td>
       <td class="py-1.5 pr-2">${_miniRibbon(o.profile, mois)}</td>
       <td class="py-1.5 pr-2 text-right font-bold t-primary">${formatEuro(o.montantPotentiel)}</td>
       <td class="py-1.5 pr-2 text-right t-inverse-muted">${lastStr}</td>
