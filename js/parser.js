@@ -457,8 +457,6 @@ export function launchTerritoireWorker(rows, progressCb) {
       if (d.type === 'progress') { if (progressCb) progressCb(d.cur, d.total); }
       else if (d.type === 'done') {
         _S.territoireLines = d.lines; _S.terrDirectionData = d.terrDirData;
-        const sel = document.getElementById('terrFilterDir');
-        if (sel) { sel.innerHTML = '<option value="">Toutes Directions</option>'; d.dirsSorted.forEach(dir => { sel.innerHTML += `<option value="${escapeHtml(dir)}">${escapeHtml(dir)}</option>`; }); }
         buildSecteurCheckboxes(d.secteursSorted || []);
         _S.territoireReady = true;
         _S._activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); resolve();

@@ -113,7 +113,6 @@ function toggleTerrDir(rowId,encDir){
 // Render famille breakdown for a direction (lazy, called by toggleTerrDir)
 function renderTerrDirFamilles(rowId,direction){
   const inner=document.getElementById(rowId+'-inner');if(!inner)return;
-  const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
   const q=(document.getElementById('terrSearch')||{}).value||'';
   const selectedSecteurs=getSelectedSecteurs();
   const {activeFilters:{canal:_cg,commercial:_com}}=DataStore.byContext(); // [V3.2]
@@ -124,7 +123,6 @@ function renderTerrDirFamilles(rowId,direction){
     if(_comSet&&(!l.clientCode||!_comSet.has(l.clientCode)))continue;
     if(l.isSpecial)continue;
     if(l.direction!==direction)continue;
-    if(filterRayon&&l.rayonStatus!==filterRayon)continue;
     if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))continue;
     if(q&&!matchQuery(q,l.code,l.libelle,l.direction))continue;
     const famKey=l.famille||'';
@@ -345,11 +343,9 @@ function buildTerrContrib(){
 function renderTerrContrib(){
   const el=document.getElementById('terrContribTable');if(!el)return;
   if(!_S.terrContribByDirection.size){el.innerHTML='<tr><td colspan="5" class="text-center py-4 t-disabled text-xs">Aucune donnée contributeurs trouvée dans le fichier territoire</td></tr>';return;}
-  const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
   let rows=[..._S.terrContribByDirection.values()].map(d=>{
     const blT=d.blTerr.size,blA=d.blAgence.size,pct=blT>0?Math.round(blA/blT*100):0;return{...d,blT,blA,pct};
   }).sort((a,b)=>b.ca-a.ca);
-  if(filterDir)rows=rows.filter(r=>r.direction===filterDir);
   let tbody='';
   for(const r of rows){
     const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
@@ -522,8 +518,6 @@ function renderContribArticles(rowId,clientCode){
 function resetTerrFilters(){
   const s=document.getElementById('terrSearch');if(s)s.value='';
   const cs=document.getElementById('terrClientSearch');if(cs)cs.value='';
-  const d=document.getElementById('terrFilterDir');if(d)d.value='';
-  const r=document.getElementById('terrFilterRayon');if(r)r.value='';
   // Reset secteur multi-select
   document.querySelectorAll('#terrSecteurCheckboxes input[type=checkbox]').forEach(cb=>cb.checked=true);
   const allCb=document.getElementById('terrSecteurAll');if(allCb)allCb.checked=true;
@@ -556,16 +550,12 @@ function exportTerritoireCSV(){
   const SEP=';';const h=['Code','Libelle','Direction','Secteur','Famille','BL','CA','Canal','Rayon','Client','Nom Client','Type'];
   const lines=['\uFEFF'+h.join(SEP)];
   const q=(document.getElementById('terrSearch')||{}).value||'';
-  const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
-  const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
   const selectedSecteursCSV=getSelectedSecteurs();
   const {activeFilters:{canal:_canalGlobalExp,commercial:_comExp}}=DataStore.byContext(); // [V3.2]
   const _comSetExp=_comExp?(_S.clientsByCommercial.get(_comExp)||new Set()):null;
   const filtered=DataStore.filteredTerritoireLines.filter(l=>{
     if(_canalGlobalExp&&l.canal!==_canalGlobalExp)return false;
     if(_comSetExp&&(!l.clientCode||!_comSetExp.has(l.clientCode)))return false; // [V3.2]
-    if(filterDir&&l.direction!==filterDir)return false;
-    if(filterRayon&&l.rayonStatus!==filterRayon)return false;
     if(selectedSecteursCSV&&l.secteur&&!selectedSecteursCSV.has(l.secteur))return false;
     if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
     return true;

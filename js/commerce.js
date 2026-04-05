@@ -467,9 +467,6 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
-    const filterDir=(document.getElementById('terrFilterDir')||{}).value||'';
-    const filterRayon=(document.getElementById('terrFilterRayon')||{}).value||'';
-
     const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
     // [V3.2] Point d'entrée multi-dimensions — lit _globalCanal + _globalPeriodePreset + _selectedCommercial
     const _ctx=DataStore.byContext();
@@ -480,7 +477,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     // ── Garde de cache territoire ─────────────────────────────────────────────
     // Clé inclut commercial (V3.2) : terrLines differ si commercial actif
     const _secteurKey=[...(getSelectedSecteurs()||[])].sort().join(',');
-    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}|${filterDir}|${filterRayon}`;
+    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}`;
     if(_S._terrCanalCache.has(_terrCacheKey)){
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
       const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -566,8 +563,6 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const linesFiltered=DataStore.filteredTerritoireLines.filter(l=>{
       if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
-      if(filterDir&&l.direction!==filterDir)return false;
-      if(filterRayon&&l.rayonStatus!==filterRayon)return false;
       if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
       if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
       return true;

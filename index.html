@@ -748,7 +748,6 @@
         <div id="filterGroupTerritoire" class="hidden">
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
             <input type="text" id="terrSearch" oninput="renderTerritoireTab()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, direction…">
-            <select id="terrFilterDir" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Toutes Directions</option></select>
             <div class="relative" id="terrSecteurDropdown">
               <button type="button" onclick="toggleSecteurDropdown()" class="py-1 px-2 border rounded-lg text-xs font-semibold s-card w-full text-left flex items-center justify-between gap-1">
                 <span id="terrSecteurLabel">Tous Secteurs</span><span class="t-disabled text-[10px]">▼</span>
@@ -760,7 +759,6 @@
                 <div id="terrSecteurCheckboxes" class="space-y-0.5"></div>
               </div>
             </div>
-            <select id="terrFilterRayon" onchange="renderTerritoireTab()" class="py-1 px-2 border rounded-lg text-xs font-semibold w-full"><option value="">Tout statut rayon</option><option value="green">✅ En rayon</option><option value="yellow">⚠️ Rupture</option><option value="red">❌ Absent</option></select>
             <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
 
