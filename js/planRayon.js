@@ -522,8 +522,8 @@ function _prBuildSqTable(arts) {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
-        ${_thSort('agence',    'BL Agence')}
-        ${_thSort('reseau',    'BL Réseau')}
+        ${_thSort('agence',    'Fréq./sem.')}
+        ${_thSort('reseau',    'Nb agences')}
         ${_thSort('livraison', 'BL Livr.')}
         ${_thSort('classif',   'Stock', 'text-right')}
       </tr></thead>
