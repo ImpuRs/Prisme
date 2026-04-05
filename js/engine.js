@@ -147,9 +147,13 @@ export function _isGlobalActif(info) {
 }
 
 export function _isPDVActif(cc) {
-  // clientsMagasin covers the full consommé period (period-invariant),
-  // while ventesClientArticle is filtered to the active period.
-  // Captation KPI must reflect the full period, not just the filtered month.
+  // Source structurelle Qlik — Activité PDV Zone (indépendant de la période)
+  // Les filtres KM/métier/commercial/etc. sont appliqués en amont par _clientPassesFilters
+  if (_S.chalandiseReady && _S.chalandiseData?.size) {
+    const info = _S.chalandiseData.get(cc);
+    if (info) return (info.activitePDV || '').startsWith('Actif PDV Zone');
+  }
+  // Fallback si chalandise non chargée
   if (_S.clientsMagasin && _S.clientsMagasin.size > 0) return _S.clientsMagasin.has(cc);
   const art = _S.ventesClientArticle.get(cc);
   return art && art.size > 0;
