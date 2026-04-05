@@ -747,7 +747,7 @@ self.onmessage = async function(ev) {
       }
 
       // byMonth — accumulation mensuelle pleine période pour filtre instantané (MAGASIN, myStore)
-      if (dateV && cc2 && code && (!selectedStore || sk === selectedStore)) {
+      if (dateV && cc2 && code && canal === 'MAGASIN' && (!selectedStore || sk === selectedStore)) {
         var _monthIdx = dateV.getFullYear() * 12 + dateV.getMonth();
         if (!byMonth[cc2]) byMonth[cc2] = {};
         if (!byMonth[cc2][code]) byMonth[cc2][code] = {};
