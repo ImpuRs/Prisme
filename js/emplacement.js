@@ -332,3 +332,6 @@ window._laboSqExportAll = function() {
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 };
+
+window.renderArbitrageRayonBlock = renderArbitrageRayonBlock;
+window.renderSqueletteBlock = renderSqueletteBlock;
