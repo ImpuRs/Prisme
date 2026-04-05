@@ -2241,7 +2241,12 @@ window._setReseauCanalFilter = function(val){
   renderBenchmark();
 };
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
-window._toggleHorsAgence = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
+window._toggleHorsAgence = function() {
+  _S._filterHorsAgence = !_S._filterHorsAgence;
+  const btn = document.querySelector('[onclick*="_toggleHorsAgence"]');
+  if (btn) btn.classList.toggle('active', _S._filterHorsAgence);
+  onFilterChange();
+};
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
 window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
 window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;renderCurrentTab();};

@@ -236,6 +236,7 @@ export function getFilteredData() {
   });
   let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++;
   const el = document.getElementById('filterActiveCount'); if (el) el.textContent = activeCount > 0 ? `(${activeCount} actif${activeCount > 1 ? 's' : ''})` : '';
+  if (_S._filterHorsAgence) return filtered.filter(r => (r.caHorsMagasin || 0) > 0);
   return filtered;
 }
 
