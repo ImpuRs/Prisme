@@ -14,6 +14,7 @@ Thumbs.db
 !package.json
 !js/cp-coords.json
 !js/catalogue-marques.json
+!data/seasonal_index_2025.json
 
 # Temp
 *.tmp

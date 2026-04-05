@@ -972,6 +972,13 @@ _S.canalAgence=newCanalAgence;
       const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;
       _S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
     }
+    // Compléter avec le baseline 2025 pour les familles absentes du consommé courant
+    const _baseline = _S._seasonalBaseline;
+    if (_baseline) {
+      for (const [fam, coefs] of Object.entries(_baseline)) {
+        if (!_S.seasonalIndex[fam]) _S.seasonalIndex[fam] = coefs;
+      }
+    }
     _S.articleMonthlySales=monthlySales;
   }
 
@@ -1958,6 +1965,18 @@ _S.canalAgence=newCanalAgence;
   loadCpCoords();
   // Chargement catalogue en arrière-plan (marques, familles, désignations)
   loadCatalogueMarques().catch(e => console.warn('[PRISME] Catalogue non chargé:', e));
+
+  // Baseline saisonnalité 2025 — embarquée dans le repo, aucune donnée client
+  fetch('./data/seasonal_index_2025.json')
+    .then(r => r.json())
+    .then(baseline => {
+      _S._seasonalBaseline = baseline;
+      // Appliquer immédiatement si pas encore de consommé chargé
+      if (!_S.seasonalIndex || !Object.keys(_S.seasonalIndex).length) {
+        _S.seasonalIndex = { ...baseline };
+      }
+    })
+    .catch(() => {}); // silencieux si fichier absent ou réseau indisponible
 
   (async function _initFromCache() {
     // Pré-remplir le sélecteur d'agence depuis localStorage si une valeur est sauvegardée
