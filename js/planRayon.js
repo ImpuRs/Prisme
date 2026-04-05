@@ -1201,6 +1201,7 @@ window._prToggleSF = function(csf) {
       const rcsf = catFam?.get(r.code)?.codeSousFam || '';
       if (_prSelectedSFs.has(rcsf) && r.emplacement) _prSelectedEmps.add(r.emplacement);
     }
+    _prOpenSousFam = '';
   }
   _prRerenderDetail();
 };
@@ -1217,6 +1218,7 @@ window._prApplyAnalyseFilter = function() {
 window._prClearAnalyseFilter = function() {
   _prSelectedSFs.clear();
   _prSelectedEmps.clear();
+  _prOpenSousFam = '';
   _prRerenderDetail();
 };
 
