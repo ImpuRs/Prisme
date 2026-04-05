@@ -39,10 +39,12 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const page=_S._horsZonePage||0;
     const HZ_PAGE=20;
     const nowMs=Date.now();
+    const _tcsHz=(_S._terrClientSearch||'').toLowerCase();const _mHz=cc=>!_tcsHz||(cc||'').includes(_tcsHz)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsHz);
     const hors=[];
     for(const[cc,artMap]of _S.ventesClientArticle){
       if(_S.chalandiseData.has(cc))continue;
       if(!_passesAllFilters(cc))continue;
+      if(!_mHz(cc))continue;
       const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
       if(caPDV<200)continue;
       const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -126,11 +128,13 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     const _openAttr=_S._topPDVOpen!==false?' open':'';
     _syncPDVToggles();
 
+    const _tcsPDV=(_S._terrClientSearch||'').toLowerCase();const _mPDV=cc=>!_tcsPDV||(cc||'').includes(_tcsPDV)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsPDV);
     if(showHors){
       // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
       const horsRows=[];
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
         if(!_passesAllFilters(cc))continue;
+        if(!_mPDV(cc))continue;
         const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caHors<100)continue;
         const magMap=_S.ventesClientArticle.get(cc);
@@ -166,6 +170,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(_S.chalandiseData.has(cc))continue;
         if(!_passesAllFilters(cc))continue;
+        if(!_mPDV(cc))continue;
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<200)continue;
         const nom=_S.clientNomLookup?.[cc]||cc;
@@ -196,6 +201,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     if(!canal||canal==='MAGASIN'){
       for(const[cc,artMap]of _S.ventesClientArticle){
         if(!_passesAllFilters(cc))continue;
+        if(!_mPDV(cc))continue;
         let caPDV=0,caPrelevee=0;
         for(const v of artMap.values()){caPDV+=(v.sumCA||0);caPrelevee+=(v.sumCAPrelevee||0);}
         if(caPDV<100)continue;
@@ -211,6 +217,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
         for(const[cc,artMap]of _S.ventesClientHorsMagasin){
           if(_S.ventesClientArticle.has(cc))continue;
           if(!_passesAllFilters(cc))continue;
+          if(!_mPDV(cc))continue;
           const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
           if(caHors<100)continue;
           const info=_S.chalandiseData?.get(cc);
@@ -224,6 +231,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
     }else{
       for(const[cc,artMap]of _S.ventesClientHorsMagasin){
         if(!_passesAllFilters(cc))continue;
+        if(!_mPDV(cc))continue;
         let caCanal=0;
         for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
         if(caCanal<100)continue;
@@ -1069,9 +1077,11 @@ function _renderCommercialSummary(){
       if(am)for(const v of am.values())d.ca+=v.sumCA||0;
     }
   }else{
+    const _tcsCom=(_S._terrClientSearch||'').toLowerCase();const _mCom=cc=>!_tcsCom||(cc||'').includes(_tcsCom)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCom);
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+      if(!_mCom(cc))continue;
       const com=info.commercial||'-';
       if(!comData[com])comData[com]={ca:0,nb:0};
       const d=comData[com];d.nb++;
@@ -1143,9 +1153,11 @@ function _renderOmniSegmentClients(){
   if(!seg||!_S.clientOmniScore?.size){el.classList.add('hidden');el.innerHTML='';return;}
   const SEG_LABELS=(window.SEG_LABELS||{purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'});
   const segLabel=SEG_LABELS[seg]||seg;
+  const _tcsOmni=(_S._terrClientSearch||'').toLowerCase();const _mOmni=cc=>!_tcsOmni||(cc||'').includes(_tcsOmni)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsOmni);
   const clients=[];
   for(const[cc,o]of _S.clientOmniScore){
     if(o.segment!==seg)continue;
+    if(!_mOmni(cc))continue;
     const info=_S.chalandiseData?.get(cc);
     const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
     const com=info?.commercial||'—';
@@ -1591,6 +1603,7 @@ function _buildCockpitClient(){
   const _useByCanal=_canal&&_canal!=='MAGASIN'; // specific non-MAGASIN canal
   const _useMagOnly=_canal==='MAGASIN';
   // _useByCanal=false & _useMagOnly=false → '' (Tous) → clientLastOrderAll
+  const _tcsCK=(_S._terrClientSearch||'').toLowerCase();const _mCK=cc=>!_tcsCK||(cc||'').includes(_tcsCK)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCK);
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
@@ -1598,6 +1611,7 @@ function _buildCockpitClient(){
     if(_S.excludedClients.has(cc))continue;
     if(_cockpitComSet&&!_cockpitComSet.has(cc))continue;
     if(!_passesAllFilters(cc))continue;
+    if(!_mCK(cc))continue;
     const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
     const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
     // Pick last order date based on canal filter
