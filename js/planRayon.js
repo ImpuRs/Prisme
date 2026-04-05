@@ -655,7 +655,7 @@ function _prRenderMetiers(fam) {
     for (const [cc, artMap] of vcaFull) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
-      const metier = info?.metier || '';
+      const metier = info?.metier || 'Hors agence';
       let caFam = 0;
       for (const [code, v] of artMap) {
         const cf = catFam?.get(code);
