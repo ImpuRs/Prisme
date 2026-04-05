@@ -186,7 +186,12 @@ function _renderClient360(clientCode,source){
   const summaryBar=cards.length?`<div class="flex gap-3 mb-4">${cards.join('')}</div>`:'';
 
   // ── ONGLETS Ici / Ailleurs / Opportunités ────────────────────────
-  const iciArts=artMap?[...artMap.entries()].sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,20):[];
+  // Groupe 1 : période filtrée (artMapPeriod, CA > 0)
+  const iciArtsPeriod=artMapPeriod?[...artMapPeriod.entries()].filter(([,d])=>(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,20):[];
+  // Groupe 2 : historique hors période (artMapFull, codes absents du période)
+  const _periodeSet=new Set(iciArtsPeriod.map(([c])=>c));
+  const iciArtsHisto=artMapFull?[...artMapFull.entries()].filter(([code,d])=>!_periodeSet.has(code)&&(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,30):[];
+  const iciArts=[...iciArtsPeriod,...iciArtsHisto];
 
   const ailleursMap=new Map();
   if(horsMag)for(const[code,d]of horsMag.entries()){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=d.sumCA;}
@@ -256,12 +261,18 @@ function _renderClient360(clientCode,source){
     const firstTab=tabs[0].id;
     const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" data-cc="${escapeHtml(clientCode)}" data-tab="${escapeHtml(t.id)}" onclick="_c360SwitchTab(this.dataset.cc,this.dataset.tab)" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
 
-    const iciRows=iciArts.map(([code,d])=>{
+    const _iciRow=([code,d],grayed=false)=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const r=DataStore.finalData?.find(f=>f.code===code);
       const stock=r?(r.stockActuel>0?`✅ ${r.stockActuel}`:'⚠️ 0'):'❌';
-      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td><td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
-    }).join('');
+      const cls=grayed?'opacity-50':'';
+      const caCell=grayed?`<td class="py-1 px-2 text-right text-[10px] t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
+    };
+    const iciRowsPeriod=iciArtsPeriod.map(e=>_iciRow(e,false)).join('');
+    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
+    const iciRowsHisto=iciArtsHisto.map(e=>_iciRow(e,true)).join('');
+    const iciRows=iciRowsPeriod+iciSeparator+iciRowsHisto;
 
     const ailleursRows=ailleursArts.map(([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
