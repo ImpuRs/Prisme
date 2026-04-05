@@ -1162,7 +1162,7 @@ function _buildChalandiseOverview(){
   const excEl=document.getElementById('terrSumExclus');if(excEl)excEl.textContent=totalExcluded24m.toLocaleString('fr-FR');
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
-  dirsArr.sort((a,b)=>b.perdus12_24-a.perdus12_24||b.total-a.total);
+  dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
   let html='';
   dirsArr.forEach((d,idx)=>{
     const base=d.total-d.prospects;
