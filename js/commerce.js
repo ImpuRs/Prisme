@@ -1123,6 +1123,53 @@ function _renderCommercialSummary(){
   el.innerHTML=html;
 }
 
+function _renderOmniSegmentClients(){
+  const el=document.getElementById('omniSegmentClientsBlock');if(!el)return;
+  const seg=_S._omniSegmentFilter;
+  if(!seg||!_S.clientOmniScore?.size){el.classList.add('hidden');el.innerHTML='';return;}
+  const SEG_LABELS=(window.SEG_LABELS||{purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'});
+  const segLabel=SEG_LABELS[seg]||seg;
+  const clients=[];
+  for(const[cc,o]of _S.clientOmniScore){
+    if(o.segment!==seg)continue;
+    const info=_S.chalandiseData?.get(cc);
+    const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+    const com=info?.commercial||'—';
+    clients.push({cc,nom,com,caPDV:o.caPDV||0,caHors:o.caHors||0,nbCanaux:o.nbCanaux||0});
+  }
+  clients.sort((a,b)=>b.caPDV-a.caPDV);
+  if(!clients.length){el.classList.add('hidden');el.innerHTML='';return;}
+  el.classList.remove('hidden');
+  const isOpen=el.dataset.open==='1';
+  let rows='';
+  for(const c of clients){
+    rows+=`<tr class="border-t b-light hover:s-card-alt">
+      <td class="py-1.5 px-2 font-semibold t-primary max-w-[160px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 t-secondary text-[11px] max-w-[120px] truncate" title="${escapeHtml(c.com)}">${escapeHtml(c.com)}</td>
+      <td class="py-1.5 px-2 text-right font-bold">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${c.caHors>0?formatEuro(c.caHors):'—'}</td>
+      <td class="py-1.5 px-2 text-center t-secondary">${c.nbCanaux}</td>
+      <td class="py-1.5 px-2 text-center"><button class="text-[10px] c-action hover:underline font-semibold" onclick="openClient360('${escapeHtml(c.cc)}')">360°</button></td>
+    </tr>`;
+  }
+  el.innerHTML=`<details ${isOpen?'open':''} class="s-card rounded-xl shadow-md border overflow-hidden mb-3" ontoggle="document.getElementById('omniSegmentClientsBlock').dataset.open=this.open?'1':'0'">
+    <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
+      <h3 class="font-extrabold t-primary text-xs">👤 Clients — ${escapeHtml(segLabel)} <span class="font-normal t-disabled">(${clients.length})</span></h3>
+      <span class="acc-arrow t-disabled">▶</span>
+    </summary>
+    <div class="overflow-x-auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse"><tr>
+        <th class="py-1.5 px-2 text-left">Client</th>
+        <th class="py-1.5 px-2 text-left">Commercial</th>
+        <th class="py-1.5 px-2 text-right">CA PDV</th>
+        <th class="py-1.5 px-2 text-right">CA hors agence</th>
+        <th class="py-1.5 px-2 text-center">Canaux</th>
+        <th class="py-1.5 px-2 text-center">Fiche</th>
+      </tr></thead><tbody>${rows}</tbody>
+    </table></div>
+  </details>`;
+}
+
 function _buildChalandiseOverview(){
   const blk=document.getElementById('terrChalandiseOverview');
   if(!blk)return;
@@ -1203,6 +1250,7 @@ function _buildChalandiseOverview(){
   _buildCockpitClient();
   // [Feature B] Vue par commercial
   _renderCommercialSummary();
+  _renderOmniSegmentClients();
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
 }
@@ -1847,6 +1895,7 @@ export {
   _togglePerdu24m,
   _buildOverviewFilterChips,
   _renderCommercialSummary,
+  _renderOmniSegmentClients,
   _buildChalandiseOverview,
   _toggleOverviewL2,
   _renderOverviewL2,
@@ -1920,6 +1969,7 @@ window._toggleClientArticles      = _toggleClientArticles;
 window._cockpitToggleFullList     = _cockpitToggleFullList;
 window._cockpitToggleSection      = _cockpitToggleSection;
 window._renderCommercialSummary   = _renderCommercialSummary;
+window._renderOmniSegmentClients  = _renderOmniSegmentClients;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
 window._buildDegradedCockpit      = _buildDegradedCockpit;
 window._buildCockpitClient        = _buildCockpitClient;
