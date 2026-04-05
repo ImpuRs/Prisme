@@ -628,7 +628,8 @@ export function computeClientSaisonnier(monthOffset) {
   for (const r of fd) { if (r.code) articleLookup.set(r.code, r); }
 
   const fullYear = _hasFullYear();
-  const seasonIdx = _S.seasonalIndex;
+  // Préférer l'index réseau (plus stable, plus de données)
+  const seasonIdx = _S.seasonalIndexReseau || _S.seasonalIndex;
 
   // ── Mode A : historique >= 12 mois → saisonnalité vraie ──
   if (fullYear && seasonIdx && Object.keys(seasonIdx).length) {

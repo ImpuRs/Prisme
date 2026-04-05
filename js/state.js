@@ -220,7 +220,8 @@ _S.clientFamCA = {};       // cc → {fam → caTotal}
 _S.metierFamBench = {};    // metier → {fam → {nbClients, totalCA}}
 
 // ── Moteur saisonnier (B3) ──
-_S.seasonalIndex = {};         // famille → [12 coefficients]
+_S.seasonalIndex = {};         // famille → [12 coefficients] — agence sélectionnée
+_S.seasonalIndexReseau = {};   // famille → [12 coefficients] — toutes agences (plus stable)
 _S.articleMonthlySales = {};   // code → [12 mois qtés]
 
 // ── Opportunité nette Client×Famille (C1) ──
@@ -383,7 +384,7 @@ export function resetAppState() {
   _S.clientFamCA = {}; _S.metierFamBench = {};
 
   // Moteur saisonnier
-  _S.seasonalIndex = {}; _S.articleMonthlySales = {};
+  _S.seasonalIndex = {}; _S.seasonalIndexReseau = {}; _S.articleMonthlySales = {};
 
   // Opportunité nette
   _S.opportuniteNette = [];
