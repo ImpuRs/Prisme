@@ -569,7 +569,7 @@ function _quickScanFamilleStock() {
 // #7 — Client × Saisonnalité
 // ═══════════════════════════════════════════════════════════════
 
-const SAISON_TOP_N = 3; // un mois est "haut" s'il est dans le top 3 des 12 mois
+const SAISON_TOP_N = 5; // un mois est "haut" s'il est dans le top 5 des 12 mois
 let _saisonData = null, _saisonMonth = null, _saisonSearch = '', _saisonPage = 20;
 
 function _getSaisonTargetMonth(offset) {
@@ -637,6 +637,9 @@ export function computeClientSaisonnier(monthOffset) {
       if (!r.code || !r.famille) continue;
       const profile = seasonIdx[r.famille];
       if (!profile) continue;
+      // Ignorer les familles avec plus de 6 mois à 0 (données insuffisantes)
+      const moisActifs = profile.filter(v => v > 0).length;
+      if (moisActifs < 6) continue; // profil trop creux
       const tops = _topMonths(profile);
       if (!tops.includes(mois)) continue;
       seasonalArticles.set(r.code, r);
