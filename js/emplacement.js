@@ -9,6 +9,7 @@ import { _S } from './state.js';
 import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, _copyCodeBtn } from './utils.js';
 // ── Arbitrage Rayon — Performance par emplacement ──────────────
+let _empSort = { col: 'rendement3m', asc: true };
 
 function computePerfEmplacement() {
   const data = DataStore.finalData;
@@ -68,11 +69,24 @@ function computePerfEmplacement() {
 }
 
 function _renderArbitrageRayon(rows) {
-  rows.sort((a, b) => a.rendement3m - b.rendement3m);
-  const avgRdt = rows.reduce((s, r) => s + r.rendementPeriode, 0) / rows.length;
-  const avgFmt = avgRdt >= 10 ? avgRdt.toFixed(0) : avgRdt.toFixed(1);
+  const col = _empSort.col;
+  const asc = _empSort.asc;
+  rows.sort((a, b) => {
+    const va = a[col], vb = b[col];
+    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return asc ? va - vb : vb - va;
+  });
+
+  const rowsAvecCA = rows.filter(r => r.caPeriode > 0);
+  const rendements = rowsAvecCA.map(r => r.rendementPeriode).sort((a, b) => a - b);
+  const median = rendements.length ? rendements[Math.floor(rendements.length / 2)] : 0;
+  const medFmt = median >= 10 ? median.toFixed(0) : median.toFixed(1);
+
   const rdFmt = v => v >= 10 ? v.toFixed(0) + '\xd7' : v.toFixed(1) + '\xd7';
   const rdCol = v => v >= 2 ? 'c-ok' : v >= 1 ? 'c-caution' : 'c-danger';
+  const arr = k => _empSort.col === k ? (_empSort.asc ? ' \u25b2' : ' \u25bc') : '';
+  const th = (label, key, align) =>
+    `<th class="py-2 px-2 ${align} text-[10px] cursor-pointer select-none hover:t-primary whitespace-nowrap" onclick="window._empSortBy('${key}')">${label}${arr(key)}</th>`;
 
   const rowsHtml = rows.map(r => {
     const deltaSign = r.delta > 0.05 ? '+' : '';
@@ -96,7 +110,7 @@ function _renderArbitrageRayon(rows) {
     <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:brightness-95">
       <div class="flex items-center gap-2">
         <span class="font-extrabold text-sm t-primary">&#128205; Arbitrage rayon</span>
-        <span class="text-[10px] t-disabled">${rows.length} emplacements \xb7 rendement moyen ${avgFmt}\xd7</span>
+        <span class="text-[10px] t-disabled">${rows.length} emplacements \xb7 rendement m\xe9dian ${medFmt}\xd7</span>
       </div>
       <span class="acc-arrow t-disabled">&#9654;</span>
     </summary>
@@ -104,22 +118,22 @@ function _renderArbitrageRayon(rows) {
       <table class="min-w-full text-xs">
         <thead class="s-panel-inner t-inverse font-bold sticky top-0">
           <tr>
-            <th class="py-2 px-2 text-left">Emplacement</th>
-            <th class="py-2 px-2 text-right">Val. stock</th>
-            <th class="py-2 px-2 text-center">R\xe9f.</th>
-            <th class="py-2 px-2 text-center">Clients</th>
-            <th class="py-2 px-2 text-center">Rot. moy.</th>
-            <th class="py-2 px-2 text-right">CA p\xe9riode</th>
-            <th class="py-2 px-2 text-right">CA 3 mois</th>
-            <th class="py-2 px-2 text-center">Rdt p\xe9riode</th>
-            <th class="py-2 px-2 text-center">Rdt 3 mois</th>
-            <th class="py-2 px-2 text-center">\u0394</th>
+            ${th('Emplacement', 'emp', 'text-left')}
+            ${th('Val. stock', 'valStock', 'text-right')}
+            ${th('R\xe9f.', 'nbRef', 'text-center')}
+            ${th('Clients', 'nbClients', 'text-center')}
+            ${th('Rot. moy.', 'rotMoyW', 'text-center')}
+            ${th('CA p\xe9riode', 'caPeriode', 'text-right')}
+            ${th('CA 3 mois', 'ca3m', 'text-right')}
+            ${th('Rdt p\xe9riode', 'rendementPeriode', 'text-center')}
+            ${th('Rdt 3 mois', 'rendement3m', 'text-center')}
+            ${th('\u0394', 'delta', 'text-center')}
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>
-    <p class="text-[9px] t-disabled px-4 py-2">Rendement = CA \xf7 val. stock \xb7 CA 3 mois approx. (ratio qty) \xb7 \u0394 = Rdt 3m \u2212 Rdt p\xe9riode \xb7 Tri\xe9 par Rdt 3 mois croissant (priorit\xe9s en t\xeate) \xb7 Cliquer pour filtrer les articles</p>
+    <p class="text-[9px] t-disabled px-4 py-2">Rendement = CA \xf7 val. stock \xb7 CA 3 mois approx. (ratio qty) \xb7 \u0394 = Rdt 3m \u2212 Rdt p\xe9riode \xb7 Cliquer en-t\xeate pour trier \xb7 Cliquer ligne pour filtrer les articles</p>
   </details>`;
 }
 
@@ -130,6 +144,12 @@ export function renderArbitrageRayonBlock() {
   if (!rows.length) { el.innerHTML = ''; return; }
   el.innerHTML = _renderArbitrageRayon(rows);
 }
+
+window._empSortBy = function(col) {
+  if (_empSort.col === col) _empSort.asc = !_empSort.asc;
+  else { _empSort.col = col; _empSort.asc = col !== 'emp'; }
+  renderArbitrageRayonBlock();
+};
 
 window._filterByEmplacement = function(emp) {
   const sel = document.getElementById('filterEmplacement');
