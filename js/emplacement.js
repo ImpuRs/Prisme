@@ -140,15 +140,19 @@ function _renderArbitrageRayon(rows) {
 export function renderArbitrageRayonBlock() {
   const el = document.getElementById('arbitrageRayonBlock');
   if (!el) return;
+  const wasOpen = el.querySelector('details')?.open || false;
   const rows = computePerfEmplacement();
   if (!rows.length) { el.innerHTML = ''; return; }
   el.innerHTML = _renderArbitrageRayon(rows);
+  if (wasOpen) { const d = el.querySelector('details'); if (d) d.open = true; }
 }
 
 window._empSortBy = function(col) {
   if (_empSort.col === col) _empSort.asc = !_empSort.asc;
   else { _empSort.col = col; _empSort.asc = col !== 'emp'; }
+  const wasOpen = document.querySelector('#arbitrageRayonBlock details')?.open || false;
   renderArbitrageRayonBlock();
+  if (wasOpen) { const d = document.querySelector('#arbitrageRayonBlock details'); if (d) d.open = true; }
 };
 
 window._filterByEmplacement = function(emp) {
