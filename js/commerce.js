@@ -1544,8 +1544,8 @@ function _buildCockpitClient(){
     if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||_useByCanal)){silencieux.push(c);continue;}
     // 2. Perdus : >60j sans commande sur le canal filtré
     if(daysSince!==null&&daysSince>60&&(caPDVN>0||_useByCanal)){perdus.push(c);continue;}
-    // 3. Jamais venus en PDV : client zone non capté (absent de clientsMagasin)
-    if(!_useByCanal&&!_S.clientsMagasin.has(cc)){jamaisVenus.push(c);}
+    // 3. Potentiels : dans crossingStats.potentiels (zone chalandise, jamais venus au comptoir)
+    if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)){jamaisVenus.push(c);}
   }
   silencieux.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
   perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
@@ -1597,7 +1597,7 @@ function _buildCockpitClient(){
   const _perduTitle=`🔴 Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
   if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
   if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
-  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 À capter — Jamais venus en agence','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
+  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 Potentiels — Jamais venus au comptoir','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
   // terrCockpitClient now unused as wrapper — hide it
   el.classList.add('hidden');
 }
@@ -1653,7 +1653,7 @@ function _downloadCockpitCSV(rows,filename,label){
 }
 function exportCockpitCSV(catKey){
   if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-  const map={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['À capter',_S._cockpitExportData.jamaisVenus]};
+  const map={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
   const entry=map[catKey];if(!entry)return;
   const[catLabel,clients]=entry;
   const rows=clients.map(c=>_cockpitRowCSV(catLabel,c,'Non',''));
@@ -1664,7 +1664,7 @@ function exportCockpitCSV(catKey){
 }
 function exportCockpitCSVAll(){
   if(!_S._cockpitExportData){showToast('⚠️ Aucune donnée cockpit','warning');return;}
-  const catMap={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['À capter',_S._cockpitExportData.jamaisVenus]};
+  const catMap={'cockpit-sil-full':['Silencieux',_S._cockpitExportData.silencieux],'cockpit-perdu-full':['Perdus',_S._cockpitExportData.perdus],'cockpit-cap-full':['Potentiels',_S._cockpitExportData.jamaisVenus]};
   const rows=[];
   for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
   const date=new Date().toISOString().slice(0,10);
