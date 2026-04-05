@@ -968,7 +968,7 @@ function _renderPlanRayonContent(data) {
 
   return `<div class="mb-3">
     <div class="flex items-center justify-between mb-2">
-      <h3 class="font-extrabold text-sm t-primary">🔭 Plan de rayon — ${data.families.length} familles analysées</h3>
+      <h3 class="font-extrabold text-sm t-primary">🦴 Plan de rayon stratégique — ${data.families.length} familles analysées</h3>
     </div>
     <div class="grid grid-cols-5 gap-2 mb-3">
       ${_badge('socle', totals.socle)}
