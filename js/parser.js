@@ -65,8 +65,7 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   const metiersSet = new Set();
   for (const row of data) {
     const rawCode = (cCode ? row[cCode] || '' : '').toString().trim();
-    const ccRaw2 = extractClientCode(rawCode);
-    const cc = ccRaw2.replace(/^0+/, '') || ccRaw2;
+    const cc = extractClientCode(rawCode);
     if (!cc) continue;
     const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
     if (metier) metiersSet.add(metier);
