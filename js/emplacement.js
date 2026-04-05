@@ -18,7 +18,9 @@ function computePerfEmplacement() {
     const emp = r.emplacement || '(vide)';
     if (!map[emp]) map[emp] = { ca: 0, valStock: 0, nbRef: 0, clients: new Set(), sumW: 0 };
     const e = map[emp];
-    e.ca += (r.caAnnuel || 0);
+    const myStore = _S.selectedMyStore;
+    const ventes = _S.ventesParMagasin?.[myStore]?.[r.code];
+    e.ca += (ventes?.sumCA || ventes?.sumPrelevee || r.caAnnuel || 0);
     e.valStock += (r.valeurStock || 0);
     e.nbRef++;
     e.sumW += (r.W || 0);
