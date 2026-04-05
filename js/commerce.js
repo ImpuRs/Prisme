@@ -1040,26 +1040,40 @@ function _renderCommercialSummary(){
   const canal=_ctx.activeFilters.canal;
   const isHors=canal&&canal!=='MAGASIN';
   const comData={};
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    if(!_clientPassesFilters(info,cc))continue;
-    if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-    // Segment omnicanal filter
-    if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)continue;}
-    const com=info.commercial||'-';
-    if(!comData[com])comData[com]={ca:0,nb:0};
-    const d=comData[com];
-    d.nb++;
-    if(isHors){
-      const hm=_S.ventesClientHorsMagasin.get(cc);
-      if(hm)for(const v of hm.values()){if(v.canal===canal)d.ca+=v.sumCA||0;}
-    }else if(canal==='MAGASIN'||!canal){
-      const am=DataStore.ventesClientArticle.get(cc);
+  if(_S._omniSegmentFilter&&_S.clientOmniScore?.size){
+    // Segment filter active: iterate clientOmniScore, CA from ventesClientArticleFull
+    const _vcaFull=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;
+    for(const[cc,o]of _S.clientOmniScore){
+      if(o.segment!==_S._omniSegmentFilter)continue;
+      const info=_S.chalandiseData?.get(cc);
+      if(info&&!_clientPassesFilters(info,cc))continue;
+      if(info&&!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+      const com=(info?.commercial)||'-';
+      if(!comData[com])comData[com]={ca:0,nb:0};
+      const d=comData[com];d.nb++;
+      const am=_vcaFull?.get(cc);
       if(am)for(const v of am.values())d.ca+=v.sumCA||0;
+    }
+  }else{
+    for(const[cc,info] of _S.chalandiseData.entries()){
+      if(!_clientPassesFilters(info,cc))continue;
+      if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
+      const com=info.commercial||'-';
+      if(!comData[com])comData[com]={ca:0,nb:0};
+      const d=comData[com];d.nb++;
+      if(isHors){
+        const hm=_S.ventesClientHorsMagasin.get(cc);
+        if(hm)for(const v of hm.values()){if(v.canal===canal)d.ca+=v.sumCA||0;}
+      }else if(canal==='MAGASIN'||!canal){
+        const am=DataStore.ventesClientArticle.get(cc);
+        if(am)for(const v of am.values())d.ca+=v.sumCA||0;
+      }
     }
   }
   const unassigned=comData['-'];
   const mainList=Object.entries(comData).filter(([com,d])=>com!=='-'&&d.nb>0).sort((a,b)=>b[1].ca-a[1].ca);
   const totalCount=mainList.length+(unassigned&&unassigned.nb>0?1:0);
+  const segClientCount=_S._omniSegmentFilter&&_S.clientOmniScore?[..._S.clientOmniScore.values()].filter(o=>o.segment===_S._omniSegmentFilter).length:null;
   if(!totalCount){el.classList.add('hidden');return;}
   el.classList.remove('hidden');
   const sel=_ctx.activeFilters.commercial;
@@ -1091,7 +1105,7 @@ function _renderCommercialSummary(){
     <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
       <h3 class="font-extrabold t-primary text-xs flex items-center gap-1.5">
         👤 Vue par commercial${filterTags?` — <span class="c-action">${filterTags}</span>`:''}
-        <span class="font-normal t-disabled">(${totalCount})</span>
+        <span class="font-normal t-disabled">(${segClientCount!=null?segClientCount:totalCount})</span>
       </h3>
       <div class="flex items-center gap-2">
         ${sel?`<button onclick="event.stopPropagation();event.preventDefault();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
