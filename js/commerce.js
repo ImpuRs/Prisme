@@ -763,6 +763,18 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
       return;
     }
     const k=computeClientsKPIs();
+    // ── Filtre recherche client (_terrClientSearch) — appliqué à toutes les sections ──
+    const _qSrch=(_S._terrClientSearch||'').toLowerCase();
+    if(_qSrch){
+      const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientNomLookup?.[cc]||'').toLowerCase().includes(_qSrch)||(_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
+      k.top5=k.top5.filter(c=>_matchC(c.cc,c.nom));
+      k.top5Reconq=k.top5Reconq.filter(c=>_matchC(c.cc,c.nom));
+      k.reconq=k.reconq.filter(c=>_matchC(c.cc,c.nom));
+      k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
+      k.topPDVRows=k.topPDVRows.filter(c=>_matchC(c.cc,c.nom));
+      k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
+      k.digitaux=(k.digitaux||[]).filter(c=>_matchC(c.cc,c.nom));
+    }
     const top5=k.top5;
     const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:#0891b2">
       <div class="flex items-center justify-between px-4 py-3" style="background:#06b6d41F;border-bottom:1px solid #0891b233">
@@ -798,7 +810,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
 
     // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
     let topPDVHtml='';
-    {const _qS=_S._terrClientSearch||'';const _matchClient=(r)=>r.cc.toLowerCase().includes(_qS)||(r.nom||'').toLowerCase().includes(_qS)||(_S.clientNomLookup?.[r.cc]||'').toLowerCase().includes(_qS)||(_S.chalandiseData?.get(r.cc)?.nom||'').toLowerCase().includes(_qS);const topRows=_qS?k.topPDVRows.filter(_matchClient):k.topPDVRows;
+    {const topRows=k.topPDVRows;
       const top=topRows.slice(0,20);
       if(top.length){
         const now=Date.now();
