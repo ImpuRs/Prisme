@@ -101,6 +101,112 @@ function _cmComputeCounts() {
 }
 
 
+// ── Drill chalandise — Vue par Direction (mode sans territoire) ──────────
+let _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
+
+function _buildChalDirBlock(blkEl) {
+  if (!blkEl || !_S.chalandiseReady) return;
+  const all = [..._S.chalandiseData.entries()].map(([cc, info]) => ({ cc, ...info }));
+  const { level, dir, metier, commercial } = _chalDrill;
+
+  const _ca = c => (c.ca2025||0) + (c.ca2026||0);
+  const _sumCA = arr => arr.reduce((s,c) => s + _ca(c), 0);
+  const _nbLeg = arr => arr.filter(c => _ca(c) > 0).length;
+  const _nbPDV = arr => arr.filter(c => c.activitePDV?.includes('Actif')).length;
+  const _bar = (n, tot) => {
+    const pct = tot > 0 ? Math.round(n / tot * 100) : 0;
+    const bc = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
+    return { pct, html: `<div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-2"><div class="cap-bar ${bc}" style="width:${pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pct}%</span></div>` };
+  };
+  const _kpiThead = `<tr><th class="py-1.5 px-2 text-left">—</th><th class="py-1.5 px-2 text-right">Zone</th><th class="py-1.5 px-2 text-right">Captés Leg.</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-center min-w-[110px]">% PDV</th></tr>`;
+  const _kpiRow = (label, arr, onclick) => {
+    const nbZ = arr.length, nbL = _nbLeg(arr), nbP = _nbPDV(arr), ca = _sumCA(arr);
+    const { html: barHtml } = _bar(nbP, nbZ);
+    return `<tr class="border-b text-xs cursor-pointer hover:i-info-bg" onclick="${onclick}">
+      <td class="py-2 px-3 font-bold">${label} <span class="t-disabled text-[9px]">▶</span></td>
+      <td class="py-2 px-3 text-right">${nbZ}</td>
+      <td class="py-2 px-3 text-right c-ok">${nbL}</td>
+      <td class="py-2 px-3 text-right c-action">${nbP}</td>
+      <td class="py-2 px-3 text-right">${formatEuro(ca)}</td>
+      <td class="py-2 px-3">${barHtml}</td>
+    </tr>`;
+  };
+
+  const _backBtn = level === 'root' ? '' :
+    `<div class="px-3 pt-2 pb-1"><button onclick="window._terrDrillBack()" class="text-[10px] px-2 py-1 rounded s-hover border font-semibold">← Retour</button></div>`;
+
+  let titleLabel, theadHtml, tbodyHtml = '';
+
+  if (level === 'root') {
+    titleLabel = 'Vue par Direction';
+    const byDir = new Map();
+    for (const c of all) { const d = c.direction||'Autre'; if (!byDir.has(d)) byDir.set(d,[]); byDir.get(d).push(c); }
+    const sorted = [...byDir.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
+    theadHtml = _kpiThead.replace('—','Direction');
+    for (const [d, arr] of sorted)
+      tbodyHtml += _kpiRow(escapeHtml(d), arr, `window._terrDrillDir('${encodeURIComponent(d)}')`);
+  } else if (level === 'metier') {
+    titleLabel = `Direction › ${dir}`;
+    const slice = all.filter(c => (c.direction||'Autre') === dir);
+    const byMet = new Map();
+    for (const c of slice) { const m = c.metier||'—'; if (!byMet.has(m)) byMet.set(m,[]); byMet.get(m).push(c); }
+    const sorted = [...byMet.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
+    theadHtml = _kpiThead.replace('—','Métier');
+    for (const [m, arr] of sorted)
+      tbodyHtml += _kpiRow(escapeHtml(m), arr, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`);
+  } else if (level === 'commercial') {
+    titleLabel = `${dir} › ${metier}`;
+    const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier);
+    const byCom = new Map();
+    for (const c of slice) { const com = c.commercial||'—'; if (!byCom.has(com)) byCom.set(com,[]); byCom.get(com).push(c); }
+    const sorted = [...byCom.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
+    theadHtml = _kpiThead.replace('—','Commercial');
+    for (const [com, arr] of sorted)
+      tbodyHtml += _kpiRow(escapeHtml(com), arr, `window._terrDrillCommercial('${encodeURIComponent(dir)}','${encodeURIComponent(metier)}','${encodeURIComponent(com)}')`);
+  } else {
+    // level === 'clients'
+    titleLabel = `${dir} › ${metier} › ${commercial}`;
+    const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier && (c.commercial||'—') === commercial);
+    const sorted = slice.sort((a,b) => _ca(b) - _ca(a));
+    theadHtml = `<tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Activité PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-left">Classification</th></tr>`;
+    for (const c of sorted)
+      tbodyHtml += `<tr class="border-b text-xs cursor-pointer hover:i-info-bg" onclick="openClient360('${escapeHtml(c.cc)}','territoire')"><td class="py-2 px-3"><span class="font-bold">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled text-[9px]">${c.cc}</span></td><td class="py-2 px-3 text-[10px]">${escapeHtml(c.activitePDV||'—')}</td><td class="py-2 px-3 text-right">${formatEuro(_ca(c))}</td><td class="py-2 px-3 text-[10px] t-secondary">${escapeHtml(c.classification||'—')}</td></tr>`;
+  }
+
+  const colCount = level === 'clients' ? 4 : 6;
+  blkEl.innerHTML = `<details open class="overflow-hidden">
+    <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+      <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 ${escapeHtml(titleLabel)} <span class="text-[10px] font-normal t-disabled">— Zone de chalandise</span></h3>
+      <span class="acc-arrow t-disabled">▶</span>
+    </summary>
+    ${_backBtn}
+    <div class="overflow-x-auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse">${theadHtml}</thead>
+      <tbody>${tbodyHtml||`<tr><td colspan="${colCount}" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
+    </table></div>
+  </details>`;
+}
+
+window._terrDrillDir = function(dirEnc) {
+  _chalDrill = { level: 'metier', dir: decodeURIComponent(dirEnc), metier: null, commercial: null };
+  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+};
+window._terrDrillMetier = function(dirEnc, metierEnc) {
+  _chalDrill = { level: 'commercial', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: null };
+  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+};
+window._terrDrillCommercial = function(dirEnc, metierEnc, comEnc) {
+  _chalDrill = { level: 'clients', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: decodeURIComponent(comEnc) };
+  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+};
+window._terrDrillBack = function() {
+  const { level, dir, metier } = _chalDrill;
+  if (level === 'clients')     _chalDrill = { level: 'commercial', dir, metier, commercial: null };
+  else if (level === 'commercial') _chalDrill = { level: 'metier', dir, metier: null, commercial: null };
+  else                         _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
+  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+};
+
 // ── Extracted code (unchanged) ──────────────────────────────────────────
 
   function _renderHorsZone(){
@@ -547,26 +653,12 @@ function _cmComputeCounts() {
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
-      // Mode dégradé — terrDirectionBlock depuis chalandise seule
       if(hasChal){
         const _dirBlkEl=document.getElementById('terrDirectionBlock');
         if(_dirBlkEl){
           _dirBlkEl.style.display='';_dirBlkEl.classList.remove('hidden');
-          const _dirMap={};
-          for(const [cc,info] of _S.chalandiseData){
-            const _dir=getSecteurDirection(info.secteur)||info.secteur||'—';
-            if(!_dirMap[_dir])_dirMap[_dir]={dir:_dir,clients:0,captes:0,ca:0};
-            _dirMap[_dir].clients++;_dirMap[_dir].ca+=info.ca2025||0;
-            if(_S.crossingStats?.captes?.has(cc))_dirMap[_dir].captes++;
-          }
-          const _dirRows=Object.values(_dirMap).sort((a,b)=>b.ca-a.ca);
-          let _tbody='';
-          for(const d of _dirRows){
-            const _pct=d.clients>0?Math.round(d.captes/d.clients*100):0;
-            const _bc=_pct>=70?'bg-emerald-500':_pct>=40?'bg-amber-500':'bg-red-500';
-            _tbody+=`<tr class="border-b text-xs"><td class="py-2 px-3 font-bold">${escapeHtml(d.dir)}</td><td class="py-2 px-3 text-right">${d.clients}</td><td class="py-2 px-3 text-right c-ok">${d.captes}</td><td class="py-2 px-3 text-right">${formatEuro(d.ca)}</td><td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-2"><div class="cap-bar ${_bc}" style="width:${_pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${_pct}%</span></div></td></tr>`;
-          }
-          _dirBlkEl.innerHTML=`<details open class="overflow-hidden"><summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 Vue par Direction <span class="text-[10px] font-normal t-disabled">— Zone de chalandise · trié par CA décroissant</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-right">Clients zone</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-center min-w-[110px]">% captés</th></tr></thead><tbody>${_tbody||'<tr><td colspan="5" class="text-center py-4 t-disabled">Aucune donnée</td></tr>'}</tbody></table></div></details>`;
+          _chalDrill={level:'root',dir:null,metier:null,commercial:null};
+          _buildChalDirBlock(_dirBlkEl);
         }
       }
       return;
