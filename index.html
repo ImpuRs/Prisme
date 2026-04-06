@@ -391,10 +391,11 @@
     details>.details-body{overflow:hidden;max-height:0;transition:max-height .25s cubic-bezier(0.16,1,0.3,1)}
     details[open]>.details-body{max-height:2000px}
     /* ═══ SUPER-TABS ════════════════════════════════════════════ */
-    .supertab-group{display:flex;flex-direction:column;position:relative;flex-shrink:0}
+    .supertab-group{display:flex;flex-direction:column;flex-shrink:0}
     .supertab-btn{border-radius:0;border-bottom:2px solid transparent;white-space:nowrap;padding:0 var(--sp-4);height:38px;font-size:var(--fs-base)}
     .supertab-btn.active{border-bottom-color:var(--tab-color,var(--c-action));color:var(--tab-text,var(--i-info-text));background:var(--tab-bg,var(--s-card-alt))}
-    .supertab-pills{display:none;position:absolute;top:100%;left:0;z-index:var(--z-sticky);background:var(--s-card);border:1px solid var(--b-default);border-top:none;border-radius:0 0 var(--r-md) var(--r-md);padding:4px 6px;gap:4px;white-space:nowrap;box-shadow:var(--shadow-sm);flex-direction:row;min-width:100%}
+    /* Pills en flux normal (pas absolute) — évite le clip de overflow-x:auto du parent */
+    .supertab-pills{display:none;flex-direction:row;padding:3px 6px;gap:4px;white-space:nowrap;background:var(--s-card);border-top:1px solid var(--b-light)}
     .supertab-group.active .supertab-pills{display:flex}
     .supertab-pill{font-size:var(--fs-xs);font-weight:var(--fw-medium);padding:2px 10px;border-radius:var(--r-full);border:1px solid var(--b-default);background:transparent;color:var(--t-secondary);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
     .supertab-pill:hover{background:var(--s-hover);color:var(--t-primary)}
