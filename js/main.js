@@ -1918,8 +1918,9 @@ _S.canalAgence=newCanalAgence;
   // ── Vue "Clients PDV" (V4) ─────────────────────────────────────────
 
   async function renderCurrentTab(){
+    const activePill=document.querySelector('.supertab-pill.active[data-subtab]');
     const activeBtn=document.querySelector('.tab-btn.active');
-    const id=activeBtn?activeBtn.getAttribute('data-tab'):'table';
+    const id=(activePill?.dataset.subtab)||(activeBtn?activeBtn.getAttribute('data-tab'):'table');
     switch(id){
       case 'table':
         renderTable(true); // articles always re-renders; no cache flag
