@@ -607,6 +607,7 @@ window.toggleTerrFam = toggleTerrFam;
 window.toggleContribDirection = toggleContribDirection;
 window.toggleContribSecteur = toggleContribSecteur;
 window.toggleContribClient = toggleContribClient;
+window.renderTerrCroisementSummary = renderTerrCroisementSummary;
 window.renderTerrContrib = renderTerrContrib;
 window.renderContribClients = renderContribClients;
 window.renderContribArticles = renderContribArticles;
