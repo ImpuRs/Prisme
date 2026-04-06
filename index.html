@@ -1187,88 +1187,7 @@
     </div>
 
     <!-- TAB : TERRITOIRE (V24.4) — Commerce -->
-    <div id="tabCommerce" class="tab-content hidden">
-
-      <!-- 2a. Placeholder — chalandise not loaded yet -->
-      <div id="terrNoChalandise" class="hidden mb-2 p-2 i-danger-bg border-2 border-dashed border-rose-300 rounded-xl text-center">
-        <p class="text-xl mb-1">🗺️</p>
-        <p class="c-danger font-extrabold text-sm mb-0.5">Chargez la Zone de Chalandise pour activer Le Terrain</p>
-        <p class="c-danger text-xs">Glissez-déposez le fichier Chalandise (CSV ou Excel, export Qlik) dans la zone de chargement, puis cliquez sur Analyser.</p>
-      </div>
-
-      <!-- Loading spinner -->
-      <div id="terrLoadingSpinner" class="hidden text-center py-16">
-        <div class="inline-block w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mb-4"></div>
-        <p class="text-violet-700 font-bold text-sm">Calcul territoire en cours…</p>
-        <div class="w-64 mx-auto mt-3 s-hover rounded-full h-2">
-          <div id="terrProgressBar" class="h-2 bg-violet-500 rounded-full transition-all duration-150" style="width:0%"></div>
-        </div>
-        <p id="terrProgressText" class="text-violet-500 text-xs font-mono mt-1">0%</p>
-      </div>
-
-      <!-- 1. KPI bar — sticky en haut, contexte de travail -->
-      <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff)">
-        <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif. Le total est l'ensemble de la zone.">
-          <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
-          <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
-          <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
-        </div>
-        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px] cursor-help" title="Parmi ces clients zone, ceux qui ont un CA Legallais tous canaux confondus (source : chalandise).">
-          <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
-          <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
-          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
-        </div>
-        <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-        <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px] cursor-help" title="Parmi ces clients zone, ceux qui ont achet&#233; au moins une fois en magasin (comptoir) sur la p&#233;riode du consomm&#233;. Les &#171;hors zone&#187; sont des clients actifs en PDV mais absents de votre chalandise.">
-          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
-          <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
-          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
-          <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
-        </div>
-        <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
-          <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
-          <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
-        </div>
-      </div>
-
-      <!-- [Feature C] Bandeau dégradé canal -->
-      <div id="canalDegradedBanner" class="hidden mb-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-xl flex items-start gap-2.5">
-        <span class="text-xl flex-shrink-0 mt-0.5">📊</span>
-        <div>
-          <p class="text-amber-800 font-bold text-sm">Source : ventes agence uniquement</p>
-          <p class="text-amber-700 text-[11px] mt-0.5">Les données affichées proviennent du consommé agence uniquement. Chargez <strong>Le Terrain</strong> (BL omnicanal Qlik) pour voir les ventes hors agence sur ce canal.</p>
-        </div>
-      </div>
-
-      <!-- 2. Silencieux — 30-60j sans commande PDV -->
-      <div id="terrSilencieux" class="mb-3"></div>
-
-      <!-- 3. Perdus — >60j sans commande PDV -->
-      <div id="terrPerdus" class="mb-3"></div>
-
-      <!-- 4. À capter — Jamais venus en agence -->
-      <div id="terrACapter" class="mb-3"></div>
-
-      <!-- 5. Opportunités nettes -->
-      <div id="terrOpportunites"></div>
-
-      <!-- 6. Top clients PDV -->
-      <div id="terrTopPDV"></div>
-
-      <!-- Cockpit Client (legacy container, hidden) -->
-      <div id="terrCockpitClient" class="hidden"></div>
-      <div id="terrHorsZone"></div>
-
-      <!-- Legacy blocs kept for compatibility -->
-      <div id="terrTop5" class="hidden"></div>
-      <div id="terrReconquete" class="hidden"></div>
-      <div id="terrLivSansPDV" class="hidden"></div>
-
-      <!-- 2d. Degraded mode cockpit — consommé only, no chalandise -->
-      <div id="terrDegradedBlock" class="hidden mt-2"></div>
-
-    </div>
+    <div id="tabCommerce" class="tab-content hidden"></div>
 
     <!-- TAB 6 : OBSERVATOIRE -->
     <div id="tabReseau" class="tab-content hidden">
@@ -1478,6 +1397,14 @@
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
     </main><!-- /mainContent -->
   </div><!-- /appLayout -->
+
+  <!-- Slots cockpit client — hors onglets, peuplés par _buildCockpitClient() -->
+  <div id="cockpitSlots" hidden aria-hidden="true">
+    <div id="terrCockpitClient"></div>
+    <div id="terrSilencieux"></div>
+    <div id="terrPerdus"></div>
+    <div id="terrACapter"></div>
+  </div>
 
   <!-- Mobile filter drawer button -->
   <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
