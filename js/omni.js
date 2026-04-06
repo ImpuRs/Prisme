@@ -373,9 +373,12 @@ function _passesAllFilters(cc){
     const terrNeedBlock=document.getElementById('terrNeedTerrBlock');
     if(terrNeedBlock)terrNeedBlock.classList.toggle('hidden',hasTerr);
     // Show/hide territoire-dependent blocks inside accordion
-    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{
+    ['terrCroisementBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{
       const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
     });
+    // terrKPIBlock : visible si chalandise chargée (dégradé gracieux sans territoire)
+    const _kpiBlk=document.getElementById('terrKPIBlock');
+    if(_kpiBlk){_kpiBlk.style.display=hasChal?'':'none';_kpiBlk.classList.toggle('hidden',!hasChal);}
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
     const comBlock=document.getElementById('commercialSummaryBlock');
@@ -625,10 +628,13 @@ function _passesAllFilters(cc){
     const hasTerr = _S.territoireReady && _S.territoireLines.length > 0;
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
     if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
-    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
+    ['terrCroisementBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
       const blk = document.getElementById(id);
       if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
     });
+    // terrKPIBlock : visible si chalandise chargée (dégradé gracieux sans territoire)
+    const _kpiBlk2=document.getElementById('terrKPIBlock');
+    if(_kpiBlk2){_kpiBlk2.style.display=hasChal?'':'none';_kpiBlk2.classList.toggle('hidden',!hasChal);}
     // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
     document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
   }
