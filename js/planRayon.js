@@ -1253,9 +1253,9 @@ window._prSqFilterFn = function(key) {
 
 window._prSqSortFn = function(key) {
   _prSqSort = key;
-  const el = document.getElementById('prDetailContent');
-  if (!el || !_S._prSqArts) return;
-  el.innerHTML = _prBuildSqTable(_S._prSqArts);
+  const wrap = document.getElementById('prSqTable');
+  if (!wrap || !_S._prSqArts) return;
+  wrap.outerHTML = _prBuildSqTable(_S._prSqArts);
 };
 
 window._prMetierDistChange = function(val) {
