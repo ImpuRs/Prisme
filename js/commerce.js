@@ -46,6 +46,7 @@ function _cmRenderNav(counts) {
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
     { id: 'opportunites', label: '💡 Opportunités',  n: counts.opportunites },
+    { id: 'toppdv',       label: '🏆 Top PDV',       n: null },
     { id: 'omni',         label: '📊 Omni',          n: null },
   ];
   return tabs.map(t => {
@@ -83,6 +84,10 @@ function _cmSwitchTab(id) {
     case 'opportunites':
       content.innerHTML = `<div id="terrOpportunites"></div>`;
       window.renderOpportunites?.();
+      break;
+    case 'toppdv':
+      content.innerHTML = '<div id="terrTopPDV"></div>';
+      window._renderTopClientsPDV?.();
       break;
     case 'omni':
       content.innerHTML = '';
@@ -2160,11 +2165,9 @@ function renderCommerceTab() {
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
     <div id="terrChalandiseOverview" class="hidden"></div>
-    <div id="terrTopPDV" class="mb-3"></div>
     <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
     <div id="cm-tab-content" class="pt-3"></div>`;
   _buildChalandiseOverview();
-  _renderTopClientsPDV();
   _cmSwitchTab(_cmTab);
 }
 
