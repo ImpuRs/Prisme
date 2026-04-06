@@ -1433,9 +1433,9 @@ function _buildChalandiseOverview(){
       <div class="flex items-center gap-2 flex-wrap">
         <div class="flex items-center gap-1"><span class="text-xs t-disabled">👥</span>${_clientsHtml}<span class="text-xs t-disabled">clients zone</span></div>
         <span class="t-disabled text-xs">›</span>
-        <div class="flex items-center gap-1"><span class="text-xs t-disabled">📊</span><span class="font-extrabold" style="color:var(--c-info)">${pctCapteLeg}%</span><span class="text-xs t-disabled">captés Leg.</span></div>
+        <div class="flex flex-col gap-0"><div class="flex items-center gap-1"><span class="text-xs t-disabled">📊</span><span class="font-extrabold" style="color:var(--c-info)">${pctCapteLeg}%</span><span class="text-xs t-disabled">captés Leg.</span></div><div class="text-[10px] t-disabled pl-4">${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}</div></div>
         <span class="t-disabled text-xs">›</span>
-        <div class="flex items-center gap-1"><span class="text-xs t-disabled">🏪</span><span class="font-extrabold c-success">${pctCapte}%</span><span class="text-xs t-disabled">captés PDV</span></div>
+        <div class="flex flex-col gap-0"><div class="flex items-center gap-1"><span class="text-xs t-disabled">🏪</span><span class="font-extrabold c-success">${pctCapte}%</span><span class="text-xs t-disabled">captés PDV</span></div><div class="text-[10px] t-disabled pl-4">${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}</div></div>
         ${_exclusHtml}
       </div>`;
     bar.style.display='block';bar.classList.remove('hidden');
