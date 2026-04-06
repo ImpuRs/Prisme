@@ -2473,9 +2473,8 @@ window.toggleObsFamily          = toggleObsFamily;
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
-// D2 — Theme Switch
+// D2 — Theme Switch (no-op, dark permanent)
 initTheme();
-window.cycleTheme = cycleTheme;
 
 // ── P0 — Event delegation pour les liens Unik (data-unik-client) ──────────
 // Remplace les onclick inline générés par _unikLink() qui cassaient
