@@ -484,7 +484,7 @@ function _passesAllFilters(cc){
       </details>
     </div>
     <div id="commercialSummaryBlock" class="hidden"></div>
-    <details id="terrAnalyseAccordion" class="s-card rounded-xl shadow-md border mb-3">
+    <details id="terrAnalyseAccordion" open class="s-card rounded-xl shadow-md border mb-3">
       <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
         <div class="flex items-center gap-2">
           <h3 class="font-extrabold t-primary text-sm">📋 Analyse territoire</h3>
@@ -629,6 +629,8 @@ function _passesAllFilters(cc){
       const blk = document.getElementById(id);
       if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
     });
+    // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
+    document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
   }
 
 // ── Window expositions for onclick handlers ──
