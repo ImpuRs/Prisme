@@ -501,13 +501,21 @@ window._terrDrillBack = function() {
     return scored.slice(0,5);
   }
 
+  // ── Helper hasTerr — vérifie les vraies données territoire disponibles ──
+  // territoireReady peut rester false après restauration cache (bug connu),
+  // mais terrDirectionData et terrContribByDirection sont toujours peuplés.
+  const _hasTerritoire = () =>
+    _S.territoireReady
+    || Object.keys(_S.terrDirectionData||{}).length > 0
+    || (_S.terrContribByDirection?.size > 0);
+
   // ── computeTerritoireKPIs — pure data for renderTerritoireTab ────────
   function computeTerritoireKPIs(){
     const top5Reconq=_computeTop5Reconq();
     const reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
     const reconq=reconqFull.slice(0,10);
     const livSansPDV=_S.livraisonsSansPDV||[];
-    const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
+    const hasTerr=_hasTerritoire();
     const hasChal=DataStore.chalandiseReady;
     const hasData=DataStore.finalData.length>0;
     const hasConsomme=_S.ventesClientArticle.size>0;
@@ -1651,7 +1659,7 @@ function _toggleClientArticles(row,clientCode){
   const nextRow=row.nextElementSibling;
   if(nextRow&&nextRow.classList.contains('client-art-panel')){nextRow.remove();return;}
   // [Adapter Étape 5] — territoireLines / finalData / ventesClientArticle : canal-invariants
-  const hasTerr=_S.territoireReady&&DataStore.territoireLines.length>0;
+  const hasTerr=_hasTerritoire();
   const stockMap=new Map(DataStore.finalData.map(r=>[r.code,r]));
   // Section 1 : achats comptoir (DataStore.ventesClientArticle — MAGASIN/myStore only)
   const artData=DataStore.ventesClientArticle.get(clientCode);

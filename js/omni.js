@@ -368,7 +368,7 @@ function _passesAllFilters(cc){
     // renderTerritoireTab also populates Commerce tab elements — harmless cross-tab render
     window.renderTerritoireTab();
     // Analyse territoire accordion visibility
-    const hasTerr=_S.territoireReady&&_S.territoireLines.length>0;
+    const hasTerr=_S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
     const hasChal=_S.chalandiseReady;
     const terrNeedBlock=document.getElementById('terrNeedTerrBlock');
     if(terrNeedBlock)terrNeedBlock.classList.toggle('hidden',hasTerr);
@@ -390,7 +390,7 @@ function _passesAllFilters(cc){
   // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
   function getKPIsByCanal(canal) {
     const _c = canal && canal !== 'ALL' ? canal : null;
-    const hasTerritoire = _S.territoireReady && _S.territoireLines.length > 0;
+    const hasTerritoire = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
     const terrLines = _c ? DataStore.filteredTerritoireLines.filter(l => l.canal === _c) : DataStore.filteredTerritoireLines;
     return {
       canal: _c || 'ALL',
@@ -625,7 +625,7 @@ function _passesAllFilters(cc){
     window._buildChalandiseOverview?.();
     window._renderCommercialSummary?.();
     window.renderTerritoireTab?.();
-    const hasTerr = _S.territoireReady && _S.territoireLines.length > 0;
+    const hasTerr = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
     if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
     ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
