@@ -1697,18 +1697,20 @@ _S.canalAgence=newCanalAgence;
         {label:'Sans MIN',val:_sansMin,ok:_sansMin<=3},
         {label:'Surstock',val:_surst,ok:_surst<=_totalRefs*0.03},
       ];
-      const _heroPills=[
-        {label:`Taux service : ${sr}%`,  cls:parseFloat(sr)>=95?'ok':parseFloat(sr)>=85?'caution':'danger', fn:`showCockpitInTable('ruptures')`},
-        {label:`Ruptures : ${lstR.length}`, cls:lstR.length===0?'ok':'danger', fn:`showCockpitInTable('ruptures');switchTab('table')`},
-        {label:`Dormants : ${lstD.length}`, cls:lstD.length>50?'caution':'muted', fn:`showCockpitInTable('dormants');switchTab('table')`},
-        {label:`Sans MIN : ${lstA.length}`, cls:'muted', fn:`showCockpitInTable('anomalies');switchTab('table')`},
-        {label:`Surstock : ${lstS.length}`, cls:'muted', fn:`showCockpitInTable('saso');switchTab('table')`},
-      ].map(p=>`<button class="hero-pill hero-pill--${p.cls}" onclick="${p.fn}">${p.label}</button>`).join('');
-      heroEl.innerHTML=`
+      const _heroPills = [
+        { label: `Taux service : ${sr}%`,    cls: parseFloat(sr) >= 95 ? 'ok' : parseFloat(sr) >= 85 ? 'caution' : 'danger', fn: `showCockpitInTable('ruptures')` },
+        { label: `Ruptures : ${lstR.length}`, cls: lstR.length === 0 ? 'ok' : 'danger',                                        fn: `showCockpitInTable('ruptures');switchTab('table')` },
+        { label: `Dormants : ${lstD.length}`, cls: lstD.length > 50 ? 'caution' : 'muted',                                     fn: `showCockpitInTable('dormants');switchTab('table')` },
+        { label: `Sans MIN : ${lstA.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('anomalies');switchTab('table')` },
+        { label: `Surstock : ${lstS.length}`, cls: 'muted',                                                                     fn: `showCockpitInTable('saso');switchTab('table')` },
+      ].map(p => `<button class="hero-pill hero-pill--${p.cls}" onclick="${p.fn}">${p.label}</button>`).join('');
+      heroEl.innerHTML = `
 <div class="hero-layout">
   <div class="hero-score-block">
     <div class="hero-score-num" style="color:${_col}">${_score}</div>
-    <div class="hero-score-bar"><div class="hero-score-fill" style="width:${_score}%;background:${_col}"></div></div>
+    <div class="hero-score-bar">
+      <div class="hero-score-fill" style="width:${_score}%;background:${_col}"></div>
+    </div>
     <div class="hero-score-label">Santé stock</div>
   </div>
   <div class="hero-divider"></div>
@@ -1718,7 +1720,7 @@ _S.canalAgence=newCanalAgence;
     <div class="hero-value-sub">
       <span>${DataStore.finalData.length.toLocaleString('fr')} réf.</span>
       <span style="color:var(--c-ok)">✓ Dispo. ${sr}%</span>
-      ${_deltaBadge?`<span>${_deltaBadge} vs mois préc.</span>`:''}
+      ${_deltaBadge ? `<span>${_deltaBadge} vs mois préc.</span>` : ''}
     </div>
   </div>
   <div class="hero-divider"></div>
