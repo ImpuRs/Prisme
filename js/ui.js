@@ -229,8 +229,7 @@ export function switchTab(id) {
     btn.classList.add('active');
     if (!_S._tabRendered[id] && DataStore.finalData.length > 0) {
       const skeletonMap = {
-        stock:    () => buildSkeletonCards(4) + buildSkeletonTable(6, 5),
-        // reseau: static HTML in index.html — skeleton would wipe DOM elements
+        // stock, reseau, table: HTML statique dans index.html — skeleton écraserait les IDs cibles
         commerce: () => buildSkeletonCards(3) + buildSkeletonTable(10, 7),
         clients:  () => buildSkeletonCards(2) + buildSkeletonTable(6, 4),
       };
