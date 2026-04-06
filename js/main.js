@@ -642,6 +642,12 @@ _S.canalAgence=newCanalAgence;
     // ── OPT1 : Hash-check IDB — même fichier → skip parse complet ──
     {
       const _hashes = localStorage.getItem('prisme_fileHashes');
+      console.log('[DEBUG cache]', {
+        fLiv: !!document.getElementById('fileLivraisons').files[0],
+        livraisonsReady: _S.livraisonsReady,
+        idbOk: DataStore.finalData.length > 0,
+        hashes: localStorage.getItem('prisme_fileHashes')
+      });
       if (_hashes) {
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
         if (_idbOk && DataStore.finalData.length > 0) {
