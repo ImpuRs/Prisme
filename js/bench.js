@@ -746,11 +746,13 @@ function openNomadeArticleModal(code) {
       <button class="btn-secondary text-xs px-3 py-1.5" onclick="_copyNomadeClientsClipboard('${code}')">Copier liste clients</button>
       <button class="btn-primary text-xs px-3 py-1.5" onclick="closeNomadeArticleModal()">Fermer</button>
     </div>`;
+  const _namTrigger=document.activeElement;
   overlay.classList.add('active');
+  overlay._cleanupFocusTrap=window.focusTrap?.(panel,_namTrigger);
 }
 
 function closeNomadeArticleModal() {
-  document.getElementById('nomadeArticleOverlay')?.classList.remove('active');
+  const o=document.getElementById('nomadeArticleOverlay');if(o){o._cleanupFocusTrap?.();o.classList.remove('active');}
 }
 
 function _copyNomadeClientsClipboard(code) {

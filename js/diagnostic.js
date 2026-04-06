@@ -19,7 +19,9 @@ import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 function openDiagnostic(famille,source){
   const overlay=document.getElementById('diagnosticOverlay');
   if(!overlay)return;
+  const _trigger=document.activeElement;
   overlay.classList.add('active');
+  overlay._cleanupFocusTrap=window.focusTrap?.(document.getElementById('diagnosticPanel'),_trigger);
   _S._diagCurrentFamille=famille;_S._diagCurrentSource=source;_S._diagMetierFilter='';
   try{renderDiagnosticPanel(famille,source);}
   catch(e){
@@ -30,11 +32,11 @@ function openDiagnostic(famille,source){
 }
 function openDiagnosticMetier(metier){
   const overlay=document.getElementById('diagnosticOverlay');
-  if(overlay){overlay.classList.add('active');_S._diagCurrentFamille='@metier:'+metier;_S._diagCurrentSource='commerce';_S._diagMetierFilter='';renderDiagnosticPanel('@metier:'+metier,'commerce');}
+  if(overlay){const _trigger=document.activeElement;overlay.classList.add('active');overlay._cleanupFocusTrap=window.focusTrap?.(document.getElementById('diagnosticPanel'),_trigger);_S._diagCurrentFamille='@metier:'+metier;_S._diagCurrentSource='commerce';_S._diagMetierFilter='';renderDiagnosticPanel('@metier:'+metier,'commerce');}
 }
 function closeDiagnostic(){
   const overlay=document.getElementById('diagnosticOverlay');
-  if(overlay)overlay.classList.remove('active');
+  if(overlay){overlay._cleanupFocusTrap?.();overlay.classList.remove('active');}
   document.body.style.overflow='';
   const mc=document.getElementById('mainContent');if(mc)mc.style.overflow='';
   // Reset famille filter — diagnostic is a temporary view, not a persistent filter
@@ -43,17 +45,18 @@ function closeDiagnostic(){
 }
 function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn)_S._diagActions[idx].fn();}
 
-function closeArticlePanel(){document.getElementById('articlePanelOverlay')?.classList.remove('active');}
+function closeArticlePanel(){const o=document.getElementById('articlePanelOverlay');if(o){o._cleanupFocusTrap?.();o.classList.remove('active');}}
 
 function openClient360(clientCode, source) {
   const artOverlay = document.getElementById('articlePanelOverlay');
-  if (artOverlay) artOverlay.classList.remove('active');
+  if (artOverlay) { artOverlay._cleanupFocusTrap?.(); artOverlay.classList.remove('active'); }
   const overlay = document.getElementById('diagnosticOverlay');
   const panel   = document.getElementById('diagnosticPanel');
   if (!overlay || !panel) {
     console.error('[openClient360] overlay ou panel introuvable', {overlay:!!overlay, panel:!!panel});
     return;
   }
+  const _trigger=document.activeElement;
   overlay.classList.add('active');
   panel.style.maxWidth = '780px';
   try {
@@ -64,6 +67,7 @@ function openClient360(clientCode, source) {
     console.error('[openClient360] erreur dans _renderClient360:', e);
     panel.innerHTML = `<p style="color:red;padding:20px">Erreur : ${e.message}</p>`;
   }
+  overlay._cleanupFocusTrap=window.focusTrap?.(panel,_trigger);
 }
 
 function _renderClient360(clientCode,source){
@@ -507,7 +511,9 @@ function openArticlePanel(code,source){
   }
   // Render
   panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
+  const _apTrigger=document.activeElement;
   overlay.classList.add('active');
+  overlay._cleanupFocusTrap=window.focusTrap?.(panel,_apTrigger);
 }
 
 // B3: Season ribbon helper

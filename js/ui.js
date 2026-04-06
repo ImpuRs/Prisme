@@ -374,6 +374,7 @@ export function openReporting() {
   const overlay = document.getElementById('reportingOverlay');
   const panel = document.getElementById('reportingPanel');
   if (!overlay || !panel) return;
+  const _trigger = document.activeElement;
   const text = generateReportText();
   panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
     <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${_S.selectedMyStore || ''}</h2>
@@ -385,11 +386,35 @@ export function openReporting() {
   <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
   <p class="text-[10px] t-inverse-muted mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
+  overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
 }
 
 export function closeReporting() {
   const overlay = document.getElementById('reportingOverlay');
-  if (overlay) overlay.classList.remove('active');
+  if (overlay) { overlay._cleanupFocusTrap?.(); overlay.classList.remove('active'); }
+}
+
+// ── Focus Trap — WCAG 2.1 criterion 2.4.3 ────────────────────
+export function focusTrap(container, trigger) {
+  const FOCUSABLE = 'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  const getFocusable = () => [...container.querySelectorAll(FOCUSABLE)].filter(el => !el.closest('[hidden]'));
+  const onKey = (e) => {
+    if (e.key !== 'Tab') return;
+    const els = getFocusable();
+    if (!els.length) return;
+    const first = els[0], last = els[els.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  };
+  container.addEventListener('keydown', onKey);
+  requestAnimationFrame(() => getFocusable()[0]?.focus());
+  return () => {
+    container.removeEventListener('keydown', onKey);
+    if (trigger && document.body.contains(trigger)) trigger.focus();
+  };
 }
 
 export function copyReportText() {
@@ -959,10 +984,10 @@ export function renderDecisionQueue() {
     const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
     const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
     const score = d.score || 0;
-    const priorityLabel = score >= 70 ? '<span class="text-[9px] font-bold c-danger">🔥 Critique</span>'
-                        : score >= 40 ? '<span class="text-[9px] font-bold c-caution">⚡ Urgent</span>'
-                        : '<span class="text-[9px] t-disabled">📌 À surveiller</span>';
-    const saisonTag = d.saisonnier ? '<span class="text-[9px] font-bold" style="color:#0891b2">🌡️ Creux saisonnier</span>' : '';
+    const priorityLabel = score >= 70 ? '<span class="chip chip-xs chip-danger">🔥 Critique</span>'
+                        : score >= 40 ? '<span class="chip chip-xs chip-caution">⚡ Urgent</span>'
+                        : '<span class="chip chip-xs chip-muted">📌 À surveiller</span>';
+    const saisonTag = d.saisonnier ? '<span class="chip chip-xs chip-info">🌡️ Saisonnier</span>' : '';
     const dqK = _dqKey(d).replace(/'/g, "\\'");
     return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
       <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>

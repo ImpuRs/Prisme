@@ -156,9 +156,34 @@
       --shadow-md:  0 4px 15px rgba(0,0,0,0.08);
       --shadow-lg:  0 8px 25px rgba(0,0,0,0.12);
       --shadow-xl:  0 8px 28px rgba(0,0,0,0.25);
+      /* ═══ Z-INDEX SCALE ═══ */
+      --z-base         : 0;
+      --z-raised       : 10;
+      --z-sticky       : 50;
+      --z-navbar       : 9000;
+      --z-cmdpalette   : 9999;
+      --z-overlay      : 10000;
+      --z-overlay-top  : 10500;
+      --z-overlay-max  : 10600;
+      --z-toast        : 10000;
+      --z-tooltip      : 9999;
     }
 
     /* ═══ TOKEN BRIDGE — classes sémantiques PRISME ════════════ */
+    /* ═══ SYSTÈME CHIP UNIFIÉ ═══════════════════════════════════ */
+    /* Remplace .badge, .diag-badge, .store-tag, .canal-pill-btn  */
+    .chip{display:inline-flex;align-items:center;justify-content:center;gap:0.25rem;padding:0.125rem 0.5rem;border-radius:var(--r-full);font-size:var(--fs-xs);font-weight:var(--fw-semibold);line-height:1.4;white-space:nowrap;border:1px solid transparent;font-variant-numeric:tabular-nums}
+    .chip-xs{font-size:var(--fs-2xs);padding:0.1rem 0.4rem}
+    .chip-sm{font-size:var(--fs-xs);padding:0.125rem 0.5rem}
+    .chip-md{font-size:var(--fs-sm);padding:0.25rem 0.625rem}
+    .chip-ok{background:var(--i-ok-bg);color:var(--i-ok-text);border-color:var(--c-ok)}
+    .chip-danger{background:var(--i-danger-bg);color:var(--i-danger-text);border-color:var(--c-danger)}
+    .chip-caution{background:var(--i-caution-bg);color:var(--i-caution-text);border-color:var(--c-caution)}
+    .chip-info{background:var(--i-info-bg);color:var(--i-info-text);border-color:var(--c-action)}
+    .chip-muted{background:var(--i-neutral-bg);color:var(--i-neutral-text);border-color:var(--b-default)}
+    .chip-action{background:var(--c-action);color:#fff;border-color:var(--c-action)}
+    .chip-toggle{cursor:pointer;transition:filter .15s}.chip-toggle:hover{filter:brightness(1.12)}
+    .chip-count{min-width:1.5rem}
     /* Texte */
     .t-primary        { color: var(--t-primary); }
     .t-secondary      { color: var(--t-secondary); }
@@ -247,7 +272,7 @@
     #periodBanner,#stockMonoBanner{display:none;background:var(--p-orange-500);color:#fff;padding:var(--sp-2) var(--sp-4);font-size:var(--fs-sm);font-weight:var(--fw-bold);text-align:center;border-bottom:2px solid var(--p-orange-600);}
     #periodBanner.active,#stockMonoBanner.active{display:block}
     /* ═══ Sticky header wrapper ═══════════════════════════════ */
-    #stickyHeader{position:sticky;top:0;z-index:9000;will-change:transform}
+    #stickyHeader{position:sticky;top:0;z-index:var(--z-navbar);will-change:transform}
     /* VOLET 2bis: contributeurs agence — 4 niveaux */
     .contrib-dir-row{cursor:pointer;transition:background .15s}.contrib-dir-row:hover{background:var(--s-hover)}.contrib-dir-row.open{background:var(--s-active)}
     .contrib-dir-detail{display:none}.contrib-dir-detail.open{display:table-row-group}
@@ -263,7 +288,7 @@
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     .file-loaded{border-color:var(--c-ok)!important;background:var(--i-ok-bg)!important}
     .tab-btn.tab-locked{opacity:.35;pointer-events:none;cursor:default}
-    #loadingOverlay{display:none;position:fixed;inset:0;z-index:9999;background:var(--s-overlay-light);backdrop-filter:blur(4px);align-items:center;justify-content:center;flex-direction:column}
+    #loadingOverlay{display:none;position:fixed;inset:0;z-index:var(--z-overlay-top);background:var(--s-overlay-light);backdrop-filter:blur(4px);align-items:center;justify-content:center;flex-direction:column}
     #loadingOverlay.active{display:flex}
     .spinner{width:56px;height:56px;border:5px solid rgba(255,255,255,.2);border-top-color:var(--p-blue-400);border-radius:var(--r-full);animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -321,23 +346,19 @@
     .terr-fam-row{cursor:pointer;transition:background .15s}.terr-fam-row:hover{background:var(--s-active)}.terr-fam-row.open{background:var(--s-active)}
     /* Territoire status badge — compteurs cliquables ✅/⚠️/❌ */
     .terr-status-badge{cursor:pointer;font-weight:700;border-radius:var(--r-md);padding:1px var(--sp-1);transition:opacity .15s;display:inline-block}.terr-status-badge:hover{opacity:.7;text-decoration:underline}
-    /* V2 Phase 2: Diagnostic Cascade */
-    #diagnosticOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
-    #diagnosticOverlay.active{display:flex;align-items:flex-start;justify-content:center}
-    #diagnosticPanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-6);max-width:880px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
+    /* ═══ SYSTÈME OVERLAY UNIFIÉ ════════════════════════════════ */
+    .overlay{display:none;position:fixed;inset:0;z-index:var(--z-overlay);background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
+    .overlay.active{display:flex;align-items:flex-start;justify-content:center}
+    .overlay-panel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-6);width:100%;margin:auto;position:relative;color:var(--t-inverse)}
+    .overlay-panel--sm{max-width:480px}
+    .overlay-panel--md{max-width:600px}
+    .overlay-panel--lg{max-width:760px}
+    .overlay-panel--xl{max-width:880px}
+    .overlay-panel--full{max-width:1040px}
+    #articlePanelOverlay{z-index:var(--z-overlay-max)}
+    #nomadeArticleOverlay{z-index:var(--z-overlay-top)}
+    @media(max-width:640px){.overlay-panel{max-width:calc(100vw - 1rem)!important;padding:14px;border-radius:var(--r-lg)}}
     .diag-level{background:var(--s-panel-inner);border:1px solid var(--b-darker);border-radius:var(--r-lg);padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-3)}
-    /* Article detail panel */
-    #articlePanelOverlay{display:none;position:fixed;inset:0;z-index:10600;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
-    #articlePanelOverlay.active{display:flex;align-items:flex-start;justify-content:center}
-    #articlePanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-5);max-width:600px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
-    /* Nomade article modal */
-    #nomadeArticleOverlay{display:none;position:fixed;inset:0;z-index:10550;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
-    #nomadeArticleOverlay.active{display:flex;align-items:flex-start;justify-content:center}
-    #nomadeArticlePanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-6);max-width:740px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
-    /* Reporting overlay */
-    #reportingOverlay{display:none;position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);overflow-y:auto;padding:var(--sp-4) var(--sp-2)}
-    #reportingOverlay.active{display:flex;align-items:flex-start;justify-content:center}
-    #reportingPanel{background:var(--s-panel);border:1px solid var(--b-dark);border-radius:var(--r-xl);padding:var(--sp-6);max-width:760px;width:100%;margin:auto;position:relative;color:var(--t-inverse)}
     .diag-level-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3)}
     .diag-badge{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-2xs);font-weight:var(--fw-bold);padding:2px var(--sp-2);border-radius:var(--r-full);white-space:nowrap}
     .diag-ok{background:var(--i-ok-dark-bg);color:var(--i-ok-dark-text)}.diag-warn{background:var(--i-warn-dark-bg);color:var(--i-warn-dark-text)}
@@ -468,7 +489,7 @@
     }
 
     /* ═══ Signal Ambiant ════════════════════════════════════ */
-    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;transition:background 1.2s ease,height .6s ease;background:transparent}
+    #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:var(--z-tooltip);transition:background 1.2s ease,height .6s ease;background:transparent}
     /* ═══ Cockpit Briefing ══════════════════════════════════ */
     #cockpitBriefing{background:var(--s-panel);border:1px solid var(--s-panel-inner);border-radius:var(--r-lg);padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-3);color:var(--t-inverse)}
     #cockpitBriefing .briefing-line{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);line-height:var(--lh-normal);padding:3px 0;border-bottom:1px solid #1e293b40}
@@ -535,7 +556,8 @@
     #tabsContainer .tab-btn{height:46px;font-size:var(--fs-base);padding:0 var(--sp-4)}
     #tabsContainer .tab-btn.active{background:var(--tab-bg,#eff6ff);font-weight:700}
     /* U4 — Anneau focus clavier */
-    :focus-visible{outline:2px solid var(--c-action);outline-offset:2px}
+    :focus-visible{outline:2px solid var(--c-action);outline-offset:2px;border-radius:2px}
+    input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 2px var(--c-action);border-color:var(--c-action)}
 
   </style>
 </head>
@@ -550,7 +572,7 @@
   <div id="stockMonoBanner"></div>
 
   <!-- Command Palette -->
-  <div id="cmdPalette" class="hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh]" onclick="if(event.target===this)closeCmdPalette()">
+  <div id="cmdPalette" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[20vh]" style="z-index:var(--z-cmdpalette)" onclick="if(event.target===this)closeCmdPalette()">
     <div class="s-card rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden mx-4">
       <div class="flex items-center border-b b-default">
         <span class="pl-4 t-disabled text-base">🔍</span>
@@ -562,25 +584,25 @@
   </div>
 
   <!-- V2 Phase 2: Diagnostic Cascade Overlay -->
-  <div id="diagnosticOverlay" onclick="if(event.target===this)closeDiagnostic()">
-    <div id="diagnosticPanel"></div>
+  <div id="diagnosticOverlay" class="overlay" onclick="if(event.target===this)closeDiagnostic()">
+    <div id="diagnosticPanel" class="overlay-panel overlay-panel--xl"></div>
   </div>
 
   <!-- Nomade Article Modal -->
-  <div id="nomadeArticleOverlay" onclick="if(event.target===this)closeNomadeArticleModal()">
-    <div id="nomadeArticlePanel"></div>
+  <div id="nomadeArticleOverlay" class="overlay" onclick="if(event.target===this)closeNomadeArticleModal()">
+    <div id="nomadeArticlePanel" class="overlay-panel overlay-panel--lg"></div>
   </div>
 
   <!-- Article Detail Panel Overlay -->
-  <div id="articlePanelOverlay" onclick="if(event.target===this)closeArticlePanel()">
-    <div id="articlePanel"></div>
+  <div id="articlePanelOverlay" class="overlay" onclick="if(event.target===this)closeArticlePanel()">
+    <div id="articlePanel" class="overlay-panel overlay-panel--md"></div>
   </div>
   <!-- Reporting overlay -->
-  <div id="reportingOverlay" onclick="if(event.target===this)closeReporting()">
-    <div id="reportingPanel"></div>
+  <div id="reportingOverlay" class="overlay" onclick="if(event.target===this)closeReporting()">
+    <div id="reportingPanel" class="overlay-panel overlay-panel--lg"></div>
   </div>
 
-  <div id="toastContainer" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 pointer-events-none"></div>
+  <div id="toastContainer" class="fixed bottom-5 right-5 flex flex-col gap-3 pointer-events-none" style="z-index:var(--z-toast)"></div>
   <div id="loadingOverlay"><div class="spinner mb-4"></div><p id="loadingText" class="t-inverse font-bold text-lg"></p><p id="loadingStep" class="c-action text-sm mt-1"></p><div class="progress-container"><div id="progressBar" class="progress-fill" style="width:0%"></div></div><p id="progressPct" class="text-cyan-300 text-xs font-mono mt-2">0%</p>
   <!-- V24.4: Pipeline per-file status -->
   <div id="loadingPipeline" class="hidden flex items-center gap-2 text-xs mt-3 font-mono flex-wrap justify-center">
@@ -652,13 +674,13 @@
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
       <button data-tab="table" onclick="switchTab('table')" class="tab-btn" style="display:none;--tab-color:#E24B4A;--tab-bg:#E24B4A1F;--tab-text:#A32D2D"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/></svg><span>Articles</span></button>
-      <button data-tab="stock" onclick="switchTab('stock')" class="tab-btn" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Analyse du stock</span></button>
+      <button data-tab="stock" onclick="switchTab('stock')" class="tab-btn active" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Analyse du stock</span></button>
       <button data-tab="clients" onclick="switchTab('clients')" class="tab-btn" id="btnTabClients" style="display:none;--tab-color:#0891b2;--tab-bg:#06b6d41F;--tab-text:#0e4f6b"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M2 20c0-3.3 2.8-6 7-6s7 2.7 7 6"/><circle cx="17.5" cy="8.5" r="2.5"/><path d="M21 19c0-2.2-1.6-3.9-3.5-3.9"/></svg><span>Clients PDV</span><span id="navClientsBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full text-white font-extrabold" style="font-size:9px;min-width:16px;height:16px;padding:0 3px;background:#d97706">0</span></button>
       <button data-tab="commerce" onclick="switchTab('commerce')" class="tab-btn" id="btnTabCommerce" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Commerce</span></button>
       <button data-tab="reseau" onclick="switchTab('reseau')" class="tab-btn" id="btnTabReseau" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Réseau</span></button>
 
       <button data-tab="animation" onclick="switchTab('animation')" class="tab-btn" id="btnTabAnimation" style="--tab-color:#e11d48;--tab-bg:#e11d481F;--tab-text:#9f1239"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Animation</span></button>
-      <button data-tab="labo" onclick="switchTab('labo')" class="tab-btn active" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Labo</span></button>
+      <button data-tab="labo" onclick="switchTab('labo')" class="tab-btn" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Labo</span></button>
     </div>
   </div>
   </div><!-- /#stickyHeader -->
