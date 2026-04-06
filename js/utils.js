@@ -59,6 +59,83 @@ export function formatEuro(n) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 }
 
+export function buildPctBar(pct, {
+  color    = 'var(--c-action)',
+  bgColor  = 'var(--s-card-alt)',
+  height   = 6,
+  showLabel = false,
+  animated  = true,
+  max       = 100,
+  radius    = 'var(--r-sm)',
+} = {}) {
+  const clamped = Math.min(100, Math.max(0, max > 0 ? (pct / max) * 100 : 0));
+  const label = showLabel
+    ? `<span style="font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:${color};margin-left:var(--sp-1);white-space:nowrap">${Math.round(clamped)}%</span>`
+    : '';
+  return `<div style="display:flex;align-items:center;gap:4px;width:100%"><div style="flex:1;height:${height}px;background:${bgColor};border-radius:${radius};overflow:hidden"><div style="width:${clamped}%;height:100%;background:${color};border-radius:${radius}${animated ? ';transition:width .5s ease' : ''}"></div></div>${label}</div>`;
+}
+
+export function buildSparklineSVG(values, {
+  color   = 'var(--c-action)',
+  width   = 80,
+  height  = 20,
+  filled  = false,
+  dotLast = true,
+} = {}) {
+  if (!values?.length || values.length < 2) return '';
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const pad = 2;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * (width - pad * 2) + pad;
+    const y = height - pad - ((v - min) / range) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const polyline = `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const area = filled ? (() => {
+    const first = pts[0].split(',');
+    const last  = pts[pts.length - 1].split(',');
+    return `<polygon points="${pts.join(' ')} ${last[0]},${height} ${first[0]},${height}" fill="${color}" opacity="0.12"/>`;
+  })() : '';
+  const dot = dotLast ? (() => {
+    const [lx, ly] = pts[pts.length - 1].split(',');
+    return `<circle cx="${lx}" cy="${ly}" r="2.5" fill="${color}"/>`;
+  })() : '';
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true" style="display:block;overflow:visible">${area}${polyline}${dot}</svg>`;
+}
+
+export function buildDeltaBadge(current, previous, {
+  format = 'pct',
+  invert = false,
+} = {}) {
+  if (!previous || previous === 0) return '';
+  const delta = current - previous;
+  const pctVal = ((delta / Math.abs(previous)) * 100).toFixed(1);
+  const isPositive = delta >= 0;
+  const isGood = invert ? !isPositive : isPositive;
+  const cls = delta === 0 ? 'chip-muted' : isGood ? 'chip-ok' : 'chip-danger';
+  const sign = delta > 0 ? '+' : '';
+  let label;
+  if (format === 'pct')       label = `${sign}${pctVal}%`;
+  else if (format === 'abs')  label = `${sign}${Math.round(delta).toLocaleString('fr')}`;
+  else                        label = `${sign}${pctVal}% (${sign}${Math.round(delta).toLocaleString('fr')})`;
+  return `<span class="chip chip-xs ${cls}" style="background:transparent;border:none">${label}</span>`;
+}
+
+export function buildSkeletonTable(rows = 8, cols = 5) {
+  const widths = ['sk-short', 'sk-long', 'sk-medium', 'sk-full', 'sk-short'];
+  const trs = Array.from({ length: rows }, (_, r) =>
+    `<tr>${Array.from({ length: cols }, (_, c) =>
+      `<td class="px-3 py-2"><div class="skeleton skeleton-row ${widths[(r + c) % widths.length]}"></div></td>`
+    ).join('')}</tr>`
+  ).join('');
+  return `<table class="min-w-full"><tbody>${trs}</tbody></table>`;
+}
+
+export function buildSkeletonCards(count = 4) {
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${Array.from({ length: count }, () => '<div class="skeleton skeleton-kpi"></div>').join('')}</div>`;
+}
+
 export function pct(p, t) { return t > 0 ? ((p / t) * 100).toFixed(1) + '%' : '0%'; }
 
 export function parseExcelDate(v) {

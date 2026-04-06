@@ -313,6 +313,32 @@
     .toast-enter{animation:slideIn .3s ease-out forwards}.toast-leave{animation:slideOut .3s ease-in forwards}
     @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
     @keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+    @keyframes toastProgress{from{width:100%}to{width:0%}}
+    /* ═══ SKELETON LOADERS ══════════════════════════════════════ */
+    @keyframes skeleton-shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    .skeleton{background:linear-gradient(90deg,var(--s-card-alt) 25%,var(--s-hover) 50%,var(--s-card-alt) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.4s ease infinite;border-radius:var(--r-md)}
+    .skeleton-row{height:14px;margin-bottom:8px;border-radius:var(--r-sm)}
+    .skeleton-row.sk-short{width:40%}.skeleton-row.sk-medium{width:65%}.skeleton-row.sk-long{width:90%}.skeleton-row.sk-full{width:100%}
+    .skeleton-card{height:80px;border-radius:var(--r-lg);margin-bottom:12px}
+    .skeleton-kpi{height:64px;border-radius:var(--r-lg);flex:1;min-width:120px}
+    @media(prefers-reduced-motion:reduce){.skeleton{animation:none;opacity:0.6}}
+    /* ═══ MICRO-ANIMATIONS ══════════════════════════════════════ */
+    @keyframes countUp{from{opacity:0.3;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .kpi-update{animation:countUp .35s ease-out forwards}
+    .overlay.active .overlay-panel{animation:overlaySlideIn .25s cubic-bezier(0.16,1,0.3,1) forwards}
+    @keyframes overlaySlideIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .filtering .tab-content:not(.hidden){opacity:0.55;transition:opacity .1s}
+    #btnCalculer.loading{position:relative;overflow:hidden}
+    #btnCalculer.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:skeleton-shimmer 1.2s ease infinite;background-size:200% 100%}
+    @media(prefers-reduced-motion:reduce){.overlay.active .overlay-panel{animation:none}.kpi-update{animation:none}#btnCalculer.loading::after{animation:none}}
+    /* ═══ FILTER GROUPS (sidebar accordéons) ════════════════════ */
+    .filter-group{border:1px solid var(--b-light);border-radius:var(--r-md);overflow:hidden;margin-bottom:4px}
+    .filter-group>summary{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:var(--fs-xs);font-weight:var(--fw-semibold);color:var(--t-secondary);background:var(--s-card-alt);cursor:pointer;user-select:none;list-style:none}
+    .filter-group>summary::-webkit-details-marker{display:none}
+    .filter-group>summary:hover{background:var(--s-hover);color:var(--t-primary)}
+    .filter-group-arrow{margin-left:auto;font-size:var(--fs-2xs);color:var(--t-disabled);transition:transform .15s}
+    .filter-group[open]>summary .filter-group-arrow{transform:rotate(90deg)}
+    .filter-group-body{padding:8px;background:var(--s-card);border-top:1px solid var(--b-light);display:flex;flex-direction:column;gap:4px}
     /* V23: Executive summary pulse */
     .exec-summary{background:linear-gradient(135deg,var(--s-panel) 0%,var(--s-panel-inner) 50%,var(--s-panel) 100%);border:1px solid var(--b-dark);position:relative;overflow:hidden}
     .exec-summary::before{content:'';position:absolute;top:0;left:-100%;width:200%;height:2px;background:var(--g-shimmer);animation:shimmer 3s infinite}
@@ -728,21 +754,40 @@
               <p id="cematinScoreSub" style="font-size:0.63rem;color:var(--t-tertiary,#94a3b8);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</p>
             </button>
           </div>
-          <div id="globalFilters" class="hidden flex flex-col gap-1.5">
+          <div id="globalFilters" class="hidden flex flex-col gap-1">
             <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
-            <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-            <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut</option></select>
-            <div class="flex gap-1">
-              <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
-              <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
-            </div>
-            <div id="globalAdvancedFilters" class="flex flex-col gap-1.5 pt-1.5 border-t b-default">
-              <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
-              <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
-              <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
-            </div>
-            <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
-            <button id="btnHorsAgence" onclick="toggleWebColumn()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
+
+            <details class="filter-group" open>
+              <summary class="filter-group-header">
+                <span>Classification</span>
+                <span id="fgBadgeClassif" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <div class="flex gap-1">
+                  <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
+                  <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
+                </div>
+                <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
+                <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut</option></select>
+              </div>
+            </details>
+
+            <details class="filter-group">
+              <summary class="filter-group-header">
+                <span>Avancé</span>
+                <span id="fgBadgeAvanced" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <input type="text" id="filterSousFamille" list="listSousFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 S/Famille…"><datalist id="listSousFamille"></datalist>
+                <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
+                <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
+                <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
+                <button id="btnHorsAgence" onclick="toggleWebColumn()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
+              </div>
+            </details>
+
             <input type="hidden" id="filterCockpit" value="">
             <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
             <div class="flex flex-wrap gap-1 mt-0.5">
