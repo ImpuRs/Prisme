@@ -134,7 +134,7 @@ export function _clearCache() {
   if (b) b.classList.add('hidden');
   const iz = document.getElementById('importZone');
   if (iz) iz.classList.remove('hidden');
-  const ob = document.getElementById('onboardingBlock');
+  const ob = document.getElementById('onboardingStep0');
   if (ob) ob.classList.remove('hidden');
   if (!_S.finalData.length) {
     document.getElementById('tabsContainer')?.classList.add('hidden');
@@ -187,7 +187,7 @@ export function _showCacheBanner() {
 export function _onReloadFiles() {
   document.getElementById('cacheBanner').classList.add('hidden');
   document.getElementById('importZone')?.classList.remove('hidden');
-  document.getElementById('onboardingBlock')?.classList.remove('hidden');
+  document.getElementById('onboardingStep0')?.classList.remove('hidden');
   if (_S.storesIntersection && _S.storesIntersection.size > 1) {
     document.getElementById('storeSelector')?.classList.remove('hidden');
   }
