@@ -1921,7 +1921,7 @@ _S.canalAgence=newCanalAgence;
         renderTabBadges();
         break;
       case 'commerce':
-        renderTerritoireTab();
+        window.renderCommerceTab && window.renderCommerceTab();
         break;
       case 'omni':
         renderCockpitEquation();
