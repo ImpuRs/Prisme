@@ -917,83 +917,101 @@
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
-          <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5">
-            <hr class="b-default my-0.5">
+          <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5 mt-1.5">
 
-            <!-- BLOC 1 : CLIENTS PDV -->
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Clients PDV</p>
+            <!-- Clients PDV quick toggles -->
             <div class="flex flex-wrap gap-1">
               <button onclick="window._toggleHorsZone()" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-amber-600 hover:border-amber-500 hover:text-white" data-view="horszone">⚠️ Hors zone</button>
               <button onclick="window._toggleHorsAgence()" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-indigo-600 hover:border-indigo-500 hover:text-white" data-view="multicanaux">🌐 Multi-canaux</button>
             </div>
 
-            <!-- BLOC 2 : ACTIVITÉ -->
-            <hr class="b-default my-0">
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Activité</p>
-            <select id="terrActPDVSelect" onchange="window._onActPDVSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
-              <option value="">Activité PDV Zone: toutes</option>
-            </select>
-            <select id="terrStatutDetailleSelect" onchange="window._onStatutDetailleSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
-              <option value="">Activité Client: toutes</option>
-            </select>
-            <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
-              <option value="">Statut actuel: tous</option>
-            </select>
-            <div id="terrClassifDropdownWrap">
-              <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
-              </button>
-              <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
-                <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+            <!-- GROUPE 1 : GÉOGRAPHIE (first per UX) -->
+            <details class="filter-group">
+              <summary class="filter-group-header">
+                <span>Géographie</span>
+                <span id="fgBadgeGeo" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <div id="distKmWrap" class="flex flex-col gap-0.5">
+                  <label class="text-[10px] font-semibold t-secondary flex items-center justify-between">
+                    <span>📍 Distance max</span>
+                    <span id="distKmLabel" class="font-bold t-primary">∞</span>
+                  </label>
+                  <input id="distKmSlider" type="range" min="0" max="100" step="2" value="0"
+                    oninput="window._onDistanceSlider(this.value)"
+                    class="w-full h-1.5 rounded-full accent-violet-500 cursor-pointer">
+                  <div class="flex justify-between text-[8px] t-disabled"><span>Off</span><span>20</span><span>50</span><span>100 km</span></div>
+                </div>
+                <div id="terrDeptDropdownWrap">
+                  <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
+                    <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+                  </div>
+                </div>
+                <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
+                  <span class="t-secondary font-semibold">Inclure perdus &gt;24m</span>
+                </label>
               </div>
-            </div>
+            </details>
 
-            <!-- BLOC 3 : ORGANISATION -->
-            <hr class="b-default my-0">
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Organisation</p>
-            <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
-            <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
-            <div id="terrDirectionDropdownWrap">
-              <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
-              </button>
-              <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
-                <div id="terrDirectionChips" class="space-y-0.5"></div>
+            <!-- GROUPE 2 : ACTIVITÉ (ouvert par défaut) -->
+            <details class="filter-group" open>
+              <summary class="filter-group-header">
+                <span>Activité</span>
+                <span id="fgBadgeTerritoire" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <select id="terrActPDVSelect" onchange="window._onActPDVSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+                  <option value="">Activité PDV Zone: toutes</option>
+                </select>
+                <select id="terrStatutDetailleSelect" onchange="window._onStatutDetailleSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+                  <option value="">Activité Client: toutes</option>
+                </select>
+                <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+                  <option value="">Statut actuel: tous</option>
+                </select>
+                <div id="terrClassifDropdownWrap">
+                  <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
+                    <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <select id="terrUniversSelect" onchange="window._onUniversSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
-              <option value="">Univers: tous</option>
-            </select>
-            <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+            </details>
 
-            <!-- BLOC 4 : GÉOGRAPHIE -->
-            <hr class="b-default my-0">
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide">Géographie</p>
-            <div id="distKmWrap" class="flex flex-col gap-0.5">
-              <label class="text-[10px] font-semibold t-secondary flex items-center justify-between">
-                <span>📍 Distance max</span>
-                <span id="distKmLabel" class="font-bold t-primary">∞</span>
-              </label>
-              <input id="distKmSlider" type="range" min="0" max="100" step="2" value="0"
-                oninput="window._onDistanceSlider(this.value)"
-                class="w-full h-1.5 rounded-full accent-violet-500 cursor-pointer">
-              <div class="flex justify-between text-[8px] t-disabled"><span>Off</span><span>20</span><span>50</span><span>100 km</span></div>
-            </div>
-            <div id="terrDeptDropdownWrap">
-              <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                <span id="terrDeptLabel">🗺️ Dépt: tous</span><span class="t-disabled text-[9px]">▼</span>
-              </button>
-              <div id="terrDeptPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-32 overflow-y-auto">
-                <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
+            <!-- GROUPE 3 : ORGANISATION (fermé) -->
+            <details class="filter-group">
+              <summary class="filter-group-header">
+                <span>Organisation</span>
+                <span id="fgBadgeOrga" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
+                <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
+                <div id="terrDirectionDropdownWrap">
+                  <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
+                    <div id="terrDirectionChips" class="space-y-0.5"></div>
+                  </div>
+                </div>
+                <select id="terrUniversSelect" onchange="window._onUniversSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+                  <option value="">Univers: tous</option>
+                </select>
+                <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
               </div>
-            </div>
-            <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
-              <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
-              <span class="t-secondary font-semibold">Inclure perdus &gt;24m</span>
-            </label>
+            </details>
 
-            <!-- Reset -->
-            <hr class="b-default my-0">
+            <!-- Reset global -->
             <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
         </div>
