@@ -212,11 +212,6 @@ export function expandImportZone() {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
-  // Ouvrir optionnel si chalandise ou livraisons déjà chargés
-  const optDetails = document.getElementById('onboardingOptional');
-  if (optDetails && (_S.chalandiseReady || _S.livraisonsReady)) {
-    optDetails.open = true;
-  }
 }
 
 // ── Canal global — pill selector ──────────────────────────────
