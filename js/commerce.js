@@ -542,10 +542,7 @@ function _cmComputeCounts() {
     const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
-    // Crossing KPI summary bar + filter buttons — updated regardless of hasTerr
-    {const _sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};const _sh=(id,show)=>{const e=document.getElementById(id);if(e)e.classList.toggle('hidden',!show);};if(k.hasCross){
-      _sv('terrSumFideles',k.crossFideles.toLocaleString('fr-FR'));_sv('terrSumPotentiels',k.crossPotentiels.toLocaleString('fr-FR'));
-    }_sh('terrSumSubPotentiel',k.hasCross&&k.crossPotentiels>0);_sh('terrSumSubFideles',k.hasCross&&k.crossFideles>0);}
+
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
@@ -1241,21 +1238,9 @@ function _buildChalandiseOverview(){
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
   const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
-  const bar=document.getElementById('terrSummaryBar');if(bar){bar.classList.remove('hidden');bar.style.display='flex';}
-  const sumClients=document.getElementById('terrSumClients');
-  if(sumClients)sumClients.innerHTML=filterActive?`<span class="c-danger">${filteredClients.toLocaleString('fr-FR')}</span><span class="text-sm font-semibold t-disabled"> / ${totalClients.toLocaleString('fr-FR')}</span>`:`${filteredClients.toLocaleString('fr-FR')}`;
-  const sumLeg=document.getElementById('terrSumCapteLeg');if(sumLeg)sumLeg.textContent=pctCapteLeg+'%';
-  const sumPDV=document.getElementById('terrSumCaptePDV');if(sumPDV)sumPDV.textContent=pctCapte+'%';
-  const legCount=document.getElementById('terrSumCapteLegCount');
-  if(legCount){if(filterActive&&filteredClients>0){legCount.textContent=totalActifsLeg.toLocaleString('fr-FR')+' / '+filteredClients.toLocaleString('fr-FR');legCount.classList.remove('hidden');}else legCount.classList.add('hidden');}
-  const pdvCount=document.getElementById('terrSumCaptePDVCount');
-  if(pdvCount){if(filterActive&&filteredClients>0){pdvCount.textContent=totalActifsPDV.toLocaleString('fr-FR')+' / '+filteredClients.toLocaleString('fr-FR');pdvCount.classList.remove('hidden');}else pdvCount.classList.add('hidden');}
-  const excWrap=document.getElementById('terrSumExclusWrap');
-  if(excWrap)excWrap.classList.toggle('hidden',_S._includePerdu24m||totalExcluded24m===0);
-  const excEl=document.getElementById('terrSumExclus');if(excEl)excEl.textContent=totalExcluded24m.toLocaleString('fr-FR');
-  // ── KPIs commerciaux fusionnés dans terrSummaryBar ──
-  {const _comKPIs=document.getElementById('terrSumComKPIs');
-  if(_comKPIs){
+  // ── Bandeau 2 lignes : chalandise (ligne 1) + KPIs canal (ligne 2) ──
+  {const bar=document.getElementById('terrSummaryBar');
+  if(bar){
     const _canal=_S._globalCanal||'MAGASIN';
     const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
     const _canalLabel=CANAL_LABELS[_canal]||_canal;
@@ -1268,18 +1253,37 @@ function _buildChalandiseOverview(){
     const _txMarge=_S.ventesAnalysis?.txMarge;
     const _vmc=_S.ventesAnalysis?.vmc;
     const _fmt=v=>v>0?formatEuro(v):'—';
-    const _dot=`<span class="t-disabled text-[10px] mx-1">·</span>`;
-    if(_ca>0){
-      _comKPIs.style.display='flex';_comKPIs.classList.remove('hidden');
-      _comKPIs.innerHTML=`<div class="w-px self-stretch opacity-20 shrink-0 mx-2" style="background:currentColor"></div>`
-        +`<div class="flex items-center gap-3 shrink-0">`
-        +`<div class="text-center"><div class="font-extrabold t-primary text-sm">${_fmt(_ca)}</div><div class="text-[10px] t-disabled">CA ${_canalLabel}</div></div>`
-        +_dot+`<div class="text-center"><div class="font-extrabold t-primary text-sm">${_caClient>0?formatEuro(_caClient):'—'}</div><div class="text-[10px] t-disabled">CA/client</div></div>`
-        +_dot+`<div class="text-center"><div class="font-extrabold t-primary text-sm">${_freq}x</div><div class="text-[10px] t-disabled">Fréq.</div></div>`
-        +_dot+`<div class="text-center"><div class="font-extrabold t-primary text-sm">${_txMarge>0?_txMarge.toFixed(1)+'%':'—'}</div><div class="text-[10px] t-disabled">Marge</div></div>`
-        +_dot+`<div class="text-center"><div class="font-extrabold t-primary text-sm">${_vmc>0?formatEuro(Math.round(_vmc)):'—'}</div><div class="text-[10px] t-disabled">VMC</div></div>`
-        +`</div>`;
-    }else{_comKPIs.style.display='none';_comKPIs.classList.add('hidden');_comKPIs.innerHTML='';}
+    const _dot=`<span class="t-disabled text-xs">·</span>`;
+    const _clientsHtml=filterActive
+      ?`<span class="c-danger font-extrabold">${filteredClients.toLocaleString('fr-FR')}</span><span class="text-xs t-disabled"> / ${totalClients.toLocaleString('fr-FR')}</span>`
+      :`<span class="font-extrabold t-primary">${filteredClients.toLocaleString('fr-FR')}</span>`;
+    const _exclusHtml=(!_S._includePerdu24m&&totalExcluded24m>0)
+      ?`${_dot}<div class="flex items-center gap-1"><span class="text-xs">🚫</span><span class="font-semibold t-disabled">${totalExcluded24m.toLocaleString('fr-FR')}</span><span class="text-xs t-disabled">exclus &gt;24m</span></div>`:'';
+    const _line2Html=_ca>0?`
+      <div class="border-t b-default mb-2"></div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-xs t-disabled font-medium uppercase tracking-wide">${_canalLabel}</span>
+        ${_dot}
+        <span><strong class="t-primary">${_fmt(_ca)}</strong><span class="text-xs t-disabled ml-1">CA</span></span>
+        ${_dot}
+        <span><strong class="t-primary">${_caClient>0?formatEuro(_caClient):'—'}</strong><span class="text-xs t-disabled ml-1">/ client</span></span>
+        ${_dot}
+        <span><strong class="t-primary">${_freq}x</strong><span class="text-xs t-disabled ml-1">fréq.</span></span>
+        ${_dot}
+        <span><strong class="t-primary">${_txMarge>0?_txMarge.toFixed(1)+'%':'—'}</strong><span class="text-xs t-disabled ml-1">marge</span></span>
+        ${_dot}
+        <span><strong class="t-primary">${_vmc>0?formatEuro(Math.round(_vmc)):'—'}</strong><span class="text-xs t-disabled ml-1">VMC</span></span>
+      </div>`:'';
+    bar.innerHTML=`
+      <div class="flex items-center gap-2 flex-wrap${_ca>0?' mb-2':''}">
+        <div class="flex items-center gap-1"><span class="text-xs t-disabled">👥</span>${_clientsHtml}<span class="text-xs t-disabled">clients zone</span></div>
+        <span class="t-disabled text-xs">›</span>
+        <div class="flex items-center gap-1"><span class="text-xs t-disabled">📊</span><span class="font-extrabold" style="color:var(--c-info)">${pctCapteLeg}%</span><span class="text-xs t-disabled">captés Leg.</span></div>
+        <span class="t-disabled text-xs">›</span>
+        <div class="flex items-center gap-1"><span class="text-xs t-disabled">🏪</span><span class="font-extrabold c-success">${pctCapte}%</span><span class="text-xs t-disabled">captés PDV</span></div>
+        ${_exclusHtml}
+      </div>${_line2Html}`;
+    bar.style.display='block';bar.classList.remove('hidden');
   }}
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
@@ -1994,33 +1998,7 @@ function renderCommerceTab() {
   const el = document.getElementById('tabCommerce');
   if (!el) return;
   el.innerHTML = `
-    <div id="terrSummaryBar" class="hidden flex-nowrap items-center overflow-x-auto gap-3 py-3 px-4 s-card rounded-xl border shadow-sm mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none">
-      <div class="flex items-center gap-2 shrink-0">
-        <div class="text-center px-3 py-1.5 s-card-alt rounded-lg cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif.">
-          <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
-          <p id="terrSumClients" class="text-lg font-extrabold t-primary">—</p>
-          <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
-        </div>
-        <span class="t-disabled font-light">›</span>
-        <div class="text-center px-3 py-1.5 i-info-bg rounded-lg cursor-help" title="Clients zone avec CA Legallais tous canaux confondus (source : chalandise).">
-          <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
-          <p id="terrSumCapteLeg" class="text-lg font-extrabold c-action">—</p>
-          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
-        </div>
-        <span class="t-disabled font-light">›</span>
-        <div class="text-center px-3 py-1.5 i-ok-bg rounded-lg border b-light cursor-help" title="Clients zone ayant acheté au moins une fois en magasin (comptoir) sur la période.">
-          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
-          <p id="terrSumCaptePDV" class="text-lg font-extrabold c-ok">—</p>
-          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
-          <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
-        </div>
-        <div id="terrSumExclusWrap" class="text-center px-3 py-1.5 s-card-alt rounded-lg hidden">
-          <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
-          <p id="terrSumExclus" class="text-lg font-extrabold t-disabled">—</p>
-        </div>
-      </div>
-      <div id="terrSumComKPIs" class="hidden flex items-center gap-0 shrink-0"></div>
-    </div>
+    <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
     <div id="terrChalandiseOverview" class="hidden"></div>
     <div class="flex gap-1 border-b b-default mb-4 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
     <div id="cm-tab-content"></div>`;
