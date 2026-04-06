@@ -1429,30 +1429,15 @@ function _buildChalandiseOverview(){
       :`<span class="font-extrabold t-primary">${filteredClients.toLocaleString('fr-FR')}</span>`;
     const _exclusHtml=(!_S._includePerdu24m&&totalExcluded24m>0)
       ?`${_dot}<div class="flex items-center gap-1"><span class="text-xs">🚫</span><span class="font-semibold t-disabled">${totalExcluded24m.toLocaleString('fr-FR')}</span><span class="text-xs t-disabled">exclus &gt;24m</span></div>`:'';
-    const _line2Html=_ca>0?`
-      <div class="border-t b-default mb-2"></div>
-      <div class="flex items-center gap-3 flex-wrap">
-        <span class="text-xs t-disabled font-medium uppercase tracking-wide">${_canalLabel}</span>
-        ${_dot}
-        <span><strong class="t-primary">${_fmt(_ca)}</strong><span class="text-xs t-disabled ml-1">CA</span></span>
-        ${_dot}
-        <span><strong class="t-primary">${_caClient>0?formatEuro(_caClient):'—'}</strong><span class="text-xs t-disabled ml-1">/ client</span></span>
-        ${_dot}
-        <span><strong class="t-primary">${_freq}x</strong><span class="text-xs t-disabled ml-1">fréq.</span></span>
-        ${_dot}
-        <span><strong class="t-primary">${_txMarge>0?_txMarge.toFixed(1)+'%':'—'}</strong><span class="text-xs t-disabled ml-1">marge</span></span>
-        ${_dot}
-        <span><strong class="t-primary">${_vmc>0?formatEuro(Math.round(_vmc)):'—'}</strong><span class="text-xs t-disabled ml-1">VMC</span></span>
-      </div>`:'';
     bar.innerHTML=`
-      <div class="flex items-center gap-2 flex-wrap${_ca>0?' mb-2':''}">
+      <div class="flex items-center gap-2 flex-wrap">
         <div class="flex items-center gap-1"><span class="text-xs t-disabled">👥</span>${_clientsHtml}<span class="text-xs t-disabled">clients zone</span></div>
         <span class="t-disabled text-xs">›</span>
         <div class="flex items-center gap-1"><span class="text-xs t-disabled">📊</span><span class="font-extrabold" style="color:var(--c-info)">${pctCapteLeg}%</span><span class="text-xs t-disabled">captés Leg.</span></div>
         <span class="t-disabled text-xs">›</span>
         <div class="flex items-center gap-1"><span class="text-xs t-disabled">🏪</span><span class="font-extrabold c-success">${pctCapte}%</span><span class="text-xs t-disabled">captés PDV</span></div>
         ${_exclusHtml}
-      </div>${_line2Html}`;
+      </div>`;
     bar.style.display='block';bar.classList.remove('hidden');
   }}
   // Sort by % capté ascending (opportunities first)

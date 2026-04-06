@@ -33,6 +33,53 @@ function recalcBenchmarkInstant(){
   _S._benchCache=null;
   const t0=performance.now();computeBenchmark(_S._globalCanal||null);renderBenchmark();const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
 }
+function _refreshBenchEquation() {
+  const bar = document.getElementById('benchEquationBar');
+  if (!bar) return;
+  const _ca_all = _S.canalAgence || {};
+  const _canal = _S._globalCanal || '';
+  let _ca, _nbBL, _sumVMB, _nbClients, _canalLabel;
+  if (!_canal) {
+    _ca = Object.values(_ca_all).reduce((s, d) => s + (d.ca || 0), 0);
+    _nbBL = Object.values(_ca_all).reduce((s, d) => s + (d.bl || 0), 0);
+    _sumVMB = Object.values(_ca_all).reduce((s, d) => s + (d.sumVMB || 0), 0);
+    _nbClients = _S.clientLastOrderByCanal?.size || 0;
+    _canalLabel = 'Tous canaux';
+  } else {
+    const _d = _ca_all[_canal] || {};
+    _ca = _d.ca || 0; _nbBL = _d.bl || 0; _sumVMB = _d.sumVMB || 0;
+    if (_canal === 'MAGASIN') {
+      _nbClients = _S.clientsMagasin?.size || 0;
+    } else {
+      _nbClients = 0;
+      for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }
+    }
+    const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
+    _canalLabel = _LMAP[_canal] || _canal;
+  }
+  if (!_ca) { bar.classList.add('hidden'); return; }
+  const _caClient = _nbClients > 0 ? Math.round(_ca / _nbClients) : 0;
+  const _freq = _nbClients > 0 ? (_nbBL / _nbClients).toFixed(1) : '—';
+  const _txMarge = _ca > 0 ? (_sumVMB / _ca) * 100 : 0;
+  const _vmc = _nbBL > 0 ? _ca / _nbBL : 0;
+  const _dot = `<span class="text-white/40 text-xs">·</span>`;
+  bar.innerHTML = `
+    <span class="text-white/70 text-xs font-medium uppercase tracking-wide">${_canalLabel}</span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${formatEuro(_ca)}</strong><span class="text-white/70 text-xs ml-1">CA</span></span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${_nbClients.toLocaleString('fr-FR')}</strong><span class="text-white/70 text-xs ml-1">clients</span></span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${_caClient > 0 ? formatEuro(_caClient) : '—'}</strong><span class="text-white/70 text-xs ml-1">/ client</span></span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${_freq}x</strong><span class="text-white/70 text-xs ml-1">fréq.</span></span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${_txMarge > 0 ? _txMarge.toFixed(1) + '%' : '—'}</strong><span class="text-white/70 text-xs ml-1">marge</span></span>
+    ${_dot}
+    <span><strong class="text-white font-extrabold">${_vmc > 0 ? formatEuro(Math.round(_vmc)) : '—'}</strong><span class="text-white/70 text-xs ml-1">VMC</span></span>`;
+  bar.classList.remove('hidden');
+}
+
 function renderBenchmark(){
   // Libellé canal dynamique dans KPI Comparatifs (basé sur _reseauCanaux)
   {const _rl=_S._reseauCanaux||new Set();const _lEl=document.getElementById('benchKpiCanalLabel');if(_lEl){const _LMAP={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};if(_rl.size===0){_lEl.textContent='📡 Tous canaux';}else if(_rl.size===1){const _c=[..._rl][0];_lEl.textContent=`📡 Canal ${_LMAP[_c]||_c} uniquement`;}else{_lEl.textContent=`📡 ${_rl.size} canaux`;}}}
@@ -91,6 +138,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
   renderHeatmapFamilleCommercial();
   renderReseauHeatmap();
+  _refreshBenchEquation();
 }
 
 // ── Bassin select : peuple <select multiple id="benchBassinSelect"> ───────
@@ -772,6 +820,7 @@ export {
 
 // ── Window expositions ───────────────────────────────────────────────────────
 window.renderBenchmark = renderBenchmark;
+window._refreshBenchEquation = _refreshBenchEquation;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;

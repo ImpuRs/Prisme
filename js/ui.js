@@ -84,8 +84,10 @@ export function _updateAnalyserBtn() {
 }
 
 export function onFileSelected(i, id) {
-  if (i.files.length > 0 && DataStore.finalData.length > 0) {
-    if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau fichier remplacera toutes les données. Continuer ?')) {
+  // Confirm uniquement pour le fichier principal (Consommé) qui déclenche un reset complet.
+  // Les fichiers optionnels (Stock, Livraisons, Chalandise) s'ajoutent sans écraser la session.
+  if (id === 'dropConsomme' && i.files.length > 0 && DataStore.finalData.length > 0) {
+    if (!confirm('⚠️ Vous avez une analyse en cours. Charger un nouveau Consommé relancera l\'analyse complète. Continuer ?')) {
       i.value = '';
       return;
     }
@@ -141,6 +143,7 @@ export function _setGlobalCanal(canal) {
   // Refilter ventesClientArticle + canalAgence pour le canal actif
   window._refilterFromByMonth?.();
   if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
+  window._refreshBenchEquation?.();
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
