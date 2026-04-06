@@ -547,28 +547,27 @@ function _cmComputeCounts() {
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
-      // Mode dégradé — peupler terrKPIBlock avec chalandise si disponible
+      // Mode dégradé — terrDirectionBlock depuis chalandise seule
       if(hasChal){
-        const _kEl=document.getElementById('terrKPIBlock');
-        if(_kEl){_kEl.style.display='';_kEl.classList.remove('hidden');}
-        const _ss=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-        // Lignes → clients zone chalandise
-        _ss('terrKpiLignes',(_S.chalandiseData?.size||0).toLocaleString('fr'));
-        _ss('terrKpiLignesSub','Zone de chalandise');
-        // CA zone Legallais — somme ca2025 des clients chalandise
-        const _caZone=[..._S.chalandiseData.values()].reduce((s,d)=>s+(d.ca2025||0),0);
-        _ss('terrKpiCATotal',formatEuro(_caZone));
-        const _caSub=document.getElementById('terrKpiCATotalSub');if(_caSub)_caSub.textContent='CA zone Legallais';
-        // Couverture — masquer (nécessite territoire)
-        document.getElementById('terrKpiCouverture')?.parentElement?.classList.add('hidden');
-        // Clients captés PDV
-        const _cap=_S.crossingStats?.captes?.size||0;
-        _ss('terrKpiClients',_cap.toLocaleString('fr'));
-        _ss('terrKpiClientsSub','clients captés PDV');
-        // Taux captation zone = captés / total zone
-        const _total=_S.chalandiseData?.size||1;
-        _ss('terrKpiSpecialPct',Math.round(_cap/_total*100)+'%');
-        _ss('terrKpiSpecialSub','taux captation zone');
+        const _dirBlkEl=document.getElementById('terrDirectionBlock');
+        if(_dirBlkEl){
+          _dirBlkEl.style.display='';_dirBlkEl.classList.remove('hidden');
+          const _dirMap={};
+          for(const [cc,info] of _S.chalandiseData){
+            const _dir=getSecteurDirection(info.secteur)||info.secteur||'—';
+            if(!_dirMap[_dir])_dirMap[_dir]={dir:_dir,clients:0,captes:0,ca:0};
+            _dirMap[_dir].clients++;_dirMap[_dir].ca+=info.ca2025||0;
+            if(_S.crossingStats?.captes?.has(cc))_dirMap[_dir].captes++;
+          }
+          const _dirRows=Object.values(_dirMap).sort((a,b)=>b.ca-a.ca);
+          let _tbody='';
+          for(const d of _dirRows){
+            const _pct=d.clients>0?Math.round(d.captes/d.clients*100):0;
+            const _bc=_pct>=70?'bg-emerald-500':_pct>=40?'bg-amber-500':'bg-red-500';
+            _tbody+=`<tr class="border-b text-xs"><td class="py-2 px-3 font-bold">${escapeHtml(d.dir)}</td><td class="py-2 px-3 text-right">${d.clients}</td><td class="py-2 px-3 text-right c-ok">${d.captes}</td><td class="py-2 px-3 text-right">${formatEuro(d.ca)}</td><td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-2"><div class="cap-bar ${_bc}" style="width:${_pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${_pct}%</span></div></td></tr>`;
+          }
+          _dirBlkEl.innerHTML=`<details open class="overflow-hidden"><summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 Vue par Direction <span class="text-[10px] font-normal t-disabled">— Zone de chalandise · trié par CA décroissant</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-right">Clients zone</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-center min-w-[110px]">% captés</th></tr></thead><tbody>${_tbody||'<tr><td colspan="5" class="text-center py-4 t-disabled">Aucune donnée</td></tr>'}</tbody></table></div></details>`;
+        }
       }
       return;
     }
