@@ -1714,7 +1714,7 @@ _S.canalAgence=newCanalAgence;
             </div>
           </div>
           <div class="flex items-center gap-4 cursor-pointer select-none hover:opacity-80" onclick="switchTab('table')" title="→ Voir tous les articles">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl px-5 py-3 text-white shadow-lg">
+            <div style="background:linear-gradient(135deg,var(--c-action,#3b82f6),#1d4ed8);border-radius:var(--r-xl);padding:var(--sp-3) var(--sp-5);color:#fff;box-shadow:var(--shadow-lg)">
               <p class="text-[9px] font-bold uppercase text-blue-200 mb-0.5">Valeur stock</p>
               <p style="font-family:var(--ff-display);font-size:var(--fs-3xl);font-weight:800;line-height:1;letter-spacing:var(--ls-tight);font-variant-numeric:tabular-nums" class="kpi-update">${formatEuro(totalValue)}</p>
               ${_sparklineCA ? `<div style="margin-top:4px;opacity:0.7">${_sparklineCA}</div>` : ''}
