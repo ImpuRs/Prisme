@@ -459,7 +459,7 @@ function renderObservatoire(){
     const artsVisi=arts.filter(a=>a.statutMe==='✅ En stock');
     const ecGapCell=`<span class="font-extrabold c-danger">${formatEuro(caGap)}</span>`;
     const trueMissing=artsToRef.length||Math.max(0,f.refOther-f.refMe);
-    const refBadge=trueMissing>0?`<span class="badge bg-red-500 text-white">${trueMissing}</span>`:'<span class="t-disabled">—</span>';
+    const refBadge=trueMissing>0?`<span class="chip chip-sm chip-danger">${trueMissing}</span>`:'<span class="t-disabled">—</span>';
     const ecText=f.caMe===0?'<span class="c-danger font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'c-danger font-extrabold':f.ecartPct<-10?'c-caution font-bold':'t-primary'}">${f.ecartPct}%</span>`;
     const artFreqLabel=isMedian?'Nb agences':`Nb ventes (${obsLabel})`;
     const artCALabel=isMedian?'CA médiane réseau':`CA chez ${obsLabel}`;
@@ -486,7 +486,7 @@ function renderObservatoire(){
     const caAdv=f.caMe-f.caOther;
     const refAdv=Math.max(0,f.refMe-f.refOther);
     const advCell=`<span class="font-extrabold c-ok">+${formatEuro(caAdv)}</span>`;
-    const refBadge=refAdv>0?`<span class="badge bg-emerald-500 text-white">+${refAdv}</span>`:'<span class="t-disabled">—</span>';
+    const refBadge=refAdv>0?`<span class="chip chip-sm chip-ok">+${refAdv}</span>`:'<span class="t-disabled">—</span>';
     const caAutreWin=isMedian?'CA médiane réseau':`CA ${obsLabel}`;const refAutreWin=isMedian?'Réf méd.':`Réf ${obsLabel}`;
     const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] pt-2 px-3 pb-3"><span class="t-tertiary">CA Moi : <strong class="c-action">${formatEuro(f.caMe)}</strong></span><span class="t-tertiary">${caAutreWin} : <strong>${formatEuro(f.caOther)}</strong></span><span class="t-tertiary">Écart : <strong class="c-ok">+${f.ecartPct}%</strong></span><span class="t-tertiary">Réf Moi : <strong class="c-action">${f.refMe}</strong></span><span class="t-tertiary">${refAutreWin} : <strong>${f.refOther}</strong></span>${f.caTheorique!=null?`<span class="t-tertiary">CA Théo. : <strong>${formatEuro(f.caTheorique)}</strong></span><span class="t-tertiary">Écart théo. : <strong class="${f.ecartTheorique>=0?'c-ok':'c-danger'}">${f.ecartTheorique>=0?'+':''}${formatEuro(f.ecartTheorique)}</strong></span>`:''}</div>`;
     const excl=f.exclusiveArts||[];
@@ -594,8 +594,8 @@ function renderObsArticleSearch(){
   const res=document.getElementById('obsArtSearchResult');if(!res)return;
   if(!q){res.innerHTML='';return;}
   const{missed,over}=_S.benchLists;const rows=[];
-  for(const m of(missed||[])){if(matchQuery(q,m.code,m.lib)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="badge bg-red-500 text-white text-[9px] shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
-  for(const o of(over||[])){if(matchQuery(q,o.code,o.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="badge bg-emerald-500 text-white text-[9px] shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
+  for(const m of(missed||[])){if(matchQuery(q,m.code,m.lib)){const s=m.myStock>0?'🟢 En stock':'🔴 Stock 0';rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-danger-bg cursor-pointer" onclick="openArticlePanel('${m.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${m.code}</span><span class="flex-1 text-xs min-w-0">${m.lib}</span><span class="chip chip-sm chip-danger shrink-0">🚫 Manquée</span><span class="text-[10px] t-tertiary shrink-0">${m.sc}/${m.nbCompare} agences · ${m.bassinFreq} ventes · ${s}</span></div>`);}}
+  for(const o of(over||[])){if(matchQuery(q,o.code,o.lib)){rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:i-ok-bg cursor-pointer" onclick="openArticlePanel('${o.code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${o.code}</span><span class="flex-1 text-xs min-w-0">${o.lib}</span><span class="chip chip-sm chip-ok shrink-0">🏆 Sur-perf</span><span class="text-[10px] t-tertiary shrink-0">Moi: ${o.myQte} · Méd: ${o.avg} · ${(o.ratio*100).toFixed(0)}%</span></div>`);}}
   if(!rows.length){
     const agenceData={};
     for(const[store,arts]of Object.entries(_S.ventesParMagasin||{})){
@@ -614,7 +614,7 @@ function renderObsArticleSearch(){
       const myStock=DataStore.finalData.find(r=>r.code===code)?.stockActuel??null;
       const stockBadge=myStock===null?'<span class="t-disabled text-[9px]">Non réf.</span>':myStock>0?`<span class="c-ok text-[9px] font-bold">${myStock} en stock</span>`:'<span class="c-danger text-[9px] font-bold">Rupture</span>';
       const ratio=mediane>0?Math.round(myBL/mediane*100):null;
-      const perfBadge=ratio===null?'<span class="badge bg-slate-400 text-white text-[9px]">Médiane 0</span>':ratio>=100?'<span class="badge bg-emerald-500 text-white text-[9px]">🏆 Sur-perf</span>':ratio>=50?'<span class="badge bg-amber-500 text-white text-[9px]">📉 Sous-perf</span>':'<span class="badge bg-red-500 text-white text-[9px]">🚫 Faible</span>';
+      const perfBadge=ratio===null?'<span class="chip chip-xs chip-muted">Médiane 0</span>':ratio>=100?'<span class="chip chip-xs chip-ok">🏆 Sur-perf</span>':ratio>=50?'<span class="chip chip-xs chip-caution">📉 Sous-perf</span>':'<span class="chip chip-xs chip-danger">🚫 Faible</span>';
       rows.push(`<div class="flex flex-wrap items-center gap-2 p-2 border-b hover:s-card cursor-pointer" onclick="openArticlePanel('${code}','bench')"><span class="font-mono text-[10px] t-tertiary w-16 shrink-0">${code}</span><span class="flex-1 text-xs min-w-0">${d.lib}</span>${perfBadge}<span class="text-[10px] t-tertiary shrink-0">Moi: ${myBL} · Méd: ${mediane} · ${nbAgences} agences · ${stockBadge}</span></div>`);
     }
   }

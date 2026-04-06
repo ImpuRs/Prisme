@@ -502,8 +502,8 @@ function openArticlePanel(code,source){
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
       const stockBadge=c.inStock
-        ?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e">En stock</span>'
-        :'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444">Absent</span>';
+        ?'<span class="chip chip-xs chip-ok">En stock</span>'
+        :'<span class="chip chip-xs chip-danger">Absent</span>';
       return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
     }).join('');
     const lowBLNote=totalBLWithArticle<5?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">⚠️ Peu de BL sur cette période — élargis la période pour plus de données</p>`:'';
@@ -716,8 +716,8 @@ function _diagAFRenderCoachats(famille) {
     const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
     const inStock=r&&(r.stockActuel||0)>0;
     const badge=inStock
-      ?`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">✓ En stock</span>`
-      :`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">⚠ Absent</span>`;
+      ?`<span class="chip chip-xs chip-ok">✓ En stock</span>`
+      :`<span class="chip chip-xs chip-danger">⚠ Absent</span>`;
     return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono">${_copyCodeBtn(code)}</td><td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${count} BL ${srcLabel}</td><td class="py-1.5 px-2 text-center">${badge}</td></tr>`;
   }).join('');
   return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
@@ -824,8 +824,8 @@ function _diagCellRenderCoachats(key) {
     const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
     const inStock=r&&(r.stockActuel||0)>0;
     const badge=inStock
-      ?`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600">✓ En stock</span>`
-      :`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,0.2);color:#ef4444;font-weight:600">⚠ Absent</span>`;
+      ?`<span class="chip chip-xs chip-ok">✓ En stock</span>`
+      :`<span class="chip chip-xs chip-danger">⚠ Absent</span>`;
     return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono">${_copyCodeBtn(code)}</td><td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${count} BL ${srcLabel}</td><td class="py-1.5 px-2 text-center">${badge}</td></tr>`;
   }).join('');
   return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
@@ -1435,7 +1435,7 @@ function _diagRenderL3(l,hasBench,hasTerr){
   return`<div class="diag-level">
     <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Profondeur de gamme</span>${_diagBadge(l.status)}</div>
     <p class="text-xs t-inverse-muted mb-2">${srcLabel}</p>
-    ${l.missing?.length?`<p class="text-xs c-caution font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs c-ok">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
+    ${l.missing?.length?`<p class="text-xs c-caution font-bold mb-2">${l.missing.length} article${l.missing.length>1?'s':''} absents de votre rayon${l.strongMissing>0?' — dont <strong>'+l.strongMissing+'</strong> classés A ou B':''}</p><div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th>${colHeaders}</tr></thead><tbody>${rows}</tbody></table></div>`:`<p class="text-xs c-ok">✅ Gamme complète — tous les articles de référence sont dans votre rayon</p>`}
   </div>`;
 }
 
@@ -1515,7 +1515,7 @@ function _diagRenderL3Metier(l){
   return`<div class="diag-level">
     <div class="diag-level-hdr"><span class="font-bold text-sm text-violet-300">📋 Niveau 4 — Familles achetées</span>${_diagBadge(l.status)}</div>
     <p class="text-xs t-inverse-muted mb-2">${l.totalArts} articles achetés · couverture rayon : <strong class="${l.pct>=70?'c-ok':l.pct>=40?'c-caution':'c-danger'}">${l.pct}%</strong></p>
-    <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:#1e293b"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="overflow-x-auto" style="max-height:300px;overflow-y:auto"><table class="min-w-full text-[11px]"><thead class="text-violet-300 border-b border-violet-900/50" style="position:sticky;top:0;z-index:10;background:var(--s-panel-inner)"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-center">Nb art.</th><th class="py-1.5 px-2 text-center">✅</th><th class="py-1.5 px-2 text-center">⚠️</th><th class="py-1.5 px-2 text-center">❌</th><th class="py-1.5 px-2 text-right">Couverture</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
 function _diagLevel4MetierMode(metier,hasChal){

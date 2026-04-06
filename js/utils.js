@@ -136,6 +136,22 @@ export function buildSkeletonCards(count = 4) {
   return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${Array.from({ length: count }, () => '<div class="skeleton skeleton-kpi"></div>').join('')}</div>`;
 }
 
+/**
+ * buildEvidenceCard — carte métier scannable pour le cockpit briefing
+ */
+export function buildEvidenceCard({ icon, value, label, severity = 'muted', cta = '', ctaFn = '', sparkline = '' }) {
+  const ctaHtml = cta
+    ? `<span class="evidence-cta" onclick="${ctaFn}" role="button" tabindex="0">${cta} →</span>`
+    : '';
+  return `<div class="evidence-card evidence-card--${severity}" ${ctaFn ? `onclick="${ctaFn}" role="button" tabindex="0"` : ''}>
+    <div class="evidence-icon">${icon}</div>
+    <div class="evidence-value">${value}</div>
+    <div class="evidence-label">${label}</div>
+    ${sparkline ? `<div style="margin-top:4px">${sparkline}</div>` : ''}
+    ${ctaHtml}
+  </div>`;
+}
+
 export function pct(p, t) { return t > 0 ? ((p / t) * 100).toFixed(1) + '%' : '0%'; }
 
 export function parseExcelDate(v) {

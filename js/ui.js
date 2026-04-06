@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards, buildEvidenceCard } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, computeHealthScore } from './engine.js';
@@ -176,6 +176,8 @@ export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   iz.classList.add('hidden');
   document.getElementById('onboardingBlock')?.classList.add('hidden');
   banner.classList.remove('hidden');
+  const navKpisEl = document.getElementById('navKpis');
+  if (navKpisEl) navKpisEl.style.display = 'flex';
 }
 
 export function expandImportZone() {
@@ -509,6 +511,43 @@ export function copyReportText() {
   navigator.clipboard.writeText(ta.value)
     .then(() => showToast('📋 Rapport copié dans le presse-papier !', 'success'))
     .catch(() => { ta.select(); document.execCommand('copy'); showToast('📋 Rapport copié !', 'success'); });
+}
+
+// ── Navbar collapsible ────────────────────────────────────────
+export function toggleNavKpis() {
+  const detail = document.getElementById('navKpisDetail');
+  const toggle = document.getElementById('navKpisToggle');
+  if (!detail) return;
+  const collapsed = detail.style.display === 'none';
+  detail.style.display = collapsed ? 'flex' : 'none';
+  if (toggle) toggle.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+  try { localStorage.setItem('prisme_nav_collapsed', collapsed ? '0' : '1'); } catch (_) {}
+}
+
+// Restaurer l'état collapsé au chargement
+(function _restoreNavState() {
+  try {
+    if (localStorage.getItem('prisme_nav_collapsed') === '1') {
+      const detail = document.getElementById('navKpisDetail');
+      const toggle = document.getElementById('navKpisToggle');
+      if (detail) detail.style.display = 'none';
+      if (toggle) toggle.style.transform = 'rotate(180deg)';
+    }
+  } catch (_) {}
+})();
+
+// ── Details smooth animations ─────────────────────────────────
+export function initDetailsAnimations() {
+  document.querySelectorAll('details:not([data-animated])').forEach(el => {
+    el.dataset.animated = '1';
+    const children = [...el.children].filter(c => c.tagName !== 'SUMMARY');
+    if (children.length === 0) return;
+    if (children.length === 1 && children[0].classList.contains('details-body')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'details-body';
+    children.forEach(c => wrapper.appendChild(c));
+    el.appendChild(wrapper);
+  });
 }
 
 // ── Table sort / pagination ───────────────────────────────────
@@ -949,14 +988,117 @@ export function updateAmbientSignal() {
   el.style.background = bg;
 }
 
-// ── Feature 3: Briefing 3 Phrases ────────────────────────────
-// Génère 1–3 phrases de contexte au-dessus du cockpit
+// ── Feature 3: Briefing Evidence Cards ───────────────────────
+// Grille de cartes scannables au-dessus du cockpit
 export function renderCockpitBriefing() {
   const el = document.getElementById('cockpitBriefing');
   const textEl = document.getElementById('cockpitBriefingText');
-  if (!el || !textEl || !DataStore.finalData.length) { if (el) el.classList.add('hidden'); return; }
+  if (!el) return;
+  if (!DataStore.finalData.length) { el.classList.add('hidden'); return; }
 
   const d = _S._briefingData || {};
+  const lstR = d.lstR || [];
+  const totalCAPerdu = d.totalCAPerdu || 0;
+  const dormantStock = d.dormantStock || 0;
+  const capalinOverflow = d.capalinOverflow || 0;
+  const sr = d.sr != null ? parseFloat(d.sr) : null;
+
+  const cards = [];
+
+  // Card 1 — Taux de service
+  if (sr !== null) {
+    const severity = sr >= 95 ? 'ok' : sr >= 85 ? 'caution' : 'danger';
+    cards.push(buildEvidenceCard({
+      icon: sr >= 95 ? '✅' : sr >= 85 ? '⚠️' : '🚨',
+      value: `${sr}%`,
+      label: 'Taux de service',
+      severity,
+      cta: sr < 95 ? 'Voir ruptures' : '',
+      ctaFn: sr < 95 ? "showCockpitInTable('ruptures');switchTab('table')" : '',
+    }));
+  }
+
+  // Card 2 — Ruptures
+  const rupSeverity = lstR.length === 0 ? 'ok' : lstR.length <= 5 ? 'caution' : 'danger';
+  cards.push(buildEvidenceCard({
+    icon: lstR.length === 0 ? '🟢' : '🚨',
+    value: lstR.length.toString(),
+    label: lstR.length === 0 ? 'Aucune rupture' : `rupture${lstR.length > 1 ? 's' : ''} actives`,
+    severity: rupSeverity,
+    cta: lstR.length > 0 ? `~${formatEuro(totalCAPerdu)} à risque` : '',
+    ctaFn: lstR.length > 0 ? "showCockpitInTable('ruptures');switchTab('table')" : '',
+  }));
+
+  // Card 3 — Stock dormant
+  if (dormantStock > 100) {
+    cards.push(buildEvidenceCard({
+      icon: '💤',
+      value: formatEuro(Math.round(dormantStock / 1000) * 1000),
+      label: 'Stock dormant >1 an',
+      severity: dormantStock > 5000 ? 'caution' : 'muted',
+      cta: 'Voir dormants',
+      ctaFn: "showCockpitInTable('dormants');switchTab('table')",
+    }));
+  }
+
+  // Card 4 — Excédent ERP
+  if (capalinOverflow > 100) {
+    cards.push(buildEvidenceCard({
+      icon: '📦',
+      value: formatEuro(Math.round(capalinOverflow / 1000) * 1000),
+      label: 'Excédent ERP (SASO)',
+      severity: capalinOverflow > 3000 ? 'caution' : 'muted',
+      cta: 'Voir SASO',
+      ctaFn: "showCockpitInTable('saso');switchTab('table')",
+    }));
+  }
+
+  // Card 5 — Clients silencieux
+  if (_S.chalandiseReady && _S.clientLastOrder?.size > 0) {
+    const now = Date.now();
+    let silCount = 0;
+    for (const [, dt] of _S.clientLastOrder) {
+      if ((now - (dt instanceof Date ? dt.getTime() : +dt)) > 30 * 86400000) silCount++;
+    }
+    if (silCount > 0) {
+      cards.push(buildEvidenceCard({
+        icon: '🤫',
+        value: silCount.toString(),
+        label: `client${silCount > 1 ? 's' : ''} silencieux >30j`,
+        severity: silCount > 10 ? 'caution' : 'muted',
+        cta: 'Relancer',
+        ctaFn: "switchTab('commerce')",
+      }));
+    }
+  }
+
+  // Card bonus — Score IRA si peu de cartes
+  if (cards.length < 3 && sr !== null) {
+    const iraScore = _S._iraDiagData?.ira;
+    if (iraScore != null) {
+      cards.push(buildEvidenceCard({
+        icon: iraScore >= 75 ? '💚' : iraScore >= 50 ? '🟡' : '🔴',
+        value: `${iraScore}/100`,
+        label: 'Score IRA agence',
+        severity: iraScore >= 75 ? 'ok' : iraScore >= 50 ? 'caution' : 'danger',
+        cta: 'Détails',
+        ctaFn: 'openDiagAgence()',
+      }));
+    }
+  }
+
+  const narrativeHtml = _buildCockpitBriefingNarrative(d);
+  const gridHtml = `<div class="evidence-grid">${cards.join('')}</div>
+    <details style="margin-top:0">
+      <summary style="font-size:var(--fs-2xs);color:var(--t-tertiary);cursor:pointer;list-style:none;padding:4px 0">▶ Analyse détaillée</summary>
+      <div class="details-body"><div style="padding:8px 0">${narrativeHtml}</div></div>
+    </details>`;
+
+  if (textEl) textEl.innerHTML = gridHtml;
+  el.classList.remove('hidden');
+}
+
+function _buildCockpitBriefingNarrative(d) {
   const lstR = d.lstR || [];
   const totalCAPerdu = d.totalCAPerdu || 0;
   const dormantStock = d.dormantStock || 0;
@@ -1044,10 +1186,9 @@ export function renderCockpitBriefing() {
     sentences.push({ icon: '🎯', color: 'c-caution', text: `${n(nf + ' articles', 'c-caution', 'Articles fréquents achetés par 1 ou 2 clients seulement')} fréquents n'ont que 1 ou 2 acheteurs\u00a0— ${n(formatEuro(ca), 'c-caution', 'CA annuel à risque si le client clé part')} de CA fragilisé.` });
   }
 
-  textEl.innerHTML = sentences.map(s =>
+  return sentences.map(s =>
     `<div class="briefing-line"><span class="briefing-icon">${s.icon}</span><span class="${s.color}">${s.text}</span></div>`
   ).join('');
-  el.classList.remove('hidden');
 }
 
 // ── Feature 4: Decision Queue (rendu) ────────────────────────

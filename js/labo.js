@@ -883,9 +883,9 @@ function _renderClienteleL2(data) {
       const hasMoreArt = f.articles.length > 20;
       const artRows = shown.map(a => {
         let stockBadge;
-        if (a.enStock) stockBadge = `<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#dcfce7;color:#166534">En stock (${a.stockActuel})</span>`;
-        else if (a.rupture) stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fef3c7;color:#92400e">Rupture (0)</span>';
-        else stockBadge = '<span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:#fee2e2;color:#991b1b">Absent</span>';
+        if (a.enStock) stockBadge = `<span class="chip chip-xs chip-ok">En stock (${a.stockActuel})</span>`;
+        else if (a.rupture) stockBadge = '<span class="chip chip-xs chip-caution">Rupture (0)</span>';
+        else stockBadge = '<span class="chip chip-xs chip-danger">Absent</span>';
         return `<tr class="border-b b-light hover:s-hover text-[11px]">
           <td class="py-1 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
           <td class="py-1 px-2 max-w-[200px] truncate" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
@@ -938,8 +938,8 @@ function _renderClienteleL2(data) {
   const hasMoreCli = data.clients.length > _clPage;
   const cliRows = top20.map(c => {
     const statusBadge = c.isActif
-      ? '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#dcfce7;color:#166534">Actif</span>'
-      : '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">Prospect</span>';
+      ? '<span class="chip chip-xs chip-ok">Actif</span>'
+      : '<span class="chip chip-xs chip-muted">Prospect</span>';
     const ccSafe = (c.cc || '').replace(/'/g, "\\'");
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','labo')">
       <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
@@ -1024,8 +1024,8 @@ window._laboClienteleMoreCli = function() {
   // Re-render rows
   tbody.innerHTML = top.map(c => {
     const statusBadge = c.isActif
-      ? '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#dcfce7;color:#166534">Actif</span>'
-      : '<span class="text-[8px] px-1 py-0.5 rounded-full" style="background:#f1f5f9;color:#64748b">Prospect</span>';
+      ? '<span class="chip chip-xs chip-ok">Actif</span>'
+      : '<span class="chip chip-xs chip-muted">Prospect</span>';
     const ccSafe = (c.cc || '').replace(/'/g, "\\'");
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','labo')">
       <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
@@ -1186,32 +1186,32 @@ function _renderTileGrid(el) {
   const clSubtitle = clScan.n === '?' ? 'Nécessite la chalandise' : `${clScan.n} métiers · ${clScan.nbClients} clients`;
 
   el.innerHTML = `<div id="laboTileGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('sil')">
+    <div class="labo-tile p-4 relative" onclick="window._laboOpenTile('sil')">
       ${_infoIcon('sil')}
       <div class="text-lg mb-1">🔀</div>
       <div class="text-[13px] font-bold t-primary mb-1">Commercial × Silencieux</div>
       <div class="text-[10px] t-secondary" id="laboTileSilSub">${silSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('fam')">
+    <div class="labo-tile p-4 relative" onclick="window._laboOpenTile('fam')">
       ${_infoIcon('fam')}
       <div class="text-lg mb-1">🧬</div>
       <div class="text-[13px] font-bold t-primary mb-1">Famille × Commercial</div>
       <div class="text-[10px] t-secondary" id="laboTileFamSub">${famSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('saison')">
+    <div class="labo-tile p-4 relative" onclick="window._laboOpenTile('saison')">
       ${_infoIcon('saison')}
       <div class="text-lg mb-1">🌡️</div>
       <div class="text-[13px] font-bold t-primary mb-0.5">Client × Saisonnalité</div>
       <div class="text-[10px] t-disabled mb-1">Familles × Saisons</div>
       <div class="text-[10px] t-secondary" id="laboTileSaisonSub">${saisonSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('clientele')">
+    <div class="labo-tile p-4 relative" onclick="window._laboOpenTile('clientele')">
       ${_infoIcon('clientele')}
       <div class="text-lg mb-1">🎯</div>
       <div class="text-[13px] font-bold t-primary mb-1">Ma Clientèle</div>
       <div class="text-[10px] t-secondary" id="laboTileClSub">${clSubtitle}</div>
     </div>
-    <div class="s-card rounded-xl border p-4 cursor-pointer hover:border-[var(--c-action)] transition-all relative" onclick="window._laboOpenTile('prisme')">
+    <div class="labo-tile p-4 relative" onclick="window._laboOpenTile('prisme')">
       ${_infoIcon('prisme')}
       <div class="text-lg mb-1">🎲</div>
       <div class="text-[13px] font-bold t-primary mb-1">Générer mon PRISME</div>
