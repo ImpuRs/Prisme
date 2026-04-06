@@ -26,27 +26,31 @@ export async function _getFileHash(file) {
     return Array.from(new Uint8Array(hBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
   } catch (_) { return ''; }
 }
-export async function _checkFilesUnchanged(f1, f2, f3 = null) {
+export async function _checkFilesUnchanged(f1, f2, f3 = null, f4 = null) {
   try {
-    const [h1, h2, h3] = await Promise.all([
+    const [h1, h2, h3, h4] = await Promise.all([
       _getFileHash(f1),
       f2 ? _getFileHash(f2) : Promise.resolve(null),
       f3 ? _getFileHash(f3) : Promise.resolve(null),
+      f4 ? _getFileHash(f4) : Promise.resolve(null),
     ]);
     const saved = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
     if (!saved) return false;
     const currentStore = localStorage.getItem('prisme_selectedStore') || '';
-    return !!h1 && saved.h1 === h1 && saved.h2 === h2 && saved.h3 === h3 && saved.store === currentStore;
+    // h4 (livraisons) : si présent d'un côté ou de l'autre → doit correspondre
+    const h4Match = (!h4 && !saved.h4) || h4 === saved.h4;
+    return !!h1 && saved.h1 === h1 && saved.h2 === h2 && saved.h3 === h3 && saved.store === currentStore && h4Match;
   } catch (_) { return false; }
 }
-export async function _saveFileHashes(f1, f2, f3 = null) {
+export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
   try {
-    const [h1, h2, h3] = await Promise.all([
+    const [h1, h2, h3, h4] = await Promise.all([
       _getFileHash(f1),
       f2 ? _getFileHash(f2) : Promise.resolve(null),
       f3 ? _getFileHash(f3) : Promise.resolve(null),
+      f4 ? _getFileHash(f4) : Promise.resolve(null),
     ]);
-    if (h1) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({ h1, h2, h3, store: _S.selectedMyStore || '' }));
+    if (h1) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({ h1, h2, h3, h4, store: _S.selectedMyStore || '' }));
   } catch (_) {}
 }
 
