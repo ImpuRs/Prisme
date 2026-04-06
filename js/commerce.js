@@ -887,6 +887,10 @@ window._terrDrillBack = function() {
     _S._insights.absentsTerr=absentsTerr;_S._insights.extClients=extClients;_S._insights.hasTerr=true;
     renderInsightsBanner();
 
+    // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path)
+    {const _dirBlkEl=document.getElementById('terrDirectionBlock');
+    if(_dirBlkEl&&!_dirBlkEl.classList.contains('hidden'))_buildChalDirBlock(_dirBlkEl);}
+
     // ── Stockage cache territoire ─────────────────────────────────────────
     // Captures les innerHTML APRÈS le rendu complet
     const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
