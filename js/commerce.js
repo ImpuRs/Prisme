@@ -2028,7 +2028,7 @@ function renderCommerceTab() {
   _cmTab = 'silencieux';
   _S._cmCache = {};
   const counts = _cmComputeCounts();
-  const el = document.getElementById('tabClients');
+  const el = document.getElementById('tabCommerce');
   if (!el) return;
   el.innerHTML = `<div class="flex gap-1 border-b b-default mb-4 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div><div id="cm-tab-content"></div>`;
   _cmSwitchTab(_cmTab);
