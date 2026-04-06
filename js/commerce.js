@@ -102,11 +102,15 @@ function _cmComputeCounts() {
 
 
 // ── Drill chalandise — Vue par Direction (mode sans territoire) ──────────
+const _DIR_LABELS = { '-': 'Second Œuvre', 'DVM': 'Maintenance', 'DVI': 'DVI Industrie', 'DVP': 'DVP Plomberie' };
 let _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
 
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
-  const all = [..._S.chalandiseData.entries()].map(([cc, info]) => ({ cc, ...info }));
+  const all = [...(_S.chalandiseData||new Map()).entries()]
+    .filter(([cc]) => _passesAllFilters(cc))
+    .map(([cc, info]) => ({ cc, ...info }));
+  const _lbl = d => _DIR_LABELS[d] || d || 'Autre';
   const { level, dir, metier, commercial } = _chalDrill;
 
   const _ca = c => (c.ca2025||0) + (c.ca2026||0);
@@ -144,9 +148,9 @@ function _buildChalDirBlock(blkEl) {
     const sorted = [...byDir.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
     theadHtml = _kpiThead.replace('—','Direction');
     for (const [d, arr] of sorted)
-      tbodyHtml += _kpiRow(escapeHtml(d), arr, `window._terrDrillDir('${encodeURIComponent(d)}')`);
+      tbodyHtml += _kpiRow(escapeHtml(_lbl(d)), arr, `window._terrDrillDir('${encodeURIComponent(d)}')`);
   } else if (level === 'metier') {
-    titleLabel = `Direction › ${dir}`;
+    titleLabel = `Direction › ${_lbl(dir)}`;
     const slice = all.filter(c => (c.direction||'Autre') === dir);
     const byMet = new Map();
     for (const c of slice) { const m = c.metier||'—'; if (!byMet.has(m)) byMet.set(m,[]); byMet.get(m).push(c); }
@@ -155,7 +159,7 @@ function _buildChalDirBlock(blkEl) {
     for (const [m, arr] of sorted)
       tbodyHtml += _kpiRow(escapeHtml(m), arr, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`);
   } else if (level === 'commercial') {
-    titleLabel = `${dir} › ${metier}`;
+    titleLabel = `${_lbl(dir)} › ${metier}`;
     const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier);
     const byCom = new Map();
     for (const c of slice) { const com = c.commercial||'—'; if (!byCom.has(com)) byCom.set(com,[]); byCom.get(com).push(c); }
@@ -165,7 +169,7 @@ function _buildChalDirBlock(blkEl) {
       tbodyHtml += _kpiRow(escapeHtml(com), arr, `window._terrDrillCommercial('${encodeURIComponent(dir)}','${encodeURIComponent(metier)}','${encodeURIComponent(com)}')`);
   } else {
     // level === 'clients'
-    titleLabel = `${dir} › ${metier} › ${commercial}`;
+    titleLabel = `${_lbl(dir)} › ${metier} › ${commercial}`;
     const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier && (c.commercial||'—') === commercial);
     const sorted = slice.sort((a,b) => _ca(b) - _ca(a));
     theadHtml = `<tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Activité PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-left">Classification</th></tr>`;
@@ -2120,7 +2124,9 @@ export {
 
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
-  _cmTab = 'silencieux';
+  // Garder la sous-vue active si déjà dans Commerce, sinon démarrer sur silencieux
+  const keepTab = document.getElementById('cm-tab-nav') ? _cmTab : 'silencieux';
+  _cmTab = keepTab;
   // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
   document.getElementById('globalCanalFilter')?.classList.remove('hidden');
   document.getElementById('terrFamilleFilter')?.classList.add('hidden');
