@@ -2247,7 +2247,7 @@ window._toggleHorsAgence = function() {
 };
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
 window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
-window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;renderCurrentTab();};
+window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;window._renderSegmentsOmnicanaux?.();window._renderOmniSegmentClients?.();};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
 window._toggleReseauCanal = function(canal) {
   if (!canal) { _S._reseauCanaux = new Set(); }
