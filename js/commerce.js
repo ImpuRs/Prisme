@@ -56,7 +56,7 @@ function _cmRenderNav(counts) {
   }).join('');
 }
 
-window._cmSwitchTab = function(id) {
+function _cmSwitchTab(id) {
   _cmTab = id;
   const nav = document.getElementById('cm-tab-nav');
   const content = document.getElementById('cm-tab-content');
@@ -69,7 +69,7 @@ window._cmSwitchTab = function(id) {
   } else {
     content.innerHTML = _cmRenderTabContent(_cmTab);
   }
-};
+}
 
 function _cmComputeCounts() {
   const nowMs = Date.now();
@@ -2031,13 +2031,14 @@ function renderCommerceTab() {
   const el = document.getElementById('tabClients');
   if (!el) return;
   el.innerHTML = `<div class="flex gap-1 border-b b-default mb-4 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div><div id="cm-tab-content"></div>`;
-  window._cmSwitchTab(_cmTab);
+  _cmSwitchTab(_cmTab);
 }
 
 // ── Window expositions ──────────────────────────────────────────────────
 window.renderTerritoireTab        = renderTerritoireTab;
 window.renderMesClients           = renderCommerceTab;
 window.renderCommerceTab          = renderCommerceTab;
+window._cmSwitchTab               = _cmSwitchTab;
 window.renderCockpitEquation      = renderCockpitEquation;
 window._renderTopClientsPDV       = _renderTopClientsPDV;
 window._renderHorsZone            = _renderHorsZone;
