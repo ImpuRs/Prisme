@@ -56,6 +56,10 @@ function _cmRenderNav(counts) {
   }).join('');
 }
 
+// RÈGLE PRISME — render autonome :
+// Chaque case injecte d'abord ses slots HTML, puis appelle la fonction de peuplement.
+// index.html ne contient que les conteneurs d'onglets vides.
+// Pour déplacer un pavé : changer le case ici, rien d'autre.
 function _cmSwitchTab(id) {
   _cmTab = id;
   const nav = document.getElementById('cm-tab-nav');
@@ -63,11 +67,27 @@ function _cmSwitchTab(id) {
   if (!nav || !content) return;
   const counts = _cmComputeCounts();
   nav.innerHTML = _cmRenderNav(counts);
-  if (id === 'omni') {
-    content.innerHTML = '';
-    window.renderOmniContent?.();
-  } else {
-    content.innerHTML = _cmRenderTabContent(_cmTab);
+  switch (id) {
+    case 'silencieux':
+      content.innerHTML = `<div id="terrSilencieux"></div><div id="terrLivSansPDV" class="mt-3"></div>`;
+      window.renderSilencieux?.();
+      break;
+    case 'perdus':
+      content.innerHTML = `<div id="terrPerdus"></div>`;
+      window.renderPerdus?.();
+      break;
+    case 'potentiels':
+      content.innerHTML = `<div id="terrACapter"></div><div id="terrSegmentsOmni" class="mt-3"></div>`;
+      window.renderPotentiels?.();
+      break;
+    case 'opportunites':
+      content.innerHTML = `<div id="terrOpportunites"></div>`;
+      window.renderOpportunites?.();
+      break;
+    case 'omni':
+      content.innerHTML = '';
+      window.renderOmniContent?.();
+      break;
   }
 }
 
@@ -85,17 +105,6 @@ function _cmComputeCounts() {
   return { silencieux, perdus, potentiels, opportunites: null };
 }
 
-function _cmRenderTabContent(tab) {
-  if (!_S._cmCache) _S._cmCache = {};
-  if (_S._cmCache[tab]) return _S._cmCache[tab];
-  let html = '';
-  if (tab === 'silencieux') html = window.renderSilencieux?.() ?? '';
-  else if (tab === 'perdus') html = window.renderPerdus?.() ?? '';
-  else if (tab === 'potentiels') html = window.renderPotentiels?.() ?? '';
-  else if (tab === 'opportunites') html = window.renderOpportunites?.() ?? '';
-  _S._cmCache[tab] = html;
-  return html;
-}
 
 // ── Extracted code (unchanged) ──────────────────────────────────────────
 
@@ -1653,12 +1662,10 @@ function _buildDegradedCockpit(){
 }
 
 function _buildCockpitClient(){
-  const el=document.getElementById('terrCockpitClient');if(!el)return;
   const silEl=document.getElementById('terrSilencieux');
   const perduEl=document.getElementById('terrPerdus');
   const capEl=document.getElementById('terrACapter');
-  if(!_S.chalandiseReady){el.classList.add('hidden');if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
-  el.classList.remove('hidden');
+  if(!_S.chalandiseReady){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
   // ── Collect 3 categories from chalandise ──
   const silencieux=[],perdus=[],jamaisVenus=[];
   const _today=new Date();
@@ -1754,8 +1761,6 @@ function _buildCockpitClient(){
   if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
   if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('🎯 Potentiels — Jamais venus au comptoir','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
-  // terrCockpitClient now unused as wrapper — hide it
-  el.classList.add('hidden');
 }
 function exportTop5CSV(){
   const top5=_S._top5Semaine||[];
@@ -2026,7 +2031,6 @@ export {
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
   _cmTab = 'silencieux';
-  _S._cmCache = {};
   if (!_S._cockpitExportData) _buildCockpitClient();
   const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
@@ -2056,6 +2060,7 @@ function renderCommerceTab() {
         <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
       </div>
     </div>
+    <div id="terrChalandiseOverview" class="hidden"></div>
     <div class="flex gap-1 border-b b-default mb-4 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
     <div id="cm-tab-content"></div>`;
   _buildChalandiseOverview();
