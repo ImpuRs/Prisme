@@ -455,30 +455,32 @@ function _passesAllFilters(cc){
     const el = document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
-    <div id="terrSummaryBar" class="hidden flex flex-wrap items-center justify-center gap-2 py-3 px-3 s-card rounded-xl border shadow-sm mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff)">
-      <div class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif.">
-        <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
-        <p id="terrSumClients" class="text-xl font-extrabold t-primary">—</p>
-        <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
+    <div id="terrSummaryBar" class="hidden flex-nowrap items-center overflow-x-auto gap-3 py-3 px-4 s-card rounded-xl border shadow-sm mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none">
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="text-center px-3 py-1.5 s-card-alt rounded-lg cursor-help" title="Nombre de clients dans votre zone de chalandise correspondant au filtre actif.">
+          <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">👥 Clients zone</p>
+          <p id="terrSumClients" class="text-lg font-extrabold t-primary">—</p>
+          <p id="terrSumSubPotentiel" class="text-[9px] c-danger mt-0.5 hidden">🔴 <span id="terrSumPotentiels">0</span> potentiels</p>
+        </div>
+        <span class="t-disabled font-light">›</span>
+        <div class="text-center px-3 py-1.5 i-info-bg rounded-lg cursor-help" title="Clients zone avec CA Legallais tous canaux confondus (source : chalandise).">
+          <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
+          <p id="terrSumCapteLeg" class="text-lg font-extrabold c-action">—</p>
+          <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
+        </div>
+        <span class="t-disabled font-light">›</span>
+        <div class="text-center px-3 py-1.5 i-ok-bg rounded-lg border b-light cursor-help" title="Clients zone ayant acheté au moins une fois en magasin (comptoir) sur la période.">
+          <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
+          <p id="terrSumCaptePDV" class="text-lg font-extrabold c-ok">—</p>
+          <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
+          <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
+        </div>
+        <div id="terrSumExclusWrap" class="text-center px-3 py-1.5 s-card-alt rounded-lg hidden">
+          <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
+          <p id="terrSumExclus" class="text-lg font-extrabold t-disabled">—</p>
+        </div>
       </div>
-      <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-      <div class="text-center px-4 py-2 i-info-bg rounded-lg min-w-[90px] cursor-help" title="Clients zone avec CA Legallais tous canaux confondus (source : chalandise).">
-        <p class="text-[10px] font-bold c-action uppercase tracking-wide">📊 Captés Leg.</p>
-        <p id="terrSumCapteLeg" class="text-xl font-extrabold c-action">—</p>
-        <p id="terrSumCapteLegCount" class="text-[9px] c-action mt-0.5 hidden"></p>
-      </div>
-      <div class="t-disabled text-lg font-light hidden sm:block">›</div>
-      <div class="text-center px-4 py-2 i-ok-bg rounded-lg border b-light min-w-[90px] cursor-help" title="Clients zone ayant acheté au moins une fois en magasin (comptoir) sur la période.">
-        <p class="text-[10px] font-bold c-ok uppercase tracking-wide">🏪 Captés PDV</p>
-        <p id="terrSumCaptePDV" class="text-xl font-extrabold c-ok">—</p>
-        <p id="terrSumCaptePDVCount" class="text-[9px] c-ok mt-0.5 hidden"></p>
-        <p id="terrSumSubFideles" class="text-[9px] text-violet-600 mt-0.5 hidden">🟣 <span id="terrSumFideles">0</span> hors zone</p>
-      </div>
-      <div id="terrSumExclusWrap" class="text-center px-4 py-2 s-card-alt rounded-lg min-w-[90px] hidden">
-        <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
-        <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
-      </div>
-      <div id="terrSumComKPIs" class="hidden contents"></div>
+      <div id="terrSumComKPIs" class="hidden flex items-center gap-0 shrink-0"></div>
     </div>
     <div id="terrCanalBlock" class="s-card rounded-xl shadow-md border mb-3">
       <div class="flex items-center justify-between px-4 py-3 border-b s-card-alt">
