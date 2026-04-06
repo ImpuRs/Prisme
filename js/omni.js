@@ -663,6 +663,7 @@ window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.getKPIsByCanal = getKPIsByCanal;
 window.computePhantomArticles = computePhantomArticles;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
+window._renderSegmentsOmnicanaux  = _renderSegmentsOmnicanaux;
 window.SEG_LABELS = SEG_LABELS;
 
 // ── ESM exports ──
