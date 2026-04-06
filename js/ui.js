@@ -229,9 +229,9 @@ export function switchTab(id) {
     btn.classList.add('active');
     if (!_S._tabRendered[id] && DataStore.finalData.length > 0) {
       const skeletonMap = {
-        // stock, reseau, table: HTML statique dans index.html — skeleton écraserait les IDs cibles
+        // Uniquement les tabs dont le renderer écrase tab.innerHTML en entier
+        // stock, reseau, table, clients : HTML statique — skeleton écraserait les IDs cibles
         commerce: () => buildSkeletonCards(3) + buildSkeletonTable(10, 7),
-        clients:  () => buildSkeletonCards(2) + buildSkeletonTable(6, 4),
       };
       const skFn = skeletonMap[id];
       if (skFn && tab) tab.innerHTML = `<div class="container mx-auto mt-3 p-4 md:p-5">${skFn()}</div>`;
