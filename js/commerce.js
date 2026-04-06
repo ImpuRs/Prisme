@@ -131,7 +131,6 @@ function _buildChalDirBlock(blkEl) {
     }
     g.pctLeg = g.total > 0 ? Math.round(g.actifsLeg / g.total * 100) : 0;
     g.pctPDV = g.total > 0 ? Math.round(g.actifsPDV / g.total * 100) : 0;
-    g.hasStrat = clients.some(c => c.classification?.includes('Pot+'));
     return g;
   };
 
@@ -142,9 +141,8 @@ function _buildChalDirBlock(blkEl) {
   // ── Ligne groupe (niveaux root/métier/commercial) ──────────────────────
   const _groupRow = (label, clients, onclick, rowStyle) => {
     const g = _calcGroup(clients);
-    const star = g.hasStrat ? ' ⭐' : '';
     return `<tr onclick="${onclick}" style="cursor:pointer${rowStyle?';'+rowStyle:''}" class="border-b hover:s-card-alt">
-      <td class="py-1.5 px-2 font-semibold">${label}${star} <span class="t-disabled text-[9px]">▶</span></td>
+      <td class="py-1.5 px-2 font-semibold">${label} <span class="t-disabled text-[9px]">▶</span></td>
       <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
       <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsLeg}</td>
       <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsPDV}</td>
@@ -1482,6 +1480,8 @@ function _buildChalandiseOverview(){
   _renderOmniSegmentClients();
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
+  // Table territoire en un coup d'œil — réactive aux filtres chalandise
+  {const _db=document.getElementById('terrDirectionBlock');if(_db&&!_db.classList.contains('hidden'))_buildChalDirBlock(_db);}
 }
 // Level 2: Métiers for a Direction
 function _toggleOverviewL2(dirEnc,idx){
