@@ -708,9 +708,10 @@
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
-    nav#mainNav{background:var(--navbar-bg,var(--p-slate-950));border-bottom:1px solid var(--navbar-border,rgba(255,255,255,0.06));height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    nav#mainNav{background:var(--p-slate-950,#0a0a0f)!important;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    [data-theme="dark"] nav#mainNav{background:var(--navbar-bg)!important}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
-    #mainNav .nav-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:var(--s-card);font-weight:800;user-select:none;cursor:default;line-height:1}
+    #mainNav .nav-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:#fff;font-weight:800;user-select:none;cursor:default;line-height:1}
     #mainNav .nav-logo-tagline{font-family:var(--ff-body);font-size:var(--fs-2xs);color:rgba(255,255,255,0.35);letter-spacing:var(--ls-wide);font-style:italic;line-height:1;margin-top:2px;opacity:0.35}
     #navStats{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:var(--ff-mono,monospace);font-variant-numeric:tabular-nums}
     #navStore{font-size:var(--fs-xs);color:var(--p-slate-300);letter-spacing:.05em;border:1px solid rgba(255,255,255,0.15);border-radius:var(--r-md);padding:2px var(--sp-3);background:transparent;font-weight:var(--fw-normal)}
@@ -1031,6 +1032,146 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--b-strong); }
     ::-webkit-scrollbar-corner { background: transparent; }
     * { scrollbar-width: thin; scrollbar-color: var(--b-default) transparent; }
+
+    /* ════════════════════════════════════════════════════════════
+       SPRINT DESIGN D — Composants Premium
+       Hero Banner · Evidence Cards · Accordéons · ABC · Sidebar · Banners
+       ════════════════════════════════════════════════════════════ */
+
+    /* ═══ HERO BANNER PREMIUM ══════════════════════════════════ */
+    #stockHeroBanner {
+      background: linear-gradient(135deg, #0d1f4a 0%, #1a2d6e 50%, #162454 100%);
+      border: 1px solid rgba(96,165,250,0.2);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      position: relative;
+      margin-bottom: var(--sp-3);
+    }
+    #stockHeroBanner::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(96,165,250,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    #stockHeroBanner::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(96,165,250,0.3), transparent);
+    }
+    #stockHeroContent { padding: 16px 20px; position: relative; z-index: 1; }
+    .hero-layout { display: flex; align-items: center; gap: 20px; }
+    .hero-divider { width: 1px; height: 56px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    .hero-score-block { flex-shrink: 0; text-align: center; min-width: 80px; }
+    .hero-score-num {
+      font-family: var(--ff-display, 'DM Sans', 'Inter', sans-serif);
+      font-size: var(--fs-2xl); font-weight: 800; line-height: 1; letter-spacing: -0.02em;
+    }
+    .hero-score-bar {
+      width: 56px; height: 3px; background: rgba(255,255,255,0.1);
+      border-radius: var(--r-full); margin: 6px auto 4px; overflow: hidden;
+    }
+    .hero-score-fill { height: 3px; border-radius: var(--r-full); transition: width .6s ease; }
+    .hero-score-label { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: var(--ls-wider); color: rgba(255,255,255,0.35); }
+    .hero-value-block { flex-shrink: 0; }
+    .hero-value-label { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: var(--ls-wider); color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+    .hero-value-num {
+      font-family: var(--ff-display, 'DM Sans', 'Inter', sans-serif);
+      font-size: var(--fs-3xl, 2.25rem); font-weight: 800; line-height: 1;
+      letter-spacing: -0.02em; color: #e2e8f4; font-variant-numeric: tabular-nums;
+    }
+    .hero-value-sub { font-size: var(--fs-xs); color: rgba(255,255,255,0.4); margin-top: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .hero-pills { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
+    .hero-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: var(--r-full);
+      font-size: var(--fs-2xs); font-weight: 600; border: 1px solid;
+      cursor: pointer; transition: opacity .15s; white-space: nowrap;
+    }
+    .hero-pill:hover { opacity: .8; }
+    .hero-pill--ok      { background: rgba(52,211,153,0.12);  color: #6ee7b7; border-color: rgba(52,211,153,0.25); }
+    .hero-pill--danger  { background: rgba(248,113,113,0.12); color: #fca5a5; border-color: rgba(248,113,113,0.25); }
+    .hero-pill--caution { background: rgba(251,191,36,0.12);  color: #fde68a; border-color: rgba(251,191,36,0.25); }
+    .hero-pill--muted   { background: rgba(100,116,139,0.10); color: #94a3b8; border-color: rgba(100,116,139,0.2); }
+
+    /* ═══ EVIDENCE CARDS PREMIUM ════════════════════════════════ */
+    .evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .evidence-card {
+      background: var(--s-card);
+      border: 1px solid var(--b-default);
+      border-left: 3px solid var(--ec-accent, var(--b-default));
+      border-radius: var(--r-lg);
+      padding: var(--sp-3) var(--sp-3) 10px;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      position: relative; overflow: hidden;
+    }
+    .evidence-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+    }
+    .evidence-card--danger  { --ec-accent: var(--c-danger);  background: linear-gradient(135deg, var(--s-card) 60%, rgba(248,113,113,0.05)); }
+    .evidence-card--caution { --ec-accent: var(--c-caution); background: linear-gradient(135deg, var(--s-card) 60%, rgba(251,191,36,0.05)); }
+    .evidence-card--ok      { --ec-accent: var(--c-ok);      background: linear-gradient(135deg, var(--s-card) 60%, rgba(52,211,153,0.05)); }
+    .evidence-card--action  { --ec-accent: var(--c-action);  background: linear-gradient(135deg, var(--s-card) 60%, rgba(96,165,250,0.05)); }
+    .evidence-card--muted   { --ec-accent: var(--b-default); opacity: 0.85; }
+    .evidence-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+    .evidence-icon { font-size: 16px; line-height: 1; margin-bottom: 5px; }
+    .evidence-value {
+      font-family: var(--ff-display, 'DM Sans', 'Inter', sans-serif);
+      font-size: var(--fs-xl); font-weight: 800; line-height: 1;
+      letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+      color: var(--t-primary); margin-bottom: 3px;
+    }
+    .evidence-card--danger  .evidence-value { color: var(--c-danger); }
+    .evidence-card--caution .evidence-value { color: var(--c-caution); }
+    .evidence-card--ok      .evidence-value { color: var(--c-ok); }
+    .evidence-label { font-size: var(--fs-2xs); font-weight: 500; letter-spacing: var(--ls-wider); text-transform: uppercase; color: var(--t-disabled); line-height: 1.35; }
+    .evidence-cta { display: block; font-size: var(--fs-2xs); font-weight: 600; color: var(--c-action); margin-top: var(--sp-2); cursor: pointer; transition: opacity .15s; }
+    .evidence-cta:hover { opacity: .75; }
+
+    /* ═══ SECTIONS ACCORDÉONS PREMIUM ═══════════════════════════ */
+    #tabStock details,
+    #tabStock .s-card.rounded-xl {
+      background: var(--s-card);
+      border: 1px solid var(--b-default);
+      border-radius: var(--r-lg);
+      margin-bottom: var(--sp-2);
+      overflow: hidden;
+      transition: border-color .15s;
+    }
+    #tabStock details:hover,
+    #tabStock .s-card.rounded-xl:hover { border-color: var(--b-strong); }
+    #tabStock details > summary {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px; cursor: pointer;
+      background: rgba(255,255,255,0.01);
+      transition: background .15s; list-style: none;
+    }
+    #tabStock details > summary:hover { background: rgba(255,255,255,0.03); }
+    #tabStock details > summary h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--t-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
+    #tabStock details > summary .acc-arrow { color: var(--t-disabled); font-size: var(--fs-xs); transition: transform .2s; flex-shrink: 0; }
+    #tabStock details[open] > summary .acc-arrow { transform: rotate(90deg); }
+    #tabStock details > *:not(summary) { border-top: 1px solid var(--b-light); }
+
+    /* ═══ SIDEBAR PREMIUM ════════════════════════════════════════ */
+    #filterPanel { background: var(--s-sidebar, #0b0e16); border-right: 1px solid var(--b-light); }
+    #filterPanel.drawer-open { background: var(--s-sidebar, #0b0e16); }
+    #sidebarDesktopTitle { font-size: var(--fs-2xs); font-weight: 700; letter-spacing: var(--ls-widest, 0.12em); text-transform: uppercase; color: var(--t-disabled); padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+    #filterPanel input[type="text"], #filterPanel select { background: var(--s-card); border-color: var(--b-default); color: var(--t-primary); font-size: var(--fs-xs); }
+    #filterPanel input[type="text"]:focus, #filterPanel select:focus { border-color: var(--c-action); outline: none; box-shadow: 0 0 0 2px rgba(96,165,250,0.15); }
+    #stockPillsContainer .alert-item { display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; border-radius: var(--r-sm); transition: background .1s; }
+    #stockPillsContainer .alert-item:hover { background: rgba(255,255,255,0.04); }
+
+    /* ═══ BANNERS ════════════════════════════════════════════════ */
+    #enrichBanner { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2); border-radius: var(--r-lg); margin-bottom: var(--sp-3); }
+    #insightsBanner { background: var(--s-sidebar, #0b0e16); border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 28px; padding: 0 1.25rem; font-size: var(--fs-xs); }
+    #cacheBanner { background: var(--s-sidebar, #0b0e16); border-bottom: 1px solid rgba(255,255,255,0.04); padding: 0 1.25rem; font-size: var(--fs-xs); }
+    #periodBanner { background: rgba(251,191,36,0.15); border-bottom: 2px solid var(--c-caution); color: #fde68a; }
+    #stockMonoBanner { background: rgba(251,191,36,0.10); border-bottom: 1px solid rgba(251,191,36,0.3); color: #fde68a; }
 
     /* ════════════════════════════════════════════════════════════
        SPRINT DESIGN C — Data Viz + Polish 2027

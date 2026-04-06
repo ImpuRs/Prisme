@@ -1697,32 +1697,33 @@ _S.canalAgence=newCanalAgence;
         {label:'Sans MIN',val:_sansMin,ok:_sansMin<=3},
         {label:'Surstock',val:_surst,ok:_surst<=_totalRefs*0.03},
       ];
-      const _pills=_dims.map(d=>`<span class="text-[10px] px-2 py-0.5 rounded-full border ${d.ok?'border-emerald-300 text-emerald-700 bg-emerald-50':'border-orange-300 text-orange-700 bg-orange-50'}">${d.label} : <strong>${typeof d.val==='number'?d.val.toLocaleString('fr'):d.val}</strong></span>`).join('');
+      const _heroPills=[
+        {label:`Taux service : ${sr}%`,  cls:parseFloat(sr)>=95?'ok':parseFloat(sr)>=85?'caution':'danger', fn:`showCockpitInTable('ruptures')`},
+        {label:`Ruptures : ${lstR.length}`, cls:lstR.length===0?'ok':'danger', fn:`showCockpitInTable('ruptures');switchTab('table')`},
+        {label:`Dormants : ${lstD.length}`, cls:lstD.length>50?'caution':'muted', fn:`showCockpitInTable('dormants');switchTab('table')`},
+        {label:`Sans MIN : ${lstA.length}`, cls:'muted', fn:`showCockpitInTable('anomalies');switchTab('table')`},
+        {label:`Surstock : ${lstS.length}`, cls:'muted', fn:`showCockpitInTable('saso');switchTab('table')`},
+      ].map(p=>`<button class="hero-pill hero-pill--${p.cls}" onclick="${p.fn}">${p.label}</button>`).join('');
       heroEl.innerHTML=`
-        <div class="flex flex-wrap items-center gap-6">
-          <div class="flex items-center gap-3 min-w-[200px]">
-            <span class="text-3xl">${_ico}</span>
-            <div>
-              <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
-              <p style="font-family:var(--ff-display);font-size:var(--fs-2xl);font-weight:900;line-height:1;letter-spacing:var(--ls-tight);color:${_col}">${_score}<span style="font-size:var(--fs-sm);font-weight:400;color:var(--t-disabled)">/100</span></p>
-            </div>
-            <div class="flex flex-col items-center gap-0.5 ml-1">
-              <div class="w-20 h-2.5 rounded-full bg-gray-200 overflow-hidden">
-                <div class="h-full rounded-full" style="width:${_score}%;background:${_col}"></div>
-              </div>
-              <span class="text-[9px] font-bold" style="color:${_col}">${_lbl}</span>
-            </div>
-          </div>
-          <div class="flex items-center gap-4 cursor-pointer select-none hover:opacity-80" onclick="switchTab('table')" title="→ Voir tous les articles">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl px-5 py-3 text-white shadow-lg">
-              <p class="text-[9px] font-bold uppercase text-blue-200 mb-0.5">Valeur stock</p>
-              <p style="font-family:var(--ff-display);font-size:var(--fs-3xl);font-weight:800;line-height:1;letter-spacing:var(--ls-tight);font-variant-numeric:tabular-nums" class="kpi-update">${formatEuro(totalValue)}</p>
-              ${_sparklineCA ? `<div style="margin-top:4px;opacity:0.7">${_sparklineCA}</div>` : ''}
-              <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><p class="text-blue-200 text-[10px]">${dataSource.length.toLocaleString('fr')} réf. · ✅ Dispo. ${sr}%</p>${_deltaBadge ? `<span style="opacity:0.85">${_deltaBadge} vs mois préc.</span>` : ''}</div>
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1.5 mt-3">${_pills}</div>`;
+<div class="hero-layout">
+  <div class="hero-score-block">
+    <div class="hero-score-num" style="color:${_col}">${_score}</div>
+    <div class="hero-score-bar"><div class="hero-score-fill" style="width:${_score}%;background:${_col}"></div></div>
+    <div class="hero-score-label">Santé stock</div>
+  </div>
+  <div class="hero-divider"></div>
+  <div class="hero-value-block">
+    <div class="hero-value-label">Valeur stock</div>
+    <div class="hero-value-num kpi-update">${formatEuro(totalValue)}</div>
+    <div class="hero-value-sub">
+      <span>${DataStore.finalData.length.toLocaleString('fr')} réf.</span>
+      <span style="color:var(--c-ok)">✓ Dispo. ${sr}%</span>
+      ${_deltaBadge?`<span>${_deltaBadge} vs mois préc.</span>`:''}
+    </div>
+  </div>
+  <div class="hero-divider"></div>
+  <div class="hero-pills">${_heroPills}</div>
+</div>`;
     }}
 
     // ── Sidebar pills ──
@@ -1896,15 +1897,14 @@ _S.canalAgence=newCanalAgence;
       for(const fmr of['F','M','R']){
         const key=abc+fmr,d=mx[key]||{count:0,stockVal:0,pctTotal:0};
         const bg=CELL_BG[key];
-        const diagBtn=d.count>0?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-black/30 text-white hover:bg-black/50 border border-white/30 transition-colors shadow-sm" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" title="Diagnostic ${key} (${d.count} articles)">🔍 Diag.</button>`:'';
         html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
-          <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.22);color:#fff;margin:0">ℹ</em>
-          <div class="cell-count">${d.count}</div>
-          <div class="text-[10px] opacity-80">articles</div>
-          <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
-          <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>
-          <div class="mt-2 text-[9px] opacity-90 font-semibold uppercase tracking-wide">${key}</div>
-          ${diagBtn}
+          <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);margin:0;width:14px;height:14px;font-size:9px">ℹ</em>
+          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-2xl);font-weight:800;line-height:1;letter-spacing:-0.02em">${d.count}</div>
+          <div style="font-size:var(--fs-xs);opacity:0.6;margin-top:3px">articles</div>
+          <div style="font-family:var(--ff-display,'DM Sans','Inter',sans-serif);font-size:var(--fs-sm);font-weight:700;margin-top:var(--sp-2)">${formatEuro(d.stockVal)}</div>
+          <div style="font-size:var(--fs-2xs);opacity:0.5;margin-top:2px">${d.pctTotal.toFixed(1)}% du stock</div>
+          <div style="font-size:var(--fs-2xs);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.5;margin-top:var(--sp-2)">${key}</div>
+          ${d.count>0?`<button onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" style="margin-top:6px;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.25);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.12);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,0.4)'" onmouseout="this.style.background='rgba(0,0,0,0.25)'">🔍 Diag.</button>`:''}
         </div></td>`;
       }
       html+='</tr>';
