@@ -168,10 +168,15 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
-  // Filtre canal global — visible sur territoire/omni uniquement
+  // Filtre canal global — visible sur Commerce
   const _CANAL_TABS = new Set(['commerce']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
+  // Chalandise filters — visible sur Commerce si chalandise chargée
+  if (id === 'commerce') {
+    const chalFilBlk = document.getElementById('terrChalandiseFiltersBlock');
+    if (chalFilBlk && _S.chalandiseReady) chalFilBlk.classList.remove('hidden');
+  }
   // Titre sidebar par onglet
   const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Commerce', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';

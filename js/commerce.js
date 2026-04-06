@@ -1993,6 +1993,9 @@ export {
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
   _cmTab = 'silencieux';
+  // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
+  document.getElementById('globalCanalFilter')?.classList.remove('hidden');
+  document.getElementById('terrFamilleFilter')?.classList.add('hidden');
   _buildCockpitClient();
   const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
