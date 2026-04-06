@@ -648,7 +648,9 @@ _S.canalAgence=newCanalAgence;
           const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null);
           const _fTerr = document.getElementById('fileLivraisons').files[0];
           const _hasNewTerr = !!(_fTerr && _fTerr.size > 0);
-          if (_unchanged && !(_hasNewTerr && !_S.territoireReady)) {
+          const fLiv = document.getElementById('fileLivraisons').files[0];
+          const livNeedsProcessing = fLiv && !_S.livraisonsReady;
+          if (_unchanged && !(_hasNewTerr && !_S.territoireReady) && !livNeedsProcessing) {
             showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
             btn.disabled = false;
             hideLoading();
