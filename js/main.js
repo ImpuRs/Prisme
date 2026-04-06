@@ -642,21 +642,12 @@ _S.canalAgence=newCanalAgence;
     // ── OPT1 : Hash-check IDB — même fichier → skip parse complet ──
     {
       const _hashes = localStorage.getItem('prisme_fileHashes');
-      console.log('[DEBUG cache]', {
-        fLiv: !!document.getElementById('fileLivraisons').files[0],
-        livraisonsReady: _S.livraisonsReady,
-        idbOk: DataStore.finalData.length > 0,
-        hashes: localStorage.getItem('prisme_fileHashes')
-      });
       if (_hashes) {
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
         if (_idbOk && DataStore.finalData.length > 0) {
-          const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null);
-          const _fTerr = document.getElementById('fileLivraisons').files[0];
-          const _hasNewTerr = !!(_fTerr && _fTerr.size > 0);
-          const fLiv = document.getElementById('fileLivraisons').files[0];
-          const livNeedsProcessing = fLiv && !_S.livraisonsReady;
-          if (_unchanged && !(_hasNewTerr && !_S.territoireReady) && !livNeedsProcessing) {
+          const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
+          const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
+          if (_unchanged) {
             showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
             btn.disabled = false;
             hideLoading();
@@ -940,7 +931,7 @@ _S.canalAgence=newCanalAgence;
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
       launchClientWorker().then(async()=>{
         if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
-        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3);}
+        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;const f4=document.getElementById('fileLivraisons').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3,f4);}
       }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
       if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
@@ -1381,7 +1372,7 @@ _S.canalAgence=newCanalAgence;
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('stock');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
-      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null); }
+      if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileLivraisons').files[0]||null); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
