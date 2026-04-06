@@ -456,7 +456,7 @@
     .labo-tile{cursor:pointer;transition:background .15s,transform .15s,box-shadow .15s;background:var(--s-card);border:1px solid var(--b-default);border-radius:var(--r-lg)}
     .labo-tile:hover{background:var(--s-hover);transform:translateY(-2px);box-shadow:var(--shadow-md)}
     /* ═══ EVIDENCE CARDS ════════════════════════════════════════ */
-    .evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-3)}
+    .evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-3);background:transparent}
     .evidence-card{background:var(--s-card);border:1px solid var(--b-default);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-3) var(--sp-2);display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative}
     .evidence-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
     .evidence-card--danger{border-left:3px solid var(--c-danger)}
@@ -672,7 +672,7 @@
     /* ═══ Signal Ambiant ════════════════════════════════════ */
     #ambient-signal{position:fixed;top:0;left:0;right:0;height:3px;z-index:var(--z-tooltip);transition:background 1.2s ease,height .6s ease;background:transparent}
     /* ═══ Cockpit Briefing ══════════════════════════════════ */
-    #cockpitBriefing{background:var(--s-panel);border:1px solid var(--s-panel-inner);border-radius:var(--r-lg);padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-3);color:var(--t-inverse)}
+    #cockpitBriefing{background:var(--s-card-alt,#1e2435);border:1px solid var(--b-default);border-radius:var(--r-xl);padding:var(--sp-4);margin-bottom:var(--sp-3);color:var(--t-inverse)}
     #cockpitBriefing .briefing-line{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);line-height:var(--lh-normal);padding:3px 0;border-bottom:1px solid #1e293b40}
     #cockpitBriefing .briefing-line:last-child{border-bottom:none}
     .briefing-icon{flex-shrink:0;font-size:var(--fs-base)}
