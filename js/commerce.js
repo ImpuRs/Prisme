@@ -2020,6 +2020,7 @@ export {
   exportExclusionsJSON,
   importExclusionsJSON,
   _toggleHorsMagasin,
+  renderCommerceTab,
 };
 
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
