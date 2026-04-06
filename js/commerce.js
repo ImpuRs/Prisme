@@ -1800,7 +1800,32 @@ function _buildCockpitClient(){
   const silEl=document.getElementById('terrSilencieux');
   const perduEl=document.getElementById('terrPerdus');
   const capEl=document.getElementById('terrACapter');
-  if(!_S.chalandiseReady){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
+  if(!_S.chalandiseReady){
+    // Mode dégradé — pas de chalandise, utiliser clientLastOrder directement
+    if(!_S.clientLastOrder?.size){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
+    const _todayDeg=new Date();
+    const silDeg=[],perduDeg=[];
+    for(const[cc,lastOrder]of _S.clientLastOrder.entries()){
+      const artMap=(_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
+      const caPDVN=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
+      if(!caPDVN)continue;
+      const daysSince=Math.round((_todayDeg-lastOrder)/86400000);
+      const nom=_S.clientNomLookup?.[cc]||cc;
+      const c={code:cc,nom,metier:'',commercial:'',classification:'',ca2025:0,caPDVN,ville:'',_strat:false,_daysSince:daysSince,_lastOrderDate:lastOrder};
+      if(daysSince>30&&daysSince<=60)silDeg.push(c);
+      else if(daysSince>60)perduDeg.push(c);
+    }
+    silDeg.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
+    perduDeg.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
+    _S._cockpitExportData={silencieux:silDeg,perdus:perduDeg,jamaisVenus:[]};
+    const emptyMsgDeg='Aucun client dans cette catégorie';
+    function _clientCardDeg(c,reason,scoreColor){const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';const daysBadge=c._daysSince>30?`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full i-danger-bg c-danger">⏰ ${c._daysSince}j</span>`:'';return`<div class="relative p-3 rounded-lg border s-card hover:i-info-bg cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center flex-wrap gap-1.5"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span>${daysBadge}</div><p class="text-[11px] ${scoreColor} font-bold mt-1">→ ${escapeHtml(reason)}</p><p class="text-[10px] t-tertiary mt-1">${lastOrderFmt}</p></div>`;}
+    function renderBlockDeg(title,emoji,bgColor,borderColor,scoreColor,clients,raisonFn,listId){if(!clients.length)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><p class="text-xs t-disabled px-4 pb-4">${emptyMsgDeg}</p></div>`;let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div><div class="space-y-2 px-4 py-3">`;for(const c of clients.slice(0,10))html+=_clientCardDeg(c,raisonFn(c),scoreColor);html+=`</div></div>`;return html;}
+    if(silEl)silEl.innerHTML=renderBlockDeg(`Silencieux — 30 à 60 jours sans commande Magasin`,'⏰','i-caution-bg','border-amber-500','c-caution',silDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA Magasin`,'cockpit-sil-full');
+    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — Plus de 60 jours sans commande Magasin`,'🔴','i-danger-bg','border-rose-500','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`,'cockpit-perdu-full');
+    if(capEl)capEl.innerHTML='';
+    return;
+  }
   // ── Collect 3 categories from chalandise ──
   const silencieux=[],perdus=[],jamaisVenus=[];
   const _today=new Date();
