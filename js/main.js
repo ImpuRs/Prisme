@@ -1883,7 +1883,7 @@ _S.canalAgence=newCanalAgence;
     _renderGhostArticles();
     renderPlanRayon();
     renderArbitrageRayonBlock();
-    const CELL_BG={AF:'#0d3320',AM:'#0f2d1a',AR:'#0c2a1e',BF:'#0d1f3c',BM:'#1a1f2e',BR:'#221a0c',CF:'#2a1208',CM:'#2a0d0d',CR:'#1a0808'};
+    const CELL_BG={AF:'#0a1f10',AM:'#0a1a0e',AR:'#0f1a0e',BF:'#0a0f1f',BM:'#111520',BR:'#1a1508',CF:'#1a0e08',CM:'#1a0a0a',CR:'#120808'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table

@@ -24,11 +24,11 @@ const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
 const ACTION_BADGE = {
-  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢', cardBg: 'rgba(52,211,153,0.08)',  cardBorder: '#34d399' },
-  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵', cardBg: 'rgba(96,165,250,0.08)',  cardBorder: '#60a5fa' },
-  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴', cardBg: 'rgba(248,113,113,0.08)', cardBorder: '#f87171' },
-  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡', cardBg: 'rgba(251,191,36,0.08)',  cardBorder: '#fbbf24' },
-  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁',  cardBg: 'rgba(100,116,139,0.08)', cardBorder: '#64748b' },
+  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.03)',  cardBorder: 'rgba(52,211,153,0.2)' },
+  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.03)',  cardBorder: 'rgba(96,165,250,0.2)' },
+  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.03)', cardBorder: 'rgba(248,113,113,0.2)' },
+  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.03)',  cardBorder: 'rgba(251,191,36,0.2)' },
+  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁',  dot: '#64748b', cardBg: 'rgba(100,116,139,0.03)', cardBorder: 'rgba(100,116,139,0.2)' },
 };
 
 const CLASSIF_BADGE = {
@@ -352,7 +352,7 @@ function _prBuildCards(data, searchText = '') {
           <div class="text-[12px] font-bold t-primary truncate">${escapeHtml(f.libFam)}</div>
           <div class="text-[10px] t-disabled">${f.codeFam}</div>
         </div>
-        <span class="text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
+        <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}</span>
       </div>
       ${miniBar}
       <div class="flex items-center justify-between text-[10px]">
