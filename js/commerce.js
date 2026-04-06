@@ -672,6 +672,17 @@ window._terrDrillBack = function() {
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
 
+    // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
+    {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
+    _tb('terrDirectionBlock',  hasChal);   // chalandise suffit
+    _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
+    _tb('terrCroisementBlock', hasTerr);
+    _tb('terrSpecialKPIBlock', hasTerr);
+    _tb('terrContribBlock',    hasTerr);
+    _tb('terrTop100Block',     hasTerr);
+    _tb('terrClientsBlock',    hasTerr);
+    _tb('terrNeedTerrBlock',   !hasTerr);} // message "BL requis" si !hasTerr
+
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
