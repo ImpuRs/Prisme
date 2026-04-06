@@ -1033,6 +1033,16 @@
     ::-webkit-scrollbar-corner { background: transparent; }
     * { scrollbar-width: thin; scrollbar-color: var(--b-default) transparent; }
 
+    /* Dropzones dark — override couleurs light trop vives */
+    [data-theme="dark"] .onboarding-dropzone--required {
+      background: rgba(96,165,250,0.06);
+      border-color: rgba(96,165,250,0.3);
+    }
+    [data-theme="dark"] .onboarding-dropzone--optional {
+      background: rgba(251,191,36,0.06);
+      border-color: rgba(251,191,36,0.3);
+    }
+
     /* ════════════════════════════════════════════════════════════
        SPRINT DESIGN D — Composants Premium
        Hero Banner · Evidence Cards · Accordéons · ABC · Sidebar · Banners
