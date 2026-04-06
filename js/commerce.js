@@ -69,7 +69,6 @@ function _cmSwitchTab(id) {
   nav.innerHTML = _cmRenderNav(counts);
   switch (id) {
     case 'silencieux':
-      content.innerHTML = `<div id="terrSilencieux"></div><div id="terrLivSansPDV" class="mt-3"></div>`;
       window.renderSilencieux?.();
       break;
     case 'perdus':

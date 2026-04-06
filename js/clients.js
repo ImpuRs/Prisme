@@ -9,6 +9,13 @@ import { renderOppNetteTable } from './helpers.js';
 
 // ── Sous-vue Silencieux (30-60j sans commande PDV) ───────────────────────
 function renderSilencieux() {
+  const el = document.getElementById('cm-tab-content');
+  if (el) el.innerHTML = `
+    <div id="terrTopPDV" class="mb-4"></div>
+    <div id="terrSilencieux"></div>
+    <div id="terrLivSansPDV" class="mt-3"></div>
+  `;
+  window._renderTopClientsPDV?.();
   window._buildCockpitClient?.();
 }
 
