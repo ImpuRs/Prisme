@@ -708,9 +708,10 @@
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
-    nav#mainNav{background:var(--navbar-bg,var(--p-slate-950));border-bottom:1px solid var(--navbar-border,rgba(255,255,255,0.06));height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    nav#mainNav{background:var(--p-slate-950,#0a0a0f)!important;border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    [data-theme="dark"] nav#mainNav{background:var(--navbar-bg)!important}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
-    #mainNav .nav-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:var(--s-card);font-weight:800;user-select:none;cursor:default;line-height:1}
+    #mainNav .nav-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:#fff;font-weight:800;user-select:none;cursor:default;line-height:1}
     #mainNav .nav-logo-tagline{font-family:var(--ff-body);font-size:var(--fs-2xs);color:rgba(255,255,255,0.35);letter-spacing:var(--ls-wide);font-style:italic;line-height:1;margin-top:2px;opacity:0.35}
     #navStats{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:var(--ff-mono,monospace);font-variant-numeric:tabular-nums}
     #navStore{font-size:var(--fs-xs);color:var(--p-slate-300);letter-spacing:.05em;border:1px solid rgba(255,255,255,0.15);border-radius:var(--r-md);padding:2px var(--sp-3);background:transparent;font-weight:var(--fw-normal)}
