@@ -69,14 +69,15 @@ function _cmSwitchTab(id) {
   nav.innerHTML = _cmRenderNav(counts);
   switch (id) {
     case 'silencieux':
+      content.innerHTML = `<div id="terrSilencieux"></div><div id="terrLivSansPDV" class="mt-3"></div>`;
       window.renderSilencieux?.();
       break;
     case 'perdus':
-      content.innerHTML = `<div id="terrPerdus"></div>`;
+      content.innerHTML = `<div id="terrPerdus"></div><div id="terrReconquete" class="mt-3"></div>`;
       window.renderPerdus?.();
       break;
     case 'potentiels':
-      content.innerHTML = `<div id="terrACapter"></div><div id="terrSegmentsOmni" class="mt-3"></div>`;
+      content.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
       window.renderPotentiels?.();
       break;
     case 'opportunites':
@@ -2039,9 +2040,11 @@ function renderCommerceTab() {
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
     <div id="terrChalandiseOverview" class="hidden"></div>
-    <div class="flex gap-1 border-b b-default mb-4 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
-    <div id="cm-tab-content"></div>`;
+    <div id="terrTopPDV" class="mb-3"></div>
+    <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
+    <div id="cm-tab-content" class="pt-3"></div>`;
   _buildChalandiseOverview();
+  _renderTopClientsPDV();
   _cmSwitchTab(_cmTab);
 }
 
