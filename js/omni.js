@@ -450,8 +450,174 @@ function _passesAllFilters(cc){
     el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">📡 Segments omnicanaux <span class="font-normal normal-case t-disabled cursor-help" title="${_totalTip}">${total} clients</span><span class="text-[10px] font-normal t-disabled ml-2">· ${_S._globalPeriodePreset||'période sélectionnée'}</span></h3><div class="grid grid-cols-4 gap-2 mb-2">${tilesHtml}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctPC}%;background:var(--c-ok)"></div><div style="width:${pctPH}%;background:var(--c-danger);opacity:0.6"></div><div style="width:${pctHy}%;background:var(--c-info,#3b82f6)"></div><div style="width:${pctFu}%;background:var(--c-caution)"></div></div>${filterLabel}</div>`;
   }
 
+  // ── Sous-vue Omni — rendu dans cm-tab-content ────────────────────────────
+  function renderOmniContent() {
+    const el = document.getElementById('cm-tab-content');
+    if (!el) return;
+    el.innerHTML = `<div>
+    <div id="terrCanalBlock" class="s-card rounded-xl shadow-md border mb-3">
+      <div class="flex items-center justify-between px-4 py-3 border-b s-card-alt">
+        <div>
+          <h3 class="font-extrabold t-primary text-sm">📡 Répartition par canal</h3>
+          <p id="canalAgenceSubtitle" class="text-[10px] t-disabled mt-0.5">CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé</p>
+        </div>
+      </div>
+      <div id="canalAgenceBlock" class="p-3"></div>
+    </div>
+    <div id="terrSegmentsOmni" class="mb-3"></div>
+    <details id="terrAnalyseAccordion" class="s-card rounded-xl shadow-md border mb-3">
+      <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
+        <div class="flex items-center gap-2">
+          <h3 class="font-extrabold t-primary text-sm">📋 Analyse territoire</h3>
+          <span class="text-[10px] t-disabled">Vue Direction · Top 100 · Contributeurs · nécessite le BL Territoire</span>
+        </div>
+        <span class="acc-arrow t-tertiary">▶</span>
+      </summary>
+      <div id="terrNeedTerrBlock" class="hidden mb-2 mt-2 mx-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
+        <span class="text-lg flex-shrink-0">📊</span>
+        <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — fichier BL requis</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
+      </div>
+      <div id="terrCroisementBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
+        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-3 t-inverse">
+          <div class="flex items-center gap-2 mb-1"><span class="text-sm">🔗</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
+          <div id="terrCroisementText" class="text-xs leading-snug space-y-0.5"></div>
+        </div>
+      </div>
+      <div id="terrKPIBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
+          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
+          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCATotalSub" class="text-indigo-200 text-[10px] mt-0.5 font-bold"></p></div>
+          <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p><p id="terrKpiCouvertureInfo" class="hidden text-emerald-200 text-[9px] mt-0.5">ℹ️ stock physique indépendant du canal</p></div>
+          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
+          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
+        </div>
+      </div>
+      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 mx-2 px-2 py-1.5 i-caution-bg border b-light rounded-xl flex items-center gap-2">
+        <span class="text-base flex-shrink-0">📌</span>
+        <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
+      </div>
+      <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+        <details>
+          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal t-disabled">— trié par CA décroissant · cliquez pour détailler</span></h3>
+            <span class="acc-arrow t-disabled">▶</span>
+          </summary>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Direction</th>
+                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th class="py-1.5 px-2 text-center">Nb articles</th>
+                  <th class="py-1.5 px-2 text-center">✅ En rayon</th>
+                  <th class="py-1.5 px-2 text-center">⚠️ Rupture</th>
+                  <th class="py-1.5 px-2 text-center">❌ Absent</th>
+                  <th class="py-1.5 px-2 text-center min-w-[110px]">% couverture</th>
+                </tr>
+              </thead>
+              <tbody id="terrDirectionTable"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+      <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+        <details>
+          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+            <h3 id="terrContribTitle" class="font-extrabold t-primary text-xs flex items-center gap-2">🔗 Contributeurs agence</h3>
+            <div class="flex items-center gap-2">
+              <button onclick="event.stopPropagation();exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+              <span class="acc-arrow t-disabled">▶</span>
+            </div>
+          </summary>
+          <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse font-bold">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Secteur</th>
+                  <th class="py-1.5 px-2 text-right">BL Terrain</th>
+                  <th class="py-1.5 px-2 text-right">BL Agence</th>
+                  <th class="py-1.5 px-2 text-right">CA Terrain</th>
+                  <th class="py-1.5 px-2 text-center">Clients</th>
+                  <th class="py-1.5 px-2 text-center min-w-[100px]">% BL capté</th>
+                </tr>
+              </thead>
+              <tbody id="terrContribTable"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+      <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+        <details>
+          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">🏆 Top 100 articles <span class="text-[10px] font-normal t-disabled">— par CA Le Terrain · cliquez pour détailler</span></h3>
+            <div class="flex items-center gap-2">
+              <button onclick="event.stopPropagation();exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
+              <span class="acc-arrow t-disabled">▶</span>
+            </div>
+          </summary>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse font-bold">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Code</th>
+                  <th class="py-1.5 px-2 text-left">Libellé</th>
+                  <th class="py-1.5 px-2 text-left">Direction</th>
+                  <th class="py-1.5 px-2 text-center">Nb BL</th>
+                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th class="py-1.5 px-2 text-center">En rayon</th>
+                  <th class="py-1.5 px-2 text-right">Stock actuel</th>
+                </tr>
+              </thead>
+              <tbody id="terrTop100Table"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+      <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+        <details>
+          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
+            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">👥 Clients Le Terrain <span class="text-[10px] font-normal t-disabled">— mixtes vs extérieurs purs</span></h3>
+            <span class="acc-arrow t-disabled">▶</span>
+          </summary>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse font-bold">
+                <tr>
+                  <th class="py-1.5 px-2 text-left">Code client</th>
+                  <th class="py-1.5 px-2 text-left">Nom</th>
+                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
+                  <th class="py-1.5 px-2 text-center">Nb réf.</th>
+                  <th class="py-1.5 px-2 text-center">Type</th>
+                </tr>
+              </thead>
+              <tbody id="terrClientsTable"></tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </details>
+  </div>`;
+    renderCanalAgence();
+    _renderSegmentsOmnicanaux();
+    window.renderTerritoireTab?.();
+    const hasTerr = _S.territoireReady && _S.territoireLines.length > 0;
+    const hasChal = _S.chalandiseReady;
+    const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
+    if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
+    ['terrCroisementBlock','terrKPIBlock','terrSpecialKPIBlock','terrDirectionBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
+      const blk = document.getElementById(id);
+      if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
+    });
+    const terrOverview = document.getElementById('terrChalandiseOverview');
+    if (terrOverview) terrOverview.classList.toggle('hidden', !hasChal);
+    const comBlock = document.getElementById('commercialSummaryBlock');
+    if (comBlock) comBlock.classList.toggle('hidden', !hasTerr && !hasChal);
+  }
+
 // ── Window expositions for onclick handlers ──
 window.renderOmniTab     = renderOmniTab;
+window.renderOmniContent = renderOmniContent;
 window.renderCanalAgence = renderCanalAgence;
 window.openCanalDrill = openCanalDrill;
 window.openCanalDrillArticles = openCanalDrillArticles;
@@ -473,5 +639,6 @@ export {
   computePhantomArticles,
   _setTerrClientsCanalFilter,
   renderOmniTab,
+  renderOmniContent,
   SEG_LABELS,
 };

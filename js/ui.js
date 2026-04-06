@@ -147,6 +147,7 @@ if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
   if (id === 'abc') id = 'stock'; // abc fusionné dans stock
+  if (id === 'omni') { switchTab('commerce'); return; }
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -159,7 +160,7 @@ export function switchTab(id) {
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', reseau: 'filterGroupBench' };
-  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'omni' || id === 'labo') ? 'commerce' : 'stock';
+  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'labo') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
@@ -168,11 +169,11 @@ export function switchTab(id) {
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
   // Filtre canal global — visible sur territoire/omni uniquement
-  const _CANAL_TABS = new Set(['commerce', 'omni']);
+  const _CANAL_TABS = new Set(['commerce']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Commerce', omni: 'Filtres Omnicanalité', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Commerce', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
