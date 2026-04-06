@@ -2,7 +2,7 @@
 
 import { _S } from './state.js';
 import { DataStore } from './store.js';
-import { formatEuro, famLib, escapeHtml, fmtDate, matchQuery, getSecteurDirection } from './utils.js';
+import { formatEuro, famLib, escapeHtml, fmtDate, matchQuery, getSecteurDirection, buildPctBar } from './utils.js';
 import { _clientStatusBadge, _unikLink } from './engine.js';
 import { showToast } from './ui.js';
 import { getSelectedSecteurs } from './parser.js';
@@ -348,13 +348,13 @@ function renderTerrContrib(){
   }).sort((a,b)=>b.ca-a.ca);
   let tbody='';
   for(const r of rows){
-    const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
+    const barColor=r.pct>=30?'var(--c-ok)':r.pct>=10?'var(--c-caution)':'var(--c-danger)';
     const rowId='contrib-dir-'+r.direction.replace(/\W/g,'_');
     tbody+=`<tr class="contrib-dir-row border-b text-xs" onclick="toggleContribDirection('${rowId}','${encodeURIComponent(r.direction)}')">
       <td class="py-2 px-3 font-bold">${r.direction} <span class="t-disabled font-normal text-[9px]">▼</span></td>
       <td class="py-2 px-3 text-center font-semibold">${r.blT.toLocaleString('fr')}</td>
       <td class="py-2 px-3 text-center font-semibold c-action">${r.blA.toLocaleString('fr')}</td>
-      <td class="py-2 px-3"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="pct-bar-terr ${barColor}" style="width:${r.pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${r.pct}%</span></div></td>
+      <td class="py-2 px-3">${buildPctBar(r.pct, { color: barColor, height: 6, showLabel: true })}</td>
       <td class="py-2 px-3 text-right font-bold">${formatEuro(r.ca)}</td>
     </tr><tr id="${rowId}" class="contrib-dir-detail"><td colspan="5" class="p-0 i-info-bg border-b border-violet-100"><div id="${rowId}-inner" class="p-4 text-xs t-disabled">Chargement…</div></td></tr>`;
   }
@@ -398,13 +398,13 @@ function renderContribSecteurs(rowId,direction){
 function _buildSecteurRows(secteurs){
   let html='';
   for(const r of secteurs){
-    const barColor=r.pct>=30?'bg-emerald-500':r.pct>=10?'bg-amber-500':'bg-red-500';
+    const barColor=r.pct>=30?'var(--c-ok)':r.pct>=10?'var(--c-caution)':'var(--c-danger)';
     const rowId='contrib-sect-'+r.secteur.replace(/\W/g,'_');
     html+=`<tr class="contrib-sect-row border-t border-violet-100" onclick="toggleContribSecteur('${rowId}','${encodeURIComponent(r.secteur)}')">
       <td class="py-1.5 px-3 font-bold">${r.secteur} <span class="t-disabled text-[9px]">▼</span></td>
       <td class="py-1.5 px-3 text-center">${r.blT.toLocaleString('fr')}</td>
       <td class="py-1.5 px-3 text-center c-action font-semibold">${r.blA.toLocaleString('fr')}</td>
-      <td class="py-1.5 px-3"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="pct-bar-terr ${barColor}" style="width:${r.pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${r.pct}%</span></div></td>
+      <td class="py-1.5 px-3">${buildPctBar(r.pct, { color: barColor, height: 6, showLabel: true })}</td>
       <td class="py-1.5 px-3 text-right font-bold">${formatEuro(r.ca)}</td>
     </tr><tr id="${rowId}" class="contrib-sect-detail"><td colspan="5" class="p-0 i-ok-bg"><div id="${rowId}-inner" class="p-3 text-xs t-disabled">Chargement…</div></td></tr>`;
   }

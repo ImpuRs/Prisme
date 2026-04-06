@@ -10,11 +10,11 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery, buildSparklineSVG, buildDeltaBadge } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap } from './ui.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -952,7 +952,7 @@ _S.canalAgence=newCanalAgence;
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
 
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
-    finally{btn.disabled=false;hideLoading();}
+    finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
   }
 
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
@@ -1068,7 +1068,7 @@ _S.canalAgence=newCanalAgence;
     const{isRefilter=false,storeOverride='',_f1=null,_f2=null}=opts;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
-    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;btn.classList.add('loading');
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
       let headersC=null;
@@ -1376,7 +1376,7 @@ _S.canalAgence=newCanalAgence;
       // IDB save — skipped for isRefilter (only saves on full load)
       if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null); }
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
-    finally{btn.disabled=false;hideLoading();}
+    finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
   }
 
@@ -1663,6 +1663,18 @@ _S.canalAgence=newCanalAgence;
     // ── Bandeau hero Santé + Valeur Stock ──
     {const heroEl=document.getElementById('stockHeroContent');
     if(heroEl){
+      // Sparkline CA mensuel
+      const _monthlyCA=Array(12).fill(0);
+      for(const [code,months] of Object.entries(_S.articleMonthlySales||{})){
+        if(DataStore.finalData.some(r=>r.code===code))months.forEach((v,i)=>{_monthlyCA[i]+=v;});
+      }
+      const _sparklineCA=buildSparklineSVG(_monthlyCA,{color:'rgba(255,255,255,0.7)',width:100,height:24,filled:true});
+      // Delta M vs M-1
+      const _now=new Date();const _curMIdx=_now.getFullYear()*12+_now.getMonth();const _prevMIdx=_curMIdx-1;
+      let _caCurrentMonth=0,_caPrevMonth=0;
+      const _bmc=_S._byMonthCanal;
+      if(_bmc){for(const store in _bmc){if(_S.selectedMyStore&&store!=='INCONNU'&&store!==_S.selectedMyStore)continue;const mag=_bmc[store]?.['MAGASIN'];if(!mag)continue;for(const midxStr in mag){const midx=+midxStr;if(midx===_curMIdx)_caCurrentMonth+=mag[midxStr].sumCA||0;if(midx===_prevMIdx)_caPrevMonth+=mag[midxStr].sumCA||0;}}}
+      const _deltaBadge=buildDeltaBadge(_caCurrentMonth,_caPrevMonth,{format:'pct'});
       // Read health score data from renderHealthScore (already computed)
       const fd=dataSource;const _totalRefs=fd.length;
       const _rup=fd.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent).length;
@@ -1706,8 +1718,9 @@ _S.canalAgence=newCanalAgence;
           <div class="flex items-center gap-4 cursor-pointer select-none hover:opacity-80" onclick="switchTab('table')" title="→ Voir tous les articles">
             <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl px-5 py-3 text-white shadow-lg">
               <p class="text-[9px] font-bold uppercase text-blue-200 mb-0.5">Valeur stock</p>
-              <p class="text-xl font-extrabold tracking-tight">${formatEuro(totalValue)}</p>
-              <p class="text-blue-200 text-[10px] mt-0.5">${dataSource.length.toLocaleString('fr')} réf. · ✅ Dispo. ${sr}%</p>
+              <p class="text-xl font-extrabold tracking-tight kpi-update">${formatEuro(totalValue)}</p>
+              ${_sparklineCA ? `<div style="margin-top:4px;opacity:0.7">${_sparklineCA}</div>` : ''}
+              <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><p class="text-blue-200 text-[10px]">${dataSource.length.toLocaleString('fr')} réf. · ✅ Dispo. ${sr}%</p>${_deltaBadge ? `<span style="opacity:0.85">${_deltaBadge} vs mois préc.</span>` : ''}</div>
             </div>
           </div>
         </div>
@@ -2308,6 +2321,7 @@ window._cmdRender = _cmdRender;
 window._cmdBuildResults = _cmdBuildResults;
 window.closeCmdPalette = () => { const p=document.getElementById('cmdPalette'); if(p)p.classList.add('hidden'); };
 window.focusTrap = focusTrap;
+window.ToastManager = ToastManager;
 window.openReporting = openReporting;
 window.closeReporting = closeReporting;
 window.copyReportText = copyReportText;

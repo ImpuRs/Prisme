@@ -9,26 +9,93 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, computeHealthScore } from './engine.js';
 import { _nlInterpret, _nlRenderResults } from './nl.js';
 
 
-// ── Toast notifications ───────────────────────────────────────
+// ── ToastManager — file FIFO avec priorités ───────────────────
+const _TOAST_PRIORITY = { error: 0, warning: 1, success: 2, info: 3 };
+const _toastState = { queue: [], active: [], maxActive: 3 };
 let _lastToastMsg = '', _lastToastTime = 0;
-export function showToast(message, type = 'info', _duration, {html = false} = {}) {
-  const container = document.getElementById('toastContainer'); if (!container) return;
-  const now = Date.now();
-  if (message === _lastToastMsg && now - _lastToastTime < 2000) return;
-  _lastToastMsg = message; _lastToastTime = now;
-  const toast = document.createElement('div');
+
+export const ToastManager = {
+  show(message, type = 'info', duration, { html = false, undoFn = null, undoLabel = 'Annuler' } = {}) {
+    const now = Date.now();
+    if (_lastToastMsg === message && now - _lastToastTime < 2000) return;
+    _lastToastMsg = message; _lastToastTime = now;
+    const _dur = duration || (type === 'error' ? 6000 : type === 'warning' ? 5000 : 3500);
+    const toast = { id: now + Math.random(), message, type, html, duration: _dur, undoFn, undoLabel, priority: _TOAST_PRIORITY[type] ?? 3 };
+    const insertIdx = _toastState.queue.findIndex(t => t.priority > toast.priority);
+    if (insertIdx === -1) _toastState.queue.push(toast);
+    else _toastState.queue.splice(insertIdx, 0, toast);
+    _toastFlush();
+  },
+  dismiss(id) {
+    const el = document.querySelector(`[data-toast-id="${id}"]`);
+    if (el) _toastRemove(el, id);
+  },
+};
+
+function _toastFlush() {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  while (_toastState.active.length < _toastState.maxActive && _toastState.queue.length > 0) {
+    const toast = _toastState.queue.shift();
+    _toastState.active.push(toast.id);
+    _toastRender(toast, container);
+  }
+}
+
+function _toastRender(toast, container) {
   const colors = { success: 'i-ok-bg border-emerald-500 c-ok', error: 'i-danger-bg border-red-500 c-danger', warning: 'i-caution-bg border-amber-500 c-caution', info: 'i-info-bg border-blue-500 c-action' };
-  toast.className = `p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[type] || colors.info}`;
-  if (html) toast.innerHTML = message; else toast.textContent = message;
-  container.appendChild(toast);
-  setTimeout(() => { toast.classList.replace('toast-enter', 'toast-leave'); setTimeout(() => toast.remove(), 300); }, 3500);
+  const el = document.createElement('div');
+  el.className = `p-3 rounded-lg shadow-lg border-l-4 font-bold text-xs flex items-center gap-2 toast-enter pointer-events-auto ${colors[toast.type] || colors.info}`;
+  el.setAttribute('role', toast.type === 'error' ? 'alert' : 'status');
+  el.setAttribute('aria-live', toast.type === 'error' ? 'assertive' : 'polite');
+  el.setAttribute('data-toast-id', toast.id);
+  el.style.cssText = 'position:relative;overflow:hidden';
+  const msgEl = document.createElement('span');
+  msgEl.style.flex = '1';
+  if (toast.html) msgEl.innerHTML = toast.message; else msgEl.textContent = toast.message;
+  el.appendChild(msgEl);
+  if (toast.undoFn) {
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'text-[10px] font-extrabold underline cursor-pointer ml-1 shrink-0';
+    undoBtn.textContent = toast.undoLabel;
+    undoBtn.onclick = (e) => { e.stopPropagation(); toast.undoFn(); _toastRemove(el, toast.id); };
+    el.appendChild(undoBtn);
+  }
+  const dismissBtn = document.createElement('button');
+  dismissBtn.className = 'text-lg leading-none opacity-50 hover:opacity-100 shrink-0 ml-1';
+  dismissBtn.textContent = '×';
+  dismissBtn.setAttribute('aria-label', 'Fermer');
+  dismissBtn.onclick = () => _toastRemove(el, toast.id);
+  el.appendChild(dismissBtn);
+  const progress = document.createElement('div');
+  progress.style.cssText = `position:absolute;bottom:0;left:0;height:2px;background:currentColor;opacity:0.35;border-radius:0 0 4px 4px;animation:toastProgress ${toast.duration}ms linear forwards;width:100%`;
+  el.appendChild(progress);
+  container.appendChild(el);
+  const timer = setTimeout(() => _toastRemove(el, toast.id), toast.duration);
+  el._toastTimer = timer;
+}
+
+function _toastRemove(el, id) {
+  if (!el.isConnected) return;
+  clearTimeout(el._toastTimer);
+  el.classList.replace('toast-enter', 'toast-leave');
+  setTimeout(() => {
+    el.remove();
+    _toastState.active = _toastState.active.filter(aid => aid !== id);
+    _toastFlush();
+  }, 300);
+}
+
+// Rétrocompat — showToast() continue de fonctionner partout
+export function showToast(message, type = 'info', _duration, opts = {}) {
+  ToastManager.show(message, type, _duration, opts);
 }
 
 // ── Loading overlay ───────────────────────────────────────────
@@ -158,8 +225,19 @@ export function switchTab(id) {
   const btn = document.querySelector(`[data-tab="${id}"]`);
   if (btn) {
     btn.classList.add('active');
-    // Lazy render: first visit to this tab triggers render if data is loaded
-    if (!_S._tabRendered[id] && (DataStore.finalData.length > 0 || _S.ventesClientArticle?.size > 0)) renderCurrentTab();
+    if (!_S._tabRendered[id] && DataStore.finalData.length > 0) {
+      const skeletonMap = {
+        stock:    () => buildSkeletonCards(4) + buildSkeletonTable(6, 5),
+        reseau:   () => buildSkeletonCards(5) + buildSkeletonTable(8, 6),
+        commerce: () => buildSkeletonCards(3) + buildSkeletonTable(10, 7),
+        clients:  () => buildSkeletonCards(2) + buildSkeletonTable(6, 4),
+      };
+      const skFn = skeletonMap[id];
+      if (skFn && tab) tab.innerHTML = `<div class="container mx-auto mt-3 p-4 md:p-5">${skFn()}</div>`;
+      renderCurrentTab();
+    } else if (!_S._tabRendered[id] && _S.ventesClientArticle?.size > 0) {
+      renderCurrentTab();
+    }
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', reseau: 'filterGroupBench' };
@@ -245,11 +323,19 @@ export function getFilteredData() {
   });
   let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++;
   const el = document.getElementById('filterActiveCount'); if (el) el.textContent = activeCount > 0 ? `(${activeCount} actif${activeCount > 1 ? 's' : ''})` : '';
+  // Badges groupes sidebar
+  const _classifActive = [abc, fmr, fam, stat].filter(Boolean).length;
+  const _advancedActive = [sFam, emp, af].filter(Boolean).length;
+  const _bgClassif = document.getElementById('fgBadgeClassif');
+  if (_bgClassif) { _bgClassif.textContent = _classifActive; _bgClassif.classList.toggle('hidden', _classifActive === 0); }
+  const _bgAdv = document.getElementById('fgBadgeAvanced');
+  if (_bgAdv) { _bgAdv.textContent = _advancedActive; _bgAdv.classList.toggle('hidden', _advancedActive === 0); }
   if (_S._filterHorsAgence) return filtered.filter(r => (r.caHorsMagasin || 0) > 0);
   return filtered;
 }
 
 export function renderAll() {
+  document.body.classList.add('filtering');
   _S.filteredData = getFilteredData();
   _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
   updateActiveAgeIndicator();
@@ -258,7 +344,7 @@ export function renderAll() {
   renderCurrentTab(); // render only the currently active non-articles tab
   updateAmbientSignal();
   // Wrap glossary terms in <th> headers (idempotent — skips already-processed elements)
-  requestAnimationFrame(() => wrapGlossaryTerms(document));
+  requestAnimationFrame(() => { document.body.classList.remove('filtering'); wrapGlossaryTerms(document); });
 }
 
 export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }
@@ -513,7 +599,19 @@ export function closeCmdPalette() {
 export function _cmdRender(q) {
   const res = document.getElementById('cmdResults');
   if (!res) return;
-  const groups = _cmdBuildResults(q.trim());
+  const trimmed = q.trim();
+  let groups = _cmdBuildResults(trimmed);
+  // Afficher les récents quand la query est vide
+  if (!trimmed) {
+    const recent = _cmdLoadRecent();
+    if (recent.length > 0) {
+      const recentItems = recent.slice(0, 5).map(r => ({
+        icon: '🕐', main: r, sub: 'Recherche récente',
+        fn: () => { const inp = document.getElementById('cmdInput'); if (inp) { inp.value = r; _cmdRender(r); } }
+      }));
+      groups = [{ header: '🕐 Récent', items: recentItems }, ...groups];
+    }
+  }
   if (!groups.length) {
     res.innerHTML = '<div class="cmd-empty">Aucun résultat — essayez "ruptures", un code article ou un nom client</div>';
     _cmdItems = [];
@@ -523,7 +621,8 @@ export function _cmdRender(q) {
   _cmdItems = [];
   let idx = 0;
   for (const g of groups) {
-    html += `<div class="cmd-group-header">${g.header} <span class="opacity-60">(${g.items.length})</span></div>`;
+    const ariaLabel = g.header.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+    html += `<div class="cmd-group-header" role="group" aria-label="${ariaLabel}">${g.header} <span class="opacity-60">(${g.items.length})</span></div>`;
     for (const item of g.items) {
       const dataIdx = idx++;
       _cmdItems.push(item);
@@ -706,9 +805,26 @@ export function _cmdEsc(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── Command Palette — recherches récentes ─────────────────────
+const _CMD_RECENT_KEY = 'prisme_cmd_recent';
+const _CMD_RECENT_MAX = 8;
+function _cmdSaveRecent(query) {
+  if (!query || query.length < 2) return;
+  try {
+    const recent = JSON.parse(sessionStorage.getItem(_CMD_RECENT_KEY) || '[]');
+    const filtered = recent.filter(q => q !== query).slice(0, _CMD_RECENT_MAX - 1);
+    sessionStorage.setItem(_CMD_RECENT_KEY, JSON.stringify([query, ...filtered]));
+  } catch (_) {}
+}
+function _cmdLoadRecent() {
+  try { return JSON.parse(sessionStorage.getItem(_CMD_RECENT_KEY) || '[]'); } catch (_) { return []; }
+}
+
 export function _cmdExec(idx) {
   const item = _cmdItems[idx];
   if (!item) return;
+  const query = document.getElementById('cmdInput')?.value?.trim();
+  if (query) _cmdSaveRecent(query);
   closeCmdPalette();
   if (item.fn) item.fn();
 }
