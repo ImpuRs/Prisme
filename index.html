@@ -883,7 +883,7 @@
                 <input type="text" id="filterEmplacement" list="listEmplacement" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Emplacement…"><datalist id="listEmplacement"></datalist>
                 <select id="filterAge" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold border-amber-400 i-caution-bg w-full"><option value="">⏳ Âge : tout</option><option value="fresh">🟢 &lt;90j</option><option value="warm">🟡 90–180j</option><option value="hot">🟠 180j–1an</option><option value="critical">🔴 &gt;1an</option></select>
                 <button id="btnNouveautesOnly" onclick="_toggleNouveautesFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-emerald-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">✨ Nouveautés (&lt;35 jours)</button>
-                <button id="btnHorsAgence" onclick="toggleWebColumn()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
+                <button id="btnHorsAgence" onclick="_toggleHorsAgence()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-violet-500 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">🌐 Hors agence</button>
               </div>
             </details>
 
