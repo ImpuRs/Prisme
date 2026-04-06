@@ -455,6 +455,12 @@ function _passesAllFilters(cc){
 
   // ── Sous-vue Omni — rendu dans cm-tab-content ────────────────────────────
   function renderOmniContent() {
+    const s = window._S || {};
+    const hasChal     = !!s.chalandiseData?.size;
+    const hasTerr     = !!(s.territoireReady
+                        || Object.keys(s.terrDirectionData||{}).length > 0
+                        || s.terrContribByDirection?.size > 0);
+    const hasConsomme = !!s.finalData?.length;
     const el = document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
@@ -624,8 +630,6 @@ function _passesAllFilters(cc){
     _renderSegmentsOmnicanaux();
     window._buildChalandiseOverview?.();
     window._renderCommercialSummary?.();
-    const hasTerr = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
-    const hasChal = !!_S.chalandiseData?.size;
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
     if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
     ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
