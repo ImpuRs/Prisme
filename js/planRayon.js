@@ -24,11 +24,11 @@ const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
 const ACTION_BADGE = {
-  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢' },
-  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵' },
-  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴' },
-  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡' },
-  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁'  },
+  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢', cardBg: 'rgba(52,211,153,0.08)',  cardBorder: '#34d399' },
+  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵', cardBg: 'rgba(96,165,250,0.08)',  cardBorder: '#60a5fa' },
+  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴', cardBg: 'rgba(248,113,113,0.08)', cardBorder: '#f87171' },
+  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡', cardBg: 'rgba(251,191,36,0.08)',  cardBorder: '#fbbf24' },
+  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁',  cardBg: 'rgba(100,116,139,0.08)', cardBorder: '#64748b' },
 };
 
 const CLASSIF_BADGE = {
@@ -344,7 +344,8 @@ function _prBuildCards(data, searchText = '') {
     </div>`;
     const srcObj = { reseau: f.srcReseau, chalandise: f.srcChalandise, horsZone: f.srcHorsZone, livraisons: f.srcLivraisons };
     const covColor = f.couverture >= 70 ? '#22c55e' : f.couverture >= 40 ? '#f59e0b' : '#ef4444';
-    out += `<div class="s-card rounded-xl border p-3 cursor-pointer hover:border-[var(--c-action)] transition-all"
+    out += `<div class="s-card rounded-xl border p-3 cursor-pointer transition-all"
+      style="background:${b.cardBg};border-color:${b.cardBorder}"
       onclick="window._prOpenDetail('${safeCF}')">
       <div class="flex items-start justify-between mb-0.5">
         <div class="flex-1 min-w-0 mr-2">

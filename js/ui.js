@@ -1100,7 +1100,7 @@ export function renderCockpitBriefing() {
   }
 
   // Card 5 — Clients silencieux
-  if (_S.chalandiseReady && _S.clientLastOrder?.size > 0) {
+  if (_S.clientLastOrder?.size > 0) {
     const now = Date.now();
     let silCount = 0;
     for (const [, dt] of _S.clientLastOrder) {
