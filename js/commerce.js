@@ -2027,6 +2027,7 @@ export {
 function renderCommerceTab() {
   _cmTab = 'silencieux';
   _S._cmCache = {};
+  if (!_S._cockpitExportData) _buildCockpitClient();
   const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
   if (!el) return;
