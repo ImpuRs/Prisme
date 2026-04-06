@@ -624,7 +624,6 @@ function _passesAllFilters(cc){
     _renderSegmentsOmnicanaux();
     window._buildChalandiseOverview?.();
     window._renderCommercialSummary?.();
-    window.renderTerritoireTab?.();
     const hasTerr = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
     if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
@@ -637,6 +636,8 @@ function _passesAllFilters(cc){
     if(_dirBlkB){_dirBlkB.style.display=hasChal?'':'none';_dirBlkB.classList.toggle('hidden',!hasChal);}
     // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
     document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
+    // Peupler les KPIs territoire après que le DOM est mis à jour
+    setTimeout(() => { window.renderTerritoireTab?.(); }, 0);
   }
 
 // ── Window expositions for onclick handlers ──
