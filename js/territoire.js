@@ -2,7 +2,7 @@
 
 import { _S } from './state.js';
 import { DataStore } from './store.js';
-import { formatEuro, famLib, escapeHtml, _copyCodeBtn, fmtDate, matchQuery, getSecteurDirection } from './utils.js';
+import { formatEuro, famLib, escapeHtml, fmtDate, matchQuery, getSecteurDirection } from './utils.js';
 import { _clientStatusBadge, _unikLink } from './engine.js';
 import { showToast } from './ui.js';
 import { getSelectedSecteurs } from './parser.js';

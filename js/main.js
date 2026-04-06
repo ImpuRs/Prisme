@@ -2003,14 +2003,12 @@ _S.canalAgence=newCanalAgence;
       if(!_S.storesIntersection.size&&Object.keys(_S.ventesParMagasin).length>0&&Object.keys(_S.stockParMagasin).length>0){
         const vKeys=new Set(Object.keys(_S.ventesParMagasin)),sKeys=new Set(Object.keys(_S.stockParMagasin));
         _S.storesIntersection=new Set([...vKeys].filter(k=>sKeys.has(k)));
-        if(_S.storesIntersection.size)console.log('[PRISME] _S.storesIntersection reconstruite depuis IDB :',[..._S.storesIntersection]);
       }
       // Fallback compteurs : si non persistés dans l'ancien cache, recalculer depuis les maps
       if(!_S.storeCountConsomme)_S.storeCountConsomme=Object.keys(_S.ventesParMagasin).length;
       if(!_S.storeCountStock)_S.storeCountStock=Object.keys(_S.stockParMagasin).length;
       if(!_S.selectedMyStore&&_S.storesIntersection.size>0){
         const _saved2=localStorage.getItem('prisme_selectedStore');_S.selectedMyStore=(_saved2&&_S.storesIntersection.has(_saved2))?_saved2:[..._S.storesIntersection][0];
-        console.log('[PRISME] _S.selectedMyStore sélectionné automatiquement :', _S.selectedMyStore);
       }
       // ── Vérification de cohérence : DataStore.finalData contaminé ? ──
       // Un DataStore.finalData multi-agences sauvé par erreur (_S.storesIntersection vide lors de la session
