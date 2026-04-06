@@ -1704,7 +1704,7 @@ _S.canalAgence=newCanalAgence;
             <span class="text-3xl">${_ico}</span>
             <div>
               <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide">Sante Stock</p>
-              <p class="text-2xl font-extrabold" style="color:${_col}">${_score}<span class="text-sm font-normal t-disabled">/100</span></p>
+              <p style="font-family:var(--ff-display);font-size:var(--fs-2xl);font-weight:900;line-height:1;letter-spacing:var(--ls-tight);color:${_col}">${_score}<span style="font-size:var(--fs-sm);font-weight:400;color:var(--t-disabled)">/100</span></p>
             </div>
             <div class="flex flex-col items-center gap-0.5 ml-1">
               <div class="w-20 h-2.5 rounded-full bg-gray-200 overflow-hidden">
@@ -1716,7 +1716,7 @@ _S.canalAgence=newCanalAgence;
           <div class="flex items-center gap-4 cursor-pointer select-none hover:opacity-80" onclick="switchTab('table')" title="→ Voir tous les articles">
             <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl px-5 py-3 text-white shadow-lg">
               <p class="text-[9px] font-bold uppercase text-blue-200 mb-0.5">Valeur stock</p>
-              <p class="text-xl font-extrabold tracking-tight kpi-update">${formatEuro(totalValue)}</p>
+              <p style="font-family:var(--ff-display);font-size:var(--fs-3xl);font-weight:800;line-height:1;letter-spacing:var(--ls-tight);font-variant-numeric:tabular-nums" class="kpi-update">${formatEuro(totalValue)}</p>
               ${_sparklineCA ? `<div style="margin-top:4px;opacity:0.7">${_sparklineCA}</div>` : ''}
               <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><p class="text-blue-200 text-[10px]">${dataSource.length.toLocaleString('fr')} réf. · ✅ Dispo. ${sr}%</p>${_deltaBadge ? `<span style="opacity:0.85">${_deltaBadge} vs mois préc.</span>` : ''}</div>
             </div>
@@ -1880,7 +1880,7 @@ _S.canalAgence=newCanalAgence;
     _renderGhostArticles();
     renderPlanRayon();
     renderArbitrageRayonBlock();
-    const CELL_BG={AF:'#166534',AM:'#15803d',AR:'#0f766e',BF:'#1d4ed8',BM:'#64748b',BR:'#a16207',CF:'#c2410c',CM:'#b91c1c',CR:'#7f1d1d'};
+    const CELL_BG={AF:'#0d3320',AM:'#0f2d1a',AR:'#0c2a1e',BF:'#0d1f3c',BM:'#1a1f2e',BR:'#221a0c',CF:'#2a1208',CM:'#2a0d0d',CR:'#1a0808'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
@@ -1899,7 +1899,7 @@ _S.canalAgence=newCanalAgence;
         const diagBtn=d.count>0?`<button class="mt-2 text-[9px] font-bold px-2 py-0.5 rounded bg-black/30 text-white hover:bg-black/50 border border-white/30 transition-colors shadow-sm" onclick="event.stopPropagation();openDiagnosticCell('${abc}','${fmr}')" title="Diagnostic ${key} (${d.count} articles)">🔍 Diag.</button>`:'';
         html+=`<td class="p-2"><div class="abc-cell${abc==='A'?' abc-top':''}" style="background:${bg};color:#fff" onclick="filterByAbcFmr('${abc}','${fmr}')">
           <em class="info-tip" data-tip="${key} — ${RECOS[key]}" style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.22);color:#fff;margin:0">ℹ</em>
-          <div class="font-extrabold text-2xl">${d.count}</div>
+          <div class="cell-count">${d.count}</div>
           <div class="text-[10px] opacity-80">articles</div>
           <div class="font-bold text-sm mt-2">${formatEuro(d.stockVal)}</div>
           <div class="text-[10px] opacity-70 mt-0.5">${d.pctTotal.toFixed(1)}% du stock</div>

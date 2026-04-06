@@ -67,12 +67,20 @@ export function buildPctBar(pct, {
   animated  = true,
   max       = 100,
   radius    = 'var(--r-sm)',
+  gradient  = false,
+  glow      = false,
 } = {}) {
   const clamped = Math.min(100, Math.max(0, max > 0 ? (pct / max) * 100 : 0));
-  const label = showLabel
-    ? `<span style="font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:${color};margin-left:var(--sp-1);white-space:nowrap">${Math.round(clamped)}%</span>`
+  const fill = gradient
+    ? `linear-gradient(90deg, ${color}, var(--c-info, #38bdf8))`
+    : color;
+  const glowStyle = (glow && clamped > 80)
+    ? `;box-shadow:0 0 8px 1px ${color}40`
     : '';
-  return `<div style="display:flex;align-items:center;gap:4px;width:100%"><div style="flex:1;height:${height}px;background:${bgColor};border-radius:${radius};overflow:hidden"><div style="width:${clamped}%;height:100%;background:${color};border-radius:${radius}${animated ? ';transition:width .5s ease' : ''}"></div></div>${label}</div>`;
+  const label = showLabel
+    ? `<span style="font-size:var(--fs-2xs);font-weight:var(--fw-bold);color:${color};margin-left:var(--sp-1);white-space:nowrap;font-variant-numeric:tabular-nums">${Math.round(clamped)}%</span>`
+    : '';
+  return `<div style="display:flex;align-items:center;gap:4px;width:100%"><div style="flex:1;height:${height}px;background:${bgColor};border-radius:${radius};overflow:hidden"><div style="width:${clamped}%;height:100%;background:${fill};border-radius:${radius}${animated ? ';transition:width .5s ease' : ''}${glowStyle}"></div></div>${label}</div>`;
 }
 
 export function buildSparklineSVG(values, {
