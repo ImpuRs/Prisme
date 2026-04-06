@@ -6,7 +6,7 @@
   <title>PRISME — Voir juste, piloter vite.</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     /* ═══ COLOR COVENANT — variables sémantiques ══════════════ */
     :root {
@@ -167,6 +167,31 @@
       --z-overlay-max  : 10600;
       --z-toast        : 10000;
       --z-tooltip      : 9999;
+      /* ═══ TYPOGRAPHIE 2027 ═══════════════════════════════════════ */
+      --ff-display: 'DM Sans', 'Inter', sans-serif;
+      --ff-body:    'Inter', sans-serif;
+      --ff-mono:    'JetBrains Mono', 'Consolas', monospace;
+      /* Scale typographique (recalibrée +1 cran) */
+      --fs-2xs:  0.625rem;  /* 10px */
+      --fs-xs:   0.75rem;   /* 12px */
+      --fs-sm:   0.8125rem; /* 13px */
+      --fs-base: 0.9375rem; /* 15px */
+      --fs-lg:   1.0625rem; /* 17px */
+      --fs-xl:   1.375rem;  /* 22px */
+      --fs-2xl:  1.75rem;   /* 28px */
+      --fs-3xl:  2.25rem;   /* 36px — hero KPI */
+      /* Line-height lecture longue fond sombre */
+      --lh-none:   1;
+      --lh-tight:  1.2;
+      --lh-snug:   1.35;
+      --lh-normal: 1.55;
+      --lh-loose:  1.75;
+      /* Letter-spacing */
+      --ls-tight:  -0.01em;
+      --ls-normal:  0.01em;
+      --ls-wide:    0.04em;
+      --ls-wider:   0.08em;
+      --ls-widest:  0.12em;
     }
 
     /* ═══ TOKEN BRIDGE — classes sémantiques PRISME ════════════ */
@@ -230,42 +255,102 @@
     .bg-c-action  { background-color: var(--c-action); }
 
     /* ═══ THEME: DARK ═══════════════════════════════════ */
-    :root[data-theme="dark"] {
-      --s-page:        var(--p-slate-950);
-      --s-card:        var(--p-slate-900);
-      --s-card-alt:    var(--p-slate-800);
-      --s-panel:       var(--p-slate-900);
-      --s-panel-inner: var(--p-slate-800);
-      --s-hover:       var(--p-slate-800);
-      --s-hover-blue:  rgba(37,99,235,0.15);
-      --s-selected:    rgba(37,99,235,0.2);
-      --s-active:      rgba(37,99,235,0.25);
-      --t-primary:       var(--p-slate-200);
-      --t-secondary:     var(--p-slate-400);
-      --t-tertiary:      var(--p-slate-500);
-      --t-disabled:      var(--p-slate-600);
-      --t-inverse:       var(--p-slate-200);
-      --t-inverse-muted: var(--p-slate-400);
-      --t-link:          var(--p-blue-400);
-      --b-default: var(--p-slate-700);
-      --b-light:   var(--p-slate-800);
-      --b-dark:    var(--p-slate-700);
-      --b-darker:  var(--p-slate-600);
-      --i-danger-bg:    rgba(220,38,38,0.15);
-      --i-danger-text:  #fca5a5;
-      --i-caution-bg:   rgba(217,119,6,0.15);
-      --i-caution-text: #fbbf24;
-      --i-ok-bg:        rgba(22,163,74,0.15);
-      --i-ok-text:      #4ade80;
-      --i-info-bg:      rgba(37,99,235,0.15);
-      --i-info-text:    #60a5fa;
-      --i-neutral-bg:   var(--p-slate-800);
-      --i-neutral-text: var(--p-slate-400);
-      --shadow-sm:  0 1px 3px rgba(0,0,0,0.3);
-      --shadow-md:  0 4px 15px rgba(0,0,0,0.3);
-      --shadow-lg:  0 8px 25px rgba(0,0,0,0.4);
-      --shadow-xl:  0 8px 28px rgba(0,0,0,0.5);
-      --g-progress-track: rgba(255,255,255,0.1);
+    /* ═══ THEME DARK 2027 — PRISME Premium ══════════════════════
+       Conçu dark-first. Le light mode reste disponible mais ce
+       bloc est la référence de conception.
+       Consensus débat Octopus Design 2027 — score 87/100
+       ════════════════════════════════════════════════════════════ */
+    [data-theme="dark"] {
+
+      /* ── SURFACES — 4 niveaux d'élévation (background seul) ── */
+      --s-page:        #0f1117;   /* fond de page — base canvas */
+      --s-card:        #161b27;   /* cards, panels */
+      --s-card-alt:    #1e2435;   /* hover rows, inputs, card raised */
+      --s-panel:       #0f1117;   /* panels dark (diagnostic overlay) */
+      --s-panel-inner: #161b27;   /* contenu dans panels */
+      --s-overlay:     #252b3d;   /* popovers, dropdowns, tooltips */
+      --s-hover:       #1e2435;   /* hover state générique */
+      --s-hover-blue:  rgba(96,165,250,0.08);
+      --s-selected:    rgba(96,165,250,0.15);
+      --s-active:      rgba(96,165,250,0.20);
+      --s-sidebar:     #0b0e16;   /* sidebar plus sombre que le contenu */
+
+      /* ── BORDURES — séparateurs sans ombre ── */
+      --b-light:       #1e2538;   /* dividers très discrets */
+      --b-default:     #2a3248;   /* bordures cards, inputs */
+      --b-dark:        #2a3248;
+      --b-darker:      #3d4d6a;
+      --b-strong:      #3d4d6a;   /* focus visible, bordures actives */
+      --b-focus:       #60a5fa;
+
+      /* ── TEXTE ── */
+      --t-primary:     #e2e8f4;   /* texte principal */
+      --t-secondary:   #94a3b8;   /* labels secondaires */
+      --t-tertiary:    #64748b;   /* tertiary */
+      --t-disabled:    #4a5578;   /* disabled, placeholders */
+      --t-inverse:     #e2e8f4;
+      --t-inverse-muted: #94a3b8;
+      --t-link:        #60a5fa;
+
+      /* ── COULEURS SÉMANTIQUES — recalibrées dark (plus vives) ── */
+      --c-action:      #60a5fa;   /* blue-400 — meilleur contraste sur fond sombre */
+      --c-danger:      #f87171;   /* red-400 — rouge corail sans bleeding */
+      --c-caution:     #fbbf24;   /* amber-400 — ambre chaud */
+      --c-ok:          #34d399;   /* emerald-400 — vert menthe */
+      --c-muted:       #64748b;   /* slate-500 */
+
+      /* ── INDICATEURS — fonds sémantiques ── */
+      --i-info-bg:     rgba(96,165,250,0.10);
+      --i-info-text:   #93c5fd;
+      --i-danger-bg:   rgba(248,113,113,0.10);
+      --i-danger-text: #fca5a5;
+      --i-caution-bg:  rgba(251,191,36,0.10);
+      --i-caution-text:#fde68a;
+      --i-ok-bg:       rgba(52,211,153,0.10);
+      --i-ok-text:     #6ee7b7;
+      --i-neutral-bg:  #1e2435;
+      --i-neutral-text:#94a3b8;
+
+      /* ── INDICATEURS SOMBRES (diag badges) ── */
+      --i-ok-dark-bg:      #052e16;
+      --i-ok-dark-text:    #34d399;
+      --i-warn-dark-bg:    #451a03;
+      --i-warn-dark-text:  #fbbf24;
+      --i-error-dark-bg:   #450a0a;
+      --i-error-dark-text: #f87171;
+      --i-lock-dark-bg:    #161b27;
+      --i-lock-dark-text:  #4a5578;
+
+      /* ── GRAPHIQUES ── */
+      --g-progress-track: rgba(255,255,255,0.08);
+      --g-progress-fill:  linear-gradient(90deg,#60a5fa,#38bdf8);
+      --g-bar-critical:   linear-gradient(90deg,#f87171,#ef4444);
+      --g-bar-high:       linear-gradient(90deg,#fb923c,#f97316);
+      --g-bar-medium:     linear-gradient(90deg,#fbbf24,#f59e0b);
+      --g-bar-low:        #4a5578;
+      --g-shimmer:        linear-gradient(90deg,transparent,#60a5fa,#38bdf8,transparent);
+
+      /* ── SHADOWS — discrets sur fond sombre ── */
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md:  0 4px 15px rgba(0,0,0,0.5);
+      --shadow-lg:  0 8px 25px rgba(0,0,0,0.6);
+      --shadow-xl:  0 8px 28px rgba(0,0,0,0.7);
+
+      /* ── NAVBAR ── */
+      --navbar-bg:     linear-gradient(to bottom,#0b0e16 0%,#0f1117 100%);
+      --navbar-border: rgba(255,255,255,0.07);
+
+      /* ── SIGNAL AMBIANT + BARRE SPECTRALE ── */
+      --signal-gradient: linear-gradient(90deg,
+        #ef4444 0%,#f97316 14%,#eab308 28%,
+        #22c55e 42%,#3b82f6 57%,#8b5cf6 71%,#ec4899 100%
+      );
+
+      /* ── DIAGNOSTIC VOYANTS ── */
+      --p-diag-blue-bg:   #0a1628;
+      --p-diag-violet-bg: #120a1e;
+      --p-diag-green-bg:  #04120a;
+      --p-diag-amber-bg:  #120a00;
     }
 
     /* ═══ DARK MODE ENFORCEMENT — filet de sécurité ════════════ */
@@ -309,7 +394,7 @@
     .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:var(--s-hover-blue)}.contrib-client-row.open{background:var(--s-selected)}
     .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
     .pct-bar-terr{height:6px;border-radius:var(--r-sm);transition:width .4s ease}
-    body{font-family:'Inter',sans-serif}
+    body{font-family:var(--ff-body);font-size:var(--fs-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     th{cursor:pointer;user-select:none}th:hover{background:var(--p-slate-700)}
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--s-page);border-radius:var(--r-sm)}::-webkit-scrollbar-thumb{background:var(--p-slate-300);border-radius:var(--r-sm)}
     .tab-content{animation:fadeIn .25s ease-in-out}
@@ -506,6 +591,10 @@
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
     #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:var(--s-page);border-right:1px solid var(--b-default);overflow:hidden}
+    [data-theme="dark"] #filterPanel{background:var(--s-sidebar,#0b0e16) !important;border-right-color:var(--b-light)}
+    [data-theme="dark"] #filterPanel #sidebarDesktopTitle,[data-theme="dark"] #filterPanel #sidebarGroupTitle{color:var(--t-disabled);letter-spacing:var(--ls-wider)}
+    [data-theme="dark"] #filterPanel .filter-group>summary{background:rgba(255,255,255,0.03)}
+    [data-theme="dark"] #filterPanel .filter-group-body{background:var(--s-card)}
     #filterPanelContent{scrollbar-width:thin}
     #tabsContainer{position:sticky;top:0;z-index:50;background:var(--s-page);border-bottom:1px solid var(--b-default);box-shadow:var(--shadow-sm);display:none;align-items:stretch}
     body.pilot-loaded #tabsContainer{display:flex}
@@ -531,8 +620,9 @@
     .periode-select{font-size:var(--fs-xs);color:var(--t-primary);background:var(--s-card);border:1px solid var(--b-default);border-radius:var(--r-md);padding:3px 6px;cursor:pointer;flex:1;min-width:0}
     .periode-select:focus{outline:1px solid var(--c-action);border-color:var(--c-action)}
     /* ═══ PRISME : barre spectrale ══════════════════════════════ */
-    .prisme-spectrum{height:4px;display:flex;width:100%}
-    .prisme-spectrum>span{flex:1}
+    .prisme-spectrum{display:none} /* remplacé par #prismeSpectrum */
+    #prismeSpectrum{height:3px;width:100%;background:var(--signal-gradient,linear-gradient(90deg,var(--p-prisme-red) 0%,var(--p-prisme-amber) 14%,var(--p-prisme-gold) 28%,var(--p-prisme-green) 42%,var(--p-prisme-blue) 57%,var(--p-prisme-violet) 71%,var(--p-prisme-rose) 100%))}
+    [data-theme="dark"] #prismeSpectrum{opacity:0.9}
     /* ═══ Onglets spectraux ══════════════════════════════════════ */
     .tab-btn{display:inline-flex;align-items:center;gap:6px;padding:var(--sp-2) var(--sp-4);border:none;background:transparent;color:var(--t-tertiary);font-size:var(--fs-base);font-weight:var(--fw-medium);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s ease;white-space:nowrap}
     .tab-btn:hover{color:var(--tab-text,var(--t-primary));background:var(--tab-bg,var(--s-card-alt));border-radius:var(--r-md) var(--r-md) 0 0}
@@ -618,13 +708,13 @@
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
-    nav#mainNav{background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.06);height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    nav#mainNav{background:var(--navbar-bg,var(--p-slate-950));border-bottom:1px solid var(--navbar-border,rgba(255,255,255,0.06));height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
-    #mainNav .nav-logo{font-size:var(--fs-lg);letter-spacing:.18em;color:var(--s-card);font-weight:var(--fw-bold);user-select:none;cursor:default;line-height:1}
-    #mainNav .nav-logo-tagline{font-size:var(--fs-2xs);color:rgba(255,255,255,0.35);letter-spacing:.08em;font-style:italic;line-height:1;margin-top:2px}
-    #navStats{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:monospace}
+    #mainNav .nav-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:var(--s-card);font-weight:800;user-select:none;cursor:default;line-height:1}
+    #mainNav .nav-logo-tagline{font-family:var(--ff-body);font-size:var(--fs-2xs);color:rgba(255,255,255,0.35);letter-spacing:var(--ls-wide);font-style:italic;line-height:1;margin-top:2px;opacity:0.35}
+    #navStats{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:var(--ff-mono,monospace);font-variant-numeric:tabular-nums}
     #navStore{font-size:var(--fs-xs);color:var(--p-slate-300);letter-spacing:.05em;border:1px solid rgba(255,255,255,0.15);border-radius:var(--r-md);padding:2px var(--sp-3);background:transparent;font-weight:var(--fw-normal)}
-    #navPerf{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:monospace}
+    #navPerf{font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-family:var(--ff-mono,monospace);font-variant-numeric:tabular-nums}
 #navCmdBtn{font-size:var(--fs-xs);color:rgba(255,255,255,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:var(--r-sm);padding:1px var(--sp-2);background:none;cursor:pointer;font-family:monospace;line-height:1.6;transition:color .15s,border-color .15s}
     #navCmdBtn:hover{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.3)}
     #navReportingBtn{font-size:var(--fs-xs);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:var(--r-md);padding:var(--sp-1) var(--sp-3);background:transparent;font-weight:var(--fw-medium);transition:color .15s,border-color .15s}
@@ -735,16 +825,8 @@
     </div>
   </nav>
 
-  <!-- Barre spectrale PRISME -->
-  <div class="prisme-spectrum" aria-hidden="true">
-    <span style="background:var(--p-prisme-red)"></span>
-    <span style="background:var(--p-prisme-amber)"></span>
-    <span style="background:var(--p-prisme-gold)"></span>
-    <span style="background:var(--p-prisme-green)"></span>
-    <span style="background:var(--p-prisme-blue)"></span>
-    <span style="background:var(--p-prisme-violet)"></span>
-    <span style="background:var(--p-prisme-rose)"></span>
-  </div>
+  <!-- Barre spectrale PRISME 2027 — gradient unifié -->
+  <div id="prismeSpectrum" aria-hidden="true"></div>
 
   <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
   <div id="insightsBanner" class="hidden">
