@@ -636,8 +636,15 @@ function _passesAllFilters(cc){
     if(_dirBlkB){_dirBlkB.style.display=hasChal?'':'none';_dirBlkB.classList.toggle('hidden',!hasChal);}
     // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
     document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
-    // Peupler les KPIs territoire après que le DOM est mis à jour
-    setTimeout(() => { window.renderTerritoireTab?.(); }, 0);
+    // Peupler les KPIs territoire — attendre que terrKpiLignes soit dans le DOM
+    const _waitAndRender = () => {
+      if (document.getElementById('terrKpiLignes')) {
+        window.renderTerritoireTab?.();
+      } else {
+        setTimeout(_waitAndRender, 50);
+      }
+    };
+    setTimeout(_waitAndRender, 0);
   }
 
 // ── Window expositions for onclick handlers ──
