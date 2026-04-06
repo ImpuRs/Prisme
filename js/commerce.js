@@ -92,17 +92,12 @@ function _cmSwitchTab(id) {
 }
 
 function _cmComputeCounts() {
-  const nowMs = Date.now();
-  let silencieux = 0, perdus = 0, potentiels = 0;
-  for (const [cc] of (_S.ventesClientArticle || new Map())) {
-    if (!_passesAllFilters(cc)) continue;
-    const lastDate = _S.clientLastOrder?.get(cc);
-    const silence = lastDate ? Math.round((nowMs - lastDate) / 86400000) : 999;
-    if (silence > 30 && silence <= 60) silencieux++;
-    else if (silence > 60) perdus++;
-  }
-  if (_S.crossingStats?.potentiels) potentiels = _S.crossingStats.potentiels.size;
-  return { silencieux, perdus, potentiels, opportunites: null };
+  return {
+    silencieux: _S._cockpitExportData?.silencieux?.length || 0,
+    perdus: _S._cockpitExportData?.perdus?.length || 0,
+    potentiels: _S._cockpitExportData?.jamaisVenus?.length || 0,
+    opportunites: null
+  };
 }
 
 
@@ -1697,7 +1692,7 @@ function _buildCockpitClient(){
   }
   function renderBlock(title,emoji,bgColor,borderColor,scoreColor,clients,caField,raisonFn,listId,topN=10){
     const total=clients.length;
-    const isOpen=false;
+    const isOpen=true;
     const arrow=isOpen?'▼':'▶';
     const bodyDisplay=isOpen?'':'display:none';
     if(!total)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs t-disabled px-4 pb-4">${emptyMsg}</p></div></div>`;
@@ -1994,7 +1989,7 @@ export {
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
   _cmTab = 'silencieux';
-  if (!_S._cockpitExportData) _buildCockpitClient();
+  _buildCockpitClient();
   const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
   if (!el) return;
