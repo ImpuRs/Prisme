@@ -37,25 +37,29 @@ function _refreshBenchEquation() {
   const bar = document.getElementById('benchEquationBar');
   if (!bar) return;
   const _ca_all = _S.canalAgence || {};
-  const _canal = _S._globalCanal || '';
+  const _canaux = _S._reseauCanaux || new Set();
+  const _mode = _S._reseauMagasinMode || 'all';
+  const _getCA = (d) => !d ? 0 : _mode === 'preleve' ? (d.caP || 0) : _mode === 'enleve' ? (d.caE || 0) : (d.ca || 0);
+  const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
   let _ca, _nbBL, _sumVMB, _nbClients, _canalLabel;
-  if (!_canal) {
-    _ca = Object.values(_ca_all).reduce((s, d) => s + (d.ca || 0), 0);
+  if (_canaux.size === 0) {
+    _ca = Object.values(_ca_all).reduce((s, d) => s + _getCA(d), 0);
     _nbBL = Object.values(_ca_all).reduce((s, d) => s + (d.bl || 0), 0);
     _sumVMB = Object.values(_ca_all).reduce((s, d) => s + (d.sumVMB || 0), 0);
     _nbClients = _S.clientLastOrderByCanal?.size || 0;
     _canalLabel = 'Tous canaux';
-  } else {
+  } else if (_canaux.size === 1) {
+    const _canal = [..._canaux][0];
     const _d = _ca_all[_canal] || {};
-    _ca = _d.ca || 0; _nbBL = _d.bl || 0; _sumVMB = _d.sumVMB || 0;
-    if (_canal === 'MAGASIN') {
-      _nbClients = _S.clientsMagasin?.size || 0;
-    } else {
-      _nbClients = 0;
-      for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }
-    }
-    const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
+    _ca = _getCA(_d); _nbBL = _d.bl || 0; _sumVMB = _d.sumVMB || 0;
+    _nbClients = _canal === 'MAGASIN' ? (_S.clientsMagasin?.size || 0) : 0;
+    if (_canal !== 'MAGASIN') for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }
     _canalLabel = _LMAP[_canal] || _canal;
+  } else {
+    _ca = 0; _nbBL = 0; _sumVMB = 0;
+    for (const _c of _canaux) { const _d = _ca_all[_c] || {}; _ca += _getCA(_d); _nbBL += _d.bl || 0; _sumVMB += _d.sumVMB || 0; }
+    _nbClients = _S.clientLastOrderByCanal?.size || 0;
+    _canalLabel = `${_canaux.size} canaux`;
   }
   if (!_ca) { bar.classList.add('hidden'); return; }
   const _caClient = _nbClients > 0 ? Math.round(_ca / _nbClients) : 0;
