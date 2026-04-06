@@ -139,10 +139,10 @@ function _buildChalDirBlock(blkEl) {
   const _barPDV = pct => `<div class="flex items-center gap-1"><div style="background:var(--b-default);border-radius:3px;height:6px;width:80px;position:relative"><div style="background:orange;border-radius:3px;height:6px;width:${pct}%"></div></div><span class="text-xs font-bold">${pct}%</span></div>`;
 
   // ── Ligne groupe (niveaux root/métier/commercial) ──────────────────────
-  const _groupRow = (label, clients, onclick, rowStyle) => {
+  const _groupRow = (label, clients, onclick, rowStyle, star='') => {
     const g = _calcGroup(clients);
     return `<tr onclick="${onclick}" style="cursor:pointer${rowStyle?';'+rowStyle:''}" class="border-b hover:s-card-alt">
-      <td class="py-1.5 px-2 font-semibold">${label} <span class="t-disabled text-[9px]">▶</span></td>
+      <td class="py-1.5 px-2 font-semibold">${label}${star} <span class="t-disabled text-[9px]">▶</span></td>
       <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
       <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsLeg}</td>
       <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsPDV}</td>
@@ -179,7 +179,7 @@ function _buildChalDirBlock(blkEl) {
     const byMet = new Map();
     for (const c of slice) { const m = c.metier||'—'; if (!byMet.has(m)) byMet.set(m,[]); byMet.get(m).push(c); }
     for (const [m, clients] of [...byMet.entries()].sort((a,b) => b[1].length - a[1].length))
-      tbodyHtml += _groupRow(escapeHtml(m), clients, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`, 'background:rgba(244,63,94,.05)');
+      tbodyHtml += _groupRow(escapeHtml(m), clients, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`, 'background:rgba(244,63,94,.05)', _isMetierStrategique(m) ? ' ⭐' : '');
   } else if (level === 'commercial') {
     breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} › ${escapeHtml(metier)} ›`;
     theadHtml = _thead9('Commercial');
