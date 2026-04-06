@@ -1027,23 +1027,11 @@ export function updateAmbientSignal() {
     calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
   ).length;
 
-  let height, bg;
-  if (critRupt > 5) {
-    // Critique : épais + hachuré
-    height = '7px';
-    bg = 'repeating-linear-gradient(45deg,var(--c-danger),var(--c-danger) 4px,rgba(220,38,38,.3) 4px,rgba(220,38,38,.3) 8px)';
-  } else if (sr < 85) {
-    height = '7px';
-    bg = 'var(--c-danger)';
-  } else if (sr < 95) {
-    height = '5px';
-    bg = 'var(--c-caution)';
-  } else {
-    height = '3px';
-    bg = 'var(--c-ok)';
-  }
-  el.style.height = height;
-  el.style.background = bg;
+  el.classList.remove('signal--ok', 'signal--caution', 'signal--danger', 'signal--critical');
+  if (critRupt > 5)  el.classList.add('signal--critical');
+  else if (sr < 85)  el.classList.add('signal--danger');
+  else if (sr < 95)  el.classList.add('signal--caution');
+  else               el.classList.add('signal--ok');
 }
 
 // ── Feature 3: Briefing Evidence Cards ───────────────────────
