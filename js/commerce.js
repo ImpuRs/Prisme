@@ -687,7 +687,8 @@ window._terrDrillBack = function() {
 
     // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
     {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
-    _tb('terrDirectionBlock',  hasChal);   // chalandise suffit
+    // terrDirectionBlock : chalandise seule suffit — INDÉPENDANT de hasTerr
+    {const _db=document.getElementById('terrDirectionBlock');if(_db){_db.style.display=hasChal?'':'none';_db.classList.toggle('hidden',!hasChal);}}
     _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
     _tb('terrCroisementBlock', hasTerr);
     _tb('terrSpecialKPIBlock', hasTerr);
@@ -2218,6 +2219,7 @@ window._cockpitToggleFullList     = _cockpitToggleFullList;
 window._cockpitToggleSection      = _cockpitToggleSection;
 window._renderCommercialSummary   = _renderCommercialSummary;
 window._renderOmniSegmentClients  = _renderOmniSegmentClients;
+window._buildChalDirBlock         = _buildChalDirBlock;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
 window._buildDegradedCockpit      = _buildDegradedCockpit;
 window._buildCockpitClient        = _buildCockpitClient;
