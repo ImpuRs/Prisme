@@ -1241,17 +1241,28 @@ function _buildChalandiseOverview(){
   // ── Bandeau 2 lignes : chalandise (ligne 1) + KPIs canal (ligne 2) ──
   {const bar=document.getElementById('terrSummaryBar');
   if(bar){
-    const _canal=_S._globalCanal||'MAGASIN';
+    const _canal=_S._globalCanal||'';
     const CANAL_LABELS={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS'};
-    const _canalLabel=CANAL_LABELS[_canal]||_canal;
-    const _cData=_S.canalAgence?.[_canal];
-    const _ca=_cData?.ca||0;
-    const _nbBL=_cData?.bl||0;
-    const _nbClients=_S.clientsMagasin?.size||0;
+    const _ca_all=_S.canalAgence||{};
+    let _ca,_nbBL,_sumVMB,_nbClients,_canalLabel;
+    if(!_canal){
+      _ca=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
+      _nbBL=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
+      _sumVMB=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
+      _nbClients=_S.clientLastOrder?.size||_S.clientsMagasin?.size||0;
+      _canalLabel='Tous canaux';
+    }else{
+      const _d=_ca_all[_canal]||{};
+      _ca=_d.ca||0;_nbBL=_d.bl||0;_sumVMB=_d.sumVMB||0;
+      _nbClients=0;
+      for(const[,cMap] of (_S.clientLastOrderByCanal||new Map())){if(cMap.has(_canal))_nbClients++;}
+      if(!_nbClients)_nbClients=_canal==='MAGASIN'?(_S.clientsMagasin?.size||0):0;
+      _canalLabel=CANAL_LABELS[_canal]||_canal;
+    }
     const _caClient=_nbClients>0?Math.round(_ca/_nbClients):0;
     const _freq=_nbClients>0?(_nbBL/_nbClients).toFixed(1):'—';
-    const _txMarge=_S.ventesAnalysis?.txMarge;
-    const _vmc=_S.ventesAnalysis?.vmc;
+    const _txMarge=_ca>0?(_sumVMB/_ca)*100:0;
+    const _vmc=_nbBL>0?_ca/_nbBL:0;
     const _fmt=v=>v>0?formatEuro(v):'—';
     const _dot=`<span class="t-disabled text-xs">·</span>`;
     const _clientsHtml=filterActive
