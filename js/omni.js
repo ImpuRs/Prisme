@@ -625,6 +625,7 @@ function _passesAllFilters(cc){
     window._buildChalandiseOverview?.();
     window._renderCommercialSummary?.();
     const hasTerr = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
+    const hasChal = !!_S.chalandiseData?.size;
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
     if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
     ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
