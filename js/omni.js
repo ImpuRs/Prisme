@@ -478,6 +478,7 @@ function _passesAllFilters(cc){
         <p class="text-[10px] font-bold t-disabled uppercase tracking-wide">🚫 Exclus >24m</p>
         <p id="terrSumExclus" class="text-xl font-extrabold t-disabled">—</p>
       </div>
+      <div id="terrSumComKPIs" class="hidden contents"></div>
     </div>
     <div id="terrCanalBlock" class="s-card rounded-xl shadow-md border mb-3">
       <div class="flex items-center justify-between px-4 py-3 border-b s-card-alt">
