@@ -113,82 +113,101 @@ function _buildChalDirBlock(blkEl) {
   const _lbl = d => _DIR_LABELS[d] || d || 'Autre';
   const { level, dir, metier, commercial } = _chalDrill;
 
-  const _ca = c => (c.ca2025||0) + (c.ca2026||0);
-  const _sumCA = arr => arr.reduce((s,c) => s + _ca(c), 0);
-  const _nbLeg = arr => arr.filter(c => _ca(c) > 0).length;
-  const _nbPDV = arr => arr.filter(c => c.activitePDV?.includes('Actif')).length;
-  const _bar = (n, tot) => {
-    const pct = tot > 0 ? Math.round(n / tot * 100) : 0;
-    const bc = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
-    return { pct, html: `<div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-2"><div class="cap-bar ${bc}" style="width:${pct}%"></div></div><span class="text-[10px] font-bold w-10 text-right">${pct}%</span></div>` };
+  // ── Calcul groupe (9 métriques) ──────────────────────────────────────────
+  const _calcGroup = clients => {
+    const g = { total:0, actifsLeg:0, actifsPDV:0, prospects:0, perdus1224:0, inactifs:0 };
+    for (const c of clients) {
+      g.total++;
+      if (c.statut === 'Actif')                         g.actifsLeg++;
+      if (c.activitePDV?.includes('Actif PDV'))         g.actifsPDV++;
+      if (c.statut === 'Prospect')                      g.prospects++;
+      if (c.statutDetaille === 'Perdu 12-24 mois')      g.perdus1224++;
+      if (c.statut === 'Inactif')                       g.inactifs++;
+    }
+    g.pctLeg = g.total > 0 ? Math.round(g.actifsLeg / g.total * 100) : 0;
+    g.pctPDV = g.total > 0 ? Math.round(g.actifsPDV / g.total * 100) : 0;
+    g.hasStrat = clients.some(c => c.classification?.includes('Pot+'));
+    return g;
   };
-  const _kpiThead = `<tr><th class="py-1.5 px-2 text-left">—</th><th class="py-1.5 px-2 text-right">Zone</th><th class="py-1.5 px-2 text-right">Captés Leg.</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-center min-w-[110px]">% PDV</th></tr>`;
-  const _kpiRow = (label, arr, onclick) => {
-    const nbZ = arr.length, nbL = _nbLeg(arr), nbP = _nbPDV(arr), ca = _sumCA(arr);
-    const { html: barHtml } = _bar(nbP, nbZ);
-    return `<tr class="border-b text-xs cursor-pointer hover:i-info-bg" onclick="${onclick}">
-      <td class="py-2 px-3 font-bold">${label} <span class="t-disabled text-[9px]">▶</span></td>
-      <td class="py-2 px-3 text-right">${nbZ}</td>
-      <td class="py-2 px-3 text-right c-ok">${nbL}</td>
-      <td class="py-2 px-3 text-right c-action">${nbP}</td>
-      <td class="py-2 px-3 text-right">${formatEuro(ca)}</td>
-      <td class="py-2 px-3">${barHtml}</td>
+
+  // ── Barres ───────────────────────────────────────────────────────────────
+  const _barLeg = pct => `<div class="flex items-center gap-1"><div style="background:var(--c-info);opacity:.25;border-radius:3px;height:8px;width:${Math.min(pct*1.5,120)}px"></div><div style="background:var(--c-info);border-radius:3px;height:8px;width:${Math.min(pct,60)}px;margin-left:-${Math.min(pct,60)}px"></div><span class="text-xs font-bold" style="color:var(--c-info)">${pct}%</span></div>`;
+  const _barPDV = pct => `<div class="flex items-center gap-1"><div style="background:var(--b-default);border-radius:3px;height:6px;width:80px;position:relative"><div style="background:orange;border-radius:3px;height:6px;width:${pct}%"></div></div><span class="text-xs font-bold">${pct}%</span></div>`;
+
+  // ── Ligne groupe (niveaux root/métier/commercial) ──────────────────────
+  const _groupRow = (label, clients, onclick, rowStyle) => {
+    const g = _calcGroup(clients);
+    const star = g.hasStrat ? ' ⭐' : '';
+    return `<tr onclick="${onclick}" style="cursor:pointer${rowStyle?';'+rowStyle:''}" class="border-b hover:s-card-alt">
+      <td class="py-1.5 px-2 font-semibold">${label}${star} <span class="t-disabled text-[9px]">▶</span></td>
+      <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
+      <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsLeg}</td>
+      <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsPDV}</td>
+      <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${g.prospects}</td>
+      <td class="py-1.5 px-2 text-right c-caution">${g.perdus1224}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${g.inactifs}</td>
+      <td class="py-1.5 px-2">${_barLeg(g.pctLeg)}</td>
+      <td class="py-1.5 px-2">${_barPDV(g.pctPDV)}</td>
     </tr>`;
   };
 
-  const _backBtn = level === 'root' ? '' :
-    `<div class="px-3 pt-2 pb-1"><button onclick="window._terrDrillBack()" class="text-[10px] px-2 py-1 rounded s-hover border font-semibold">← Retour</button></div>`;
+  const _thead9 = fcol => `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">${fcol}</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Actifs Leg.</th><th class="py-1.5 px-2 text-right">Actifs PDV</th><th class="py-1.5 px-2 text-right">Prospects</th><th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th><th class="py-1.5 px-2">% capté Leg.</th><th class="py-1.5 px-2">% capté PDV</th></tr>`;
 
-  let titleLabel, theadHtml, tbodyHtml = '';
+  // ── Construction par niveau ───────────────────────────────────────────
+  let breadcrumb, summaryBadge = '', theadHtml, tbodyHtml = '', isClients = false;
+  const backBtn = level === 'root' ? '' :
+    `<button onclick="window._terrDrillBack()" class="text-[10px] px-2 py-1 rounded s-hover border font-semibold mr-2 flex-shrink-0">←</button>`;
 
   if (level === 'root') {
-    titleLabel = 'Vue par Direction';
+    breadcrumb = '🎯 Votre territoire en un coup d\'œil';
     const byDir = new Map();
     for (const c of all) { const d = c.direction||'Autre'; if (!byDir.has(d)) byDir.set(d,[]); byDir.get(d).push(c); }
-    const sorted = [...byDir.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
-    theadHtml = _kpiThead.replace('—','Direction');
-    for (const [d, arr] of sorted)
-      tbodyHtml += _kpiRow(escapeHtml(_lbl(d)), arr, `window._terrDrillDir('${encodeURIComponent(d)}')`);
+    const sorted = [...byDir.entries()].sort((a,b) => b[1].length - a[1].length);
+    theadHtml = _thead9('Direction');
+    for (const [d, clients] of sorted)
+      tbodyHtml += _groupRow(escapeHtml(_lbl(d)), clients, `window._terrDrillDir('${encodeURIComponent(d)}')`);
+    const totalPDV = all.filter(c => c.activitePDV?.includes('Actif PDV')).length;
+    const pctCapte = all.length > 0 ? Math.round(all.filter(c => c.statut==='Actif').length / all.length * 100) : 0;
+    summaryBadge = `<span class="text-[10px] t-disabled ml-2 font-normal">${byDir.size} directions · ${totalPDV} actifs PDV · ${pctCapte}% capté</span>`;
   } else if (level === 'metier') {
-    titleLabel = `Direction › ${_lbl(dir)}`;
+    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} ›`;
+    theadHtml = _thead9('Métier');
     const slice = all.filter(c => (c.direction||'Autre') === dir);
     const byMet = new Map();
     for (const c of slice) { const m = c.metier||'—'; if (!byMet.has(m)) byMet.set(m,[]); byMet.get(m).push(c); }
-    const sorted = [...byMet.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
-    theadHtml = _kpiThead.replace('—','Métier');
-    for (const [m, arr] of sorted)
-      tbodyHtml += _kpiRow(escapeHtml(m), arr, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`);
+    for (const [m, clients] of [...byMet.entries()].sort((a,b) => b[1].length - a[1].length))
+      tbodyHtml += _groupRow(escapeHtml(m), clients, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`, 'background:rgba(244,63,94,.05)');
   } else if (level === 'commercial') {
-    titleLabel = `${_lbl(dir)} › ${metier}`;
+    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} › ${escapeHtml(metier)} ›`;
+    theadHtml = _thead9('Commercial');
     const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier);
     const byCom = new Map();
     for (const c of slice) { const com = c.commercial||'—'; if (!byCom.has(com)) byCom.set(com,[]); byCom.get(com).push(c); }
-    const sorted = [...byCom.entries()].sort((a,b) => _sumCA(b[1]) - _sumCA(a[1]));
-    theadHtml = _kpiThead.replace('—','Commercial');
-    for (const [com, arr] of sorted)
-      tbodyHtml += _kpiRow(escapeHtml(com), arr, `window._terrDrillCommercial('${encodeURIComponent(dir)}','${encodeURIComponent(metier)}','${encodeURIComponent(com)}')`);
+    for (const [com, clients] of [...byCom.entries()].sort((a,b) => b[1].length - a[1].length))
+      tbodyHtml += _groupRow(escapeHtml(com), clients, `window._terrDrillCommercial('${encodeURIComponent(dir)}','${encodeURIComponent(metier)}','${encodeURIComponent(com)}')`);
   } else {
     // level === 'clients'
-    titleLabel = `${_lbl(dir)} › ${metier} › ${commercial}`;
+    isClients = true;
+    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} › ${escapeHtml(metier)} › ${escapeHtml(commercial)}`;
+    theadHtml = `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Activité PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-left">Classification</th><th class="py-1.5 px-2"></th></tr>`;
     const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier && (c.commercial||'—') === commercial);
-    const sorted = slice.sort((a,b) => _ca(b) - _ca(a));
-    theadHtml = `<tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Activité PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-left">Classification</th></tr>`;
-    for (const c of sorted)
-      tbodyHtml += `<tr class="border-b text-xs cursor-pointer hover:i-info-bg" onclick="openClient360('${escapeHtml(c.cc)}','territoire')"><td class="py-2 px-3"><span class="font-bold">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled text-[9px]">${c.cc}</span></td><td class="py-2 px-3 text-[10px]">${escapeHtml(c.activitePDV||'—')}</td><td class="py-2 px-3 text-right">${formatEuro(_ca(c))}</td><td class="py-2 px-3 text-[10px] t-secondary">${escapeHtml(c.classification||'—')}</td></tr>`;
+    for (const c of slice.sort((a,b) => ((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0)))) {
+      const star = c.classification?.includes('Pot+') ? ' ⭐' : '';
+      const ca = (c.ca2025||0)+(c.ca2026||0);
+      tbodyHtml += `<tr class="border-b text-xs cursor-pointer hover:s-card-alt" onclick="openClient360('${escapeHtml(c.cc)}','territoire')"><td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom||c.cc)}</span>${star} <span class="t-disabled text-[9px]">${c.cc}</span></td><td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.activitePDV||'—')}</td><td class="py-1.5 px-2 text-right">${formatEuro(ca)}</td><td class="py-1.5 px-2 text-[10px] t-secondary">${escapeHtml(c.classification||'—')}</td><td class="py-1.5 px-2 text-center t-disabled">🔍</td></tr>`;
+    }
   }
 
-  const colCount = level === 'clients' ? 4 : 6;
-  blkEl.innerHTML = `<details open class="overflow-hidden">
-    <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-      <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 ${escapeHtml(titleLabel)} <span class="text-[10px] font-normal t-disabled">— Zone de chalandise</span></h3>
-      <span class="acc-arrow t-disabled">▶</span>
-    </summary>
-    ${_backBtn}
-    <div class="overflow-x-auto"><table class="min-w-full text-xs">
-      <thead class="s-panel-inner t-inverse">${theadHtml}</thead>
-      <tbody>${tbodyHtml||`<tr><td colspan="${colCount}" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
-    </table></div>
-  </details>`;
+  const colCount = isClients ? 5 : 9;
+  blkEl.innerHTML = `<div class="flex items-center justify-between px-3 py-2 s-card-alt border-b">
+    <div class="flex items-center">
+      ${backBtn}<span class="font-extrabold t-primary text-xs">${breadcrumb}</span>${summaryBadge}
+    </div>
+  </div>
+  <div class="overflow-x-auto"><table class="min-w-full text-xs">
+    <thead class="s-panel-inner t-inverse">${theadHtml}</thead>
+    <tbody>${tbodyHtml||`<tr><td colspan="${colCount}" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
+  </table></div>`;
 }
 
 window._terrDrillDir = function(dirEnc) {
