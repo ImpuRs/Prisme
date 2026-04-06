@@ -547,6 +547,35 @@ function _cmComputeCounts() {
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
+      // Mode dégradé — peupler terrKPIBlock avec consommé seul si disponible
+      if(hasConsomme){
+        const _kEl=document.getElementById('terrKPIBlock');
+        if(_kEl){_kEl.style.display='';_kEl.classList.remove('hidden');}
+        const _ss=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+        // Lignes → articles stock agence
+        _ss('terrKpiLignes',DataStore.finalData.length.toLocaleString('fr'));
+        _ss('terrKpiLignesSub','articles en stock');
+        // CA agence tous canaux
+        const _caAll=Object.values(_S.canalAgence||{}).reduce((s,d)=>s+(d.ca||0),0);
+        _ss('terrKpiCATotal',formatEuro(_caAll));
+        const _caSub=document.getElementById('terrKpiCATotalSub');if(_caSub)_caSub.textContent='CA agence (tous canaux)';
+        // Couverture — indisponible sans territoire
+        _ss('terrKpiCouverture','—');
+        _ss('terrKpiCouvertureSub','nécessite le BL Terrain');
+        // Clients PDV
+        _ss('terrKpiClients',(_S.clientsMagasin?.size||0).toLocaleString('fr'));
+        _ss('terrKpiClientsSub','clients PDV agence');
+        // Taux captation zone — depuis crossingStats si disponible
+        const _cap=_S.crossingStats?.captes?.size||0;
+        const _pot=_S.crossingStats?.potentiels?.size||0;
+        if(_cap>0&&_pot>0){
+          _ss('terrKpiSpecialPct',Math.round(_cap/_pot*100)+'%');
+          _ss('terrKpiSpecialSub','taux captation zone');
+        }else{
+          _ss('terrKpiSpecialPct','—');
+          _ss('terrKpiSpecialSub','nécessite chalandise');
+        }
+      }
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
