@@ -1249,14 +1249,17 @@ function _buildChalandiseOverview(){
       _ca=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
       _nbBL=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
       _sumVMB=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
-      _nbClients=_S.clientLastOrder?.size||_S.clientsMagasin?.size||0;
+      _nbClients=_S.clientLastOrderByCanal?.size||0;
       _canalLabel='Tous canaux';
     }else{
       const _d=_ca_all[_canal]||{};
       _ca=_d.ca||0;_nbBL=_d.bl||0;_sumVMB=_d.sumVMB||0;
-      _nbClients=0;
-      for(const[,cMap] of (_S.clientLastOrderByCanal||new Map())){if(cMap.has(_canal))_nbClients++;}
-      if(!_nbClients)_nbClients=_canal==='MAGASIN'?(_S.clientsMagasin?.size||0):0;
+      if(_canal==='MAGASIN'){
+        _nbClients=_S.clientsMagasin?.size||0;
+      }else{
+        _nbClients=0;
+        for(const[,cMap] of (_S.clientLastOrderByCanal||new Map())){if(cMap.has(_canal))_nbClients++;}
+      }
       _canalLabel=CANAL_LABELS[_canal]||_canal;
     }
     const _caClient=_nbClients>0?Math.round(_ca/_nbClients):0;
