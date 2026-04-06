@@ -410,6 +410,9 @@ export function debouncedRender() { clearTimeout(_S.debounceTimer); _S.debounceT
 export function resetFilters() {
   document.getElementById('searchInput').value = '';
   ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  _S._filterHorsAgence = false;
+  const btnHA = document.getElementById('btnHorsAgence');
+  if (btnHA) { btnHA.classList.remove('bg-violet-500', 'text-white'); btnHA.classList.add('t-secondary'); }
   clearCockpitFilter(true); updateActiveAgeIndicator(); _S.currentPage = 0; renderAll();
 }
 

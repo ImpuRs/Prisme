@@ -2252,8 +2252,12 @@ window._setReseauCanalFilter = function(val){
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function() {
   _S._filterHorsAgence = !_S._filterHorsAgence;
-  const btn = document.querySelector('[onclick*="_toggleHorsAgence"]');
-  if (btn) btn.classList.toggle('active', _S._filterHorsAgence);
+  const btn = document.getElementById('btnHorsAgence');
+  if (btn) {
+    btn.classList.toggle('bg-violet-500', _S._filterHorsAgence);
+    btn.classList.toggle('text-white',    _S._filterHorsAgence);
+    btn.classList.toggle('t-secondary',  !_S._filterHorsAgence);
+  }
   onFilterChange();
 };
 window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='horszone'?'tous':'horszone');};
