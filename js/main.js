@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -1012,23 +1012,21 @@ _S.canalAgence=newCanalAgence;
   // Grise les onglets selon les fichiers chargés — appelé après chaque chargement complet
   function _syncTabAccess(){
     const hasStock=!!_S._hasStock;
-    const needsStock=['table','stock'];
-    const needsConsomme=['commerce'];
-    needsStock.forEach(tab=>{
-      const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
-      if(!hasStock){btn.classList.add('tab-locked');btn.title="Chargez l'État du Stock pour activer cet onglet";}
-      else{btn.classList.remove('tab-locked');if(btn.title.includes('Stock'))btn.title='';}
+    // Griser les pills Mon Stock si pas de fichier stock
+    ['stock','table'].forEach(tabId=>{
+      const pill=document.querySelector(`.supertab-pill[data-subtab="${tabId}"]`);if(!pill)return;
+      if(!hasStock){pill.style.opacity='0.45';pill.title="Nécessite le fichier stock";pill.style.pointerEvents='none';}
+      else{pill.style.opacity='';pill.title='';pill.style.pointerEvents='';}
     });
-    needsConsomme.forEach(tab=>{
-      const btn=document.querySelector(`.tab-btn[data-tab="${tab}"]`);if(!btn)return;
-      btn.classList.remove('tab-locked');btn.title='';
-    });
-    // Labo: needs consommé + chalandise
-    const laboBtn=document.querySelector('.tab-btn[data-tab="labo"]');
-    if(laboBtn){
+    // Le Réseau — visible uniquement si multi-agences
+    const reseauGroup=document.getElementById('stg-reseau');
+    if(reseauGroup){reseauGroup.style.display=(_S.storesIntersection?.size>1)?'':'none';}
+    // Labo pill — verrouillé si pas de chalandise
+    const laboPill=document.querySelector('.supertab-pill[data-subtab="labo"]');
+    if(laboPill){
       const hasChal=_S.chalandiseData?.size>0;
-      if(!hasChal){laboBtn.classList.add('tab-locked');laboBtn.title='Chargez le Consommé et la Zone de Chalandise';}
-      else{laboBtn.classList.remove('tab-locked');laboBtn.title='';}
+      if(!hasChal){laboPill.style.opacity='0.45';laboPill.title='Nécessite la Zone de Chalandise';laboPill.style.pointerEvents='none';}
+      else{laboPill.style.opacity='';laboPill.title='';laboPill.style.pointerEvents='';}
     }
   }
 
@@ -2174,6 +2172,7 @@ _S.canalAgence=newCanalAgence;
 // Phase 1 : les handlers inline dans le HTML appellent ces fonctions via window.
 // Phase 2 (Vite) : nettoyer progressivement au profit d'event listeners.
 window.switchTab = switchTab;
+window.switchSuperTab = switchSuperTab;
 window.processData = processData;
 window.showToast = showToast;
 

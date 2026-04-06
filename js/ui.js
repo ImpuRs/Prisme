@@ -167,25 +167,42 @@ export function onFileSelected(i, id) {
 
 export function collapseImportZone(nbFiles, store, nbArts, elapsed) {
   const iz = document.getElementById('importZone');
+  const ob = document.getElementById('onboardingStep0');
   const bannerRight = document.getElementById('insightsBannerRight');
   const banner = document.getElementById('insightsBanner');
-  if (!iz || !bannerRight || !banner) return;
+  if (!bannerRight || !banner) return;
   const _btnStyle = `font-size:var(--fs-xs);color:rgba(255,255,255,0.35);background:none;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:1px 8px;cursor:pointer;transition:color .15s,border-color .15s`;
   const _btnHover = `onmouseover="this.style.color='rgba(255,255,255,0.65)';this.style.borderColor='rgba(255,255,255,0.3)'" onmouseout="this.style.color='rgba(255,255,255,0.35)';this.style.borderColor='rgba(255,255,255,0.15)'"`;
   bannerRight.innerHTML = `<button onclick="expandImportZone()" style="${_btnStyle}" ${_btnHover}>Modifier les fichiers</button><button onclick="_onPurgeCache()" style="${_btnStyle};margin-left:6px" ${_btnHover}>🗑️ Purger le cache</button><button onclick="document.getElementById('glossaire').classList.toggle('hidden')" style="${_btnStyle};margin-left:6px" ${_btnHover}>Glossaire</button>`;
-  iz.classList.add('hidden');
-  document.getElementById('onboardingBlock')?.classList.add('hidden');
+  if (iz) iz.classList.add('hidden');
+  if (ob) ob.classList.add('hidden');
   banner.classList.remove('hidden');
+  // Banner enrichissement si optionnels manquants
+  const hasChal = _S.chalandiseReady || !!document.getElementById('fileChalandise')?.files[0];
+  const hasLiv  = _S.livraisonsReady || !!document.getElementById('fileLivraisons')?.files[0];
+  const enrichEl = document.getElementById('enrichBanner');
+  const enrichMsg = document.getElementById('enrichBannerMsg');
+  if (enrichEl && (!hasChal || !hasLiv)) {
+    const missing = [];
+    if (!hasChal) missing.push('Zone de Chalandise');
+    if (!hasLiv)  missing.push('Livraisons');
+    if (enrichMsg) enrichMsg.textContent = `Ajoutez ${missing.join(' + ')} pour activer Commerce & Clients`;
+    enrichEl.classList.remove('hidden');
+  }
   const navKpisEl = document.getElementById('navKpis');
   if (navKpisEl) navKpisEl.style.display = 'flex';
 }
 
 export function expandImportZone() {
   const iz = document.getElementById('importZone');
+  const ob = document.getElementById('onboardingStep0');
   const bannerRight = document.getElementById('insightsBannerRight');
   const bannerLeft = document.getElementById('insightsBannerLeft');
   const banner = document.getElementById('insightsBanner');
+  const enrichEl = document.getElementById('enrichBanner');
   if (iz) iz.classList.remove('hidden');
+  if (ob) ob.classList.remove('hidden');
+  if (enrichEl) enrichEl.classList.add('hidden');
   if (bannerRight) bannerRight.innerHTML = '';
   if (banner && bannerLeft && !bannerLeft.innerHTML.trim()) banner.classList.add('hidden');
   if (_S.storesIntersection && _S.storesIntersection.size > 1) {
@@ -194,6 +211,11 @@ export function expandImportZone() {
   if (DataStore.finalData.length > 0) {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
+  }
+  // Ouvrir optionnel si chalandise ou livraisons déjà chargés
+  const optDetails = document.getElementById('onboardingOptional');
+  if (optDetails && (_S.chalandiseReady || _S.livraisonsReady)) {
+    optDetails.open = true;
   }
 }
 
@@ -216,6 +238,26 @@ export function _setGlobalCanal(canal) {
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
+// ── Super-tab navigation ──────────────────────────────────────
+const _SUPERTAB_DEFAULT = { stock: 'stock', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
+const _TAB_TO_SUPERTAB  = {
+  stock: 'stock', table: 'stock',
+  commerce: 'commerce', clients: 'commerce',
+  reseau: 'reseau',
+  labo: 'labo', animation: 'labo',
+};
+
+export function switchSuperTab(supertabId) {
+  document.querySelectorAll('.supertab-group').forEach(g => g.classList.remove('active'));
+  document.querySelectorAll('.supertab-btn').forEach(b => b.classList.remove('active'));
+  const gKey = supertabId === 'commerce' ? 'clients' : supertabId;
+  const group = document.getElementById(`stg-${gKey}`);
+  const btn   = document.getElementById(`stbtn-${gKey}`);
+  if (group) group.classList.add('active');
+  if (btn)   btn.classList.add('active');
+  switchTab(_SUPERTAB_DEFAULT[supertabId] || supertabId);
+}
+
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
   if (id === 'abc') id = 'stock'; // abc fusionné dans stock
@@ -224,13 +266,32 @@ export function switchTab(id) {
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const tab = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1)); if (tab) tab.classList.remove('hidden');
+
+  // Active le bouton direct si trouvé (data-tab = super-tab button)
   const btn = document.querySelector(`[data-tab="${id}"]`);
-  if (btn) {
-    btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+
+  // Synchroniser le super-tab parent
+  const supertabId = _TAB_TO_SUPERTAB[id];
+  if (supertabId) {
+    document.querySelectorAll('.supertab-group').forEach(g => g.classList.remove('active'));
+    document.querySelectorAll('.supertab-btn').forEach(b => b.classList.remove('active'));
+    const gKey = supertabId === 'commerce' ? 'clients' : supertabId;
+    const stGroup = document.getElementById(`stg-${gKey}`);
+    const stBtn   = document.getElementById(`stbtn-${gKey}`);
+    if (stGroup) stGroup.classList.add('active');
+    if (stBtn)   stBtn.classList.add('active');
+  }
+  // Synchroniser la pill active
+  document.querySelectorAll('.supertab-pill').forEach(p => p.classList.remove('active'));
+  const activePill = document.querySelector(`.supertab-pill[data-subtab="${id}"]`);
+  if (activePill) activePill.classList.add('active');
+
+  // Déclencher le rendu — découplé de la présence d'un bouton direct
+  {
     if (!_S._tabRendered[id] && DataStore.finalData.length > 0) {
       const skeletonMap = {
         // Uniquement les tabs dont le renderer écrase tab.innerHTML en entier
-        // stock, reseau, table, clients : HTML statique — skeleton écraserait les IDs cibles
         commerce: () => buildSkeletonCards(3) + buildSkeletonTable(10, 7),
       };
       const skFn = skeletonMap[id];
