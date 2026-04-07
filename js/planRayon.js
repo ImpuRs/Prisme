@@ -1628,19 +1628,26 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ INSTRUCTION ═══\n`;
-  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B).\n`;
-  txt += `Réponds en français. 4 blocs max, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
+  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
+  txt += `Réponds en français, style synthétique, 6 blocs dans l'ordre ci-dessous. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
   txt += `─── RAYON EN UN COUP D'ŒIL ───\n`;
-  txt += `1 phrase : nb articles, couverture, valeur stock, signal global (développer / surveiller / liquider).\n\n`;
-  txt += `─── PÉPITES — ne jamais rompre ───\n`;
-  txt += `Meilleures ventes (AF = très vendues, très fréquentes). Format : [CODE] Libellé — W=X. ⚠️ si stock bas.\n\n`;
+  txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
+  txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
+  txt += `─── URGENCES STOCK ───\n`;
+  txt += `Utilise la section RUPTURES URGENTES (W≥3, stock=0). Pour chaque article : [CODE] Libellé — W=X → commander N unités. Priorise par W décroissant.\n`;
+  txt += `Signale aussi les PÉPITES AF avec stock bas (⚠️ STOCK BAS dans les données) : [CODE] Libellé — W=X, stock=N.\n\n`;
+  txt += `─── SOCLE — maintenir absolument ───\n`;
+  txt += `Utilise la section "Socle réseau" : articles justifiés par les sources. Signale ceux qui sont en rupture ou sous-stockés (stock < MAX). Classe par W décroissant, limite aux 10 plus critiques.\n\n`;
   txt += `─── À IMPLANTER ───\n`;
-  txt += `Absents mais demandés (réseau + clients zone). 1 ligne par article : [CODE] Libellé.\n\n`;
+  txt += `Utilise "Top articles à implanter" (absents, signal réseau fort). Pour chaque article : [CODE] Libellé — X agences réseau, Y clients zone. Croise avec les métiers clients actifs : si le métier dominant achète cette famille, c'est une priorité haute.\n\n`;
   txt += `─── À VIRER ───\n`;
-  txt += `Dormants (0 vente) + challengers non justifiés. Format : [CODE] Libellé. Bloquer réassort.\n\n`;
-  txt += `─── À CHALLENGER (si place dispo) ───\n`;
-  txt += `Présents mais signal faible. Garder si place, virer sinon. Format : [CODE] Libellé — W=X.\n\n`;
-  txt += `RÈGLE UNIQUE : W = ventes hebdo moyennes. W élevé + stock bas = urgence absolue, signale-le en premier.\n`;
+  txt += `Utilise les sections "Dormants" (W=0, valeur immobilisée) et "Challengers" (en stock, signal faible).\n`;
+  txt += `Dormants : [CODE] Libellé — stock N, valeur Xe immobilisée. Bloquer réassort immédiatement.\n`;
+  txt += `Challengers à virer : ceux sans justification métier ni réseau. Format : [CODE] Libellé — W=X.\n`;
+  txt += `Calcule et affiche la valeur totale libérable (dormants + challengers à virer).\n\n`;
+  txt += `─── INSIGHTS CATALOGUE & MARQUES ───\n`;
+  txt += `Utilise la section CATALOGUE (sous-familles, marques, couverture). Quelle sous-famille est sur- ou sous-représentée ? Y a-t-il une marque trop concentrée ou absente ? Recommande 1-2 ajustements précis.\n\n`;
+  txt += `RÈGLE ABSOLUE : W = ventes hebdo moyennes sur la période analysée. W élevé + stock=0 = urgence maximale — toujours traité en premier.\n`;
 
   return txt;
 }
