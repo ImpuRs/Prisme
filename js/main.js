@@ -237,10 +237,6 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
 _S.canalAgence=newCanalAgence;
     }
 
-    // ── Recalculer consommePeriodMin/Max ──
-    if(pStart)_S.consommePeriodMin=pStart;
-    if(pEnd)_S.consommePeriodMax=pEnd;
-
     // ── Recalculer ventesAnalysis depuis canalAgence reconstruit ──
     const _magData=_S.canalAgence?.['MAGASIN']||{};
     const _caMag=_magData.ca||0;

@@ -429,8 +429,8 @@ export async function _restoreSessionFromIDB() {
     _S.consommePeriodMin     = data.consommePeriodMin     ? new Date(data.consommePeriodMin)     : null;
     _S.consommePeriodMax     = data.consommePeriodMax     ? new Date(data.consommePeriodMax)     : null;
     _S.consommeMoisCouverts  = data.consommeMoisCouverts  || 0;
-    _S.consommePeriodMinFull = data.consommePeriodMinFull ? new Date(data.consommePeriodMinFull) : null;
-    _S.consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : null;
+    _S.consommePeriodMinFull = data.consommePeriodMinFull ? new Date(data.consommePeriodMinFull) : _S.consommePeriodMin;
+    _S.consommePeriodMaxFull = data.consommePeriodMaxFull ? new Date(data.consommePeriodMaxFull) : _S.consommePeriodMax;
     _S.globalJoursOuvres     = data.globalJoursOuvres     || 250;
 
     _S.storeCountConsomme = data.storeCountConsomme || 0;
