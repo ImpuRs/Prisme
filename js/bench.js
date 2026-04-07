@@ -360,34 +360,25 @@ function renderObservatoire(){
   const _kpiCanalNames={MAGASIN:'en prélevé comptoir',INTERNET:'sur Internet',REPRESENTANT:'par représentant',DCS:'en DCS',AUTRE:'sur autre canal'};
   const _refTip=_kpiRcSet.size===0?'Nombre d\'articles différents vendus au moins 1 fois sur la période.':_kpiRcSet.size===1?`Nombre d\'articles différents vendus au moins 1 fois ${_kpiCanalNames[[..._kpiRcSet][0]]||'sur le canal sélectionné'} sur la période.`:`Nombre d\'articles différents vendus au moins 1 fois sur les canaux sélectionnés sur la période.`;
   const kpiDefs=[
-    {label:'💰 CA vendu',key:'ca',fmt:'euro',tip:'CA canal MAGASIN (Prélevé + Enlevé) sur la période du consommé. Avoirs déduits.'},
-    {label:'📦 Réf actives',key:'ref',fmt:'num',tip:_refTip},
-    {label:'🔄 Fréquence',key:'freq',fmt:'num',tip:'Nombre total de lignes de vente (BL) sur la période. Mesure l\'activité comptoir.'},
-    {label:'🎯 PDM bassin',key:'pdm',fmt:'pct',tip:'Part de marché dans le bassin de comparaison. Mon CA total ÷ CA total bassin × 100. Indique votre poids relatif dans le réseau sélectionné.'},
-    {label:'📈 Tx marge',key:'txMarge',fmt:'pct2',tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.'}
+    {label:'💰 CA vendu',   key:'ca',     fmt:'euro', tip:'CA canal MAGASIN (Prélevé + Enlevé) sur la période du consommé. Avoirs déduits.',                                                                                                          g1:'#7c3aed',g2:'#4f46e5'},
+    {label:'📦 Réf actives',key:'ref',    fmt:'num',  tip:_refTip,                                                                                                                                                                                      g1:'#0891b2',g2:'#0e7490'},
+    {label:'🔄 Fréquence',  key:'freq',   fmt:'num',  tip:'Nombre total de lignes de vente (BL) sur la période. Mesure l\'activité comptoir.',                                                                                                           g1:'#059669',g2:'#047857'},
+    {label:'🎯 PDM bassin', key:'pdm',    fmt:'pct',  tip:'Part de marché dans le bassin de comparaison. Mon CA total ÷ CA total bassin × 100. Indique votre poids relatif dans le réseau sélectionné.',                                                g1:'#d97706',g2:'#b45309'},
+    {label:'📈 Tx marge',   key:'txMarge',fmt:'pct2', tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.',                               g1:'#dc2626',g2:'#b91c1c'}
   ];
   const cardsHtml=kpiDefs.map(r=>{
     const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
     const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
-    const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-30?'🟠':'🔴';
-    const ecartColor=pct>=0?'c-ok font-extrabold':pct>=-10?'c-caution font-bold':pct>=-30?'c-caution font-bold':'c-danger font-extrabold';
+    const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-20?'🟠':'🔴';
+    const ecartColor=pct>=0?'#4ade80':pct>=-20?'#fbbf24':'#f87171';
     const isLagging=pct<0;
-    const cardColor=pct>=0?'var(--c-ok)':pct>=-10?'var(--c-caution)':pct>=-30?'var(--c-caution)':'var(--c-danger)';
-    const cardShadow=pct>=0
-      ?'0 0 0 1px rgba(0,229,160,0.12), inset 0 1px 0 rgba(255,255,255,0.04)'
-      :pct>=-30
-        ?`0 0 0 1px rgba(217,119,6,0.15), inset 0 1px 0 rgba(255,255,255,0.04)`
-        :`0 0 0 1px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.04)`;
-    const cardStyle=`background:var(--s-card-alt);border:1.5px solid ${cardColor};box-shadow:${cardShadow}`;
     const onclk=isLagging?`onclick="document.getElementById('benchUnderperformBanner')?.scrollIntoView({behavior:'smooth'})"` :'';
-    const drillHint=isLagging?`<p class="text-[9px] c-action font-semibold">→ Familles en retard</p>`:'';
-    return `<div class="s-card rounded-xl p-3 flex flex-col gap-1${isLagging?' cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all select-none':''}" style="${cardStyle}" ${onclk}>
-      <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
-      <div class="flex items-end justify-between gap-1">
-        <div><p class="text-sm font-extrabold c-action">${fmtVal(me,r.fmt)}</p><p class="text-[9px] t-disabled">${_S.selectedMyStore||'Moi'}</p></div>
-        <div class="text-right"><p class="text-xs t-tertiary">${fmtVal(comp,r.fmt)}</p><p class="text-[9px] t-disabled">${obsLabel}</p></div>
-      </div>
-      <p class="text-xs ${ecartColor} border-t pt-1 mt-0.5">${ecartIcon} ${pct>0?'+':''}${pct}%</p>
+    const drillHint=isLagging?`<div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">→ Familles en retard</div>`:'';
+    return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:14px;padding:16px 20px;min-width:160px;flex:1${isLagging?';cursor:pointer':''}" ${onclk}>
+      <div style="color:rgba(255,255,255,0.75);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${r.label} <em class="info-tip" data-tip="${r.tip}" style="font-style:normal">ℹ</em></div>
+      <div style="color:#fff;font-size:22px;font-weight:800;line-height:1.1">${fmtVal(me,r.fmt)}</div>
+      <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px">${fmtVal(comp,r.fmt)} · ${obsLabel}</div>
+      <div style="margin-top:8px;font-size:12px;font-weight:700;color:${ecartColor}">${ecartIcon} ${pct>0?'+':''}${pct}%</div>
       ${drillHint}
     </div>`;
   }).join('');
