@@ -1418,7 +1418,7 @@ export function renderHealthScore() {
     { label: 'Surstock', val: surstock, ok: surstock <= totalRefs * 0.03 },
   ];
   const pills = dims.map(d =>
-    `<span class="text-[10px] px-2 py-0.5 rounded-full border ${d.ok ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-orange-300 text-orange-700 bg-orange-50'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
+    `<span class="text-[10px] px-2 py-0.5 rounded-full border" style="${d.ok ? 'border-color:var(--c-ok);color:var(--i-ok-text);background:var(--i-ok-bg)' : 'border-color:var(--c-caution);color:var(--i-caution-text);background:var(--i-caution-bg)'}">${d.label} : <strong>${typeof d.val === 'number' ? d.val.toLocaleString('fr') : d.val}</strong></span>`
   ).join('');
   const healthHtml = `<div class="flex items-center gap-4 py-3 px-4 s-card rounded-xl border shadow-sm flex-wrap">
     <div class="flex items-center gap-2">

@@ -253,6 +253,7 @@
     .bg-c-caution { background-color: var(--c-caution); }
     .bg-c-ok      { background-color: var(--c-ok); }
     .bg-c-action  { background-color: var(--c-action); }
+    .bench-pill-active { background: var(--i-info-bg); color: var(--c-action); border-color: var(--b-dark); }
 
     /* ═══ THEME: DARK ═══════════════════════════════════ */
     /* ═══ THEME DARK 2027 — PRISME Premium ══════════════════════
@@ -1752,18 +1753,18 @@
               <button id="resMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('enleve')">✅ Enlevé</button>
             </div>
             <hr class="b-default my-0.5">
-            <p class="text-[10px] font-bold text-cyan-700 uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
-            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border border-cyan-300 rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
+            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
+            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border b-dark rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
             <!-- Checkboxes multi-agences -->
             <div id="benchPickDiv" class="flex flex-col gap-0.5">
-              <p class="text-[10px] font-semibold text-cyan-800">📋 Agences dans la médiane :</p>
+              <p class="text-[10px] font-semibold t-secondary">📋 Agences dans la médiane :</p>
               <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
             </div>
             <hr class="b-default my-0.5">
-            <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card w-full"><option value="">🌐 Univers…</option></select>
+            <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border b-dark rounded-lg font-semibold s-card w-full"><option value="">🌐 Univers…</option></select>
             <div class="flex items-center gap-1">
-              <span class="text-[10px] font-semibold text-cyan-800 whitespace-nowrap">Écart CA min :</span>
-              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border border-cyan-300 rounded-lg font-semibold s-card flex-1">
+              <span class="text-[10px] font-semibold t-secondary whitespace-nowrap">Écart CA min :</span>
+              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border b-dark rounded-lg font-semibold s-card flex-1">
               <span class="text-[10px] t-tertiary">€</span>
             </div>
             <button onclick="resetObsFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
@@ -1912,30 +1913,30 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div id="dropChalandise" class="onboarding-dropzone onboarding-dropzone--optional">
               <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm text-amber-800">🗺️ Zone de Chalandise</span>
+                <span class="font-bold text-sm c-caution">🗺️ Zone de Chalandise</span>
                 <span id="statusChalandise" class="text-lg">⭕</span>
               </div>
-              <p class="text-[10px] text-amber-700 mb-2">Export Qlik clients — active Commerce</p>
+              <p class="text-[10px] t-secondary mb-2">Export Qlik clients — active Commerce</p>
               <input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
             </div>
             <div id="dropLivraisons" class="onboarding-dropzone onboarding-dropzone--optional">
               <div class="flex items-center justify-between mb-1">
-                <span class="font-bold text-sm text-amber-800">📋 Livraisons</span>
+                <span class="font-bold text-sm c-caution">📋 Livraisons</span>
                 <span id="statusLivraisons" class="text-lg">⭕</span>
               </div>
-              <p class="text-[10px] text-amber-700 mb-2">BL livrés domicile — export Qlik</p>
+              <p class="text-[10px] t-secondary mb-2">BL livrés domicile — export Qlik</p>
               <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
             </div>
           </div>
         </div>
 
         <!-- Sélecteur magasin -->
-        <div id="storeSelector" class="hidden mb-3 p-3 i-info-bg border-2 border-cyan-300 rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold text-cyan-900 mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)" class="w-full p-2 border-2 border-cyan-400 rounded-lg text-sm font-bold text-cyan-900 s-card"><option value="">—</option></select></div><div><button id="btnRecalculer" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs text-cyan-700"></div></div></div>
+        <div id="storeSelector" class="hidden mb-3 p-3 i-info-bg border-2 b-dark rounded-xl"><div class="flex flex-wrap items-center gap-3"><div class="flex-1 min-w-[200px]"><label class="block text-xs font-bold t-primary mb-1">🏪 Mon Magasin</label><select id="selectMyStore" onchange="if(this.value&&!document.getElementById('btnCalculer').disabled)processData(this.value)" class="w-full p-2 border-2 b-dark rounded-lg text-sm font-bold t-primary s-card"><option value="">—</option></select></div><div><button id="btnRecalculer" onclick="processData(document.getElementById('selectMyStore').value)" class="hidden bg-c-action t-inverse font-bold py-2 px-5 rounded-lg text-sm shadow-md">🔄 Recalculer</button></div><div id="storeInfo" class="text-xs t-secondary"></div></div></div>
         <div id="storeWarnings" class="hidden mb-3 p-3 i-caution-bg border b-light rounded-xl text-xs c-caution"></div>
 
         <!-- Bouton Analyser -->
         <div class="text-center mb-3">
-          <button id="btnCalculer" onclick="processData()" disabled class="w-full md:w-2/3 s-panel-inner hover:bg-black t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button>
+          <button id="btnCalculer" onclick="processData()" disabled class="w-full md:w-2/3 s-panel-inner hover:s-card-alt t-inverse font-bold py-3 px-8 rounded-xl shadow-xl transition-all transform hover:scale-[1.02] text-base disabled:opacity-50 disabled:cursor-not-allowed">🚀 Analyser</button>
         </div>
       </div><!-- /importZone -->
     </div><!-- /onboardingStep0 -->
@@ -1945,13 +1946,13 @@
       <div class="flex items-center gap-2">
         <span class="text-base">💡</span>
         <div>
-          <p class="text-xs font-bold text-amber-800">Enrichissez votre analyse</p>
-          <p id="enrichBannerMsg" class="text-[10px] text-amber-700">Ajoutez la Zone de Chalandise pour activer Commerce &amp; Clients</p>
+          <p class="text-xs font-bold c-caution">Enrichissez votre analyse</p>
+          <p id="enrichBannerMsg" class="text-[10px] t-secondary">Ajoutez la Zone de Chalandise pour activer Commerce &amp; Clients</p>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button onclick="expandImportZone()" class="text-[10px] font-bold text-amber-800 border border-amber-400 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-lg transition-colors">+ Ajouter</button>
-        <button onclick="document.getElementById('enrichBanner').classList.add('hidden')" class="text-amber-500 hover:text-amber-700 text-lg leading-none">×</button>
+        <button onclick="expandImportZone()" class="text-[10px] font-bold c-caution border b-dark i-caution-bg px-3 py-1 rounded-lg transition-colors">+ Ajouter</button>
+        <button onclick="document.getElementById('enrichBanner').classList.add('hidden')" class="c-caution text-lg leading-none">×</button>
       </div>
     </div>
 
@@ -2120,7 +2121,7 @@
         <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
       <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
-      <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border border-amber-300 rounded-lg text-xs font-semibold c-caution">
+      <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border b-dark rounded-lg text-xs font-semibold c-caution">
         ⚠️ Filtrage partiel — Mon agence : canal <span id="benchCanalBiasLabel">—</span>. Médiane réseau : tous canaux.
         Ne pas interpréter les écarts comme des benchmarks comparatifs stricts.
       </div>
@@ -2143,9 +2144,9 @@
       </div>
       <!-- RÉPARTITION PAR CANAL — toutes agences -->
       <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
-      <details open class="s-card rounded-xl shadow-md border-2 border-cyan-300 mb-6 overflow-hidden">
+      <details open class="s-card rounded-xl shadow-md border-2 b-dark mb-6 overflow-hidden">
         <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold text-cyan-700 i-info-bg px-3 py-1 rounded-full border border-cyan-200"></span></div>
+          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" class="font-extrabold t-primary text-sm">🏆 Classement agences</h3><span id="benchMyRank" class="hidden text-xs font-bold c-action i-info-bg px-3 py-1 rounded-full border b-dark"></span></div>
         </summary>
         <div class="flex items-center gap-2 mb-2 px-1">
           <select id="rankSortKey" onchange="setRankSortKey(this.value)" class="text-xs s-card border b-default rounded px-2 py-1">
@@ -2232,12 +2233,12 @@
       </div>
 
       <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
-      <details class="s-card rounded-xl shadow-md border-2 border-orange-300 mb-6">
+      <details class="s-card rounded-xl shadow-md border-2 b-dark mb-6">
         <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
           <div>
             <h3 class="font-extrabold c-caution text-sm flex items-center gap-2">
               🎯 Ce que mes clients achètent ailleurs
-              <span id="nomadesMissedBadge" class="hidden badge bg-orange-500 text-white"></span>
+              <span id="nomadesMissedBadge" class="hidden badge bg-c-caution t-inverse"></span>
               <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
             </h3>
             <p class="text-[10px] c-caution mt-0.5">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
@@ -2254,7 +2255,7 @@
       <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
       <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
         <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
-          <h3 class="font-extrabold c-caution flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-amber-500 text-white"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
+          <h3 class="font-extrabold c-caution flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-c-caution t-inverse"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
         </summary>
         <div class="overflow-x-auto">
