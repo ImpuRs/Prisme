@@ -1416,6 +1416,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n`;
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
+  const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
   if (isRayonVide) txt += `Mode : RÉFÉRENCEMENT INITIAL (famille non exploitée)\n`;
   txt += '\n';
 
@@ -1457,12 +1458,12 @@ function _prBuildDiagText(codeFam) {
       return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Stock OK`;
     };
 
-    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort((a, b) => (b.W || 0) - (a.W || 0));
-    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3);
-    const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite');
-    const socles      = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite');
-    const challengers = rayonData.monRayon.filter(a => a.status === 'challenger' || a.sqClassif === 'challenger');
-    const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant');
+    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort(_sortCode);
+    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3).sort(_sortCode);
+    const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite').sort(_sortCode);
+    const socles      = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite').sort(_sortCode);
+    const challengers = rayonData.monRayon.filter(a => a.status === 'challenger' || a.sqClassif === 'challenger').sort(_sortCode);
+    const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant').sort(_sortCode);
 
     if (rupturesUrgentes.length) {
       txt += `🚨 RUPTURES URGENTES (fréquentes — réappro immédiate) :\n`;
@@ -1538,6 +1539,7 @@ function _prBuildDiagText(codeFam) {
         toImpl.push(a);
       }
     }
+    toImpl.sort(_sortCode);
     if (toImpl.length) {
       if (isRayonVide) {
         txt += `═══ RECOMMANDATION DE RÉFÉRENCEMENT ═══\n`;
