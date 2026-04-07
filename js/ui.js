@@ -145,9 +145,20 @@ const _statusBadgeMap = {
 };
 
 export function _updateAnalyserBtn() {
-  const hasOblig = !!(document.getElementById('fileConsomme')?.files[0] || document.getElementById('fileStock')?.files[0]);
-  const btn = document.getElementById('btnCalculer');
-  if (btn) btn.disabled = !hasOblig;
+  const hasCacheData = DataStore.finalData.length > 0;
+  const hasConsomme  = !!document.getElementById('fileConsomme')?.files[0];
+  const hasStock     = !!(_S._hasStock || document.getElementById('fileStock')?.files[0]);
+  const btn  = document.getElementById('btnCalculer');
+  const btnR = document.getElementById('btnRecalculer');
+  if (hasCacheData) {
+    // Données déjà en mémoire : Analyser activé + Recalculer visible
+    if (btn)  { btn.disabled = false; }
+    if (btnR) { btnR.classList.remove('hidden'); }
+  } else {
+    // Aucune donnée : Analyser activé seulement si les 2 fichiers obligatoires sont sélectionnés
+    if (btn)  { btn.disabled = !(hasConsomme && hasStock); }
+    if (btnR) { btnR.classList.add('hidden'); }
+  }
 }
 
 export function onFileSelected(i, id) {
@@ -212,6 +223,7 @@ export function expandImportZone() {
     const btn = document.getElementById('importZoneCancelBtn');
     if (btn) { btn.classList.remove('hidden'); btn.style.display = 'flex'; }
   }
+  _updateAnalyserBtn();
 }
 
 // ── Canal global — pill selector ──────────────────────────────
