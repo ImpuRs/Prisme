@@ -469,8 +469,13 @@ window._terrDrillBack = function() {
 
     // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
     {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
-    // terrDirectionContainer : injecté dynamiquement si chalandise OU territoire chargé
-    {const _dc=document.getElementById('terrDirectionContainer');if(_dc){if(hasChal||hasTerr){_buildChalDirBlock(_dc);}else{_dc.innerHTML='';}}}
+    // terrDirectionContainer : injecté dynamiquement si territoire OU chalandise chargé
+    // Territoire seul → vue CA/articles/couverture (terrDirectionTable rempli ligne 631)
+    // Chalandise chargée → _buildChalDirBlock remplace par vue drill client
+    {const _dc=document.getElementById('terrDirectionContainer');if(_dc){if(hasChal||hasTerr){
+      if(!_dc.querySelector('#terrDirectionTable')){_dc.innerHTML=`<div style="background:linear-gradient(135deg,rgba(139,92,246,0.13),rgba(109,40,217,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px"><details><summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px">🎯 Vue par Direction commerciale</h3></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr class="text-[10px]"><th class="py-1.5 px-3 text-left">Direction</th><th class="py-1.5 px-3 text-right">CA Le Terrain</th><th class="py-1.5 px-3 text-center">Nb articles</th><th class="py-1.5 px-3 text-center">✅</th><th class="py-1.5 px-3 text-center">⚠️</th><th class="py-1.5 px-3 text-center">❌</th><th class="py-1.5 px-3">Couverture</th></tr></thead><tbody id="terrDirectionTable"></tbody></table></div></details></div>`;}
+      if(hasChal)_buildChalDirBlock(_dc);
+    }else{_dc.innerHTML='';}}}
 
     _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
     _tb('terrCroisementBlock', hasTerr);
@@ -504,6 +509,7 @@ window._terrDrillBack = function() {
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
       const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
       const _si=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
+      _si('terrDirectionTable',_cached.dirHtml);
       _si('terrTop100Table',_cached.top100Html);
       _si('terrClientsTable',_cached.cliHtml);
       if(_cached.contribHtml)_si('terrContribTable',_cached.contribHtml);
@@ -674,6 +680,7 @@ window._terrDrillBack = function() {
     const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
     const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
     _S._terrCanalCache.set(_terrCacheKey,{
+      dirHtml: _gi('terrDirectionTable'),
       top100Html: _gi('terrTop100Table'),
       cliHtml: _gi('terrClientsTable'),
       contribHtml: _gi('terrContribTable'),
