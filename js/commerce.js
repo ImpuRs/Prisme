@@ -388,39 +388,52 @@ window._terrDrillBack = function() {
     const reconq=reconqAll.slice(0,10);
     const reconqTotal=reconqAll.length;
     const livSansPDV=_S.livraisonsSansPDV||[];
-    // Top PDV = toujours MAGASIN — quand canal hors-MAGASIN actif, ventesClientArticle
-    // contient les données du canal filtré → utiliser ventesClientArticleFull (MAGASIN full-période)
+    // Top clients — CA selon le canal sélectionné
     const _gCanal=_S._globalCanal||'';
-    const _vcaPDV=(_gCanal&&_gCanal!=='MAGASIN')?(_S.ventesClientArticleFull||_S.ventesClientArticle):_S.ventesClientArticle;
     const topPDVRows=[];
     const _seenCC=new Set();
-    if(_vcaPDV.size){
-      for(const[cc,artMap]of _vcaPDV){
+    if(!_gCanal||_gCanal==='MAGASIN'){
+      // Tous ou MAGASIN — source : ventesClientArticle (MAGASIN)
+      for(const[cc,artMap]of _S.ventesClientArticle){
         _seenCC.add(cc);
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caPDV<100)continue;
+        const caMag=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caMag<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caPDV+caHors;
+        const caHorsTot=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
+        const caTotal=caMag+caHorsTot;
+        // Canal Tous → caPDV = total tous canaux ; Canal MAGASIN → caPDV = MAGASIN + caHors séparé
+        const caPDV=_gCanal==='MAGASIN'?caMag:caTotal;
+        const caHors=_gCanal==='MAGASIN'?caHorsTot:0;
         const lastDate=_S.clientLastOrder?.get(cc);
         const info=_S.chalandiseData?.get(cc);
         const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
         topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
       }
-    }
-    // Canal Tous : inclure aussi les clients hors-MAGASIN purs
-    if(!_gCanal&&_S.ventesClientHorsMagasin.size){
+      // Canal Tous : inclure aussi les clients hors-MAGASIN purs
+      if(!_gCanal){
+        for(const[cc,horsMap]of _S.ventesClientHorsMagasin){
+          if(_seenCC.has(cc))continue;
+          const caHorsTot=[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+          if(caHorsTot<100)continue;
+          const lastDate=_S.clientLastOrder?.get(cc);
+          const info=_S.chalandiseData?.get(cc);
+          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+          topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:caHorsTot,caHors:0,caTotal:caHorsTot,lastDate});
+        }
+      }
+    }else{
+      // Canal spécifique non-MAGASIN — filtrer ventesClientHorsMagasin par canal
       for(const[cc,horsMap]of _S.ventesClientHorsMagasin){
-        if(_seenCC.has(cc))continue;
-        const caHors=[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caHors<100)continue;
+        const entries=[...horsMap.values()].filter(v=>v.canal===_gCanal);
+        const caCanal=entries.reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caCanal<100)continue;
         const lastDate=_S.clientLastOrder?.get(cc);
         const info=_S.chalandiseData?.get(cc);
         const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:0,caHors,caTotal:caHors,lastDate});
+        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:caCanal,caHors:0,caTotal:caCanal,lastDate});
       }
     }
-    topPDVRows.sort((a,b)=>(!_gCanal?b.caTotal-a.caTotal:b.caPDV-a.caPDV));
+    topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
     const horsZone=[];
     if(_S.chalandiseReady&&_S.ventesClientArticle.size){
       for(const[cc,artMap]of _S.ventesClientArticle){
@@ -782,12 +795,18 @@ window._terrDrillBack = function() {
         const silTxt=daysSince!==null?`${daysSince}j`:'—';
         const silCls=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
         const hasHors=r.caHors>0;
-        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] ${hasHors?'c-ok':'t-disabled'}">${hasHors?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
+        const _gcRow=_S._globalCanal||'';
+        const _horsCell=_gcRow==='MAGASIN'?`<td class="py-1.5 px-2 text-right text-[10px] ${hasHors?'c-ok':'t-disabled'}">${hasHors?'+'+formatEuro(r.caHors):'—'}</td>`:'';
+        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td>${_horsCell}<td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
       };
       const top20=rows.slice(0,20);
-      const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Hors agence</th><th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
-      const thStr=`<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Hors agence</th><th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
-      return`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top PDV <span class="text-[10px] font-normal t-disabled ml-1">${rows.length} clients actifs au comptoir</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
+      const _gc=_S._globalCanal||'';
+      const _caLbl=_gc===''?'CA Total':_gc==='MAGASIN'?'CA PDV':_gc==='INTERNET'?'CA Internet':_gc==='REPRESENTANT'?'CA Représentant':_gc==='DCS'?'CA DCS':'CA';
+      const _horsLbl=_gc==='MAGASIN'?'Hors agence':'';
+      const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">${_caLbl}</th>${_horsLbl?`<th class="py-2 px-2 text-right">${_horsLbl}</th>`:''}<th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
+      const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
+      const thStr=`<thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead>`;
+      return`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients <span class="text-[10px] font-normal t-disabled ml-1">${rows.length} clients · ${_caLbl}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
     })();
     // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
     const _livAllB=k.livSansPDV;
