@@ -399,9 +399,12 @@ window._terrDrillBack = function() {
     const reconq=reconqAll.slice(0,10);
     const reconqTotal=reconqAll.length;
     const livSansPDV=_S.livraisonsSansPDV||[];
+    // Top PDV = toujours MAGASIN — quand canal hors-MAGASIN actif, ventesClientArticle
+    // contient les données du canal filtré → utiliser ventesClientArticleFull (MAGASIN full-période)
+    const _vcaPDV=(_S._globalCanal&&_S._globalCanal!=='MAGASIN')?(_S.ventesClientArticleFull||_S.ventesClientArticle):_S.ventesClientArticle;
     const topPDVRows=[];
-    if(_S.ventesClientArticle.size){
-      for(const[cc,artMap]of _S.ventesClientArticle){
+    if(_vcaPDV.size){
+      for(const[cc,artMap]of _vcaPDV){
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
