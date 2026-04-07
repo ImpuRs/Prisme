@@ -45,7 +45,6 @@ function _cmRenderNav(counts) {
     { id: 'silencieux',   label: '🟡 Silencieux',   n: counts.silencieux },
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
-    { id: 'opportunites', label: '💡 Opportunités',  n: counts.opportunites },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -78,10 +77,6 @@ function _cmSwitchTab(id) {
     case 'potentiels':
       content.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
       window.renderPotentiels?.();
-      break;
-    case 'opportunites':
-      content.innerHTML = `<div id="terrOpportunites"></div>`;
-      window.renderOpportunites?.();
       break;
   }
 }
