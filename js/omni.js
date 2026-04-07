@@ -374,9 +374,6 @@ function _passesAllFilters(cc){
     ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{
       const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
     });
-    // terrDirectionBlock : chalandise OU territoire suffit
-    const _dirBlkA=document.getElementById('terrDirectionBlock');
-    {const _showDir=hasChal||hasTerr;if(_dirBlkA){_dirBlkA.style.display=_showDir?'':'none';_dirBlkA.classList.toggle('hidden',!_showDir);}}
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
     const comBlock=document.getElementById('commercialSummaryBlock');
@@ -492,30 +489,7 @@ function _passesAllFilters(cc){
         <span class="text-base flex-shrink-0">📌</span>
         <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
       </div>
-      <div id="terrDirectionBlock" style="display:none;background:linear-gradient(135deg,rgba(139,92,246,0.13),rgba(109,40,217,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
-        <details>
-          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2);list-style:none" class="select-none">
-            <h3 style="font-weight:800;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px">📋 Vue par Direction commerciale <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— trié par CA décroissant · cliquez pour détailler</span></h3>
-            <span class="acc-arrow" style="color:#a78bfa">▶</span>
-          </summary>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
-              <thead class="s-panel-inner t-inverse">
-                <tr>
-                  <th class="py-1.5 px-2 text-left">Direction</th>
-                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-                  <th class="py-1.5 px-2 text-center">Nb articles</th>
-                  <th class="py-1.5 px-2 text-center">✅ En rayon</th>
-                  <th class="py-1.5 px-2 text-center">⚠️ Rupture</th>
-                  <th class="py-1.5 px-2 text-center">❌ Absent</th>
-                  <th class="py-1.5 px-2 text-center min-w-[110px]">% couverture</th>
-                </tr>
-              </thead>
-              <tbody id="terrDirectionTable"></tbody>
-            </table>
-          </div>
-        </details>
-      </div>
+      <div id="terrDirectionContainer"></div>
       <div id="terrContribBlock" style="display:none;background:linear-gradient(135deg,rgba(100,116,139,0.13),rgba(51,65,85,0.06));border:1px solid rgba(100,116,139,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
         <details>
           <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.2),rgba(51,65,85,0.12));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
@@ -602,9 +576,6 @@ function _passesAllFilters(cc){
       const blk = document.getElementById(id);
       if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
     });
-    // terrDirectionBlock : chalandise OU territoire suffit
-    const _dirBlkB=document.getElementById('terrDirectionBlock');
-    {const _showDir=hasChal||hasTerr;if(_dirBlkB){_dirBlkB.style.display=_showDir?'':'none';_dirBlkB.classList.toggle('hidden',!_showDir);}}
     // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
     document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
     // Peupler les KPIs territoire — attendre que terrKpiLignes soit dans le DOM

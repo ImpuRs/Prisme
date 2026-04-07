@@ -219,22 +219,22 @@ function _buildChalDirBlock(blkEl) {
 
 window._terrDrillDir = function(dirEnc) {
   _chalDrill = { level: 'metier', dir: decodeURIComponent(dirEnc), metier: null, commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
 };
 window._terrDrillMetier = function(dirEnc, metierEnc) {
   _chalDrill = { level: 'commercial', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
 };
 window._terrDrillCommercial = function(dirEnc, metierEnc, comEnc) {
   _chalDrill = { level: 'clients', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: decodeURIComponent(comEnc) };
-  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
 };
 window._terrDrillBack = function() {
   const { level, dir, metier } = _chalDrill;
   if (level === 'clients')     _chalDrill = { level: 'commercial', dir, metier, commercial: null };
   else if (level === 'commercial') _chalDrill = { level: 'metier', dir, metier: null, commercial: null };
   else                         _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionBlock'));
+  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
 };
 
 // ── Extracted code (unchanged) ──────────────────────────────────────────
@@ -469,8 +469,9 @@ window._terrDrillBack = function() {
 
     // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
     {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
-    // terrDirectionBlock : visible si chalandise OU territoire chargé
-    {const _db=document.getElementById('terrDirectionBlock');if(_db){const _showDir=hasChal||hasTerr;_db.style.display=_showDir?'':'none';_db.classList.toggle('hidden',!_showDir);}}
+    // terrDirectionContainer : injecté dynamiquement si chalandise OU territoire chargé
+    {const _dc=document.getElementById('terrDirectionContainer');if(_dc){if(hasChal||hasTerr){_buildChalDirBlock(_dc);}else{_dc.innerHTML='';}}}
+
     _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
     _tb('terrCroisementBlock', hasTerr);
     _tb('terrSpecialKPIBlock', hasTerr);
@@ -483,14 +484,7 @@ window._terrDrillBack = function() {
     if(degraded){_buildDegradedCockpit();return;}
     if(!hasTerr){
       _buildDegradedCockpit();
-      if(hasChal){
-        const _dirBlkEl=document.getElementById('terrDirectionBlock');
-        if(_dirBlkEl){
-          _dirBlkEl.style.display='';_dirBlkEl.classList.remove('hidden');
-          _chalDrill={level:'root',dir:null,metier:null,commercial:null};
-          _buildChalDirBlock(_dirBlkEl);
-        }
-      }
+      // terrDirectionContainer already handled above (hasChal path)
       return;
     }
     const q=(document.getElementById('terrSearch')||{}).value||'';
@@ -510,7 +504,6 @@ window._terrDrillBack = function() {
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
       const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
       const _si=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
-      _si('terrDirectionTable',_cached.dirHtml);
       _si('terrTop100Table',_cached.top100Html);
       _si('terrClientsTable',_cached.cliHtml);
       if(_cached.contribHtml)_si('terrContribTable',_cached.contribHtml);
@@ -672,17 +665,15 @@ window._terrDrillBack = function() {
     renderInsightsBanner();
 
     // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path)
-    {const _dirBlkEl=document.getElementById('terrDirectionBlock');
-    if(_dirBlkEl&&!_dirBlkEl.classList.contains('hidden'))_buildChalDirBlock(_dirBlkEl);}
+    {const _dc=document.getElementById('terrDirectionContainer');if(_dc&&_dc.innerHTML)_buildChalDirBlock(_dc);}
 
     // ── Stockage cache territoire ─────────────────────────────────────────
     // Captures les innerHTML APRÈS le rendu complet
     // Guard : ne pas stocker si les éléments DOM n'existent pas encore (appel depuis _initFromCache)
-    if(!document.getElementById('terrDirectionTable'))return;
+    if(!document.getElementById('terrTop100Table'))return;
     const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
     const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
     _S._terrCanalCache.set(_terrCacheKey,{
-      dirHtml: _gi('terrDirectionTable'),
       top100Html: _gi('terrTop100Table'),
       cliHtml: _gi('terrClientsTable'),
       contribHtml: _gi('terrContribTable'),
@@ -1257,7 +1248,7 @@ function _buildChalandiseOverview(){
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
   // Table territoire en un coup d'œil — réactive aux filtres chalandise
-  {const _db=document.getElementById('terrDirectionBlock');if(_db&&!_db.classList.contains('hidden'))_buildChalDirBlock(_db);}
+  {const _dc=document.getElementById('terrDirectionContainer');if(_dc&&_dc.innerHTML)_buildChalDirBlock(_dc);}
 }
 // Level 2: Métiers for a Direction
 function _toggleOverviewL2(dirEnc,idx){
