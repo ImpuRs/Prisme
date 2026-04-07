@@ -177,11 +177,15 @@ function renderReseauPepites() {
   const container = document.getElementById('reseauHeatmapContainer');
   if (!container) return;
   const vpm = _S.ventesParMagasin;
+  // Calcul lazy : déclencher si données multi-agences dispo mais heatmap pas encore calculée
+  if (!_S.reseauHeatmapData && _S.storesIntersection?.size > 1 && Object.keys(vpm || {}).length > 1) {
+    computeReseauHeatmap();
+  }
   const hm  = _S.reseauHeatmapData;
   if (!hm || !hm.agences?.length) {
     const _isMulti = _S.storesIntersection?.size > 1;
     container.innerHTML = _isMulti
-      ? '<p class="t-disabled text-sm p-4">⏳ Calcul réseau en cours…</p>'
+      ? '<p class="t-disabled text-sm p-4">Données réseau insuffisantes (≥ 2 agences dans le consommé).</p>'
       : '<p class="t-disabled text-sm p-4">Données multi-agences requises (≥ 2 agences dans le consommé).</p>';
     return;
   }
