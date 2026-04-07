@@ -662,8 +662,6 @@
       /* Accordion headers: allow title to wrap, no truncation */
       details>summary>h3,details>summary>div>h3{white-space:normal;word-break:break-word;flex-shrink:1;min-width:0}
       details>summary>div{min-width:0;flex-shrink:1}
-      /* Cockpit cockpitLists: single column */
-      #tabAction .grid-cols-2{grid-template-columns:1fr!important}
       /* Filter drawer button: above bottom nav */
       #filterDrawerBtn{bottom:12px;left:12px;font-size:var(--fs-2xs);padding:var(--sp-2) var(--sp-3)}
       /* Insights banner: wrap gracefully */
@@ -1608,7 +1606,6 @@
             </details>
 
             <input type="hidden" id="filterCockpit" value="">
-            <input type="file" id="importExclusionsInput" accept=".json" style="display:none" onchange="importExclusionsJSON(this)">
             <div class="flex flex-wrap gap-1 mt-0.5">
               <div id="activeAgeFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer" onclick="clearAgeFilter()"><span id="activeAgeLabel"></span><span class="text-sm leading-none">&times;</span></div>
               <div id="activeCockpitFilter" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer i-danger-bg c-danger" onclick="clearCockpitFilter()"><span id="activeCockpitLabel"></span><span class="text-sm leading-none">&times;</span></div>
@@ -2105,7 +2102,6 @@
         </div>
         <div id="benchEquationBar" class="hidden flex items-center gap-4 mt-3 pt-3 border-t border-white/20 flex-wrap"></div>
         <!-- Hidden compat elements -->
-        <select id="benchCompareMode" class="hidden"><option value="all">all</option></select>
       </div>
       <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
       <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border b-dark rounded-lg text-xs font-semibold c-caution">
@@ -2127,7 +2123,6 @@
         <div id="obsNetworkDiag" class="mt-3"></div>
         <!-- Legacy ids for renderObservatoire compat -->
         <span id="obsKpiMyLabel" class="hidden"></span>
-        <tbody id="obsKpiBody" class="hidden"></tbody>
       </div>
       <!-- RÉPARTITION PAR CANAL — toutes agences -->
       <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
