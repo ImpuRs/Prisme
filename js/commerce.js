@@ -1140,6 +1140,13 @@ function _renderOmniSegmentClients(){
 }
 
 function _buildChalandiseOverview(){
+  // Toujours rafraîchir le sous-onglet actif, même si terrChalandiseOverview absent
+  _buildOverviewFilterChips();
+  if (document.getElementById('cm-tab-nav')) {
+    window._cmSwitchTab?.(_cmTab);
+  } else if (document.getElementById('tabClients')) {
+    renderMesClients();
+  }
   const blk=document.getElementById('terrChalandiseOverview');
   if(!blk)return;
   if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
@@ -1254,14 +1261,6 @@ function _buildChalandiseOverview(){
   });
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
-  // Toujours repeupler les filtres sidebar (partagés PDV + Terrain)
-  _buildOverviewFilterChips();
-  // Reconstruire le contenu selon le sous-onglet actif
-  if (document.getElementById('cm-tab-nav')) {
-    window._cmSwitchTab?.(_cmTab);
-  } else if (document.getElementById('tabClients')) {
-    renderMesClients();
-  }
   // [Feature B] Vue par commercial
   _renderCommercialSummary();
   _renderOmniSegmentClients();
