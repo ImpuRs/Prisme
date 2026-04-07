@@ -194,7 +194,19 @@ function _buildPrSearchIndex() {
   if (_prSearchIndex) return _prSearchIndex;
   const index = [];
   const catFam = _S.catalogueFamille;
-  if (!catFam?.size) return index;
+  if (!catFam?.size) {
+    // Fallback : catalogue non chargé (ex: refresh depuis IDB) → index basique depuis _prData
+    const families = _S._prData?.families;
+    if (families?.length) {
+      for (const f of families) {
+        index.push({ codeFam: f.codeFam, codeSousFam: '', libFam: f.libFam || f.codeFam, sousFam: '',
+          level: 1, nbArticlesCat: f.nbCatalogue || 0,
+          searchText: `${f.codeFam} ${(f.libFam || '')}`.toLowerCase() });
+      }
+      _prSearchIndex = index;
+    }
+    return index;
+  }
 
   const famAgg = new Map();
   for (const [code, f] of catFam) {
