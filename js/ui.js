@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards, buildEvidenceCard } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards, buildEvidenceCard, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
 import { calcPriorityScore, computeHealthScore } from './engine.js';
