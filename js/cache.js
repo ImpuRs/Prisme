@@ -56,7 +56,7 @@ export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.7'; // bump : ajout _byMonth/Canaux dans payload IDB
+const CACHE_VERSION  = 'v3.8'; // bump : ajout catalogueFamille/catalogueDesignation dans payload IDB
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -347,6 +347,9 @@ export async function _saveSessionToIDB() {
       livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
       livraisonsReady:       _S.livraisonsReady || false,
       livraisonsClientCount: _S.livraisonsClientCount || 0,
+      // ── Catalogue animation (Plan de rayon) ──
+      catalogueFamille:      _S.catalogueFamille     ? [..._S.catalogueFamille]     : null,
+      catalogueDesignation:  _S.catalogueDesignation ? [..._S.catalogueDesignation] : null,
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -468,6 +471,10 @@ export async function _restoreSessionFromIDB() {
     _S.livraisonsData = new Map((data.livraisonsData||[]).map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:new Set(v.bl),articles:new Map(v.articles),lastDate:v.lastDate?new Date(v.lastDate):null}]));
     _S.livraisonsReady = data.livraisonsReady || false;
     _S.livraisonsClientCount = data.livraisonsClientCount || 0;
+
+    // ── Catalogue animation (Plan de rayon) ──
+    _S.catalogueFamille     = data.catalogueFamille     ? new Map(data.catalogueFamille)     : null;
+    _S.catalogueDesignation = data.catalogueDesignation ? new Map(data.catalogueDesignation) : null;
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
