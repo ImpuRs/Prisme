@@ -11,6 +11,7 @@ import { SECTEUR_DIR_MAP } from './constants.js';
 
 let _pepAgTab = '';
 let _renderedPepites = [];
+let _pepSort = { col: 'caMe', dir: -1 };
 
 function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
 function buildBenchCheckboxes(){
@@ -454,7 +455,12 @@ function renderObservatoire(){
   if (tabsEl) {
     if (isMulti) {
       const agList = [myAg2, ...[..._S.storesIntersection].filter(a=>a!==myAg2).sort()];
-      tabsEl.innerHTML = agList.map(ag=>`<button onclick="window._setPepAgTab('${ag}')" class="px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${ag===_pepAgTab?'c-ok border-green-500 bg-green-900/30':'t-disabled b-dark hover:t-primary'}">${ag}${ag===myAg2?' ★':''}</button>`).join('');
+      const _agCaTotal = ag => Object.values(_S.ventesParMagasin[ag]||{}).reduce((s,d)=>s+(d.sumCA||0),0);
+      tabsEl.innerHTML = agList.map(ag=>{
+        const caT = _agCaTotal(ag);
+        const caStr = caT > 0 ? ` · ${formatEuro(Math.round(caT))}` : '';
+        return `<button onclick="window._setPepAgTab('${ag}')" class="px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${ag===_pepAgTab?'c-ok border-green-500 bg-green-900/30':'t-disabled b-dark hover:t-primary'}">${ag}${ag===myAg2?' ★':''}${caStr}</button>`;
+      }).join('');
       tabsEl.classList.remove('hidden');
     } else {
       tabsEl.classList.add('hidden');
@@ -521,17 +527,12 @@ function renderObservatoire(){
     const ecartPct  = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / medFreq - 1) * 100);
     rawPep.push({ code, lib: _libOf(code), fam: _famOf(code), myFreq, compFreq: Math.round(medFreq), myQte, compQte, ecartPct, caMe });
   }
-  rawPep.sort((a, b) => b.ecartPct - a.ecartPct);
-  const pepites = rawPep.slice(0, 50);
-  _renderedPepites = pepites;
-  const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
+  _renderedPepites = rawPep;
+  const pepBadge=el('pepitesBadge');if(pepBadge){if(rawPep.length){pepBadge.textContent=rawPep.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
   if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Qté vendue (${_curAg||'Moi'})`;
   if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
-  const pepRows=pepites.map(p=>{
-    const ecartStr=p.ecartPct>0?`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`:`<span class="t-disabled">—</span>`;
-    return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${p.myQte}</td><td class="py-1.5 px-3 text-center t-tertiary">${p.compQte}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
-  }).join('');
-  if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
+  if(el('pepitesCaLabel'))el('pepitesCaLabel').textContent=`CA (${_curAg||'Moi'})`;
+  _renderPepitesRows();
   // 🔥 Pépites réseau
   const pepOther=_S.benchLists.pepitesOther||[];
   const pepOtherBadge=el('pepitesOtherBadge');if(pepOtherBadge){if(pepOther.length){pepOtherBadge.textContent=pepOther.length;pepOtherBadge.classList.remove('hidden');}else pepOtherBadge.classList.add('hidden');}
@@ -685,13 +686,43 @@ function copyObsSection(type){
   navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
 }
 
+function _buildPepitesRows() {
+  const { col, dir } = _pepSort;
+  const sorted = [..._renderedPepites].sort((a, b) => {
+    const av = a[col] ?? (typeof a[col] === 'string' ? '' : 0);
+    const bv = b[col] ?? (typeof b[col] === 'string' ? '' : 0);
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (av - bv);
+  });
+  // Indicateur de tri dans les en-têtes
+  ['code','lib','fam','myQte','compQte','caMe'].forEach(c => {
+    const thId = c === 'myQte' ? 'pepitesMeLabel' : c === 'compQte' ? 'pepitesCompLabel' : c === 'caMe' ? 'pepitesCaLabel' : `pepTh_${c}`;
+    const th = el(thId);
+    if (!th) return;
+    const base = th.textContent.replace(/ [▲▼]$/, '');
+    th.textContent = base + (col === c ? (dir === -1 ? ' ▼' : ' ▲') : '');
+  });
+  return sorted.slice(0, 50).map(p =>
+    `<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${p.myQte}</td><td class="py-1.5 px-3 text-center t-tertiary">${p.compQte}</td><td class="py-1.5 px-3 text-right font-bold c-ok whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`
+  ).join('');
+}
+
+function _renderPepitesRows() {
+  if (el('pepitesTable')) el('pepitesTable').innerHTML = _buildPepitesRows() || '<tr><td colspan="6" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
+}
+
+window._pepSortBy = col => {
+  if (_pepSort.col === col) _pepSort.dir *= -1;
+  else { _pepSort.col = col; _pepSort.dir = -1; }
+  _renderPepitesRows();
+};
+
 function copyPepitesList(){
-  const pepites=_renderedPepites.length?_renderedPepites:(_S.benchLists.pepites||[]);
-  if(!pepites.length){showToast('Aucune pépite à copier','warning');return;}
+  if(!_renderedPepites.length){showToast('Aucune pépite à copier','warning');return;}
   const agLabel=_pepAgTab||_S.selectedMyStore||'Moi';
-  const lines=[`Code\tLibellé\tFamille\tQté vendue (${agLabel})\tQté médiane réseau\tÉcart %\tCA`];
-  for(const p of pepites)lines.push(`${p.code}\t${p.lib}\t${p.fam||'—'}\t${p.myQte??p.myFreq}\t${p.compQte??p.compFreq}\t${p.ecartPct>0?'+'+p.ecartPct+'%':'—'}\t${p.caMe||0}`);
-  navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepites.length} pépite${pepites.length>1?'s':''} copiée${pepites.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
+  const lines=[`Code\tLibellé\tFamille\tQté vendue (${agLabel})\tQté médiane réseau\tCA`];
+  for(const p of _renderedPepites)lines.push(`${p.code}\t${p.lib}\t${p.fam||'—'}\t${p.myQte??p.myFreq}\t${p.compQte??p.compFreq}\t${p.caMe||0}`);
+  navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${_renderedPepites.length} pépite${_renderedPepites.length>1?'s':''} copiée${_renderedPepites.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
 }
 
 function copyPepitesOtherList(){

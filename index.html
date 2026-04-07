@@ -2177,13 +2177,12 @@
           <table class="min-w-full text-xs">
             <thead class="i-caution-bg c-caution sticky top-0 font-bold">
               <tr>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Code</th>
-                <th class="py-2 px-3 text-left">Libellé</th>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Famille</th>
-                <th id="pepitesMeLabel" class="py-2 px-3 text-center whitespace-nowrap">Qté vendue</th>
-                <th id="pepitesCompLabel" class="py-2 px-3 text-center whitespace-nowrap">Qté médiane réseau</th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Écart %<em class="info-tip" data-tip="(Qté vendue / Qté médiane réseau - 1) × 100. +1700% = je vends 18× plus que la médiane réseau.">ℹ</em></th>
-                <th class="py-2 px-3 text-right whitespace-nowrap">CA Moi</th>
+                <th class="py-2 px-3 text-left whitespace-nowrap cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('code')" id="pepTh_code">Code</th>
+                <th class="py-2 px-3 text-left cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('lib')" id="pepTh_lib">Libellé</th>
+                <th class="py-2 px-3 text-left whitespace-nowrap cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('fam')" id="pepTh_fam">Famille</th>
+                <th id="pepitesMeLabel" class="py-2 px-3 text-center whitespace-nowrap cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('myQte')">Qté vendue</th>
+                <th id="pepitesCompLabel" class="py-2 px-3 text-center whitespace-nowrap cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('compQte')">Qté médiane réseau</th>
+                <th id="pepitesCaLabel" class="py-2 px-3 text-right whitespace-nowrap cursor-pointer select-none hover:text-cyan-300" onclick="_pepSortBy('caMe')">CA</th>
               </tr>
             </thead>
             <tbody id="pepitesTable"></tbody>
