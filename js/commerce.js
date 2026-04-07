@@ -469,8 +469,8 @@ window._terrDrillBack = function() {
 
     // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
     {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
-    // terrDirectionBlock : chalandise seule suffit — INDÉPENDANT de hasTerr
-    {const _db=document.getElementById('terrDirectionBlock');if(_db){_db.style.display=hasChal?'':'none';_db.classList.toggle('hidden',!hasChal);}}
+    // terrDirectionBlock : visible si chalandise OU territoire chargé
+    {const _db=document.getElementById('terrDirectionBlock');if(_db){const _showDir=hasChal||hasTerr;_db.style.display=_showDir?'':'none';_db.classList.toggle('hidden',!_showDir);}}
     _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
     _tb('terrCroisementBlock', hasTerr);
     _tb('terrSpecialKPIBlock', hasTerr);
