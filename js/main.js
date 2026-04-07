@@ -376,7 +376,8 @@ _S.canalAgence=newCanalAgence;
       if(tabLabel){
         const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
         const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
-        tabLabel.textContent=(minD&&maxD?`${fmtDate(minD)} → ${fmtDate(maxD)}`:'—')+' ▼';
+        const sameMonth=minD&&maxD&&minD.getMonth()===maxD.getMonth()&&minD.getFullYear()===maxD.getFullYear();
+        tabLabel.textContent=(minD&&maxD?(sameMonth?fmtDate(minD):`${fmtDate(minD)} → ${fmtDate(maxD)}`):'—')+' ▼';
         tabLabel.classList.remove('filtered');
       }
       updatePeriodAlert();
