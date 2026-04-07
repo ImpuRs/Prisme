@@ -1970,6 +1970,7 @@ function renderCommerceTab() {
     </div>`;
   _buildChalandiseOverview();
   window.renderOmniContent?.();
+  renderTerritoireTab();
 }
 
 // ── Window expositions ──────────────────────────────────────────────────
