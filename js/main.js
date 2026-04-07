@@ -12,9 +12,9 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery, buildSparklineSVG, buildDeltaBadge } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, generateDecisionQueue, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, renderIRABanner, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing } from './ui.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -58,7 +58,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
       _refilterFromByMonth();
       buildPeriodFilter();
       computeClientCrossing();_computeClientDominantUnivers();
-      renderCanalAgence();renderCurrentTab();renderIRABanner?.();
+      renderCanalAgence();renderCurrentTab();
       return;
     }
 
@@ -93,14 +93,14 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
           enrichPrixUnitaire();_enrichFinalDataWithCA();
           if(_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}
           computeClientCrossing();_computeClientDominantUnivers();
-          renderCanalAgence();renderCurrentTab();renderIRABanner();
-        }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();renderIRABanner();}
+          renderCanalAgence();renderCurrentTab();
+        }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();}
         finally{hideLoading();}
       })();
     }else{
       // Données brutes non disponibles (session restaurée depuis IDB) — re-render léger
       showToast('⚠️ Agrégats figés — rechargez le fichier consommé pour recalculer sur cette période','warning');
-      renderCanalAgence();renderCurrentTab();renderIRABanner();
+      renderCanalAgence();renderCurrentTab();
     }
   }
 
@@ -948,7 +948,7 @@ _S.canalAgence=newCanalAgence;
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
       launchClientWorker().then(async()=>{
-        if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+        if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
         if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;const f4=document.getElementById('fileLivraisons').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3,f4);}
       }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
@@ -1382,8 +1382,8 @@ _S.canalAgence=newCanalAgence;
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
-      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();generateDecisionQueue();renderIRABanner();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();renderIRABanner();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauHeatmap();}).catch(err=>console.warn('Réseau worker error:',err));}
+      if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
+      _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();renderReseauHeatmap();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
@@ -1545,7 +1545,6 @@ _S.canalAgence=newCanalAgence;
       }
       // Sans stock — rendu minimal
       renderHealthScore();
-      renderIRABanner();
       renderTabBadges();
       return;
     }
@@ -1669,11 +1668,9 @@ _S.canalAgence=newCanalAgence;
 
     // ★★★ V23/V24.2: RÉSUMÉ EXÉCUTIF ★★★
     if(dataSource===DataStore.finalData){_S._insights.ruptures=lstR.length;_S._insights.dormants=lstD.length;renderInsightsBanner();}
-    // ★ SPRINT 1: Decision Queue + Briefing (absorbe le résumé exécutif) ★
+    // ★ SPRINT 1: Briefing ★
     _S._briefingData={lstR,totalCAPerdu,dormantStock,capalinOverflow,sr,hasMulti,caComptoir:_S.canalAgence?.['MAGASIN']?.ca||0};
-    generateDecisionQueue();
     renderHealthScore();
-    renderIRABanner();
     renderTabBadges();
 
     // ── Bandeau hero Santé + Valeur Stock ──
@@ -2096,7 +2093,6 @@ _S.canalAgence=newCanalAgence;
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
       if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { computeOmniScores(); computeFamillesHors(); }
-      generateDecisionQueue();
       if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
       // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
       if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
@@ -2134,7 +2130,7 @@ _S.canalAgence=newCanalAgence;
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
       invalidateCache('tab','terr');buildPeriodFilter();
-      renderCanalAgence();renderCurrentTab();renderIRABanner();
+      renderCanalAgence();renderCurrentTab();
 
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
@@ -2417,9 +2413,7 @@ window._showExcludePrompt = _showExcludePrompt;
 window._confirmExclude = _confirmExclude;
 window._unexcludeClient = _unexcludeClient;
 window.renderComparison = renderComparison;
-window.generateDecisionQueue = generateDecisionQueue;
 window.renderHealthScore = renderHealthScore;
-window.renderIRABanner = renderIRABanner;
 window.exportAgenceSnapshot = exportAgenceSnapshot;
 window._loadIRAHistory = _loadIRAHistory;
 window.renderTabBadges = renderTabBadges;

@@ -1673,7 +1673,7 @@ function _nlRupturesTopClients({topN}){
 }
 
 function _nlDqReassort(){
-  const items=(_S.decisionQueueData||[]).filter(d=>d.type==='rupture'||d.type==='alerte_prev');
+  const items=[];
   if(!items.length){_renderNLResult('Commandes urgentes',[],[],`Aucune rupture ni alerte préventive dans la file`);return;}
   _renderNLResult("Commandes à passer aujourd'hui",items.slice(0,30).map(d=>({
     type:`<span class="text-[10px] font-bold ${d.type==='alerte_prev'?'c-caution':'c-danger'}">${d.type==='alerte_prev'?'⚠️ Préventif':'🔴 Rupture'}</span>`,

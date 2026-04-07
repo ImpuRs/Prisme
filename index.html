@@ -676,34 +676,6 @@
     #cockpitBriefing .briefing-line:last-child{border-bottom:none}
     .briefing-icon{flex-shrink:0;font-size:var(--fs-base)}
     .briefing-num{font-weight:800;border-bottom:1px dotted var(--c-muted);cursor:help}
-    /* ═══ Decision Queue ════════════════════════════════════ */
-    #decisionQueue{background:var(--s-card);border:1px solid var(--b-default);border-radius:var(--r-lg);padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-3);box-shadow:var(--shadow-sm)}
-    .dq-item{display:flex;align-items:center;gap:10px;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);background:var(--s-card-alt);border:1px solid var(--b-default);margin-bottom:var(--sp-2);transition:all .15s}
-    .dq-item-click{cursor:pointer}.dq-item-click:hover{background:var(--s-page);border-color:var(--p-slate-300)}
-    .dq-item:last-child{margin-bottom:0}
-    .dq-num-badge{min-width:22px;height:22px;border-radius:var(--r-full);background:var(--b-default);color:var(--t-secondary);font-size:var(--fs-xs);font-weight:var(--fw-extrabold);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .dq-num-badge.dq-danger{background:var(--c-danger);color:var(--s-card)}
-    .dq-num-badge.dq-caution{background:var(--c-caution);color:var(--s-card)}
-    .dq-num-badge.dq-ok{background:var(--c-ok);color:var(--s-card)}
-    .dq-num-badge.dq-action{background:var(--c-action);color:var(--s-card)}
-    .dq-label{flex:1;font-size:var(--fs-sm);font-weight:var(--fw-medium);color:var(--t-primary);line-height:1.35}
-    .dq-impact{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--c-muted);white-space:nowrap;flex-shrink:0}
-    .dq-impact.dq-high{color:var(--c-danger)}
-    .dq-impact.dq-medium{color:var(--c-caution)}
-    .dq-why{font-size:var(--fs-xs);color:var(--c-muted);margin-top:4px;padding-left:32px}
-    .dq-why summary{cursor:pointer;color:var(--c-action);list-style:none}
-    .dq-why summary::-webkit-details-marker{display:none}
-    .dq-why ul{margin:4px 0 0 12px;line-height:1.6}
-    /* A4 — Formes distinctes par type (daltonien : forme ≠ couleur) */
-    .dq-item[data-dqtype]::before{content:'';display:block;width:10px;height:10px;flex-shrink:0;margin-right:-2px}
-    .dq-item[data-dqtype="rupture"]::before{background:var(--c-danger)}
-    .dq-item[data-dqtype="alerte_prev"]::before{background:var(--c-caution);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%)}
-    .dq-item[data-dqtype="client"]::before{background:var(--c-action);clip-path:circle(50%)}
-    .dq-item[data-dqtype="dormants"]::before{background:var(--c-muted);clip-path:polygon(0% 0%,100% 0%,50% 100%)}
-    .dq-item[data-dqtype="anomalie_minmax"]::before{background:var(--c-caution);clip-path:polygon(50% 0%,0% 100%,100% 100%)}
-    .dq-item[data-dqtype="sain"]::before{background:var(--c-ok);clip-path:circle(50%)}
-    .dq-item[data-dqtype="concentration"]::before{background:var(--c-caution);clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)}
-    .dq-item[data-dqtype="fragilite"]::before{background:var(--c-action);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
@@ -725,9 +697,6 @@
     #insightsBannerRight{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex-shrink:0}
     #cacheBanner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--p-slate-950);border-bottom:1px solid rgba(255,255,255,0.05);min-height:26px;padding:0 1.25rem;font-size:var(--fs-xs);color:rgba(255,255,255,0.4);font-weight:var(--fw-normal);gap:4px}
     #cacheBanner.hidden{display:none!important}
-    /* IRA banner migré vers sidebar Ce matin — masquer le bandeau inline */
-    #iraBanner{display:none!important}
-
     /* ═══ Tab bar premium ════════════════════════════════════ */
     #tabsContainer{background:var(--s-card);border-bottom:1px solid var(--b-default);box-shadow:var(--shadow-sm)}
     #tabsFilterTitle{background:var(--s-card);border-right:1px solid var(--b-default)}
@@ -915,43 +884,6 @@
       z-index: 30;
     }
 
-    /* ═══ DECISION QUEUE 2027 ════════════════════════════════════ */
-    #decisionQueue {
-      background: var(--s-card);
-      border: 1px solid var(--b-default);
-      border-radius: var(--r-lg);
-    }
-    .dq-item {
-      background: var(--s-card-alt);
-      border: 1px solid var(--b-default);
-      border-radius: var(--r-md);
-      margin-bottom: var(--sp-2);
-      padding: var(--sp-2) var(--sp-3);
-      transition: border-color .15s, background .15s;
-      position: relative;
-      overflow: hidden;
-    }
-    .dq-item-click:hover {
-      background: var(--s-hover);
-      border-color: var(--b-strong);
-    }
-    .dq-item::after {
-      content: '';
-      position: absolute;
-      right: 0; top: 0; bottom: 0;
-      width: 3px;
-      border-radius: 0 var(--r-md) var(--r-md) 0;
-      opacity: 0;
-      transition: opacity .15s;
-    }
-    .dq-item[data-dqtype="rupture"]::after,
-    .dq-item[data-dqtype="alerte_prev"]::after { background: var(--c-danger); opacity: 0.7; }
-    .dq-item[data-dqtype="client"]::after,
-    .dq-item[data-dqtype="client_silence"]::after { background: var(--c-action); opacity: 0.5; }
-    .dq-item[data-dqtype="dormants"]::after,
-    .dq-item[data-dqtype="concentration"]::after { background: var(--c-caution); opacity: 0.5; }
-    .dq-num-badge { font-family: var(--ff-mono, monospace); font-variant-numeric: tabular-nums; }
-    .dq-label { font-size: var(--fs-sm); font-weight: 500; line-height: var(--lh-snug); color: var(--t-primary); }
 
     /* ═══ FILTER GROUPS SIDEBAR 2027 ═════════════════════════════ */
     .filter-group {

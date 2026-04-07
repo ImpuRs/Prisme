@@ -188,9 +188,6 @@ _S._terrCanalCache = new Map();
 // Invalidé sur changement de bassin/métier/myStore/chalandise. Jamais sur canal.
 _S._benchCache = null;
 
-// ── Decision Queue (Sprint 1) ──
-_S.decisionQueueData = [];
-
 // ── Briefing data (set by renderDashboardAndCockpit, read by renderCockpitBriefing) ──
 _S._briefingData = null;
 
@@ -264,8 +261,6 @@ _S._reseauMissedShowAll = false;    // mode "voir tout" missed
 _S._reseauUnderPage = 0;            // pagination under réseau
 _S._reseauUnderShowAll = false;     // mode "voir tout" under
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
-_S._dqRenderedItems = [];           // snapshot decision queue rendus (pour dqFocus)
-_S._iraDiagData = null;             // données diagnostic IRA banner
 _S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 _S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
@@ -364,9 +359,6 @@ export function resetAppState() {
   // Caches (invalidation centralisée)
   invalidateCache('all');
 
-  // Decision Queue
-  _S.decisionQueueData = [];
-
   // Briefing data
   _S._briefingData = null;
   _S._iccData = null; _S._fragiliteData = null;
@@ -411,7 +403,6 @@ export function resetAppState() {
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S.clientOmniScore = new Map();
-  _S._dqRenderedItems = []; _S._iraDiagData = null;
   _S.famillesHors = [];
   _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();

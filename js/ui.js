@@ -1130,21 +1130,6 @@ export function renderCockpitBriefing() {
     }
   }
 
-  // Card bonus — Score IRA si peu de cartes
-  if (cards.length < 3 && sr !== null) {
-    const iraScore = _S._iraDiagData?.ira;
-    if (iraScore != null) {
-      cards.push(buildEvidenceCard({
-        icon: iraScore >= 75 ? '💚' : iraScore >= 50 ? '🟡' : '🔴',
-        value: `${iraScore}/100`,
-        label: 'Score IRA agence',
-        severity: iraScore >= 75 ? 'ok' : iraScore >= 50 ? 'caution' : 'danger',
-        cta: 'Détails',
-        ctaFn: 'openDiagAgence()',
-      }));
-    }
-  }
-
   const narrativeHtml = _buildCockpitBriefingNarrative(d);
   const gridHtml = `<div class="evidence-grid">${cards.join('')}</div>
     <details style="margin-top:0">
@@ -1249,168 +1234,25 @@ function _buildCockpitBriefingNarrative(d) {
   ).join('');
 }
 
-// ── Feature 4: Decision Queue (rendu) ────────────────────────
-// Rend la file de décision depuis _S.decisionQueueData
-// ── Session dismiss pour la DQ (reset à chaque rechargement des données) ──
-const _dqDismissed = new Set();
-export function dqDismiss(key) { _dqDismissed.add(key); renderDecisionQueue(); }
-export function clearDqDismissed() { _dqDismissed.clear(); renderDecisionQueue(); }
-function _dqKey(d) { return `${d.type}__${d.code || d.label?.substring(0, 20) || ''}` ; }
 
-export function renderDecisionQueue() {
-  const el = document.getElementById('decisionQueue');
-  const listEl = document.getElementById('decisionQueueList');
-  const subtitle = document.getElementById('dqSubtitle');
-  if (!el || !listEl) return;
-  if (!_S.decisionQueueData || !_S.decisionQueueData.length) { el.classList.add('hidden'); return; }
-
-  // impactClass : 'dq-high' = rouge (--c-danger), 'dq-medium' = ambre (--c-caution)
-  // Noms prefixés 'dq-' pour éviter tout conflit avec les utilitaires Tailwind
-  const typeConfig = {
-    rupture:           { badgeClass: 'dq-danger',  icon: '🚨', impactClass: 'dq-high' },
-    alerte_prev:       { badgeClass: 'dq-caution', icon: '⚡', impactClass: 'dq-medium' },
-    saisonnalite_prev: { badgeClass: 'dq-caution', icon: '📅', impactClass: 'dq-medium' },
-    client:            { badgeClass: 'dq-action',  icon: '📞', impactClass: 'dq-medium' },
-    client_silence:    { badgeClass: 'dq-action',  icon: '🔔', impactClass: 'dq-medium' },
-    opportunite:       { badgeClass: 'dq-ok',      icon: '💡', impactClass: 'dq-medium' },
-    concentration:     { badgeClass: 'dq-caution', icon: '📊', impactClass: 'dq-medium' },
-    dormants:          { badgeClass: 'dq-caution', icon: '💤', impactClass: 'dq-medium' },
-    client_web_actif:  { badgeClass: 'dq-caution', icon: '🌐', impactClass: 'dq-medium' },
-    fragilite:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
-    anomalie_minmax:   { badgeClass: 'dq-action',  icon: '⚠️', impactClass: '' },
-    stock_synthesis:   { badgeClass: 'dq-action',  icon: '📦', impactClass: '' },
-    captation:         { badgeClass: 'dq-action',  icon: '🎯', impactClass: 'dq-medium' },
-    livres_sans_pdv:   { badgeClass: 'dq-action',  icon: '📦', impactClass: 'dq-medium' },
-    opps_nettes:       { badgeClass: 'dq-ok',      icon: '🎯', impactClass: 'dq-medium' },
-  };
-
-  // Trier par euros perdus estimés (impact) puis par score — DQ V4
-  const sorted = _S.decisionQueueData.slice().sort((a, b) => (b.impact || 0) - (a.impact || 0) || (b.score || 0) - (a.score || 0));
-  const allItems = sorted.slice(0, 9);
-  const items = allItems.filter(d => !_dqDismissed.has(_dqKey(d)));
-  _S._dqRenderedItems = items; // snapshot de l'ordre affiché pour dqFocus(idx)
-  const nbDismissed = allItems.length - items.length;
-  if (subtitle) subtitle.textContent = `${items.length} action${items.length > 1 ? 's' : ''}${nbDismissed > 0 ? ` · ${nbDismissed} traité${nbDismissed > 1 ? 's' : ''}` : ''}`;
-
-  listEl.innerHTML = items.map((d, idx) => {
-    const cfg = typeConfig[d.type] || { badgeClass: '', icon: '•', impactClass: '' };
-    const impactStr = d.impact >= 1000 ? formatEuro(d.impact) : '';
-    const impactClass = (d.type === 'rupture') ? 'dq-high' : (impactStr ? 'dq-medium' : '');
-    const impactHtml = impactStr ? `<span class="dq-impact ${impactClass}">${impactStr}</span>` : '';
-    const whyHtml = d.why && d.why.length ? `<details class="dq-why" onclick="event.stopPropagation()"><summary>Pourquoi ?</summary><ul>${d.why.map(w => `<li>${w}</li>`).join('')}</ul></details>` : '';
-    const score = d.score || 0;
-    const priorityLabel = score >= 70 ? '<span class="chip chip-xs chip-danger">🔥 Critique</span>'
-                        : score >= 40 ? '<span class="chip chip-xs chip-caution">⚡ Urgent</span>'
-                        : '<span class="chip chip-xs chip-muted">📌 À surveiller</span>';
-    const saisonTag = d.saisonnier ? '<span class="chip chip-xs chip-info">🌡️ Saisonnier</span>' : '';
-    const dqK = _dqKey(d).replace(/'/g, "\\'");
-    return `<div class="dq-item dq-item-click" data-dqtype="${d.type}" onclick="dqFocus(${idx})" title="Cliquer pour naviguer">
-      <div class="dq-num-badge ${cfg.badgeClass}">${idx + 1}</div>
-      <div style="flex:1;min-width:0">
-        <div class="dq-label">${cfg.icon} ${d.label}</div>
-        <div class="mt-0.5 flex flex-wrap gap-1">${priorityLabel}${saisonTag}</div>
-        ${whyHtml}
-      </div>
-      ${impactHtml}
-      <button onclick="event.stopPropagation();dqDismiss('${dqK}')" class="ml-2 text-[10px] t-disabled hover:t-primary shrink-0" title="Marquer comme traité">✓</button>
-    </div>`;
-  }).join('');
-
-  const footerEl = document.getElementById('dqFooter');
-  if (footerEl) { footerEl.innerHTML = ''; footerEl.classList.add('hidden'); }
-
-  el.classList.remove('hidden');
-}
-
-// ── Feature 6: Focus Mode — clic DQ → navigation ─────────────
-export function dqFocus(idx) {
-  // Lire depuis l'ordre rendu (sorted+filtered), pas le tableau brut
-  const d = (_S._dqRenderedItems || _S.decisionQueueData || [])[idx];
-  if (!d) return;
-  const cc = d.clientCode || d.code;
-  switch (d.type) {
-    case 'rupture':
-    case 'alerte_prev':
-      showCockpitInTable('ruptures');
-      switchTab('stock');
-      break;
-    case 'saisonnalite_prev': {
-      const si = document.getElementById('searchInput');
-      if (si && d.code) si.value = d.code;
-      clearCockpitFilter(true);
-      _S.currentPage = 0;
-      switchTab('table');
-      renderAll();
-      break;
-    }
-    case 'client':
-    case 'client_silence':
-      if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
-      else switchTab('commerce');
-      break;
-    case 'captation':
-      switchTab('commerce');
-      break;
-    case 'livres_sans_pdv':
-    case 'opps_nettes':
-      switchTab('clients');
-      break;
-    case 'concentration':
-      switchTab('commerce');
-      break;
-    case 'opportunite':
-    case 'client_web_actif':
-    case 'client_digital_drift':
-      if (cc && window.openClient360) window.openClient360(cc, 'cockpit');
-      else switchTab('commerce');
-      break;
-    case 'dormants':
-      switchTab('stock');
-      showCockpitInTable('dormants');
-      break;
-    case 'fragilite':
-      showCockpitInTable('fragiles');
-      switchTab('table');
-      break;
-    case 'erp_incoherence':
-    case 'anomalie_minmax':
-      switchTab('stock');
-      showCockpitInTable('anomalies');
-      break;
-    case 'famille_fuite':
-      switchTab('reseau');
-      break;
-    case 'stock_synthesis':
-      switchTab('stock');
-      break;
-    default:
-      switchTab('stock');
-      break;
-  }
-}
-
-// ── Health Score — fusionné dans renderIRABanner, ce bloc est inactif ──
+// ── Health Score ──────────────────────────────────────────────
 export function renderHealthScore() {
   const el = document.getElementById('healthScoreBadge');
   if (!el) return;
   const fd = _S.finalData;
   if (!fd || !fd.length) { el.classList.add('hidden'); return; }
-  // ── Compute health dimensions (0-100 each) ──
   const totalRefs = fd.length;
   const ruptures = fd.filter(r => r.stockActuel <= 0 && r.W >= 3 && !r.isParent).length;
   const dormants = fd.filter(r => r.ageJours >= (_S.DORMANT_DAYS || 180) && r.stockActuel > 0 && r.W <= 1).length;
   const sansMin = fd.filter(r => r.ancienMin === 0 && r.W >= 3).length;
   const surstock = fd.filter(r => r.ancienMax > 0 && r.stockActuel > r.ancienMax * 2).length;
-  // Taux de service = refs actives (W≥1) sans rupture / refs actives total
   const actives = fd.filter(r => r.W >= 1 && !r.isParent);
   const activesOk = actives.filter(r => r.stockActuel > 0).length;
   const txService = actives.length > 0 ? Math.round(activesOk / actives.length * 100) : 100;
-  // Score composite : pondéré
   const rupPct = totalRefs > 0 ? ruptures / totalRefs * 100 : 0;
   const dormPct = totalRefs > 0 ? dormants / totalRefs * 100 : 0;
   const sansMinPct = actives.length > 0 ? sansMin / actives.length * 100 : 0;
   const surstockPct = totalRefs > 0 ? surstock / totalRefs * 100 : 0;
-  // Health = 100 - penalties
   const score = Math.max(0, Math.min(100, Math.round(
     txService * 0.4 +
     Math.max(0, 100 - rupPct * 10) * 0.25 +
@@ -1421,7 +1263,6 @@ export function renderHealthScore() {
   const color = score >= 75 ? 'var(--c-ok)' : score >= 50 ? 'var(--c-caution)' : 'var(--c-danger)';
   const label = score >= 75 ? 'Bonne santé' : score >= 50 ? 'À surveiller' : 'Critique';
   const icon = score >= 75 ? '💚' : score >= 50 ? '🟡' : '🔴';
-  // ── Render ──
   const dims = [
     { label: 'Taux de service', val: txService + '%', ok: txService >= 95 },
     { label: 'Ruptures', val: ruptures, ok: ruptures <= 5 },
@@ -1448,176 +1289,16 @@ export function renderHealthScore() {
   </div>`;
   el.innerHTML = healthHtml;
   el.classList.remove('hidden');
-  // Also populate accordion content + inline summary
   const hsc = document.getElementById('healthScoreContent');
   if (hsc) hsc.innerHTML = healthHtml;
   const hsi = document.getElementById('healthScoreInline');
   if (hsi) hsi.textContent = `${score}/100 — ${label}`;
 }
 
-// ── No-stock placeholder ──────────────────────────────────────
-export function _renderNoStockPlaceholder(ongletNom) {
-  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:16px;color:var(--t-muted)"><div style="font-size:2rem">📦</div><div style="font-size:1.1rem;font-weight:600">${ongletNom} — fichier stock non chargé</div><div style="font-size:0.9rem;max-width:400px;text-align:center">Chargez le fichier <strong>État du Stock</strong> via "Modifier les fichiers" pour accéder à cet onglet.</div></div>`;
-}
-
-// ── Tab Badges — numériques sur les onglets ───────────────────
-export function renderTabBadges() {
-
-  // Badge "Mes clients" : clients silencieux >90j avec CA PDV
-  const clientsBadge = document.getElementById('navClientsBadge');
-  if (clientsBadge && _S.clientLastOrder?.size > 0) {
-    const nowTs = Date.now();
-    let silentCount = 0;
-    for (const [cc, dt] of _S.clientLastOrder) {
-      if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
-    }
-    if (silentCount > 0) {
-      clientsBadge.textContent = silentCount > 99 ? '99+' : silentCount;
-      clientsBadge.classList.remove('hidden');
-    } else {
-      clientsBadge.classList.add('hidden');
-    }
-  }
-
-  // Task 7: grise Articles + Mon Stock si stock non chargé
-  ['table', 'stock'].forEach(tabId => {
-    const btn = document.querySelector(`[onclick*="switchTab('${tabId}')"]`);
-    if (btn) {
-      if (!_S._hasStock) {
-        btn.style.opacity = '0.45';
-        btn.title = 'Nécessite le fichier stock';
-        btn.style.pointerEvents = 'none';
-      } else {
-        btn.style.opacity = '';
-        btn.title = '';
-        btn.style.pointerEvents = '';
-      }
-    }
-  });
-}
-
-// ── IRA — Indice de Risque Agence (3 sous-scores + composite) ──
-export function renderIRABanner() {
-  const el = document.getElementById('iraBanner');
-  if (!el) return;
-  const d = _S.finalData;
-  if (!d.length) { el.classList.add('hidden'); return; }
-
-  // ── Score Stock : taux de service articles F+M (non rupture / total) ──
-  const fmArts = d.filter(r => (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-  const fmRup = fmArts.filter(r => r.stockActuel <= 0).length;
-  const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
-
-  // ── Score Clients : momentum (actifs <90j) / total chalandise ──
-  let clientScore = 50;
-  let actifCount = 0, totalChaland = 0;
-  const _canal = _S._globalCanal || '';
-  // Tous canaux : utiliser _clientsTousCanaux (période-filtré) si disponible
-  if (!_canal && _S._clientsTousCanaux?.size > 0) {
-    actifCount = _S._clientsTousCanaux.size;
-    totalChaland = _S.chalandiseData?.size || actifCount;
-    clientScore = Math.min(100, Math.round(100 * actifCount / Math.max(totalChaland, 1)));
-  } else if (_S.chalandiseReady && _S.chalandiseData && _S.chalandiseData.size > 0) {
-    const nowTs = Date.now();
-    totalChaland = _S.chalandiseData.size;
-    actifCount = [...(_S.clientLastOrder || new Map()).entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
-    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
-  } else if (_S.clientLastOrder && _S.clientLastOrder.size > 0) {
-    const nowTs = Date.now();
-    const all = _S.clientLastOrder.size;
-    actifCount = [..._S.clientLastOrder.values()].filter(dt => nowTs - dt < 90 * 86400000).length;
-    clientScore = Math.min(100, Math.round(100 * actifCount / all));
-    totalChaland = all;
-  }
-
-  // ── Score Captation : CA PDV / (CA PDV + CA fuyant) ──
-  let captationScore = 100;
-  let caPDV = 0, caFuyant = 0;
-  if (_S.famillesHors && _S.famillesHors.length > 0) {
-    caFuyant = _S.famillesHors.reduce((s, f) => s + (f.caHors || 0), 0);
-    if (_S.ventesClientArticle) {
-      for (const [, arts] of _S.ventesClientArticle) {
-        for (const [, v] of arts) caPDV += (v.sumCA || 0);
-      }
-    }
-    const total = caPDV + caFuyant;
-    captationScore = total > 0 ? Math.round(100 * caPDV / total) : 100;
-  } else if (_S.canalAgence && _S.canalAgence.MAGASIN) {
-    captationScore = 100; // pas de données fuite, on ne pénalise pas
-  }
-
-  // ── IRA composite ──
-  const ira = Math.round(stockScore * 0.40 + clientScore * 0.35 + captationScore * 0.25);
-
-  // ── Helpers ──
-  function _scoreColor(s) {
-    if (s >= 75) return '#16a34a';
-    if (s >= 50) return '#d97706';
-    return '#dc2626';
-  }
-  function _scoreBg(s) {
-    if (s >= 75) return 'rgba(22,163,74,0.10)';
-    if (s >= 50) return 'rgba(217,119,6,0.10)';
-    return 'rgba(220,38,38,0.10)';
-  }
-  function _scoreRing(s) {
-    if (s >= 75) return 'rgba(22,163,74,0.28)';
-    if (s >= 50) return 'rgba(217,119,6,0.28)';
-    return 'rgba(220,38,38,0.28)';
-  }
-  function _pill(label, score, sub) {
-    const c = _scoreColor(score), bg = _scoreBg(score), ring = _scoreRing(score);
-    const barW = score + '%';
-    return `<div style="flex:1;min-width:0;padding:8px 10px;border-radius:10px;background:${bg};outline:1px solid ${ring}">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-        <span style="font-size:0.65rem;font-weight:700;color:var(--c-muted);text-transform:uppercase;letter-spacing:0.04em">${label}</span>
-        <span style="font-size:1rem;font-weight:900;color:${c}">${score}<span style="font-size:0.6rem">/100</span></span>
-      </div>
-      <div style="height:3px;border-radius:2px;background:rgba(128,128,128,0.15);margin-bottom:4px">
-        <div style="height:3px;border-radius:2px;width:${barW};background:${c};transition:width 0.4s"></div>
-      </div>
-      <p style="font-size:0.6rem;color:var(--c-muted);opacity:0.75;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</p>
-    </div>`;
-  }
-
-  const stockSub = `${fmArts.length - fmRup}/${fmArts.length} arts F+M en stock`;
-  const clientSub = totalChaland > 0 ? `${actifCount} actifs sur ${totalChaland} clients` : 'Charger chalandise';
-  const captSub = caFuyant > 0
-    ? `${Math.round(caPDV/1000)}k€ PDV · ${Math.round(caFuyant/1000)}k€ fuyant`
-    : 'Aucune fuite détectée';
-
-  const iraLabel = ira >= 70 ? 'Bonne santé' : ira >= 40 ? 'Points d\'attention' : 'Actions urgentes';
-  const iraColor = ira >= 70 ? 'var(--c-ok,#16a34a)' : ira >= 40 ? 'var(--c-caution,#d97706)' : 'var(--c-danger,#dc2626)';
-
-  // ── Historique IRA (localStorage) ──
-  _saveIRASnapshot(ira, stockScore, clientScore, captationScore);
-
-  // Snapshot pour le modal diagnostic
-  _S._iraDiagData = { ira, iraLabel, stockScore, clientScore, captationScore,
-    fmTotal: fmArts.length, fmEnStock: fmArts.length - fmRup,
-    actifCount, totalChaland, caFuyant, caPDV };
-
-  const _compDispo = `Dispo.\u00a0${stockScore}%`;
-  const _compClients = actifCount > 0 ? `${actifCount}\u00a0clients\u00a0actifs` : `Activité\u00a0${clientScore}%`;
-  const _compCapt = caFuyant > 0 ? `${Math.round(caFuyant/1000)}k€\u00a0fuyant` : `0\u00a0fuite\u00a0détectée`;
-  const components = [_compDispo, _compClients, _compCapt].join('\u00a0·\u00a0');
-
-  el.innerHTML = `<div onclick="openDiagAgence()" title="Diagnostic agence — cliquer pour détails" style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-radius:10px;background:var(--s-card);outline:1px solid var(--b-default);cursor:pointer" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-    <span style="font-weight:800;font-size:0.8rem;color:${iraColor}">📊\u00a0${ira}/100</span>
-    <span style="font-size:0.75rem;font-weight:600;color:${iraColor}">·\u00a0${iraLabel}</span>
-    <span style="font-size:0.72rem;color:var(--t-tertiary,#94a3b8);margin-left:auto">${components}</span>
-    <button onclick="event.stopPropagation();exportAgenceSnapshot()" title="Exporter snapshot agence" style="font-size:0.65rem;padding:2px 6px;border-radius:6px;border:1px solid var(--b-light,rgba(128,128,128,0.2));background:transparent;cursor:pointer;color:var(--t-disabled)">📤</button>
-  </div>`;
-  el.classList.remove('hidden');
-  // Sidebar Ce matin — bloc score compact
-  {const _sb=document.getElementById('cematinScoreBadge');const _st=document.getElementById('cematinScoreText');const _ss=document.getElementById('cematinScoreSub');
-  if(_sb&&_st&&_ss){const _ic=_scoreColor(ira);const _ft=caFuyant>0?`${Math.round(caFuyant/1000)}k€\u00a0fuyant`:'0\u00a0fuite';const _ac=actifCount>0?`${actifCount}\u00a0clients\u00a0actifs`:'Charger\u00a0chalandise';_sb.style.borderColor=_ic+'4d';_sb.style.background=_ic+'1a';_st.innerHTML=`<span style="color:${_ic};font-weight:800;font-size:0.72rem">📊\u00a0${ira}/100</span><span style="color:${_ic};font-size:0.7rem;font-weight:600">\u00a0·\u00a0${iraLabel}</span>`;_ss.textContent=`Dispo.\u00a0${stockScore}%\u00a0·\u00a0${_ac}\u00a0·\u00a0${_ft}`;}}
-}
-
 // ── Modal Diagnostic agence ───────────────────────────────────
 export function openDiagAgence() {
-  const d = _S._iraDiagData;
-  if (!d) return;
+  // renderIRABanner supprimé — diagnostic agence non disponible
+  return;
 
   const _color = s => s >= 70 ? 'var(--c-ok,#16a34a)' : s >= 40 ? 'var(--c-caution,#d97706)' : 'var(--c-danger,#dc2626)';
   const _label = s => s >= 70 ? '✅ Bon niveau' : s >= 40 ? '⚠️ Vigilance' : '🔴 Actions requises';
@@ -1819,7 +1500,7 @@ export function exportAgenceSnapshot() {
   const store = _S.selectedMyStore || 'Agence';
   const stripHtml = s => s.replace(/<[^>]+>/g, '').replace(/\u00a0/g, ' ');
 
-  // ── IRA scores (réplique logique renderIRABanner) ──
+  // ── IRA scores ──
   const fmArts = d.filter(r => (r.fmrClass === 'F' || r.fmrClass === 'M') && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
   const fmRup = fmArts.filter(r => r.stockActuel <= 0).length;
   const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
@@ -1851,11 +1532,6 @@ export function exportAgenceSnapshot() {
   const capalinOverflow = br.capalinOverflow || 0;
   const sr = br.sr != null ? br.sr : null;
 
-  // ── DQ items (top 5) ──
-  const dqItems = (_S.decisionQueueData || []).slice(0, 5);
-
-  const typeEmoji = { rupture: '🔴', client_silence: '🟡', client_digital_drift: '📱', famille_fuite: '🟠', dormants: '🟡', anomalie_minmax: '⚠️', fragilite: '🟠', saisonnalite_prev: '🌡️', concentration: '🟠', opportunite: '💡' };
-
   // ── Canal KPIs ──
   const caMag = _S.canalAgence?.MAGASIN?.ca || 0;
   const caWeb = _S.canalAgence?.INTERNET?.ca || 0;
@@ -1878,17 +1554,6 @@ export function exportAgenceSnapshot() {
   if (caFuyantTot > 0) lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · ${Math.round(caPDVtot/1000)}k€ PDV · ${Math.round(caFuyantTot/1000)}k€ fuyant`);
   else lines.push(`- 🛒 Captation PDV : **${captationScore}/100** · Aucune fuite détectée`);
   lines.push('');
-
-  // Alertes DQ
-  if (dqItems.length > 0) {
-    lines.push('## 🗂️ Alertes prioritaires');
-    dqItems.forEach((item, i) => {
-      const emoji = typeEmoji[item.type] || '📌';
-      lines.push(`${i + 1}. ${emoji} ${stripHtml(item.label)}`);
-      if (item.why?.[0]) lines.push(`   → ${stripHtml(item.why[0])}`);
-    });
-    lines.push('');
-  }
 
   // KPIs stock
   lines.push('## 📦 KPIs stock');
@@ -1938,10 +1603,7 @@ export function exportAgenceSnapshot() {
 
 // ── Feature 7: Clip ERP — TSV CODE<tab>QTÉ ───────────────────
 export function clipERP() {
-  const lines = (_S.decisionQueueData || [])
-    .filter(d => d.action === 'commander' && d.qteSugg > 0 && d.code)
-    .map(d => `${d.code}\t${d.qteSugg}`)
-    .join('\n');
+  const lines = '';
   if (!lines) { showToast('Aucune commande à copier', 'info'); return; }
   const count = lines.split('\n').length;
   const btn = document.getElementById('erpCopyBtn');
@@ -2073,12 +1735,6 @@ export function exportCockpitResume() {
   lines.push(`Taux de dispo : ${_S._briefingData?.sr ?? '—'}%`);
   lines.push(`Ruptures : ${_S.cockpitLists.ruptures?.size ?? 0} · Dormants : ${_S.cockpitLists.dormants?.size ?? 0}`);
   lines.push('');
-  lines.push('ACTIONS PRIORITAIRES :');
-  for (const d of (_S.decisionQueueData || []).slice(0, 5)) {
-    const score = d.score || 0;
-    const icon = score >= 70 ? '🔥' : score >= 40 ? '⚡' : '📌';
-    lines.push(`${icon} ${d.label}`);
-  }
   navigator.clipboard.writeText(lines.join('\n'));
   showToast('Résumé Cockpit copié ✅', 'success');
 }
