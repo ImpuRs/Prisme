@@ -480,20 +480,17 @@ function renderObservatoire(){
   // Calcul pépites pour l'onglet actif
   let pepites;
   if (_pepAgTab === myAg2 || !isMulti) {
-    // Mon agence — myQte depuis articleMonthlySales (tous canaux + réactif période)
+    // Mon agence — myQte tous canaux : MAGASIN (vpm) + hors-MAGASIN (vpmByCanal)
     const pepitesAll = _S.benchLists.pepites || [];
     const pepitesFiltered = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
-    const _ms = _S.articleMonthlySales || {};
-    const _periodeMonths = DataStore.byContext().periodeMonths; // [0..11] selon preset
+    const _vpmByCanal = _S.ventesParMagasinByCanal?.[myAg2] || {};
     pepites = pepitesFiltered.map(p => {
-      const monthly = _ms[p.code];
-      let myQte;
-      if (monthly) {
-        myQte = _periodeMonths.reduce((s, m) => s + (monthly[m] || 0), 0);
-      } else {
-        const vpmData = _S.ventesParMagasin[myAg2]?.[p.code];
-        myQte = vpmData?.sumPrelevee ?? p.myQte ?? p.myFreq;
-      }
+      const myMagQte = _S.ventesParMagasin[myAg2]?.[p.code]?.sumPrelevee || 0;
+      // Ajouter les canaux hors MAGASIN (sumPrelevee = qty pour ces canaux)
+      const myHorsQte = Object.entries(_vpmByCanal)
+        .filter(([c]) => c !== 'MAGASIN')
+        .reduce((s, [, artMap]) => s + (artMap[p.code]?.sumPrelevee || 0), 0);
+      const myQte = myMagQte + myHorsQte;
       const compQte = Math.round(_S._artMedianQte[p.code] || p.compQte || p.compFreq);
       const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : p.ecartPct;
       return { ...p, myQte, compQte, ecartPct };
