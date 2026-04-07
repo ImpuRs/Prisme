@@ -1513,7 +1513,11 @@ function _populateTerrFamilleFilter(){
   if(cur)sel.value=cur;
 }
 
-function _setPDVCanalFilter(val){_S.pdvCanalFilter=val;_buildDegradedCockpit();}
+function _setPDVCanalFilter(val){
+  _S.pdvCanalFilter=(val==='tous'||val==='all'||!val)?null:val;
+  _buildDegradedCockpit();
+  window._renderPDVTab?.();
+}
 
 function _buildDegradedCockpit(){
   const el=document.getElementById('terrDegradedBlock');if(!el)return;
