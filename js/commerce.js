@@ -179,14 +179,34 @@ function _buildChalDirBlock(blkEl) {
         <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pLm}%</td>
         <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pPm}%</td>
       </tr>`;
-      for (const c of [...mc].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,30)) {
-        const ca=(c.ca2025||0)+(c.ca2026||0), star2=c.classification?.includes('Pot+')?'⭐ ':'';
-        html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-m="${di}_${mi}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
-          <td class="py-1 px-2 pl-10">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled">${c.cc}</span></td>
-          <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
-          <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
-          <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
+      // Niveau Commercial
+      const byComm=new Map();
+      for(const c of mc){const com=c.commercial||'—';if(!byComm.has(com))byComm.set(com,[]);byComm.get(com).push(c);}
+      let ci=0;
+      for(const[com,cc_list] of [...byComm.entries()].sort((a,b)=>b[1].length-a[1].length)){
+        const gc=_grp(cc_list);
+        const pLc=gc.total>0?Math.round(gc.aL/gc.total*100):0,pPc=gc.total>0?Math.round(gc.aP/gc.total*100):0;
+        html+=`<tr id="ccc${di}_${mi}_${ci}" onclick="window._ccc(${di},${mi},${ci})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.08)" class="border-b hover:s-card-alt" data-m="${di}_${mi}">
+          <td class="py-1.5 px-2 pl-9 text-[10px] font-medium">${escapeHtml(com)} <span id="ccca${di}_${mi}_${ci}" class="t-disabled text-[8px]">▶</span></td>
+          <td class="py-1.5 px-2 text-right text-[10px]">${gc.total}</td>
+          <td class="py-1.5 px-2 text-right c-ok text-[10px]">${gc.aL}</td>
+          <td class="py-1.5 px-2 text-right c-ok text-[10px]">${gc.aP}</td>
+          <td class="py-1.5 px-2 text-right text-[10px]" style="color:var(--c-info)">${gc.pro}</td>
+          <td class="py-1.5 px-2 text-right c-caution text-[10px]">${gc.per}</td>
+          <td class="py-1.5 px-2 text-right t-disabled text-[10px]">${gc.ina}</td>
+          <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pLc}%</td>
+          <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pPc}%</td>
         </tr>`;
+        for(const c of [...cc_list].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,20)){
+          const ca=(c.ca2025||0)+(c.ca2026||0),star2=c.classification?.includes('Pot+')?'⭐ ':'';
+          html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-c="${di}_${mi}_${ci}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
+            <td class="py-1 px-2 pl-12">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled">${c.cc}</span></td>
+            <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
+            <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
+            <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
+          </tr>`;
+        }
+        ci++;
       }
       mi++;
     }
@@ -216,9 +236,14 @@ window._ccd = di => {
   document.querySelectorAll(`[data-d="${di}"]`).forEach(r=>{
     r.style.display=opening?'table-row':'none';
     if(!opening){
-      // fermer aussi les clients de ce métier
-      const [,mi]=r.id.replace('ccm','').split('_');
-      document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(cr=>cr.style.display='none');
+      // fermer niveaux métier/commercial/clients enfants
+      const parts=r.id.replace('ccm','').split('_'),mi=parts[1];
+      document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(cr=>{
+        cr.style.display='none';
+        const parts2=cr.id?.replace('ccc','').split('_'),ci2=parts2?.[2];
+        if(ci2!==undefined)document.querySelectorAll(`[data-c="${di}_${mi}_${ci2}"]`).forEach(cl=>cl.style.display='none');
+        const ca=document.getElementById(`ccca${di}_${mi}_${ci2}`);if(ca)ca.textContent='▶';
+      });
       const ma=document.getElementById(`cma${di}_${mi}`);if(ma)ma.textContent='▶';
     }
   });
@@ -227,7 +252,20 @@ window._ccd = di => {
 window._ccm = (di,mi) => {
   const arr=document.getElementById(`cma${di}_${mi}`);
   const opening=arr&&arr.textContent==='▶';
-  document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(r=>r.style.display=opening?'table-row':'none');
+  document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(r=>{
+    r.style.display=opening?'table-row':'none';
+    if(!opening){
+      // fermer niveaux commercial/clients enfants
+      const parts=r.id?.replace('ccc','').split('_'),ci=parts?.[2];
+      if(ci!==undefined){document.querySelectorAll(`[data-c="${di}_${mi}_${ci}"]`).forEach(cl=>cl.style.display='none');const ca=document.getElementById(`ccca${di}_${mi}_${ci}`);if(ca)ca.textContent='▶';}
+    }
+  });
+  if(arr)arr.textContent=opening?'▼':'▶';
+};
+window._ccc = (di,mi,ci) => {
+  const arr=document.getElementById(`ccca${di}_${mi}_${ci}`);
+  const opening=arr&&arr.textContent==='▶';
+  document.querySelectorAll(`[data-c="${di}_${mi}_${ci}"]`).forEach(r=>r.style.display=opening?'table-row':'none');
   if(arr)arr.textContent=opening?'▼':'▶';
 };
 
@@ -1206,6 +1244,8 @@ function _buildChalandiseOverview(){
     bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
     bar.classList.remove('hidden');
   }}
+  // Vue direction cascade — toujours mise à jour avant le return terrChalandiseOverview
+  {const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
   // terrChalandiseOverview — table seulement si dans le DOM
   const blk=document.getElementById('terrChalandiseOverview');
   if(!blk)return;
@@ -1248,8 +1288,6 @@ function _buildChalandiseOverview(){
   _renderOmniSegmentClients();
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
-  // Table territoire en un coup d'œil — réactive aux filtres chalandise
-  if(_S.chalandiseReady){const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
 }
 // Level 2: Métiers for a Direction
 function _toggleOverviewL2(dirEnc,idx){
