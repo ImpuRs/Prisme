@@ -263,7 +263,6 @@ _S._reseauMissedPage = 0;           // pagination missed réseau
 _S._reseauMissedShowAll = false;    // mode "voir tout" missed
 _S._reseauUnderPage = 0;            // pagination under réseau
 _S._reseauUnderShowAll = false;     // mode "voir tout" under
-_S._top5Semaine = [];               // top 5 articles de la semaine
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
 _S._dqRenderedItems = [];           // snapshot decision queue rendus (pour dqFocus)
 _S._iraDiagData = null;             // données diagnostic IRA banner
@@ -411,7 +410,6 @@ export function resetAppState() {
   _S._byMonth = null; _S._byMonthCanal = null; _S._byMonthClients = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
-  _S._top5Semaine = [];
   _S.clientOmniScore = new Map();
   _S._dqRenderedItems = []; _S._iraDiagData = null;
   _S.famillesHors = [];

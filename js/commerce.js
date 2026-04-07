@@ -297,32 +297,6 @@ window._terrDrillBack = function() {
     });
   }
 
-  // ── _computeTop5Reconq — scored reconquest priority list (shared) ────
-  function _computeTop5Reconq(){
-    const fideles=_S.crossingStats?.fideles;
-    if(!fideles?.size||!_S.clientLastOrder?.size)return[];
-    const today=new Date();
-    const scored=[];
-    for(const cc of fideles){
-      const lastOrder=_S.clientLastOrder.get(cc);
-      if(!lastOrder)continue;
-      const daysAgo=Math.floor((today-lastOrder)/864e5);
-      if(daysAgo<=30)continue;
-      const arts=_S.ventesClientArticle?.get(cc);
-      if(!arts?.size)continue;
-      let caPDV=0;
-      for(const d of arts.values())caPDV+=d.sumCA||0;
-      if(caPDV<=0)continue;
-      const score=Math.round(caPDV*daysAgo);
-      const cc6=cc.padStart(6,'0');
-      const info=_S.chalandiseData?.get(cc)||_S.chalandiseData?.get(cc6)||{};
-      const nom=info.nom||_S.clientNomLookup?.[cc]||_S.clientNomLookup?.[cc6]||cc;
-      scored.push({cc,nom,commercial:info.commercial||'',metier:info.metier||'',caPDV,daysAgo,score});
-    }
-    scored.sort((a,b)=>b.score-a.score);
-    return scored.slice(0,5);
-  }
-
   // ── Helper hasTerr — vérifie les vraies données territoire disponibles ──
   // territoireReady peut rester false après restauration cache (bug connu),
   // mais terrDirectionData et terrContribByDirection sont toujours peuplés.
@@ -333,9 +307,6 @@ window._terrDrillBack = function() {
 
   // ── computeTerritoireKPIs — pure data for renderTerritoireTab ────────
   function computeTerritoireKPIs(){
-    const top5Reconq=_computeTop5Reconq();
-    const reconqFull=(_S.reconquestCohort||[]).filter(r=>_passesAllFilters(r.cc));
-    const reconq=reconqFull.slice(0,10);
     const livSansPDV=_S.livraisonsSansPDV||[];
     const hasTerr=_hasTerritoire();
     const hasChal=DataStore.chalandiseReady;
@@ -352,41 +323,11 @@ window._terrDrillBack = function() {
       }else{crossCaptes=_S.crossingStats.captes.size;crossFideles=_S.crossingStats.fideles.size;}
       crossPotentiels=_S.crossingStats.potentiels.size;
     }
-    return{top5Reconq,reconqFull,reconq,livSansPDV,hasTerr,hasChal,hasData,hasConsomme,degraded,hasCross,crossCaptes,crossFideles,crossPotentiels};
+    return{livSansPDV,hasTerr,hasChal,hasData,hasConsomme,degraded,hasCross,crossCaptes,crossFideles,crossPotentiels};
   }
 
   // ── computeClientsKPIs — pure data for renderMesClients ──────────────
   function computeClientsKPIs(){
-    const now=new Date();
-    let top5=[];
-    if(_S._top5Semaine?.length){
-      top5=_S._top5Semaine;
-    }else if(_S.clientLastOrder.size){
-      const cands=[];
-      for(const [cc,lastDate] of _S.clientLastOrder.entries()){
-        const daysSince=Math.round((now-lastDate)/86400000);
-        if(daysSince<30)continue;
-        const info=_S.chalandiseData.get(cc);
-        if(!info)continue;
-        const artMap=_S.ventesClientArticle.get(cc);
-        const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-        const ca=Math.max((info.ca2025||0)+caPDV,1);
-        const score=(daysSince/30)*Math.sqrt(ca);
-        const hmCount=(_S.ventesClientHorsMagasin.get(cc)||new Map()).size;
-        const parts=[];
-        if(daysSince>0)parts.push(`${daysSince}j silence`);
-        if(info.ca2025>0)parts.push(`CA ${formatEuro(info.ca2025)}/an`);
-        else if(caPDV>0)parts.push(`CA PDV ${formatEuro(caPDV)}/an`);
-        if(hmCount>0)parts.push(`${hmCount} art. hors agence`);
-        cands.push({cc,nom:info.nom||cc,commercial:info.commercial||'',metier:info.metier||'',score:Math.round(score),reason:parts.join(' · ')||'À contacter'});
-      }
-      cands.sort((a,b)=>b.score-a.score);
-      top5=cands.slice(0,5);
-    }
-    const top5Reconq=_computeTop5Reconq();
-    const reconqAll=_S.reconquestCohort||[];
-    const reconq=reconqAll.slice(0,10);
-    const reconqTotal=reconqAll.length;
     const livSansPDV=_S.livraisonsSansPDV||[];
     // Top clients — CA selon le canal sélectionné
     const _gCanal=_S._globalCanal||'';
@@ -468,7 +409,7 @@ window._terrDrillBack = function() {
       }
       digitaux.sort((a,b)=>b.caPDV-a.caPDV);
     }
-    return{top5,top5Reconq,reconq,reconqTotal,livSansPDV,topPDVRows,horsZone,digitaux};
+    return{livSansPDV,topPDVRows,horsZone,digitaux};
   }
 
   function renderTerritoireTab(){
@@ -1726,15 +1667,6 @@ function _buildCockpitClient(){
   if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','blue','','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
 }
-function exportTop5CSV(){
-  const top5=_S._top5Semaine||[];
-  if(!top5.length){showToast('Aucun client dans le top 5','warning');return;}
-  const SEP=';';
-  const lines=['\uFEFFNom;CA Legallais;Dernière commande;Action;Commercial'];
-  for(const c of top5){const lastFmt=c._lastOrderDate?fmtDate(c._lastOrderDate):'—';lines.push([c.nom,c.ca2025>0?c.ca2025:'—',lastFmt,c._top5reason,c.commercial||'—'].join(SEP));}
-  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-  const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_MaSemaine_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);
-}
 function _setCrossFilter(status){
   _S._selectedCrossStatus=status;
   _buildChalandiseOverview();
@@ -1919,7 +1851,6 @@ export {
   _renderHorsZone,
   _passesAllFilters,
   _syncPDVToggles,
-  _computeTop5Reconq,
   computeTerritoireKPIs,
   computeClientsKPIs,
   renderTerritoireTab,
@@ -2062,7 +1993,6 @@ window.exportCockpitCSV           = exportCockpitCSV;
 window.exportCockpitCSVAll        = exportCockpitCSVAll;
 window.exportExclusionsJSON       = exportExclusionsJSON;
 window.importExclusionsJSON       = importExclusionsJSON;
-window.exportTop5CSV              = exportTop5CSV;
 window._showExcludePrompt         = _showExcludePrompt;
 window._confirmExclude            = _confirmExclude;
 window._unexcludeClient           = _unexcludeClient;
