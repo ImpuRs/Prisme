@@ -456,13 +456,17 @@ function renderObservatoire(){
     const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
     const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-30?'🟠':'🔴';
     const ecartColor=pct>=0?'c-ok font-extrabold':pct>=-10?'c-caution font-bold':pct>=-30?'c-caution font-bold':'c-danger font-extrabold';
-    const cardBorder=pct>=0?'border-emerald-200':pct>=-10?'border-yellow-200':pct>=-30?'b-light':'border-red-300';
-    const cardBg=pct>=0?'i-ok-bg/40':pct>=-10?'i-caution-bg/40':pct>=-30?'i-caution-bg/40':'i-danger-bg/40';
     const isLagging=pct<0;
-    const clickCls=isLagging?'cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all select-none':'';
+    const cardColor=pct>=0?'var(--c-ok)':pct>=-10?'var(--c-caution)':pct>=-30?'var(--c-caution)':'var(--c-danger)';
+    const cardShadow=pct>=0
+      ?'0 0 0 1px rgba(0,229,160,0.12), inset 0 1px 0 rgba(255,255,255,0.04)'
+      :pct>=-30
+        ?`0 0 0 1px rgba(217,119,6,0.15), inset 0 1px 0 rgba(255,255,255,0.04)`
+        :`0 0 0 1px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.04)`;
+    const cardStyle=`background:var(--s-card-alt);border:1.5px solid ${cardColor};box-shadow:${cardShadow}`;
     const onclk=isLagging?`onclick="document.getElementById('benchUnderperformBanner')?.scrollIntoView({behavior:'smooth'})"` :'';
     const drillHint=isLagging?`<p class="text-[9px] c-action font-semibold">→ Familles en retard</p>`:'';
-    return `<div class="s-card rounded-xl border-2 ${cardBorder} ${cardBg} ${clickCls} p-3 flex flex-col gap-1 shadow-sm" ${onclk}>
+    return `<div class="s-card rounded-xl p-3 flex flex-col gap-1${isLagging?' cursor-pointer hover:opacity-90 active:scale-[0.98] transition-all select-none':''}" style="${cardStyle}" ${onclk}>
       <p class="text-[10px] font-bold t-tertiary uppercase tracking-wide flex items-center gap-1">${r.label}<em class="info-tip" data-tip="${r.tip}">ℹ</em></p>
       <div class="flex items-end justify-between gap-1">
         <div><p class="text-sm font-extrabold c-action">${fmtVal(me,r.fmt)}</p><p class="text-[9px] t-disabled">${_S.selectedMyStore||'Moi'}</p></div>
