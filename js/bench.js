@@ -188,6 +188,34 @@ function renderReseauPepites() {
   const myAg    = _S.selectedMyStore || '';
   const agences = hm.agences.filter(Boolean);
 
+  // Familles issues de pepitesOther — articles performants chez les autres, absents/faibles chez moi
+  const pepitesOther = _S.benchLists?.pepitesOther || [];
+  const famFromPepites = new Map();
+  for (const art of pepitesOther) {
+    const fam = art.fam || art.famille || '';
+    if (!fam) continue;
+    famFromPepites.set(fam, (famFromPepites.get(fam) || 0) + (art.caComp || art.caOther || art.ca || 0));
+  }
+  let top20Fams = [...famFromPepites.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([fam]) => fam);
+
+  // Fallback si pepitesOther vide : top 20 familles réseau hors mon agence
+  if (!top20Fams.length) {
+    const famCA = {};
+    for (const [ag, arts] of Object.entries(_S.ventesParMagasin || {})) {
+      if (ag === myAg) continue;
+      for (const [code, d] of Object.entries(arts)) {
+        const fam = _S.articleFamille[code] || '';
+        if (!fam) continue;
+        famCA[fam] = (famCA[fam] || 0) + (d.sumCA || 0);
+      }
+    }
+    top20Fams = Object.entries(famCA).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([f]) => f);
+  }
+  const top20FamSet = new Set(top20Fams);
+
   // Cache médiane par article (invalider via delete _S._artMedianCA à chaque refilter)
   if (!_S._artMedianCA) {
     const artAllCA = {};
@@ -216,7 +244,7 @@ function renderReseauPepites() {
         medCA: artMedianCA[code] || 0,
         ratio: artMedianCA[code] > 0 ? d.sumCA / artMedianCA[code] : 0,
       }))
-      .filter(a => a.caAg > 50 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter))
+      .filter(a => a.caAg > 50 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter) && (!top20FamSet.size || top20FamSet.has(a.fam)))
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 10);
   }
@@ -249,7 +277,7 @@ function renderReseauPepites() {
     panel.innerHTML = `
       <div class="pepites-header">
         <span class="pepites-ag-label">Top pépites · ${agCode}${univFilter}</span>
-        <span class="pepites-subtitle">articles où ${agCode} surperforme la médiane réseau</span>
+        <span class="pepites-subtitle">Familles où le réseau performe · vous n'y êtes pas ou peu</span>
       </div>
       <table class="pepites-table">
         <thead><tr><th>#</th><th>Article</th><th>Famille</th><th>CA agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
