@@ -468,21 +468,29 @@ function renderObservatoire(){
       tabsEl.classList.add('hidden');
     }
   }
+  // Cache médiane quantités — toujours disponible (my agence + autres)
+  if (!_S._artMedianBL || !_S._artMedianQte) {
+    const artAllBL = {}, artAllQte = {};
+    Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code]){artAllBL[code]=[];artAllQte[code]=[];} artAllBL[code].push(d.countBL||0); artAllQte[code].push(d.sumPrelevee||0); }); });
+    const _mBL = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+    _S._artMedianBL = {}; _S._artMedianQte = {};
+    Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); _S._artMedianQte[code]=_mBL(artAllQte[code]||[]); });
+  }
   // Calcul pépites pour l'onglet actif
   let pepites;
   if (_pepAgTab === myAg2 || !isMulti) {
-    // Mon agence — utiliser benchLists.pepites (réactif au bench)
+    // Mon agence — utiliser benchLists.pepites + enrichir avec vpm (indépendant du cache IDB)
     const pepitesAll = _S.benchLists.pepites || [];
-    pepites = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
+    const pepitesFiltered = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
+    pepites = pepitesFiltered.map(p => {
+      const vpmData = _S.ventesParMagasin[myAg2]?.[p.code];
+      const myQte = vpmData?.sumPrelevee ?? p.myQte ?? p.myFreq;
+      const compQte = Math.round(_S._artMedianQte[p.code] || p.compQte || p.compFreq);
+      const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : p.ecartPct;
+      return { ...p, myQte, compQte, ecartPct };
+    });
   } else {
     // Autre agence — calculer live vs médiane réseau
-    if (!_S._artMedianBL || !_S._artMedianQte) {
-      const artAllBL = {}, artAllQte = {};
-      Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code]){artAllBL[code]=[];artAllQte[code]=[];} artAllBL[code].push(d.countBL||0); artAllQte[code].push(d.sumPrelevee||0); }); });
-      const _mBL = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-      _S._artMedianBL = {}; _S._artMedianQte = {};
-      Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); _S._artMedianQte[code]=_mBL(artAllQte[code]||[]); });
-    }
     const agData = _S.ventesParMagasin[_pepAgTab] || {};
     const raw = [];
     for (const [code, d] of Object.entries(agData)) {
@@ -492,22 +500,22 @@ function renderObservatoire(){
       const med = _S._artMedianBL[code] || 0;
       if (med <= 0 || myFreq <= med * 1.3) continue;
       if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
-      const ecartPct = Math.round((myFreq / med - 1) * 100);
+      const myQte = Math.round(d.sumPrelevee || 0);
+      const compQte = Math.round(_S._artMedianQte[code] || 0);
+      const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / med - 1) * 100);
       const libRaw = _S.libelleLookup[code] || code;
       const lib = /^\d{6} - /.test(libRaw) ? libRaw.substring(9).trim() : libRaw;
-      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0), myQte: Math.round(d.sumPrelevee||0), compQte: Math.round(_S._artMedianQte[code]||0) });
+      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0), myQte, compQte });
     }
-    raw.sort((a,b)=>(b.myFreq-b.compFreq)-(a.myFreq-a.compFreq));
+    raw.sort((a,b)=>(b.myQte-b.compQte)-(a.myQte-a.compQte));
     pepites = raw.slice(0, 50);
   }
   const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
   if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Qté vendue (${myAg2||'Moi'})`:`Qté vendue (${_pepAgTab})`;
   if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
   const pepRows=pepites.map(p=>{
-    const ecartStr=`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`;
-    const myQteVal = p.myQte ?? p.myFreq;
-    const compQteVal = p.compQte ?? p.compFreq;
-    return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${myQteVal}</td><td class="py-1.5 px-3 text-center t-tertiary">${compQteVal}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
+    const ecartStr=p.ecartPct>0?`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`:`<span class="t-disabled">—</span>`;
+    return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${p.myQte}</td><td class="py-1.5 px-3 text-center t-tertiary">${p.compQte}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
   }).join('');
   if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
   // 🔥 Pépites réseau
