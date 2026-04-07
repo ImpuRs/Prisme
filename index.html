@@ -1358,6 +1358,28 @@
     table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
     table tbody tr:hover { background: rgba(255,255,255,0.025) !important; }
 
+    /* ═══ PÉPITES RÉSEAU ═══════════════════════════════════════ */
+    .pepites-agence-pills{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0 16px}
+    .pepite-pill{background:var(--s-card-alt);border:1px solid var(--b-default);border-radius:20px;color:var(--t-secondary);cursor:pointer;font-size:12px;font-weight:500;padding:4px 14px;transition:border-color .12s,color .12s,background .12s}
+    .pepite-pill:hover{border-color:var(--b-darker);color:var(--t-primary)}
+    .pepite-pill.active{background:var(--s-active);border-color:var(--c-action-border,rgba(0,229,160,0.3));color:var(--c-action)}
+    .pepite-pill.mine{font-weight:600}
+    .pepites-header{align-items:baseline;border-bottom:1px solid var(--b-light);display:flex;gap:10px;margin-bottom:10px;padding-bottom:8px}
+    .pepites-ag-label{color:var(--t-primary);font-size:13px;font-weight:500}
+    .pepites-subtitle{color:var(--t-tertiary);font-size:11px}
+    .pepites-table{border-collapse:collapse;font-size:12px;width:100%}
+    .pepites-table th{color:var(--t-tertiary);font-size:10px;font-weight:500;letter-spacing:.07em;padding:0 8px 6px;text-align:left;text-transform:uppercase}
+    .pepites-table th:nth-child(n+4){text-align:right}
+    .pepites-table td{border-bottom:1px solid var(--b-light);color:var(--t-primary);padding:7px 8px}
+    .pepites-table td:nth-child(n+4){text-align:right}
+    .pepites-table td:first-child{color:var(--t-tertiary);font-size:11px;width:24px}
+    .pepites-table td.ratio-cell{color:var(--c-ok);font-weight:600}
+    .pepites-table td.fam-cell{color:var(--t-secondary);font-size:11px}
+    .pepites-table td.ca-cell,.pepites-table td.med-cell{font-variant-numeric:tabular-nums}
+    .pepites-table td.med-cell{color:var(--t-tertiary)}
+    .pepites-table tr:hover td{background:var(--s-hover)}
+    .pepites-empty{color:var(--t-tertiary);font-size:13px;padding:24px 0;text-align:center}
+
   </style>
 </head>
 <body class="s-page t-primary relative">

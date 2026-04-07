@@ -171,66 +171,101 @@ function onBenchBassinChange() {
 }
 
 // ── Heatmap réseau : CSS Grid 20 familles × N agences ─────────────────────
-function renderReseauHeatmap() {
+function renderReseauPepites() {
   const container = document.getElementById('reseauHeatmapContainer');
   if (!container) return;
-  computeReseauHeatmap();
-  const d = _S.reseauHeatmapData;
-  if (!d || !d.familles.length) {
-    container.innerHTML = '<p class="t-disabled text-sm p-4">Pas assez de données réseau pour la heatmap (nécessite ≥ 2 agences).</p>';
+  const vpm = _S.ventesParMagasin;
+  const hm  = _S.reseauHeatmapData;
+  if (!vpm || !hm || !hm.agences?.length) {
+    container.innerHTML = '<p class="t-disabled text-sm p-4">Pas assez de données réseau pour les pépites (nécessite ≥ 2 agences).</p>';
     return;
   }
-  const { familles, agences, matrix } = d;
-  const myStore = _S.selectedMyStore;
-  // Ratio → classe CSS couleur
-  const ratioClass = r => r >= 1 ? 'rayon-green' : r >= 0.5 ? 'rayon-yellow' : 'rayon-red';
-  const ratioLabel = r => r === 0 ? '—' : (r * 100).toFixed(0) + '%';
+  const myAg    = _S.selectedMyStore || '';
+  const agences = hm.agences.filter(Boolean);
 
-  let html = '<div class="overflow-x-auto"><table class="min-w-full text-[10px]">';
-  // Header : familles en colonnes, agences en lignes
-  html += '<thead class="sticky top-0 s-panel-inner"><tr>';
-  html += '<th class="py-1 px-2 text-left t-inverse font-bold sticky left-0 s-panel-inner z-10">Agence</th>';
-  for (const fam of familles) {
-    html += `<th class="py-1 px-1 t-inverse-muted font-semibold text-center" style="writing-mode:vertical-rl;white-space:nowrap;max-height:100px;padding:6px 3px" title="${escapeHtml(fam)}">${escapeHtml(fam.length > 18 ? fam.slice(0,16)+'…' : fam)}</th>`;
+  // Cache médiane par article (invalider via delete _S._artMedianCA à chaque refilter)
+  if (!_S._artMedianCA) {
+    const artAllCA = {};
+    Object.keys(vpm).forEach(ag => {
+      Object.entries(vpm[ag]).forEach(([code, d]) => {
+        if (!artAllCA[code]) artAllCA[code] = [];
+        artAllCA[code].push(d.sumCA);
+      });
+    });
+    const med = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+    _S._artMedianCA = {};
+    Object.entries(artAllCA).forEach(([code, vals]) => { _S._artMedianCA[code] = med(vals); });
   }
-  html += '</tr></thead><tbody>';
-  // [V3] Canal filter — myStore only via articleCanalCA, réseau reste tous canaux
-  const _heatmapCanal = _S._globalCanal || '';
-  const _myFamCACanal = {}; // CA par famille filtré canal pour myStore
-  if (_heatmapCanal && _S.articleCanalCA.size) {
-    for (const [code, cmap] of _S.articleCanalCA) {
-      const ca = cmap.get(_heatmapCanal)?.ca || 0;
-      if (!ca) continue;
-      const fam = famLib(_S.articleFamille[code] || '');
-      if (fam) _myFamCACanal[fam] = (_myFamCACanal[fam] || 0) + ca;
+  const artMedianCA = _S._artMedianCA;
+
+  function top10(agCode) {
+    const agData = vpm[agCode]; if (!agData) return [];
+    const univFilter = _S.obsFilterUnivers || '';
+    return Object.entries(agData)
+      .map(([code, d]) => ({
+        code,
+        lib: _S.libelleLookup[code] || code,
+        fam: _S.articleFamille[code] || '?',
+        univers: _S.articleUnivers[code] || 'INCONNU',
+        caAg: d.sumCA,
+        medCA: artMedianCA[code] || 0,
+        ratio: artMedianCA[code] > 0 ? d.sumCA / artMedianCA[code] : 0,
+      }))
+      .filter(a => a.caAg > 50 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter))
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 10);
+  }
+
+  const pillsHtml = agences.map(ag => {
+    const isMine = ag === myAg;
+    return `<button class="pepite-pill${isMine ? ' mine' : ''}" data-ag="${ag}">${ag}${isMine ? ' ★' : ''}</button>`;
+  }).join('');
+
+  container.innerHTML = `<div id="reseau-pepites-panel"><div class="pepites-agence-pills">${pillsHtml}</div><div id="pepites-top10"></div></div>`;
+
+  function showTop10(agCode) {
+    const panel = document.getElementById('pepites-top10'); if (!panel) return;
+    container.querySelectorAll('.pepite-pill').forEach(p => p.classList.toggle('active', p.dataset.ag === agCode));
+    const items = top10(agCode);
+    if (!items.length) {
+      const univFilter = _S.obsFilterUnivers ? ` pour l'univers « ${_S.obsFilterUnivers} »` : '';
+      panel.innerHTML = `<div class="pepites-header"><span class="pepites-ag-label">Top pépites · ${agCode}</span></div><div class="pepites-empty">Aucune pépite${univFilter} sur ${agCode}</div>`;
+      return;
     }
+    const rows = items.map((a, i) => `<tr>
+      <td>${i+1}</td>
+      <td title="${a.code}">${escapeHtml(a.lib)}</td>
+      <td class="fam-cell">${a.fam}</td>
+      <td class="ca-cell">${a.caAg.toLocaleString('fr-FR',{maximumFractionDigits:0})} €</td>
+      <td class="med-cell">${a.medCA.toLocaleString('fr-FR',{maximumFractionDigits:0})} €</td>
+      <td class="ratio-cell">×${a.ratio.toFixed(1)}</td>
+    </tr>`).join('');
+    const univFilter = _S.obsFilterUnivers ? ` · ${_S.obsFilterUnivers}` : '';
+    panel.innerHTML = `
+      <div class="pepites-header">
+        <span class="pepites-ag-label">Top pépites · ${agCode}${univFilter}</span>
+        <span class="pepites-subtitle">articles où ${agCode} surperforme la médiane réseau</span>
+      </div>
+      <table class="pepites-table">
+        <thead><tr><th>#</th><th>Article</th><th>Famille</th><th>CA agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
-  // Note de lecture si canal actif
-  if (_heatmapCanal) {
-    html += `<tr><td colspan="${familles.length + 1}" class="py-1 px-2 text-[10px] t-disabled italic i-caution-bg/40">⚠️ Mon agence : canal ${_heatmapCanal} · Réseau : tous canaux — ne pas comparer directement</td></tr>`;
-  }
-  for (const store of agences) {
-    const isMe = store === myStore;
-    const rowCls = isMe ? 'i-info-bg font-bold ring-2 ring-cyan-400' : 'hover:s-card-alt';
-    html += `<tr class="border-b b-light ${rowCls}">`;
-    html += `<td class="py-1 px-2 font-semibold sticky left-0 s-card z-10 whitespace-nowrap">${isMe ? '⭐ ' : ''}${store}</td>`;
-    for (const fam of familles) {
-      let r;
-      if (isMe && _heatmapCanal && Object.keys(_myFamCACanal).length) {
-        // Pour myStore : utiliser CA canal filtré ÷ médiane réseau tous canaux
-        const famMedianCA = d.famMedianCA?.[fam] || 0;
-        r = famMedianCA > 0 ? (_myFamCACanal[fam] || 0) / famMedianCA : 0;
-      } else {
-        r = (matrix[fam] || {})[store] || 0;
-      }
-      const cls = ratioClass(r);
-      html += `<td class="py-1 px-1 text-center font-bold ${cls}" title="${store} · ${fam} : ${ratioLabel(r)}">${ratioLabel(r)}</td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
+
+  // Stocker ref pour refresh filtre univers sans reconstruire tout le DOM
+  _S._showReseauTop10 = showTop10;
+
+  container.querySelector('.pepites-agence-pills').addEventListener('click', e => {
+    const pill = e.target.closest('.pepite-pill');
+    if (pill) showTop10(pill.dataset.ag);
+  });
+
+  // Afficher mon agence par défaut (ou la première agence dispo)
+  showTop10(agences.includes(myAg) ? myAg : agences[0]);
 }
+
+// Alias pour compat (appelé dans renderBenchmark ligne 144)
+const renderReseauHeatmap = renderReseauPepites;
 
 // ── Sprint 2 — Réseau : Nomades, Orphelins, Fuites ────────────────────────
 function renderReseauNomades() {
@@ -560,11 +595,14 @@ function onObsFilterChange(){
   _S.obsFilterUnivers=document.getElementById('obsFilterUnivers')?.value||'';
   _S.obsFilterMinCA=parseFloat(document.getElementById('obsMinCAInput')?.value||'0')||0;
   const t0=performance.now();computeBenchmark(_S._globalCanal || null);renderBenchmark();
+  // Refresh top10 sans recalculer tout le DOM si panel déjà ouvert
+  const activePill=document.querySelector('.pepite-pill.active');
+  if(activePill&&_S._showReseauTop10)_S._showReseauTop10(activePill.dataset.ag);
   document.getElementById('benchRecalcTime').textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
 }
 
 function resetObsFilters(){
-  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;
+  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;delete _S._artMedianCA;
   const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
   const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
   _buildObsUniversDropdown();
@@ -794,6 +832,7 @@ export {
   renderBenchmark,
   buildBenchBassinSelect,
   onBenchBassinChange,
+  renderReseauPepites,
   renderReseauHeatmap,
   renderReseauNomades,
 
@@ -828,6 +867,7 @@ export {
 window.renderBenchmark = renderBenchmark;
 window._refreshBenchEquation = _refreshBenchEquation;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
+window.renderReseauPepites = renderReseauPepites;
 window.renderReseauHeatmap = renderReseauHeatmap;
 window.renderReseauNomades = renderReseauNomades;
 
