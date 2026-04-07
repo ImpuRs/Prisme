@@ -518,6 +518,7 @@ self.onmessage = async function(ev) {
     var _tempCAAllFull = new Map();
     var byMonth = {};        // cc → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBP, sumCAPrelevee}
     var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
+    var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
 
     var rows = dataC.rows;
     var totalRows = rows.length;
@@ -617,6 +618,17 @@ self.onmessage = async function(ev) {
         _bmce.sumVMB += _rvp + _rve;
         _bmce.sumVMBP += _rvp;
         if (_rncb) _bmce._cmds.add(_rncb);
+      }
+
+      // byMonthClients — tous canaux, pleine période, pour comptage clients uniques par période
+      if (dateV) {
+        var _ccBMC = extractClientCode(_rc);
+        var _skBMC = _rs;
+        if (_ccBMC && (!selectedStore || _skBMC === 'INCONNU' || _skBMC === selectedStore)) {
+          var _midxBMC = dateV.getFullYear() * 12 + dateV.getMonth();
+          if (!byMonthClients[_midxBMC]) byMonthClients[_midxBMC] = new Set();
+          byMonthClients[_midxBMC].add(_ccBMC);
+        }
       }
 
       // _tempCAAll (période filtrée, tous canaux)
@@ -1219,6 +1231,7 @@ self.onmessage = async function(ev) {
         passagesUniques: Array.from(passagesUniques),
         byMonth: byMonth,
         byMonthCanal: byMonthCanal,
+        byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),
       }
     });
 
