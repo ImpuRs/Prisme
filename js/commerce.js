@@ -69,10 +69,10 @@ function _cmSwitchTab(id) {
       content.innerHTML = `<div id="terrSilencieux"></div>`;
       break;
     case 'perdus':
-      content.innerHTML = `<div id="terrPerdus"></div><div id="terrReconquete" class="mt-3"></div>`;
+      content.innerHTML = `<div id="terrPerdus"></div>`;
       break;
     case 'potentiels':
-      content.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
+      content.innerHTML = `<div id="terrACapter"></div>`;
       break;
   }
   _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
@@ -476,21 +476,6 @@ window._terrDrillBack = function() {
     // ── Blocs Clients PDV (Top 5, Top PDV, Hors zone, Reconquête, Opportunités) ──
     {
       const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-
-      // ── Top 5 priorités reconquête ──
-      const top5ReconqHtml=k.top5Reconq.length?(()=>{
-        const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="chip chip-xs chip-danger">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto chip chip-xs chip-danger cursor-pointer">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
-        return`<details open style="background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06));border:1px solid rgba(220,38,38,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12));border-bottom:1px solid rgba(220,38,38,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#f87171;display:flex;align-items:center;gap:6px">🔴 À reconquérir — Top 5 priorités <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">cette semaine</span></h3><span class="acc-arrow" style="color:#f87171">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
-      })():'';
-
-      // ── Section 1 : À reconquérir (anciens fidèles silencieux) ──
-      const _reconqFull=k.reconqFull;
-      const reconq=k.reconq;
-      const _reconqCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`;
-      const reconqHtml=`<details style="background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">🔄 À reconquérir <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${_reconqFull.length} anciens fidèles</span></h3><span class="acc-arrow" style="color:#fbbf24">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}${_reconqFull.length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${_reconqFull.length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`}</details>`;
-
-      _setEl('terrTop5', top5ReconqHtml);
-      _setEl('terrReconquete', reconqHtml);
 
       // Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
       _setEl('terrOpportunites', renderOppNetteTable());
@@ -1634,9 +1619,10 @@ function _buildCockpitClient(){
     _S._cockpitExportData={silencieux:silDeg,perdus:perduDeg,jamaisVenus:[]};
     const emptyMsgDeg='Aucun client dans cette catégorie';
     function _clientCardDeg(c,reason,scoreColor){const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';const daysBadge=c._daysSince>30?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(248,113,113,0.12);color:var(--c-danger)">⏰ ${c._daysSince}j</span>`:'';const caMag=c.caPDVN>0?formatEuro(c.caPDVN):'—';return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span>${daysBadge}</div><div class="flex items-center gap-3 mt-1"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMag}</span>${lastOrderFmt?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${lastOrderFmt}</span>`:''}</div></div>`;}
-    function renderBlockDeg(title,emoji,bgColor,borderColor,scoreColor,clients,raisonFn,listId){if(!clients.length)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><p class="text-xs t-disabled px-4 pb-4">${emptyMsgDeg}</p></div>`;let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-1"><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${clients.length}</span></div><div class="space-y-2 px-4 py-3">`;for(const c of clients.slice(0,10))html+=_clientCardDeg(c,raisonFn(c),scoreColor);html+=`</div></div>`;return html;}
-    if(silEl)silEl.innerHTML=renderBlockDeg(`Silencieux — 30 à 60 jours sans commande Magasin`,'⏰','i-caution-bg','border-amber-500','c-caution',silDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA Magasin`,'cockpit-sil-full');
-    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — Plus de 60 jours sans commande Magasin`,'🔴','i-danger-bg','border-rose-500','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`,'cockpit-perdu-full');
+    const _GDEG={amber:{bg:'background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06))',hdr:'background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12))',border:'border:1px solid rgba(217,119,6,0.3)',color:'#fbbf24',badgeBg:'rgba(217,119,6,0.7)'},rouge:{bg:'background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06))',hdr:'background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12))',border:'border:1px solid rgba(220,38,38,0.3)',color:'#f87171',badgeBg:'rgba(220,38,38,0.7)'}};
+    function renderBlockDeg(title,emoji,gradKey,scoreColor,clients,raisonFn){const g=_GDEG[gradKey]||_GDEG.amber;if(!clients.length)return`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:10px;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5)">0</span></div><p class="text-xs t-disabled px-4 pb-4 pt-3">${emptyMsgDeg}</p></div>`;let html=`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;background:${g.badgeBg};color:white">${clients.length}</span></div><div class="space-y-2 px-4 py-3">`;for(const c of clients.slice(0,10))html+=_clientCardDeg(c,raisonFn(c),scoreColor);html+=`</div></div>`;return html;}
+    if(silEl)silEl.innerHTML=renderBlockDeg(`Silencieux — 30 à 60 jours sans commande Magasin`,'⏰','amber','c-caution',silDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA Magasin`);
+    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — Plus de 60 jours sans commande Magasin`,'🔴','rouge','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`);
     if(capEl)capEl.innerHTML='';
     return;
   }
@@ -1704,15 +1690,20 @@ function _buildCockpitClient(){
     for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=caVal>0?(usePDV?'c-ok':'c-caution'):'t-disabled';t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span> <span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
     t+=`</tbody></table></div>`;return t;
   }
-  function renderBlock(title,emoji,bgColor,borderColor,scoreColor,clients,caField,raisonFn,listId,topN=10){
+  // gradSpec : {bg, hdr, border, color, badgeBg}
+  const _GRAD={
+    amber:{bg:'background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06))',hdr:'background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12))',border:'border:1px solid rgba(217,119,6,0.3);border-bottom:1px solid rgba(217,119,6,0.2)',color:'#fbbf24',badgeBg:'rgba(217,119,6,0.7)'},
+    rouge:{bg:'background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06))',hdr:'background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12))',border:'border:1px solid rgba(220,38,38,0.3);border-bottom:1px solid rgba(220,38,38,0.2)',color:'#f87171',badgeBg:'rgba(220,38,38,0.7)'},
+    blue:{bg:'background:linear-gradient(135deg,rgba(59,130,246,0.13),rgba(37,99,235,0.06))',hdr:'background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(37,99,235,0.12))',border:'border:1px solid rgba(59,130,246,0.3);border-bottom:1px solid rgba(59,130,246,0.2)',color:'#60a5fa',badgeBg:'rgba(59,130,246,0.7)'},
+  };
+  function renderBlock(title,emoji,gradKey,_unused,scoreColor,clients,caField,raisonFn,listId,topN=10){
+    const g=_GRAD[gradKey]||_GRAD.blue;
     const total=clients.length;
-    const isOpen=true;
-    const arrow=isOpen?'▼':'▶';
-    const bodyDisplay=isOpen?'':'display:none';
-    if(!total)return`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}"><div class="flex items-center gap-2 p-4 pb-3 cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge s-hover t-secondary">0</span></div><div id="${listId}-body" style="${bodyDisplay}"><p class="text-xs t-disabled px-4 pb-4">${emptyMsg}</p></div></div>`;
-    let html=`<div class="${bgColor} rounded-xl border-t-4 ${borderColor}">`;
-    html+=`<div class="flex items-center gap-2 p-4 pb-1 flex-wrap cursor-pointer select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" class="text-[10px] t-disabled w-3">${arrow}</span><span class="text-lg">${emoji}</span><h4 class="font-extrabold text-sm">${title}</h4><span class="badge ${borderColor.replace('border-','bg-')} text-white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover hover:s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
-    html+=`<div id="${listId}-body" style="${bodyDisplay}">`;
+    const arrow='▼';
+    if(!total)return`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px;cursor:pointer" class="select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" style="font-size:10px;color:rgba(255,255,255,0.4);width:12px">${arrow}</span><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5)">0</span></div><div id="${listId}-body"><p class="text-xs t-disabled px-4 pb-4 pt-3">${emptyMsg}</p></div></div>`;
+    let html=`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px">`;
+    html+=`<div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer" class="select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" style="font-size:10px;color:rgba(255,255,255,0.4);width:12px">${arrow}</span><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;background:${g.badgeBg};color:white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
+    html+=`<div id="${listId}-body">`;
     html+=`<div class="space-y-2 px-4 py-3">`;
     for(const c of clients.slice(0,topN))html+=_clientCard(c,raisonFn(c),scoreColor);
     html+=`</div>`;
@@ -1731,9 +1722,9 @@ function _buildCockpitClient(){
   // ── Render into 3 separate blocks ──
   const _silTitle=`Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
   const _perduTitle=`Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
-  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','i-caution-bg','border-amber-500','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
-  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','i-danger-bg','border-rose-500','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
-  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','i-info-bg','border-blue-500','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
+  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','amber','','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
+  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
+  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','blue','','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
 }
 function exportTop5CSV(){
   const top5=_S._top5Semaine||[];
