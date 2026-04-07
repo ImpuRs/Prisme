@@ -197,6 +197,19 @@ import { _renderHorsZone, _passesAllFilters, _renderTopClientsPDV, computeTerrit
     _S.clientsMagasin=newClientsMagasin;
     _S.clientsMagasinFreq=newClientsMagasinFreq;
 
+    // ── Reconstruire _clientsTousCanaux : clients uniques dans la période (tous canaux) ──
+    if(_S._byMonthClients){
+      const allClients=new Set();
+      for(const midxStr in _S._byMonthClients){
+        const midx=+midxStr;
+        if(midx<startIdx||midx>endIdx)continue;
+        for(const cc of _S._byMonthClients[midxStr])allClients.add(cc);
+      }
+      _S._clientsTousCanaux=allClients;
+    }else{
+      _S._clientsTousCanaux=null;
+    }
+
     // ── Reconstruire canalAgence depuis byMonthCanal ──
     const bmc=_S._byMonthCanal;
     if(bmc){
@@ -777,6 +790,9 @@ _S.canalAgence=newCanalAgence;
     _S.canalAgence        = r.canalAgence || {};
     _S._byMonth           = r.byMonth      || null;
     _S._byMonthCanal      = r.byMonthCanal || null;
+    _S._byMonthClients    = r.byMonthClients
+      ? Object.fromEntries(Object.entries(r.byMonthClients).map(([k, arr]) => [k, new Set(arr)]))
+      : null;
     _S.finalData          = r.finalData || [];
     _S.abcMatrixData      = r.abcMatrixData || {};
     _S.stockParMagasin    = r.stockParMagasin || {};

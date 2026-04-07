@@ -1499,7 +1499,13 @@ export function renderIRABanner() {
   // ── Score Clients : momentum (actifs <90j) / total chalandise ──
   let clientScore = 50;
   let actifCount = 0, totalChaland = 0;
-  if (_S.chalandiseReady && _S.chalandiseData && _S.chalandiseData.size > 0) {
+  const _canal = _S._globalCanal || '';
+  // Tous canaux : utiliser _clientsTousCanaux (période-filtré) si disponible
+  if (!_canal && _S._clientsTousCanaux?.size > 0) {
+    actifCount = _S._clientsTousCanaux.size;
+    totalChaland = _S.chalandiseData?.size || actifCount;
+    clientScore = Math.min(100, Math.round(100 * actifCount / Math.max(totalChaland, 1)));
+  } else if (_S.chalandiseReady && _S.chalandiseData && _S.chalandiseData.size > 0) {
     const nowTs = Date.now();
     totalChaland = _S.chalandiseData.size;
     actifCount = [...(_S.clientLastOrder || new Map()).entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;

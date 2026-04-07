@@ -449,7 +449,8 @@ window._terrDrillBack = function() {
     const isMagCanal=!canal||canal==='MAGASIN';
     const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
     const colDelta=isMagCanal?'Delta hors':'Delta mag';
-    const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${topRows.length} clients · tous canaux`;
+    const _tousCount=(!canal&&_S._clientsTousCanaux)?_S._clientsTousCanaux.size:topRows.length;
+    const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${_tousCount.toLocaleString('fr')} clients · tous canaux`;
     const _subtitleTip=isMagCanal
       ?`Clients PDV avec CA ≥ 100 €, après tous les filtres actifs (commercial, métier, vue…). Total brut MAGASIN : ${_S.ventesClientArticle.size} clients. Clients exclusivement PDV (sans hors-agence) : ${[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length}.`
       :`Clients avec CA ≥ 100 € sur ce canal, après tous les filtres actifs.`;

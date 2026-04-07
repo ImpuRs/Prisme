@@ -230,8 +230,10 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 
 // ── Accumulation mensuelle pour filtre période instantané ──
-_S._byMonth = null;      // accumulation mensuelle cc→code→monthIdx→agg
-_S._byMonthCanal = null; // accumulation mensuelle store→canal→monthIdx→agg
+_S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
+_S._byMonthCanal = null;    // accumulation mensuelle store→canal→monthIdx→agg
+_S._byMonthClients = null;  // accumulation mensuelle monthIdx→Set<cc> — tous canaux, pleine période
+_S._clientsTousCanaux = null; // Set<cc> — clients ayant au moins 1 BL dans la période sélectionnée (tous canaux)
 
 // ── Active workers (pour annulation au re-upload) ──
 _S._activeTerrWorker = null;
@@ -406,7 +408,7 @@ export function resetAppState() {
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._bufC = null; _S._bufS = null;
-  _S._byMonth = null; _S._byMonthCanal = null;
+  _S._byMonth = null; _S._byMonthCanal = null; _S._byMonthClients = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S._top5Semaine = [];
