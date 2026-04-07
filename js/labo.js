@@ -1135,7 +1135,7 @@ export function renderLaboTab() {
   if (!hasChalandise || !hasConsomme) {
     el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:16px;color:var(--t-muted)">
       <div style="font-size:2rem">🧪</div>
-      <div style="font-size:1.1rem;font-weight:600">Labo — données insuffisantes</div>
+      <div style="font-size:1.1rem;font-weight:600">Le Labo — données insuffisantes</div>
       <div style="font-size:0.9rem;max-width:400px;text-align:center">Chargez le fichier <strong>Consommé</strong> et la <strong>Zone de Chalandise</strong> pour accéder aux croisements.</div>
     </div>`;
     return;
