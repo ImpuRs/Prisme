@@ -269,6 +269,14 @@ export function switchSuperTab(supertabId) {
 export function switchTab(id) {
   if (id === 'abc') id = 'stock'; // abc fusionné dans stock
   if (id === 'omni') { switchTab('commerce'); return; }
+  if (id === 'toppdv') {
+    switchTab('commerce');
+    window._cmSwitchTab?.('toppdv');
+    document.querySelectorAll('.supertab-pill').forEach(p => p.classList.remove('active'));
+    const pill = document.querySelector('.supertab-pill[data-subtab="toppdv"]');
+    if (pill) pill.classList.add('active');
+    return;
+  }
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

@@ -141,6 +141,7 @@ export function couvColor(j) {
 
 // ── Client classification helpers ─────────────────────────────
 export function _isGlobalActif(info) {
+  if (info.activiteLeg) return info.activiteLeg.startsWith('Actif');
   const aG = (info.activiteGlobale || info.activite || '').toLowerCase();
   const s = (info.statut || '').toLowerCase();
   return aG.includes('actif') || (s.includes('actif') && !s.includes('inactif'));
@@ -177,8 +178,7 @@ export function computeClientCrossing() {
   }
   for (const [cc, info] of _S.chalandiseData.entries()) {
     if (!_S.clientsMagasin.has(cc)) {
-      const s = (info.statut || '').toLowerCase();
-      if (s.includes('actif') && !s.includes('inactif')) potentiels.add(cc);
+      if (_isGlobalActif(info)) potentiels.add(cc);
     }
   }
   // Fidèles PDV : clients ayant acheté en canal MAGASIN avec fréquence >= 2
@@ -190,7 +190,7 @@ export function computeClientCrossing() {
 
 export function _clientUrgencyScore(cc, info) {
   const caLeg = info.ca2025 || 0;
-  const pdvActif = _S.ventesClientArticle.has(cc) && _S.ventesClientArticle.get(cc).size > 0;
+  const pdvActif = _isPDVActif(cc);
   const globalActif = _isGlobalActif(info);
   const classif = _normalizeClassif(info.classification);
   const isFidPlus = classif === 'FID Pot+';
@@ -207,7 +207,7 @@ export function _clientUrgencyScore(cc, info) {
 }
 
 export function _clientStatusBadge(cc, info) {
-  const pdvActif = _S.ventesClientArticle.has(cc) && _S.ventesClientArticle.get(cc).size > 0;
+  const pdvActif = _isPDVActif(cc);
   const globalActif = _isGlobalActif(info);
   if (pdvActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-ok-bg);color:var(--i-ok-text)">Actif PDV</span>';
   if (globalActif) return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:var(--i-info-bg);color:var(--i-info-text)">Actif Leg.</span>';
@@ -217,7 +217,7 @@ export function _clientStatusBadge(cc, info) {
 }
 
 export function _clientStatusText(cc, info) {
-  const pdvActif = _S.ventesClientArticle.has(cc) && _S.ventesClientArticle.get(cc).size > 0;
+  const pdvActif = _isPDVActif(cc);
   const globalActif = _isGlobalActif(info);
   if (pdvActif) return 'Actif PDV';
   if (globalActif) return 'Actif Leg.';

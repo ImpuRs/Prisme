@@ -41,7 +41,8 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   const cStatut = findCol('statut actuel général') || findCol('statut actuel general') || findCol('statut');
   const cStatutDetaille = findCol('statut actuel détaillé') || findCol('statut actuel detaille');
   const cClassif = findCol('classification') || findCol('classif');
-  const cActivite = findCol('activité pdv zone') || findCol('activite pdv zone') || findCol('activité globale') || findCol('activite globale');
+  const cActiviteLeg = findCol('activité client n/n-1') || findCol('activite client n/n-1') || findCol('activité client n') || findCol('activite client n');
+  const cActivite = findCol('activité pdv zone client n/n-1') || findCol('activite pdv zone client n/n-1') || findCol('activité pdv zone') || findCol('activite pdv zone');
   const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
   const findColExact = s => Object.keys(sample).find(k => k.toLowerCase() === s.toLowerCase());
   const cDirection = findColExact('direction') || findCol('direction commerciale') || findCol('libellé direction') || findCol('libelle direction') || findCol('direction');
@@ -76,6 +77,7 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
       statut: (cStatut ? row[cStatut] || '' : '').toString().trim(),
       statutDetaille: (cStatutDetaille ? row[cStatutDetaille] || '' : '').toString().trim(),
       classification: (cClassif ? row[cClassif] || '' : '').toString().trim(),
+      activiteLeg: (cActiviteLeg ? row[cActiviteLeg] || '' : '').toString().trim(),
       activitePDV: (cActivite ? row[cActivite] || '' : '').toString().trim(),
       activiteGlobale: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
       activite: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),

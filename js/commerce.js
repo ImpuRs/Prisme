@@ -31,7 +31,7 @@ const renderTerrCroisementSummary = (...a) => window.renderTerrCroisementSummary
 const getKPIsByCanal = (...a) => window.getKPIsByCanal?.(...a);
 
 // ── Nav 4 sous-vues Commerce ─────────────────────────────────────────────
-let _cmTab = 'toppdv';
+let _cmTab = 'silencieux';
 
 // ── Secteur dropdown outside click handler (migré depuis omni.js) ─────────
 document.addEventListener('click',function(e){
@@ -42,11 +42,11 @@ document.addEventListener('click',function(e){
 // ── Nav 4 sous-vues — helpers ────────────────────────────────────────────
 function _cmRenderNav(counts) {
   const tabs = [
-    { id: 'toppdv',       label: '🏆 Top PDV',       n: null },
     { id: 'silencieux',   label: '🟡 Silencieux',   n: counts.silencieux },
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
     { id: 'opportunites', label: '💡 Opportunités',  n: counts.opportunites },
+    { id: 'toppdv',       label: '🏆 Top PDV',       n: null },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -68,9 +68,6 @@ function _cmSwitchTab(id) {
   const counts = _cmComputeCounts();
   nav.innerHTML = _cmRenderNav(counts);
   switch (id) {
-    case 'toppdv':
-      content.innerHTML = '<div id="terrTopPDV"></div>';
-      break;
     case 'silencieux':
       content.innerHTML = `<div id="terrSilencieux"></div><div id="terrLivSansPDV" class="mt-3"></div>`;
       window.renderSilencieux?.();
@@ -86,6 +83,9 @@ function _cmSwitchTab(id) {
     case 'opportunites':
       content.innerHTML = `<div id="terrOpportunites"></div>`;
       window.renderOpportunites?.();
+      break;
+    case 'toppdv':
+      content.innerHTML = '<div id="terrTopPDV"></div>';
       break;
   }
 }
