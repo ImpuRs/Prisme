@@ -1972,10 +1972,11 @@ function renderCommerceTab() {
   if (!el) return;
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
-    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
     <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
     <div id="cm-tab-content" class="pt-3"></div>
-    <div id="terrOmniBlock" class="mt-4"></div>`;
+    <div id="terrOmniBlock" class="mt-4">
+      <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
+    </div>`;
   _buildChalandiseOverview();
   _cmSwitchTab(_cmTab);
   window.renderOmniContent?.();
