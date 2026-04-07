@@ -939,7 +939,6 @@ window._terrDrillBack = function() {
     const _qSrch=(_S._terrClientSearch||'').toLowerCase();
     if(_qSrch){
       const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientNomLookup?.[cc]||'').toLowerCase().includes(_qSrch)||(_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
-      k.top5=k.top5.filter(c=>_matchC(c.cc,c.nom));
       k.top5Reconq=k.top5Reconq.filter(c=>_matchC(c.cc,c.nom));
       k.reconq=k.reconq.filter(c=>_matchC(c.cc,c.nom));
       k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
@@ -947,16 +946,6 @@ window._terrDrillBack = function() {
       k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
       k.digitaux=(k.digitaux||[]).filter(c=>_matchC(c.cc,c.nom));
     }
-    const top5=k.top5;
-    const top5Html=top5.length?`<div class="mb-5 s-card rounded-xl border-2 overflow-hidden" style="border-color:var(--c-action)">
-      <div class="flex items-center justify-between px-4 py-3 i-info-bg" style="border-bottom:1px solid var(--b-default)">
-        <div><h3 class="font-extrabold text-sm c-action">⚡ Top 5 — Priorités cette semaine</h3>
-        <p class="text-[10px] t-tertiary mt-0.5">Clients silencieux (30–60j), classés par CA × durée de silence</p></div>
-        ${_S.chalandiseReady?'':`<span class="text-[10px] c-caution font-semibold">Chargez la zone de chalandise pour plus de précision</span>`}
-      </div>
-      <div class="divide-y b-light">${top5.map(c=>`<div class="flex items-center gap-3 px-4 py-2.5 s-hover cursor-pointer transition-colors hover:i-info-bg" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><span class="font-bold text-sm flex-1">${escapeHtml(c.nom)}</span><span class="text-[10px] t-tertiary flex-shrink-0 text-right max-w-[200px]">${escapeHtml(c.reason)}</span><span class="text-[10px] font-mono t-disabled ml-2" title="Score priorité">⚡${c.score}</span><span class="text-[10px] font-semibold ml-2 flex-shrink-0 c-action">${escapeHtml(c.commercial||'—')}</span></div>`).join('')}</div>
-    </div>`:`<div class="mb-5 p-4 s-card rounded-xl border text-[12px] t-secondary">⚡ <strong>Top 5</strong> : ${_S.chalandiseReady?'Aucun client silencieux trouvé.':'Chargez la zone de chalandise pour voir les priorités.'}</div>`;
-
     // ── Top 5 priorités reconquête ──
     const top5ReconqHtml=k.top5Reconq.length?(()=>{
       const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="chip chip-xs chip-danger">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto chip chip-xs chip-danger cursor-pointer">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
@@ -1040,7 +1029,6 @@ window._terrDrillBack = function() {
     }
 
     const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-    _setEl('clientsTop5',top5Html);
     _setEl('clientsTopPDV',topPDVHtml);
     _setEl('clientsHorsZone',horsZoneHtml);
     _setEl('clientsDigitaux',digitauxHtml);
