@@ -1959,7 +1959,7 @@ _S.canalAgence=newCanalAgence;
         renderBenchmark();
         break;
       case 'clients':
-        renderCommerceTab();
+        window._renderPDVTab?.();
         break;
       case 'animation':
         await renderAnimationTab();

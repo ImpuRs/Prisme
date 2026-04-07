@@ -47,7 +47,6 @@ function _cmRenderNav(counts) {
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
     { id: 'opportunites', label: '💡 Opportunités',  n: counts.opportunites },
     { id: 'toppdv',       label: '🏆 Top PDV',       n: null },
-    { id: 'omni',         label: '📊 Omni',          n: null },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -88,10 +87,6 @@ function _cmSwitchTab(id) {
     case 'toppdv':
       content.innerHTML = '<div id="terrTopPDV"></div>';
       window._renderTopClientsPDV?.();
-      break;
-    case 'omni':
-      content.innerHTML = '';
-      window.renderOmniContent?.();
       break;
   }
 }
@@ -2202,15 +2197,18 @@ function renderCommerceTab() {
   if (!el) return;
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
-    <div id="terrChalandiseOverview" class="hidden"></div>
+    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
     <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
-    <div id="cm-tab-content" class="pt-3"></div>`;
+    <div id="cm-tab-content" class="pt-3"></div>
+    <div id="terrOmniBlock" class="mt-4"></div>`;
   _buildChalandiseOverview();
   _cmSwitchTab(_cmTab);
+  window.renderOmniContent?.();
 }
 
 // ── Window expositions ──────────────────────────────────────────────────
 window.renderTerritoireTab        = renderTerritoireTab;
+window._renderPDVTab              = renderMesClients;
 window.renderMesClients           = renderCommerceTab;
 window.renderCommerceTab          = renderCommerceTab;
 window._cmSwitchTab               = _cmSwitchTab;

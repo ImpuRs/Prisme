@@ -461,7 +461,7 @@ function _passesAllFilters(cc){
                         || Object.keys(s.terrDirectionData||{}).length > 0
                         || s.terrContribByDirection?.size > 0);
     const hasConsomme = !!s.finalData?.length;
-    const el = document.getElementById('cm-tab-content');
+    const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
