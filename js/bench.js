@@ -455,12 +455,9 @@ function renderObservatoire(){
   if (tabsEl) {
     if (isMulti) {
       const agList = [myAg2, ...[..._S.storesIntersection].filter(a=>a!==myAg2).sort()];
-      const _agCaTotal = ag => Object.values(_S.ventesParMagasin[ag]||{}).reduce((s,d)=>s+(d.sumCA||0),0);
-      tabsEl.innerHTML = agList.map(ag=>{
-        const caT = _agCaTotal(ag);
-        const caStr = caT > 0 ? ` · ${formatEuro(Math.round(caT))}` : '';
-        return `<button onclick="window._setPepAgTab('${ag}')" class="px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${ag===_pepAgTab?'c-ok border-green-500 bg-green-900/30':'t-disabled b-dark hover:t-primary'}">${ag}${ag===myAg2?' ★':''}${caStr}</button>`;
-      }).join('');
+      tabsEl.innerHTML = agList.map(ag=>
+        `<button onclick="window._setPepAgTab('${ag}')" class="px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${ag===_pepAgTab?'c-ok border-green-500 bg-green-900/30':'t-disabled b-dark hover:t-primary'}">${ag}${ag===myAg2?' ★':''}</button>`
+      ).join('');
       tabsEl.classList.remove('hidden');
     } else {
       tabsEl.classList.add('hidden');
