@@ -390,10 +390,13 @@ window._terrDrillBack = function() {
     const livSansPDV=_S.livraisonsSansPDV||[];
     // Top PDV = toujours MAGASIN — quand canal hors-MAGASIN actif, ventesClientArticle
     // contient les données du canal filtré → utiliser ventesClientArticleFull (MAGASIN full-période)
-    const _vcaPDV=(_S._globalCanal&&_S._globalCanal!=='MAGASIN')?(_S.ventesClientArticleFull||_S.ventesClientArticle):_S.ventesClientArticle;
+    const _gCanal=_S._globalCanal||'';
+    const _vcaPDV=(_gCanal&&_gCanal!=='MAGASIN')?(_S.ventesClientArticleFull||_S.ventesClientArticle):_S.ventesClientArticle;
     const topPDVRows=[];
+    const _seenCC=new Set();
     if(_vcaPDV.size){
       for(const[cc,artMap]of _vcaPDV){
+        _seenCC.add(cc);
         const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
         if(caPDV<100)continue;
         const horsMap=_S.ventesClientHorsMagasin.get(cc);
@@ -404,8 +407,20 @@ window._terrDrillBack = function() {
         const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
         topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
       }
-      topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
     }
+    // Canal Tous : inclure aussi les clients hors-MAGASIN purs
+    if(!_gCanal&&_S.ventesClientHorsMagasin.size){
+      for(const[cc,horsMap]of _S.ventesClientHorsMagasin){
+        if(_seenCC.has(cc))continue;
+        const caHors=[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
+        if(caHors<100)continue;
+        const lastDate=_S.clientLastOrder?.get(cc);
+        const info=_S.chalandiseData?.get(cc);
+        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
+        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:0,caHors,caTotal:caHors,lastDate});
+      }
+    }
+    topPDVRows.sort((a,b)=>(!_gCanal?b.caTotal-a.caTotal:b.caPDV-a.caPDV));
     const horsZone=[];
     if(_S.chalandiseReady&&_S.ventesClientArticle.size){
       for(const[cc,artMap]of _S.ventesClientArticle){
