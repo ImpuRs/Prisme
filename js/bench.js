@@ -480,12 +480,20 @@ function renderObservatoire(){
   // Calcul pépites pour l'onglet actif
   let pepites;
   if (_pepAgTab === myAg2 || !isMulti) {
-    // Mon agence — utiliser benchLists.pepites + enrichir avec vpm (indépendant du cache IDB)
+    // Mon agence — myQte depuis articleMonthlySales (tous canaux + réactif période)
     const pepitesAll = _S.benchLists.pepites || [];
     const pepitesFiltered = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
+    const _ms = _S.articleMonthlySales || {};
+    const _periodeMonths = DataStore.byContext().periodeMonths; // [0..11] selon preset
     pepites = pepitesFiltered.map(p => {
-      const vpmData = _S.ventesParMagasin[myAg2]?.[p.code];
-      const myQte = vpmData?.sumPrelevee ?? p.myQte ?? p.myFreq;
+      const monthly = _ms[p.code];
+      let myQte;
+      if (monthly) {
+        myQte = _periodeMonths.reduce((s, m) => s + (monthly[m] || 0), 0);
+      } else {
+        const vpmData = _S.ventesParMagasin[myAg2]?.[p.code];
+        myQte = vpmData?.sumPrelevee ?? p.myQte ?? p.myFreq;
+      }
       const compQte = Math.round(_S._artMedianQte[p.code] || p.compQte || p.compFreq);
       const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : p.ecartPct;
       return { ...p, myQte, compQte, ecartPct };
