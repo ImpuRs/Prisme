@@ -770,10 +770,28 @@ window._terrDrillBack = function() {
     const _qSrch=(_S._terrClientSearch||'').toLowerCase();
     if(_qSrch){
       const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientNomLookup?.[cc]||'').toLowerCase().includes(_qSrch)||(_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
+      k.topPDVRows=(k.topPDVRows||[]).filter(c=>_matchC(c.cc,c.nom));
       k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
       k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
       k.digitaux=(k.digitaux||[]).filter(c=>_matchC(c.cc,c.nom));
     }
+    // ── S1: Top PDV ──────────────────────────────────────────────────────────
+    const topPDVHtml=(()=>{
+      const rows=k.topPDVRows||[];
+      if(!rows.length)return'';
+      const nowMs=Date.now();
+      const _mkRow=r=>{
+        const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+        const silTxt=daysSince!==null?`${daysSince}j`:'—';
+        const silCls=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
+        const hasHors=r.caHors>0;
+        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] ${hasHors?'c-ok':'t-disabled'}">${hasHors?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
+      };
+      const top20=rows.slice(0,20);
+      const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Hors agence</th><th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
+      const thStr=`<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Hors agence</th><th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
+      return`<details open class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top PDV <span class="text-[10px] font-normal t-disabled ml-1">${rows.length} clients actifs au comptoir</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
+    })();
     // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
     const _livAllB=k.livSansPDV;
     const livSPDVHtml=(()=>{
@@ -828,7 +846,7 @@ window._terrDrillBack = function() {
       }
     }
 
-    el.innerHTML = livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
+    el.innerHTML = topPDVHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
   }
 
 
