@@ -507,11 +507,11 @@ function _passesAllFilters(cc){
         <span class="text-base flex-shrink-0">📌</span>
         <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
       </div>
-      <div id="terrDirectionBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+      <div id="terrDirectionBlock" style="display:none;background:linear-gradient(135deg,rgba(139,92,246,0.13),rgba(109,40,217,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
         <details>
-          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">📋 Vue par Direction commerciale <span class="text-[10px] font-normal t-disabled">— trié par CA décroissant · cliquez pour détailler</span></h3>
-            <span class="acc-arrow t-disabled">▶</span>
+          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2);list-style:none" class="select-none">
+            <h3 style="font-weight:800;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px">📋 Vue par Direction commerciale <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— trié par CA décroissant · cliquez pour détailler</span></h3>
+            <span class="acc-arrow" style="color:#a78bfa">▶</span>
           </summary>
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">
@@ -531,13 +531,13 @@ function _passesAllFilters(cc){
           </div>
         </details>
       </div>
-      <div id="terrContribBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+      <div id="terrContribBlock" style="display:none;background:linear-gradient(135deg,rgba(100,116,139,0.13),rgba(51,65,85,0.06));border:1px solid rgba(100,116,139,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
         <details>
-          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-            <h3 id="terrContribTitle" class="font-extrabold t-primary text-xs flex items-center gap-2">🔗 Contributeurs agence</h3>
+          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.2),rgba(51,65,85,0.12));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
+            <h3 id="terrContribTitle" style="font-weight:800;font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px">🔗 Contributeurs agence</h3>
             <div class="flex items-center gap-2">
               <button onclick="event.stopPropagation();exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <span class="acc-arrow t-disabled">▶</span>
+              <span class="acc-arrow" style="color:#cbd5e1">▶</span>
             </div>
           </summary>
           <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
@@ -558,13 +558,13 @@ function _passesAllFilters(cc){
           </div>
         </details>
       </div>
-      <div id="terrTop100Block" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+      <div id="terrTop100Block" style="display:none;background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
         <details>
-          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">🏆 Top 100 articles <span class="text-[10px] font-normal t-disabled">— par CA Le Terrain · cliquez pour détailler</span></h3>
+          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none">
+            <h3 style="font-weight:800;font-size:12px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top 100 articles <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— par CA Le Terrain · cliquez pour détailler</span></h3>
             <div class="flex items-center gap-2">
               <button onclick="event.stopPropagation();exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <span class="acc-arrow t-disabled">▶</span>
+              <span class="acc-arrow" style="color:#fde047">▶</span>
             </div>
           </summary>
           <div class="overflow-x-auto">
@@ -585,11 +585,11 @@ function _passesAllFilters(cc){
           </div>
         </details>
       </div>
-      <div id="terrClientsBlock" style="display:none" class="hidden mb-1.5 mx-2 s-card rounded-xl shadow-md border overflow-hidden">
+      <div id="terrClientsBlock" style="display:none;background:linear-gradient(135deg,rgba(20,184,166,0.12),rgba(13,148,136,0.06));border:1px solid rgba(20,184,166,0.28);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
         <details>
-          <summary class="flex items-center justify-between px-3 py-2 s-card-alt border-b cursor-pointer select-none hover:brightness-95">
-            <h3 class="font-extrabold t-primary text-xs flex items-center gap-2">👥 Clients Le Terrain <span class="text-[10px] font-normal t-disabled">— mixtes vs extérieurs purs</span></h3>
-            <span class="acc-arrow t-disabled">▶</span>
+          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2);list-style:none" class="select-none">
+            <h3 style="font-weight:800;font-size:12px;color:#2dd4bf;display:flex;align-items:center;gap:6px">👥 Clients Le Terrain <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— mixtes vs extérieurs purs</span></h3>
+            <span class="acc-arrow" style="color:#2dd4bf">▶</span>
           </summary>
           <div class="overflow-x-auto">
             <table class="min-w-full text-xs">

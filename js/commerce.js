@@ -185,9 +185,9 @@ function _buildChalDirBlock(blkEl) {
   }
 
   const colCount = isClients ? 5 : 9;
-  blkEl.innerHTML = `<div class="flex items-center justify-between px-3 py-2 s-card-alt border-b">
+  blkEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
     <div class="flex items-center">
-      ${backBtn}<span class="font-extrabold t-primary text-xs">${breadcrumb}</span>${summaryBadge}
+      ${backBtn}<span style="font-weight:800;font-size:12px;color:#a78bfa">${breadcrumb}</span>${summaryBadge}
     </div>
   </div>
   <div class="overflow-x-auto"><table class="min-w-full text-xs">
@@ -480,14 +480,14 @@ window._terrDrillBack = function() {
       // ── Top 5 priorités reconquête ──
       const top5ReconqHtml=k.top5Reconq.length?(()=>{
         const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="chip chip-xs chip-danger">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto chip chip-xs chip-danger cursor-pointer">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
-        return`<details open class="mb-3 s-card rounded-xl border overflow-hidden" style="border-left:3px solid var(--c-danger)"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-danger">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
+        return`<details open style="background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06));border:1px solid rgba(220,38,38,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12));border-bottom:1px solid rgba(220,38,38,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#f87171;display:flex;align-items:center;gap:6px">🔴 À reconquérir — Top 5 priorités <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">cette semaine</span></h3><span class="acc-arrow" style="color:#f87171">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
       })():'';
 
       // ── Section 1 : À reconquérir (anciens fidèles silencieux) ──
       const _reconqFull=k.reconqFull;
       const reconq=k.reconq;
       const _reconqCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`;
-      const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}${_reconqFull.length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${_reconqFull.length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`}</details>`;
+      const reconqHtml=`<details style="background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">🔄 À reconquérir <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${_reconqFull.length} anciens fidèles</span></h3><span class="acc-arrow" style="color:#fbbf24">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}${_reconqFull.length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${_reconqFull.length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`}</details>`;
 
       _setEl('terrTop5', top5ReconqHtml);
       _setEl('terrReconquete', reconqHtml);
@@ -1099,16 +1099,16 @@ function _renderCommercialSummary(){
   if(!showAll&&remaining>0)rows+=`<tr><td colspan="3" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
   if(unassigned&&unassigned.nb>0)rows+=rowHtml('-',unassigned,'Non assigné');
   const filterTags=[canalLabel,segLabel].filter(Boolean).join(' · ');
-  let html=`<details ${isOpen?'open':''} class="s-card rounded-xl shadow-md border overflow-hidden mb-3" ontoggle="document.getElementById('commercialSummaryBlock').dataset.open=this.open?'1':'0'">
-    <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
-      <h3 class="font-extrabold t-primary text-xs flex items-center gap-1.5">
-        👤 Vue par commercial${filterTags?` — <span class="c-action">${filterTags}</span>`:''}
-        <span class="font-normal t-disabled">(${segClientCount!=null?segClientCount:totalCount})</span>
+  let html=`<details ${isOpen?'open':''} style="background:linear-gradient(135deg,rgba(100,116,139,0.13),rgba(51,65,85,0.06));border:1px solid rgba(100,116,139,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px" ontoggle="document.getElementById('commercialSummaryBlock').dataset.open=this.open?'1':'0'">
+    <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.2),rgba(51,65,85,0.12));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
+      <h3 style="font-weight:800;font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px">
+        👤 Vue par commercial${filterTags?` — <span style="color:#67e8f9">${filterTags}</span>`:''}
+        <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${segClientCount!=null?segClientCount:totalCount})</span>
       </h3>
       <div class="flex items-center gap-2">
         ${sel?`<button onclick="event.stopPropagation();event.preventDefault();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
         <span class="text-[10px] t-tertiary font-normal">${summaryLine}</span>
-        <span class="acc-arrow t-disabled">▶</span>
+        <span class="acc-arrow" style="color:#cbd5e1">▶</span>
       </div>
     </summary>
     <div class="overflow-x-auto"><table class="min-w-full text-xs">
@@ -1152,10 +1152,10 @@ function _renderOmniSegmentClients(){
       <td class="py-1.5 px-2 text-center"><button class="text-[10px] c-action hover:underline font-semibold" onclick="openClient360('${escapeHtml(c.cc)}')">360°</button></td>
     </tr>`;
   }
-  el.innerHTML=`<details ${isOpen?'open':''} class="s-card rounded-xl shadow-md border overflow-hidden mb-3" ontoggle="document.getElementById('omniSegmentClientsBlock').dataset.open=this.open?'1':'0'">
-    <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
-      <h3 class="font-extrabold t-primary text-xs">👤 Clients — ${escapeHtml(segLabel)} <span class="font-normal t-disabled">(${clients.length})</span></h3>
-      <span class="acc-arrow t-disabled">▶</span>
+  el.innerHTML=`<details ${isOpen?'open':''} style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px" ontoggle="document.getElementById('omniSegmentClientsBlock').dataset.open=this.open?'1':'0'">
+    <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none">
+      <h3 style="font-weight:800;font-size:12px;color:#22d3ee">👤 Clients — ${escapeHtml(segLabel)} <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${clients.length})</span></h3>
+      <span class="acc-arrow" style="color:#22d3ee">▶</span>
     </summary>
     <div class="overflow-x-auto"><table class="min-w-full text-xs">
       <thead class="s-panel-inner t-inverse"><tr>

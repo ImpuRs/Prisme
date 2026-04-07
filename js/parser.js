@@ -847,7 +847,7 @@ export function computeBenchmark(canaux = new Set()) {
     const csQtes = _pepCsQte[code] || [];
     const _obsStore = _S.selectedObsCompare && _S.selectedObsCompare !== 'median' ? _S.selectedObsCompare : null;
     const compQte = _obsStore ? (_S.ventesParMagasin[_obsStore]?.[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
-    const caMe = myPep?.sumCA || artCA(myV[code]) || 0;
+    const caMe = myPep?.sumCA || artCA(myV[code] || {}) || 0;
     pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(caMe), myQte, compQte: Math.round(compQte) });
   }
   pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
