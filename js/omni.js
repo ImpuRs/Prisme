@@ -475,23 +475,6 @@ function _passesAllFilters(cc){
       <div id="canalAgenceBlock" class="p-3"></div>
     </div>
     <div id="terrSegmentsOmni" class="mb-3"></div>
-    <div id="terrChalandiseOverview" class="hidden mb-3">
-      <details class="s-card rounded-xl shadow-md border overflow-hidden">
-        <summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95">
-          <h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3>
-          <div class="flex items-center gap-2">
-            <span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span>
-            <span class="acc-arrow t-disabled">▶</span>
-          </div>
-        </summary>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead>
-            <tbody id="terrOverviewL1Table"></tbody>
-          </table>
-        </div>
-      </details>
-    </div>
     <div id="commercialSummaryBlock" class="hidden"></div>
     <details id="terrAnalyseAccordion" open class="s-card rounded-xl shadow-md border mb-3">
       <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
