@@ -721,7 +721,8 @@ window._terrDrillBack = function() {
     // ── Garde de cache territoire ─────────────────────────────────────────────
     // Clé inclut commercial (V3.2) : terrLines differ si commercial actif
     const _secteurKey=[...(getSelectedSecteurs()||[])].sort().join(',');
-    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}`;
+    const _periodeKey=`${_S.periodFilterStart?.getTime()||0}-${_S.periodFilterEnd?.getTime()||0}`;
+    const _terrCacheKey=`${_canalGlobal||'ALL'}|${_ctx.activeFilters.commercial||''}|${_secteurKey}|${q}|${_periodeKey}`;
     if(_S._terrCanalCache.has(_terrCacheKey)){
       const _cached=_S._terrCanalCache.get(_terrCacheKey);
       const _sg=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
