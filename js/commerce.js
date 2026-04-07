@@ -68,15 +68,15 @@ function _cmSwitchTab(id) {
   switch (id) {
     case 'silencieux':
       content.innerHTML = `<div id="terrSilencieux"></div>`;
-      window.renderSilencieux?.();
+      _buildCockpitClient();
       break;
     case 'perdus':
       content.innerHTML = `<div id="terrPerdus"></div><div id="terrReconquete" class="mt-3"></div>`;
-      window.renderPerdus?.();
+      _buildCockpitClient();
       break;
     case 'potentiels':
       content.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
-      window.renderPotentiels?.();
+      _buildCockpitClient();
       break;
   }
 }
@@ -1254,6 +1254,16 @@ function _buildChalandiseOverview(){
   });
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
+  // S'assurer que les slots du tab actif existent avant _buildCockpitClient
+  const _cmContent = document.getElementById('cm-tab-content');
+  if (_cmContent) {
+    if (_cmTab === 'silencieux' && !document.getElementById('terrSilencieux'))
+      _cmContent.innerHTML = `<div id="terrSilencieux"></div>`;
+    else if (_cmTab === 'perdus' && !document.getElementById('terrPerdus'))
+      _cmContent.innerHTML = `<div id="terrPerdus"></div><div id="terrReconquete" class="mt-3"></div>`;
+    else if (_cmTab === 'potentiels' && !document.getElementById('terrACapter'))
+      _cmContent.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
+  }
   // Cockpit client
   _buildCockpitClient();
   // [Feature B] Vue par commercial
