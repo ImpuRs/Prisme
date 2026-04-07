@@ -783,28 +783,60 @@ export function computeBenchmark(canaux = new Set()) {
   _S.benchLists.obsFamiliesLose = obsFamiliesLose; _S.benchLists.obsFamiliesWin = obsFamiliesWin;
   _S.benchLists.obsActionPlan = obsFamiliesLose.slice(0, 3).map(f => { const artsToRef = (f.missingArts || []).filter(a => a.statutMe !== '✅ En stock'); const artsVisi = (f.missingArts || []).filter(a => a.statutMe === '✅ En stock'); return { fam: f.fam, ecartPct: f.ecartPct, nbToRef: artsToRef.length, nbVisibility: artsVisi.length, refOther: f.refOther, caPotentiel: Math.round(Math.abs(f.caOther - f.caMe)) }; });
   // === PÉPITES — articles où je surperforme / où le réseau me surpasse ===
+  // ── Agréger les ventes myStore sur la période active depuis _byMonth ──
+  const _pepMyStore = {};
+  {
+    const pStart = _S.periodFilterStart;
+    const pEnd   = _S.periodFilterEnd;
+    const startIdx = pStart ? (pStart.getFullYear()*12 + pStart.getMonth()) : 0;
+    const endIdx   = pEnd   ? (pEnd.getFullYear()*12   + pEnd.getMonth())   : 999999;
+    const bm = _S._byMonth;
+    if (bm) {
+      for (const cc in bm) {
+        const arts = bm[cc];
+        for (const code in arts) {
+          if (!/^\d{6}$/.test(code)) continue;
+          for (const midxStr in arts[code]) {
+            const midx = +midxStr;
+            if (midx < startIdx || midx > endIdx) continue;
+            const d = arts[code][midxStr];
+            if (!_pepMyStore[code]) _pepMyStore[code] = { sumPrelevee: 0, sumCA: 0, countBL: 0 };
+            if ((d.sumPrelevee || 0) > 0) _pepMyStore[code].sumPrelevee += d.sumPrelevee;
+            _pepMyStore[code].sumCA   += d.sumCA   || 0;
+            _pepMyStore[code].countBL += d.countBL || 0;
+          }
+        }
+      }
+    } else {
+      // Fallback pleine période si _byMonth absent
+      for (const [code, d] of Object.entries(_S.ventesParMagasin?.[_S.selectedMyStore] || {})) {
+        if (!/^\d{6}$/.test(code)) continue;
+        _pepMyStore[code] = { sumPrelevee: d.sumPrelevee || 0, sumCA: d.sumCA || 0, countBL: d.countBL || 0 };
+      }
+    }
+  }
   // Build per-code frequency + CA lists across cs stores (one pass)
   const _pepCsFreqs = {}, _pepCsCA = {}, _pepCsQte = {};
-  // _pepCsQte : toujours depuis ventesParMagasin (sumPrelevee = qty, pas CA)
+  // _pepCsQte : depuis ventesParMagasin (sumPrelevee = qty réelle, pas CA)
   for (const store of cs) { const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; _pepCsQte[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); _pepCsQte[code].push((_S.ventesParMagasin[store]?.[code]?.sumPrelevee) || 0); } }
   const _pepLib = code => { const r = _S.libelleLookup[code] || code; return /^\d{6} - /.test(r) ? r.substring(9).trim() : r; };
   // 💎 Mes pépites — I outperform
   const pepites = [];
-  for (const [code, data] of Object.entries(myV)) {
+  for (const code of new Set([...Object.keys(_pepMyStore), ...Object.keys(myV)])) {
     if (!/^\d{6}$/.test(code)) continue;
-    const myFreq = data.countBL || 0;
+    const myPep = _pepMyStore[code];
+    const myFreq = myPep?.countBL || 0;
     if (myFreq < 2) continue;
     const csFreqs = _pepCsFreqs[code] || [];
-    // In 1v1 mode: compare directly against compV; in median mode: use cs median
     const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
     if (compFreq <= 0 || myFreq <= compFreq * 1.3) continue;
     const ecartPct = Math.round((myFreq / compFreq - 1) * 100);
-    // myQte / compQte : depuis ventesParMagasin (qty réelles, pas CA)
-    const myQte = _S.ventesParMagasin[_S.selectedMyStore]?.[code]?.sumPrelevee || 0;
+    const myQte = myPep?.sumPrelevee || 0;
     const csQtes = _pepCsQte[code] || [];
     const _obsStore = _S.selectedObsCompare && _S.selectedObsCompare !== 'median' ? _S.selectedObsCompare : null;
     const compQte = _obsStore ? (_S.ventesParMagasin[_obsStore]?.[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
-    pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)), myQte, compQte: Math.round(compQte) });
+    const caMe = myPep?.sumCA || artCA(myV[code]) || 0;
+    pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(caMe), myQte, compQte: Math.round(compQte) });
   }
   pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
   _S.benchLists.pepites = pepites.slice(0, 50);

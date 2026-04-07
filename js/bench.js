@@ -592,7 +592,9 @@ function resetObsFilters(){
 // [V3] Filtre période réseau — active _getFilteredMonths via _S._globalPeriodePreset
 function _setBenchPeriode(preset) {
   _S._globalPeriodePreset = preset;
-  const t0=performance.now();renderBenchmark();
+  _S._benchCache = null; // invalider le cache (période dans la clé)
+  delete _S._artMedianBL; delete _S._artMedianQte; delete _S._artMedianCA;
+  const t0=performance.now();computeBenchmark(_S._globalCanal||null);renderBenchmark();
   const el=document.getElementById('benchRecalcTime');if(el)el.textContent=`⚡ ${Math.round(performance.now()-t0)}ms`;
 }
 
