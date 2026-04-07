@@ -124,7 +124,7 @@ function _buildChalDirBlock(blkEl) {
     for (const c of clients) {
       g.total++;
       if (c.statut === 'Actif')                         g.actifsLeg++;
-      if (c.activitePDV?.includes('Actif PDV'))         g.actifsPDV++;
+      if (_S.clientsMagasin?.has(c.cc))                  g.actifsPDV++;
       if (c.statut === 'Prospect')                      g.prospects++;
       if (c.statutDetaille === 'Perdu 12-24 mois')      g.perdus1224++;
       if (c.statut === 'Inactif')                       g.inactifs++;
@@ -169,7 +169,7 @@ function _buildChalDirBlock(blkEl) {
     theadHtml = _thead9('Direction');
     for (const [d, clients] of sorted)
       tbodyHtml += _groupRow(escapeHtml(_lbl(d)), clients, `window._terrDrillDir('${encodeURIComponent(d)}')`);
-    const totalPDV = all.filter(c => c.activitePDV?.includes('Actif PDV')).length;
+    const totalPDV = all.filter(c => _S.clientsMagasin?.has(c.cc)).length;
     const pctCapte = all.length > 0 ? Math.round(all.filter(c => c.statut==='Actif').length / all.length * 100) : 0;
     summaryBadge = `<span class="text-[10px] t-disabled ml-2 font-normal">${byDir.size} directions · ${totalPDV} actifs PDV · ${pctCapte}% capté</span>`;
   } else if (level === 'metier') {
@@ -1386,7 +1386,7 @@ function _buildChalandiseOverview(){
     const dirKey=dir||'Autre';
     if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
     const d=dirMap[dirKey];d.total++;
-    const pdvActif=_isPDVActif(cc);
+    const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(_isProspect(info)){d.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
     else{d.actifsLeg++;totalActifsLeg++;}
@@ -1510,7 +1510,7 @@ function _renderOverviewL2(el,direction){
     const m=info.metier||'Autre';
     if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
     const md=metierMap[m];md.total++;
-    const pdvActif=_isPDVActif(cc);
+    const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(_isProspect(info)){md.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)md.perdus12_24++;else md.inactifs++;}
     else{md.actifsLeg++;}
@@ -1569,7 +1569,7 @@ function _renderOverviewL3(el,direction,metier){
     const key=sect+'||'+comm;
     if(!sectMap[key])sectMap[key]={secteur:sect,commercial:comm,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
     const sd=sectMap[key];sd.total++;
-    const pdvActif=_isPDVActif(cc);
+    const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(_isProspect(info)){sd.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)sd.perdus12_24++;else sd.inactifs++;}
     else{sd.actifsLeg++;}
@@ -1634,7 +1634,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
     if((info.secteur||'—')!==secteur)continue;
-    const pdvActif=_isPDVActif(cc);
+    const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(!_passesClientCrossFilter(cc))continue;
     clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif});
   }
