@@ -464,13 +464,10 @@ function _passesAllFilters(cc){
     el.innerHTML = `<div>
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
     <div id="commercialSummaryBlock" class="hidden"></div>
-    <details id="terrAnalyseAccordion" open class="s-card rounded-xl shadow-md border mb-3">
-      <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
-        <div class="flex items-center gap-2">
-          <h3 class="font-extrabold t-primary text-sm">📋 Analyse territoire</h3>
-          <span class="text-[10px] t-disabled">Vue Direction · Top 100 · Contributeurs · nécessite le BL Territoire</span>
-        </div>
-        <span class="acc-arrow t-tertiary">▶</span>
+    <details id="terrAnalyseAccordion" open style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+      <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
+        <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📋 Analyse territoire <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">Vue Direction · Top 100 · Contributeurs · nécessite le BL Territoire</span></h3>
+        <span class="acc-arrow" style="color:#cbd5e1">▶</span>
       </summary>
       <div id="terrNeedTerrBlock" class="hidden mb-2 mt-2 mx-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
         <span class="text-lg flex-shrink-0">📊</span>
