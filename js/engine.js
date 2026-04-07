@@ -167,7 +167,12 @@ export function _isPerdu(info) {
 
 export function _isProspect(info) { return _normalizeStatut(info.statut) === 'Prospect'; }
 
-export function _isPerdu24plus(info) { return _isPerdu(info) && !(info.ca2025 || 0) && !(info.ca2026 || 0); }
+export function _isPerdu24plus(info) {
+  const sd = (info.statutDetaille || '').toLowerCase();
+  if (sd) return sd.includes('>24') || sd.includes('> 24');
+  // Fallback sans statutDetaille
+  return _isPerdu(info) && !(info.ca2025 || 0) && !(info.ca2026 || 0);
+}
 
 // ── Croisement consommé × chalandise ──────────────────────────
 export function computeClientCrossing() {
