@@ -374,9 +374,9 @@ function _passesAllFilters(cc){
     ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id=>{
       const el=document.getElementById(id);if(el){el.style.display=hasTerr?'':'none';el.classList.toggle('hidden',!hasTerr);}
     });
-    // terrDirectionBlock : chalandise suffit (pas besoin du BL)
+    // terrDirectionBlock : chalandise OU territoire suffit
     const _dirBlkA=document.getElementById('terrDirectionBlock');
-    if(_dirBlkA){_dirBlkA.style.display=hasChal?'':'none';_dirBlkA.classList.toggle('hidden',!hasChal);}
+    {const _showDir=hasChal||hasTerr;if(_dirBlkA){_dirBlkA.style.display=_showDir?'':'none';_dirBlkA.classList.toggle('hidden',!_showDir);}}
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
     const comBlock=document.getElementById('commercialSummaryBlock');
@@ -602,9 +602,9 @@ function _passesAllFilters(cc){
       const blk = document.getElementById(id);
       if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
     });
-    // terrDirectionBlock : chalandise suffit (pas besoin du BL)
+    // terrDirectionBlock : chalandise OU territoire suffit
     const _dirBlkB=document.getElementById('terrDirectionBlock');
-    if(_dirBlkB){_dirBlkB.style.display=hasChal?'':'none';_dirBlkB.classList.toggle('hidden',!hasChal);}
+    {const _showDir=hasChal||hasTerr;if(_dirBlkB){_dirBlkB.style.display=_showDir?'':'none';_dirBlkB.classList.toggle('hidden',!_showDir);}}
     // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
     document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
     // Peupler les KPIs territoire — attendre que terrKpiLignes soit dans le DOM
