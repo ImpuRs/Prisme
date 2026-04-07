@@ -24,11 +24,11 @@ const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
 const ACTION_BADGE = {
-  socle:      { label: 'Bien couverte',  solidBg: '#16a34a', bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.03)',  cardBorder: 'rgba(52,211,153,0.2)' },
-  implanter:  { label: 'À développer',   solidBg: '#2563eb', bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.03)',  cardBorder: 'rgba(96,165,250,0.2)' },
-  challenger: { label: 'À retravailler', solidBg: '#dc2626', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.03)', cardBorder: 'rgba(248,113,113,0.2)' },
-  potentiel:  { label: 'Potentiel',      solidBg: '#d97706', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.03)',  cardBorder: 'rgba(251,191,36,0.2)' },
-  surveiller: { label: 'À surveiller',   solidBg: '#7c3aed', bg: '#f1f5f9', color: '#475569', icon: '👁',  dot: '#64748b', cardBg: 'rgba(100,116,139,0.03)', cardBorder: 'rgba(100,116,139,0.2)' },
+  socle:      { label: 'Bien couverte',  gradient: 'linear-gradient(135deg,#16a34a,#059669)', bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.03)',  cardBorder: 'rgba(52,211,153,0.2)' },
+  implanter:  { label: 'À développer',   gradient: 'linear-gradient(135deg,#2563eb,#4f46e5)', bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.03)',  cardBorder: 'rgba(96,165,250,0.2)' },
+  challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.03)', cardBorder: 'rgba(248,113,113,0.2)' },
+  potentiel:  { label: 'Potentiel',      gradient: 'linear-gradient(135deg,#d97706,#b45309)', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.03)',  cardBorder: 'rgba(251,191,36,0.2)' },
+  surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.03)', cardBorder: 'rgba(100,116,139,0.2)' },
 };
 
 const CLASSIF_BADGE = {
@@ -951,14 +951,16 @@ function _renderPlanRayonContent(data) {
   const _badge = (key, n) => {
     const b = ACTION_BADGE[key];
     const active = _prFilterClassif === key;
-    const _bg = b.solidBg || '#64748b';
-    const _opacity = active ? '1' : '0.72';
+    const _grad = b.gradient || 'linear-gradient(135deg,#334155,#1e293b)';
+    const _opacity = active ? '1' : '0.78';
+    const _shadow = active ? 'box-shadow:0 0 0 3px rgba(255,255,255,0.45),0 4px 12px rgba(0,0,0,0.3)' : 'box-shadow:0 2px 8px rgba(0,0,0,0.25)';
     return `<button onclick="window._prSetFilter('${key}')" data-prbadge="${key}"
-      class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-opacity hover:opacity-90"
-      style="background:${_bg};opacity:${_opacity};border-radius:10px;${active ? 'box-shadow:0 0 0 3px rgba(255,255,255,0.4)' : ''}">
-      <span style="font-size:1.3rem;margin-bottom:3px;line-height:1">${b.icon}</span>
-      <span style="font-size:1.5rem;font-weight:700;color:#fff;line-height:1.1">${n}</span>
-      <span style="font-size:10px;color:rgba(255,255,255,0.85);margin-top:4px;font-weight:500;letter-spacing:0.03em;text-transform:uppercase;text-align:center">${b.label}</span>
+      class="flex flex-col items-center p-3 cursor-pointer select-none"
+      style="background:${_grad};border-radius:12px;opacity:${_opacity};${_shadow};transition:opacity .15s,transform .1s"
+      onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='${_opacity}'">
+      <span style="font-size:1.3rem;margin-bottom:6px;line-height:1">${b.icon}</span>
+      <span style="font-size:1.75rem;font-weight:700;color:#fff;line-height:1.1;letter-spacing:-0.02em">${n}</span>
+      <span style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.82);margin-top:6px;letter-spacing:0.07em;text-transform:uppercase;text-align:center">${b.label}</span>
     </button>`;
   };
 
