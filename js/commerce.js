@@ -60,6 +60,7 @@ function _cmRenderNav(counts) {
 // Pour déplacer un pavé : changer le case ici, rien d'autre.
 function _cmSwitchTab(id) {
   _cmTab = id;
+  _S._cmTab = id;
   const nav = document.getElementById('cm-tab-nav');
   const content = document.getElementById('cm-tab-content');
   if (!nav || !content) return;
@@ -1142,7 +1143,7 @@ function _buildChalandiseOverview(){
   if(!blk)return;
   if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
   blk.classList.remove('hidden');
-  _cmSwitchTab(_cmTab);
+  window._cmSwitchTab?.(_S._cmTab || 'silencieux');
   _buildDeptFilter();
   _buildOverviewFilterChips();
   // Aggregate by direction commerciale — FIXED columns
@@ -1255,7 +1256,7 @@ function _buildChalandiseOverview(){
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
   // Reconstruire le tab actif (slots DOM + cockpit) à chaque changement de filtre
-  _cmSwitchTab(_cmTab);
+  window._cmSwitchTab?.(_S._cmTab || 'silencieux');
   // [Feature B] Vue par commercial
   _renderCommercialSummary();
   _renderOmniSegmentClients();
