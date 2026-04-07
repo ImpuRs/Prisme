@@ -147,7 +147,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
               const _caP=d.sumCAPrelevee||0;
               const _caMode=mode==='preleve'?_caP:mode==='enleve'?(d.sumCA-_caP):d.sumCA;
               e.sumCA+=_caMode;
-              e.sumPrelevee+=d.sumPrelevee;
+              if((d.sumPrelevee||0)>0)e.sumPrelevee+=d.sumPrelevee;
               e.sumCAPrelevee+=_caP;
               e.countBL+=d.countBL;
               if(d.sumPrelevee>0||d.sumCA>0){
@@ -173,7 +173,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
             const _caP=d.sumCAPrelevee||0;
             const _caMode=mode==='preleve'?_caP:mode==='enleve'?((d.sumCA||0)-_caP):(d.sumCA||0);
             e.sumCA+=_caMode;
-            e.sumPrelevee+=d.sumPrelevee||0;
+            if((d.sumPrelevee||0)>0)e.sumPrelevee+=d.sumPrelevee||0;
             e.sumCAPrelevee+=_caP;
             e.countBL+=d.countBL||0;
           }
