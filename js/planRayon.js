@@ -1016,6 +1016,13 @@ function _initPrSearch() {
   const searchIndex = _buildPrSearchIndex();
   console.log('[PrSearch] Index total:', searchIndex.length,
     'dont level5:', searchIndex.filter(e => e.level === 5).length);
+  if (!searchIndex.length && _S.catalogueFamille?.size) {
+    // Catalogue présent mais index vide — retry après micro-délai
+    setTimeout(() => {
+      _prSearchIndex = null;
+      _buildPrSearchIndex();
+    }, 500);
+  }
 
   let debounce;
   input.addEventListener('input', () => {
@@ -1024,9 +1031,13 @@ function _initPrSearch() {
       const q = input.value.trim().toLowerCase();
       if (q.length < 2) { results.classList.add('hidden'); return; }
       if (!searchIndex.length) {
-        results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
-        results.classList.remove('hidden');
-        return;
+        // Tenter un rebuild tardif
+        const retryIndex = _buildPrSearchIndex();
+        if (!retryIndex.length) {
+          results.innerHTML = '<div class="p-3 text-[11px] t-disabled">Catalogue non chargé — réessayez dans un instant</div>';
+          results.classList.remove('hidden');
+          return;
+        }
       }
       let matches = [];
       const isCodeQuery = /^\d{3,}$/.test(q);
