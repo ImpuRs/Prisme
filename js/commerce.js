@@ -903,7 +903,7 @@ function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
   const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
   _S._terrClientSearch=raw;
-  _terrClientSearchTimer=setTimeout(()=>{window.renderMesClients?.();window.renderTerritoireTab?.();},300);
+  _terrClientSearchTimer=setTimeout(()=>{renderMesClients();window.renderTerritoireTab?.();},300);
 }
 function _onMetierFilter(val){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_S._selectedMetier=(!val||metiers.has(val))?val:'';if(_S._selectedMetier===val)_buildChalandiseOverview();}
 function _navigateToOverviewMetier(metier){
@@ -1260,7 +1260,7 @@ function _buildChalandiseOverview(){
   if (document.getElementById('cm-tab-nav')) {
     _cmSwitchTab(_cmTab);
   } else if (document.getElementById('tabClients')) {
-    window.renderMesClients?.();
+    renderMesClients();
   }
   // [Feature B] Vue par commercial
   _renderCommercialSummary();
@@ -1993,7 +1993,6 @@ function renderCommerceTab() {
 // ── Window expositions ──────────────────────────────────────────────────
 window.renderTerritoireTab        = renderTerritoireTab;
 window._renderPDVTab              = renderMesClients;
-window.renderMesClients           = renderCommerceTab;
 window.renderCommerceTab          = renderCommerceTab;
 window._cmSwitchTab               = _cmSwitchTab;
 window._renderHorsZone            = _renderHorsZone;

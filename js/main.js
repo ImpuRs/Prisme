@@ -2323,7 +2323,7 @@ window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.toggleWebColumn = function(){window._setClientView(_S._clientView==='multicanaux'?'tous':'multicanaux');};
 window._cematinSearch = _cematinSearch;
 window.showSilencieux60 = showSilencieux60;
-window.renderMesClients = renderCommerceTab;
+window.renderMesClients = renderMesClients;
 window.renderCurrentTab = renderCurrentTab;
 window._refilterFromByMonth = _refilterFromByMonth;
 window.openDiagnostic = openDiagnostic;
