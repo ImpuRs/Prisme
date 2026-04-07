@@ -808,10 +808,22 @@ export function computeBenchmark(canaux = new Set()) {
         }
       }
     } else {
-      // Fallback pleine période si _byMonth absent
-      for (const [code, d] of Object.entries(_S.ventesParMagasin?.[_S.selectedMyStore] || {})) {
+      // Fallback : _byMonth absent (IDB ancien ou parse inline) → articleMonthlySales + periodeMonths
+      // articleMonthlySales[code] = [12 qtés mois 0-11], sauvegardé en IDB → toujours disponible
+      const _fMois = new Date().getMonth();
+      const _preset = _S._globalPeriodePreset || '12M';
+      const _fPm = _preset === '6M'
+        ? Array.from({ length: 6 }, (_, i) => (_fMois - 5 + i + 12) % 12)
+        : _preset === 'YTD'
+        ? Array.from({ length: _fMois + 1 }, (_, i) => i)
+        : Array.from({ length: 12 }, (_, i) => i);
+      const _ms = _S.articleMonthlySales || {};
+      for (const [code, monthly] of Object.entries(_ms)) {
         if (!/^\d{6}$/.test(code)) continue;
-        _pepMyStore[code] = { sumPrelevee: d.sumPrelevee || 0, sumCA: d.sumCA || 0, countBL: d.countBL || 0 };
+        const sumP = _fPm.reduce((s, m) => s + (monthly[m] || 0), 0);
+        if (sumP <= 0) continue;
+        const _vpmArt = _S.ventesParMagasin?.[_S.selectedMyStore]?.[code];
+        _pepMyStore[code] = { sumPrelevee: sumP, sumCA: _vpmArt?.sumCA || 0, countBL: _vpmArt?.countBL || 0 };
       }
     }
   }

@@ -56,7 +56,7 @@ export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.6';
+const CACHE_VERSION  = 'v3.7'; // bump : ajout _byMonth/Canaux dans payload IDB
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
