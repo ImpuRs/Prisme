@@ -9,6 +9,8 @@ import { computeReseauHeatmap, _clientStatusBadge, _unikLink } from './engine.js
 import { computeBenchmark } from './parser.js';
 import { SECTEUR_DIR_MAP } from './constants.js';
 
+let _pepAgTab = '';
+
 function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
 function buildBenchCheckboxes(){
   const div=document.getElementById('benchPickCheckboxes');if(!div)return;
@@ -172,109 +174,11 @@ function onBenchBassinChange() {
   recalcBenchmarkInstant();
 }
 
-// ── Heatmap réseau : CSS Grid 20 familles × N agences ─────────────────────
+// ── Heatmap réseau : remplacé par onglets agences dans renderBenchmark ─────
 function renderReseauPepites() {
-  const container = document.getElementById('reseauHeatmapContainer');
-  if (!container) return;
-  const vpm = _S.ventesParMagasin;
-  // Calcul lazy : déclencher si données multi-agences dispo mais heatmap pas encore calculée
-  if (!_S.reseauHeatmapData && _S.storesIntersection?.size > 1 && Object.keys(vpm || {}).length > 1) {
-    computeReseauHeatmap();
-  }
-  const hm  = _S.reseauHeatmapData;
-  if (!hm || !hm.agences?.length) {
-    const _isMulti = _S.storesIntersection?.size > 1;
-    container.innerHTML = _isMulti
-      ? '<p class="t-disabled text-sm p-4">Données réseau insuffisantes (≥ 2 agences dans le consommé).</p>'
-      : '<p class="t-disabled text-sm p-4">Données multi-agences requises (≥ 2 agences dans le consommé).</p>';
-    return;
-  }
-  const myAg    = _S.selectedMyStore || '';
-  const agences = hm.agences.filter(Boolean);
-
-  // Cache médiane BL par article (invalider via delete _S._artMedianBL à chaque refilter)
-  if (!_S._artMedianBL) {
-    const artAllBL = {};
-    Object.keys(vpm).forEach(ag => {
-      Object.entries(vpm[ag]).forEach(([code, d]) => {
-        if (!artAllBL[code]) artAllBL[code] = [];
-        artAllBL[code].push(d.countBL || 0);
-      });
-    });
-    const med = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-    _S._artMedianBL = {};
-    Object.entries(artAllBL).forEach(([code, vals]) => { _S._artMedianBL[code] = med(vals); });
-  }
-  const artMedianBL = _S._artMedianBL;
-
-  function top10(agCode) {
-    const agData = vpm[agCode]; if (!agData) return [];
-    const univFilter = _S.obsFilterUnivers || '';
-    return Object.entries(agData)
-      .map(([code, d]) => ({
-        code,
-        lib: _S.libelleLookup[code] || code,
-        fam: famLib(_S.articleFamille[code]) || _S.articleFamille[code] || '?',
-        univers: _S.articleUnivers[code] || 'INCONNU',
-        blAg: d.countBL || 0,
-        medBL: artMedianBL[code] || 0,
-        ratio: artMedianBL[code] > 0 ? (d.countBL || 0) / artMedianBL[code] : 0,
-      }))
-      .filter(a => a.blAg >= 2 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter))
-      .sort((a, b) => b.ratio - a.ratio)
-      .slice(0, 10);
-  }
-
-  const pillsHtml = agences.map(ag => {
-    const isMine = ag === myAg;
-    return `<button class="pepite-pill${isMine ? ' mine' : ''}" data-ag="${ag}">${ag}${isMine ? ' ★' : ''}</button>`;
-  }).join('');
-
-  container.innerHTML = `<div id="reseau-pepites-panel"><div class="pepites-agence-pills">${pillsHtml}</div><div id="pepites-top10"></div></div>`;
-
-  function showTop10(agCode) {
-    const panel = document.getElementById('pepites-top10'); if (!panel) return;
-    container.querySelectorAll('.pepite-pill').forEach(p => p.classList.toggle('active', p.dataset.ag === agCode));
-    const items = top10(agCode);
-    if (!items.length) {
-      const univFilter = _S.obsFilterUnivers ? ` pour l'univers « ${_S.obsFilterUnivers} »` : '';
-      panel.innerHTML = `<div class="pepites-header"><span class="pepites-ag-label">Top pépites · ${agCode}</span></div><div class="pepites-empty">Aucune pépite${univFilter} sur ${agCode}</div>`;
-      return;
-    }
-    const rows = items.map((a, i) => `<tr>
-      <td>${i+1}</td>
-      <td class="fam-cell">${escapeHtml(a.code)}</td>
-      <td>${escapeHtml(a.lib)}</td>
-      <td class="fam-cell">${a.fam}</td>
-      <td class="ca-cell">${a.blAg} BL</td>
-      <td class="med-cell">${a.medBL.toFixed(1)} BL</td>
-      <td class="ratio-cell">×${a.ratio.toFixed(1)}</td>
-    </tr>`).join('');
-    const univFilter = _S.obsFilterUnivers ? ` · ${_S.obsFilterUnivers}` : '';
-    panel.innerHTML = `
-      <div class="pepites-header">
-        <span class="pepites-ag-label">Top pépites · ${agCode}${univFilter}</span>
-        <span class="pepites-subtitle">Articles où ${agCode} surperforme la médiane réseau (fréquence BL)</span>
-      </div>
-      <table class="pepites-table">
-        <thead><tr><th>#</th><th>Code</th><th>Article</th><th>Famille</th><th>BL agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  }
-
-  // Stocker ref pour refresh filtre univers sans reconstruire tout le DOM
-  _S._showReseauTop10 = showTop10;
-
-  container.querySelector('.pepites-agence-pills').addEventListener('click', e => {
-    const pill = e.target.closest('.pepite-pill');
-    if (pill) showTop10(pill.dataset.ag);
-  });
-
-  // Afficher mon agence par défaut (ou la première agence dispo)
-  showTop10(agences.includes(myAg) ? myAg : agences[0]);
+  // Remplacé par onglets agences dans renderBenchmark
 }
 
-// Alias pour compat (appelé dans renderBenchmark ligne 144)
 const renderReseauHeatmap = renderReseauPepites;
 
 // ── Sprint 2 — Réseau : Nomades, Orphelins, Fuites ────────────────────────
@@ -548,19 +452,62 @@ function renderObservatoire(){
   const _obsCanal=_S._globalCanal||'';
   const biasBanner=el('benchCanalBias');
   if(biasBanner){if(_obsCanal){const lb=el('benchCanalBiasLabel');if(lb)lb.textContent=_obsCanal;biasBanner.classList.remove('hidden');}else biasBanner.classList.add('hidden');}
-  // 💎 Mes pépites [V3] — filtrage par canal articleCanalCA si actif
-  const pepitesAll=_S.benchLists.pepites||[];
-  const pepites=_obsCanal
-    ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal)))
-    : pepitesAll;
+  // 💎 Pépites — onglets agences (multi) ou mon agence seule
+  const myAg2 = _S.selectedMyStore || '';
+  const isMulti = _S.storesIntersection?.size > 1;
+  // Initialiser/valider l'onglet sélectionné
+  if (!_pepAgTab || !_S.storesIntersection?.has(_pepAgTab)) _pepAgTab = myAg2;
+  // Injecter les pills agences
+  const tabsEl = el('pepitesAgTabs');
+  if (tabsEl) {
+    if (isMulti) {
+      const agList = [myAg2, ...[..._S.storesIntersection].filter(a=>a!==myAg2).sort()];
+      tabsEl.innerHTML = agList.map(ag=>`<button onclick="window._setPepAgTab('${ag}')" class="px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${ag===_pepAgTab?'c-ok border-green-500 bg-green-900/30':'t-disabled b-dark hover:t-primary'}">${ag}${ag===myAg2?' ★':''}</button>`).join('');
+      tabsEl.classList.remove('hidden');
+    } else {
+      tabsEl.classList.add('hidden');
+    }
+  }
+  // Calcul pépites pour l'onglet actif
+  let pepites;
+  if (_pepAgTab === myAg2 || !isMulti) {
+    // Mon agence — utiliser benchLists.pepites (réactif au bench)
+    const pepitesAll = _S.benchLists.pepites || [];
+    pepites = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
+  } else {
+    // Autre agence — calculer live vs médiane réseau
+    if (!_S._artMedianBL) {
+      const artAllBL = {};
+      Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code])artAllBL[code]=[]; artAllBL[code].push(d.countBL||0); }); });
+      const _mBL = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+      _S._artMedianBL = {};
+      Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); });
+    }
+    const agData = _S.ventesParMagasin[_pepAgTab] || {};
+    const raw = [];
+    for (const [code, d] of Object.entries(agData)) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const myFreq = d.countBL || 0;
+      if (myFreq < 2) continue;
+      const med = _S._artMedianBL[code] || 0;
+      if (med <= 0 || myFreq <= med * 1.3) continue;
+      if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
+      const ecartPct = Math.round((myFreq / med - 1) * 100);
+      const libRaw = _S.libelleLookup[code] || code;
+      const lib = /^\d{6} - /.test(libRaw) ? libRaw.substring(9).trim() : libRaw;
+      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0) });
+    }
+    raw.sort((a,b)=>(b.myFreq-b.compFreq)-(a.myFreq-a.compFreq));
+    pepites = raw.slice(0, 50);
+  }
   const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
-  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Fréq Moi (${_S.selectedMyStore||'Moi'})`;
-  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent=isMedian?'Fréq médiane réseau':`Fréq ${obsLabel}`;
+  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Fréq Moi (${myAg2||'Moi'})`:`Fréq ${_pepAgTab}`;
+  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent=_pepAgTab===myAg2?(isMedian?'Fréq médiane réseau':`Fréq ${obsLabel}`):'Fréq médiane réseau';
   const pepRows=pepites.map(p=>{
     const ecartStr=`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`;
     return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${p.myFreq}</td><td class="py-1.5 px-3 text-center t-tertiary">${p.compFreq}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
   }).join('');
-  if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center t-disabled italic">Aucune pépite identifiée — fréquence insuffisante ou réseau similaire.</td></tr>';
+  if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
   // 🔥 Pépites réseau
   const pepOther=_S.benchLists.pepitesOther||[];
   const pepOtherBadge=el('pepitesOtherBadge');if(pepOtherBadge){if(pepOther.length){pepOtherBadge.textContent=pepOther.length;pepOtherBadge.classList.remove('hidden');}else pepOtherBadge.classList.add('hidden');}
@@ -883,6 +830,7 @@ window._refreshBenchEquation = _refreshBenchEquation;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauPepites = renderReseauPepites;
 window.renderReseauHeatmap = renderReseauHeatmap;
+window._setPepAgTab = function(ag) { _pepAgTab = ag; renderBenchmark(); };
 window.renderReseauNomades = renderReseauNomades;
 
 window.renderReseauFuites = renderReseauFuites;

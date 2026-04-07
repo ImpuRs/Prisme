@@ -2244,6 +2244,7 @@
           <h3 class="font-extrabold c-caution flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-c-caution t-inverse"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
           <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
         </summary>
+          <div id="pepitesAgTabs" class="hidden px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b b-dark"></div>
         <div class="overflow-x-auto">
           <table class="min-w-full text-xs">
             <thead class="i-caution-bg c-caution sticky top-0 font-bold">
@@ -2262,16 +2263,6 @@
         </div>
       </details>
 
-      <!-- 🔥 TOP PÉPITES PAR AGENCE -->
-      <details class="s-card rounded-xl shadow-md border b-default mb-6">
-        <summary class="px-5 py-3 s-card-alt border-b select-none flex items-center justify-between hover:s-hover">
-          <div><h3 class="font-extrabold t-primary text-sm">🔥 Top pépites par agence</h3><p class="text-[10px] t-tertiary mt-0.5">Familles où le réseau performe · articles absents ou faibles chez vous</p></div>
-          <span class="acc-arrow t-tertiary">▶</span>
-        </summary>
-        <div id="reseauHeatmapContainer" class="p-2 overflow-x-auto">
-          <p class="t-disabled text-sm p-4">Chargement après analyse réseau…</p>
-        </div>
-      </details>
 
     </div>
 
