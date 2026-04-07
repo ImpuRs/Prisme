@@ -112,129 +112,123 @@ function _cmComputeCounts() {
 
 // ── Drill chalandise — Vue par Direction (mode sans territoire) ──────────
 const _DIR_LABELS = { '-': 'Second Œuvre', 'DVM': 'Maintenance', 'DVI': 'DVI Industrie', 'DVP': 'DVP Plomberie' };
-let _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
 
+// ── Vue territoire en cascade (Direction → Métier → Clients, tout en DOM) ──
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
   const all = [...(_S.chalandiseData||new Map()).entries()]
     .filter(([cc]) => _passesAllFilters(cc))
     .map(([cc, info]) => ({ cc, ...info }));
   const _lbl = d => _DIR_LABELS[d] || d || 'Autre';
-  const { level, dir, metier, commercial } = _chalDrill;
 
-  // ── Calcul groupe (9 métriques) ──────────────────────────────────────────
-  const _calcGroup = clients => {
-    const g = { total:0, actifsLeg:0, actifsPDV:0, prospects:0, perdus1224:0, inactifs:0 };
+  const _grp = clients => {
+    const g = {total:0,aL:0,aP:0,pro:0,per:0,ina:0};
     for (const c of clients) {
       g.total++;
-      if (c.statut === 'Actif')                         g.actifsLeg++;
-      if (_S.clientsMagasin?.has(c.cc))                  g.actifsPDV++;
-      if (c.statut === 'Prospect')                      g.prospects++;
-      if (c.statutDetaille === 'Perdu 12-24 mois')      g.perdus1224++;
-      if (c.statut === 'Inactif')                       g.inactifs++;
+      if(c.statut==='Actif') g.aL++;
+      if(_S.clientsMagasin?.has(c.cc)) g.aP++;
+      if(c.statut==='Prospect') g.pro++;
+      if(c.statutDetaille==='Perdu 12-24 mois') g.per++;
+      if(c.statut==='Inactif') g.ina++;
     }
-    g.pctLeg = g.total > 0 ? Math.round(g.actifsLeg / g.total * 100) : 0;
-    g.pctPDV = g.total > 0 ? Math.round(g.actifsPDV / g.total * 100) : 0;
     return g;
   };
 
-  // ── Barres ───────────────────────────────────────────────────────────────
-  const _barLeg = pct => `<div class="flex items-center gap-1"><div style="background:var(--c-info);opacity:.25;border-radius:3px;height:8px;width:${Math.min(pct*1.5,120)}px"></div><div style="background:var(--c-info);border-radius:3px;height:8px;width:${Math.min(pct,60)}px;margin-left:-${Math.min(pct,60)}px"></div><span class="text-xs font-bold" style="color:var(--c-info)">${pct}%</span></div>`;
-  const _barPDV = pct => `<div class="flex items-center gap-1"><div style="background:var(--b-default);border-radius:3px;height:6px;width:80px;position:relative"><div style="background:orange;border-radius:3px;height:6px;width:${pct}%"></div></div><span class="text-xs font-bold">${pct}%</span></div>`;
-
-  // ── Ligne groupe (niveaux root/métier/commercial) ──────────────────────
-  const _groupRow = (label, clients, onclick, rowStyle, star='') => {
-    const g = _calcGroup(clients);
-    return `<tr onclick="${onclick}" style="cursor:pointer${rowStyle?';'+rowStyle:''}" class="border-b hover:s-card-alt">
-      <td class="py-1.5 px-2 font-semibold">${label}${star} <span class="t-disabled text-[9px]">▶</span></td>
-      <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
-      <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsLeg}</td>
-      <td class="py-1.5 px-2 text-right font-bold c-ok">${g.actifsPDV}</td>
-      <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${g.prospects}</td>
-      <td class="py-1.5 px-2 text-right c-caution">${g.perdus1224}</td>
-      <td class="py-1.5 px-2 text-right t-disabled">${g.inactifs}</td>
-      <td class="py-1.5 px-2">${_barLeg(g.pctLeg)}</td>
-      <td class="py-1.5 px-2">${_barPDV(g.pctPDV)}</td>
-    </tr>`;
-  };
-
-  const _thead9 = fcol => `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">${fcol}</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Captés Leg.</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">Prospects</th><th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th><th class="py-1.5 px-2">% capté Leg.</th><th class="py-1.5 px-2">% capté PDV</th></tr>`;
-
-  // ── Construction par niveau ───────────────────────────────────────────
-  let breadcrumb, summaryBadge = '', theadHtml, tbodyHtml = '', isClients = false;
-  const backBtn = level === 'root' ? '' :
-    `<button onclick="window._terrDrillBack()" class="text-[10px] px-2 py-1 rounded s-hover border font-semibold mr-2 flex-shrink-0">←</button>`;
-
-  if (level === 'root') {
-    breadcrumb = '🎯 Votre territoire en un coup d\'œil';
-    const byDir = new Map();
-    for (const c of all) { const d = c.direction||'Autre'; if (!byDir.has(d)) byDir.set(d,[]); byDir.get(d).push(c); }
-    const sorted = [...byDir.entries()].sort((a,b) => b[1].length - a[1].length);
-    theadHtml = _thead9('Direction');
-    for (const [d, clients] of sorted)
-      tbodyHtml += _groupRow(escapeHtml(_lbl(d)), clients, `window._terrDrillDir('${encodeURIComponent(d)}')`);
-    const totalPDV = all.filter(c => _S.clientsMagasin?.has(c.cc)).length;
-    const pctCapte = all.length > 0 ? Math.round(all.filter(c => c.statut==='Actif').length / all.length * 100) : 0;
-    summaryBadge = `<span class="text-[10px] t-disabled ml-2 font-normal">${byDir.size} directions · ${totalPDV} actifs PDV · ${pctCapte}% capté</span>`;
-  } else if (level === 'metier') {
-    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} ›`;
-    theadHtml = _thead9('Métier');
-    const slice = all.filter(c => (c.direction||'Autre') === dir);
-    const byMet = new Map();
-    for (const c of slice) { const m = c.metier||'—'; if (!byMet.has(m)) byMet.set(m,[]); byMet.get(m).push(c); }
-    for (const [m, clients] of [...byMet.entries()].sort((a,b) => b[1].length - a[1].length))
-      tbodyHtml += _groupRow(escapeHtml(m), clients, `window._terrDrillMetier('${encodeURIComponent(dir)}','${encodeURIComponent(m)}')`, 'background:rgba(244,63,94,.05)', _isMetierStrategique(m) ? ' ⭐' : '');
-  } else if (level === 'commercial') {
-    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} › ${escapeHtml(metier)} ›`;
-    theadHtml = _thead9('Commercial');
-    const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier);
-    const byCom = new Map();
-    for (const c of slice) { const com = c.commercial||'—'; if (!byCom.has(com)) byCom.set(com,[]); byCom.get(com).push(c); }
-    for (const [com, clients] of [...byCom.entries()].sort((a,b) => b[1].length - a[1].length))
-      tbodyHtml += _groupRow(escapeHtml(com), clients, `window._terrDrillCommercial('${encodeURIComponent(dir)}','${encodeURIComponent(metier)}','${encodeURIComponent(com)}')`);
-  } else {
-    // level === 'clients'
-    isClients = true;
-    breadcrumb = `🎯 ${escapeHtml(_lbl(dir))} › ${escapeHtml(metier)} › ${escapeHtml(commercial)}`;
-    theadHtml = `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Activité PDV</th><th class="py-1.5 px-2 text-right">CA zone</th><th class="py-1.5 px-2 text-left">Classification</th><th class="py-1.5 px-2"></th></tr>`;
-    const slice = all.filter(c => (c.direction||'Autre') === dir && (c.metier||'—') === metier && (c.commercial||'—') === commercial);
-    for (const c of slice.sort((a,b) => ((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0)))) {
-      const star = c.classification?.includes('Pot+') ? ' ⭐' : '';
-      const ca = (c.ca2025||0)+(c.ca2026||0);
-      tbodyHtml += `<tr class="border-b text-xs cursor-pointer hover:s-card-alt" onclick="openClient360('${escapeHtml(c.cc)}','territoire')"><td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom||c.cc)}</span>${star} <span class="t-disabled text-[9px]">${c.cc}</span></td><td class="py-1.5 px-2 text-[10px]">${escapeHtml(c.activitePDV||'—')}</td><td class="py-1.5 px-2 text-right">${formatEuro(ca)}</td><td class="py-1.5 px-2 text-[10px] t-secondary">${escapeHtml(c.classification||'—')}</td><td class="py-1.5 px-2 text-center t-disabled">🔍</td></tr>`;
-    }
+  // Groupement direction → métier → clients
+  const byDir = new Map();
+  for (const c of all) {
+    const d = c.direction||'Autre';
+    if (!byDir.has(d)) byDir.set(d, new Map());
+    const bm = byDir.get(d);
+    const m = c.metier||'—';
+    if (!bm.has(m)) bm.set(m, []);
+    bm.get(m).push(c);
   }
 
-  const colCount = isClients ? 5 : 9;
-  blkEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
-    <div class="flex items-center">
-      ${backBtn}<span style="font-weight:800;font-size:12px;color:#a78bfa">${breadcrumb}</span>${summaryBadge}
-    </div>
+  const pctCap = all.length>0 ? Math.round(all.filter(c=>c.statut==='Actif').length/all.length*100) : 0;
+  const totalPDV = all.filter(c=>_S.clientsMagasin?.has(c.cc)).length;
+  let html='';
+  let di=0;
+
+  for (const [d, bm] of [...byDir.entries()].sort((a,b)=>[...b[1].values()].flat().length-[...a[1].values()].flat().length)) {
+    const dc=[...bm.values()].flat(), g=_grp(dc);
+    const pL=g.total>0?Math.round(g.aL/g.total*100):0, pP=g.total>0?Math.round(g.aP/g.total*100):0;
+    html+=`<tr onclick="window._ccd(${di})" style="cursor:pointer" class="border-b hover:s-card-alt font-semibold">
+      <td class="py-1.5 px-2">${escapeHtml(_lbl(d))} <span id="cda${di}" class="t-disabled text-[8px]">▶</span></td>
+      <td class="py-1.5 px-2 text-right font-bold">${g.total}</td>
+      <td class="py-1.5 px-2 text-right c-ok">${g.aL}</td>
+      <td class="py-1.5 px-2 text-right c-ok">${g.aP}</td>
+      <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${g.pro}</td>
+      <td class="py-1.5 px-2 text-right c-caution">${g.per}</td>
+      <td class="py-1.5 px-2 text-right t-disabled">${g.ina}</td>
+      <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pL}%</td>
+      <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pP}%</td>
+    </tr>`;
+    let mi=0;
+    for (const [m, mc] of [...bm.entries()].sort((a,b)=>b[1].length-a[1].length)) {
+      const gm=_grp(mc), star=_isMetierStrategique(m)?' ⭐':'';
+      const pLm=gm.total>0?Math.round(gm.aL/gm.total*100):0, pPm=gm.total>0?Math.round(gm.aP/gm.total*100):0;
+      html+=`<tr id="ccm${di}_${mi}" onclick="window._ccm(${di},${mi})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.05)" class="border-b hover:s-card-alt" data-d="${di}">
+        <td class="py-1.5 px-2 pl-6 text-[11px]">${escapeHtml(m)}${star} <span id="cma${di}_${mi}" class="t-disabled text-[8px]">▶</span></td>
+        <td class="py-1.5 px-2 text-right">${gm.total}</td>
+        <td class="py-1.5 px-2 text-right c-ok">${gm.aL}</td>
+        <td class="py-1.5 px-2 text-right c-ok">${gm.aP}</td>
+        <td class="py-1.5 px-2 text-right" style="color:var(--c-info)">${gm.pro}</td>
+        <td class="py-1.5 px-2 text-right c-caution">${gm.per}</td>
+        <td class="py-1.5 px-2 text-right t-disabled">${gm.ina}</td>
+        <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pLm}%</td>
+        <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pPm}%</td>
+      </tr>`;
+      for (const c of [...mc].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,30)) {
+        const ca=(c.ca2025||0)+(c.ca2026||0), star2=c.classification?.includes('Pot+')?'⭐ ':'';
+        html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-m="${di}_${mi}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
+          <td class="py-1 px-2 pl-10">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled">${c.cc}</span></td>
+          <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
+          <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
+          <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
+        </tr>`;
+      }
+      mi++;
+    }
+    di++;
+  }
+
+  blkEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
+    <span style="font-weight:800;font-size:12px;color:#a78bfa">🎯 Votre territoire en un coup d'œil</span>
+    <span class="text-[10px] t-disabled">${byDir.size} dir. · ${all.length} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
   </div>
   <div class="overflow-x-auto"><table class="min-w-full text-xs">
-    <thead class="s-panel-inner t-inverse">${theadHtml}</thead>
-    <tbody>${tbodyHtml||`<tr><td colspan="${colCount}" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
+    <thead class="s-panel-inner t-inverse"><tr class="text-[10px]">
+      <th class="py-1.5 px-2 text-left">Direction / Métier / Client</th>
+      <th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Captés Leg.</th>
+      <th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">Prospects</th>
+      <th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th>
+      <th class="py-1.5 px-2 text-right">% Leg.</th><th class="py-1.5 px-2 text-right">% PDV</th>
+    </tr></thead>
+    <tbody>${html||`<tr><td colspan="9" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
   </table></div>`;
 }
 
-window._terrDrillDir = function(dirEnc) {
-  _chalDrill = { level: 'metier', dir: decodeURIComponent(dirEnc), metier: null, commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
+// ── Toggles cascade ────────────────────────────────────────────────────────
+window._ccd = di => {
+  const arr=document.getElementById(`cda${di}`);
+  const opening=arr&&arr.textContent==='▶';
+  document.querySelectorAll(`[data-d="${di}"]`).forEach(r=>{
+    r.style.display=opening?'table-row':'none';
+    if(!opening){
+      // fermer aussi les clients de ce métier
+      const [,mi]=r.id.replace('ccm','').split('_');
+      document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(cr=>cr.style.display='none');
+      const ma=document.getElementById(`cma${di}_${mi}`);if(ma)ma.textContent='▶';
+    }
+  });
+  if(arr)arr.textContent=opening?'▼':'▶';
 };
-window._terrDrillMetier = function(dirEnc, metierEnc) {
-  _chalDrill = { level: 'commercial', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
-};
-window._terrDrillCommercial = function(dirEnc, metierEnc, comEnc) {
-  _chalDrill = { level: 'clients', dir: decodeURIComponent(dirEnc), metier: decodeURIComponent(metierEnc), commercial: decodeURIComponent(comEnc) };
-  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
-};
-window._terrDrillBack = function() {
-  const { level, dir, metier } = _chalDrill;
-  if (level === 'clients')     _chalDrill = { level: 'commercial', dir, metier, commercial: null };
-  else if (level === 'commercial') _chalDrill = { level: 'metier', dir, metier: null, commercial: null };
-  else                         _chalDrill = { level: 'root', dir: null, metier: null, commercial: null };
-  _buildChalDirBlock(document.getElementById('terrDirectionContainer'));
+window._ccm = (di,mi) => {
+  const arr=document.getElementById(`cma${di}_${mi}`);
+  const opening=arr&&arr.textContent==='▶';
+  document.querySelectorAll(`[data-m="${di}_${mi}"]`).forEach(r=>r.style.display=opening?'table-row':'none');
+  if(arr)arr.textContent=opening?'▼':'▶';
 };
 
 // ── Extracted code (unchanged) ──────────────────────────────────────────
