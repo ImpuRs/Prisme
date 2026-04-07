@@ -689,15 +689,15 @@ function copyObsSection(type){
 function _buildPepitesRows() {
   const { col, dir } = _pepSort;
   const sorted = [..._renderedPepites].sort((a, b) => {
-    const av = a[col] ?? (typeof a[col] === 'string' ? '' : 0);
-    const bv = b[col] ?? (typeof b[col] === 'string' ? '' : 0);
+    const av = a[col] ?? 0;
+    const bv = b[col] ?? 0;
     if (typeof av === 'string') return dir * av.localeCompare(bv);
     return dir * (av - bv);
   });
   // Indicateur de tri dans les en-têtes
   ['code','lib','fam','myQte','compQte','caMe'].forEach(c => {
     const thId = c === 'myQte' ? 'pepitesMeLabel' : c === 'compQte' ? 'pepitesCompLabel' : c === 'caMe' ? 'pepitesCaLabel' : `pepTh_${c}`;
-    const th = el(thId);
+    const th = document.getElementById(thId);
     if (!th) return;
     const base = th.textContent.replace(/ [▲▼]$/, '');
     th.textContent = base + (col === c ? (dir === -1 ? ' ▼' : ' ▲') : '');
@@ -708,7 +708,8 @@ function _buildPepitesRows() {
 }
 
 function _renderPepitesRows() {
-  if (el('pepitesTable')) el('pepitesTable').innerHTML = _buildPepitesRows() || '<tr><td colspan="6" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
+  const tbody = document.getElementById('pepitesTable');
+  if (tbody) tbody.innerHTML = _buildPepitesRows() || '<tr><td colspan="6" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
 }
 
 window._pepSortBy = col => {
