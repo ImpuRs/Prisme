@@ -1145,7 +1145,6 @@ function _buildChalandiseOverview(){
   if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
   blk.classList.remove('hidden');
   _buildDeptFilter();
-  _buildOverviewFilterChips();
   // Aggregate by direction commerciale — FIXED columns
   const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
   for(const[cc,info] of _S.chalandiseData.entries()){
@@ -1255,11 +1254,12 @@ function _buildChalandiseOverview(){
   });
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
-  // Reconstruire le tab actif selon le contexte courant
+  // Toujours repeupler les filtres sidebar (partagés PDV + Terrain)
+  _buildOverviewFilterChips();
+  // Reconstruire le contenu selon le sous-onglet actif
   if (document.getElementById('cm-tab-nav')) {
-    window._cmSwitchTab?.(_S._cmTab || 'silencieux');
+    _cmSwitchTab(_cmTab);
   } else if (document.getElementById('tabClients')) {
-    _buildOverviewFilterChips();
     window.renderMesClients?.();
   }
   // [Feature B] Vue par commercial
