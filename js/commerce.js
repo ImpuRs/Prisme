@@ -45,6 +45,7 @@ function _cmRenderNav(counts) {
     { id: 'silencieux',   label: '🟡 Silencieux',   n: counts.silencieux },
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
+    { id: 'canal',        label: '📡 Canal',          n: null },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -74,8 +75,18 @@ function _cmSwitchTab(id) {
     case 'potentiels':
       content.innerHTML = `<div id="terrACapter"></div>`;
       break;
+    case 'canal':
+      content.innerHTML = `<div id="terrCanalBlock" style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+        <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2)">
+          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📡 Répartition par canal</h3>
+          <p id="canalAgenceSubtitle" style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:2px">CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé</p>
+        </div>
+        <div id="canalAgenceBlock" class="p-3"></div>
+      </div>`;
+      break;
   }
   _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
+  if (id === 'canal') window.renderCanalAgence?.();
   nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
 }
 
