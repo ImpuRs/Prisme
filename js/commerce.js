@@ -1192,16 +1192,25 @@ function _buildChalandiseOverview(){
       :`<span class="font-extrabold t-primary">${filteredClients.toLocaleString('fr-FR')}</span>`;
     const _exclusHtml=(!_S._includePerdu24m&&totalExcluded24m>0)
       ?`${_dot}<div class="flex items-center gap-1"><span class="text-xs">🚫</span><span class="font-semibold t-disabled">${totalExcluded24m.toLocaleString('fr-FR')}</span><span class="text-xs t-disabled">exclus &gt;24m</span></div>`:'';
-    bar.innerHTML=`
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="flex items-center gap-1"><span class="text-xs t-disabled">👥</span>${_clientsHtml}<span class="text-xs t-disabled">clients zone</span></div>
-        <span class="t-disabled text-xs">›</span>
-        <div class="flex flex-col gap-0"><div class="flex items-center gap-1"><span class="text-xs t-disabled">📊</span><span class="font-extrabold" style="color:var(--c-info)">${pctCapteLeg}%</span><span class="text-xs t-disabled">captés Leg.</span></div><div class="text-[10px] t-disabled pl-4">${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}</div></div>
-        <span class="t-disabled text-xs">›</span>
-        <div class="flex flex-col gap-0"><div class="flex items-center gap-1"><span class="text-xs t-disabled">🏪</span><span class="font-extrabold c-success">${pctCapte}%</span><span class="text-xs t-disabled">captés PDV</span></div><div class="text-[10px] t-disabled pl-4">${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}</div></div>
-        ${_exclusHtml}
+    const _tile=(icon,val,label,sub,color)=>`<div style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;border-right:1px solid rgba(255,255,255,0.07);min-width:100px">
+        <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">${icon} ${label}</span>
+        <span style="font-size:22px;font-weight:900;line-height:1.1;color:${color}">${val}</span>
+        ${sub?`<span style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px">${sub}</span>`:''}
       </div>`;
-    bar.style.display='block';bar.classList.remove('hidden');
+    const _exclusBadge=(!_S._includePerdu24m&&totalExcluded24m>0)
+      ?`<div style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;min-width:80px"><span style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:2px;text-transform:uppercase">🚫 Exclus</span><span style="font-size:18px;font-weight:800;color:rgba(251,191,36,0.7)">${totalExcluded24m}</span><span style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:1px">&gt;24 mois</span></div>`:'' ;
+    const _filterBadge=filterActive?`<div style="position:absolute;top:8px;right:12px;font-size:9px;background:rgba(234,179,8,0.2);color:#fde047;padding:2px 8px;border-radius:99px;font-weight:700;letter-spacing:.05em">FILTRÉ</div>`:'';
+    bar.innerHTML=`<div style="position:relative;display:flex;align-items:stretch;overflow:hidden">
+      ${_filterBadge}
+      ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
+      ${_tile('💰',_fmt(_ca),'CA',`${_nbBL.toLocaleString('fr-FR')} BL · marge ${_txMarge.toFixed(1)}%`,'#fde047')}
+      ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
+      ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#4ade80')}
+      ${_tile('🛒',_fmt(_vmc),'Panier moyen',`fréq. ${_freq} cmde/client`,'#c4b5fd')}
+      ${_exclusBadge}
+    </div>`;
+    bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
+    bar.classList.remove('hidden');
   }}
   // terrChalandiseOverview — table seulement si dans le DOM
   const blk=document.getElementById('terrChalandiseOverview');

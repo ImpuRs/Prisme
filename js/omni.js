@@ -462,7 +462,7 @@ function _passesAllFilters(cc){
     const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
-    <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
+    <div id="terrSummaryBar" style="display:none"></div>
     <div id="commercialSummaryBlock" class="hidden"></div>
     <details id="terrAnalyseAccordion" open style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
       <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
