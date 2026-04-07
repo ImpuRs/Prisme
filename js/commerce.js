@@ -46,7 +46,6 @@ function _cmRenderNav(counts) {
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
     { id: 'opportunites', label: '💡 Opportunités',  n: counts.opportunites },
-    { id: 'toppdv',       label: '🏆 Top PDV',       n: null },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -83,9 +82,6 @@ function _cmSwitchTab(id) {
     case 'opportunites':
       content.innerHTML = `<div id="terrOpportunites"></div>`;
       window.renderOpportunites?.();
-      break;
-    case 'toppdv':
-      content.innerHTML = '<div id="terrTopPDV"></div>';
       break;
   }
 }
