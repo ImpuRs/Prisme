@@ -770,21 +770,10 @@ window._terrDrillBack = function() {
     const _qSrch=(_S._terrClientSearch||'').toLowerCase();
     if(_qSrch){
       const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientNomLookup?.[cc]||'').toLowerCase().includes(_qSrch)||(_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
-      k.top5Reconq=k.top5Reconq.filter(c=>_matchC(c.cc,c.nom));
-      k.reconq=k.reconq.filter(c=>_matchC(c.cc,c.nom));
       k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
       k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
       k.digitaux=(k.digitaux||[]).filter(c=>_matchC(c.cc,c.nom));
     }
-    // ── Top 5 priorités reconquête ──
-    const top5ReconqHtml=k.top5Reconq.length?(()=>{
-      const cards=k.top5Reconq.map(c=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(c.cc)}" onclick="openClient360(this.dataset.cc,'reconquete')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(c.nom)}</span><span class="chip chip-xs chip-danger">🔴 ${c.daysAgo}j</span><button data-cc="${escapeHtml(c.cc)}" onclick="event.stopPropagation();openClient360(this.dataset.cc,'reconquete')" class="ml-auto chip chip-xs chip-danger cursor-pointer">📞 Appeler</button></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(c.metier||'—')}</span><span>CA PDV <strong class="t-primary">${formatEuro(c.caPDV)}</strong></span><span class="c-action">${escapeHtml(c.commercial||'—')}</span><span class="t-disabled" title="Score priorité">⚡${c.score.toLocaleString('fr-FR')}</span></div></div>`).join('');
-      return`<details class="mb-3 s-card rounded-xl border overflow-hidden" style="border-left:3px solid var(--c-danger)"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-danger">🔴 À reconquérir — Top 5 priorités <span class="text-[10px] font-normal t-disabled ml-1">cette semaine</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${cards}</div></div></details>`;
-    })():'';
-
-    // ── S2a: Reconquête — anciens fidèles silencieux ──────────────────
-    const reconq=k.reconq;
-    const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${k.reconqTotal} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`).join('')}${k.reconqTotal>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${k.reconqTotal-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise pour calculer la cohorte.'}</div>`}</details>`;
     // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
     const _livAllB=k.livSansPDV;
     const livSPDVHtml=(()=>{
@@ -839,7 +828,7 @@ window._terrDrillBack = function() {
       }
     }
 
-    el.innerHTML = top5ReconqHtml + reconqHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
+    el.innerHTML = livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
   }
 
 
