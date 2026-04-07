@@ -362,7 +362,6 @@ function _passesAllFilters(cc){
 
   // ── Onglet Omnicanalité — canal, famille×canal, segments, analyse territoire ──
   function renderOmniTab(){
-    _renderSegmentsOmnicanaux();
     // Populate territory accordion content (Direction, Top 100, Contributeurs, etc.)
     // renderTerritoireTab also populates Commerce tab elements — harmless cross-tab render
     window.renderTerritoireTab();
@@ -464,7 +463,6 @@ function _passesAllFilters(cc){
     if (!el) return;
     el.innerHTML = `<div>
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
-    <div id="terrSegmentsOmni" class="mb-3"></div>
     <div id="commercialSummaryBlock" class="hidden"></div>
     <details id="terrAnalyseAccordion" open class="s-card rounded-xl shadow-md border mb-3">
       <summary class="px-4 py-2 s-card-alt border-b select-none flex items-center justify-between hover:s-hover cursor-pointer">
@@ -599,8 +597,6 @@ function _passesAllFilters(cc){
       </div>
     </details>
   </div>`;
-    renderCanalAgence();
-    _renderSegmentsOmnicanaux();
     window._buildChalandiseOverview?.();
     window._renderCommercialSummary?.();
     const terrNeedBlock = document.getElementById('terrNeedTerrBlock');

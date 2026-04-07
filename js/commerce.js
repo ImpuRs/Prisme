@@ -46,6 +46,7 @@ function _cmRenderNav(counts) {
     { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
     { id: 'canal',        label: '📡 Canal',          n: null },
+    { id: 'omni',         label: '🔗 Omnicanal',      n: null },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -84,9 +85,18 @@ function _cmSwitchTab(id) {
         <div id="canalAgenceBlock" class="p-3"></div>
       </div>`;
       break;
+    case 'omni':
+      content.innerHTML = `<div style="background:linear-gradient(135deg,rgba(20,184,166,0.12),rgba(13,148,136,0.06));border:1px solid rgba(20,184,166,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+        <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2)">
+          <h3 style="font-weight:800;font-size:13px;color:#2dd4bf;display:flex;align-items:center;gap:6px">🔗 Segments omnicanaux</h3>
+        </div>
+        <div class="p-3"><div id="terrSegmentsOmni"></div></div>
+      </div>`;
+      break;
   }
   _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
   if (id === 'canal') window.renderCanalAgence?.();
+  if (id === 'omni') window._renderSegmentsOmnicanaux?.();
   nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
 }
 
