@@ -656,7 +656,9 @@ _S.canalAgence=newCanalAgence;
     {
       const _hashes = localStorage.getItem('prisme_fileHashes');
       if (_hashes) {
+        const _storeBeforeRestore = _S.selectedMyStore;
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
+        if (_storeBeforeRestore) _S.selectedMyStore = _storeBeforeRestore;
         if (_idbOk && DataStore.finalData.length > 0) {
           const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
           const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
