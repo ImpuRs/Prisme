@@ -2201,37 +2201,37 @@
       <p class="text-[10px] font-bold t-disabled uppercase tracking-wide mb-2">Position vs bassin — familles gagnantes et perdantes</p>
       <div class="grid md:grid-cols-2 gap-4 mb-6">
         <!-- Colonne gauche : Le réseau fait mieux -->
-        <details class="s-card rounded-xl shadow-md border-2 b-light">
-          <summary class="px-4 py-3 i-danger-bg border-b b-light select-none flex items-center justify-between hover:i-danger-bg">
-            <h3 class="font-extrabold c-danger text-sm flex items-center gap-2"><span id="obsLoseTitle">📉 Le réseau fait mieux que toi</span> <span id="obsLoseBadge" class="badge bg-red-500 text-white"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
-            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" class="text-[10px] i-danger-bg c-danger py-1 px-2 rounded font-bold hover:i-danger-bg b-light">📋 Copier</button><span class="acc-arrow c-danger">▶</span></div>
+        <details style="background:linear-gradient(135deg,rgba(220,38,38,0.15),rgba(153,27,27,0.08));border:1px solid rgba(220,38,38,0.3);border-radius:14px;overflow:hidden">
+          <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(153,27,27,0.12));border-bottom:1px solid rgba(220,38,38,0.2);list-style:none" class="select-none">
+            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#f87171"><span id="obsLoseTitle">📉 Le réseau fait mieux que toi</span> <span id="obsLoseBadge" style="background:rgba(248,113,113,0.15);color:#f87171;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
+            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" style="font-size:10px;color:#f87171;background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#f87171">▶</span></div>
           </summary>
           <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsLoseTh1" class="py-2 px-3 text-right">Écart CA (bassin)</th><th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché sur cette famille dans le bassin.">ℹ</em></th><th class="py-2 px-3 text-center">Réf manquantes</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
         </details>
         <!-- Colonne droite : Tu fais mieux -->
-        <details class="s-card rounded-xl shadow-md border-2 b-light">
-          <summary class="px-4 py-3 i-ok-bg border-b b-light select-none flex items-center justify-between hover:i-ok-bg">
-            <h3 class="font-extrabold c-ok text-sm flex items-center gap-2"><span id="obsWinTitle">💪 Tu fais mieux que le réseau</span> <span id="obsWinBadge" class="badge bg-emerald-500 text-white"></span></h3>
-            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" class="text-[10px] i-ok-bg c-ok py-1 px-2 rounded font-bold hover:i-ok-bg b-light">📋 Copier</button><span class="acc-arrow c-ok">▶</span></div>
+        <details style="background:linear-gradient(135deg,rgba(5,150,105,0.15),rgba(4,120,87,0.08));border:1px solid rgba(5,150,105,0.3);border-radius:14px;overflow:hidden">
+          <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(5,150,105,0.2),rgba(4,120,87,0.12));border-bottom:1px solid rgba(5,150,105,0.2);list-style:none" class="select-none">
+            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#4ade80"><span id="obsWinTitle">💪 Tu fais mieux que le réseau</span> <span id="obsWinBadge" style="background:rgba(74,222,128,0.15);color:#4ade80;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span></h3>
+            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" style="font-size:10px;color:#4ade80;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#4ade80">▶</span></div>
           </summary>
           <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-2 px-3 text-left">Famille</th><th id="obsWinTh1" class="py-2 px-3 text-right">Avance CA (bassin)</th><th class="py-2 px-3 text-center whitespace-nowrap">PDM bassin<em class="info-tip" data-tip="Part de marché sur cette famille dans le bassin.">ℹ</em></th><th class="py-2 px-3 text-center">Réf en plus</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
         </details>
       </div>
 
       <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
-      <details class="s-card rounded-xl shadow-md border-2 b-dark mb-6">
-        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
+      <details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:24px">
+        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none">
           <div>
-            <h3 class="font-extrabold c-caution text-sm flex items-center gap-2">
+            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#fbbf24">
               🎯 Ce que mes clients achètent ailleurs
-              <span id="nomadesMissedBadge" class="hidden badge bg-c-caution t-inverse"></span>
+              <span id="nomadesMissedBadge" class="hidden" style="background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span>
               <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
             </h3>
-            <p class="text-[10px] c-caution mt-0.5">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
+            <p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="event.preventDefault();copyNomadesMissedArts()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button>
-            <span class="acc-arrow c-caution">▶</span>
+            <button onclick="event.preventDefault();copyNomadesMissedArts()" style="font-size:10px;color:#fbbf24;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button>
+            <span class="acc-arrow" style="color:#fbbf24">▶</span>
           </div>
         </summary>
         <div id="nomadesMissedArtsContainer" class="p-3">
@@ -2239,10 +2239,10 @@
         </div>
       </details>
       <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
-      <details class="s-card rounded-xl shadow-md border-2 b-light mb-6">
-        <summary class="px-5 py-3 i-caution-bg border-b b-light select-none flex items-center justify-between hover:i-caution-bg">
-          <h3 class="font-extrabold c-caution flex items-center gap-2">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden badge bg-c-caution t-inverse"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" class="text-[10px] i-caution-bg c-caution py-1 px-2 rounded font-bold hover:i-caution-bg b-light">📋 Copier</button><span class="acc-arrow c-caution">▶</span></div>
+      <details style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:24px">
+        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none">
+          <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#22d3ee">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden" style="background:rgba(34,211,238,0.15);color:#22d3ee;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" style="font-size:10px;color:#22d3ee;background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#22d3ee">▶</span></div>
         </summary>
           <div id="pepitesAgTabs" class="hidden px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b b-dark"></div>
         <div class="overflow-x-auto">
