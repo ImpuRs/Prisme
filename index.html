@@ -396,7 +396,7 @@
     .pct-bar-terr{height:6px;border-radius:var(--r-sm);transition:width .4s ease}
     body{font-family:var(--ff-body);font-size:var(--fs-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     th{cursor:pointer;user-select:none}th:hover{background:var(--p-slate-700)}
-    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--s-page);border-radius:var(--r-sm)}::-webkit-scrollbar-thumb{background:var(--p-slate-300);border-radius:var(--r-sm)}
+    ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.10);border-radius:2px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.20)}
     .tab-content{animation:fadeIn .25s ease-in-out}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     .file-loaded{border-color:var(--c-ok)!important;background:var(--i-ok-bg)!important}
@@ -1328,6 +1328,35 @@
     .chip-toggle  { cursor: pointer; transition: filter .15s, transform .1s; }
     .chip-toggle:hover { filter: brightness(1.15); transform: scale(1.03); }
     .chip-count   { min-width: 1.5rem; }
+
+    /* ═══ PATCH RAMP-LIGHT — non-destructif ═════════════════════ */
+    /* Borders quasi-invisibles + hover émeraude */
+    [data-theme="dark"], [data-theme="mixed"] {
+      --b-default: rgba(255,255,255,0.09);
+      --b-light:   rgba(255,255,255,0.05);
+      --b-dark:    rgba(255,255,255,0.12);
+      --b-darker:  rgba(255,255,255,0.18);
+      --s-selected:rgba(0,229,160,0.07);
+      --s-active:  rgba(0,229,160,0.12);
+    }
+    /* KPI typo — crénage négatif + tabular nums */
+    .kpi-update, .hero-value-num, .hero-score-num {
+      font-weight: 600 !important;
+      letter-spacing: -0.02em !important;
+      font-variant-numeric: tabular-nums !important;
+    }
+    /* Tables — headers discrets, hover ultra-léger */
+    table thead th, table thead td {
+      font-size: 10px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.08em !important;
+      text-transform: uppercase !important;
+      color: var(--t-tertiary) !important;
+      border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+      padding-bottom: 8px !important;
+    }
+    table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+    table tbody tr:hover { background: rgba(255,255,255,0.025) !important; }
 
   </style>
 </head>
