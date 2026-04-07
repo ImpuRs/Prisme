@@ -310,7 +310,7 @@ export function switchTab(id) {
   }
   // Update filter panel groups based on active tab
   const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', reseau: 'filterGroupBench' };
-  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'labo') ? 'commerce' : 'stock';
+  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'clients' || id === 'labo') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
@@ -319,16 +319,16 @@ export function switchTab(id) {
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
   // Filtre canal global — visible sur Commerce
-  const _CANAL_TABS = new Set(['commerce']);
+  const _CANAL_TABS = new Set(['commerce', 'clients']);
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Chalandise filters — visible sur Commerce si chalandise chargée
-  if (id === 'commerce') {
+  if (id === 'commerce' || id === 'clients') {
     const chalFilBlk = document.getElementById('terrChalandiseFiltersBlock');
     if (chalFilBlk && _S.chalandiseReady) chalFilBlk.classList.remove('hidden');
   }
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Commerce', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
