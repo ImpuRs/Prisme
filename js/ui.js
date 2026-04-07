@@ -246,7 +246,7 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'stock', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
+const _SUPERTAB_DEFAULT = { stock: 'stock', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
 const _TAB_TO_SUPERTAB  = {
   stock: 'stock', table: 'stock',
   commerce: 'commerce', clients: 'commerce',
