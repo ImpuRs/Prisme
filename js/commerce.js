@@ -64,22 +64,19 @@ function _cmSwitchTab(id) {
   const nav = document.getElementById('cm-tab-nav');
   const content = document.getElementById('cm-tab-content');
   if (!nav || !content) return;
-  const counts = _cmComputeCounts();
-  nav.innerHTML = _cmRenderNav(counts);
   switch (id) {
     case 'silencieux':
       content.innerHTML = `<div id="terrSilencieux"></div>`;
-      _buildCockpitClient();
       break;
     case 'perdus':
       content.innerHTML = `<div id="terrPerdus"></div><div id="terrReconquete" class="mt-3"></div>`;
-      _buildCockpitClient();
       break;
     case 'potentiels':
       content.innerHTML = `<div id="terrACapter"></div><div id="terrTop5" class="mt-3"></div>`;
-      _buildCockpitClient();
       break;
   }
+  _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
+  nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
 }
 
 function _cmComputeCounts() {
@@ -1147,12 +1144,8 @@ function _buildChalandiseOverview(){
   } else if (document.getElementById('tabClients')) {
     renderMesClients();
   }
-  const blk=document.getElementById('terrChalandiseOverview');
-  if(!blk)return;
-  if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
-  blk.classList.remove('hidden');
-  _buildDeptFilter();
-  // Aggregate by direction commerciale — FIXED columns
+  if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
+  // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
   const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
   for(const[cc,info] of _S.chalandiseData.entries()){
     totalClients++;
@@ -1172,16 +1165,8 @@ function _buildChalandiseOverview(){
     if(pdvActif){d.actifsPDV++;totalActifsPDV++;}
     d.caPDVZone+=(info.caPDVN||0);
   }
-  // Fixed thead — columns NEVER change
-  const colSpan=9;
-  const headEl=document.getElementById('terrOverviewL1Head');
-  if(headEl){
-    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
-  }
-  // Summary KPI bar — dénominateur = tous les clients filtrés (prospects inclus)
   const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
-  const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   // ── Badges groupes sidebar Terrain ──
   {const _nGeo=(_S._selectedDepts.size||0)+((_S._distanceMaxKm>0)?1:0)+((_S._includePerdu24m)?1:0);
@@ -1190,7 +1175,7 @@ function _buildChalandiseOverview(){
   const _bgA=document.getElementById('fgBadgeTerritoire');if(_bgA){_bgA.textContent=_nAct;_bgA.classList.toggle('hidden',_nAct===0);}
   const _nOrg=((_S._selectedMetier)?1:0)+((_S._selectedCommercial)?1:0)+(_S._selectedDirections.size||0)+(_S._selectedUnivers.size||0)+((_S._filterStrategiqueOnly)?1:0);
   const _bgO=document.getElementById('fgBadgeOrga');if(_bgO){_bgO.textContent=_nOrg;_bgO.classList.toggle('hidden',_nOrg===0);}}
-  // ── Bandeau 2 lignes : chalandise (ligne 1) + KPIs canal (ligne 2) ──
+  // ── terrSummaryBar — réactif aux filtres même sans terrChalandiseOverview ──
   {const bar=document.getElementById('terrSummaryBar');
   if(bar){
     const _canal=_S._globalCanal||'';
@@ -1236,6 +1221,18 @@ function _buildChalandiseOverview(){
       </div>`;
     bar.style.display='block';bar.classList.remove('hidden');
   }}
+  // terrChalandiseOverview — table seulement si dans le DOM
+  const blk=document.getElementById('terrChalandiseOverview');
+  if(!blk)return;
+  blk.classList.remove('hidden');
+  _buildDeptFilter();
+  // Fixed thead — columns NEVER change
+  const colSpan=9;
+  const headEl=document.getElementById('terrOverviewL1Head');
+  if(headEl){
+    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
+  }
+  const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
