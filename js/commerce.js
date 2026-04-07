@@ -1181,6 +1181,9 @@ function _buildChalandiseOverview(){
   }
   const pctCapte=filteredClients>0?Math.round(totalActifsPDV/filteredClients*100):0;
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
+  // Clients hors zone : acheteurs PDV absents de la chalandise
+  let _horsZoneCount=0,_horsZoneCA=0;
+  if(_S.ventesClientArticle?.size){for(const[cc,artMap]of _S.ventesClientArticle){if(_S.chalandiseData?.has(cc))continue;_horsZoneCount++;for(const d of artMap.values())_horsZoneCA+=(d.sumCA||0);}}
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   // ── Badges groupes sidebar Terrain ──
   {const _nGeo=(_S._selectedDepts.size||0)+((_S._distanceMaxKm>0)?1:0)+((_S._includePerdu24m)?1:0);
@@ -1237,8 +1240,11 @@ function _buildChalandiseOverview(){
       ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
       ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
       ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#4ade80')}
-      ${_tile('🛒',_fmt(_vmc),'Panier moyen',`fréq. ${_freq} cmde/client`,'#c4b5fd')}
-      ${_tile('💰',_fmt(_ca),'CA',`${_nbBL.toLocaleString('fr-FR')} BL · marge ${_txMarge.toFixed(1)}%`,'#fde047')}
+      ${(()=>{const _hz=_S._clientView==='horszone';const _hzBg=_hz?'background:rgba(251,146,60,0.18);border-right:1px solid rgba(251,146,60,0.4);':'border-right:1px solid rgba(255,255,255,0.07);';return`<div onclick="window._toggleHorsZone()" style="display:flex;flex-direction:column;align-items:center;padding:10px 18px;${_hzBg}min-width:100px;cursor:pointer;transition:background .15s" title="Cliquer pour filtrer sur les clients hors zone de chalandise">
+        <span style="font-size:11px;color:${_hz?'#fb923c':'rgba(255,255,255,0.4)'};margin-bottom:2px;letter-spacing:.04em;text-transform:uppercase">⚠️ Hors zone</span>
+        <span style="font-size:22px;font-weight:900;line-height:1.1;color:${_hz?'#fb923c':'#fcd34d'}">${_horsZoneCount.toLocaleString('fr-FR')}</span>
+        ${_horsZoneCA>0?`<span style="font-size:10px;color:${_hz?'rgba(251,146,60,0.7)':'rgba(255,255,255,0.35)'};margin-top:1px">${formatEuro(_horsZoneCA)} CA PDV</span>`:''}
+      </div>`;})()}
       ${_exclusBadge}
     </div>`;
     bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
