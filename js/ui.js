@@ -1723,6 +1723,45 @@ document.addEventListener('input', function(e) {
   _cmdTimer = setTimeout(() => _cmdRender(e.target.value), 150);
 });
 
+// ── _renderNoStockPlaceholder — placeholder onglet sans stock ─
+export function _renderNoStockPlaceholder(ongletNom) {
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:16px;color:var(--t-muted)"><div style="font-size:2rem">📦</div><div style="font-size:1.1rem;font-weight:600">${ongletNom} — fichier stock non chargé</div><div style="font-size:0.9rem;max-width:400px;text-align:center">Chargez le fichier <strong>État du Stock</strong> via "Modifier les fichiers" pour accéder à cet onglet.</div></div>`;
+}
+
+// ── renderTabBadges — badges numériques sur les onglets ───────
+export function renderTabBadges() {
+  // Badge "Mes clients" : clients silencieux >90j avec CA PDV
+  const clientsBadge = document.getElementById('navClientsBadge');
+  if (clientsBadge && _S.clientLastOrder?.size > 0) {
+    const nowTs = Date.now();
+    let silentCount = 0;
+    for (const [cc, dt] of _S.clientLastOrder) {
+      if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
+    }
+    if (silentCount > 0) {
+      clientsBadge.textContent = silentCount > 99 ? '99+' : silentCount;
+      clientsBadge.classList.remove('hidden');
+    } else {
+      clientsBadge.classList.add('hidden');
+    }
+  }
+  // Grise Articles + Mon Stock si stock non chargé
+  ['table', 'stock'].forEach(tabId => {
+    const btn = document.querySelector(`[onclick*="switchTab('${tabId}')"]`);
+    if (btn) {
+      if (!_S._hasStock) {
+        btn.style.opacity = '0.45';
+        btn.title = 'Nécessite le fichier stock';
+        btn.style.pointerEvents = 'none';
+      } else {
+        btn.style.opacity = '';
+        btn.title = '';
+        btn.style.pointerEvents = '';
+      }
+    }
+  });
+}
+
 // ═══ D2 — THEME SWITCH (supprimé — dark permanent via data-theme="dark" sur <html>) ═══
 export function initTheme() {}
 export function cycleTheme() {}
