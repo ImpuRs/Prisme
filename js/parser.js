@@ -586,6 +586,11 @@ export function computeBenchmark(canaux = new Set()) {
     : new Set();
   const _canauxKey = _canauxSet.size ? [..._canauxSet].sort().join('+') : '';
   const _modeKey = _canauxSet.size === 1 && _canauxSet.has('MAGASIN') ? (_S._reseauMagasinMode || 'all') : '';
+  const _periodeKey = [
+    _S.periodFilterStart ? _S.periodFilterStart.toISOString().slice(0, 7) : '',
+    _S.periodFilterEnd   ? _S.periodFilterEnd.toISOString().slice(0, 7)   : '',
+    _S._globalPeriodePreset || '',
+  ].join('-');
   const _bKey = [
     _S.selectedMyStore || '',
     [..._S.selectedBenchBassin].sort().join(','),
@@ -595,12 +600,15 @@ export function computeBenchmark(canaux = new Set()) {
     _S.chalandiseReady ? '1' : '0',
     _canauxKey,
     _modeKey,
+    _periodeKey,
   ].join('|');
   if (_S._benchCache && _S._benchCache.key === _bKey) {
     _S.benchLists    = _S._benchCache.benchLists;
     _S.benchFamEcarts = _S._benchCache.benchFamEcarts;
     return; // ~0ms — invariant canaux confirmé
   }
+  // Cache miss — invalider les médianes (reconstruites depuis ventesParMagasin période-courante)
+  delete _S._artMedianBL; delete _S._artMedianQte; delete _S._artMedianCA;
 
   const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
   const cs = bassinStores.filter(s => _S.storesIntersection.has(s));

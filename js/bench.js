@@ -10,6 +10,7 @@ import { computeBenchmark } from './parser.js';
 import { SECTEUR_DIR_MAP } from './constants.js';
 
 let _pepAgTab = '';
+let _renderedPepites = [];
 
 function onBenchParamChange(){buildBenchCheckboxes();recalcBenchmarkInstant();}
 function buildBenchCheckboxes(){
@@ -510,6 +511,7 @@ function renderObservatoire(){
     raw.sort((a,b)=>(b.myQte-b.compQte)-(a.myQte-a.compQte));
     pepites = raw.slice(0, 50);
   }
+  _renderedPepites = pepites;
   const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
   if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Qté vendue (${myAg2||'Moi'})`:`Qté vendue (${_pepAgTab})`;
   if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
@@ -670,12 +672,11 @@ function copyObsSection(type){
 }
 
 function copyPepitesList(){
-  const pepites=_S.benchLists.pepites||[];
+  const pepites=_renderedPepites.length?_renderedPepites:(_S.benchLists.pepites||[]);
   if(!pepites.length){showToast('Aucune pépite à copier','warning');return;}
-  const obsMode=_S.selectedObsCompare||'median';const isMedian=obsMode==='median';
-  const compLabel=isMedian?'Fréq médiane réseau':`Fréq ${obsMode}`;
-  const lines=[`Code\tLibellé\tFamille\tFréq Moi\t${compLabel}\tÉcart %\tCA Moi`];
-  for(const p of pepites)lines.push(`${p.code}\t${p.lib}\t${p.fam}\t${p.myFreq}\t${p.compFreq}\t+${p.ecartPct}%\t${p.caMe}`);
+  const agLabel=_pepAgTab||_S.selectedMyStore||'Moi';
+  const lines=[`Code\tLibellé\tFamille\tQté vendue (${agLabel})\tQté médiane réseau\tÉcart %\tCA`];
+  for(const p of pepites)lines.push(`${p.code}\t${p.lib}\t${p.fam||'—'}\t${p.myQte??p.myFreq}\t${p.compQte??p.compFreq}\t${p.ecartPct>0?'+'+p.ecartPct+'%':'—'}\t${p.caMe||0}`);
   navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast(`📋 ${pepites.length} pépite${pepites.length>1?'s':''} copiée${pepites.length>1?'s':''} dans le presse-papier`,'success')).catch(()=>showToast('❌ Erreur copie','error'));
 }
 
