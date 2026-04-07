@@ -671,7 +671,7 @@ window._terrDrillBack = function() {
     renderInsightsBanner();
 
     // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path)
-    {const _dc=document.getElementById('terrDirectionContainer');if(_dc&&_dc.innerHTML)_buildChalDirBlock(_dc);}
+    if(_S.chalandiseReady){const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
 
     // ── Stockage cache territoire ─────────────────────────────────────────
     // Captures les innerHTML APRÈS le rendu complet
@@ -1255,7 +1255,7 @@ function _buildChalandiseOverview(){
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
   // Table territoire en un coup d'œil — réactive aux filtres chalandise
-  {const _dc=document.getElementById('terrDirectionContainer');if(_dc&&_dc.innerHTML)_buildChalDirBlock(_dc);}
+  if(_S.chalandiseReady){const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
 }
 // Level 2: Métiers for a Direction
 function _toggleOverviewL2(dirEnc,idx){
