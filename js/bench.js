@@ -469,55 +469,72 @@ function renderObservatoire(){
       tabsEl.classList.add('hidden');
     }
   }
-  // Cache médiane quantités — toujours disponible (my agence + autres)
-  if (!_S._artMedianBL || !_S._artMedianQte) {
-    const artAllBL = {}, artAllQte = {};
-    Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code]){artAllBL[code]=[];artAllQte[code]=[];} artAllBL[code].push(d.countBL||0); artAllQte[code].push(d.sumPrelevee||0); }); });
-    const _mBL = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-    _S._artMedianBL = {}; _S._artMedianQte = {};
-    Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); _S._artMedianQte[code]=_mBL(artAllQte[code]||[]); });
-  }
-  // Calcul pépites pour l'onglet actif
-  let pepites;
-  if (_pepAgTab === myAg2 || !isMulti) {
-    // Mon agence — myQte depuis articleMonthlySales (tous canaux, période-filtré)
-    const pepitesAll = _S.benchLists.pepites || [];
-    const pepitesFiltered = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
-    const _ms = _S.articleMonthlySales || {};
-    const _pm = DataStore.byContext().periodeMonths; // [0..11] selon preset
-    pepites = pepitesFiltered.map(p => {
-      const monthly = _ms[p.code];
-      const myQte = monthly
-        ? _pm.reduce((s, m) => s + (monthly[m] || 0), 0)
-        : (_S.ventesParMagasin[myAg2]?.[p.code]?.sumPrelevee ?? p.myFreq);
-      const compQte = Math.round(_S._artMedianQte[p.code] || p.compQte || p.compFreq);
-      const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : p.ecartPct;
-      return { ...p, myQte, compQte, ecartPct };
-    });
-  } else {
-    // Autre agence — calculer live vs médiane réseau
-    const agData = _S.ventesParMagasin[_pepAgTab] || {};
-    const raw = [];
-    for (const [code, d] of Object.entries(agData)) {
+  // Helpers locaux
+  const _libOf = code => { const r = _S.libelleLookup[code]||code; return /^\d{6} - /.test(r)?r.substring(9).trim():r; };
+  const _famOf = code => famLib(_S.articleFamille[code])||'—';
+  const _med = arr => { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+  const _curAg = _pepAgTab || myAg2;
+  // Médiane réseau par article — excluant l'agence active, zeros ignorés pour Qté
+  const _netBL = {}, _netQte = {};
+  for (const [ag, artMap] of Object.entries(_S.ventesParMagasin)) {
+    if (ag === _curAg) continue;
+    for (const [code, d] of Object.entries(artMap)) {
       if (!/^\d{6}$/.test(code)) continue;
-      const myFreq = d.countBL || 0;
-      if (myFreq < 2) continue;
-      const med = _S._artMedianBL[code] || 0;
-      if (med <= 0 || myFreq <= med * 1.3) continue;
-      if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
-      const myQte = Math.round(d.sumPrelevee || 0);
-      const compQte = Math.round(_S._artMedianQte[code] || 0);
-      const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / med - 1) * 100);
-      const libRaw = _S.libelleLookup[code] || code;
-      const lib = /^\d{6} - /.test(libRaw) ? libRaw.substring(9).trim() : libRaw;
-      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0), myQte, compQte });
+      (_netBL[code]||(_netBL[code]=[])).push(d.countBL||0);
+      if ((d.sumPrelevee||0) > 0) (_netQte[code]||(_netQte[code]=[])).push(d.sumPrelevee);
     }
-    raw.sort((a,b)=>(b.myQte-b.compQte)-(a.myQte-a.compQte));
-    pepites = raw.slice(0, 50);
   }
+  // Filtre période via _byMonth (myStore uniquement, MAGASIN)
+  let _byMonthByCode = null;
+  if (_S._byMonth && _curAg === myAg2) {
+    const pStart = _S.periodFilterStart, pEnd = _S.periodFilterEnd;
+    const startIdx = pStart ? (pStart.getFullYear()*12 + pStart.getMonth()) : 0;
+    const endIdx   = pEnd   ? (pEnd.getFullYear()*12   + pEnd.getMonth())   : 999999;
+    _byMonthByCode = {};
+    for (const ccMap of Object.values(_S._byMonth)) {
+      for (const [code, midxMap] of Object.entries(ccMap)) {
+        for (const [midxStr, d] of Object.entries(midxMap)) {
+          const midx = +midxStr;
+          if (midx < startIdx || midx > endIdx) continue;
+          const e = _byMonthByCode[code] || (_byMonthByCode[code] = {sumPrelevee:0, sumCA:0, countBL:0});
+          e.sumPrelevee += d.sumPrelevee||0;
+          e.sumCA       += d.sumCA||0;
+          e.countBL     += d.countBL||0;
+        }
+      }
+    }
+  }
+  // finalData lookup pour myQte fallback (myStore uniquement)
+  const _fMap = {};
+  if (_curAg === myAg2) (_S.finalData||[]).forEach(r => { _fMap[r.code] = r; });
+  // Construction pépites
+  const agVpm = _S.ventesParMagasin[_curAg] || {};
+  const rawPep = [];
+  for (const [code, vpmD] of Object.entries(agVpm)) {
+    if (!/^\d{6}$/.test(code)) continue;
+    const myFreq = vpmD.countBL || 0;
+    if (myFreq < 2) continue;
+    const medFreq = _med(_netBL[code]||[]);
+    if (medFreq <= 0 || myFreq <= medFreq * 1.5) continue;
+    if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
+    let myQte;
+    if (_byMonthByCode) {
+      myQte = Math.round(_byMonthByCode[code]?.sumPrelevee || 0);
+    } else if (_fMap[code]) {
+      myQte = Math.round(_fMap[code].V || 0);
+    } else {
+      myQte = Math.round(vpmD.sumPrelevee || 0);
+    }
+    const compQte   = Math.round(_med(_netQte[code]||[]));
+    const caMe      = Math.round(vpmD.sumCA || 0);
+    const ecartPct  = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / medFreq - 1) * 100);
+    rawPep.push({ code, lib: _libOf(code), fam: _famOf(code), myFreq, compFreq: Math.round(medFreq), myQte, compQte, ecartPct, caMe });
+  }
+  rawPep.sort((a, b) => b.ecartPct - a.ecartPct);
+  const pepites = rawPep.slice(0, 50);
   _renderedPepites = pepites;
   const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
-  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Qté vendue (${myAg2||'Moi'})`:`Qté vendue (${_pepAgTab})`;
+  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Qté vendue (${_curAg||'Moi'})`;
   if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
   const pepRows=pepites.map(p=>{
     const ecartStr=p.ecartPct>0?`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`:`<span class="t-disabled">—</span>`;
