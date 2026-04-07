@@ -211,7 +211,7 @@ function renderReseauPepites() {
     for (const [ag, arts] of Object.entries(_S.ventesParMagasin || {})) {
       if (ag === myAg) continue;
       for (const [code, d] of Object.entries(arts)) {
-        const fam = _S.articleFamille[code] || '';
+        const fam = famLib(_S.articleFamille[code]) || _S.articleFamille[code] || '';
         if (!fam) continue;
         famCA[fam] = (famCA[fam] || 0) + (d.sumCA || 0);
       }
@@ -242,7 +242,7 @@ function renderReseauPepites() {
       .map(([code, d]) => ({
         code,
         lib: _S.libelleLookup[code] || code,
-        fam: _S.articleFamille[code] || '?',
+        fam: famLib(_S.articleFamille[code]) || _S.articleFamille[code] || '?',
         univers: _S.articleUnivers[code] || 'INCONNU',
         caAg: d.sumCA,
         medCA: artMedianCA[code] || 0,
