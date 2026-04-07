@@ -1904,11 +1904,11 @@ _S.canalAgence=newCanalAgence;
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
-    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr style="background:transparent">';
-    html+='<th class="p-3 text-xs font-bold t-disabled text-center w-16"></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(34,197,94,0.12);color:#4ade80;border-radius:8px 8px 0 0">F<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Fréquent ≥12</span></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(59,130,246,0.12);color:#93c5fd;border-radius:8px 8px 0 0">M<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Moyen 4-11</span></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(217,119,6,0.12);color:#fbbf24;border-radius:8px 8px 0 0">R<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Rare ≤3</span></th>';
+    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
+    html+='<th style="width:64px"></th>';
+    html+='<th><div style="background:rgba(34,197,94,0.18);color:#4ade80;padding:10px 12px;border-radius:8px 8px 0 0;text-align:center;font-weight:800;font-size:14px">F<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">Fréquent ≥12</span></div></th>';
+    html+='<th><div style="background:rgba(59,130,246,0.18);color:#93c5fd;padding:10px 12px;border-radius:8px 8px 0 0;text-align:center;font-weight:800;font-size:14px">M<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">Moyen 4-11</span></div></th>';
+    html+='<th><div style="background:rgba(217,119,6,0.18);color:#fbbf24;padding:10px 12px;border-radius:8px 8px 0 0;text-align:center;font-weight:800;font-size:14px">R<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">Rare ≤3</span></div></th>';
     html+='</tr></thead><tbody>';
     const rowLabels={A:'<div class="font-extrabold text-xl text-indigo-900">A</div><div class="text-[9px] t-tertiary font-semibold">Top 80%</div>',B:'<div class="font-extrabold text-xl text-indigo-600">B</div><div class="text-[9px] t-tertiary font-semibold">15%</div>',C:'<div class="font-extrabold text-xl text-indigo-400">C</div><div class="text-[9px] t-tertiary font-semibold">5%</div>'};
     for(const abc of['A','B','C']){
