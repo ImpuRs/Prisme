@@ -749,6 +749,7 @@ window._terrDrillBack = function() {
       el.innerHTML='<div class="p-8 text-center t-disabled">Chargez d\'abord le fichier consommé.</div>';
       return;
     }
+    if(_S.chalandiseReady) _buildOverviewFilterChips();
     const k=computeClientsKPIs();
     // ── Filtre recherche client (_terrClientSearch) — appliqué à toutes les sections ──
     const _qSrch=(_S._terrClientSearch||'').toLowerCase();
