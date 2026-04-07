@@ -839,21 +839,10 @@ window._terrDrillBack = function() {
       }
     }
 
-    const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-    _setEl('clientsHorsZone',horsZoneHtml);
-    _setEl('clientsDigitaux',digitauxHtml);
-    _setEl('clientsReconquete', top5ReconqHtml + reconqHtml + livSPDVHtml);
-    _setEl('clientsOpportunites',oppsHtml);
+    el.innerHTML = top5ReconqHtml + reconqHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
   }
 
 
-  // ── Sous-onglet Clients PDV (vue unique) ─────────────────────────────────
-  function _switchClientsTab(){
-    // Vue unique — pas de sous-onglets depuis Sprint 4
-    const pane=document.getElementById('clientsPane-priorites');
-    if(pane)pane.classList.remove('hidden');
-  }
-  window._switchClientsTab=_switchClientsTab;
 
 // ── Chalandise — état filtre client (fusionné depuis territoire.js) ──────
 let _terrClientSearchTimer = null;
@@ -1915,7 +1904,6 @@ export {
   renderTerritoireTab,
   renderCockpitRupClients,
   renderMesClients,
-  _switchClientsTab,
   // depuis territoire.js
   _toggleOverviewClassif,
   _toggleOverviewActPDV,
