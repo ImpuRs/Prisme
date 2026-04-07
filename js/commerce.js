@@ -148,7 +148,7 @@ function _buildChalDirBlock(blkEl) {
     </tr>`;
   };
 
-  const _thead9 = fcol => `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">${fcol}</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Actifs Leg.</th><th class="py-1.5 px-2 text-right">Actifs PDV</th><th class="py-1.5 px-2 text-right">Prospects</th><th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th><th class="py-1.5 px-2">% capté Leg.</th><th class="py-1.5 px-2">% capté PDV</th></tr>`;
+  const _thead9 = fcol => `<tr class="text-[10px]"><th class="py-1.5 px-2 text-left">${fcol}</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Captés Leg.</th><th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">Prospects</th><th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th><th class="py-1.5 px-2">% capté Leg.</th><th class="py-1.5 px-2">% capté PDV</th></tr>`;
 
   // ── Construction par niveau ───────────────────────────────────────────
   let breadcrumb, summaryBadge = '', theadHtml, tbodyHtml = '', isClients = false;
