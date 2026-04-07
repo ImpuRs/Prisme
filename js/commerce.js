@@ -328,6 +328,7 @@ window._terrDrillBack = function() {
 
   // ── computeClientsKPIs — pure data for renderMesClients ──────────────
   function computeClientsKPIs(){
+    const now=new Date();
     const livSansPDV=_S.livraisonsSansPDV||[];
     // Top clients — CA selon le canal sélectionné
     const _gCanal=_S._globalCanal||'';
