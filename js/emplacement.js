@@ -114,13 +114,13 @@ function _renderArbitrageRayon(rows) {
     </tr>`;
   }).join('');
 
-  return `<details class="s-card rounded-xl shadow-md border mb-3 overflow-hidden">
-    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:brightness-95">
-      <div class="flex items-center gap-2">
-        <span class="font-extrabold text-sm t-primary">&#128205; Arbitrage rayon</span>
-        <span class="text-[10px] t-disabled">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} \xb7 rendement m\xe9dian ${medFmt}\xd7</span>
+  return `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:800;font-size:13px;color:#cbd5e1">&#128205; Arbitrage rayon</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} \xb7 rendement m\xe9dian ${medFmt}\xd7</span>
       </div>
-      <span class="acc-arrow t-disabled">&#9654;</span>
+      <span class="acc-arrow" style="color:#cbd5e1">&#9654;</span>
     </summary>
     <div class="overflow-x-auto" style="max-height:500px;overflow-y:auto">
       <table class="min-w-full text-xs">
