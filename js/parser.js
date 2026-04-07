@@ -785,7 +785,8 @@ export function computeBenchmark(canaux = new Set()) {
   // === PÉPITES — articles où je surperforme / où le réseau me surpasse ===
   // Build per-code frequency + CA lists across cs stores (one pass)
   const _pepCsFreqs = {}, _pepCsCA = {}, _pepCsQte = {};
-  for (const store of cs) { const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; _pepCsQte[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); _pepCsQte[code].push(data.sumPrelevee || 0); } }
+  // _pepCsQte : toujours depuis ventesParMagasin (sumPrelevee = qty, pas CA)
+  for (const store of cs) { const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; _pepCsQte[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); _pepCsQte[code].push((_S.ventesParMagasin[store]?.[code]?.sumPrelevee) || 0); } }
   const _pepLib = code => { const r = _S.libelleLookup[code] || code; return /^\d{6} - /.test(r) ? r.substring(9).trim() : r; };
   // 💎 Mes pépites — I outperform
   const pepites = [];
@@ -798,9 +799,11 @@ export function computeBenchmark(canaux = new Set()) {
     const compFreq = compV ? (compV[code]?.countBL || 0) : (csFreqs.length ? _median(csFreqs) : 0);
     if (compFreq <= 0 || myFreq <= compFreq * 1.3) continue;
     const ecartPct = Math.round((myFreq / compFreq - 1) * 100);
-    const myQte = data.sumPrelevee || 0;
+    // myQte / compQte : depuis ventesParMagasin (qty réelles, pas CA)
+    const myQte = _S.ventesParMagasin[_S.selectedMyStore]?.[code]?.sumPrelevee || 0;
     const csQtes = _pepCsQte[code] || [];
-    const compQte = compV ? (compV[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
+    const _obsStore = _S.selectedObsCompare && _S.selectedObsCompare !== 'median' ? _S.selectedObsCompare : null;
+    const compQte = _obsStore ? (_S.ventesParMagasin[_obsStore]?.[code]?.sumPrelevee || 0) : (csQtes.length ? _median(csQtes) : 0);
     pepites.push({ code, lib: _pepLib(code), fam: famLib(_S.articleFamille[code]) || '', myFreq, compFreq: Math.round(compFreq), ecartPct, caMe: Math.round(artCA(data)), myQte, compQte: Math.round(compQte) });
   }
   pepites.sort((a, b) => (b.myFreq - b.compFreq) - (a.myFreq - a.compFreq));
