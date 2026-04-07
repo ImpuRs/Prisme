@@ -1902,7 +1902,6 @@ export {
   _setPDVCanalFilter,
   _buildDegradedCockpit,
   _buildCockpitClient,
-  exportTop5CSV,
   _setCrossFilter,
   _setClientView,
   _cockpitRowCSV,
