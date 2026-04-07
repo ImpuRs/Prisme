@@ -8,48 +8,47 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* ═══ THÈME RAMP/VERCEL — Palette charbon + émeraude ══════ */
+    /* ═══ COLOR COVENANT — variables sémantiques ══════════════ */
     :root {
-      /* Noirs charbons */
-      --p-coal-950: #050505;
-      --p-coal-900: #090909;
-      --p-coal-800: #0f0f0f;
-      --p-coal-700: #141414;
-      --p-coal-600: #181818;
-      --p-coal-500: #202020;
-      --p-coal-400: #2a2a2a;
-      --p-coal-300: #333333;
-      --p-coal-200: #444444;
-      --p-coal-100: #666666;
-      /* Accent émeraude */
-      --p-emerald-600: #00B87A;
-      --p-emerald-500: #00D48E;
-      --p-emerald-400: #00E5A0;
-      --p-emerald-300: #33EDB5;
-      --p-emerald-dim: rgba(0, 229, 160, 0.10);
-      --p-emerald-border: rgba(0, 229, 160, 0.22);
-      /* Sémantiques */
-      --p-red-600: #dc2626;   --p-red-500: #ef4444;   --p-red-400: #f87171;
-      --p-red-dim: rgba(239,68,68,0.10); --p-red-border: rgba(239,68,68,0.25);
-      --p-amber-600: #d97706; --p-amber-500: #f59e0b; --p-amber-400: #fbbf24;
-      --p-amber-dim: rgba(245,158,11,0.10); --p-amber-border: rgba(245,158,11,0.25);
-      --p-blue-600: #2563eb;  --p-blue-500: #3b82f6;  --p-blue-400: #60a5fa;
-      --p-blue-dim: rgba(59,130,246,0.10); --p-blue-border: rgba(59,130,246,0.22);
-      --p-violet-600: #7c3aed; --p-violet-500: #8b5cf6; --p-violet-400: #a78bfa;
-      --p-orange-500: #f97316; --p-orange-600: #ea580c;
-      /* Aliases --p-slate-* → coal (zéro régression JS) */
-      --p-slate-950: var(--p-coal-900);
-      --p-slate-900: var(--p-coal-600);
-      --p-slate-800: var(--p-coal-500);
-      --p-slate-700: var(--p-coal-400);
-      --p-slate-600: var(--p-coal-300);
-      --p-slate-500: var(--p-coal-200);
-      --p-slate-400: var(--p-coal-100);
-      --p-slate-300: #888888;
-      --p-slate-200: #aaaaaa;
-      --p-slate-100: #cccccc;
-      --p-slate-50:  #eeeeee;
-      --p-white: #ffffff;
+      --c-action:  #2563eb;  /* Bleu  — "fais quelque chose maintenant" */
+      --c-danger:  #dc2626;  /* Rouge — "perte d'argent en cours" */
+      --c-caution: #d97706;  /* Ambre — "surveille, pas encore urgent" */
+      --c-ok:      #16a34a;  /* Vert  — "sous contrôle, pas d'action" */
+      --c-muted:   #9ca3af;  /* Gris  — "information, pas de jugement" */
+    }
+    /* ═══ NIVEAU 1 — PRIMITIVES (palette brute) ════════════════ */
+    :root {
+      /* Gris / Slate */
+      --p-slate-950: #0a0a0f;
+      --p-slate-900: #0f172a;
+      --p-slate-800: #1e293b;
+      --p-slate-700: #334155;
+      --p-slate-600: #475569;
+      --p-slate-500: #64748b;
+      --p-slate-400: #94a3b8;
+      --p-slate-300: #cbd5e1;
+      --p-slate-200: #e2e8f0;
+      --p-slate-100: #f1f5f9;
+      --p-slate-50:  #f8fafc;
+      --p-white:     #ffffff;
+      /* Fonctionnelles */
+      --p-blue-600:  #2563eb;
+      --p-blue-500:  #3b82f6;
+      --p-blue-400:  #60a5fa;
+      --p-blue-50:   #eff6ff;
+      --p-red-600:   #dc2626;
+      --p-red-500:   #ef4444;
+      --p-red-50:    #fef2f2;
+      --p-amber-600: #d97706;
+      --p-amber-500: #f59e0b;
+      --p-amber-400: #fbbf24;
+      --p-amber-50:  #fffbeb;
+      --p-green-600: #16a34a;
+      --p-green-500: #22c55e;
+      --p-green-400: #4ade80;
+      --p-green-50:  #f0fdf4;
+      --p-orange-500:#f97316;
+      --p-orange-600:#ea580c;
       /* Spectre PRISME (identité visuelle) */
       --p-prisme-red:    #E24B4A;
       --p-prisme-amber:  #EF9F27;
@@ -59,10 +58,10 @@
       --p-prisme-rose:   #D4537E;
       --p-prisme-violet: #534AB7;
       /* Diagnostic voyants */
-      --p-diag-blue-bg:   #0a1a2e;
-      --p-diag-violet-bg: #130b1a;
-      --p-diag-green-bg:  #041208;
-      --p-diag-amber-bg:  #120b00;
+      --p-diag-blue-bg:   #0f2744;
+      --p-diag-violet-bg: #1a0e1e;
+      --p-diag-green-bg:  #061a10;
+      --p-diag-amber-bg:  #1a1000;
     }
 
     /* ═══ NIVEAU 2 — TOKENS SÉMANTIQUES ════════════════════════ */
@@ -255,92 +254,103 @@
     .bg-c-ok      { background-color: var(--c-ok); }
     .bg-c-action  { background-color: var(--c-action); }
 
-    /* ═══ THÈME RAMP/VERCEL — tokens sémantiques dark ══════════ */
-    :root,
-    [data-theme="dark"],
-    [data-theme="mixed"] {
-      /* ── Surfaces ── */
-      --s-page:        #090909;
-      --s-card:        #111111;
-      --s-card-alt:    #161616;
-      --s-panel:       #111111;
-      --s-panel-inner: #161616;
-      --s-hover:       #1e1e1e;
-      --s-hover-em:    #222222;
-      --s-selected:    rgba(0,229,160,0.07);
-      --s-active:      rgba(0,229,160,0.12);
-      --s-hover-blue:  rgba(59,130,246,0.10);
-      --s-overlay:     #1e1e1e;
-      --s-sidebar:     #0f0f0f;
-      /* ── Textes ── */
-      --t-primary:     #F2F2F2;
-      --t-secondary:   #888888;
-      --t-tertiary:    #555555;
-      --t-disabled:    #3a3a3a;
-      --t-inverse:     #F2F2F2;
-      --t-inverse-muted:#888888;
-      --t-link:        var(--p-emerald-400);
-      /* ── Borders ── */
-      --b-default:     rgba(255,255,255,0.07);
-      --b-light:       rgba(255,255,255,0.04);
-      --b-dark:        rgba(255,255,255,0.11);
-      --b-darker:      rgba(255,255,255,0.16);
-      --b-strong:      rgba(255,255,255,0.16);
-      --b-focus:       var(--p-emerald-400);
-      /* ── Couleurs sémantiques ── */
-      --c-action:       var(--p-emerald-400);
-      --c-action-dim:   var(--p-emerald-dim);
-      --c-action-border:var(--p-emerald-border);
-      --c-danger:       var(--p-red-400);
-      --c-caution:      var(--p-amber-400);
-      --c-ok:           var(--p-emerald-400);
-      --c-muted:        #555555;
-      /* ── Badges / pills ── */
-      --i-danger-bg:    rgba(239,68,68,0.10);
-      --i-danger-text:  var(--p-red-400);
-      --i-danger-border:var(--p-red-border);
-      --i-caution-bg:   rgba(245,158,11,0.10);
-      --i-caution-text: var(--p-amber-400);
-      --i-caution-border:var(--p-amber-border);
-      --i-ok-bg:        rgba(0,229,160,0.10);
-      --i-ok-text:      var(--p-emerald-400);
-      --i-ok-border:    var(--p-emerald-border);
-      --i-info-bg:      rgba(59,130,246,0.10);
-      --i-info-text:    var(--p-blue-400);
-      --i-info-border:  var(--p-blue-border);
-      --i-neutral-bg:   rgba(255,255,255,0.05);
-      --i-neutral-text: #888888;
-      --i-neutral-border:rgba(255,255,255,0.10);
-      /* Aliases dark (compat) */
-      --i-ok-dark-bg:     var(--i-ok-bg);
-      --i-ok-dark-text:   var(--i-ok-text);
-      --i-warn-dark-bg:   var(--i-caution-bg);
-      --i-warn-dark-text: var(--i-caution-text);
-      --i-error-dark-bg:  var(--i-danger-bg);
-      --i-error-dark-text:var(--i-danger-text);
-      --i-lock-dark-bg:   rgba(255,255,255,0.04);
-      --i-lock-dark-text: #555555;
-      /* ── Graphiques ── */
+    /* ═══ THEME: DARK ═══════════════════════════════════ */
+    /* ═══ THEME DARK 2027 — PRISME Premium ══════════════════════
+       Conçu dark-first. Le light mode reste disponible mais ce
+       bloc est la référence de conception.
+       Consensus débat Octopus Design 2027 — score 87/100
+       ════════════════════════════════════════════════════════════ */
+    [data-theme="dark"] {
+
+      /* ── SURFACES — 4 niveaux d'élévation (background seul) ── */
+      --s-page:        #0f1117;   /* fond de page — base canvas */
+      --s-card:        #161b27;   /* cards, panels */
+      --s-card-alt:    #1e2435;   /* hover rows, inputs, card raised */
+      --s-panel:       #0f1117;   /* panels dark (diagnostic overlay) */
+      --s-panel-inner: #161b27;   /* contenu dans panels */
+      --s-overlay:     #252b3d;   /* popovers, dropdowns, tooltips */
+      --s-hover:       #1e2435;   /* hover state générique */
+      --s-hover-blue:  rgba(96,165,250,0.08);
+      --s-selected:    rgba(96,165,250,0.15);
+      --s-active:      rgba(96,165,250,0.20);
+      --s-sidebar:     #0b0e16;   /* sidebar plus sombre que le contenu */
+
+      /* ── BORDURES — séparateurs sans ombre ── */
+      --b-light:       #1e2538;   /* dividers très discrets */
+      --b-default:     #2a3248;   /* bordures cards, inputs */
+      --b-dark:        #2a3248;
+      --b-darker:      #3d4d6a;
+      --b-strong:      #3d4d6a;   /* focus visible, bordures actives */
+      --b-focus:       #60a5fa;
+
+      /* ── TEXTE ── */
+      --t-primary:     #e2e8f4;   /* texte principal */
+      --t-secondary:   #94a3b8;   /* labels secondaires */
+      --t-tertiary:    #64748b;   /* tertiary */
+      --t-disabled:    #4a5578;   /* disabled, placeholders */
+      --t-inverse:     #e2e8f4;
+      --t-inverse-muted: #94a3b8;
+      --t-link:        #60a5fa;
+
+      /* ── COULEURS SÉMANTIQUES — recalibrées dark (plus vives) ── */
+      --c-action:      #60a5fa;   /* blue-400 — meilleur contraste sur fond sombre */
+      --c-danger:      #f87171;   /* red-400 — rouge corail sans bleeding */
+      --c-caution:     #fbbf24;   /* amber-400 — ambre chaud */
+      --c-ok:          #34d399;   /* emerald-400 — vert menthe */
+      --c-muted:       #64748b;   /* slate-500 */
+
+      /* ── INDICATEURS — fonds sémantiques ── */
+      --i-info-bg:     rgba(96,165,250,0.10);
+      --i-info-text:   #93c5fd;
+      --i-danger-bg:   rgba(248,113,113,0.10);
+      --i-danger-text: #fca5a5;
+      --i-caution-bg:  rgba(251,191,36,0.10);
+      --i-caution-text:#fde68a;
+      --i-ok-bg:       rgba(52,211,153,0.10);
+      --i-ok-text:     #6ee7b7;
+      --i-neutral-bg:  #1e2435;
+      --i-neutral-text:#94a3b8;
+
+      /* ── INDICATEURS SOMBRES (diag badges) ── */
+      --i-ok-dark-bg:      #052e16;
+      --i-ok-dark-text:    #34d399;
+      --i-warn-dark-bg:    #451a03;
+      --i-warn-dark-text:  #fbbf24;
+      --i-error-dark-bg:   #450a0a;
+      --i-error-dark-text: #f87171;
+      --i-lock-dark-bg:    #161b27;
+      --i-lock-dark-text:  #4a5578;
+
+      /* ── GRAPHIQUES ── */
       --g-progress-track: rgba(255,255,255,0.08);
-      --g-progress-fill:  linear-gradient(90deg,var(--p-emerald-400),var(--p-emerald-300));
+      --g-progress-fill:  linear-gradient(90deg,#60a5fa,#38bdf8);
       --g-bar-critical:   linear-gradient(90deg,#f87171,#ef4444);
       --g-bar-high:       linear-gradient(90deg,#fb923c,#f97316);
       --g-bar-medium:     linear-gradient(90deg,#fbbf24,#f59e0b);
-      --g-bar-low:        #444444;
-      --g-shimmer:        linear-gradient(90deg,transparent,var(--p-emerald-400),var(--p-emerald-300),transparent);
-      /* ── Shadows ── */
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
-      --shadow-md: 0 2px 8px rgba(0,0,0,0.6);
-      --shadow-lg: 0 4px 20px rgba(0,0,0,0.7);
-      --shadow-xl: 0 8px 40px rgba(0,0,0,0.8);
-      /* ── Navbar ── */
-      --navbar-bg:     #0f0f0f;
+      --g-bar-low:        #4a5578;
+      --g-shimmer:        linear-gradient(90deg,transparent,#60a5fa,#38bdf8,transparent);
+
+      /* ── SHADOWS — discrets sur fond sombre ── */
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md:  0 4px 15px rgba(0,0,0,0.5);
+      --shadow-lg:  0 8px 25px rgba(0,0,0,0.6);
+      --shadow-xl:  0 8px 28px rgba(0,0,0,0.7);
+
+      /* ── NAVBAR ── */
+      --navbar-bg:     linear-gradient(to bottom,#0b0e16 0%,#0f1117 100%);
       --navbar-border: rgba(255,255,255,0.07);
-      /* ── Signal ambiant + barre spectrale ── */
+
+      /* ── SIGNAL AMBIANT + BARRE SPECTRALE ── */
       --signal-gradient: linear-gradient(90deg,
         #ef4444 0%,#f97316 14%,#eab308 28%,
         #22c55e 42%,#3b82f6 57%,#8b5cf6 71%,#ec4899 100%
       );
+
+      /* ── DIAGNOSTIC VOYANTS ── */
+      --p-diag-blue-bg:   #0a1628;
+      --p-diag-violet-bg: #120a1e;
+      --p-diag-green-bg:  #04120a;
+      --p-diag-amber-bg:  #120a00;
     }
 
     /* ═══ DARK MODE ENFORCEMENT — filet de sécurité ════════════ */
@@ -384,7 +394,7 @@
     .contrib-client-row{cursor:pointer;transition:background .15s}.contrib-client-row:hover{background:var(--s-hover-blue)}.contrib-client-row.open{background:var(--s-selected)}
     .contrib-client-detail{display:none}.contrib-client-detail.open{display:table-row-group}
     .pct-bar-terr{height:6px;border-radius:var(--r-sm);transition:width .4s ease}
-    body{font-family:var(--ff-body);font-size:var(--fs-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:#090909}
+    body{font-family:var(--ff-body);font-size:var(--fs-base);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     th{cursor:pointer;user-select:none}th:hover{background:var(--p-slate-700)}
     ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--s-page);border-radius:var(--r-sm)}::-webkit-scrollbar-thumb{background:var(--p-slate-300);border-radius:var(--r-sm)}
     .tab-content{animation:fadeIn .25s ease-in-out}
@@ -698,7 +708,7 @@
     /* ═══ Lexique ancré <abbr> ════════════════════════════════ */
     abbr.gls{border-bottom:1px dotted var(--c-muted);cursor:help;text-decoration:none}
     /* ═══ Premium navbar ══════════════════════════════════════ */
-    nav#mainNav{background:#0f0f0f !important;border-bottom:1px solid rgba(255,255,255,0.07) !important;height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
+    nav#mainNav{background:#0b0e16 !important;border-bottom:1px solid rgba(255,255,255,0.07) !important;height:48px;padding:0 1.25rem;flex-shrink:0;display:flex;align-items:center}
     #mainNav .nav-inner{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
     #mainNav .prisme-logo{font-family:var(--ff-display);font-size:var(--fs-lg);letter-spacing:0.15em;color:#ffffff !important;font-weight:800;user-select:none;cursor:default;line-height:1}
     #mainNav .prisme-tagline{font-family:var(--ff-body);font-size:var(--fs-2xs);color:rgba(255,255,255,0.45) !important;letter-spacing:var(--ls-wide);font-style:italic;line-height:1;margin-top:2px;opacity:1}
