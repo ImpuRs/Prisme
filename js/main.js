@@ -1827,8 +1827,8 @@ _S.canalAgence=newCanalAgence;
     const showMed=_S.storesIntersection.size>1;
     {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
-      const bg=r.isNouveaute?'i-ok-bg':(r.nouveauMin>0?'s-card':'s-card-alt t-disabled');
-      const sc=(() => { if(r.nouveauMin===0&&r.nouveauMax===0)return 't-disabled'; if(r.stockActuel<0)return 'c-danger font-extrabold i-danger-bg'; if(r.stockActuel===0)return 'c-danger font-bold i-danger-bg'; if(r.stockActuel<=r.nouveauMin)return 'c-caution font-bold i-caution-bg'; if(r.stockActuel>r.nouveauMax)return 'c-info font-bold i-info-bg'; return 'c-ok font-bold i-ok-bg'; })();
+      const bg=r.nouveauMin>0?'':'s-card-alt';
+      const sc=(() => { if(r.nouveauMin===0&&r.nouveauMax===0)return 't-disabled'; if(r.stockActuel<0)return 'c-danger font-extrabold i-danger-bg'; if(r.stockActuel===0)return 'c-danger font-bold i-danger-bg'; if(r.stockActuel<=r.nouveauMin)return 'c-caution font-bold i-caution-bg'; if(r.stockActuel>r.nouveauMax)return 'c-info font-bold'; return 'c-ok font-bold'; })();
       const br=getAgeBracket(r.ageJours);
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'c-caution i-caution-bg font-bold':r.nouveauMin>r.medMinReseau?'c-caution font-semibold':'t-disabled'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMax>2*r.medMaxReseau?'c-caution i-caution-bg font-bold':r.nouveauMax>r.medMaxReseau?'c-caution font-semibold':'t-disabled'}" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
@@ -1847,11 +1847,11 @@ _S.canalAgence=newCanalAgence;
       <td class="px-2 py-2 text-center text-xs ${couvColor(r.couvertureJours)}">${formatCouv(r.couvertureJours)}</td>
       <td class="px-2 py-2 text-center text-xs whitespace-nowrap"><span class="age-dot ${AGE_BRACKETS[br].dotClass}"></span>${getAgeLabel(r.ageJours)}</td>
       <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
-      <td class="px-2 py-2 text-center font-extrabold c-action i-info-bg text-xs">${r.nouveauMin}</td>
-      <td class="px-2 py-2 text-center font-extrabold c-action i-info-bg text-xs">${r.nouveauMax}</td>
+      <td class="px-2 py-2 text-center font-extrabold c-action text-xs">${r.nouveauMin}</td>
+      <td class="px-2 py-2 text-center font-extrabold c-action text-xs">${r.nouveauMax}</td>
       ${_medMinCell}${_medMaxCell}
-      <td class="px-2 py-2 text-center font-extrabold text-xs ${r.abcClass==='A'?'c-ok i-ok-bg':r.abcClass==='B'?'c-action i-info-bg':r.abcClass==='C'?'c-caution i-caution-bg':'t-disabled'}">${r.abcClass||'—'}</td>
-      <td class="px-2 py-2 text-center font-extrabold text-xs ${r.fmrClass==='F'?'c-ok i-ok-bg':r.fmrClass==='M'?'c-action i-info-bg':r.fmrClass==='R'?'c-caution i-caution-bg':'t-disabled'}">${r.fmrClass||'—'}</td>
+      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)'}">${r.abcClass||'—'}</span></td>
+      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.fmrClass==='F'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.fmrClass==='M'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.fmrClass==='R'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)'}">${r.fmrClass||'—'}</span></td>
       ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-[10px] text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':Math.round(r.caHorsMagasin)+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-[10px]">—</td>`}
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${14+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
