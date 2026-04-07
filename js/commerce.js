@@ -677,6 +677,8 @@ window._terrDrillBack = function() {
 
     // ── Stockage cache territoire ─────────────────────────────────────────
     // Captures les innerHTML APRÈS le rendu complet
+    // Guard : ne pas stocker si les éléments DOM n'existent pas encore (appel depuis _initFromCache)
+    if(!document.getElementById('terrDirectionTable'))return;
     const _gi=(id)=>(document.getElementById(id)||{}).innerHTML||'';
     const _gt=(id)=>(document.getElementById(id)||{}).textContent||'';
     _S._terrCanalCache.set(_terrCacheKey,{
