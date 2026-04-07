@@ -1203,10 +1203,10 @@ function _buildChalandiseOverview(){
     bar.innerHTML=`<div style="position:relative;display:flex;align-items:stretch;overflow:hidden">
       ${_filterBadge}
       ${_tile('👥',filterActive?`<span style="color:#f87171">${filteredClients.toLocaleString('fr-FR')}</span><span style="font-size:13px;color:rgba(255,255,255,0.3)"> / ${totalClients.toLocaleString('fr-FR')}</span>`:filteredClients.toLocaleString('fr-FR'),'Clients zone',_canalLabel,'#e2e8f0')}
-      ${_tile('💰',_fmt(_ca),'CA',`${_nbBL.toLocaleString('fr-FR')} BL · marge ${_txMarge.toFixed(1)}%`,'#fde047')}
       ${_tile('📊',pctCapteLeg+'%','Captés Leg.',`${totalActifsLeg.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#93c5fd')}
       ${_tile('🏪',pctCapte+'%','Captés PDV',`${totalActifsPDV.toLocaleString('fr-FR')} / ${filteredClients.toLocaleString('fr-FR')}`,'#4ade80')}
       ${_tile('🛒',_fmt(_vmc),'Panier moyen',`fréq. ${_freq} cmde/client`,'#c4b5fd')}
+      ${_tile('💰',_fmt(_ca),'CA',`${_nbBL.toLocaleString('fr-FR')} BL · marge ${_txMarge.toFixed(1)}%`,'#fde047')}
       ${_exclusBadge}
     </div>`;
     bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
