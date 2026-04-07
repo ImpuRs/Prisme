@@ -178,8 +178,11 @@ function renderReseauPepites() {
   if (!container) return;
   const vpm = _S.ventesParMagasin;
   const hm  = _S.reseauHeatmapData;
-  if (!vpm || !hm || !hm.agences?.length) {
-    container.innerHTML = '<p class="t-disabled text-sm p-4">Pas assez de données réseau pour les pépites (nécessite ≥ 2 agences).</p>';
+  if (!hm || !hm.agences?.length) {
+    const _isMulti = _S.storesIntersection?.size > 1;
+    container.innerHTML = _isMulti
+      ? '<p class="t-disabled text-sm p-4">⏳ Calcul réseau en cours…</p>'
+      : '<p class="t-disabled text-sm p-4">Données multi-agences requises (≥ 2 agences dans le consommé).</p>';
     return;
   }
   const myAg    = _S.selectedMyStore || '';
