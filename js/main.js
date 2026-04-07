@@ -1898,7 +1898,7 @@ _S.canalAgence=newCanalAgence;
     _renderGhostArticles();
     renderPlanRayon();
     renderArbitrageRayonBlock();
-    const CELL_BG={AF:'#0a1f10',AM:'#0a1a0e',AR:'#0f1a0e',BF:'#0a0f1f',BM:'#111520',BR:'#1a1508',CF:'#1a0e08',CM:'#1a0a0a',CR:'#120808'};
+    const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
