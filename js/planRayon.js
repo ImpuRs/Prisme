@@ -926,7 +926,7 @@ function _prRenderDetail(codeFam) {
     { key: 'analyse',   label: '📦 Analyse'   },
   ];
 
-  const cc = _CLASSIF_CARD[fam.classifGlobal] || _CLASSIF_CARD.potentiel;
+  const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
   return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
