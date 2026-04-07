@@ -24,11 +24,11 @@ const PAGE_SIZE = 20;
 
 // ── Constantes visuelles ─────────────────────────────────────────────
 const ACTION_BADGE = {
-  socle:      { label: 'Bien couverte',  bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.03)',  cardBorder: 'rgba(52,211,153,0.2)' },
-  implanter:  { label: 'À développer',   bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.03)',  cardBorder: 'rgba(96,165,250,0.2)' },
-  challenger: { label: 'À retravailler', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.03)', cardBorder: 'rgba(248,113,113,0.2)' },
-  potentiel:  { label: 'Potentiel',      bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.03)',  cardBorder: 'rgba(251,191,36,0.2)' },
-  surveiller: { label: 'À surveiller',   bg: '#f1f5f9', color: '#475569', icon: '👁',  dot: '#64748b', cardBg: 'rgba(100,116,139,0.03)', cardBorder: 'rgba(100,116,139,0.2)' },
+  socle:      { label: 'Bien couverte',  solidBg: '#16a34a', bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.03)',  cardBorder: 'rgba(52,211,153,0.2)' },
+  implanter:  { label: 'À développer',   solidBg: '#2563eb', bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.03)',  cardBorder: 'rgba(96,165,250,0.2)' },
+  challenger: { label: 'À retravailler', solidBg: '#dc2626', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.03)', cardBorder: 'rgba(248,113,113,0.2)' },
+  potentiel:  { label: 'Potentiel',      solidBg: '#d97706', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.03)',  cardBorder: 'rgba(251,191,36,0.2)' },
+  surveiller: { label: 'À surveiller',   solidBg: '#7c3aed', bg: '#f1f5f9', color: '#475569', icon: '👁',  dot: '#64748b', cardBg: 'rgba(100,116,139,0.03)', cardBorder: 'rgba(100,116,139,0.2)' },
 };
 
 const CLASSIF_BADGE = {
@@ -951,12 +951,14 @@ function _renderPlanRayonContent(data) {
   const _badge = (key, n) => {
     const b = ACTION_BADGE[key];
     const active = _prFilterClassif === key;
+    const _bg = b.solidBg || '#64748b';
+    const _opacity = active ? '1' : '0.72';
     return `<button onclick="window._prSetFilter('${key}')" data-prbadge="${key}"
-      class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}"
-      style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">
-      <span class="text-base leading-none">${b.icon}</span>
-      <span class="text-[13px] font-extrabold ${active ? 't-inverse' : 't-primary'}">${n}</span>
-      <span class="text-[9px] ${active ? 't-inverse-muted' : 't-disabled'}">${b.label}</span>
+      class="flex flex-col items-center p-3 rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+      style="background:${_bg};opacity:${_opacity};border-radius:10px;${active ? 'box-shadow:0 0 0 3px rgba(255,255,255,0.4)' : ''}">
+      <span style="font-size:1.3rem;margin-bottom:3px;line-height:1">${b.icon}</span>
+      <span style="font-size:1.5rem;font-weight:700;color:#fff;line-height:1.1">${n}</span>
+      <span style="font-size:10px;color:rgba(255,255,255,0.85);margin-top:4px;font-weight:500;letter-spacing:0.03em;text-transform:uppercase;text-align:center">${b.label}</span>
     </button>`;
   };
 
