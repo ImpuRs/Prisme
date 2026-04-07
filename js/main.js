@@ -1539,7 +1539,7 @@ _S.canalAgence=newCanalAgence;
       if(el){
         let slot=document.getElementById('dashNoStockSlot');
         if(!slot){slot=document.createElement('div');slot.id='dashNoStockSlot';el.prepend(slot);}
-        slot.innerHTML=_renderNoStockPlaceholder('Mon Stock');
+        slot.innerHTML=_renderNoStockPlaceholder('Le Stock');
         slot.style.display='';
         [...el.children].forEach(c=>{if(c.id!=='dashNoStockSlot')c.style.display='none';});
       }

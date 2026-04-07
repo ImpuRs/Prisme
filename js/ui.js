@@ -328,7 +328,7 @@ export function switchTab(id) {
     if (chalFilBlk && _S.chalandiseReady) chalFilBlk.classList.remove('hidden');
   }
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Le Labo' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
@@ -672,12 +672,12 @@ const _CMD_ACTIONS = [
   { kw: ['saso'], icon: '📦', label: 'Voir les SASO', fn: () => { showCockpitInTable('saso'); } },
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('commerce'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
-  { kw: ['mes clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Mes clients', fn: () => { switchTab('clients'); } },
+  { kw: ['les clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Les Clients', fn: () => { switchTab('clients'); } },
   { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Analyse du stock (ABC/FMR)', fn: () => { switchTab('stock'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('commerce'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('reseau'); } },
-  { kw: ['labo','croisement','commercial','silencieux','opportunités','prisme'], icon: '🧪', label: 'Onglet Labo', fn: () => { switchTab('labo'); } },
-  { kw: ['stock','mon stock','dashboard'], icon: '📦', label: 'Onglet Mon Stock', fn: () => { switchTab('stock'); } },
+  { kw: ['le labo','labo','croisement','commercial','silencieux','opportunités','prisme'], icon: '🧪', label: 'Onglet Le Labo', fn: () => { switchTab('labo'); } },
+  { kw: ['le stock','stock','dashboard'], icon: '📦', label: 'Onglet Le Stock', fn: () => { switchTab('stock'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
   { kw: ['glossaire'], icon: '🧠', label: 'Afficher le glossaire', fn: () => { const g = document.getElementById('glossaire'); if (g) { g.classList.toggle('hidden'); g.scrollIntoView({ behavior: 'smooth' }); } } },
