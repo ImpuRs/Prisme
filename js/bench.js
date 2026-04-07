@@ -192,34 +192,6 @@ function renderReseauPepites() {
   const myAg    = _S.selectedMyStore || '';
   const agences = hm.agences.filter(Boolean);
 
-  // Familles issues de pepitesOther — articles performants chez les autres, absents/faibles chez moi
-  const pepitesOther = _S.benchLists?.pepitesOther || [];
-  const famFromPepites = new Map();
-  for (const art of pepitesOther) {
-    const fam = art.fam || art.famille || '';
-    if (!fam) continue;
-    famFromPepites.set(fam, (famFromPepites.get(fam) || 0) + (art.caComp || art.caOther || art.ca || 0));
-  }
-  let top20Fams = [...famFromPepites.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([fam]) => fam);
-
-  // Fallback si pepitesOther vide : top 20 familles réseau hors mon agence
-  if (!top20Fams.length) {
-    const famCA = {};
-    for (const [ag, arts] of Object.entries(_S.ventesParMagasin || {})) {
-      if (ag === myAg) continue;
-      for (const [code, d] of Object.entries(arts)) {
-        const fam = famLib(_S.articleFamille[code]) || _S.articleFamille[code] || '';
-        if (!fam) continue;
-        famCA[fam] = (famCA[fam] || 0) + (d.sumCA || 0);
-      }
-    }
-    top20Fams = Object.entries(famCA).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([f]) => f);
-  }
-  const top20FamSet = new Set(top20Fams);
-
   // Cache médiane BL par article (invalider via delete _S._artMedianBL à chaque refilter)
   if (!_S._artMedianBL) {
     const artAllBL = {};
@@ -248,7 +220,7 @@ function renderReseauPepites() {
         medBL: artMedianBL[code] || 0,
         ratio: artMedianBL[code] > 0 ? (d.countBL || 0) / artMedianBL[code] : 0,
       }))
-      .filter(a => a.blAg >= 2 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter) && (!top20FamSet.size || top20FamSet.has(a.fam)))
+      .filter(a => a.blAg >= 2 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter))
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 10);
   }
@@ -271,7 +243,8 @@ function renderReseauPepites() {
     }
     const rows = items.map((a, i) => `<tr>
       <td>${i+1}</td>
-      <td title="${a.code}">${escapeHtml(a.lib)}</td>
+      <td class="fam-cell">${escapeHtml(a.code)}</td>
+      <td>${escapeHtml(a.lib)}</td>
       <td class="fam-cell">${a.fam}</td>
       <td class="ca-cell">${a.blAg} BL</td>
       <td class="med-cell">${a.medBL.toFixed(1)} BL</td>
@@ -281,10 +254,10 @@ function renderReseauPepites() {
     panel.innerHTML = `
       <div class="pepites-header">
         <span class="pepites-ag-label">Top pépites · ${agCode}${univFilter}</span>
-        <span class="pepites-subtitle">Familles où le réseau performe · vous n'y êtes pas ou peu</span>
+        <span class="pepites-subtitle">Articles où ${agCode} surperforme la médiane réseau (fréquence BL)</span>
       </div>
       <table class="pepites-table">
-        <thead><tr><th>#</th><th>Article</th><th>Famille</th><th>BL agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
+        <thead><tr><th>#</th><th>Code</th><th>Article</th><th>Famille</th><th>BL agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
