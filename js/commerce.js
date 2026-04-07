@@ -1143,7 +1143,6 @@ function _buildChalandiseOverview(){
   if(!blk)return;
   if(!_S.chalandiseReady){blk.classList.add('hidden');return;}
   blk.classList.remove('hidden');
-  window._cmSwitchTab?.(_S._cmTab || 'silencieux');
   _buildDeptFilter();
   _buildOverviewFilterChips();
   // Aggregate by direction commerciale — FIXED columns
@@ -1971,7 +1970,6 @@ function renderCommerceTab() {
   // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
   document.getElementById('globalCanalFilter')?.classList.remove('hidden');
   document.getElementById('terrFamilleFilter')?.classList.add('hidden');
-  _buildCockpitClient();
   const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
   if (!el) return;
@@ -1983,7 +1981,6 @@ function renderCommerceTab() {
       <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
     </div>`;
   _buildChalandiseOverview();
-  _cmSwitchTab(_cmTab);
   window.renderOmniContent?.();
 }
 
