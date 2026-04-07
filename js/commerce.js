@@ -67,7 +67,7 @@ function _cmSwitchTab(id) {
   nav.innerHTML = _cmRenderNav(counts);
   switch (id) {
     case 'silencieux':
-      content.innerHTML = `<div id="terrSilencieux"></div><div id="terrLivSansPDV" class="mt-3"></div>`;
+      content.innerHTML = `<div id="terrSilencieux"></div>`;
       window.renderSilencieux?.();
       break;
     case 'perdus':
@@ -463,19 +463,8 @@ window._terrDrillBack = function() {
       const _reconqCard=r=>`<div class="p-2.5 s-card rounded-lg border cursor-pointer hover:i-info-bg transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><div class="flex items-center gap-2 flex-wrap"><span class="font-bold text-sm">${escapeHtml(r.nom)}</span><span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-900 text-cyan-300 font-bold">🔄 ${r.daysAgo}j</span></div><div class="flex gap-3 mt-1 text-[10px] t-tertiary"><span>${escapeHtml(r.metier||'—')}</span><span>CA <strong class="t-primary">${formatEuro(r.totalCA)}</strong></span><span>${r.nbFamilles} fam.</span><span class="c-action">${escapeHtml(r.commercial||'—')}</span></div></div>`;
       const reconqHtml=`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🔄 À reconquérir <span class="text-[10px] font-normal t-disabled ml-1">${_reconqFull.length} anciens fidèles</span></h3><span class="acc-arrow t-disabled">▶</span></summary>${reconq.length?`<div class="p-4"><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${reconq.map(_reconqCard).join('')}${_reconqFull.length>10?`<p class="text-[10px] t-disabled col-span-full mt-1">… et ${_reconqFull.length-10} autres</p>`:''}</div></div>`:`<div class="p-4 text-[12px] t-secondary">${_S.chalandiseReady?'Aucun ancien fidèle silencieux détecté.':'Chargez la zone de chalandise.'}</div>`}</details>`;
 
-      // ── Section 2 : Livrés sans PDV — accordéon, top 10 + "Voir tous" ──
-      const _livAll=k.livSansPDV;
-      const livSansPDVHtml=(()=>{
-        if(!_livAll.length)return _S.livraisonsReady?`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">0 clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>`:'';
-        const _mkRow=r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
-        const thStr=`<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Nom client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-right">CA livraison</th><th class="py-2 px-2 text-right">Nb BL</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
-        const top10=_livAll.slice(0,10).map(_mkRow).join('');
-        const moreHtml=_livAll.length>10?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${_livAll.length-10} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${_livAll.slice(10).map(_mkRow).join('')}</tbody></table></div></details>`:'';
-        return`<details class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">📦 Livrés sans PDV <span class="text-[10px] font-normal t-disabled ml-1">${_livAll.length} clients</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
-      })();
       _setEl('terrTop5', top5ReconqHtml);
       _setEl('terrReconquete', reconqHtml);
-      _setEl('terrLivSansPDV', livSansPDVHtml);
 
       // Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
       _setEl('terrOpportunites', renderOppNetteTable());
