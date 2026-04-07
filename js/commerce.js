@@ -1255,8 +1255,13 @@ function _buildChalandiseOverview(){
   });
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
-  // Reconstruire le tab actif (slots DOM + cockpit) à chaque changement de filtre
-  window._cmSwitchTab?.(_S._cmTab || 'silencieux');
+  // Reconstruire le tab actif selon le contexte courant
+  if (document.getElementById('cm-tab-nav')) {
+    window._cmSwitchTab?.(_S._cmTab || 'silencieux');
+  } else if (document.getElementById('tabClients')) {
+    _buildOverviewFilterChips();
+    window.renderMesClients?.();
+  }
   // [Feature B] Vue par commercial
   _renderCommercialSummary();
   _renderOmniSegmentClients();
