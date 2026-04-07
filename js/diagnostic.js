@@ -529,8 +529,21 @@ function openArticlePanel(code,source){
     const lowBLNote=totalBLWithArticle<5?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">⚠️ Peu de BL sur cette période — élargis la période pour plus de données</p>`:'';
     coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
   }
+  // Tab switcher
+  window._artPanelTab=function(tab){
+    document.getElementById('artPanelStock')?.classList.toggle('hidden',tab!=='stock');
+    document.getElementById('artPanelClients')?.classList.toggle('hidden',tab!=='clients');
+    ['stock','clients'].forEach(t=>{
+      const btn=document.getElementById('artTab-'+t);
+      if(!btn)return;
+      btn.classList.toggle('c-action',t===tab);
+      btn.classList.toggle('t-disabled',t!==tab);
+      btn.style.borderColor=t===tab?'var(--c-action)':'transparent';
+    });
+  };
+  const tabNav=`<div class="flex gap-1 border-b b-dark mb-0"><button onclick="_artPanelTab('stock')" id="artTab-stock" class="px-3 py-2 text-xs font-semibold border-b-2 c-action" style="border-color:var(--c-action)">📦 Stock &amp; Réseau</button><button onclick="_artPanelTab('clients')" id="artTab-clients" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">🔀 Clients &amp; Co-achats</button></div>`;
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-4"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${stockHtml}${buyersHtml}${canalHtml}${reseauHtml}${coAchatHtml}`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-3"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${tabNav}<div id="artPanelStock">${stockHtml}${reseauHtml}${canalHtml}</div><div id="artPanelClients" class="hidden">${buyersHtml}${coAchatHtml}</div>`;
   const _apTrigger=document.activeElement;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap=window.focusTrap?.(panel,_apTrigger);
