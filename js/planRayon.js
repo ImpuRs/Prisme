@@ -1602,40 +1602,19 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ INSTRUCTION ═══\n`;
-  if (isRayonVide) {
-    txt += `CONTEXTE SPÉCIAL : famille non exploitée dans cette agence.\n`;
-    txt += `Génère un PLAN DE RÉFÉRENCEMENT INITIAL :\n`;
-    txt += `1) Pourquoi référencer cette famille (signal réseau + métiers)\n`;
-    txt += `2) Les 5-10 premières références à commander pour démarrer\n`;
-    txt += `3) Les métiers cibles à démarcher une fois le stock constitué\n`;
-    txt += `Sois prescriptif — dis exactement quoi commander et combien.\n\n`;
-  }
-  txt += `Génère un diagnostic actionnable en français pour le chef de rayon et son logisticien.\n`;
-  txt += `Structure : 1) État du rayon 2) Ce que le réseau dit 3) Actions prioritaires\n\n`;
-  txt += `RÈGLES ABSOLUES :\n`;
-  txt += `W = fréquence de vente hebdomadaire moyenne (W=15 = vendu 15 fois/semaine en moyenne).\n`;
-  txt += `Un article avec W élevé et stock bas = rupture imminente = priorité absolue.\n`;
-  txt += `- Commence TOUJOURS par les ruptures urgentes (W ≥ 3) si elles existent\n`;
-  txt += `- Pour chaque section (Garder / Challenger / Liquider / Réappro), liste TOUS les articles concernés avec leur code entre crochets\n`;
-  txt += `- Ne dis JAMAIS "notamment" ou "par exemple" — cite TOUT\n`;
-  txt += `- Format de chaque article : [CODE] Libellé — stock X → action concrète\n`;
-  txt += `- Quand le MAX est configuré : indique la quantité à commander (MAX - stock)\n`;
-  txt += `- Quand le MAX n'est PAS configuré : indique "MAX à paramétrer" pour les articles à garder\n`;
-  txt += `- Les challengers et dormants : liste-les TOUS avec leur code pour que le logisticien puisse bloquer les réassorts un par un\n`;
-  txt += `- Sois direct et concret. Max 500 mots.\n`;
-  txt += `- Le destinataire est le LOGISTICIEN qui a besoin des codes pour agir dans l'ERP\n`;
-  txt += `VOCABULAIRE — définis ces termes la première fois que tu les utilises :\n`;
-  txt += `- AF (ou Pépite AF) = article ABC-A FMR-F = très vendu, très fréquent = ne jamais rompre\n`;
-  txt += `- W = fréquence de vente hebdomadaire (W=15 = vendu en moyenne 15 fois par semaine)\n`;
-  txt += `- Valeur immobilisée = valeur d'achat du stock (prix unitaire × quantité en stock)\n`;
-  txt += `- Socle réseau = article justifié par les ventes des autres agences ou clients locaux\n`;
-  txt += `- MAX = quantité maximale paramétrée dans l'ERP pour le réapprovisionnement automatique\n\n`;
-  txt += `STYLE :\n`;
-  txt += `- Sections 1 et 2 : maximum 3 phrases chacune, pas de jargon sans définition\n`;
-  txt += `- Remplace "valeur immobilisée" par "stock valorisé à X€ (prix d'achat)"\n`;
-  txt += `- Remplace "pépites AF" par "meilleures ventes (AF)"\n`;
-  txt += `- Remplace "socle réseau" par "références validées par le réseau"\n`;
-  txt += `- Section 3 reste technique avec les codes — c'est pour le logisticien\n`;
+  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B).\n`;
+  txt += `Réponds en français. 4 blocs max, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
+  txt += `─── RAYON EN UN COUP D'ŒIL ───\n`;
+  txt += `1 phrase : nb articles, couverture, valeur stock, signal global (développer / surveiller / liquider).\n\n`;
+  txt += `─── PÉPITES — ne jamais rompre ───\n`;
+  txt += `Meilleures ventes (AF = très vendues, très fréquentes). Format : [CODE] Libellé — W=X. ⚠️ si stock bas.\n\n`;
+  txt += `─── À IMPLANTER ───\n`;
+  txt += `Absents mais demandés (réseau + clients zone). 1 ligne par article : [CODE] Libellé.\n\n`;
+  txt += `─── À VIRER ───\n`;
+  txt += `Dormants (0 vente) + challengers non justifiés. Format : [CODE] Libellé. Bloquer réassort.\n\n`;
+  txt += `─── À CHALLENGER (si place dispo) ───\n`;
+  txt += `Présents mais signal faible. Garder si place, virer sinon. Format : [CODE] Libellé — W=X.\n\n`;
+  txt += `RÈGLE UNIQUE : W = ventes hebdo moyennes. W élevé + stock bas = urgence absolue, signale-le en premier.\n`;
 
   return txt;
 }
