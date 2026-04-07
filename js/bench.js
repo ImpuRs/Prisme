@@ -220,20 +220,20 @@ function renderReseauPepites() {
   }
   const top20FamSet = new Set(top20Fams);
 
-  // Cache médiane par article (invalider via delete _S._artMedianCA à chaque refilter)
-  if (!_S._artMedianCA) {
-    const artAllCA = {};
+  // Cache médiane BL par article (invalider via delete _S._artMedianBL à chaque refilter)
+  if (!_S._artMedianBL) {
+    const artAllBL = {};
     Object.keys(vpm).forEach(ag => {
       Object.entries(vpm[ag]).forEach(([code, d]) => {
-        if (!artAllCA[code]) artAllCA[code] = [];
-        artAllCA[code].push(d.sumCA);
+        if (!artAllBL[code]) artAllBL[code] = [];
+        artAllBL[code].push(d.countBL || 0);
       });
     });
     const med = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-    _S._artMedianCA = {};
-    Object.entries(artAllCA).forEach(([code, vals]) => { _S._artMedianCA[code] = med(vals); });
+    _S._artMedianBL = {};
+    Object.entries(artAllBL).forEach(([code, vals]) => { _S._artMedianBL[code] = med(vals); });
   }
-  const artMedianCA = _S._artMedianCA;
+  const artMedianBL = _S._artMedianBL;
 
   function top10(agCode) {
     const agData = vpm[agCode]; if (!agData) return [];
@@ -244,11 +244,11 @@ function renderReseauPepites() {
         lib: _S.libelleLookup[code] || code,
         fam: famLib(_S.articleFamille[code]) || _S.articleFamille[code] || '?',
         univers: _S.articleUnivers[code] || 'INCONNU',
-        caAg: d.sumCA,
-        medCA: artMedianCA[code] || 0,
-        ratio: artMedianCA[code] > 0 ? d.sumCA / artMedianCA[code] : 0,
+        blAg: d.countBL || 0,
+        medBL: artMedianBL[code] || 0,
+        ratio: artMedianBL[code] > 0 ? (d.countBL || 0) / artMedianBL[code] : 0,
       }))
-      .filter(a => a.caAg > 50 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter) && (!top20FamSet.size || top20FamSet.has(a.fam)))
+      .filter(a => a.blAg >= 2 && a.ratio > 1.5 && (!univFilter || a.univers === univFilter) && (!top20FamSet.size || top20FamSet.has(a.fam)))
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 10);
   }
@@ -273,8 +273,8 @@ function renderReseauPepites() {
       <td>${i+1}</td>
       <td title="${a.code}">${escapeHtml(a.lib)}</td>
       <td class="fam-cell">${a.fam}</td>
-      <td class="ca-cell">${a.caAg.toLocaleString('fr-FR',{maximumFractionDigits:0})} €</td>
-      <td class="med-cell">${a.medCA.toLocaleString('fr-FR',{maximumFractionDigits:0})} €</td>
+      <td class="ca-cell">${a.blAg} BL</td>
+      <td class="med-cell">${a.medBL.toFixed(1)} BL</td>
       <td class="ratio-cell">×${a.ratio.toFixed(1)}</td>
     </tr>`).join('');
     const univFilter = _S.obsFilterUnivers ? ` · ${_S.obsFilterUnivers}` : '';
@@ -284,7 +284,7 @@ function renderReseauPepites() {
         <span class="pepites-subtitle">Familles où le réseau performe · vous n'y êtes pas ou peu</span>
       </div>
       <table class="pepites-table">
-        <thead><tr><th>#</th><th>Article</th><th>Famille</th><th>CA agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
+        <thead><tr><th>#</th><th>Article</th><th>Famille</th><th>BL agence</th><th>Médiane réseau</th><th>Ratio</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
@@ -643,7 +643,7 @@ function onObsFilterChange(){
 }
 
 function resetObsFilters(){
-  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;delete _S._artMedianCA;
+  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;delete _S._artMedianCA;delete _S._artMedianBL;
   const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
   const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
   _buildObsUniversDropdown();
