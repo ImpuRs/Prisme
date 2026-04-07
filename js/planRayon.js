@@ -926,7 +926,8 @@ function _prRenderDetail(codeFam) {
     { key: 'analyse',   label: '📦 Analyse'   },
   ];
 
-  return `<div id="prDetailPanel" class="mt-4 rounded-xl border b-light p-3">
+  const cc = _CLASSIF_CARD[fam.classifGlobal] || _CLASSIF_CARD.potentiel;
+  return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
