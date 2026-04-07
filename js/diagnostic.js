@@ -462,15 +462,25 @@ function openArticlePanel(code,source){
       ${noteWeb}
     </div>`;
   }
-  // Co-achats depuis blData
+  // ── Co-achats : même BL (consommé + livraisons territoire) + même client (tous canaux) ──
+  const blIndex={};
+  for(const [bl,info] of Object.entries(_S.blData||{})){
+    blIndex[bl]={codes:new Set(info.codes)};
+  }
+  if(_S.territoireReady&&_S.territoireLines?.length){
+    for(const l of _S.territoireLines){
+      if(!l.bl||!l.code||!/^\d{6}$/.test(l.code))continue;
+      if(!blIndex[l.bl])blIndex[l.bl]={codes:new Set()};
+      blIndex[l.bl].codes.add(l.code);
+    }
+  }
   const coCount=new Map();
   let totalBLWithArticle=0;
-  for(const [,blInfo] of Object.entries(_S.blData||{})){
+  for(const [,blInfo] of Object.entries(blIndex)){
     if(!blInfo.codes?.has(code))continue;
     totalBLWithArticle++;
     for(const otherCode of blInfo.codes){
-      if(otherCode===code)continue;
-      if(!/^\d{6}$/.test(otherCode))continue;
+      if(otherCode===code||!/^\d{6}$/.test(otherCode))continue;
       coCount.set(otherCode,(coCount.get(otherCode)||0)+1);
     }
   }
