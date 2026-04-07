@@ -303,7 +303,7 @@ export function clientMatchesUniversFilter(cc) {
 }
 
 export function clientMatchesDistanceFilter(info) {
-  if (!_S._distanceMaxKm || !_S._agenceCoords) return true;
+  if (!_S._distanceMaxKm) return true;
   const d = info.distanceKm;
   if (d == null) return true; // pas de coordonnées → ne pas exclure
   return d <= _S._distanceMaxKm;
