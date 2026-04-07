@@ -46,7 +46,9 @@ function _refreshBenchEquation() {
     _ca = Object.values(_ca_all).reduce((s, d) => s + _getCA(d), 0);
     _nbBL = Object.values(_ca_all).reduce((s, d) => s + (d.bl || 0), 0);
     _sumVMB = Object.values(_ca_all).reduce((s, d) => s + (d.sumVMB || 0), 0);
-    _nbClients = _S.clientLastOrderByCanal?.size || 0;
+    _nbClients = (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size > 0)
+      ? _S._clientsTousCanaux.size
+      : (_S.clientLastOrderByCanal?.size || 0);
     _canalLabel = 'Tous canaux';
   } else if (_canaux.size === 1) {
     const _canal = [..._canaux][0];
