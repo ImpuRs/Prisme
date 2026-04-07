@@ -2511,10 +2511,6 @@ initBenchListeners();
 // Remplace les onclick="window.xxx()" inline par data-action="xxx".
 // Les handlers reçoivent (el, event) et lisent data-* pour les arguments.
 const ACTION_REGISTRY = {
-  // Pagination — Top clients PDV
-  _topPDVExpand:   ()=>{_S._clientsPDVPage=1;_renderTopClientsPDV();},
-  _topPDVCollapse: ()=>{_S._clientsPDVPage=0;_renderTopClientsPDV();},
-  _topPDVPage:     (el)=>{_S._clientsPDVPage=Math.max(1,(_S._clientsPDVPage||1)+parseInt(el.dataset.dir));_renderTopClientsPDV();},
   // Pagination — Hors zone
   _horsZoneExpand:   ()=>{_S._horsZonePage=1;_renderHorsZone();},
   _horsZoneCollapse: ()=>{_S._horsZonePage=0;_renderHorsZone();},

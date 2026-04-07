@@ -86,7 +86,6 @@ function _cmSwitchTab(id) {
       break;
     case 'toppdv':
       content.innerHTML = '<div id="terrTopPDV"></div>';
-      window._renderTopClientsPDV?.();
       break;
   }
 }
@@ -309,171 +308,6 @@ window._terrDrillBack = function() {
     });
   }
 
-  // ── Top clients PDV — canal-aware, paginé, toggle hors agence ───────────
-  function _renderTopClientsPDV(){
-    const canal=_S._globalCanal||'';
-    const page=_S._clientsPDVPage||0; // 0=top5, >=1=paginated
-    const showHors=!!_S._showHorsAgence;
-    const showHorsZone=!!_S._showHorsZone;
-    const PDV_PAGE=20;
-    const nowMs=Date.now();
-    const canalNames={MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};
-    const el=document.getElementById('terrTopPDV');if(!el)return;
-    // Capturer l'état ouvert/fermé avant re-render
-    const _detCur=el.querySelector('details');
-    if(_detCur)_S._topPDVOpen=_detCur.open;
-    const _openAttr=_S._topPDVOpen!==false?' open':'';
-    _syncPDVToggles();
-
-    const _tcsPDV=(_S._terrClientSearch||'').toLowerCase();const _mPDV=cc=>!_tcsPDV||(cc||'').includes(_tcsPDV)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsPDV);
-    if(showHors){
-      // ── Vue hors agence : clients avec CA hors-MAGASIN > 0, triés par CA hors DESC ──
-      const horsRows=[];
-      for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesAllFilters(cc))continue;
-        if(!_mPDV(cc))continue;
-        const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caHors<100)continue;
-        const magMap=_S.ventesClientArticle.get(cc);
-        const caMag=magMap?[...magMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const canaux=new Set([...artMap.values()].map(v=>v.canal).filter(Boolean));
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        horsRows.push({cc,nom,metier:info?.metier||'',caHors,caMag,canaux:[...canaux].join('/')});
-      }
-      horsRows.sort((a,b)=>b.caHors-a.caHors);
-      if(!horsRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors agence détecté (CA&gt;100€).</p></details>`;return;}
-      let displayRows,pagerHtml='';
-      if(page===0){
-        displayRows=horsRows.slice(0,5);
-        if(horsRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${horsRows.length} clients →</button></div>`;
-      }else{
-        const maxPage=Math.ceil(horsRows.length/PDV_PAGE);
-        const cur=Math.max(1,Math.min(page,maxPage));
-        if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
-        displayRows=horsRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-        const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-        const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${horsRows.length} clients</span></div>`;
-      }
-      const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-danger text-[11px]">${formatEuro(r.caHors)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.caMag>0?formatEuro(r.caMag):'—'}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled">${r.canaux||'—'}</td></tr>`).join('');
-      el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🌐 Clients hors agence <span class="text-[10px] font-normal t-disabled ml-1">${horsRows.length} clients avec CA hors&gt;0</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA Hors agence</th><th class="py-2 px-2 text-right">CA Magasin</th><th class="py-2 px-2 text-right">Canal</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
-      return;
-    }
-
-    if(showHorsZone){
-      // ── Vue hors zone : clients PDV absents de la chalandise ──────────────
-      const hzRows=[];
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        if(_S.chalandiseData.has(cc))continue;
-        if(!_passesAllFilters(cc))continue;
-        if(!_mPDV(cc))continue;
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caPDV<200)continue;
-        const nom=_S.clientNomLookup?.[cc]||cc;
-        hzRows.push({cc,nom,caPDV});
-      }
-      hzRows.sort((a,b)=>b.caPDV-a.caPDV);
-      if(!hzRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client hors zone détecté (CA PDV&gt;200€ absent de la chalandise).</p></details>`;return;}
-      let displayRows,pagerHtml='';
-      if(page===0){
-        displayRows=hzRows.slice(0,5);
-        if(hzRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${hzRows.length} clients →</button></div>`;
-      }else{
-        const maxPage=Math.ceil(hzRows.length/PDV_PAGE);
-        const cur=Math.max(1,Math.min(page,maxPage));
-        if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
-        displayRows=hzRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-        const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-        const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-        pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${hzRows.length} clients</span></div>`;
-      }
-      const rows=displayRows.map(r=>`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] t-disabled font-mono">${r.cc}</td></tr>`).join('');
-      el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hzRows.length} client${hzRows.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">Code client</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
-      return;
-    }
-
-    // ── Vue normale : top clients PDV canal-aware ─────────────────────────
-    const topRows=[];
-    if(!canal||canal==='MAGASIN'){
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        if(!_passesAllFilters(cc))continue;
-        if(!_mPDV(cc))continue;
-        let caPDV=0,caPrelevee=0;
-        for(const v of artMap.values()){caPDV+=(v.sumCA||0);caPrelevee+=(v.sumCAPrelevee||0);}
-        if(caPDV<100)continue;
-        const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caPDV+caHors;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caPDV,caPrelevee,caDelta:caHors,caTotal,lastDate});
-      }
-      if(!canal){
-        for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-          if(_S.ventesClientArticle.has(cc))continue;
-          if(!_passesAllFilters(cc))continue;
-          if(!_mPDV(cc))continue;
-          const caHors=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-          if(caHors<100)continue;
-          const info=_S.chalandiseData?.get(cc);
-          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-          topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caHors,caDelta:0,caTotal:caHors,lastDate:null});
-        }
-        topRows.sort((a,b)=>b.caTotal-a.caTotal);
-      }else{
-        topRows.sort((a,b)=>b.caPrimary-a.caPrimary);
-      }
-    }else{
-      for(const[cc,artMap]of _S.ventesClientHorsMagasin){
-        if(!_passesAllFilters(cc))continue;
-        if(!_mPDV(cc))continue;
-        let caCanal=0;
-        for(const v of artMap.values()){if((v.canal||'')==canal)caCanal+=(v.sumCA||0);}
-        if(caCanal<100)continue;
-        const magMap=_S.ventesClientArticle.get(cc);
-        const caMag=magMap?[...magMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        topRows.push({cc,nom,metier:info?.metier||'',caPrimary:caCanal,caDelta:caMag,caTotal:caCanal+caMag,lastDate});
-      }
-      topRows.sort((a,b)=>b.caPrimary-a.caPrimary);
-    }
-    const isMagCanal=!canal||canal==='MAGASIN';
-    const colPrimary=isMagCanal?'CA PDV':`CA ${canalNames[canal]||canal}`;
-    const colDelta=isMagCanal?'Delta hors':'Delta mag';
-    const _tousCount=(!canal&&_S._clientsTousCanaux)?_S._clientsTousCanaux.size:topRows.length;
-    const subtitle=canal?`${topRows.length} clients · canal ${canalNames[canal]||canal}`:`${_tousCount.toLocaleString('fr')} clients · tous canaux`;
-    const _subtitleTip=isMagCanal
-      ?`Clients PDV avec CA ≥ 100 €, après tous les filtres actifs (commercial, métier, vue…). Total brut MAGASIN : ${_S.ventesClientArticle.size} clients. Clients exclusivement PDV (sans hors-agence) : ${[..._S.ventesClientArticle.keys()].filter(c=>!_S.ventesClientHorsMagasin.has(c)).length}.`
-      :`Clients avec CA ≥ 100 € sur ce canal, après tous les filtres actifs.`;
-    if(!topRows.length){el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV</h3><span class="acc-arrow t-disabled">▶</span></summary><p class="text-[11px] t-tertiary px-4 py-3">Aucun client trouvé pour ce canal.</p></details>`;return;}
-    let displayRows,pagerHtml='';
-    if(page===0){
-      displayRows=topRows.slice(0,5);
-      if(topRows.length>5)pagerHtml=`<div class="px-4 py-2 border-t b-default text-center"><button data-action="_topPDVExpand" class="text-[11px] font-semibold c-action hover:underline cursor-pointer">Voir les ${topRows.length} clients →</button></div>`;
-    }else{
-      const maxPage=Math.ceil(topRows.length/PDV_PAGE);
-      const cur=Math.max(1,Math.min(page,maxPage));
-      if(_S._clientsPDVPage!==cur)_S._clientsPDVPage=cur;
-      displayRows=topRows.slice((cur-1)*PDV_PAGE,cur*PDV_PAGE);
-      const prev=cur>1?`<button data-action="_topPDVPage" data-dir="-1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">←</button>`:`<span class="text-[11px] t-disabled px-1">←</span>`;
-      const next=cur<maxPage?`<button data-action="_topPDVPage" data-dir="1" class="text-[11px] font-semibold c-action hover:underline px-1 cursor-pointer">→</button>`:`<span class="text-[11px] t-disabled px-1">→</span>`;
-      pagerHtml=`<div class="px-4 py-2 border-t b-default flex items-center justify-between"><button data-action="_topPDVCollapse" class="text-[10px] t-disabled hover:t-primary cursor-pointer">↑ Réduire</button><div class="flex items-center gap-1">${prev}<span class="text-[11px] t-secondary">Page ${cur} sur ${maxPage}</span>${next}</div><span class="text-[10px] t-disabled">${topRows.length} clients</span></div>`;
-    }
-    const rows=displayRows.map(r=>{
-      const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
-      const silence=daysSince!==null?`${daysSince}j`:'—';
-      const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-      const _dc=r.caDelta>r.caPrimary*0.5?'c-caution':r.caDelta>r.caPrimary*2?'c-danger':'t-tertiary';
-      const _prevColor=isMagCanal?(r.caPrelevee<r.caPrimary*0.5?'c-caution':'c-ok'):'';
-      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" onclick="openClient360('${r.cc}','territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${r.nom}<span class="text-[9px] t-disabled font-normal ml-1">${r.metier||''}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPrimary)}</td>${isMagCanal?`<td class="py-1.5 px-2 text-right text-[11px] ${_prevColor}">${formatEuro(r.caPrelevee||0)}</td>`:''}<td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caDelta>0?'+'+formatEuro(r.caDelta):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-    }).join('');
-    el.innerHTML=`<details${_openAttr} class="mb-3 s-card rounded-xl border overflow-hidden"><summary class="flex items-center justify-between px-4 py-3 s-card-alt border-b cursor-pointer select-none hover:brightness-95"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_subtitleTip}">${subtitle}</span></h3><span class="acc-arrow t-disabled">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">${colPrimary}</th>${isMagCanal?'<th class="py-2 px-2 text-right">CA Prélevé</th>':''}<th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">${colDelta}</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</details>`;
-  }
-
   // ── _computeTop5Reconq — scored reconquest priority list (shared) ────
   function _computeTop5Reconq(){
     const fideles=_S.crossingStats?.fideles;
@@ -651,9 +485,6 @@ window._terrDrillBack = function() {
 
       // Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
       _setEl('terrOpportunites', renderOppNetteTable());
-
-      // Top clients PDV — canal-aware, paginé
-      _renderTopClientsPDV();
 
     }
 
@@ -942,7 +773,6 @@ window._terrDrillBack = function() {
       k.top5Reconq=k.top5Reconq.filter(c=>_matchC(c.cc,c.nom));
       k.reconq=k.reconq.filter(c=>_matchC(c.cc,c.nom));
       k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
-      k.topPDVRows=k.topPDVRows.filter(c=>_matchC(c.cc,c.nom));
       k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
       k.digitaux=(k.digitaux||[]).filter(c=>_matchC(c.cc,c.nom));
     }
@@ -968,25 +798,6 @@ window._terrDrillBack = function() {
 
     // ── S3: Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
     const oppsHtml = renderOppNetteTable();
-
-    // ── Top clients PDV (CA PDV / CA Total / Delta) ──────────────────────
-    let topPDVHtml='';
-    {const topRows=k.topPDVRows;
-      const top=topRows.slice(0,20);
-      if(top.length){
-        const now=Date.now();
-        const rows=top.map(r=>{
-          const daysSince=r.lastDate?Math.round((now-r.lastDate)/86400000):null;
-          const silence=daysSince!==null?`${daysSince}j`:'—';
-          const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
-          const _dc=deltaColor(r.caHors,r.caPDV);
-          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<span class="text-[9px] t-disabled font-normal ml-1">${escapeHtml(r.metier||'')}</span></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
-        }).join('');
-        const _nBelow100=_S.ventesClientArticle.size-topRows.length;
-        const _pdvTip=`${topRows.length} clients avec CA PDV ≥ 100 €, sur ${_S.ventesClientArticle.size} clients MAGASIN totaux (${_nBelow100} exclus car CA PDV < 100 €). Source : consommé canal MAGASIN, agence sélectionnée uniquement. Aucun filtre actif appliqué ici.`;
-        topPDVHtml=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm t-primary">🏆 Top clients PDV <span class="text-[10px] font-normal t-disabled ml-1 cursor-help" title="${_pdvTip}">${topRows.length} clients · canal MAGASIN</span></h3></div><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-      }
-    }
 
     // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
     let horsZoneHtml='';
@@ -1029,7 +840,6 @@ window._terrDrillBack = function() {
     }
 
     const _setEl=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-    _setEl('clientsTopPDV',topPDVHtml);
     _setEl('clientsHorsZone',horsZoneHtml);
     _setEl('clientsDigitaux',digitauxHtml);
     _setEl('clientsReconquete', top5ReconqHtml + reconqHtml + livSPDVHtml);
@@ -2099,7 +1909,6 @@ export {
   _renderHorsZone,
   _passesAllFilters,
   _syncPDVToggles,
-  _renderTopClientsPDV,
   _computeTop5Reconq,
   computeTerritoireKPIs,
   computeClientsKPIs,
@@ -2200,7 +2009,6 @@ window._renderPDVTab              = renderMesClients;
 window.renderMesClients           = renderCommerceTab;
 window.renderCommerceTab          = renderCommerceTab;
 window._cmSwitchTab               = _cmSwitchTab;
-window._renderTopClientsPDV       = _renderTopClientsPDV;
 window._renderHorsZone            = _renderHorsZone;
 window.computeTerritoireKPIs      = computeTerritoireKPIs;
 window.computeClientsKPIs         = computeClientsKPIs;
