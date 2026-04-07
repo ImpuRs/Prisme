@@ -476,12 +476,12 @@ function renderObservatoire(){
     pepites = _obsCanal ? pepitesAll.filter(p=>(_S.articleCanalCA.get(p.code)?.has(_obsCanal))) : pepitesAll;
   } else {
     // Autre agence — calculer live vs médiane réseau
-    if (!_S._artMedianBL) {
-      const artAllBL = {};
-      Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code])artAllBL[code]=[]; artAllBL[code].push(d.countBL||0); }); });
+    if (!_S._artMedianBL || !_S._artMedianQte) {
+      const artAllBL = {}, artAllQte = {};
+      Object.keys(_S.ventesParMagasin).forEach(ag => { Object.entries(_S.ventesParMagasin[ag]).forEach(([code,d]) => { if(!artAllBL[code]){artAllBL[code]=[];artAllQte[code]=[];} artAllBL[code].push(d.countBL||0); artAllQte[code].push(d.sumPrelevee||0); }); });
       const _mBL = arr => { const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-      _S._artMedianBL = {};
-      Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); });
+      _S._artMedianBL = {}; _S._artMedianQte = {};
+      Object.entries(artAllBL).forEach(([code,vals]) => { _S._artMedianBL[code]=_mBL(vals); _S._artMedianQte[code]=_mBL(artAllQte[code]||[]); });
     }
     const agData = _S.ventesParMagasin[_pepAgTab] || {};
     const raw = [];
@@ -495,17 +495,19 @@ function renderObservatoire(){
       const ecartPct = Math.round((myFreq / med - 1) * 100);
       const libRaw = _S.libelleLookup[code] || code;
       const lib = /^\d{6} - /.test(libRaw) ? libRaw.substring(9).trim() : libRaw;
-      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0) });
+      raw.push({ code, lib, fam: famLib(_S.articleFamille[code])||'', myFreq, compFreq: Math.round(med), ecartPct, caMe: Math.round(d.sumCA||0), myQte: Math.round(d.sumPrelevee||0), compQte: Math.round(_S._artMedianQte[code]||0) });
     }
     raw.sort((a,b)=>(b.myFreq-b.compFreq)-(a.myFreq-a.compFreq));
     pepites = raw.slice(0, 50);
   }
   const pepBadge=el('pepitesBadge');if(pepBadge){if(pepites.length){pepBadge.textContent=pepites.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
-  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Fréq Moi (${myAg2||'Moi'})`:`Fréq ${_pepAgTab}`;
-  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent=_pepAgTab===myAg2?(isMedian?'Fréq médiane réseau':`Fréq ${obsLabel}`):'Fréq médiane réseau';
+  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=_pepAgTab===myAg2?`Qté vendue (${myAg2||'Moi'})`:`Qté vendue (${_pepAgTab})`;
+  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
   const pepRows=pepites.map(p=>{
     const ecartStr=`<span class="c-ok font-extrabold">+${p.ecartPct}%</span>`;
-    return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${p.myFreq}</td><td class="py-1.5 px-3 text-center t-tertiary">${p.compFreq}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
+    const myQteVal = p.myQte ?? p.myFreq;
+    const compQteVal = p.compQte ?? p.compFreq;
+    return`<tr class="border-b hover:i-caution-bg/40"><td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${p.code}</td><td class="py-1.5 px-3 font-semibold t-primary">${p.lib}</td><td class="py-1.5 px-3 t-tertiary text-[11px]">${p.fam||'—'}</td><td class="py-1.5 px-3 text-center font-extrabold c-ok">${myQteVal}</td><td class="py-1.5 px-3 text-center t-tertiary">${compQteVal}</td><td class="py-1.5 px-3 text-center">${ecartStr}</td><td class="py-1.5 px-3 text-right t-secondary whitespace-nowrap">${p.caMe>0?formatEuro(p.caMe):'—'}</td></tr>`;
   }).join('');
   if(el('pepitesTable'))el('pepitesTable').innerHTML=pepRows||'<tr><td colspan="7" class="py-4 text-center t-disabled italic">Aucune pépite identifiée.</td></tr>';
   // 🔥 Pépites réseau
@@ -563,7 +565,7 @@ function onObsFilterChange(){
 }
 
 function resetObsFilters(){
-  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;delete _S._artMedianCA;delete _S._artMedianBL;
+  _S.obsFilterUnivers='';_S.obsFilterMinCA=0;delete _S._artMedianCA;delete _S._artMedianBL;delete _S._artMedianQte;
   const u=document.getElementById('obsFilterUnivers');if(u)u.value='';
   const m=document.getElementById('obsMinCAInput');if(m)m.value='0';
   _buildObsUniversDropdown();
