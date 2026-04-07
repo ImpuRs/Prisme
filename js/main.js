@@ -1851,7 +1851,7 @@ _S.canalAgence=newCanalAgence;
       <td class="px-2 py-2 text-center font-extrabold c-action text-xs">${r.nouveauMax}</td>
       ${_medMinCell}${_medMaxCell}
       <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)'}">${r.abcClass||'—'}</span></td>
-      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.fmrClass==='F'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.fmrClass==='M'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.fmrClass==='R'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)'}">${r.fmrClass||'—'}</span></td>
+      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.fmrClass==='F'?'background:rgba(34,197,94,0.18);color:#4ade80':r.fmrClass==='M'?'background:rgba(59,130,246,0.18);color:#93c5fd':r.fmrClass==='R'?'background:rgba(217,119,6,0.18);color:#fbbf24':'color:var(--t-disabled)'}">${r.fmrClass||'—'}</span></td>
       ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-[10px] text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':Math.round(r.caHorsMagasin)+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-[10px]">—</td>`}
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${14+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
@@ -1904,11 +1904,11 @@ _S.canalAgence=newCanalAgence;
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
     const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
     // Matrix table
-    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
+    let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr style="background:transparent">';
     html+='<th class="p-3 text-xs font-bold t-disabled text-center w-16"></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center c-ok">F<br><span class="text-[10px] font-normal t-disabled">Fréquent ≥12</span></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center c-action">M<br><span class="text-[10px] font-normal t-disabled">Moyen 4-11</span></th>';
-    html+='<th class="p-3 text-sm font-extrabold text-center c-danger">R<br><span class="text-[10px] font-normal t-disabled">Rare ≤3</span></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(34,197,94,0.12);color:#4ade80;border-radius:8px 8px 0 0">F<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Fréquent ≥12</span></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(59,130,246,0.12);color:#93c5fd;border-radius:8px 8px 0 0">M<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Moyen 4-11</span></th>';
+    html+='<th class="p-3 text-sm font-extrabold text-center" style="background:rgba(217,119,6,0.12);color:#fbbf24;border-radius:8px 8px 0 0">R<br><span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.4)">Rare ≤3</span></th>';
     html+='</tr></thead><tbody>';
     const rowLabels={A:'<div class="font-extrabold text-xl text-indigo-900">A</div><div class="text-[9px] t-tertiary font-semibold">Top 80%</div>',B:'<div class="font-extrabold text-xl text-indigo-600">B</div><div class="text-[9px] t-tertiary font-semibold">15%</div>',C:'<div class="font-extrabold text-xl text-indigo-400">C</div><div class="text-[9px] t-tertiary font-semibold">5%</div>'};
     for(const abc of['A','B','C']){
