@@ -422,15 +422,25 @@ function openArticlePanel(code,source){
     const rows=buyerList.slice(0,5).map(b=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(b.cc)}</td><td class="py-1 px-2 text-xs">${escapeHtml(b.nom)}${_unikLink(b.cc)}${b.statusBadge?' '+b.statusBadge:''}</td><td class="py-1 px-2 text-right text-xs font-bold ${b.caArt>0?'c-ok':'t-tertiary'}">${b.caArt>0?formatEuro(b.caArt):'—'}</td><td class="py-1 px-2 text-center text-[10px] ${b.daysSince!==null&&b.daysSince>30?'c-danger':'t-disabled'}">${b.daysSince!==null?b.daysSince+'j':'—'}</td></tr>`).join('');
     buyersHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">👥 Qui achète cet article ?</span><span class="t-disabled text-xs">${buyers.size} client${buyers.size>1?'s':''} · CA total ${formatEuro(totalCA)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="t-tertiary text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Dernière cmd</th></tr></thead><tbody>${rows}</tbody></table></div>${buyers.size>5?`<p class="text-[10px] t-tertiary mt-1.5">… et ${buyers.size-5} autres acheteurs</p>`:''}</div>`;
   }
-  // Réseau section (multi only)
+  // Réseau section — benchmark par agence (CA, BL, MIN/MAX)
   let reseauHtml='';
-  if(_S.storesIntersection.size>1&&_S.selectedMyStore){
-    const cs=[..._S.storesIntersection];const myFreq=(_S.ventesParMagasin[_S.selectedMyStore]||{})[code]?.countBL||0;
-    const freqs=cs.map(s=>(_S.ventesParMagasin[s]||{})[code]?.countBL||0).filter(v=>v>0);
-    if(freqs.length>1){
-      const med=_median(freqs);const nbAg=freqs.length;const rank=[...freqs].sort((a,b)=>b-a).findIndex(f=>f<=myFreq)+1;
-      const rankCls=rank<=Math.ceil(nbAg/3)?'c-ok':rank<=Math.ceil(2*nbAg/3)?'c-caution':'c-danger';
-      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🔭 Réseau (${nbAg} agences)</span></div><div class="grid grid-cols-3 gap-3 text-xs text-center"><div><p class="t-disabled mb-0.5">Ma fréquence</p><p class="font-extrabold text-lg">${myFreq}</p></div><div><p class="t-disabled mb-0.5">Médiane réseau</p><p class="font-extrabold text-lg ${myFreq>=med?'c-ok':'c-caution'}">${med.toFixed(0)}</p></div><div><p class="t-disabled mb-0.5">Mon rang</p><p class="font-extrabold text-lg ${rankCls}">#${rank}/${nbAg}</p></div></div></div>`;
+  if(_S.storesIntersection?.size>1&&_S.ventesParMagasin){
+    const rows=[];
+    for(const [ag,arts] of Object.entries(_S.ventesParMagasin)){
+      if(ag===_S.selectedMyStore)continue;
+      const d=arts?.[code];
+      if(!d)continue;
+      const stockAg=_S.stockParMagasin?.[ag]?.[code];
+      const minAg=stockAg?.qteMin??'—';
+      const maxAg=stockAg?.qteMax??'—';
+      rows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:minAg,max:maxAg});
+    }
+    rows.sort((a,b)=>b.ca-a.ca);
+    if(rows.length){
+      const medMin=(()=>{const vals=rows.map(r=>r.min).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
+      const medMax=(()=>{const vals=rows.map(r=>r.max).filter(v=>typeof v==='number').sort((a,b)=>a-b);return vals.length?vals[Math.floor(vals.length/2)]:'—';})();
+      const tableRows=rows.slice(0,8).map(r=>`<tr class="border-t b-dark"><td class="py-1 px-2 font-bold text-[10px]" style="color:var(--t-secondary)">${r.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${r.ca>0?formatEuro(r.ca):'—'}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.bl}</td><td class="py-1 px-2 text-center text-xs" style="color:var(--t-secondary)">${r.min} / ${r.max}</td></tr>`).join('');
+      reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🏪 Réseau</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
   }
   // Section Canaux
