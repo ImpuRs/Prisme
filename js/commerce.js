@@ -1258,7 +1258,7 @@ function _buildChalandiseOverview(){
   _buildOverviewFilterChips();
   // Reconstruire le contenu selon le sous-onglet actif
   if (document.getElementById('cm-tab-nav')) {
-    _cmSwitchTab(_cmTab);
+    window._cmSwitchTab?.(_cmTab);
   } else if (document.getElementById('tabClients')) {
     renderMesClients();
   }
