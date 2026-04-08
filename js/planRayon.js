@@ -508,6 +508,7 @@ const _SQ_SORT_FNS = {
   reseau:    (a, b) => (b.nbAgencesReseau || 0) - (a.nbAgencesReseau || 0),
   livraison: (a, b) => (b.nbBLLivraisons  || 0) - (a.nbBLLivraisons  || 0),
   classif:   (a, b) => _SQ_CLASSIF_ORDER.indexOf(a._g) - _SQ_CLASSIF_ORDER.indexOf(b._g),
+  code:      (a, b) => String(a.code).localeCompare(String(b.code)),
 };
 
 function _prBuildSqTable(arts) {
@@ -547,7 +548,7 @@ function _prBuildSqTable(arts) {
   return `<div class="overflow-x-auto" id="prSqTable">
     <table class="w-full text-[11px]">
       <thead><tr class="border-b b-light text-[10px]">
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th>
+        ${_thSort('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
