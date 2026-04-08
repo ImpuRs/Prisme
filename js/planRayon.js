@@ -2,7 +2,7 @@
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon } from './engine.js';
-import { FAMILLE_LOOKUP } from './constants.js';
+import { FAMILLE_LOOKUP, SEGMENTS, detectSegment, dominantSegment, metierToSegments } from './constants.js';
 import { getFilteredData } from './ui.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -30,6 +30,8 @@ const ACTION_BADGE = {
   challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.04)', cardBorder: 'rgba(248,113,113,0.22)' },
   potentiel:  { label: 'Potentiel',      gradient: 'linear-gradient(135deg,#d97706,#b45309)', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.04)',  cardBorder: 'rgba(251,191,36,0.22)' },
   surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.04)', cardBorder: 'rgba(100,116,139,0.22)' },
+  repositionner: { label: 'À repositionner', gradient: 'linear-gradient(135deg,#ea580c,#c2410c)', bg: '#ffedd5', color: '#9a3412', icon: '🔄', dot: '#fb923c', cardBg: 'rgba(251,146,60,0.04)', cardBorder: 'rgba(251,146,60,0.25)' },
+  specialiser:   { label: 'À spécialiser',   gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
 };
 
 const CLASSIF_BADGE = {
@@ -39,6 +41,60 @@ const CLASSIF_BADGE = {
   potentiel:  { label: 'Potentiel',  bg: 'rgba(245,158,11,0.2)',  color: '#f59e0b',           icon: '🟡' },
   surveiller: { label: 'Surveiller', bg: 'rgba(148,163,184,0.2)', color: 'var(--t-secondary)', icon: '👁'  },
 };
+
+// ── Vocation contexte agence ─────────────────────────────────────────
+// Calcule la distribution segments cible des clients de l'agence pondérée
+// par CA (MAGASIN + hors-MAGASIN). Cache simple invariant tant que les
+// données chalandise/ventes ne changent pas.
+let _prAgenceCtxCache = null;
+function _prAgenceVocationCtx() {
+  if (_prAgenceCtxCache) return _prAgenceCtxCache;
+  const cd = _S.chalandiseData;
+  const vca = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  const vcm = _S.ventesClientHorsMagasin;
+  const metierCA = new Map();   // metier → CA total
+  const segCA = { chantier: 0, erp: 0, deco: 0, source: 0 };
+  if (cd && (vca || vcm)) {
+    const _addCA = (cc, ca) => {
+      const info = cd.get(cc);
+      const metier = info?.metier || 'inconnu';
+      metierCA.set(metier, (metierCA.get(metier) || 0) + ca);
+    };
+    if (vca) for (const [cc, artMap] of vca) {
+      let ca = 0;
+      for (const v of artMap.values()) ca += (v.sumCA || v.sumCAAll || 0);
+      if (ca > 0) _addCA(cc, ca);
+    }
+    if (vcm) for (const [cc, artMap] of vcm) {
+      let ca = 0;
+      for (const v of artMap.values()) ca += (v.sumCA || 0);
+      if (ca > 0) _addCA(cc, ca);
+    }
+    for (const [metier, ca] of metierCA) {
+      const segs = metierToSegments(metier);
+      if (segs.length === 0) continue;
+      const part = ca / segs.length;
+      for (const s of segs) segCA[s] += part;
+    }
+  }
+  const total = segCA.chantier + segCA.erp + segCA.deco + segCA.source;
+  let dominant = 'deco', best = -1;
+  for (const k of Object.keys(segCA)) if (segCA[k] > best) { best = segCA[k]; dominant = k; }
+  // TOP 5 métiers triés CA desc
+  const topMetiers = [...metierCA.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([m, ca]) => ({ metier: m, ca, segments: metierToSegments(m) }));
+  _prAgenceCtxCache = {
+    dominantSegment: dominant,
+    distribution: segCA,
+    share: total > 0 ? best / total : 0,
+    topMetiers,
+    totalCA: total,
+  };
+  return _prAgenceCtxCache;
+}
+export function _prInvalidateAgenceCtx() { _prAgenceCtxCache = null; }
 
 // ── computePlanStock ─────────────────────────────────────────────────
 function computePlanStock() {
@@ -91,9 +147,16 @@ function computePlanStock() {
       nbCatalogue: catCount.get(codeFam) || 0,
       nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
       nbDormants: 0, nbRuptures: 0, nbFin: 0, hygieneScore: 0, needsCleaning: false,
+      // Vocation : items collectés pour calcul ultérieur
+      _itemsIncontournables: [], _itemsSortir: [],
+      vocationReelle: null, vocationSortir: null, vocationDist: null,
+      pivot: false, aligne: null,
     });
     return famMap.get(codeFam);
   };
+
+  // Lookup libellé robuste
+  const _libOf = (code) => _S.libelleLookup?.[code] || _S.finalData?.find(r => r.code === code)?.libelle || '';
 
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller'];
   for (const d of sqData.directions) {
@@ -113,6 +176,10 @@ function computePlanStock() {
             f.caAgence += a.caAgence || 0;
             if ((a.caReseau || 0) > 0) { f.caReseau += a.caReseau; f.nbRefsReseau++; }
             if (a.enStock) f.nbEnRayon++;
+          }
+          // Vocation : socle = ce qui marche, implanter (depuis réseau) = ce qui devrait marcher
+          if (g === 'socle' || g === 'implanter') {
+            f._itemsIncontournables.push({ libelle: _libOf(a.code), weight: (a.caReseau || a.caAgence || 1) });
           }
         }
       }
@@ -145,10 +212,16 @@ function computePlanStock() {
     if (!f) continue;
     const statut = (r.statut || '').toLowerCase();
     const isFin = statut.includes('fin de');
+    const isDormant = r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin;
     if (isFin) f.nbFin++;
-    if (r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin) f.nbDormants++;
+    if (isDormant) f.nbDormants++;
     if (r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0) f.nbRuptures++;
+    if (isFin || isDormant) {
+      f._itemsSortir.push({ libelle: r.libelle || '', weight: (r.stockActuel * (r.prixUnitaire || 1)) || 1 });
+    }
   }
+  // Contexte agence (segments cible des clients)
+  const agenceCtx = _prAgenceVocationCtx();
   const nbOtherStores = Math.max(1, ((_S.storesIntersection?.size || 1) - 1));
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
@@ -162,6 +235,18 @@ function computePlanStock() {
       const caResPerRefPerStore = (f.caReseau / nbOtherStores) / f.nbRefsReseau;
       f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
     }
+    // Vocation : segment dominant des incontournables vs sortir
+    const vocInc = dominantSegment(f._itemsIncontournables);
+    const vocSor = dominantSegment(f._itemsSortir);
+    f.vocationReelle = vocInc.share >= 0.35 ? vocInc.segment : null;
+    f.vocationSortir = vocSor.share >= 0.35 ? vocSor.segment : null;
+    f.vocationDist = vocInc.distribution;
+    f.vocationShare = vocInc.share;
+    f.pivot = !!(f.vocationReelle && f.vocationSortir && f.vocationReelle !== f.vocationSortir);
+    f.aligne = f.vocationReelle ? (f.vocationReelle === agenceCtx.dominantSegment) : null;
+    delete f._itemsIncontournables;
+    delete f._itemsSortir;
+
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
     const rSocle      = total > 0 ? f.socle      / total : 0;
     const rChallenger = total > 0 ? f.challenger  / total : 0;
@@ -170,7 +255,16 @@ function computePlanStock() {
     // Garde-fou petites familles : trop peu de signal pour conclure "à développer"
     const isSmall = f.nbCatalogue < 5;
 
-    if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
+    // ─── Vocation prioritaire ──────────────────────────────────────
+    // À repositionner : pivot vocation détecté ET hygiène dégradée
+    // (rayon en train de changer de vocation, il faut accompagner)
+    if (!isSmall && f.pivot && f.hygieneScore >= 30 && f.nbEnRayon >= 8)
+      f.classifGlobal = 'repositionner';
+    // À spécialiser : aligné métiers MAIS rayon trop large (rendement < réseau)
+    // (le rayon parle aux bons clients mais s'éparpille)
+    else if (!isSmall && f.aligne === false && f.nbEnRayon >= 10 && f.rendement !== null && f.rendement < 90)
+      f.classifGlobal = 'specialiser';
+    else if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
     else if (!isSmall && f.implanter >= 4 && total > 0 && (f.implanter + f.potentiel) / total > 0.4)
       f.classifGlobal = 'implanter';
@@ -205,6 +299,8 @@ function computePlanStock() {
       challenger: families.filter(f => f.classifGlobal === 'challenger').length,
       potentiel:  families.filter(f => f.classifGlobal === 'potentiel').length,
       surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
+      repositionner: families.filter(f => f.classifGlobal === 'repositionner').length,
+      specialiser:   families.filter(f => f.classifGlobal === 'specialiser').length,
     }
   };
 }
@@ -400,6 +496,16 @@ function _prBuildCards(data, searchText = '') {
         <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}</span>
       </div>
       ${f.needsCleaning ? `<div class="text-[9px] font-bold mb-1" style="color:#f59e0b" title="${f.nbDormants} dormants · ${f.nbFin} fin série/stock · ${f.nbRuptures} ruptures (${f.hygieneScore}%)">🧹 À nettoyer avant expansion (${f.hygieneScore}%)</div>` : ''}
+      ${f.vocationReelle ? (() => {
+        const sR = SEGMENTS[f.vocationReelle];
+        const sS = f.vocationSortir ? SEGMENTS[f.vocationSortir] : null;
+        const pivotTxt = f.pivot
+          ? `<span title="Sortir: ${sS?.label || ''} · Garder: ${sR.label}" style="color:#ea580c;font-weight:700">⚠ pivot ${sS?.icon || ''}→${sR.icon}</span>`
+          : (f.aligne === false
+              ? `<span title="Vocation rayon ≠ segment dominant clients agence" style="color:#0d9488;font-weight:700">${sR.icon} ${sR.label} (à recentrer)</span>`
+              : `<span title="${Math.round(f.vocationShare*100)}% des incontournables = ${sR.label}" style="color:#64748b">${sR.icon} ${sR.label}</span>`);
+        return `<div class="text-[9px] mb-1">${pivotTxt}</div>`;
+      })() : ''}
       ${miniBar}
       <div class="flex items-center justify-between text-[10px]">
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
@@ -1021,6 +1127,12 @@ function _prRenderDetail(codeFam) {
           title="Copier le diagnostic terrain">
           📋 Diagnostic
         </button>
+        <button onclick="window._prCopyForLLM('${fam.codeFam}')"
+          class="text-[10px] px-2 py-1 rounded border flex-shrink-0"
+          style="border-color:#7c3aed;color:#7c3aed;background:rgba(124,58,237,0.06)"
+          title="Pack données + prompt prêt à coller dans Gemini/Grok/ChatGPT">
+          🧠 Pour LLM
+        </button>
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
     </div>
@@ -1542,33 +1654,16 @@ function _prBuildDiagText(codeFam) {
     txt += `🧹 **PRIORITÉ HYGIÈNE** : ${fam.hygieneScore}% du rayon est pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin série/stock · ${fam.nbRuptures} ruptures). **Nettoie avant d'implanter** — le rendement remontera mécaniquement.\n`;
   }
 
-  // ── 📖 LECTURE EXPERT — patterns détectés automatiquement ──
-  const patterns = [];
-  // Pattern 1 : hygiène critique (≥40%)
-  if (fam.hygieneScore >= 40) {
-    patterns.push(`⚠ **Hygiène critique (${fam.hygieneScore}%)** : près de la moitié de ton rayon ne vend rien (dormants, fin de stock) ou ne peut pas vendre (ruptures). Ton rendement${fam.rendement != null ? ` (${fam.rendement})` : ''} est **mécaniquement plafonné** — impossible de remonter sans nettoyer d'abord. Ne dépense pas d'énergie à implanter tant que tu n'as pas dégagé.`);
-  }
-  // Pattern 2 : rayon échantillonné
-  if (fam.couverture < 15 && fam.nbEnRayon > 0 && fam.nbCatalogue >= 100) {
-    patterns.push(`⚠ **Rayon échantillonné (${fam.couverture}% du catalogue)** : ${fam.nbEnRayon} refs sur ${fam.nbCatalogue} au catalogue. C'est un rayon où personne n'a jamais vraiment *choisi* l'assortiment — tu as pris des morceaux sans logique. Un rayon de cette famille doit soit se spécialiser (une sous-famille à fond), soit s'élargir sur les pépites du réseau.`);
-  }
-  // Pattern 3 : ruptures concentrées sur 1 marque
-  if (rayonData?.monRayon && fam.nbRuptures >= 5) {
-    const rupByMarque = new Map();
-    for (const a of rayonData.monRayon) {
-      if (a.status !== 'rupture') continue;
-      const mq = _S.catalogueMarques?.get(a.code) || a.marque || 'Inconnue';
-      rupByMarque.set(mq, (rupByMarque.get(mq) || 0) + 1);
-    }
-    const [topMq, topN] = [...rupByMarque.entries()].sort((a, b) => b[1] - a[1])[0] || [];
-    if (topMq && topN / fam.nbRuptures > 0.6) {
-      patterns.push(`⚠ **Ruptures concentrées (${topN}/${fam.nbRuptures} sur ${topMq})** : ce n'est probablement pas un hasard. Soit un problème de commande récent (oubli, volume mal dimensionné), soit une rupture fournisseur côté Legallais. **Vérifie avec ton approvisionneur** avant de réappro à l'aveugle.`);
-    }
-  }
-  if (patterns.length) {
-    txt += `\n📖 **LECTURE EXPERT**\n`;
-    txt += `─────────────────────\n`;
-    patterns.forEach(p => { txt += p + '\n\n'; });
+  // ── Vocation détectée (lecture courte, l'analyse complète passe par 🧠 LLM) ──
+  if (fam.vocationReelle) {
+    const sR = SEGMENTS[fam.vocationReelle];
+    const sS = fam.vocationSortir ? SEGMENTS[fam.vocationSortir] : null;
+    txt += `\n🎯 **VOCATION DÉTECTÉE**\n`;
+    txt += `Ce qui marche : ${sR.icon} ${sR.label}\n`;
+    if (sS && fam.pivot) txt += `Ce qui sort : ${sS.icon} ${sS.label} → **PIVOT vocation** (le rayon doit changer de cap)\n`;
+    if (fam.aligne === false) txt += `⚠ Désalignement : ta vocation rayon ≠ segment dominant clients agence\n`;
+    if (fam.aligne === true)  txt += `✅ Aligné avec le segment dominant clients de l'agence\n`;
+    txt += `\n💡 Pour une analyse stratégique complète (croisement métiers × patterns × plan), utilise le bouton **🧠 Pour LLM** et colle dans Gemini/Grok/ChatGPT.\n`;
   }
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
   const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
@@ -1925,6 +2020,176 @@ function _prDownloadDiag(txt, codeFam) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── Pack LLM-ready ───────────────────────────────────────────────────
+// Génère un bloc texte structuré : prompt merchandiseur + contexte agence
+// + TOP métiers + vocation + données rayon segmentées. Conçu pour être
+// collé tel quel dans n'importe quel LLM (Gemini, Grok, ChatGPT, Claude).
+const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincaillerie pro).
+Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
+
+1. **La phrase à retenir** — UNE phrase qui frappe (image mentale + diagnostic + direction)
+2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI
+3. **Le piège mental à éviter** — le réflexe à ne PAS avoir face à ces données
+4. **Ce que je vois vraiment dans les données** — pattern caché, croisements (marques × métiers × emplacements)
+5. **Le plan que tu ferais** — 5 priorités concrètes max, avec geste physique + budget temps
+6. **Prédiction chiffrée** — nb refs, stock, hygiène, rendement APRÈS le plan
+7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
+
+Règles dures :
+- Croise TOUJOURS la vocation du rayon avec les TOP métiers clients de l'agence
+- Si "pivot vocation" détecté : oser dire au chef de CHANGER la vocation, pas juste élargir
+- Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
+- Parler comme un coach autour d'un café, pas comme un consultant en costume
+
+`;
+
+function _prBuildLLMPack(codeFam) {
+  const sqData = _S._prSqData || computeSquelette();
+  const data = _S._prData;
+  if (!sqData || !data) return null;
+  const fam = data.families.find(f => f.codeFam === codeFam);
+  if (!fam) return null;
+  const ctx = _prAgenceVocationCtx();
+  const lib = (c) => _S.libelleLookup?.[c] || '';
+  const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
+  const segOf = (c) => detectSegment(lib(c), mark(c));
+  const segIcon = (s) => SEGMENTS[s]?.icon || '';
+
+  // Agréger items de la famille depuis sqData
+  const items = { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] };
+  for (const d of sqData.directions || []) {
+    for (const g of Object.keys(items)) {
+      for (const a of (d[g] || [])) {
+        const cf = (_S.articleFamille?.[a.code] || '').slice(0, 3) || _S.catalogueFamille?.get(a.code)?.codeFam;
+        if (cf !== codeFam) continue;
+        items[g].push(a);
+      }
+    }
+  }
+
+  // Pathologies depuis finalData
+  const patho = [];
+  const DORMANT_DAYS = 180;
+  for (const r of (_S.finalData || [])) {
+    const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || _S.catalogueFamille?.get(r.code)?.codeFam;
+    if (cf !== codeFam) continue;
+    const statut = (r.statut || '').toLowerCase();
+    const isFin = statut.includes('fin de');
+    const isDor = r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin;
+    const isRup = r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0;
+    if (isFin || isDor || isRup) {
+      patho.push({
+        code: r.code, libelle: r.libelle, marque: mark(r.code),
+        statut: isFin ? 'fin' : isDor ? 'dormant' : 'rupture',
+        valeurLib: r.stockActuel * (r.prixUnitaire || 0),
+        seg: detectSegment(r.libelle, mark(r.code)),
+      });
+    }
+  }
+  patho.sort((a, b) => b.valeurLib - a.valeurLib);
+
+  const fmtItem = (a, withScore = false) => {
+    const s = segOf(a.code);
+    const m = mark(a.code);
+    const score = withScore && a.scoreReseau ? ` score:${a.scoreReseau}` : '';
+    return `  - [${segIcon(s)} ${s}] ${a.code} ${lib(a.code)}${m ? ' · ' + m : ''}${score}`;
+  };
+
+  const dist = fam.vocationDist || {};
+  const distStr = Object.entries(dist)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${SEGMENTS[k].icon}${k}:${Math.round(v)}`)
+    .join(' ');
+
+  const topMetStr = ctx.topMetiers
+    .map(m => `  - ${m.metier}: ${formatEuro(m.ca)} → ${m.segments.length ? m.segments.join('+') : '?'}`)
+    .join('\n');
+
+  let pack = _LLM_PROMPT;
+  pack += `═══════════════════════════════════════════════════\n`;
+  pack += `RAYON : ${fam.libFam} (${fam.codeFam})\n`;
+  pack += `Agence : ${_S.selectedMyStore || '?'}\n`;
+  pack += `═══════════════════════════════════════════════════\n\n`;
+
+  pack += `[CONTEXTE AGENCE]\n`;
+  pack += `Segment dominant clients (CA pondéré) : ${SEGMENTS[ctx.dominantSegment]?.icon} ${ctx.dominantSegment} (${Math.round(ctx.share*100)}%)\n`;
+  pack += `TOP 5 métiers clients agence (toutes familles) :\n${topMetStr}\n\n`;
+
+  pack += `[VOCATION DU RAYON]\n`;
+  pack += `Vocation réelle (ce qui marche) : ${fam.vocationReelle ? SEGMENTS[fam.vocationReelle].icon + ' ' + fam.vocationReelle : 'non détectée'}\n`;
+  pack += `Vocation à sortir (ce qui ne marche plus) : ${fam.vocationSortir ? SEGMENTS[fam.vocationSortir].icon + ' ' + fam.vocationSortir : 'non détectée'}\n`;
+  pack += `Distribution incontournables : ${distStr}\n`;
+  pack += `Pivot détecté : ${fam.pivot ? '⚠ OUI — la vocation actuelle ≠ vocation réelle' : 'non'}\n`;
+  pack += `Aligné métiers agence : ${fam.aligne === true ? '✅ oui' : fam.aligne === false ? '❌ NON — désalignement' : '?'}\n`;
+  pack += `Classification PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
+
+  pack += `[KPIs RAYON]\n`;
+  pack += `- ${fam.nbEnRayon} refs en rayon · ${fam.nbCatalogue} catalogue · couverture ${fam.couverture}%\n`;
+  pack += `- ${fam.nbClients} clients servis · CA agence ${formatEuro(fam.caAgence)}\n`;
+  pack += `- Hygiène : ${fam.hygieneScore}% pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin · ${fam.nbRuptures} ruptures)\n`;
+  pack += `- Rendement réseau : ${fam.rendement != null ? fam.rendement + ' (base 100)' : 'n/a'}\n\n`;
+
+  if (patho.length) {
+    pack += `[À SORTIR — ${patho.length} refs pathologiques, top 20 par € libérable]\n`;
+    for (const p of patho.slice(0, 20)) {
+      pack += `  - [${segIcon(p.seg)} ${p.seg}] ${p.code} ${p.libelle}${p.marque ? ' · ' + p.marque : ''} (${p.statut}, ${formatEuro(p.valeurLib)})\n`;
+    }
+    pack += `\n`;
+  }
+
+  if (items.socle.length) {
+    pack += `[INCONTOURNABLES — ${items.socle.length} refs qui marchent]\n`;
+    for (const a of items.socle.slice(0, 25)) pack += fmtItem(a) + '\n';
+    pack += `\n`;
+  }
+  if (items.implanter.length) {
+    pack += `[À IMPLANTER (suggéré par PRISME) — ${items.implanter.length} refs]\n`;
+    for (const a of items.implanter.slice(0, 25)) pack += fmtItem(a, true) + '\n';
+    pack += `\n`;
+  }
+  if (items.challenger.length) {
+    pack += `[CHALLENGER — ${items.challenger.length} refs en rayon mais sous-performantes]\n`;
+    for (const a of items.challenger.slice(0, 15)) pack += fmtItem(a) + '\n';
+    pack += `\n`;
+  }
+
+  // Emplacements observés
+  const empSet = new Set();
+  for (const r of (_S.finalData || [])) {
+    const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || _S.catalogueFamille?.get(r.code)?.codeFam;
+    if (cf === codeFam && r.emplacement?.trim()) empSet.add(r.emplacement.trim());
+  }
+  if (empSet.size) {
+    pack += `[EMPLACEMENTS OBSERVÉS] ${[...empSet].sort().join(' · ')}\n\n`;
+  }
+
+  pack += `═══════════════════════════════════════════════════\n`;
+  pack += `Maintenant, applique le prompt en 7 sections.\n`;
+  return pack;
+}
+
+window._prCopyForLLM = function(codeFam) {
+  const txt = _prBuildLLMPack(codeFam);
+  if (!txt) { alert('Données indisponibles pour ce rayon.'); return; }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(txt).then(() => {
+      const btn = document.querySelector('[onclick*="_prCopyForLLM"]');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Pack copié !';
+        setTimeout(() => { btn.textContent = orig; }, 2200);
+      }
+    }).catch(() => {
+      const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `pack-llm_${codeFam}.txt`; a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+};
 
 window._prExportDiag = function(codeFam) {
   const txt = _prBuildDiagText(codeFam);
