@@ -151,6 +151,9 @@ function computePlanStock() {
       _itemsIncontournables: [], _itemsSortir: [],
       vocationReelle: null, vocationSortir: null, vocationDist: null,
       pivot: false, aligne: null,
+      // Schizophrénie : refs dans socle/réseau ET pathologiques en agence
+      _incCodes: new Set(),
+      schizoItems: [], nbSchizo: 0,
     });
     return famMap.get(codeFam);
   };
@@ -180,6 +183,7 @@ function computePlanStock() {
           // Vocation : socle = ce qui marche, implanter (depuis réseau) = ce qui devrait marcher
           if (g === 'socle' || g === 'implanter') {
             f._itemsIncontournables.push({ libelle: _libOf(a.code), weight: (a.caReseau || a.caAgence || 1) });
+            f._incCodes.add(a.code);
           }
         }
       }
@@ -219,6 +223,22 @@ function computePlanStock() {
     if (isFin || isDormant) {
       f._itemsSortir.push({ libelle: r.libelle || '', weight: (r.stockActuel * (r.prixUnitaire || 1)) || 1 });
     }
+    // Schizophrénie : ref incontournable réseau MAIS pathologique chez nous
+    // = signal "rayon échantillonné" / commande à la demande, divorce de confiance
+    const isPatho = isFin || isDormant || (r.stockActuel === 0 && (r.enleveTotal || 0) > 0);
+    if (isPatho && f._incCodes.has(r.code)) {
+      f.schizoItems.push({
+        code: r.code, libelle: r.libelle || '',
+        statut: isFin ? 'fin' : isDormant ? 'dormant' : 'rupture',
+        ageJours: r.ageJours || 0,
+        valeur: r.stockActuel * (r.prixUnitaire || 0),
+      });
+    }
+  }
+  // Finaliser nbSchizo et nettoyer _incCodes (gros volume)
+  for (const [, f] of famMap) {
+    f.nbSchizo = f.schizoItems.length;
+    delete f._incCodes;
   }
   // Contexte agence (segments cible des clients)
   const agenceCtx = _prAgenceVocationCtx();
@@ -496,6 +516,7 @@ function _prBuildCards(data, searchText = '') {
         <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}</span>
       </div>
       ${f.needsCleaning ? `<div class="text-[9px] font-bold mb-1" style="color:#f59e0b" title="${f.nbDormants} dormants · ${f.nbFin} fin série/stock · ${f.nbRuptures} ruptures (${f.hygieneScore}%)">🧹 À nettoyer avant expansion (${f.hygieneScore}%)</div>` : ''}
+      ${f.nbSchizo >= 2 ? `<div class="text-[9px] font-bold mb-1" style="color:#a855f7" title="Refs identifiées comme incontournables réseau MAIS dormantes/ruptures chez toi — signal 'rayon échantillonné', commande à la demande sans stock fiable, divorce de confiance">🌀 ${f.nbSchizo} refs schizo (échantillonné)</div>` : ''}
       ${f.vocationReelle ? (() => {
         const sR = SEGMENTS[f.vocationReelle];
         const sS = f.vocationSortir ? SEGMENTS[f.vocationSortir] : null;
@@ -1125,7 +1146,7 @@ function _prRenderDetail(codeFam) {
         <button onclick="window._prExportDiag('${fam.codeFam}')"
           class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
           title="Copier le diagnostic terrain">
-          📋 Diagnostic
+          📋 Liste action
         </button>
         <button onclick="window._prCopyForLLM('${fam.codeFam}')"
           class="text-[10px] px-2 py-1 rounded border flex-shrink-0"
@@ -1653,6 +1674,12 @@ function _prBuildDiagText(codeFam) {
   if (fam.needsCleaning) {
     txt += `🧹 **PRIORITÉ HYGIÈNE** : ${fam.hygieneScore}% du rayon est pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin série/stock · ${fam.nbRuptures} ruptures). **Nettoie avant d'implanter** — le rendement remontera mécaniquement.\n`;
   }
+  if (fam.nbSchizo >= 2) {
+    txt += `🌀 **${fam.nbSchizo} REFS SCHIZO** : incontournables réseau MAIS dormantes/ruptures chez toi → rayon échantillonné, commande à la demande, **stock fiable manquant**.\n`;
+    for (const s of fam.schizoItems.slice(0, 8)) {
+      txt += `   - ${s.code} ${s.libelle} (${s.statut}, ${s.ageJours}j)\n`;
+    }
+  }
 
   // ── Vocation détectée (lecture courte, l'analyse complète passe par 🧠 LLM) ──
   if (fam.vocationReelle) {
@@ -2130,6 +2157,15 @@ function _prBuildLLMPack(codeFam) {
   pack += `- ${fam.nbClients} clients servis · CA agence ${formatEuro(fam.caAgence)}\n`;
   pack += `- Hygiène : ${fam.hygieneScore}% pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin · ${fam.nbRuptures} ruptures)\n`;
   pack += `- Rendement réseau : ${fam.rendement != null ? fam.rendement + ' (base 100)' : 'n/a'}\n\n`;
+
+  if (fam.nbSchizo > 0) {
+    pack += `[REFS SCHIZO — ${fam.nbSchizo} refs incontournables réseau MAIS dormantes/ruptures chez toi]\n`;
+    pack += `(Signal 'rayon échantillonné' : commandées à la demande sans stock fiable → divorce de confiance client)\n`;
+    for (const s of fam.schizoItems.slice(0, 15)) {
+      pack += `  - ${s.code} ${s.libelle} (${s.statut}, ${s.ageJours}j, ${formatEuro(s.valeur)})\n`;
+    }
+    pack += `\n`;
+  }
 
   if (patho.length) {
     pack += `[À SORTIR — ${patho.length} refs pathologiques, top 20 par € libérable]\n`;
