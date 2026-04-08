@@ -1016,15 +1016,10 @@ function _prRenderDetail(codeFam) {
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button onclick="window._prExportDiag('${fam.codeFam}','full')"
+        <button onclick="window._prExportDiag('${fam.codeFam}')"
           class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
-          title="Copier le diagnostic terrain complet (4 étapes)">
+          title="Copier le diagnostic terrain">
           📋 Diagnostic
-        </button>
-        <button onclick="window._prExportDiag('${fam.codeFam}','implant')"
-          class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
-          title="Copier uniquement le plan d'implantation (ÉTAPE 2)">
-          🎯 Implantation
         </button>
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
@@ -1463,7 +1458,7 @@ window._prExportRayon = function() {
 };
 
 // ── Diagnostic ─────────────────────────────────────────────────────────
-function _prBuildDiagText(codeFam, mode = 'full') {
+function _prBuildDiagText(codeFam) {
   const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
   if (!fam) return '';
 
@@ -1545,6 +1540,35 @@ function _prBuildDiagText(codeFam, mode = 'full') {
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n`;
   if (fam.needsCleaning) {
     txt += `🧹 **PRIORITÉ HYGIÈNE** : ${fam.hygieneScore}% du rayon est pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin série/stock · ${fam.nbRuptures} ruptures). **Nettoie avant d'implanter** — le rendement remontera mécaniquement.\n`;
+  }
+
+  // ── 📖 LECTURE EXPERT — patterns détectés automatiquement ──
+  const patterns = [];
+  // Pattern 1 : hygiène critique (≥40%)
+  if (fam.hygieneScore >= 40) {
+    patterns.push(`⚠ **Hygiène critique (${fam.hygieneScore}%)** : près de la moitié de ton rayon ne vend rien (dormants, fin de stock) ou ne peut pas vendre (ruptures). Ton rendement${fam.rendement != null ? ` (${fam.rendement})` : ''} est **mécaniquement plafonné** — impossible de remonter sans nettoyer d'abord. Ne dépense pas d'énergie à implanter tant que tu n'as pas dégagé.`);
+  }
+  // Pattern 2 : rayon échantillonné
+  if (fam.couverture < 15 && fam.nbEnRayon > 0 && fam.nbCatalogue >= 100) {
+    patterns.push(`⚠ **Rayon échantillonné (${fam.couverture}% du catalogue)** : ${fam.nbEnRayon} refs sur ${fam.nbCatalogue} au catalogue. C'est un rayon où personne n'a jamais vraiment *choisi* l'assortiment — tu as pris des morceaux sans logique. Un rayon de cette famille doit soit se spécialiser (une sous-famille à fond), soit s'élargir sur les pépites du réseau.`);
+  }
+  // Pattern 3 : ruptures concentrées sur 1 marque
+  if (rayonData?.monRayon && fam.nbRuptures >= 5) {
+    const rupByMarque = new Map();
+    for (const a of rayonData.monRayon) {
+      if (a.status !== 'rupture') continue;
+      const mq = _S.catalogueMarques?.get(a.code) || a.marque || 'Inconnue';
+      rupByMarque.set(mq, (rupByMarque.get(mq) || 0) + 1);
+    }
+    const [topMq, topN] = [...rupByMarque.entries()].sort((a, b) => b[1] - a[1])[0] || [];
+    if (topMq && topN / fam.nbRuptures > 0.6) {
+      patterns.push(`⚠ **Ruptures concentrées (${topN}/${fam.nbRuptures} sur ${topMq})** : ce n'est probablement pas un hasard. Soit un problème de commande récent (oubli, volume mal dimensionné), soit une rupture fournisseur côté Legallais. **Vérifie avec ton approvisionneur** avant de réappro à l'aveugle.`);
+    }
+  }
+  if (patterns.length) {
+    txt += `\n📖 **LECTURE EXPERT**\n`;
+    txt += `─────────────────────\n`;
+    patterns.forEach(p => { txt += p + '\n\n'; });
   }
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
   const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
@@ -1648,7 +1672,7 @@ function _prBuildDiagText(codeFam, mode = 'full') {
       .sort(_sortPhys);
 
     // ── ÉTAPE 1 ─────────────────────────────────────────────
-    if (mode !== 'implant' && aSortir.length) {
+    if (aSortir.length) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       const nbEmp = new Set(aSortir.map(a => (a.emplacement || '').trim()).filter(Boolean)).size;
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables · ${nbEmp} emplacements rendus) ═══\n`;
@@ -1762,7 +1786,7 @@ function _prBuildDiagText(codeFam, mode = 'full') {
     }
 
     // ── ÉTAPE 4 ─────────────────────────────────────────────
-    if (mode !== 'implant' && aMaintenir.length) {
+    if (aMaintenir.length) {
       // Marqueurs ÉTAPE 4 : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX absent ERP
       const _markers4 = (a) => {
         let s = '';
@@ -1902,8 +1926,8 @@ function _prDownloadDiag(txt, codeFam) {
   URL.revokeObjectURL(url);
 }
 
-window._prExportDiag = function(codeFam, mode = 'full') {
-  const txt = _prBuildDiagText(codeFam, mode);
+window._prExportDiag = function(codeFam) {
+  const txt = _prBuildDiagText(codeFam);
   if (!txt) return;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(txt).then(() => {
