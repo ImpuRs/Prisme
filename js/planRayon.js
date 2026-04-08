@@ -1636,7 +1636,8 @@ function _prBuildDiagText(codeFam) {
 
   txt += `═══ INSTRUCTION ═══\n`;
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
-  txt += `Réponds en français, style synthétique, 6 blocs dans l'ordre ci-dessous. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
+  txt += `Réponds en français, style synthétique, 6 blocs dans l'ordre ci-dessous. Pas d'intro, pas de conclusion, pas de définitions.\n`;
+  txt += `ORDRE ABSOLU : dans chaque bloc, liste les articles par code croissant (ex : [100001] avant [500999]). Ne jamais déroger à cet ordre.\n\n`;
   txt += `─── RAYON EN UN COUP D'ŒIL ───\n`;
   txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
   txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
