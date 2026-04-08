@@ -412,6 +412,15 @@ function _prRenderRayon(data) {
         ${_prSelectedEmps.size ? `<button onclick="window._prClearEmps()" class="text-[10px] t-disabled hover:t-primary ml-1">✕</button>` : ''}
       </div>`
     : '';
+  const marquePillsRayon = _prSelectedMarques.size > 0
+    ? `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
+        <span class="text-[10px] t-disabled">🏷️</span>
+        ${[..._prSelectedMarques].sort().map(m => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
+          ${escapeHtml(m)}
+          <button onclick="window._prToggleMarque('${m.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+        </span>`).join('')}
+      </div>`
+    : '';
   // Filtre emplacement puis statut (réutilise displayedForHeader, déjà filtré)
   const afterEmp = displayedForHeader;
   const displayed = _prRayonFilter
@@ -460,7 +469,7 @@ function _prRenderRayon(data) {
   return `<div class="mb-3 text-[11px] t-secondary">
     ${displayedForHeader.length} articles en rayon · ${couverture}% couverture (${displayedForHeader.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
-  ${empPills}
+  ${empPills}${marquePillsRayon}
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
     ${_pill('pepite',     pepites,  '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
     ${_pill('standard',   standard, '⚪', 'standard',    '#94a3b8', 'rgba(148,163,184,0.2)', 500)}
