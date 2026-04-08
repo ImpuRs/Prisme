@@ -47,8 +47,11 @@ const CLASSIF_BADGE = {
 // par CA (MAGASIN + hors-MAGASIN). Cache simple invariant tant que les
 // données chalandise/ventes ne changent pas.
 let _prAgenceCtxCache = null;
+let _prAgenceCtxStore = null;
 function _prAgenceVocationCtx() {
-  if (_prAgenceCtxCache) return _prAgenceCtxCache;
+  const currentStore = _S.selectedMyStore || '';
+  if (_prAgenceCtxCache && _prAgenceCtxStore === currentStore) return _prAgenceCtxCache;
+  _prAgenceCtxStore = currentStore;
   const cd = _S.chalandiseData;
   const vca = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
   const vcm = _S.ventesClientHorsMagasin;
