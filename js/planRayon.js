@@ -1629,13 +1629,8 @@ function _prBuildDiagText(codeFam) {
       txt += `═══ ÉTAPE 2 — COMMANDER / RÉAPPRO (${aCommander.length} refs) ═══\n`;
       txt += `Geste : note sur bon de commande. ⭐ = pépite prioritaire · 🔧 = paramétrer MIN/MAX avant commande.\n`;
       _printByEmp(aCommander, (a, emp) => {
-        const q = _cmdQ(a);
         const urg = a.status === 'rupture' ? '⚠ RUPTURE' : 'sous MIN';
-        // Si pas de MIN/MAX, le 🔧 dans les marqueurs suffit : on masque la redite
-        const tail = q == null
-          ? `${_mm(a)} (${urg})`
-          : `${_mm(a)}, cmd ${q} (${urg})`;
-        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${tail}`;
+        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)} (${urg})`;
       });
       txt += '\n';
     }
@@ -1643,9 +1638,21 @@ function _prBuildDiagText(codeFam) {
     // ── ÉTAPE 4 ─────────────────────────────────────────────
     // (ÉTAPE 3 "Implanter" est imprimée plus bas depuis sqData)
     if (aMaintenir.length) {
+      // Marqueurs ÉTAPE 4 : pas de 🔧 (on n'affiche que les MIN/MAX PRISME)
+      const _markers4 = (a) => {
+        let s = '';
+        if (a.status === 'pepite') s += '⭐';
+        if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
+        return s ? s + ' ' : '';
+      };
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
-      txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller) · 🔧 = MIN/MAX à paramétrer.\n`;
-      _printByEmp(aMaintenir, (a, emp) => `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}`);
+      txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller).\n`;
+      _printByEmp(aMaintenir, (a, emp) => {
+        const m = _minMax(a);
+        const mm = m ? `MIN ${m.min}/MAX ${m.max}` : '';
+        const tail = mm ? `, ${mm}` : '';
+        return `☐ ${emp}${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}`;
+      });
       txt += '\n';
     }
   }
