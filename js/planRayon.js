@@ -1563,7 +1563,8 @@ function _prBuildDiagText(codeFam) {
 
     // Socle inclut : articles sqClassif=socle + pépites (même hors socle réseau, marquées ⭐)
     const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' || a.status === 'pepite').sort(_sortSF);
-    const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle').sort(_sortSF);
+    // Dormants exclus des challengers (ils doivent aller en "à virer")
+    const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle' && a.status !== 'dormant').sort(_sortSF);
     // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
     const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
 
