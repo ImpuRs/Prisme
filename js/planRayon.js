@@ -1798,7 +1798,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
 
   txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) IMPLANTER → 3) INCONTOURNABLES → 4) STANDARDS → 5) Insights.\n`;
-  txt += `MISE EN PAGE OBLIGATOIRE : reprends mot pour mot les séparateurs ─── des données. Chaque sous-famille ▸ est précédée et suivie d'une barre ───. Chaque marque · est séparée de la suivante par une barre courte ───. Conserve les sauts de ligne entre groupes pour la lisibilité.\n`;
+  txt += `MISE EN PAGE OBLIGATOIRE : conserve EXACTEMENT le gras markdown des données. Les sous-titres (Dormants, Fin de série, Fin de stock), les sous-familles **▸ ...** et les marques **· ...** doivent rester en **gras**. Conserve un saut de ligne entre groupes pour la lisibilité, mais JAMAIS de double saut de ligne.\n`;
   txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est affiché EN FIN DE LIGNE uniquement, JAMAIS en début.\n`;
   txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer · ⚠=rupture.\n\n`;
 
