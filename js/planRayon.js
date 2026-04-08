@@ -282,7 +282,7 @@ function computePlanStock() {
       f.classifGlobal = 'repositionner';
     // À spécialiser : aligné métiers MAIS rayon trop large (rendement < réseau)
     // (le rayon parle aux bons clients mais s'éparpille)
-    else if (!isSmall && f.nbEnRayon >= 12 && f.rendement !== null && f.rendement < 80)
+    else if (!isSmall && f.nbEnRayon >= 15 && f.rendement !== null && f.rendement < 75)
       f.classifGlobal = 'specialiser';
     else if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
