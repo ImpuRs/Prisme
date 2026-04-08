@@ -1601,7 +1601,7 @@ function _prBuildDiagText(codeFam) {
       .sort(_sortPhys);
 
     // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards)
-    const seen = new Set([...aSortir, ...aCommander].map(a => a.code));
+    const seen = new Set(aSortir.map(a => a.code));
     const aMaintenir = rayonData.monRayon
       .filter(a => !seen.has(a.code))
       .sort(_sortPhys);
@@ -1620,42 +1620,44 @@ function _prBuildDiagText(codeFam) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
-      _printByEmp(aSortir, (a, emp) => `☐ ${emp}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€`);
+      _printByEmp(aSortir, (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`);
       txt += '\n';
     }
 
-    // ── ÉTAPE 2 ─────────────────────────────────────────────
-    if (aCommander.length) {
-      txt += `═══ ÉTAPE 2 — COMMANDER / RÉAPPRO (${aCommander.length} refs) ═══\n`;
-      txt += `Geste : note sur bon de commande. ⭐ = pépite prioritaire · 🔧 = paramétrer MIN/MAX avant commande.\n`;
-      _printByEmp(aCommander, (a, emp) => {
-        const urg = a.status === 'rupture' ? '⚠ RUPTURE' : 'sous MIN';
-        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)} (${urg})`;
-      });
-      txt += '\n';
-    }
 
     // ── ÉTAPE 4 ─────────────────────────────────────────────
     // (ÉTAPE 3 "Implanter" est imprimée plus bas depuis sqData)
     if (aMaintenir.length) {
-      // Marqueurs ÉTAPE 4 : pas de 🔧 (on n'affiche que les MIN/MAX PRISME)
+      // Marqueurs ÉTAPE 4 : pas de 🔧
       const _markers4 = (a) => {
         let s = '';
         if (a.status === 'pepite') s += '⭐';
         if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
         return s ? s + ' ' : '';
       };
-      txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
-      txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller).\n`;
-      _printByEmp(aMaintenir, (a, emp) => {
+      // Split : incontournables (pépite OU socle réseau) vs standards
+      const isIncontournable = (a) => a.status === 'pepite' || a.sqClassif === 'socle';
+      const aIncont = aMaintenir.filter(isIncontournable);
+      const aStd = aMaintenir.filter(a => !isIncontournable(a));
+      const _fmt4 = (a, emp) => {
         const m = _minMax(a);
         let mm = '';
         if (m) mm = `MIN ${m.min}/MAX ${m.max}`;
         else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
         else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
         const tail = mm ? `, ${mm}` : '';
-        return `☐ ${emp}${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}`;
-      });
+        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}${emp ? '  ' + emp.trim() : ''}`;
+      };
+      txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
+      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller).\n`;
+      if (aIncont.length) {
+        txt += `\n--- 4a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing ---\n`;
+        _printByEmp(aIncont, _fmt4);
+      }
+      if (aStd.length) {
+        txt += `\n--- 4b. STANDARDS (${aStd.length}) — vérification routine ---\n`;
+        _printByEmp(aStd, _fmt4);
+      }
       txt += '\n';
     }
   }
