@@ -1636,12 +1636,13 @@ function _prBuildDiagText(codeFam) {
 
     // ── ÉTAPE 4 ─────────────────────────────────────────────
     if (aMaintenir.length) {
-      // Marqueurs ÉTAPE 4 : ⭐ pépite · 💤 dormant socle · ⚠ rupture
+      // Marqueurs ÉTAPE 4 : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX absent ERP
       const _markers4 = (a) => {
         let s = '';
         if (a.status === 'pepite') s += '⭐';
         if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
         if (a.status === 'rupture') s += '⚠';
+        if (!_minMax(a)) s += '🔧';
         return s ? s + ' ' : '';
       };
       // Split : incontournables (pépite OU socle réseau) vs standards
@@ -1658,7 +1659,7 @@ function _prBuildDiagText(codeFam) {
         return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — ${body}${emp ? '  ' + emp.trim() : ''}`;
       };
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
-      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro).\n`;
+      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP (valeur médiane réseau indiquée à titre indicatif).\n`;
       if (aIncont.length) {
         txt += `\n--- 4a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing ---\n`;
         _printByEmp(aIncont, _fmt4);
