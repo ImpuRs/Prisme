@@ -1555,39 +1555,54 @@ function _prBuildDiagText(codeFam) {
     // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
     const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
 
+    // Format MIN/MAX compact : "MIN X/MAX Y (PRISME|ERP)" ou "—"
+    const _mm = (a) => {
+      const m = _minMax(a);
+      if (!m) return '—';
+      return `MIN ${m.min}/MAX ${m.max} (${m.src})`;
+    };
+    // Format quantité à commander compact : "cmd N" ou "OK"
+    const _cmd = (a) => {
+      const m = _minMax(a);
+      if (!m) return '⚠ pas de MAX';
+      const q = Math.max(0, m.max - (a.stockActuel || 0));
+      return q > 0 ? `cmd ${q}` : 'OK';
+    };
+
     if (pepites.length) {
       txt += `⭐ PÉPITES AF (ne jamais rompre) :\n`;
-      _printBySF(pepites, a => `• [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, ${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€${(a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠️ STOCK BAS' : ''}`);
+      _printBySF(pepites, a => {
+        const bas = (a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠ BAS' : '';
+        return `☐ [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${_cmd(a)}${bas}`;
+      });
       txt += '\n';
     }
     if (socles.length) {
-      txt += `🟢 SOCLE RÉSEAU (justifiés par les sources — à maintenir absolument) :\n`;
+      txt += `🟢 SOCLE RÉSEAU (à maintenir absolument) :\n`;
       _printBySF(socles, a => {
-        const tag = a.status === 'dormant'
-          ? ' 💤 DORMANT CHEZ MOI (garder — socle réseau, ne PAS virer)'
-          : '';
-        return `• [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}${tag}`;
+        const tag = a.status === 'dormant' ? ' 💤 Dormant chez moi' : '';
+        return `☐ [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${_cmd(a)}${tag}`;
       });
       txt += '\n';
     }
     if (challengers.length) {
-      txt += `🔶 CHALLENGERS (en stock mais non justifiés — arbitrer si place limitée) :\n`;
-      _printBySF(challengers, a => `• [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}`);
+      txt += `🔶 CHALLENGERS (arbitrer si place limitée) :\n`;
+      _printBySF(challengers, a => `☐ [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel ?? 0}, ${_mm(a)}`);
       txt += '\n';
     }
     if (rupturesUrgentes.length) {
-      txt += `🚨 URGENCES STOCK (ruptures fréquentes — réappro immédiate) :\n`;
-      _printBySF(rupturesUrgentes, a => `⚠️ [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}`);
+      txt += `🚨 URGENCES STOCK (ruptures W≥3 — réappro immédiate) :\n`;
+      _printBySF(rupturesUrgentes, a => `☐ [${a.code}] ${a.libelle} — W=${a.W}, ${_mm(a)}, ${_cmd(a)}`);
       txt += '\n';
     }
     if (dormantsHorsSocle.length) {
-      txt += `🗑 DORMANTS À VIRER (hors socle réseau — stock immobilisé, fréquence nulle) :\n`;
-      _printBySF(dormantsHorsSocle, a => `• [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€`);
+      txt += `🗑 DORMANTS À VIRER (hors socle réseau) :\n`;
+      _printBySF(dormantsHorsSocle, a => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel}, ${Math.round(a.valeurStock || 0)}€`);
       txt += '\n';
     }
     if (rupturesNormales.length) {
       txt += `Ruptures (moins fréquentes) :\n`;
-      _printBySF(rupturesNormales.slice(0, 5), a => `• [${a.code}] ${a.libelle}${_cmdLine(a)}`);
+      _printBySF(rupturesNormales.slice(0, 5), a => `☐ [${a.code}] ${a.libelle} — W=${a.W}, ${_mm(a)}, ${_cmd(a)}`);
       txt += '\n';
     }
   }
