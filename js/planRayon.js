@@ -1649,7 +1649,10 @@ function _prBuildDiagText(codeFam) {
       txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller).\n`;
       _printByEmp(aMaintenir, (a, emp) => {
         const m = _minMax(a);
-        const mm = m ? `MIN ${m.min}/MAX ${m.max}` : '';
+        let mm = '';
+        if (m) mm = `MIN ${m.min}/MAX ${m.max}`;
+        else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
+        else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
         const tail = mm ? `, ${mm}` : '';
         return `☐ ${emp}${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}`;
       });
