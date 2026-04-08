@@ -1532,34 +1532,9 @@ function _prBuildDiagText(codeFam) {
       if (a.ancienMax  > 0) return { min: a.ancienMin,  max: a.ancienMax,  src: 'ERP'   };
       return null;
     };
-    const _cmdLine = (a) => {
-      const mm = _minMax(a);
-      if (!mm) return ` → stock ${a.stockActuel ?? 0} (⚠️ aucun MAX configuré — paramétrer dans l'ERP)`;
-      const qte = Math.max(0, mm.max - (a.stockActuel || 0));
-      if (qte > 0)
-        return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Commander ${qte} unité${qte > 1 ? 's' : ''}`;
-      return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Stock OK`;
-    };
-
     const _sfOf = (a) => catFam?.get(a.code)?.sousFam || 'Divers / non catalogué';
     const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || 'Marque non renseignée';
     const _empOf = (a) => (a.emplacement || '').trim() || '—';
-
-    // Format MIN/MAX compact : PRISME > ERP > médiane réseau
-    const _mm = (a) => {
-      const m = _minMax(a);
-      if (m) return `MIN ${m.min}/MAX ${m.max}`;
-      const mn = a.medMinReseau, mx = a.medMaxReseau;
-      if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd)`;
-      if (mx != null) return `MAX ${Math.round(mx)} (méd)`;
-      return 'MIN/MAX à paramétrer';
-    };
-    // Quantité à commander
-    const _cmdQ = (a) => {
-      const m = _minMax(a);
-      if (!m) return null;
-      return Math.max(0, m.max - (a.stockActuel || 0));
-    };
 
     // Tri logique : sous-famille → marque → code (pour regrouper charnière+embase d'un même système)
     const _sortPhys = (a, b) => {
@@ -1583,37 +1558,17 @@ function _prBuildDiagText(codeFam) {
       });
     };
 
-    // === CLASSIFICATION EN 4 ÉTAPES TERRAIN ===
+    // === CLASSIFICATION TERRAIN ===
     // ÉTAPE 1 — SORTIR : dormants hors socle réseau
     const aSortir = rayonData.monRayon
       .filter(a => a.status === 'dormant' && a.sqClassif !== 'socle')
       .sort(_sortPhys);
 
-    // ÉTAPE 2 — COMMANDER : ruptures + sous-stockés (stock < MIN), hors dormants-à-virer
-    const aCommander = rayonData.monRayon
-      .filter(a => {
-        if (a.status === 'dormant' && a.sqClassif !== 'socle') return false; // déjà en étape 1
-        if (a.status === 'rupture') return true;
-        const m = _minMax(a);
-        if (m && (a.stockActuel || 0) < m.min) return true;
-        return false;
-      })
-      .sort(_sortPhys);
-
-    // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards)
+    // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards + ruptures)
     const seen = new Set(aSortir.map(a => a.code));
     const aMaintenir = rayonData.monRayon
       .filter(a => !seen.has(a.code))
       .sort(_sortPhys);
-
-    // Marqueurs : ⭐ pépite · 💤 dormant socle · 🔧 MIN/MAX absent
-    const _markers = (a) => {
-      let s = '';
-      if (a.status === 'pepite') s += '⭐';
-      if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
-      if (!_minMax(a) && !(a.medMinReseau && a.medMaxReseau)) s += '🔧';
-      return s ? s + ' ' : '';
-    };
 
     // ── ÉTAPE 1 ─────────────────────────────────────────────
     if (aSortir.length) {
@@ -1624,15 +1579,69 @@ function _prBuildDiagText(codeFam) {
       txt += '\n';
     }
 
+    // ── ÉTAPE 3 — IMPLANTER (calculée depuis sqData, exclut codes déjà au rayon) ──
+    if (sqData) {
+      const codesInRayon = new Set(rayonData.monRayon.map(a => a.code));
+      const toImpl = [];
+      for (const d of sqData.directions) {
+        for (const a of (d.implanter || [])) {
+          if (codesInRayon.has(a.code)) continue;
+          const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
+          if (cf !== codeFam) continue;
+          if (sousFamFilter) {
+            const csf = catFam?.get(a.code)?.codeSousFam || '';
+            if (csf !== sousFamFilter) continue;
+          }
+          if (_prSelectedSFs.size > 0) {
+            const csf = catFam?.get(a.code)?.codeSousFam || '';
+            if (!_prSelectedSFs.has(csf)) continue;
+          }
+          if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
+        }
+      }
+      const _sfOfImpl = (a) => catFam?.get(a.code)?.sousFam || 'Divers / non catalogué';
+      const _mqOfImpl = (a) => _S.catalogueMarques?.get(a.code) || a.marque || 'Marque non renseignée';
+      toImpl.sort((a, b) => {
+        const sa = _sfOfImpl(a), sb = _sfOfImpl(b);
+        if (sa !== sb) return sa.localeCompare(sb);
+        const ma = _mqOfImpl(a), mb = _mqOfImpl(b);
+        if (ma !== mb) return ma.localeCompare(mb);
+        return String(a.code).localeCompare(String(b.code));
+      });
+      if (toImpl.length) {
+        const fdByCode = new Map();
+        for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
+        const _mmLine = (a) => {
+          const fd = fdByCode.get(a.code);
+          const mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
+          if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
+          if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
+          return `MIN/MAX à paramétrer`;
+        };
+        txt += `═══ ÉTAPE 3 — IMPLANTER (nouvelles refs à créer) ═══\n`;
+        txt += `Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
+        const list = toImpl.slice(0, 15);
+        let curSF = null, curMQ = null;
+        list.forEach(a => {
+          const sf = _sfOfImpl(a);
+          const mq = _mqOfImpl(a);
+          if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
+          if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
+          txt += `        ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+        });
+        if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
+        txt += '\n';
+      }
+    }
 
     // ── ÉTAPE 4 ─────────────────────────────────────────────
-    // (ÉTAPE 3 "Implanter" est imprimée plus bas depuis sqData)
     if (aMaintenir.length) {
-      // Marqueurs ÉTAPE 4 : pas de 🔧
+      // Marqueurs ÉTAPE 4 : ⭐ pépite · 💤 dormant socle · ⚠ rupture
       const _markers4 = (a) => {
         let s = '';
         if (a.status === 'pepite') s += '⭐';
         if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
+        if (a.status === 'rupture') s += '⚠';
         return s ? s + ' ' : '';
       };
       // Split : incontournables (pépite OU socle réseau) vs standards
@@ -1649,7 +1658,7 @@ function _prBuildDiagText(codeFam) {
         return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}${emp ? '  ' + emp.trim() : ''}`;
       };
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
-      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller).\n`;
+      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro).\n`;
       if (aIncont.length) {
         txt += `\n--- 4a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing ---\n`;
         _printByEmp(aIncont, _fmt4);
@@ -1685,64 +1694,6 @@ function _prBuildDiagText(codeFam) {
   txt += `═══ SQUELETTE RÉSEAU (4 sources croisées) ═══\n`;
   txt += `🟢 Socle : ${sqTotals.socle} articles · 🔵 À implanter : ${sqTotals.implanter} · 🔴 Challenger : ${sqTotals.challenger} · 🟡 Potentiel : ${sqTotals.potentiel} · 👁 Surveiller : ${sqTotals.surveiller}\n`;
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
-
-  if (sqData) {
-    // Codes déjà présents au rayon (y compris ruptures) — à exclure de "à implanter"
-    const codesInRayon = new Set((rayonData?.monRayon || []).map(a => a.code));
-    const toImpl = [];
-    for (const d of sqData.directions) {
-      for (const a of (d.implanter || [])) {
-        if (codesInRayon.has(a.code)) continue;
-        const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
-        if (cf !== codeFam) continue;
-        if (sousFamFilter) {
-          const csf = catFam?.get(a.code)?.codeSousFam || '';
-          if (csf !== sousFamFilter) continue;
-        }
-        if (_prSelectedSFs.size > 0) {
-          const csf = catFam?.get(a.code)?.codeSousFam || '';
-          if (!_prSelectedSFs.has(csf)) continue;
-        }
-        if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
-      }
-    }
-    // Tri par sous-famille → marque → code
-    const _sfOfImpl = (a) => catFam?.get(a.code)?.sousFam || '—';
-    const _mqOfImpl = (a) => _S.catalogueMarques?.get(a.code) || a.marque || '—';
-    toImpl.sort((a, b) => {
-      const sa = _sfOfImpl(a), sb = _sfOfImpl(b);
-      if (sa !== sb) return sa.localeCompare(sb);
-      const ma = _mqOfImpl(a), mb = _mqOfImpl(b);
-      if (ma !== mb) return ma.localeCompare(mb);
-      return String(a.code).localeCompare(String(b.code));
-    });
-    if (toImpl.length) {
-      // Lookup MIN/MAX médiane réseau depuis finalData si dispo
-      const fdByCode = new Map();
-      for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
-      const _mmLine = (a) => {
-        const fd = fdByCode.get(a.code);
-        const mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
-        if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
-        if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
-        return `MIN/MAX à paramétrer`;
-      };
-
-      txt += `═══ ÉTAPE 3 — IMPLANTER (nouvelles refs à créer) ═══\n`;
-      txt += `Geste : crée un nouvel emplacement dans le rayon, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
-      const list = isRayonVide ? toImpl : toImpl.slice(0, 15);
-      let curSF = null, curMQ = null;
-      list.forEach(a => {
-        const sf = _sfOfImpl(a);
-        const mq = _mqOfImpl(a);
-        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
-        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
-        txt += `        ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
-      });
-      if (!isRayonVide && toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
-      txt += '\n';
-    }
-  }
 
   txt += `═══ CATALOGUE ═══\n`;
   if (_prSelectedSFs.size > 0) {
