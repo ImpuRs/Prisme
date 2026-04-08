@@ -1772,7 +1772,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Signale les socles en rupture ou sous-stockés (stock < MAX) pour réappro.\n\n`;
 
   txt += `─── 4. CHALLENGERS — arbitrage si place limitée ───\n`;
-  txt += `Utilise la section "CHALLENGERS". Ces articles sont en stock mais sans justification réseau. Ne les garder que s'il reste de la place au rayon APRÈS pépites + à implanter + socle. Sinon, proposer leur sortie.\n\n`;
+  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : ces articles sont en stock mais sans justification réseau). Ne les garder que s'il reste de la place au rayon APRÈS pépites + à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 6 (à virer).\n\n`;
 
   txt += `─── 5. URGENCES STOCK ───\n`;
   txt += `Utilise "URGENCES STOCK" (W≥3, stock=0) + pépites marquées ⚠️ STOCK BAS. Format : [CODE] Libellé — W=X → commander N unités. Priorise par W décroissant.\n\n`;
