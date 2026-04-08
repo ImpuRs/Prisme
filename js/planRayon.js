@@ -392,7 +392,7 @@ function _prRenderRayon(data) {
   const couverture = nbCatalogue > 0
     ? Math.round(displayedForHeader.length / nbCatalogue * 100)
     : 0;
-  const page = _S._prPageRayon || PAGE_SIZE;
+  const page = _S._prPageRayon || 99999;
   const pepites  = displayedForHeader.filter(a => a.status === 'pepite').length;
   const challeng = displayedForHeader.filter(a => a.status === 'challenger').length;
   const dormants = displayedForHeader.filter(a => a.status === 'dormant').length;
