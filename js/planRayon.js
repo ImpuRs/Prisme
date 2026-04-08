@@ -460,6 +460,7 @@ function _prRenderRayon(data) {
         <span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${sBg};color:${sC}">${sL}</span>
       </td>
       <td class="py-1.5 px-2 text-center">${sqBadge}</td>
+      <td class="py-1.5 px-2 text-[10px]" style="color:var(--t-secondary)" title="${escapeHtml(a.statut || '')}">${escapeHtml(a.statut || '')}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--t-primary)">${formatEuro(a.caAgence)}</td>
     </tr>`;
   }).join('');
@@ -484,7 +485,9 @@ function _prRenderRayon(data) {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sous-fam.</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th>
         <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">W</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Mon Rayon</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Squelette</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Squelette</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Statut</th>
+        <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">CA agence</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
