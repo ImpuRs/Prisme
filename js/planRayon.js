@@ -572,6 +572,9 @@ function _prRenderSquelette(fam) {
             const csf = _S.catalogueFamille?.get(a.code)?.codeSousFam || '';
             if (!_prSelectedSFs.has(csf)) continue;
           }
+          if (_prSelectedMarques.size > 0) {
+            if (!_prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '')) continue;
+          }
           arts.push({ ...a, _g: g });
         }
       }
@@ -676,6 +679,7 @@ function _prRenderMetiers(fam) {
         const cfCode = cf?.codeFam || _S.articleFamille?.[code];
         if (cfCode !== fam.codeFam) continue;
         if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf?.codeSousFam || '')) continue;
+        if (_prSelectedMarques.size > 0 && !_prSelectedMarques.has(_S.catalogueMarques?.get(code) || '')) continue;
         caFam += v.sumCA || 0;
       }
       if (caFam > 0) {
