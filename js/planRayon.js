@@ -1548,9 +1548,8 @@ function _prBuildDiagText(codeFam) {
 
     const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort(_sortSF);
     const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3).sort(_sortSF);
-    const pepites          = rayonData.monRayon.filter(a => a.status === 'pepite').sort(_sortSF);
-    // Socle inclut les dormants-chez-moi (le squelette réseau prime sur l'état local)
-    const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite').sort(_sortSF);
+    // Socle inclut : articles sqClassif=socle + pépites (même hors socle réseau, marquées ⭐)
+    const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' || a.status === 'pepite').sort(_sortSF);
     const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle').sort(_sortSF);
     // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
     const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
@@ -1569,16 +1568,12 @@ function _prBuildDiagText(codeFam) {
       return q > 0 ? `cmd ${q}` : 'OK';
     };
 
-    if (pepites.length) {
-      txt += `⭐ PÉPITES AF (ne jamais rompre) :\n`;
-      _printBySF(pepites, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
-      txt += '\n';
-    }
     if (socles.length) {
-      txt += `🟢 SOCLE RÉSEAU :\n`;
+      txt += `🟢 SOCLE RÉSEAU (⭐ = pépite AF à ne jamais rompre) :\n`;
       _printBySF(socles, a => {
+        const star = a.status === 'pepite' ? '⭐ ' : '';
         const tag = a.status === 'dormant' ? ' 💤 Dormant chez moi' : '';
-        return `☐ [${a.code}] ${a.libelle} — ${_mm(a)}${tag}`;
+        return `☐ ${star}[${a.code}] ${a.libelle} — ${_mm(a)}${tag}`;
       });
       txt += '\n';
     }
@@ -1604,7 +1599,7 @@ function _prBuildDiagText(codeFam) {
     }
     // CATCH-ALL : tout article en rayon non encore listé (standards sans classif, etc.)
     const seen = new Set([
-      ...pepites, ...socles, ...challengers, ...rupturesUrgentes,
+      ...socles, ...challengers, ...rupturesUrgentes,
       ...dormantsHorsSocle, ...rupturesNormales
     ].map(a => a.code));
     const autres = rayonData.monRayon.filter(a => !seen.has(a.code)).sort(_sortSF);
@@ -1751,33 +1746,30 @@ function _prBuildDiagText(codeFam) {
   txt += `═══ INSTRUCTION ═══\n`;
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n`;
-  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) Pépites → 2) À implanter → 3) Socle → 4) Challengers → 5) Urgences stock → 6) Finition.\n`;
+  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) À implanter → 2) Socle (⭐=pépite AF) → 3) Challengers → 4) Urgences stock → 5) Finition.\n`;
   txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe les articles par SOUS-FAMILLE (ordre alphabétique), puis par code croissant à l'intérieur de chaque sous-famille. Affiche le nom de la sous-famille en en-tête de groupe.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
   txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
   txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
 
-  txt += `─── 1. PÉPITES AF — protéger en priorité ───\n`;
-  txt += `Utilise la section "PÉPITES AF". Pour chaque pépite : statut stock, risque de rupture, réappro si besoin. Ces articles ne doivent JAMAIS sortir du rayon.\n\n`;
+  txt += `─── 1. À IMPLANTER — articles à référencer ───\n`;
+  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. Rappelle en en-tête la famille, les sous-familles concernées et les emplacements impactés.\n\n`;
 
-  txt += `─── 2. À IMPLANTER — articles à référencer ───\n`;
-  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ne rajoute PAS d'infos "agences réseau" / "clients zone". Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. Rappelle en en-tête la famille, les sous-familles concernées et les emplacements impactés.\n\n`;
+  txt += `─── 2. SOCLE — maintenir absolument ───\n`;
+  txt += `Utilise la section "SOCLE RÉSEAU". Conserve les marqueurs ⭐ (pépite AF, ne jamais rompre) et 💤 (dormant chez moi). Pour chaque article, précise son état local : "standard" ou 💤 "dormant chez moi".\n`;
+  txt += `⚠️ RÈGLES ABSOLUES :\n`;
+  txt += `  - Un article marqué 💤 DORMANT CHEZ MOI dans le socle NE DOIT JAMAIS être proposé à la suppression. Socle réseau temporairement silencieux → à conserver et surveiller.\n`;
+  txt += `  - Un article marqué ⭐ (pépite AF) ne doit JAMAIS sortir du rayon, priorité réappro absolue.\n`;
+  txt += `Signale les socles en rupture ou sous-stockés pour réappro.\n\n`;
 
-  txt += `─── 3. SOCLE — maintenir absolument ───\n`;
-  txt += `Utilise la section "SOCLE RÉSEAU". Pour chaque article, précise explicitement son état local :\n`;
-  txt += `   - "standard" (tourne normalement en agence), OU\n`;
-  txt += `   - 💤 "dormant chez moi" si le marqueur est présent dans les données.\n`;
-  txt += `⚠️ RÈGLE ABSOLUE : un article marqué 💤 DORMANT CHEZ MOI dans le socle NE DOIT JAMAIS être proposé à la suppression. C'est un article du socle réseau temporairement silencieux en agence → à conserver et à surveiller (potentiel d'activation).\n`;
-  txt += `Signale les socles en rupture ou sous-stockés (stock < MAX) pour réappro.\n\n`;
+  txt += `─── 3. CHALLENGERS — arbitrage si place limitée ───\n`;
+  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : en stock sans justification réseau). Ne les garder que s'il reste de la place au rayon APRÈS à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 5 (à virer).\n\n`;
 
-  txt += `─── 4. CHALLENGERS — arbitrage si place limitée ───\n`;
-  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : ces articles sont en stock mais sans justification réseau). Ne les garder que s'il reste de la place au rayon APRÈS pépites + à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 6 (à virer).\n\n`;
+  txt += `─── 4. URGENCES STOCK ───\n`;
+  txt += `Utilise "URGENCES STOCK" (ruptures W≥3). Format : ☐ [CODE] Libellé → commander. Priorise par gravité.\n\n`;
 
-  txt += `─── 5. URGENCES STOCK ───\n`;
-  txt += `Utilise "URGENCES STOCK" (W≥3, stock=0) + pépites marquées ⚠️ STOCK BAS. Format : [CODE] Libellé — W=X → commander N unités. Priorise par W décroissant.\n\n`;
-
-  txt += `─── 6. FINITION — à virer & ajustements catalogue ───\n`;
+  txt += `─── 5. FINITION — à virer & ajustements catalogue ───\n`;
   txt += `À VIRER : utilise UNIQUEMENT la section "DORMANTS À VIRER" (déjà filtrée : hors socle réseau). Format : [CODE] Libellé — stock N, valeur Xe libérable. Ajoute les challengers sans justification si place nécessaire. Calcule la valeur totale libérable.\n`;
   txt += `🚫 INTERDICTION ABSOLUE : ne JAMAIS proposer de virer un article du bloc SOCLE, même marqué 💤 DORMANT CHEZ MOI.\n`;
   txt += `INSIGHTS CATALOGUE & MARQUES : quelle sous-famille est sur- ou sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis.\n\n`;
