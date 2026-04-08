@@ -975,8 +975,8 @@ function _prRenderDetail(codeFam) {
       <div class="flex items-center gap-1.5 flex-shrink-0">
         <button onclick="window._prExportDiag('${fam.codeFam}')"
           class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
-          title="Copier le diagnostic pour IA">
-          🤖 Diagnostic IA
+          title="Copier le diagnostic terrain">
+          📋 Diagnostic
         </button>
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
@@ -1408,7 +1408,7 @@ window._prExportRayon = function() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-// ── Diagnostic IA ──────────────────────────────────────────────────────
+// ── Diagnostic ─────────────────────────────────────────────────────────
 function _prBuildDiagText(codeFam) {
   const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
   if (!fam) return '';
