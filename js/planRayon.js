@@ -1653,6 +1653,7 @@ function _prBuildDiagText(codeFam) {
         for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
         const _mmLine = (a) => {
           const fd = fdByCode.get(a.code);
+          if (fd && fd.nouveauMin > 0 && fd.nouveauMax > 0) return `MIN ${fd.nouveauMin}/MAX ${fd.nouveauMax}`;
           const mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
           if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
