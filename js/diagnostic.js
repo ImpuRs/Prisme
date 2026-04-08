@@ -384,7 +384,15 @@ function openArticlePanel(code,source){
   const overlay=document.getElementById('articlePanelOverlay');const panel=document.getElementById('articlePanel');
   if(!overlay||!panel)return;
   const r=DataStore.finalData.find(d=>d.code===code);
-  if(!r){panel.innerHTML='<p class="t-disabled p-4">Article introuvable.</p>';overlay.classList.add('active');return;}
+  if(!r){
+    const lib=_S.libelleLookup?.[code]||code;
+    const fam=_S.articleFamille?.[code]||'';
+    let nbAg=0,nbBL=0;
+    for(const arts of Object.values(_S.ventesParMagasin||{})) if(arts[code]) nbAg++;
+    for(const l of (_S.territoireLines||[])) if(l.code===code) nbBL++;
+    panel.innerHTML=`<div class="p-4"><h2 class="text-base font-bold t-primary mb-2">[${escapeHtml(code)}] ${escapeHtml(lib)}</h2>${fam?`<p class="text-xs t-secondary mb-3">Famille ${escapeHtml(fam)}</p>`:''}<p class="text-sm t-secondary mb-3">⚠ Pas dans le fichier stock de l'agence (article à implanter ou non référencé localement).</p><div class="text-xs t-secondary space-y-1"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div></div>`;
+    overlay.classList.add('active');return;
+  }
   const _today=new Date();
   // Header badges
   const abcCls=r.abcClass==='A'?'diag-ok':r.abcClass==='B'?'diag-warn':'diag-lock';
