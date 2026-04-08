@@ -116,22 +116,21 @@ function computePlanStock() {
     }
   }
 
-  // nbClients : utiliser la version full (toute période) pour cohérence structurelle
-  const vcaFull = _S.ventesClientArticleFull?.size
-    ? _S.ventesClientArticleFull : _S.ventesClientArticle;
-  if (vcaFull) {
-    for (const [, artMap] of vcaFull) {
-      const seen = new Set();
-      for (const code of artMap.keys()) {
-        if (!filteredCodes.has(code)) continue;
-        const fi = getFamInfo(code);
-        if (fi && !seen.has(fi.codeFam)) {
-          seen.add(fi.codeFam);
-          const f = famMap.get(fi.codeFam);
-          if (f) f.nbClients++;
-        }
-      }
-    }
+  // nbClients : MAGASIN + hors-MAGASIN (livraison, DCS, web…) — un rayon vendu en livraison compte
+  const seenClientsByFam = new Map(); // codeFam → Set<cc>
+  const _addClient = (cc, code) => {
+    if (!filteredCodes.has(code)) return;
+    const fi = getFamInfo(code);
+    if (!fi) return;
+    if (!seenClientsByFam.has(fi.codeFam)) seenClientsByFam.set(fi.codeFam, new Set());
+    seenClientsByFam.get(fi.codeFam).add(cc);
+  };
+  const vcaFull = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+  if (vcaFull) for (const [cc, artMap] of vcaFull) for (const code of artMap.keys()) _addClient(cc, code);
+  if (_S.ventesClientHorsMagasin) for (const [cc, artMap] of _S.ventesClientHorsMagasin) for (const code of artMap.keys()) _addClient(cc, code);
+  for (const [codeFam, clientsSet] of seenClientsByFam) {
+    const f = famMap.get(codeFam);
+    if (f) f.nbClients = clientsSet.size;
   }
 
   for (const [, f] of famMap) {
@@ -139,11 +138,14 @@ function computePlanStock() {
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
     const rSocle      = total > 0 ? f.socle      / total : 0;
     const rChallenger = total > 0 ? f.challenger  / total : 0;
+    const rSurveiller = total > 0 ? f.surveiller  / total : 0;
     const nbSrc = (f.srcReseau?1:0) + (f.srcChalandise?1:0) + (f.srcHorsZone?1:0) + (f.srcLivraisons?1:0);
+    // Garde-fou petites familles : trop peu de signal pour conclure "à développer"
+    const isSmall = f.nbCatalogue < 5;
 
-    if (f.implanter >= 3 && f.challenger >= 3)
+    if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
-    else if (f.implanter >= 2 && total > 0 && (f.implanter + f.potentiel) / total > 0.3)
+    else if (!isSmall && f.implanter >= 4 && total > 0 && (f.implanter + f.potentiel) / total > 0.4)
       f.classifGlobal = 'implanter';
     else if (rSocle >= 0.4 && f.nbClients >= 5 && nbSrc >= 2)
       f.classifGlobal = 'socle';
@@ -154,6 +156,9 @@ function computePlanStock() {
     else if (rChallenger >= 0.4 && f.nbClients < 5)
       f.classifGlobal = 'challenger';
     else if (f.challenger >= 5 && f.challenger > f.socle * 2)
+      f.classifGlobal = 'challenger';
+    // Rayon endormi : beaucoup de refs en stock sans signal → à retravailler
+    else if (rSurveiller >= 0.4 && f.surveiller >= 5 && f.surveiller > f.socle)
       f.classifGlobal = 'challenger';
     else if (f.implanter >= 1 || f.potentiel >= 3)
       f.classifGlobal = 'potentiel';
@@ -1661,10 +1666,20 @@ function _prBuildDiagText(codeFam) {
       if (toImpl.length) {
         const fdByCode = new Map();
         for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
+        // Médiane helper
+        const _median = (arr) => { const s = [...arr].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+        const _otherStores = [...(_S.storesIntersection || [])].filter(s => s !== _S.selectedMyStore);
         const _mmLine = (a) => {
           const fd = fdByCode.get(a.code);
           if (fd && fd.nouveauMin > 0 && fd.nouveauMax > 0) return `MIN ${fd.nouveauMin}/MAX ${fd.nouveauMax}`;
-          const mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
+          let mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
+          // Fallback : calcul direct depuis stockParMagasin (articles hors finalData)
+          if ((mn == null || mx == null) && _otherStores.length) {
+            const mins = _otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMin).filter(v => v > 0);
+            const maxs = _otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMax).filter(v => v > 0);
+            if (mins.length) mn = _median(mins);
+            if (maxs.length) mx = _median(maxs);
+          }
           if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
           return `MIN/MAX à paramétrer`;
