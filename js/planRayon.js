@@ -1633,22 +1633,39 @@ function _prBuildDiagText(codeFam) {
         if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
       }
     }
-    toImpl.sort(_sortCode);
+    // Tri par sous-famille puis code
+    const _sfOfImpl = (a) => catFam?.get(a.code)?.sousFam || '—';
+    toImpl.sort((a, b) => {
+      const sa = _sfOfImpl(a), sb = _sfOfImpl(b);
+      return sa.localeCompare(sb) || String(a.code).localeCompare(String(b.code));
+    });
     if (toImpl.length) {
-      if (isRayonVide) {
-        txt += `═══ RECOMMANDATION DE RÉFÉRENCEMENT ═══\n`;
-        txt += `Articles à fort signal réseau — à référencer en priorité :\n`;
-        toImpl.forEach(a => {
-          txt += `  • [${a.code}] ${a.libelle}`;
-          txt += ` — ${a.nbAgencesReseau||0} agences réseau`;
-          if (a.nbClientsZone > 0) txt += `, ${a.nbClientsZone} clients zone`;
-          txt += ` → MAX à paramétrer\n`;
-        });
-      } else {
-        txt += `Top articles à implanter (absents, signal réseau fort) :\n`;
-        toImpl.slice(0, 15).forEach(a => txt += `  • [${a.code}] ${a.libelle} — ${a.nbAgencesReseau || 0} agences réseau, ${a.nbClientsZone || 0} clients zone\n`);
-        if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
+      // Lookup MIN/MAX médiane réseau depuis finalData si dispo
+      const fdByCode = new Map();
+      for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
+      const _mmLine = (a) => {
+        const fd = fdByCode.get(a.code);
+        const mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
+        if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
+        if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
+        return `MIN/MAX à paramétrer`;
+      };
+
+      txt += `═══ À IMPLANTER — ${fam.libFam} (${codeFam})${sousFamLib ? ' › ' + sousFamLib : ''} ═══\n`;
+      if (_prSelectedEmps.size > 0) {
+        txt += `Emplacements impactés : ${[..._prSelectedEmps].sort().join(', ')}\n`;
+      } else if (empsKnown.length) {
+        txt += `Emplacements impactés : ${empsKnown.join(', ')}\n`;
       }
+      txt += `Articles absents du rayon, signal réseau fort — à cocher pour référencement :\n`;
+      const list = isRayonVide ? toImpl : toImpl.slice(0, 15);
+      let curSF = null;
+      list.forEach(a => {
+        const sf = _sfOfImpl(a);
+        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; }
+        txt += `     ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+      });
+      if (!isRayonVide && toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
       txt += '\n';
     }
   }
@@ -1722,7 +1739,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Utilise la section "PÉPITES AF". Pour chaque pépite : statut stock, risque de rupture, réappro si besoin. Ces articles ne doivent JAMAIS sortir du rayon.\n\n`;
 
   txt += `─── 2. À IMPLANTER — articles à référencer ───\n`;
-  txt += `Utilise "Top articles à implanter" (absents du rayon, signal réseau fort). Format : [CODE] Libellé — X agences réseau, Y clients zone. Croise avec les métiers clients actifs : si un métier dominant achète cette famille, c'est prioritaire. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger.\n\n`;
+  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ne rajoute PAS d'infos "agences réseau" / "clients zone". Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. Rappelle en en-tête la famille, les sous-familles concernées et les emplacements impactés.\n\n`;
 
   txt += `─── 3. SOCLE — maintenir absolument ───\n`;
   txt += `Utilise la section "SOCLE RÉSEAU". Pour chaque article, précise explicitement son état local :\n`;
