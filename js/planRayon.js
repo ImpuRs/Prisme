@@ -1532,42 +1532,62 @@ function _prBuildDiagText(codeFam) {
       return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Stock OK`;
     };
 
-    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort(_sortCode);
-    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3).sort(_sortCode);
-    const pepites     = rayonData.monRayon.filter(a => a.status === 'pepite').sort(_sortCode);
-    const socles      = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite').sort(_sortCode);
-    const challengers = rayonData.monRayon.filter(a => a.status === 'challenger' || a.sqClassif === 'challenger').sort(_sortCode);
-    const dormants    = rayonData.monRayon.filter(a => a.status === 'dormant').sort(_sortCode);
+    const _sfOf = (a) => catFam?.get(a.code)?.sousFam || '—';
+    const _sortSF = (a, b) => {
+      const sa = _sfOf(a), sb = _sfOf(b);
+      return sa.localeCompare(sb) || String(a.code).localeCompare(String(b.code));
+    };
+    const _printBySF = (arr, fmt) => {
+      let curSF = null;
+      arr.forEach(a => {
+        const sf = _sfOf(a);
+        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; }
+        txt += `     ${fmt(a)}\n`;
+      });
+    };
 
-    if (rupturesUrgentes.length) {
-      txt += `🚨 RUPTURES URGENTES (fréquentes — réappro immédiate) :\n`;
-      rupturesUrgentes.forEach(a => txt += `  ⚠️ [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
-      txt += '\n';
-    }
+    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort(_sortSF);
+    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3).sort(_sortSF);
+    const pepites          = rayonData.monRayon.filter(a => a.status === 'pepite').sort(_sortSF);
+    // Socle inclut les dormants-chez-moi (le squelette réseau prime sur l'état local)
+    const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' && a.status !== 'pepite').sort(_sortSF);
+    const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle').sort(_sortSF);
+    // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
+    const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
+
     if (pepites.length) {
-      txt += `Pépites AF (ne jamais rompre) :\n`;
-      pepites.forEach(a => txt += `  • [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, ${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€${(a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠️ STOCK BAS' : ''}\n`);
+      txt += `⭐ PÉPITES AF (ne jamais rompre) :\n`;
+      _printBySF(pepites, a => `• [${a.code}] ${a.libelle} (${a.marque || '?'}) — W=${a.W}, ${_cmdLine(a)}, CA ${Math.round(a.caAgence)}€${(a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠️ STOCK BAS' : ''}`);
       txt += '\n';
     }
     if (socles.length) {
-      txt += `Socle réseau (justifiés par les sources) :\n`;
-      socles.forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
-      if (socles.length > 10) txt += `  ... et ${socles.length - 10} autres\n`;
+      txt += `🟢 SOCLE RÉSEAU (justifiés par les sources — à maintenir absolument) :\n`;
+      _printBySF(socles, a => {
+        const tag = a.status === 'dormant'
+          ? ' 💤 DORMANT CHEZ MOI (garder — socle réseau, ne PAS virer)'
+          : '';
+        return `• [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}${tag}`;
+      });
       txt += '\n';
     }
     if (challengers.length) {
-      txt += `Challengers (en stock mais non justifiés) :\n`;
-      challengers.forEach(a => txt += `  • [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}\n`);
+      txt += `🔶 CHALLENGERS (en stock mais non justifiés — arbitrer si place limitée) :\n`;
+      _printBySF(challengers, a => `• [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}`);
       txt += '\n';
     }
-    if (dormants.length) {
-      txt += `Dormants (stock immobilisé, fréquence nulle) :\n`;
-      dormants.forEach(a => txt += `  • [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€\n`);
+    if (rupturesUrgentes.length) {
+      txt += `🚨 URGENCES STOCK (ruptures fréquentes — réappro immédiate) :\n`;
+      _printBySF(rupturesUrgentes, a => `⚠️ [${a.code}] ${a.libelle} — W=${a.W},${_cmdLine(a)}`);
+      txt += '\n';
+    }
+    if (dormantsHorsSocle.length) {
+      txt += `🗑 DORMANTS À VIRER (hors socle réseau — stock immobilisé, fréquence nulle) :\n`;
+      _printBySF(dormantsHorsSocle, a => `• [${a.code}] ${a.libelle} — stock ${a.stockActuel}, valeur ${Math.round(a.valeurStock || 0)}€`);
       txt += '\n';
     }
     if (rupturesNormales.length) {
       txt += `Ruptures (moins fréquentes) :\n`;
-      rupturesNormales.slice(0, 5).forEach(a => txt += `  • [${a.code}] ${a.libelle}${_cmdLine(a)}\n`);
+      _printBySF(rupturesNormales.slice(0, 5), a => `• [${a.code}] ${a.libelle}${_cmdLine(a)}`);
       txt += '\n';
     }
   }
@@ -1690,26 +1710,39 @@ function _prBuildDiagText(codeFam) {
 
   txt += `═══ INSTRUCTION ═══\n`;
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
-  txt += `Réponds en français, style synthétique, 6 blocs dans l'ordre ci-dessous. Pas d'intro, pas de conclusion, pas de définitions.\n`;
-  txt += `ORDRE ABSOLU : dans chaque bloc, liste les articles par code croissant (ex : [100001] avant [500999]). Ne jamais déroger à cet ordre.\n\n`;
-  txt += `─── RAYON EN UN COUP D'ŒIL ───\n`;
+  txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n`;
+  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) Pépites → 2) À implanter → 3) Socle → 4) Challengers → 5) Urgences stock → 6) Finition.\n`;
+  txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe les articles par SOUS-FAMILLE (ordre alphabétique), puis par code croissant à l'intérieur de chaque sous-famille. Affiche le nom de la sous-famille en en-tête de groupe.\n\n`;
+
+  txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
   txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
   txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
-  txt += `─── URGENCES STOCK ───\n`;
-  txt += `Utilise la section RUPTURES URGENTES (W≥3, stock=0). Pour chaque article : [CODE] Libellé — W=X → commander N unités. Priorise par W décroissant.\n`;
-  txt += `Signale aussi les PÉPITES AF avec stock bas (⚠️ STOCK BAS dans les données) : [CODE] Libellé — W=X, stock=N.\n\n`;
-  txt += `─── SOCLE — maintenir absolument ───\n`;
-  txt += `Utilise la section "Socle réseau" : articles justifiés par les sources. Signale ceux qui sont en rupture ou sous-stockés (stock < MAX). Classe par W décroissant, limite aux 10 plus critiques.\n\n`;
-  txt += `─── À IMPLANTER ───\n`;
-  txt += `Utilise "Top articles à implanter" (absents, signal réseau fort). Pour chaque article : [CODE] Libellé — X agences réseau, Y clients zone. Croise avec les métiers clients actifs : si le métier dominant achète cette famille, c'est une priorité haute.\n\n`;
-  txt += `─── À VIRER ───\n`;
-  txt += `Utilise les sections "Dormants" (W=0, valeur immobilisée) et "Challengers" (en stock, signal faible).\n`;
-  txt += `Dormants : [CODE] Libellé — stock N, valeur Xe immobilisée. Bloquer réassort immédiatement.\n`;
-  txt += `Challengers à virer : ceux sans justification métier ni réseau. Format : [CODE] Libellé — W=X.\n`;
-  txt += `Calcule et affiche la valeur totale libérable (dormants + challengers à virer).\n\n`;
-  txt += `─── INSIGHTS CATALOGUE & MARQUES ───\n`;
-  txt += `Utilise la section CATALOGUE (sous-familles, marques, couverture). Quelle sous-famille est sur- ou sous-représentée ? Y a-t-il une marque trop concentrée ou absente ? Recommande 1-2 ajustements précis.\n\n`;
-  txt += `RÈGLE ABSOLUE : W = ventes hebdo moyennes sur la période analysée. W élevé + stock=0 = urgence maximale — toujours traité en premier.\n`;
+
+  txt += `─── 1. PÉPITES AF — protéger en priorité ───\n`;
+  txt += `Utilise la section "PÉPITES AF". Pour chaque pépite : statut stock, risque de rupture, réappro si besoin. Ces articles ne doivent JAMAIS sortir du rayon.\n\n`;
+
+  txt += `─── 2. À IMPLANTER — articles à référencer ───\n`;
+  txt += `Utilise "Top articles à implanter" (absents du rayon, signal réseau fort). Format : [CODE] Libellé — X agences réseau, Y clients zone. Croise avec les métiers clients actifs : si un métier dominant achète cette famille, c'est prioritaire. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger.\n\n`;
+
+  txt += `─── 3. SOCLE — maintenir absolument ───\n`;
+  txt += `Utilise la section "SOCLE RÉSEAU". Pour chaque article, précise explicitement son état local :\n`;
+  txt += `   - "standard" (tourne normalement en agence), OU\n`;
+  txt += `   - 💤 "dormant chez moi" si le marqueur est présent dans les données.\n`;
+  txt += `⚠️ RÈGLE ABSOLUE : un article marqué 💤 DORMANT CHEZ MOI dans le socle NE DOIT JAMAIS être proposé à la suppression. C'est un article du socle réseau temporairement silencieux en agence → à conserver et à surveiller (potentiel d'activation).\n`;
+  txt += `Signale les socles en rupture ou sous-stockés (stock < MAX) pour réappro.\n\n`;
+
+  txt += `─── 4. CHALLENGERS — arbitrage si place limitée ───\n`;
+  txt += `Utilise la section "CHALLENGERS". Ces articles sont en stock mais sans justification réseau. Ne les garder que s'il reste de la place au rayon APRÈS pépites + à implanter + socle. Sinon, proposer leur sortie.\n\n`;
+
+  txt += `─── 5. URGENCES STOCK ───\n`;
+  txt += `Utilise "URGENCES STOCK" (W≥3, stock=0) + pépites marquées ⚠️ STOCK BAS. Format : [CODE] Libellé — W=X → commander N unités. Priorise par W décroissant.\n\n`;
+
+  txt += `─── 6. FINITION — à virer & ajustements catalogue ───\n`;
+  txt += `À VIRER : utilise UNIQUEMENT la section "DORMANTS À VIRER" (déjà filtrée : hors socle réseau). Format : [CODE] Libellé — stock N, valeur Xe libérable. Ajoute les challengers sans justification si place nécessaire. Calcule la valeur totale libérable.\n`;
+  txt += `🚫 INTERDICTION ABSOLUE : ne JAMAIS proposer de virer un article du bloc SOCLE, même marqué 💤 DORMANT CHEZ MOI.\n`;
+  txt += `INSIGHTS CATALOGUE & MARQUES : quelle sous-famille est sur- ou sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis.\n\n`;
+
+  txt += `RÈGLE W : W = ventes hebdo moyennes sur la période analysée. W élevé + stock=0 = urgence maximale.\n`;
 
   return txt;
 }
