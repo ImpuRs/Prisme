@@ -1201,9 +1201,11 @@ function _renderPlanRayonContent(data) {
     <div class="flex items-center justify-between mb-2">
       <h3 class="font-extrabold text-sm t-primary">🦴 Plan de rayon stratégique — ${data.families.length} familles analysées</h3>
     </div>
-    <div class="grid grid-cols-5 gap-2 mb-3">
+    <div class="grid grid-cols-7 gap-2 mb-3">
       ${_badge('socle', totals.socle)}
       ${_badge('implanter', totals.implanter)}
+      ${_badge('repositionner', totals.repositionner || 0)}
+      ${_badge('specialiser', totals.specialiser || 0)}
       ${_badge('challenger', totals.challenger)}
       ${_badge('potentiel', totals.potentiel)}
       ${_badge('surveiller', totals.surveiller)}
