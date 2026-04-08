@@ -1543,80 +1543,107 @@ function _prBuildDiagText(codeFam) {
 
     const _sfOf = (a) => catFam?.get(a.code)?.sousFam || '—';
     const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || '—';
-    const _sortSF = (a, b) => {
+    const _empOf = (a) => (a.emplacement || '').trim() || '—';
+
+    // Format MIN/MAX compact : PRISME > ERP > médiane réseau
+    const _mm = (a) => {
+      const m = _minMax(a);
+      if (m) return `MIN ${m.min}/MAX ${m.max}`;
+      const mn = a.medMinReseau, mx = a.medMaxReseau;
+      if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd)`;
+      if (mx != null) return `MAX ${Math.round(mx)} (méd)`;
+      return 'MIN/MAX à paramétrer';
+    };
+    // Quantité à commander
+    const _cmdQ = (a) => {
+      const m = _minMax(a);
+      if (!m) return null;
+      return Math.max(0, m.max - (a.stockActuel || 0));
+    };
+
+    // Tri physique : emplacement → sous-famille → marque → code
+    const _sortPhys = (a, b) => {
+      const ea = _empOf(a), eb = _empOf(b);
+      if (ea !== eb) return ea.localeCompare(eb);
       const sa = _sfOf(a), sb = _sfOf(b);
       if (sa !== sb) return sa.localeCompare(sb);
       const ma = _mqOf(a), mb = _mqOf(b);
       if (ma !== mb) return ma.localeCompare(mb);
       return String(a.code).localeCompare(String(b.code));
     };
-    const _printBySF = (arr, fmt) => {
-      let curSF = null, curMQ = null;
+    // Impression groupée par emplacement (parcours rayon linéaire)
+    const _printByEmp = (arr, fmt) => {
+      let curEmp = null;
       arr.forEach(a => {
-        const sf = _sfOf(a);
-        const mq = _mqOf(a);
-        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
-        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
-        txt += `        ${fmt(a)}\n`;
+        const emp = _empOf(a);
+        if (emp !== curEmp) { txt += `  📍 ${emp}\n`; curEmp = emp; }
+        const ctx = `${_sfOf(a)} / ${_mqOf(a)}`;
+        txt += `     ${fmt(a, ctx)}\n`;
       });
     };
 
-    // Socle inclut : articles sqClassif=socle + pépites (même hors socle réseau, marquées ⭐)
-    const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' || a.status === 'pepite').sort(_sortSF);
-    // Dormants exclus des challengers (ils doivent aller en "à virer")
-    const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle' && a.status !== 'dormant').sort(_sortSF);
-    // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
-    const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
+    // === CLASSIFICATION EN 4 ÉTAPES TERRAIN ===
+    // ÉTAPE 1 — SORTIR : dormants hors socle réseau
+    const aSortir = rayonData.monRayon
+      .filter(a => a.status === 'dormant' && a.sqClassif !== 'socle')
+      .sort(_sortPhys);
 
-    // Format MIN/MAX compact : PRISME > ERP > médiane réseau
-    const _mm = (a) => {
-      const m = _minMax(a);
-      if (m) return `MIN ${m.min}/MAX ${m.max} (${m.src})`;
-      const mn = a.medMinReseau, mx = a.medMaxReseau;
-      if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
-      if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
-      return 'MIN/MAX à paramétrer';
-    };
-    // Format quantité à commander compact : "cmd N" ou "OK"
-    const _cmd = (a) => {
-      const m = _minMax(a);
-      if (!m) return '⚠ pas de MAX';
-      const q = Math.max(0, m.max - (a.stockActuel || 0));
-      return q > 0 ? `cmd ${q}` : 'OK';
-    };
+    // ÉTAPE 2 — COMMANDER : ruptures + sous-stockés (stock < MIN), hors dormants-à-virer
+    const aCommander = rayonData.monRayon
+      .filter(a => {
+        if (a.status === 'dormant' && a.sqClassif !== 'socle') return false; // déjà en étape 1
+        if (a.status === 'rupture') return true;
+        const m = _minMax(a);
+        if (m && (a.stockActuel || 0) < m.min) return true;
+        return false;
+      })
+      .sort(_sortPhys);
 
-    // Marqueurs : ⭐ pépite, ⚠ rupture
-    const _mk = (a) => {
-      const s = (a.status === 'pepite' ? '⭐' : '') + (a.status === 'rupture' ? '⚠' : '');
+    // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards)
+    const seen = new Set([...aSortir, ...aCommander].map(a => a.code));
+    const aMaintenir = rayonData.monRayon
+      .filter(a => !seen.has(a.code))
+      .sort(_sortPhys);
+
+    // Marqueurs : ⭐ pépite · 💤 dormant socle · 🔧 MIN/MAX absent
+    const _markers = (a) => {
+      let s = '';
+      if (a.status === 'pepite') s += '⭐';
+      if (a.sqClassif === 'socle' && a.status === 'dormant') s += '💤';
+      if (!_minMax(a) && !(a.medMinReseau && a.medMaxReseau)) s += '🔧';
       return s ? s + ' ' : '';
     };
 
-    if (socles.length) {
-      txt += `🟢 SOCLE RÉSEAU (⭐ = pépite AF · ⚠ = rupture à réappro d'urgence) :\n`;
-      _printBySF(socles, a => {
-        const tag = a.status === 'dormant' ? ' 💤 Dormant chez moi' : '';
-        return `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}${tag}`;
+    // ── ÉTAPE 1 ─────────────────────────────────────────────
+    if (aSortir.length) {
+      const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
+      txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
+      txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
+      _printByEmp(aSortir, (a, ctx) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€ · (${ctx})`);
+      txt += '\n';
+    }
+
+    // ── ÉTAPE 2 ─────────────────────────────────────────────
+    if (aCommander.length) {
+      txt += `═══ ÉTAPE 2 — COMMANDER / RÉAPPRO (${aCommander.length} refs) ═══\n`;
+      txt += `Geste : note sur bon de commande. ⭐ = pépite prioritaire · 🔧 = paramétrer MIN/MAX avant commande.\n`;
+      _printByEmp(aCommander, (a, ctx) => {
+        const q = _cmdQ(a);
+        const cmd = q == null ? '⚠ pas de MAX' : q > 0 ? `cmd ${q}` : 'OK';
+        const urg = a.status === 'rupture' ? '⚠ RUPTURE' : 'sous MIN';
+        return `☐ ${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${cmd} (${urg}) · (${ctx})`;
       });
       txt += '\n';
     }
-    if (challengers.length) {
-      txt += `🔶 CHALLENGERS (⚠ = rupture) :\n`;
-      _printBySF(challengers, a => `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}`);
-      txt += '\n';
-    }
-    if (dormantsHorsSocle.length) {
-      txt += `🗑 DORMANTS À VIRER :\n`;
-      _printBySF(dormantsHorsSocle, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
-      txt += '\n';
-    }
-    // CATCH-ALL : tout article en rayon non encore listé (standards + ruptures sans classif)
-    const seen = new Set([
-      ...socles, ...challengers, ...dormantsHorsSocle
-    ].map(a => a.code));
-    const autres = rayonData.monRayon.filter(a => !seen.has(a.code)).sort(_sortSF);
-    if (autres.length) {
-      txt += `⚪ AUTRES EN RAYON (standards sans classification réseau · ⚠ = rupture) :\n`;
-      _printBySF(autres, a => `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}`);
+
+    // ── ÉTAPE 4 ─────────────────────────────────────────────
+    // (ÉTAPE 3 "Implanter" est imprimée plus bas depuis sqData)
+    if (aMaintenir.length) {
+      txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
+      txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller) · 🔧 = MIN/MAX à paramétrer.\n`;
+      _printByEmp(aMaintenir, (a, ctx) => {
+        return `☐ ${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)} · (${ctx})`;
+      });
       txt += '\n';
     }
   }
@@ -1687,8 +1714,8 @@ function _prBuildDiagText(codeFam) {
         return `MIN/MAX à paramétrer`;
       };
 
-      txt += `═══ À IMPLANTER ═══\n`;
-      txt += `Articles absents du rayon, signal réseau fort — à cocher pour référencement :\n`;
+      txt += `═══ ÉTAPE 3 — IMPLANTER (nouvelles refs à créer) ═══\n`;
+      txt += `Geste : crée un nouvel emplacement dans le rayon, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
       const list = isRayonVide ? toImpl : toImpl.slice(0, 15);
       let curSF = null, curMQ = null;
       list.forEach(a => {
@@ -1759,36 +1786,39 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ INSTRUCTION ═══\n`;
-  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
-  txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n`;
-  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) À implanter → 2) Socle → 3) Challengers → 4) Finition. Marqueurs in-line : ⭐=pépite AF · ⚠=rupture à réappro · 💤=dormant chez moi.\n`;
-  txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe par SOUS-FAMILLE (▸) puis par MARQUE (·) puis par code croissant. Conserve ces en-têtes de groupe dans ta sortie — c'est pour que l'utilisateur retrouve les articles devant son rayon.\n\n`;
+  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). L'utilisateur est DEBOUT DEVANT LE RAYON et va exécuter tes instructions à la main. Ton rôle : lui donner une check-list d'actions physiques linéaire, sans friction, qu'il peut cocher au fur et à mesure.\n`;
+  txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
+
+  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) COMMANDER → 3) IMPLANTER → 4) VÉRIFIER/MAINTENIR → 5) Insights.\n`;
+  txt += `TRI PHYSIQUE : dans chaque étape, conserve l'ordre par EMPLACEMENT (📍) donné dans les données. L'utilisateur doit pouvoir parcourir le rayon linéairement, sans revenir en arrière.\n`;
+  txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer avant commande · ⚠=rupture.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
-  txt += `En-tête obligatoire : rappelle la FAMILLE (nom + code), les SOUS-FAMILLES concernées, et les EMPLACEMENTS IMPACTÉS (depuis le bloc DIAGNOSTIC RAYON en haut du prompt).\n`;
-  txt += `Puis 1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
-  txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
+  txt += `Rappelle la FAMILLE (nom + code), les SOUS-FAMILLES, et les EMPLACEMENTS IMPACTÉS (depuis le bloc DIAGNOSTIC RAYON en haut du prompt).\n`;
+  txt += `1 phrase : nb articles en stock, % couverture, valeur stock, signal global (développer / consolider / désengager).\n`;
+  txt += `Cite les 2-3 métiers clients dominants et ce que ça implique pour le rayon.\n\n`;
 
-  txt += `─── 1. À IMPLANTER — articles à référencer ───\n`;
-  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. NE répète PAS la famille ni les emplacements (déjà en bloc 0).\n\n`;
+  txt += `─── 1. SORTIR DU RAYON ───\n`;
+  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement par 📍 emplacement. Format ligne : ☐ [CODE] Libellé — stock N, X€. Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
 
-  txt += `─── 2. SOCLE — maintenir absolument ───\n`;
-  txt += `Utilise la section "SOCLE RÉSEAU". Conserve TOUS les marqueurs in-line : ⭐ (pépite AF), ⚠ (rupture), 💤 (dormant chez moi).\n`;
+  txt += `─── 2. COMMANDER / RÉAPPRO ───\n`;
+  txt += `Reprends la section "ÉTAPE 2 — COMMANDER". Conserve le groupement par 📍 emplacement et tous les marqueurs (⭐ 💤 🔧 ⚠). Format : ☐ [CODE] Libellé — stock N, MIN X/MAX Y, cmd Z (⚠ RUPTURE|sous MIN).\n`;
+  txt += `Priorise visuellement ⚠ RUPTURE (urgence) et ⭐ pépite (critique). Les articles 🔧 nécessitent un passage ERP avant commande — signale-les clairement.\n\n`;
+
+  txt += `─── 3. IMPLANTER (nouvelles refs) ───\n`;
+  txt += `Reprends la section "ÉTAPE 3 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
+
+  txt += `─── 4. VÉRIFIER / MAINTENIR ───\n`;
+  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR". Conserve le groupement par 📍 emplacement et les marqueurs. Ce bloc = parcours de vérification du facing et de l'état.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
-  txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité réappro absolue.\n`;
-  txt += `  - ⚠ rupture : réappro immédiate (signaler en priorité dans le bloc).\n`;
-  txt += `  - 💤 dormant chez moi : NE DOIT JAMAIS être proposé à la suppression. Socle réseau temporairement silencieux → à conserver et surveiller.\n\n`;
+  txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
+  txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
+  txt += `  - 🔧 : article sans MIN/MAX configuré → tâche de paramétrage ERP à noter.\n\n`;
 
-  txt += `─── 3. CHALLENGERS — arbitrage si place limitée ───\n`;
-  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : en stock sans justification réseau). Conserve les marqueurs ⚠ (rupture). Ne les garder que s'il reste de la place au rayon APRÈS à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 4 (à virer). Les articles ⚠ en rupture méritent une décision explicite : réappro ou sortie.\n\n`;
+  txt += `─── 5. INSIGHTS CATALOGUE & MARQUES ───\n`;
+  txt += `Sous-famille sur/sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis pour le prochain sprint.\n\n`;
 
-  txt += `─── 4. FINITION — à virer & ajustements catalogue ───\n`;
-  txt += `À VIRER : utilise UNIQUEMENT la section "DORMANTS À VIRER" (déjà filtrée : hors socle réseau). Format : [CODE] Libellé — stock N, valeur Xe libérable. Ajoute les challengers sans justification si place nécessaire. Calcule la valeur totale libérable.\n`;
-  txt += `🚫 INTERDICTION ABSOLUE : ne JAMAIS proposer de virer un article du bloc SOCLE, même marqué 💤 DORMANT CHEZ MOI.\n`;
-  txt += `INSIGHTS CATALOGUE & MARQUES : quelle sous-famille est sur- ou sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis.\n\n`;
-
-  txt += `RÈGLE W : W = ventes hebdo moyennes sur la période analysée. W élevé + stock=0 = urgence maximale.\n`;
-  txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Si une référence est redondante avec une autre gamme, écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée. Jamais de "doublon stock" ni "doublon implantation".\n`;
+  txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée.\n`;
 
   return txt;
 }
