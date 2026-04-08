@@ -1565,7 +1565,7 @@ function _prBuildDiagText(codeFam) {
         }
         const emp = _empOf(a);
         const empTag = emp && emp !== '—' ? `@${emp} ` : '';
-        txt += `  ${fmt(a, empTag)}\n`;
+        txt += `    ${fmt(a, empTag)}\n`;
       });
     };
 
@@ -1665,7 +1665,7 @@ function _prBuildDiagText(codeFam) {
             txt += `**· ${mq}**\n`;
             curMQ = mq;
           }
-          txt += `  ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+          txt += `    ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
         });
         if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
         txt += '\n';
