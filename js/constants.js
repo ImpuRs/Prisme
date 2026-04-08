@@ -159,6 +159,146 @@ export const FAMILLE_LOOKUP = {
 // Codes hors catalogue standard — affichés sans code préfixe
 export const FAMILLE_HORS_CATALOGUE = new Set(['00','12','22','30','31','32','94']);
 
+// ── Segments vocationnels (taxonomie universelle 4 segments) ──────────────
+// Utilisé par le plan de rayon stratégique pour détecter la vocation réelle
+// d'une famille (incontournables vs sortir vs métiers clients agence)
+export const SEGMENTS = {
+  chantier: { label: 'Chantier', icon: '⚒', color: 'orange' },
+  erp:      { label: 'ERP/Bâtiment', icon: '🏢', color: 'blue' },
+  deco:     { label: 'Déco/Résidentiel', icon: '💡', color: 'pink' },
+  source:   { label: 'Source/Conso', icon: '🔌', color: 'gray' },
+};
+
+// Mapping métier client → segments cibles (un métier peut viser plusieurs segments)
+// Clés en minuscules sans accent pour matching tolérant
+export const METIER_SEGMENTS = {
+  'serrurier': ['chantier'],
+  'metalier': ['chantier'], 'métallier': ['chantier'], 'metallier': ['chantier'],
+  'aluminier': ['chantier'],
+  'charpentier': ['chantier'], 'couvreur': ['chantier'],
+  'ossature bois': ['chantier'],
+  'menuisier bois': ['chantier'], 'menuisier aluminier': ['chantier'],
+  'menuisier specialiste': ['chantier'], 'menuisier spécialiste': ['chantier'],
+  'menuisier agenceur poseur': ['chantier','deco'],
+  'menuisier agenceur fabricant': ['deco'],
+  'fermeture': ['chantier'],
+  'entreprise generale': ['chantier','erp'], 'entreprise générale': ['chantier','erp'],
+  'multi-tech': ['chantier','erp'], 'multitech': ['chantier','erp'],
+  'facility management': ['erp'],
+  'plombier': ['chantier','erp'], 'chauffagiste': ['chantier','erp'],
+  'electricien': ['source','erp'], 'électricien': ['source','erp'],
+  'major': ['erp','chantier'],
+  'collectivite': ['erp'], 'collectivité': ['erp'],
+  'administration': ['erp'],
+  'enseignement': ['erp'],
+  'centre de formation': ['erp'], 'formation metier': ['erp'],
+  'sante': ['erp'], 'santé': ['erp'],
+  'hotellerie': ['erp','deco'], 'hôtellerie': ['erp','deco'],
+  'hebergement': ['erp'], 'hébergement': ['erp'],
+  'plein air': ['erp'],
+  'industrie': ['chantier','erp'],
+  'logistique': ['erp'],
+  'bricoleur': ['deco','source'], 'particulier': ['deco','source'],
+};
+
+// Mots-clés segment par libellé d'article (heuristique universelle)
+// Ordre = priorité : chantier > erp > source > deco
+const SEG_KEYWORDS = {
+  chantier: [
+    'chantier','rechargeable','frontale','frontal','baladeuse','projecteur',
+    'jaro','rufus','professionnel','pro mobile','batterie li','accu',
+    'antichoc','etanche ip6','étanche ip6','heavy duty','renforce','renforcé',
+    'echafaudage','échafaudage','levage','manutention','soudage','meuleuse',
+    'perceuse','visseuse','tronconneuse','tronçonneuse','disqueuse'
+  ],
+  erp: [
+    'erp','ert','dalle led','hublot','tube t8','tube t5','tube led','bloc secours',
+    'bloc autonome','baes','etanche','étanche ','encastre','encastré',
+    'collectif','collective','plenum','plénum','faux plafond','plafonnier',
+    'detecteur','détecteur','desenfumage','désenfumage','coupe-feu','coupe feu',
+    'compteur','tableau electrique','tableau électrique','sanitaire collectif'
+  ],
+  source: [
+    'gu10','e27','e14','g9','g4','b22','ampoule','tube fluo','starter','transfo',
+    'pile','batterie aaa','batterie aa','rallonge','prise','multiprise',
+    'consommable','sachet','boite de','boîte de','recharge','cartouche'
+  ],
+  deco: [
+    'deco','déco','design','salon','chambre','suspension','applique',
+    'lampadaire','lampe a poser','lampe à poser','spot encastre deco',
+    'guirlande','ruban led ','strip led','luminaire decoratif','luminaire décoratif',
+    'agenceur','meuble','tiroir','poignee meuble','poignée meuble'
+  ]
+};
+
+/**
+ * Détecte le segment vocationnel d'un article par heuristique libellé.
+ * Ordre de priorité : chantier > erp > source > deco (deco = défaut).
+ * @param {string} libelle - Libellé article
+ * @param {string} [marque] - Marque (optionnel, pour boost futur)
+ * @returns {'chantier'|'erp'|'deco'|'source'}
+ */
+export function detectSegment(libelle, marque = '') {
+  if (!libelle) return 'deco';
+  const l = (libelle + ' ' + (marque || '')).toLowerCase();
+  for (const seg of ['chantier','erp','source','deco']) {
+    for (const kw of SEG_KEYWORDS[seg]) {
+      if (l.includes(kw)) return seg;
+    }
+  }
+  return 'deco';
+}
+
+/**
+ * Calcule le segment dominant d'une liste d'articles avec poids optionnel.
+ * @param {Array<{libelle:string, marque?:string, weight?:number}>} items
+ * @returns {{segment:string, share:number, distribution:Object}}
+ */
+export function dominantSegment(items) {
+  const dist = { chantier: 0, erp: 0, deco: 0, source: 0 };
+  let total = 0;
+  for (const it of items || []) {
+    const seg = detectSegment(it.libelle, it.marque);
+    const w = it.weight || 1;
+    dist[seg] += w;
+    total += w;
+  }
+  if (total === 0) return { segment: 'deco', share: 0, distribution: dist };
+  let best = 'deco', bestVal = -1;
+  for (const k of Object.keys(dist)) {
+    if (dist[k] > bestVal) { bestVal = dist[k]; best = k; }
+  }
+  return { segment: best, share: bestVal / total, distribution: dist };
+}
+
+/**
+ * Normalise un libellé métier pour matching (lowercase, sans accents, trim).
+ */
+function _normMetier(s) {
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s-]+/g, ' ').trim();
+}
+
+/**
+ * Retourne les segments cibles d'un métier client.
+ * @param {string} metier
+ * @returns {string[]} segments cibles, [] si inconnu
+ */
+export function metierToSegments(metier) {
+  if (!metier) return [];
+  const norm = _normMetier(metier);
+  // Match exact normalisé
+  for (const key of Object.keys(METIER_SEGMENTS)) {
+    if (_normMetier(key) === norm) return METIER_SEGMENTS[key];
+  }
+  // Match partiel (contient)
+  for (const key of Object.keys(METIER_SEGMENTS)) {
+    if (norm.includes(_normMetier(key))) return METIER_SEGMENTS[key];
+  }
+  return [];
+}
+
 // CP agences Legallais — codes vus dans le consommé multi-agences
 export const AGENCE_CP = {
   'AG22': '91300', // Massy
