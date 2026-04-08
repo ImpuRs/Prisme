@@ -1559,6 +1559,7 @@ function _prBuildDiagText(codeFam) {
           curSF = sf; curMQ = null;
         }
         if (mq !== curMQ) {
+          if (curMQ !== null) txt += '\n';
           txt += `**· ${mq}**\n`;
           curMQ = mq;
         }
@@ -1660,6 +1661,7 @@ function _prBuildDiagText(codeFam) {
             curSF = sf; curMQ = null;
           }
           if (mq !== curMQ) {
+            if (curMQ !== null) txt += '\n';
             txt += `**· ${mq}**\n`;
             curMQ = mq;
           }
