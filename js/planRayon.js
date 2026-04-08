@@ -1559,10 +1559,17 @@ function _prBuildDiagText(codeFam) {
     };
 
     // === CLASSIFICATION TERRAIN ===
-    // ÉTAPE 1 — SORTIR : dormants hors socle réseau
-    const aSortir = rayonData.monRayon
-      .filter(a => a.status === 'dormant' && a.sqClassif !== 'socle')
+    const _isFinSerie = (a) => { const s = (a.statut || '').toLowerCase(); return s.includes('fin de série') || s.includes('fin de serie'); };
+    const _isFinStock = (a) => (a.statut || '').toLowerCase().includes('fin de stock');
+    const _isFin = (a) => _isFinSerie(a) || _isFinStock(a);
+
+    // ÉTAPE 1 — SORTIR : dormants hors socle réseau + fins de série/stock
+    const aDormants = rayonData.monRayon
+      .filter(a => a.status === 'dormant' && a.sqClassif !== 'socle' && !_isFin(a))
       .sort(_sortPhys);
+    const aFinSerie = rayonData.monRayon.filter(a => _isFinSerie(a)).sort(_sortPhys);
+    const aFinStock = rayonData.monRayon.filter(a => _isFinStock(a) && !_isFinSerie(a)).sort(_sortPhys);
+    const aSortir = [...aDormants, ...aFinSerie, ...aFinStock];
 
     // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards + ruptures)
     const seen = new Set(aSortir.map(a => a.code));
@@ -1575,7 +1582,19 @@ function _prBuildDiagText(codeFam) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
-      _printByEmp(aSortir, (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`);
+      const _fmtSortir = (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`;
+      if (aDormants.length) {
+        txt += `\n--- Dormants (${aDormants.length}) ---\n`;
+        _printByEmp(aDormants, _fmtSortir);
+      }
+      if (aFinSerie.length) {
+        txt += `\n--- Fin de série (${aFinSerie.length}) — à dégager même si pépite ---\n`;
+        _printByEmp(aFinSerie, _fmtSortir);
+      }
+      if (aFinStock.length) {
+        txt += `\n--- Fin de stock (${aFinStock.length}) — à dégager même si pépite ---\n`;
+        _printByEmp(aFinStock, _fmtSortir);
+      }
       txt += '\n';
     }
 
