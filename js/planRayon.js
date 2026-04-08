@@ -86,7 +86,8 @@ function computePlanStock() {
       codeFam, libFam,
       socle: 0, implanter: 0, challenger: 0, potentiel: 0, surveiller: 0,
       srcReseau: false, srcChalandise: false, srcHorsZone: false, srcLivraisons: false,
-      caAgence: 0, nbClients: 0,
+      caAgence: 0, caReseau: 0, nbRefsReseau: 0, rendement: null,
+      nbClients: 0,
       nbCatalogue: catCount.get(codeFam) || 0,
       nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
     });
@@ -109,6 +110,7 @@ function computePlanStock() {
           if (a.sources?.has('livraisons')) f.srcLivraisons = true;
           if (inFilter) {
             f.caAgence += a.caAgence || 0;
+            if ((a.caReseau || 0) > 0) { f.caReseau += a.caReseau; f.nbRefsReseau++; }
             if (a.enStock) f.nbEnRayon++;
           }
         }
@@ -133,8 +135,15 @@ function computePlanStock() {
     if (f) f.nbClients = clientsSet.size;
   }
 
+  const nbOtherStores = Math.max(1, ((_S.storesIntersection?.size || 1) - 1));
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
+    // Rendement : CA/ref agence comparé au CA/ref moyen du réseau (base 100)
+    if (f.nbEnRayon > 0 && f.nbRefsReseau > 0 && f.caReseau > 0) {
+      const caAgPerRef = f.caAgence / f.nbEnRayon;
+      const caResPerRefPerStore = (f.caReseau / nbOtherStores) / f.nbRefsReseau;
+      f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
+    }
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
     const rSocle      = total > 0 ? f.socle      / total : 0;
     const rChallenger = total > 0 ? f.challenger  / total : 0;
@@ -376,6 +385,12 @@ function _prBuildCards(data, searchText = '') {
       <div class="flex items-center justify-between text-[10px]">
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
         <span class="font-bold" style="color:${covColor}">${f.couverture}% couv.</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] mt-0.5">
+        <span class="t-secondary">Rendement réseau</span>
+        ${f.rendement != null
+          ? `<span class="font-bold" style="color:${f.rendement >= 130 ? '#22c55e' : f.rendement >= 70 ? '#94a3b8' : '#ef4444'}" title="CA/ref vs médiane réseau (base 100)">${f.rendement}</span>`
+          : `<span class="t-disabled">—</span>`}
       </div>
       <div class="flex items-center justify-between mt-1.5">
         ${_prSourceBar(srcObj)}
