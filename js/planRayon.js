@@ -423,9 +423,12 @@ function _prRenderRayon(data) {
     : '';
   // Filtre emplacement puis statut (réutilise displayedForHeader, déjà filtré)
   const afterEmp = displayedForHeader;
-  const displayed = _prRayonFilter
+  let displayed = _prRayonFilter
     ? afterEmp.filter(a => a.status === _prRayonFilter)
     : afterEmp;
+  if (_S._prMRSortByCode) {
+    displayed = [...displayed].sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  }
   // Pills filtrables
   const _pill = (key, count, icon, label, color, bg, fw) => {
     if (!count) return '';
@@ -482,7 +485,7 @@ function _prRenderRayon(data) {
   <div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Code</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left cursor-pointer hover:t-primary" style="color:var(--t-secondary);font-weight:500" onclick="window._prToggleMRSortCode()" title="Trier par code">Code${_S._prMRSortByCode ? ' ▲' : ' ⇅'}</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sous-fam.</th><th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">Stock</th>
         <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary);font-weight:500">W</th><th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Mon Rayon</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Squelette</th>
@@ -1326,6 +1329,12 @@ window._prSetTab = function(tab) {
 window._prSetRayonFilter = function(key) {
   _prRayonFilter  = _prRayonFilter === key ? '' : key;
   _S._prPageRayon = PAGE_SIZE;
+  const el = document.getElementById('prDetailContent');
+  if (el && _S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
+};
+
+window._prToggleMRSortCode = function() {
+  _S._prMRSortByCode = !_S._prMRSortByCode;
   const el = document.getElementById('prDetailContent');
   if (el && _S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
 };
