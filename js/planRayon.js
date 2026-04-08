@@ -451,7 +451,7 @@ function _prRenderRayon(data) {
     const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer${isCleEntree ? ' bg-amber-950/20' : ''}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
-      <td class="py-1.5 px-2 font-mono">${_copyCodeBtn(a.code)}</td>
+      <td class="py-1.5 px-2 font-mono" style="color:var(--t-primary)">${a.code}</td>
       <td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-[10px]" style="color:var(--t-secondary)">${escapeHtml(a.sousFam || '')}</td>
       <td class="py-1.5 px-2 text-right" style="color:var(--t-primary)">${a.stockActuel}</td>
