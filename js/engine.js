@@ -921,9 +921,10 @@ export function computeSquelette(directionFilter) {
       else if (a.score >= 40 || a.sources.size >= 2) a.classification = 'socle';
       else a.classification = 'surveiller';
     } else {
-      // Récurrence terrain : ≥2 BL/mois sur le réseau ET ≥3 agences
+      // Récurrence terrain : ≥2 BL/mois réseau ET ≥3 agences ET ≥3 BL/agence en moyenne
       const blParMois = nbMoisTerr > 0 ? a.nbBLLivraisons / nbMoisTerr : 0;
-      const recurrent = blParMois >= 2 && a.nbAgencesReseau >= 3;
+      const blParAgence = a.nbAgencesReseau > 0 ? a.nbBLLivraisons / a.nbAgencesReseau : 0;
+      const recurrent = blParMois >= 2 && a.nbAgencesReseau >= 3 && blParAgence >= 3;
       if (recurrent && a.score >= 50 && a.sources.size >= 2) a.classification = 'implanter';
       else if (a.score >= 25) a.classification = 'potentiel';
       else a.classification = 'bruit';
