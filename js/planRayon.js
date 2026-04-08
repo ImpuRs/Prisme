@@ -1620,7 +1620,7 @@ function _prBuildDiagText(codeFam) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
-      _printByEmp(aSortir, (a, emp) => `☐ ${emp}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€`);
+      _printByEmp(aSortir, (a, emp) => `☐ ${emp}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}`);
       txt += '\n';
     }
 
