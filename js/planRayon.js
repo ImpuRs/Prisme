@@ -1510,6 +1510,15 @@ function _prBuildDiagText(codeFam) {
     txt += `0 article en stock. Cette famille n'est pas encore référencée.\n`;
     txt += `Couverture catalogue : 0/${nbCat} références disponibles.\n\n`;
   } else {
+    // Dédup monRayon par code (sécurité)
+    {
+      const _seen = new Set();
+      rayonData.monRayon = rayonData.monRayon.filter(a => {
+        if (_seen.has(a.code)) return false;
+        _seen.add(a.code);
+        return true;
+      });
+    }
     txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
     txt += `${rayonData.monRayon.length} articles en stock · `;
     txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
