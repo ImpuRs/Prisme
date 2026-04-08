@@ -1654,8 +1654,8 @@ function _prBuildDiagText(codeFam) {
         if (m) mm = `MIN ${m.min}/MAX ${m.max}`;
         else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
         else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
-        const tail = mm ? `, ${mm}` : '';
-        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}${tail}${emp ? '  ' + emp.trim() : ''}`;
+        const body = mm ? mm : 'MIN/MAX à paramétrer';
+        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — ${body}${emp ? '  ' + emp.trim() : ''}`;
       };
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
       txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro).\n`;
@@ -1770,7 +1770,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Reprends la section "ÉTAPE 3 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
 
   txt += `─── 4. VÉRIFIER / MAINTENIR ───\n`;
-  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 4a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 4b STANDARDS. Groupement sous-famille ▸ marque · marqueurs préservés, emplacement EN FIN DE LIGNE uniquement.\n`;
+  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 4a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 4b STANDARDS. Groupement sous-famille ▸ marque · marqueurs préservés, emplacement EN FIN DE LIGNE uniquement. OBLIGATOIRE : conserve le MIN/MAX inline sur chaque ligne (MIN X/MAX Y), n'affiche JAMAIS le stock dans les ÉTAPES 3 et 4.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
   txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
   txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
