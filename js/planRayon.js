@@ -1546,12 +1546,14 @@ function _prBuildDiagText(codeFam) {
     const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || 'Marque non renseignée';
     const _empOf = (a) => (a.emplacement || '').trim() || '—';
 
-    // Tri logique : sous-famille → marque → code (pour regrouper charnière+embase d'un même système)
+    // Tri logique : sous-famille → marque → libellé → code (regroupe les EMBASE d'une même marque)
     const _sortPhys = (a, b) => {
       const sa = _sfOf(a), sb = _sfOf(b);
       if (sa !== sb) return sa.localeCompare(sb);
       const ma = _mqOf(a), mb = _mqOf(b);
       if (ma !== mb) return ma.localeCompare(mb);
+      const la = (a.libelle || '').toUpperCase(), lb = (b.libelle || '').toUpperCase();
+      if (la !== lb) return la.localeCompare(lb);
       return String(a.code).localeCompare(String(b.code));
     };
     // Séparateurs visuels
@@ -1601,12 +1603,20 @@ function _prBuildDiagText(codeFam) {
     // ── ÉTAPE 1 ─────────────────────────────────────────────
     if (aSortir.length) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
-      txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
-      txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
+      const nbEmp = new Set(aSortir.map(a => (a.emplacement || '').trim()).filter(Boolean)).size;
+      txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables · ${nbEmp} emplacements rendus) ═══\n`;
+      txt += `⏱ Budget : ~20 min  ·  Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
+      txt += `⚠ **RÈGLE DE SÉCURITÉ** : même si dormant, ne jette JAMAIS un ⭐ (pépite) ni un 💤 (socle réseau). Ces marqueurs apparaissent à l'ÉTAPE 3.\n`;
       const _fmtSortir = (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`;
       if (aDormants.length) {
-        txt += `\n**Dormants (${aDormants.length})**\n`;
-        _printByEmp(aDormants, _fmtSortir);
+        // Tri dormants par € libérable décroissant (gain visible d'abord)
+        const aDormSorted = [...aDormants].sort((a, b) => (b.valeurStock || 0) - (a.valeurStock || 0));
+        txt += `\n**Dormants (${aDormants.length}) — triés par € libérable**\n`;
+        aDormSorted.forEach(a => {
+          const emp = _empOf(a);
+          const empTag = emp && emp !== '—' ? `@${emp} ` : '';
+          txt += `      ${_fmtSortir(a, empTag)}\n`;
+        });
       }
       if (aFinSerie.length) {
         txt += `\n**Fin de série (${aFinSerie.length}) — à dégager même si pépite**\n`;
@@ -1659,8 +1669,20 @@ function _prBuildDiagText(codeFam) {
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
           return `MIN/MAX à paramétrer`;
         };
-        txt += `═══ ÉTAPE 2 — IMPLANTER (${toImpl.length} refs à créer) ═══\n`;
-        txt += `Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
+        // Signal cumulé pour l'en-tête
+        const totBL = toImpl.reduce((s, a) => s + (a.nbBLLivraisons || 0), 0);
+        const totAg = toImpl.reduce((s, a) => s + (a.nbAgencesReseau || 0), 0);
+        txt += `═══ ÉTAPE 2 — IMPLANTER (${toImpl.length} refs à créer · ${totBL} BL réseau cumulés · ${totAg} présences agences) ═══\n`;
+        txt += `⏱ Budget : ~45 min  ·  Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
+        // TOP 3 prioritaires par score (visibilité immédiate pour les maîtrisants)
+        const top3 = [...toImpl].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3);
+        if (top3.length) {
+          txt += `\n**🎯 TOP 3 prioritaires** (plus fort signal réseau)\n`;
+          top3.forEach(a => {
+            txt += `      ☐ [${a.code}] ${a.libelle} — score ${a.score} · ${a.nbAgencesReseau} agences · ${a.nbBLLivraisons} BL · ${_mmLine(a)}\n`;
+          });
+          txt += `\n**Liste complète** (triée par sous-famille → marque)\n`;
+        }
         const list = toImpl;
         let curSF = null, curMQ = null;
         list.forEach(a => {
@@ -1697,6 +1719,10 @@ function _prBuildDiagText(codeFam) {
       const isIncontournable = (a) => a.status === 'pepite' || a.sqClassif === 'socle';
       const aIncont = aMaintenir.filter(isIncontournable);
       const aStd = aMaintenir.filter(a => !isIncontournable(a));
+      const _clsTag = (a) => {
+        const c = a.abcClass || '', f = a.fmrClass || '';
+        return (c && f) ? `[${c}${f}] ` : '';
+      };
       const _fmt4 = (a, emp) => {
         const m = _minMax(a);
         let mm = '';
@@ -1704,18 +1730,22 @@ function _prBuildDiagText(codeFam) {
         else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
         else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
         const body = mm ? ` — ${mm}` : '';
-        return `☐ [${a.code}] ${_markers4(a)}${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
+        return `☐ [${a.code}] ${_markers4(a)}${_clsTag(a)}${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
       };
       // Légende commune
-      const _legende = `Légende : ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP.\n`;
+      const _legende = `Légende : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX à paramétrer · [AF] = classe ABC/FMR (A=top CA, F=fréquent).\n`;
       if (aIncont.length) {
-        txt += `═══ ÉTAPE 3 — INCONTOURNABLES (${aIncont.length} refs) — pépites + socle réseau, prio facing ═══\n`;
+        const nbRupInc = aIncont.filter(a => a.status === 'rupture').length;
+        txt += `═══ ÉTAPE 3 — INCONTOURNABLES (${aIncont.length} refs${nbRupInc ? ` · ${nbRupInc} ruptures` : ''}) — pépites + socle réseau, prio facing ═══\n`;
+        txt += `⏱ Budget : ~25 min  ·  Geste : vérifier facing, MIN/MAX, traiter les ruptures en priorité.\n`;
         txt += _legende;
         _printByEmp(aIncont, _fmt4);
         txt += '\n';
       }
       if (aStd.length) {
-        txt += `═══ ÉTAPE 4 — STANDARDS (${aStd.length} refs) — vérification routine ═══\n`;
+        const nbRupStd = aStd.filter(a => a.status === 'rupture').length;
+        txt += `═══ ÉTAPE 4 — STANDARDS (${aStd.length} refs · ${nbRupStd} ruptures à traiter) — vérification routine ═══\n`;
+        txt += `⏱ Budget : ~30 min  ·  Geste : passage rapide, focus sur les ⚠ ruptures et 🔧 MIN/MAX manquants.\n`;
         txt += _legende;
         _printByEmp(aStd, _fmt4);
         txt += '\n';
