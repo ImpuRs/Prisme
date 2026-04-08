@@ -1658,9 +1658,9 @@ function _prBuildDiagText(codeFam) {
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
           return `MIN/MAX à paramétrer`;
         };
-        txt += `═══ ÉTAPE 2 — IMPLANTER (nouvelles refs à créer) ═══\n`;
+        txt += `═══ ÉTAPE 2 — IMPLANTER (${toImpl.length} refs à créer) ═══\n`;
         txt += `Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
-        const list = toImpl.slice(0, 15);
+        const list = toImpl;
         let curSF = null, curMQ = null;
         list.forEach(a => {
           const sf = _sfOfImpl(a);
@@ -1677,7 +1677,6 @@ function _prBuildDiagText(codeFam) {
           }
           txt += `      ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
         });
-        if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
         txt += '\n';
       }
     }
