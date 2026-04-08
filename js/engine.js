@@ -766,6 +766,15 @@ export function computeSquelette(directionFilter) {
   const myStore = _S.selectedMyStore;
   const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+  // Durée du fichier terrain en mois (pour seuil récurrence BL/mois)
+  let nbMoisTerr = 0;
+  if (hasTerr) {
+    let tMin = null, tMax = null;
+    for (const l of _S.territoireLines) {
+      if (l.dateExp) { if (!tMin || l.dateExp < tMin) tMin = l.dateExp; if (!tMax || l.dateExp > tMax) tMax = l.dateExp; }
+    }
+    if (tMin && tMax) nbMoisTerr = Math.max(1, Math.round((tMax - tMin) / (1000 * 60 * 60 * 24 * 30)));
+  }
 
   const articleData = new Map();
   const _ensure = (code) => {
@@ -912,7 +921,10 @@ export function computeSquelette(directionFilter) {
       else if (a.score >= 40 || a.sources.size >= 2) a.classification = 'socle';
       else a.classification = 'surveiller';
     } else {
-      if (a.score >= 50 && a.sources.size >= 2) a.classification = 'implanter';
+      // Récurrence terrain : ≥2 BL/mois sur le réseau ET ≥3 agences
+      const blParMois = nbMoisTerr > 0 ? a.nbBLLivraisons / nbMoisTerr : 0;
+      const recurrent = blParMois >= 2 && a.nbAgencesReseau >= 3;
+      if (recurrent && a.score >= 50 && a.sources.size >= 2) a.classification = 'implanter';
       else if (a.score >= 25) a.classification = 'potentiel';
       else a.classification = 'bruit';
     }
