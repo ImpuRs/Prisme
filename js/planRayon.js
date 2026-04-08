@@ -746,6 +746,16 @@ function _prRenderAnalyse(fam) {
       </div>`
     : '';
 
+  const marquePills = _prSelectedMarques.size > 0
+    ? `<div class="flex gap-1.5 flex-wrap mb-4 items-center">
+        <span class="text-[10px] t-disabled">🏷️</span>
+        ${[..._prSelectedMarques].sort().map(m => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
+          ${escapeHtml(m)}
+          <button onclick="window._prToggleMarque('${m.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+        </span>`).join('')}
+      </div>`
+    : '';
+
   // nbCat par sousFam — catalogue INVARIANT (pas de filtre emplacement)
   const sfCatCount = new Map(); // sousFam → nbCat
   if (catFam) for (const [, f] of catFam) {
@@ -851,7 +861,7 @@ function _prRenderAnalyse(fam) {
       class="text-[11px] px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
   </div>` : '';
 
-  return `${empPillsAnalyse}<div class="grid grid-cols-2 gap-6">
+  return `${empPillsAnalyse}${marquePills}<div class="grid grid-cols-2 gap-6">
     <div>
       <h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>
       <div class="overflow-x-auto"><table class="w-full text-[11px]">${thSF}<tbody>${sfRows}</tbody></table></div>
