@@ -1803,9 +1803,9 @@ function _prBuildDiagText(codeFam) {
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). L'utilisateur est DEBOUT DEVANT LE RAYON et va exécuter tes instructions à la main. Ton rôle : lui donner une check-list d'actions physiques linéaire, sans friction, qu'il peut cocher au fur et à mesure.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
 
-  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) COMMANDER → 3) IMPLANTER → 4) VÉRIFIER/MAINTENIR → 5) Insights.\n`;
-  txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est donné en @tag au début de chaque ligne pour aller directement au bon tiroir.\n`;
-  txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer avant commande · ⚠=rupture.\n\n`;
+  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 3) IMPLANTER → 4) VÉRIFIER/MAINTENIR (4a Incontournables puis 4b Standards) → 5) Insights.\n`;
+  txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est affiché EN FIN DE LIGNE uniquement, JAMAIS en début.\n`;
+  txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer · ⚠=rupture.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
   txt += `Rappelle la FAMILLE (nom + code), les SOUS-FAMILLES, et les EMPLACEMENTS IMPACTÉS (depuis le bloc DIAGNOSTIC RAYON en haut du prompt).\n`;
@@ -1813,17 +1813,13 @@ function _prBuildDiagText(codeFam) {
   txt += `Cite les 2-3 métiers clients dominants et ce que ça implique pour le rayon.\n\n`;
 
   txt += `─── 1. SORTIR DU RAYON ───\n`;
-  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag. Format ligne : ☐ [CODE] Libellé — stock N, X€. Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
-
-  txt += `─── 2. COMMANDER / RÉAPPRO ───\n`;
-  txt += `Reprends la section "ÉTAPE 2 — COMMANDER". Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag et tous les marqueurs (⭐ 💤 🔧 ⚠). Format : ☐ [CODE] Libellé — stock N, MIN X/MAX Y, cmd Z (⚠ RUPTURE|sous MIN).\n`;
-  txt += `Priorise visuellement ⚠ RUPTURE (urgence) et ⭐ pépite (critique). Les articles 🔧 nécessitent un passage ERP avant commande — signale-les clairement.\n\n`;
+  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement sous-famille ▸ marque · avec emplacement EN FIN DE LIGNE. Format ligne : ☐ [CODE] Libellé — stock N, X€  EMPLACEMENT (en fin de ligne). Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
 
   txt += `─── 3. IMPLANTER (nouvelles refs) ───\n`;
   txt += `Reprends la section "ÉTAPE 3 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
 
   txt += `─── 4. VÉRIFIER / MAINTENIR ───\n`;
-  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR". Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag et les marqueurs. Ce bloc = parcours de vérification du facing et de l'état.\n`;
+  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 4a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 4b STANDARDS. Groupement sous-famille ▸ marque · marqueurs préservés, emplacement EN FIN DE LIGNE uniquement.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
   txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
   txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
