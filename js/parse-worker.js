@@ -781,11 +781,7 @@ self.onmessage = async function(ev) {
         _bme.sumVMBP += _rvp;
       }
 
-      // Filtre période
-      if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
-      if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
-
-      // ventesParMagasin
+      // ventesParMagasin (PAS de filtre période — cohérent avec articleRaw)
       if (storesIntersection.has(sk) || !storesIntersection.size) {
         if (!ventesParMagasin[sk]) ventesParMagasin[sk] = {};
         if (!ventesParMagasin[sk][code]) ventesParMagasin[sk][code] = { sumPrelevee: 0, sumEnleve: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
@@ -817,6 +813,10 @@ self.onmessage = async function(ev) {
           _vpmc2.sumVMBPrel += _rvp;
         }
       }
+
+      // Filtre période (s'applique aux agrégats client/temps en aval)
+      if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
+      if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
 
       // ventesClientsPerStore + clientsMagasin
       if (cc2 && code) {
