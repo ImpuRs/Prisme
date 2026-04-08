@@ -1560,12 +1560,12 @@ function _prBuildDiagText(codeFam) {
         }
         if (mq !== curMQ) {
           if (curMQ !== null) txt += '\n';
-          txt += `**· ${mq}**\n`;
+          txt += `  **· ${mq}**\n`;
           curMQ = mq;
         }
         const emp = _empOf(a);
         const empTag = emp && emp !== '—' ? `@${emp} ` : '';
-        txt += `    ${fmt(a, empTag)}\n`;
+        txt += `      ${fmt(a, empTag)}\n`;
       });
     };
 
@@ -1662,10 +1662,10 @@ function _prBuildDiagText(codeFam) {
           }
           if (mq !== curMQ) {
             if (curMQ !== null) txt += '\n';
-            txt += `**· ${mq}**\n`;
+            txt += `  **· ${mq}**\n`;
             curMQ = mq;
           }
-          txt += `    ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+          txt += `      ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
         });
         if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
         txt += '\n';
