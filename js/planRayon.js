@@ -1552,8 +1552,6 @@ function _prBuildDiagText(codeFam) {
       });
     };
 
-    const rupturesUrgentes = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) >= 3).sort(_sortSF);
-    const rupturesNormales = rayonData.monRayon.filter(a => a.status === 'rupture' && (a.W || 0) < 3).sort(_sortSF);
     // Socle inclut : articles sqClassif=socle + pépites (même hors socle réseau, marquées ⭐)
     const socles           = rayonData.monRayon.filter(a => a.sqClassif === 'socle' || a.status === 'pepite').sort(_sortSF);
     const challengers      = rayonData.monRayon.filter(a => (a.status === 'challenger' || a.sqClassif === 'challenger') && a.sqClassif !== 'socle').sort(_sortSF);
@@ -1577,23 +1575,23 @@ function _prBuildDiagText(codeFam) {
       return q > 0 ? `cmd ${q}` : 'OK';
     };
 
+    // Marqueurs : ⭐ pépite, ⚠ rupture
+    const _mk = (a) => {
+      const s = (a.status === 'pepite' ? '⭐' : '') + (a.status === 'rupture' ? '⚠' : '');
+      return s ? s + ' ' : '';
+    };
+
     if (socles.length) {
-      txt += `🟢 SOCLE RÉSEAU (⭐ = pépite AF à ne jamais rompre) :\n`;
+      txt += `🟢 SOCLE RÉSEAU (⭐ = pépite AF · ⚠ = rupture à réappro d'urgence) :\n`;
       _printBySF(socles, a => {
-        const star = a.status === 'pepite' ? '⭐ ' : '';
         const tag = a.status === 'dormant' ? ' 💤 Dormant chez moi' : '';
-        return `☐ ${star}[${a.code}] ${a.libelle} — ${_mm(a)}${tag}`;
+        return `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}${tag}`;
       });
       txt += '\n';
     }
     if (challengers.length) {
-      txt += `🔶 CHALLENGERS :\n`;
-      _printBySF(challengers, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
-      txt += '\n';
-    }
-    if (rupturesUrgentes.length) {
-      txt += `🚨 URGENCES STOCK :\n`;
-      _printBySF(rupturesUrgentes, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
+      txt += `🔶 CHALLENGERS (⚠ = rupture) :\n`;
+      _printBySF(challengers, a => `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}`);
       txt += '\n';
     }
     if (dormantsHorsSocle.length) {
@@ -1601,20 +1599,14 @@ function _prBuildDiagText(codeFam) {
       _printBySF(dormantsHorsSocle, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
       txt += '\n';
     }
-    if (rupturesNormales.length) {
-      txt += `⚠ RUPTURES (moins fréquentes) :\n`;
-      _printBySF(rupturesNormales, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
-      txt += '\n';
-    }
-    // CATCH-ALL : tout article en rayon non encore listé (standards sans classif, etc.)
+    // CATCH-ALL : tout article en rayon non encore listé (standards + ruptures sans classif)
     const seen = new Set([
-      ...socles, ...challengers, ...rupturesUrgentes,
-      ...dormantsHorsSocle, ...rupturesNormales
+      ...socles, ...challengers, ...dormantsHorsSocle
     ].map(a => a.code));
     const autres = rayonData.monRayon.filter(a => !seen.has(a.code)).sort(_sortSF);
     if (autres.length) {
-      txt += `⚪ AUTRES EN RAYON (standards sans classification réseau) :\n`;
-      _printBySF(autres, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
+      txt += `⚪ AUTRES EN RAYON (standards sans classification réseau · ⚠ = rupture) :\n`;
+      _printBySF(autres, a => `☐ ${_mk(a)}[${a.code}] ${a.libelle} — ${_mm(a)}`);
       txt += '\n';
     }
   }
@@ -1756,7 +1748,7 @@ function _prBuildDiagText(codeFam) {
   txt += `═══ INSTRUCTION ═══\n`;
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n`;
-  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) À implanter → 2) Socle (⭐=pépite AF) → 3) Challengers → 4) Urgences stock → 5) Finition.\n`;
+  txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) À implanter → 2) Socle → 3) Challengers → 4) Finition. Marqueurs in-line : ⭐=pépite AF · ⚠=rupture à réappro · 💤=dormant chez moi.\n`;
   txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe par SOUS-FAMILLE (▸) puis par MARQUE (·) puis par code croissant. Conserve ces en-têtes de groupe dans ta sortie — c'est pour que l'utilisateur retrouve les articles devant son rayon.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
@@ -1768,19 +1760,16 @@ function _prBuildDiagText(codeFam) {
   txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. NE répète PAS la famille ni les emplacements (déjà en bloc 0).\n\n`;
 
   txt += `─── 2. SOCLE — maintenir absolument ───\n`;
-  txt += `Utilise la section "SOCLE RÉSEAU". Conserve les marqueurs ⭐ (pépite AF, ne jamais rompre) et 💤 (dormant chez moi). Pour chaque article, précise son état local : "standard" ou 💤 "dormant chez moi".\n`;
+  txt += `Utilise la section "SOCLE RÉSEAU". Conserve TOUS les marqueurs in-line : ⭐ (pépite AF), ⚠ (rupture), 💤 (dormant chez moi).\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
-  txt += `  - Un article marqué 💤 DORMANT CHEZ MOI dans le socle NE DOIT JAMAIS être proposé à la suppression. Socle réseau temporairement silencieux → à conserver et surveiller.\n`;
-  txt += `  - Un article marqué ⭐ (pépite AF) ne doit JAMAIS sortir du rayon, priorité réappro absolue.\n`;
-  txt += `Signale les socles en rupture ou sous-stockés pour réappro.\n\n`;
+  txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité réappro absolue.\n`;
+  txt += `  - ⚠ rupture : réappro immédiate (signaler en priorité dans le bloc).\n`;
+  txt += `  - 💤 dormant chez moi : NE DOIT JAMAIS être proposé à la suppression. Socle réseau temporairement silencieux → à conserver et surveiller.\n\n`;
 
   txt += `─── 3. CHALLENGERS — arbitrage si place limitée ───\n`;
-  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : en stock sans justification réseau). Ne les garder que s'il reste de la place au rayon APRÈS à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 5 (à virer).\n\n`;
+  txt += `Utilise les sections "CHALLENGERS" ET "AUTRES EN RAYON" (même traitement : en stock sans justification réseau). Conserve les marqueurs ⚠ (rupture). Ne les garder que s'il reste de la place au rayon APRÈS à implanter + socle. Sinon, proposer leur sortie et les basculer en bloc 4 (à virer). Les articles ⚠ en rupture méritent une décision explicite : réappro ou sortie.\n\n`;
 
-  txt += `─── 4. URGENCES STOCK ───\n`;
-  txt += `Utilise "URGENCES STOCK" (ruptures W≥3). Format : ☐ [CODE] Libellé → commander. Priorise par gravité.\n\n`;
-
-  txt += `─── 5. FINITION — à virer & ajustements catalogue ───\n`;
+  txt += `─── 4. FINITION — à virer & ajustements catalogue ───\n`;
   txt += `À VIRER : utilise UNIQUEMENT la section "DORMANTS À VIRER" (déjà filtrée : hors socle réseau). Format : [CODE] Libellé — stock N, valeur Xe libérable. Ajoute les challengers sans justification si place nécessaire. Calcule la valeur totale libérable.\n`;
   txt += `🚫 INTERDICTION ABSOLUE : ne JAMAIS proposer de virer un article du bloc SOCLE, même marqué 💤 DORMANT CHEZ MOI.\n`;
   txt += `INSIGHTS CATALOGUE & MARQUES : quelle sous-famille est sur- ou sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis.\n\n`;
