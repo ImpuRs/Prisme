@@ -1694,7 +1694,7 @@ function _prBuildDiagText(codeFam) {
         else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
         else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
         const body = mm ? ` — ${mm}` : '';
-        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
+        return `☐ [${a.code}] ${_markers4(a)}${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
       };
       // Légende commune
       const _legende = `Légende : ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP.\n`;
