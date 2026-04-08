@@ -1793,41 +1793,6 @@ function _prBuildDiagText(codeFam) {
     txt += '\n';
   }
 
-  txt += `═══ INSTRUCTION ═══\n`;
-  txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). L'utilisateur est DEBOUT DEVANT LE RAYON et va exécuter tes instructions à la main. Ton rôle : lui donner une check-list d'actions physiques linéaire, sans friction, qu'il peut cocher au fur et à mesure.\n`;
-  txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
-
-  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) IMPLANTER → 3) INCONTOURNABLES → 4) STANDARDS → 5) Insights.\n`;
-  txt += `MISE EN PAGE OBLIGATOIRE : conserve EXACTEMENT le gras markdown des données. Les sous-titres (Dormants, Fin de série, Fin de stock), les sous-familles **▸ ...** et les marques **· ...** doivent rester en **gras**. Conserve un saut de ligne entre groupes pour la lisibilité, mais JAMAIS de double saut de ligne.\n`;
-  txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est affiché EN FIN DE LIGNE uniquement, JAMAIS en début.\n`;
-  txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer · ⚠=rupture.\n\n`;
-
-  txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
-  txt += `Rappelle la FAMILLE (nom + code), les SOUS-FAMILLES, et les EMPLACEMENTS IMPACTÉS (depuis le bloc DIAGNOSTIC RAYON en haut du prompt).\n`;
-  txt += `1 phrase : nb articles en stock, % couverture, valeur stock, signal global (développer / consolider / désengager).\n`;
-  txt += `Cite les 2-3 métiers clients dominants et ce que ça implique pour le rayon.\n\n`;
-
-  txt += `─── 1. SORTIR DU RAYON ───\n`;
-  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement sous-famille ▸ marque · avec emplacement EN FIN DE LIGNE. Format ligne : ☐ [CODE] Libellé — stock N, X€  EMPLACEMENT (en fin de ligne). Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
-
-  txt += `─── 2. IMPLANTER (nouvelles refs) ───\n`;
-  txt += `Reprends la section "ÉTAPE 2 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque, avec les séparateurs ───. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
-
-  txt += `─── 3. INCONTOURNABLES ───\n`;
-  txt += `Reprends la section "ÉTAPE 3 — INCONTOURNABLES" (pépites + socle réseau, prio facing). Conserve les séparateurs ───, le groupement sous-famille ▸ marque ·, marqueurs préservés, emplacement EN FIN DE LIGNE. OBLIGATOIRE : conserve le MIN/MAX inline (MIN X/MAX Y), n'affiche JAMAIS le stock.\n\n`;
-
-  txt += `─── 4. STANDARDS ───\n`;
-  txt += `Reprends la section "ÉTAPE 4 — STANDARDS" (vérification routine). Mêmes règles de mise en page que l'étape 3.\n`;
-  txt += `⚠️ RÈGLES ABSOLUES :\n`;
-  txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
-  txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
-  txt += `  - 🔧 : article sans MIN/MAX configuré → tâche de paramétrage ERP à noter.\n\n`;
-
-  txt += `─── 5. INSIGHTS CATALOGUE & MARQUES ───\n`;
-  txt += `Sous-famille sur/sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis pour le prochain sprint.\n\n`;
-
-  txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée.\n`;
-
   return txt;
 }
 
