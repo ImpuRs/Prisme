@@ -1256,6 +1256,14 @@ window._prToggleSF = function(csf) {
 window._prToggleMarque = function(marque) {
   if (_prSelectedMarques.has(marque)) _prSelectedMarques.delete(marque);
   else _prSelectedMarques.add(marque);
+  // Sync _prSelectedEmps depuis les marques sélectionnées (comme _prToggleSF)
+  _prSelectedEmps.clear();
+  if (_prSelectedMarques.size > 0) {
+    for (const r of (_S._prRayonData?.monRayon || [])) {
+      const m = _S.catalogueMarques?.get(r.code) || '';
+      if (_prSelectedMarques.has(m) && r.emplacement) _prSelectedEmps.add(r.emplacement);
+    }
+  }
   _prRerenderDetail();
 };
 
