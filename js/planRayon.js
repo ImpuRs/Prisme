@@ -1699,17 +1699,20 @@ function _prBuildDiagText(codeFam) {
         const body = mm ? ` — ${mm}` : '';
         return `☐ ${_markers4(a)}[${a.code}] ${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
       };
-      txt += `═══ ÉTAPE 3 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
-      txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP (valeur médiane réseau indiquée à titre indicatif).\n`;
+      // Légende commune
+      const _legende = `Légende : ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP.\n`;
       if (aIncont.length) {
-        txt += `\n${'═'.repeat(78)}\n  3a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing\n${'═'.repeat(78)}\n`;
+        txt += `═══ ÉTAPE 3 — INCONTOURNABLES (${aIncont.length} refs) — pépites + socle réseau, prio facing ═══\n`;
+        txt += _legende;
         _printByEmp(aIncont, _fmt4);
+        txt += '\n';
       }
       if (aStd.length) {
-        txt += `\n${'═'.repeat(78)}\n  3b. STANDARDS (${aStd.length}) — vérification routine\n${'═'.repeat(78)}\n`;
+        txt += `═══ ÉTAPE 4 — STANDARDS (${aStd.length} refs) — vérification routine ═══\n`;
+        txt += _legende;
         _printByEmp(aStd, _fmt4);
+        txt += '\n';
       }
-      txt += '\n';
     }
   }
 
@@ -1796,7 +1799,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). L'utilisateur est DEBOUT DEVANT LE RAYON et va exécuter tes instructions à la main. Ton rôle : lui donner une check-list d'actions physiques linéaire, sans friction, qu'il peut cocher au fur et à mesure.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
 
-  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) IMPLANTER → 3) VÉRIFIER/MAINTENIR (3a Incontournables puis 3b Standards) → 4) Insights.\n`;
+  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) IMPLANTER → 3) INCONTOURNABLES → 4) STANDARDS → 5) Insights.\n`;
   txt += `MISE EN PAGE OBLIGATOIRE : reprends mot pour mot les séparateurs ─── des données. Chaque sous-famille ▸ est précédée et suivie d'une barre ───. Chaque marque · est séparée de la suivante par une barre courte ───. Conserve les sauts de ligne entre groupes pour la lisibilité.\n`;
   txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est affiché EN FIN DE LIGNE uniquement, JAMAIS en début.\n`;
   txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer · ⚠=rupture.\n\n`;
@@ -1812,14 +1815,17 @@ function _prBuildDiagText(codeFam) {
   txt += `─── 2. IMPLANTER (nouvelles refs) ───\n`;
   txt += `Reprends la section "ÉTAPE 2 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque, avec les séparateurs ───. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
 
-  txt += `─── 3. VÉRIFIER / MAINTENIR ───\n`;
-  txt += `Reprends la section "ÉTAPE 3 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 3a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 3b STANDARDS. Conserve les séparateurs ───, le groupement sous-famille ▸ marque ·, marqueurs préservés, emplacement EN FIN DE LIGNE uniquement. OBLIGATOIRE : conserve le MIN/MAX inline sur chaque ligne (MIN X/MAX Y), n'affiche JAMAIS le stock dans les ÉTAPES 2 et 3.\n`;
+  txt += `─── 3. INCONTOURNABLES ───\n`;
+  txt += `Reprends la section "ÉTAPE 3 — INCONTOURNABLES" (pépites + socle réseau, prio facing). Conserve les séparateurs ───, le groupement sous-famille ▸ marque ·, marqueurs préservés, emplacement EN FIN DE LIGNE. OBLIGATOIRE : conserve le MIN/MAX inline (MIN X/MAX Y), n'affiche JAMAIS le stock.\n\n`;
+
+  txt += `─── 4. STANDARDS ───\n`;
+  txt += `Reprends la section "ÉTAPE 4 — STANDARDS" (vérification routine). Mêmes règles de mise en page que l'étape 3.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
   txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
   txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
   txt += `  - 🔧 : article sans MIN/MAX configuré → tâche de paramétrage ERP à noter.\n\n`;
 
-  txt += `─── 4. INSIGHTS CATALOGUE & MARQUES ───\n`;
+  txt += `─── 5. INSIGHTS CATALOGUE & MARQUES ───\n`;
   txt += `Sous-famille sur/sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis pour le prochain sprint.\n\n`;
 
   txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée.\n`;
