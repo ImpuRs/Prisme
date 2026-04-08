@@ -1541,8 +1541,8 @@ function _prBuildDiagText(codeFam) {
       return ` → stock ${a.stockActuel ?? 0}, MAX ${mm.src} ${mm.max} → Stock OK`;
     };
 
-    const _sfOf = (a) => catFam?.get(a.code)?.sousFam || '—';
-    const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || '—';
+    const _sfOf = (a) => catFam?.get(a.code)?.sousFam || 'Divers / non catalogué';
+    const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || 'Marque non renseignée';
     const _empOf = (a) => (a.emplacement || '').trim() || '—';
 
     // Format MIN/MAX compact : PRISME > ERP > médiane réseau
@@ -1630,9 +1630,12 @@ function _prBuildDiagText(codeFam) {
       txt += `Geste : note sur bon de commande. ⭐ = pépite prioritaire · 🔧 = paramétrer MIN/MAX avant commande.\n`;
       _printByEmp(aCommander, (a, emp) => {
         const q = _cmdQ(a);
-        const cmd = q == null ? '⚠ pas de MAX' : q > 0 ? `cmd ${q}` : 'OK';
         const urg = a.status === 'rupture' ? '⚠ RUPTURE' : 'sous MIN';
-        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${cmd} (${urg})`;
+        // Si pas de MIN/MAX, le 🔧 dans les marqueurs suffit : on masque la redite
+        const tail = q == null
+          ? `${_mm(a)} (${urg})`
+          : `${_mm(a)}, cmd ${q} (${urg})`;
+        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${tail}`;
       });
       txt += '\n';
     }
@@ -1798,17 +1801,17 @@ function _prBuildDiagText(codeFam) {
   txt += `Cite les 2-3 métiers clients dominants et ce que ça implique pour le rayon.\n\n`;
 
   txt += `─── 1. SORTIR DU RAYON ───\n`;
-  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement par 📍 emplacement. Format ligne : ☐ [CODE] Libellé — stock N, X€. Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
+  txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag. Format ligne : ☐ [CODE] Libellé — stock N, X€. Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
 
   txt += `─── 2. COMMANDER / RÉAPPRO ───\n`;
-  txt += `Reprends la section "ÉTAPE 2 — COMMANDER". Conserve le groupement par 📍 emplacement et tous les marqueurs (⭐ 💤 🔧 ⚠). Format : ☐ [CODE] Libellé — stock N, MIN X/MAX Y, cmd Z (⚠ RUPTURE|sous MIN).\n`;
+  txt += `Reprends la section "ÉTAPE 2 — COMMANDER". Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag et tous les marqueurs (⭐ 💤 🔧 ⚠). Format : ☐ [CODE] Libellé — stock N, MIN X/MAX Y, cmd Z (⚠ RUPTURE|sous MIN).\n`;
   txt += `Priorise visuellement ⚠ RUPTURE (urgence) et ⭐ pépite (critique). Les articles 🔧 nécessitent un passage ERP avant commande — signale-les clairement.\n\n`;
 
   txt += `─── 3. IMPLANTER (nouvelles refs) ───\n`;
   txt += `Reprends la section "ÉTAPE 3 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
 
   txt += `─── 4. VÉRIFIER / MAINTENIR ───\n`;
-  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR". Conserve le groupement par 📍 emplacement et les marqueurs. Ce bloc = parcours de vérification du facing et de l'état.\n`;
+  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR". Conserve le groupement sous-famille ▸ marque · avec emplacement en @tag et les marqueurs. Ce bloc = parcours de vérification du facing et de l'état.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
   txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
   txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
