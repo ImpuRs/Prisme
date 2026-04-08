@@ -1558,12 +1558,11 @@ function _prBuildDiagText(codeFam) {
         const mq = _mqOf(a);
         if (sf !== curSF) {
           if (curSF !== null) txt += '\n';
-          txt += `${_SEP_SF}\n▸ ${sf}\n${_SEP_SF}\n`;
+          txt += `**▸ ${sf}**\n`;
           curSF = sf; curMQ = null;
         }
         if (mq !== curMQ) {
-          if (curMQ !== null) txt += `${_SEP_MQ}\n`;
-          txt += `· ${mq}\n`;
+          txt += `**· ${mq}**\n`;
           curMQ = mq;
         }
         const emp = _empOf(a);
@@ -1598,15 +1597,15 @@ function _prBuildDiagText(codeFam) {
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
       const _fmtSortir = (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`;
       if (aDormants.length) {
-        txt += `\n${'═'.repeat(78)}\n  Dormants (${aDormants.length})\n${'═'.repeat(78)}\n`;
+        txt += `\n**Dormants (${aDormants.length})**\n`;
         _printByEmp(aDormants, _fmtSortir);
       }
       if (aFinSerie.length) {
-        txt += `\n${'═'.repeat(78)}\n  Fin de série (${aFinSerie.length}) — à dégager même si pépite\n${'═'.repeat(78)}\n`;
+        txt += `\n**Fin de série (${aFinSerie.length}) — à dégager même si pépite**\n`;
         _printByEmp(aFinSerie, _fmtSortir);
       }
       if (aFinStock.length) {
-        txt += `\n${'═'.repeat(78)}\n  Fin de stock (${aFinStock.length}) — à dégager même si pépite\n${'═'.repeat(78)}\n`;
+        txt += `\n**Fin de stock (${aFinStock.length}) — à dégager même si pépite**\n`;
         _printByEmp(aFinStock, _fmtSortir);
       }
       txt += '\n';
@@ -1660,12 +1659,11 @@ function _prBuildDiagText(codeFam) {
           const mq = _mqOfImpl(a);
           if (sf !== curSF) {
             if (curSF !== null) txt += '\n';
-            txt += `${_SEP_SF}\n▸ ${sf}\n${_SEP_SF}\n`;
+            txt += `**▸ ${sf}**\n`;
             curSF = sf; curMQ = null;
           }
           if (mq !== curMQ) {
-            if (curMQ !== null) txt += `${_SEP_MQ}\n`;
-            txt += `· ${mq}\n`;
+            txt += `**· ${mq}**\n`;
             curMQ = mq;
           }
           txt += `  ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
