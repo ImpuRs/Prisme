@@ -1533,16 +1533,22 @@ function _prBuildDiagText(codeFam) {
     };
 
     const _sfOf = (a) => catFam?.get(a.code)?.sousFam || '—';
+    const _mqOf = (a) => _S.catalogueMarques?.get(a.code) || a.marque || '—';
     const _sortSF = (a, b) => {
       const sa = _sfOf(a), sb = _sfOf(b);
-      return sa.localeCompare(sb) || String(a.code).localeCompare(String(b.code));
+      if (sa !== sb) return sa.localeCompare(sb);
+      const ma = _mqOf(a), mb = _mqOf(b);
+      if (ma !== mb) return ma.localeCompare(mb);
+      return String(a.code).localeCompare(String(b.code));
     };
     const _printBySF = (arr, fmt) => {
-      let curSF = null;
+      let curSF = null, curMQ = null;
       arr.forEach(a => {
         const sf = _sfOf(a);
-        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; }
-        txt += `     ${fmt(a)}\n`;
+        const mq = _mqOf(a);
+        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
+        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
+        txt += `        ${fmt(a)}\n`;
       });
     };
 
@@ -1651,11 +1657,15 @@ function _prBuildDiagText(codeFam) {
         if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
       }
     }
-    // Tri par sous-famille puis code
+    // Tri par sous-famille → marque → code
     const _sfOfImpl = (a) => catFam?.get(a.code)?.sousFam || '—';
+    const _mqOfImpl = (a) => _S.catalogueMarques?.get(a.code) || a.marque || '—';
     toImpl.sort((a, b) => {
       const sa = _sfOfImpl(a), sb = _sfOfImpl(b);
-      return sa.localeCompare(sb) || String(a.code).localeCompare(String(b.code));
+      if (sa !== sb) return sa.localeCompare(sb);
+      const ma = _mqOfImpl(a), mb = _mqOfImpl(b);
+      if (ma !== mb) return ma.localeCompare(mb);
+      return String(a.code).localeCompare(String(b.code));
     });
     if (toImpl.length) {
       // Lookup MIN/MAX médiane réseau depuis finalData si dispo
@@ -1677,11 +1687,13 @@ function _prBuildDiagText(codeFam) {
       }
       txt += `Articles absents du rayon, signal réseau fort — à cocher pour référencement :\n`;
       const list = isRayonVide ? toImpl : toImpl.slice(0, 15);
-      let curSF = null;
+      let curSF = null, curMQ = null;
       list.forEach(a => {
         const sf = _sfOfImpl(a);
-        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; }
-        txt += `     ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+        const mq = _mqOfImpl(a);
+        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
+        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
+        txt += `        ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
       });
       if (!isRayonVide && toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
       txt += '\n';
@@ -1747,7 +1759,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). Toutes les données ci-dessus sont exploitables — utilise-les toutes.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n`;
   txt += `ORDRE ABSOLU des blocs (ne JAMAIS dévier) : 1) À implanter → 2) Socle (⭐=pépite AF) → 3) Challengers → 4) Urgences stock → 5) Finition.\n`;
-  txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe les articles par SOUS-FAMILLE (ordre alphabétique), puis par code croissant à l'intérieur de chaque sous-famille. Affiche le nom de la sous-famille en en-tête de groupe.\n\n`;
+  txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe par SOUS-FAMILLE (▸) puis par MARQUE (·) puis par code croissant. Conserve ces en-têtes de groupe dans ta sortie — c'est pour que l'utilisateur retrouve les articles devant son rayon.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
   txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
