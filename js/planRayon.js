@@ -955,10 +955,10 @@ function _prRenderDetail(codeFam) {
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
     </div>
-    <div class="flex flex-wrap gap-1.5 mb-1">
+    <div class="flex flex-wrap gap-0 mb-1 border-b b-light">
       ${tabs.map(t => `<button onclick="window._prSetTab('${t.key}')" data-prtab="${t.key}"
-        class="text-[11px] px-3 py-1.5 cursor-pointer border-b-2 ${_prDetailTab === t.key ? 'font-bold' : 't-secondary'}"
-        style="${_prDetailTab === t.key ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent'}">${t.label}</button>`).join('')}
+        class="text-[11px] px-4 py-2 cursor-pointer border-b-2 transition-colors ${_prDetailTab === t.key ? 'font-bold' : 'hover:t-primary'}"
+        style="${_prDetailTab === t.key ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${t.label}</button>`).join('')}
     </div>
     <div class="text-[9px] t-disabled px-4 pb-2">
       📊 Classif. famille : historique complet
@@ -1280,9 +1280,9 @@ window._prSetTab = function(tab) {
   _prDetailTab = tab;
   document.querySelectorAll('[data-prtab]').forEach(btn => {
     const active = btn.dataset.prtab === tab;
-    btn.className = `text-[11px] px-3 py-1.5 cursor-pointer border-b-2 ${active ? 'font-bold' : 't-secondary'}`;
+    btn.className = `text-[11px] px-4 py-2 cursor-pointer border-b-2 transition-colors ${active ? 'font-bold' : 'hover:t-primary'}`;
     btn.style.borderColor = active ? 'var(--c-action)' : 'transparent';
-    btn.style.color       = active ? 'var(--t-primary)' : '';
+    btn.style.color       = active ? 'var(--t-primary)' : 'var(--t-secondary)';
   });
   const fam = _S._prData?.families.find(f => f.codeFam === _prOpenFam);
   const el  = document.getElementById('prDetailContent');
