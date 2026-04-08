@@ -1560,11 +1560,14 @@ function _prBuildDiagText(codeFam) {
     // Dormants À VIRER = dormants qui NE sont PAS dans le socle réseau
     const dormantsHorsSocle = rayonData.monRayon.filter(a => a.status === 'dormant' && a.sqClassif !== 'socle').sort(_sortSF);
 
-    // Format MIN/MAX compact : "MIN X/MAX Y (PRISME|ERP)" ou "—"
+    // Format MIN/MAX compact : PRISME > ERP > médiane réseau
     const _mm = (a) => {
       const m = _minMax(a);
-      if (!m) return '—';
-      return `MIN ${m.min}/MAX ${m.max} (${m.src})`;
+      if (m) return `MIN ${m.min}/MAX ${m.max} (${m.src})`;
+      const mn = a.medMinReseau, mx = a.medMaxReseau;
+      if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
+      if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
+      return 'MIN/MAX à paramétrer';
     };
     // Format quantité à commander compact : "cmd N" ou "OK"
     const _cmd = (a) => {
