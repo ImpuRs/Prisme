@@ -14,7 +14,7 @@ let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
-let _prSqPage        = 50;   // nb articles affichés dans le Squelette
+let _prSqPage        = 99999;   // nb articles affichés dans le Squelette (tout afficher)
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
