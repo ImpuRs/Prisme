@@ -1547,17 +1547,28 @@ function _prBuildDiagText(codeFam) {
       if (ma !== mb) return ma.localeCompare(mb);
       return String(a.code).localeCompare(String(b.code));
     };
+    // Séparateurs visuels
+    const _SEP_SF = '─'.repeat(78);
+    const _SEP_MQ = '─'.repeat(40);
     // Impression groupée par sous-famille ▸ puis marque · emplacement affiché inline @
     const _printByEmp = (arr, fmt) => {
       let curSF = null, curMQ = null;
       arr.forEach(a => {
         const sf = _sfOf(a);
         const mq = _mqOf(a);
-        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
-        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
+        if (sf !== curSF) {
+          if (curSF !== null) txt += '\n';
+          txt += `${_SEP_SF}\n▸ ${sf}\n${_SEP_SF}\n`;
+          curSF = sf; curMQ = null;
+        }
+        if (mq !== curMQ) {
+          if (curMQ !== null) txt += `${_SEP_MQ}\n`;
+          txt += `· ${mq}\n`;
+          curMQ = mq;
+        }
         const emp = _empOf(a);
         const empTag = emp && emp !== '—' ? `@${emp} ` : '';
-        txt += `        ${fmt(a, empTag)}\n`;
+        txt += `  ${fmt(a, empTag)}\n`;
       });
     };
 
@@ -1587,15 +1598,15 @@ function _prBuildDiagText(codeFam) {
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
       const _fmtSortir = (a, emp) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€${emp ? '  ' + emp.trim() : ''}`;
       if (aDormants.length) {
-        txt += `\n--- Dormants (${aDormants.length}) ---\n`;
+        txt += `\n${'═'.repeat(78)}\n  Dormants (${aDormants.length})\n${'═'.repeat(78)}\n`;
         _printByEmp(aDormants, _fmtSortir);
       }
       if (aFinSerie.length) {
-        txt += `\n--- Fin de série (${aFinSerie.length}) — à dégager même si pépite ---\n`;
+        txt += `\n${'═'.repeat(78)}\n  Fin de série (${aFinSerie.length}) — à dégager même si pépite\n${'═'.repeat(78)}\n`;
         _printByEmp(aFinSerie, _fmtSortir);
       }
       if (aFinStock.length) {
-        txt += `\n--- Fin de stock (${aFinStock.length}) — à dégager même si pépite ---\n`;
+        txt += `\n${'═'.repeat(78)}\n  Fin de stock (${aFinStock.length}) — à dégager même si pépite\n${'═'.repeat(78)}\n`;
         _printByEmp(aFinStock, _fmtSortir);
       }
       txt += '\n';
@@ -1640,16 +1651,24 @@ function _prBuildDiagText(codeFam) {
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
           return `MIN/MAX à paramétrer`;
         };
-        txt += `═══ ÉTAPE 3 — IMPLANTER (nouvelles refs à créer) ═══\n`;
+        txt += `═══ ÉTAPE 2 — IMPLANTER (nouvelles refs à créer) ═══\n`;
         txt += `Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
         const list = toImpl.slice(0, 15);
         let curSF = null, curMQ = null;
         list.forEach(a => {
           const sf = _sfOfImpl(a);
           const mq = _mqOfImpl(a);
-          if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
-          if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
-          txt += `        ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+          if (sf !== curSF) {
+            if (curSF !== null) txt += '\n';
+            txt += `${_SEP_SF}\n▸ ${sf}\n${_SEP_SF}\n`;
+            curSF = sf; curMQ = null;
+          }
+          if (mq !== curMQ) {
+            if (curMQ !== null) txt += `${_SEP_MQ}\n`;
+            txt += `· ${mq}\n`;
+            curMQ = mq;
+          }
+          txt += `  ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
         });
         if (toImpl.length > 15) txt += `  ... et ${toImpl.length - 15} autres\n`;
         txt += '\n';
@@ -1680,14 +1699,14 @@ function _prBuildDiagText(codeFam) {
         const body = mm ? ` — ${mm}` : '';
         return `☐ ${_markers4(a)}[${a.code}] ${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
       };
-      txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
+      txt += `═══ ÉTAPE 3 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
       txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP (valeur médiane réseau indiquée à titre indicatif).\n`;
       if (aIncont.length) {
-        txt += `\n--- 4a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing ---\n`;
+        txt += `\n${'═'.repeat(78)}\n  3a. INCONTOURNABLES (${aIncont.length}) — pépites + socle réseau, prio facing\n${'═'.repeat(78)}\n`;
         _printByEmp(aIncont, _fmt4);
       }
       if (aStd.length) {
-        txt += `\n--- 4b. STANDARDS (${aStd.length}) — vérification routine ---\n`;
+        txt += `\n${'═'.repeat(78)}\n  3b. STANDARDS (${aStd.length}) — vérification routine\n${'═'.repeat(78)}\n`;
         _printByEmp(aStd, _fmt4);
       }
       txt += '\n';
@@ -1777,7 +1796,8 @@ function _prBuildDiagText(codeFam) {
   txt += `Tu es merchandiseur expert rayon quincaillerie pro (Legallais B2B). L'utilisateur est DEBOUT DEVANT LE RAYON et va exécuter tes instructions à la main. Ton rôle : lui donner une check-list d'actions physiques linéaire, sans friction, qu'il peut cocher au fur et à mesure.\n`;
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
 
-  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 3) IMPLANTER → 4) VÉRIFIER/MAINTENIR (4a Incontournables puis 4b Standards) → 5) Insights.\n`;
+  txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) IMPLANTER → 3) VÉRIFIER/MAINTENIR (3a Incontournables puis 3b Standards) → 4) Insights.\n`;
+  txt += `MISE EN PAGE OBLIGATOIRE : reprends mot pour mot les séparateurs ─── des données. Chaque sous-famille ▸ est précédée et suivie d'une barre ───. Chaque marque · est séparée de la suivante par une barre courte ───. Conserve les sauts de ligne entre groupes pour la lisibilité.\n`;
   txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est affiché EN FIN DE LIGNE uniquement, JAMAIS en début.\n`;
   txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer · ⚠=rupture.\n\n`;
 
@@ -1789,17 +1809,17 @@ function _prBuildDiagText(codeFam) {
   txt += `─── 1. SORTIR DU RAYON ───\n`;
   txt += `Reprends mot pour mot la section "ÉTAPE 1 — SORTIR DU RAYON" des données. Conserve le groupement sous-famille ▸ marque · avec emplacement EN FIN DE LIGNE. Format ligne : ☐ [CODE] Libellé — stock N, X€  EMPLACEMENT (en fin de ligne). Annonce en en-tête le nombre de refs et la valeur totale libérable.\n\n`;
 
-  txt += `─── 3. IMPLANTER (nouvelles refs) ───\n`;
-  txt += `Reprends la section "ÉTAPE 3 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
+  txt += `─── 2. IMPLANTER (nouvelles refs) ───\n`;
+  txt += `Reprends la section "ÉTAPE 2 — IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque, avec les séparateurs ───. Format ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Précise au début qu'il faut CRÉER un emplacement physique et PARAMÉTRER le MIN/MAX dans l'ERP.\n\n`;
 
-  txt += `─── 4. VÉRIFIER / MAINTENIR ───\n`;
-  txt += `Reprends la section "ÉTAPE 4 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 4a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 4b STANDARDS. Groupement sous-famille ▸ marque · marqueurs préservés, emplacement EN FIN DE LIGNE uniquement. OBLIGATOIRE : conserve le MIN/MAX inline sur chaque ligne (MIN X/MAX Y), n'affiche JAMAIS le stock dans les ÉTAPES 3 et 4.\n`;
+  txt += `─── 3. VÉRIFIER / MAINTENIR ───\n`;
+  txt += `Reprends la section "ÉTAPE 3 — VÉRIFIER / MAINTENIR" en conservant le SPLIT 3a INCONTOURNABLES (pépites + socle réseau, à traiter en premier) puis 3b STANDARDS. Conserve les séparateurs ───, le groupement sous-famille ▸ marque ·, marqueurs préservés, emplacement EN FIN DE LIGNE uniquement. OBLIGATOIRE : conserve le MIN/MAX inline sur chaque ligne (MIN X/MAX Y), n'affiche JAMAIS le stock dans les ÉTAPES 2 et 3.\n`;
   txt += `⚠️ RÈGLES ABSOLUES :\n`;
   txt += `  - ⭐ pépite AF : ne doit JAMAIS sortir du rayon, priorité absolue.\n`;
   txt += `  - 💤 dormant chez moi (socle réseau) : NE JAMAIS proposer à la suppression. Conserver et surveiller.\n`;
   txt += `  - 🔧 : article sans MIN/MAX configuré → tâche de paramétrage ERP à noter.\n\n`;
 
-  txt += `─── 5. INSIGHTS CATALOGUE & MARQUES ───\n`;
+  txt += `─── 4. INSIGHTS CATALOGUE & MARQUES ───\n`;
   txt += `Sous-famille sur/sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis pour le prochain sprint.\n\n`;
 
   txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée.\n`;
