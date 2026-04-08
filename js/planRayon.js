@@ -1788,6 +1788,7 @@ function _prBuildDiagText(codeFam) {
   txt += `INSIGHTS CATALOGUE & MARQUES : quelle sous-famille est sur- ou sous-représentée ? Marque trop concentrée ou absente ? 1-2 ajustements précis.\n\n`;
 
   txt += `RÈGLE W : W = ventes hebdo moyennes sur la période analysée. W élevé + stock=0 = urgence maximale.\n`;
+  txt += `VOCABULAIRE INTERDIT : n'emploie JAMAIS le mot "doublon" seul (ambigu). Si une référence est redondante avec une autre gamme, écris explicitement "redondant avec Sensys" ou "chevauche gamme Harpe II" en précisant la gamme concernée. Jamais de "doublon stock" ni "doublon implantation".\n`;
 
   return txt;
 }
