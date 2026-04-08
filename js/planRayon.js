@@ -1636,9 +1636,12 @@ function _prBuildDiagText(codeFam) {
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
 
   if (sqData) {
+    // Codes déjà présents au rayon (y compris ruptures) — à exclure de "à implanter"
+    const codesInRayon = new Set((rayonData?.monRayon || []).map(a => a.code));
     const toImpl = [];
     for (const d of sqData.directions) {
       for (const a of (d.implanter || [])) {
+        if (codesInRayon.has(a.code)) continue;
         const cf = catFam?.get(a.code)?.codeFam || _S.articleFamille?.[a.code];
         if (cf !== codeFam) continue;
         if (sousFamFilter) {
