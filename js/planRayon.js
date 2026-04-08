@@ -1679,12 +1679,7 @@ function _prBuildDiagText(codeFam) {
         return `MIN/MAX à paramétrer`;
       };
 
-      txt += `═══ À IMPLANTER — ${fam.libFam} (${codeFam})${sousFamLib ? ' › ' + sousFamLib : ''} ═══\n`;
-      if (_prSelectedEmps.size > 0) {
-        txt += `Emplacements impactés : ${[..._prSelectedEmps].sort().join(', ')}\n`;
-      } else if (empsKnown.length) {
-        txt += `Emplacements impactés : ${empsKnown.join(', ')}\n`;
-      }
+      txt += `═══ À IMPLANTER ═══\n`;
       txt += `Articles absents du rayon, signal réseau fort — à cocher pour référencement :\n`;
       const list = isRayonVide ? toImpl : toImpl.slice(0, 15);
       let curSF = null, curMQ = null;
@@ -1762,11 +1757,12 @@ function _prBuildDiagText(codeFam) {
   txt += `TRI INTERNE ABSOLU : dans chaque bloc, groupe par SOUS-FAMILLE (▸) puis par MARQUE (·) puis par code croissant. Conserve ces en-têtes de groupe dans ta sortie — c'est pour que l'utilisateur retrouve les articles devant son rayon.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
-  txt += `1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
+  txt += `En-tête obligatoire : rappelle la FAMILLE (nom + code), les SOUS-FAMILLES concernées, et les EMPLACEMENTS IMPACTÉS (depuis le bloc DIAGNOSTIC RAYON en haut du prompt).\n`;
+  txt += `Puis 1 phrase : nb articles en stock, % couverture catalogue, valeur stock, signal global (développer / consolider / désengager).\n`;
   txt += `Cite les 2-3 métiers clients dominants (section MÉTIERS CLIENTS) et ce que ça implique pour le rayon.\n\n`;
 
   txt += `─── 1. À IMPLANTER — articles à référencer ───\n`;
-  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. Rappelle en en-tête la famille, les sous-familles concernées et les emplacements impactés.\n\n`;
+  txt += `Utilise la section "À IMPLANTER". Conserve la structure à cocher groupée par sous-famille puis marque. Format exact par ligne : ☐ [CODE] Libellé — MIN/MAX réseau. Ces articles entrent en rayon AVANT tout arbitrage socle/challenger. NE répète PAS la famille ni les emplacements (déjà en bloc 0).\n\n`;
 
   txt += `─── 2. SOCLE — maintenir absolument ───\n`;
   txt += `Utilise la section "SOCLE RÉSEAU". Conserve les marqueurs ⭐ (pépite AF, ne jamais rompre) et 💤 (dormant chez moi). Pour chaque article, précise son état local : "standard" ou 💤 "dormant chez moi".\n`;
