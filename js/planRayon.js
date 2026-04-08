@@ -1598,8 +1598,19 @@ function _prBuildDiagText(codeFam) {
       txt += '\n';
     }
     if (rupturesNormales.length) {
-      txt += `Ruptures (moins fréquentes) :\n`;
-      _printBySF(rupturesNormales.slice(0, 5), a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
+      txt += `⚠ RUPTURES (moins fréquentes) :\n`;
+      _printBySF(rupturesNormales, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
+      txt += '\n';
+    }
+    // CATCH-ALL : tout article en rayon non encore listé (standards sans classif, etc.)
+    const seen = new Set([
+      ...pepites, ...socles, ...challengers, ...rupturesUrgentes,
+      ...dormantsHorsSocle, ...rupturesNormales
+    ].map(a => a.code));
+    const autres = rayonData.monRayon.filter(a => !seen.has(a.code)).sort(_sortSF);
+    if (autres.length) {
+      txt += `⚪ AUTRES EN RAYON (standards sans classification réseau) :\n`;
+      _printBySF(autres, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
       txt += '\n';
     }
   }
