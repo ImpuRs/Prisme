@@ -1655,8 +1655,8 @@ function _prBuildDiagText(codeFam) {
         if (m) mm = `MIN ${m.min}/MAX ${m.max}`;
         else if (a.medMinReseau != null && a.medMaxReseau != null) mm = `MIN ${Math.round(a.medMinReseau)}/MAX ${Math.round(a.medMaxReseau)} (méd)`;
         else if (a.medMaxReseau != null) mm = `MAX ${Math.round(a.medMaxReseau)} (méd)`;
-        const body = mm ? mm : 'MIN/MAX à paramétrer';
-        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle} — ${body}${emp ? '  ' + emp.trim() : ''}`;
+        const body = mm ? ` — ${mm}` : '';
+        return `☐ ${_markers4(a)}[${a.code}] ${a.libelle}${body}${emp ? '  ' + emp.trim() : ''}`;
       };
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
       txt += `Geste : parcours le rayon, vérifie facing et étiquetage. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder) · ⚠ = rupture (à réappro) · 🔧 = MIN/MAX à paramétrer dans l'ERP (valeur médiane réseau indiquée à titre indicatif).\n`;
