@@ -1556,7 +1556,7 @@ function _prBuildDiagText(codeFam) {
           const csf = catFam?.get(a.code)?.codeSousFam || '';
           if (!_prSelectedSFs.has(csf)) continue;
         }
-        toImpl.push(a);
+        if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
       }
     }
     toImpl.sort(_sortCode);
