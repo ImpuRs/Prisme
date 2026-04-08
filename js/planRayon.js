@@ -1561,24 +1561,25 @@ function _prBuildDiagText(codeFam) {
       return Math.max(0, m.max - (a.stockActuel || 0));
     };
 
-    // Tri physique : emplacement → sous-famille → marque → code
+    // Tri logique : sous-famille → marque → code (pour regrouper charnière+embase d'un même système)
     const _sortPhys = (a, b) => {
-      const ea = _empOf(a), eb = _empOf(b);
-      if (ea !== eb) return ea.localeCompare(eb);
       const sa = _sfOf(a), sb = _sfOf(b);
       if (sa !== sb) return sa.localeCompare(sb);
       const ma = _mqOf(a), mb = _mqOf(b);
       if (ma !== mb) return ma.localeCompare(mb);
       return String(a.code).localeCompare(String(b.code));
     };
-    // Impression groupée par emplacement (parcours rayon linéaire)
+    // Impression groupée par sous-famille ▸ puis marque · emplacement affiché inline @
     const _printByEmp = (arr, fmt) => {
-      let curEmp = null;
+      let curSF = null, curMQ = null;
       arr.forEach(a => {
+        const sf = _sfOf(a);
+        const mq = _mqOf(a);
+        if (sf !== curSF) { txt += `  ▸ ${sf}\n`; curSF = sf; curMQ = null; }
+        if (mq !== curMQ) { txt += `     · ${mq}\n`; curMQ = mq; }
         const emp = _empOf(a);
-        if (emp !== curEmp) { txt += `  📍 ${emp}\n`; curEmp = emp; }
-        const ctx = `${_sfOf(a)} / ${_mqOf(a)}`;
-        txt += `     ${fmt(a, ctx)}\n`;
+        const empTag = emp && emp !== '—' ? `@${emp} ` : '';
+        txt += `        ${fmt(a, empTag)}\n`;
       });
     };
 
@@ -1619,7 +1620,7 @@ function _prBuildDiagText(codeFam) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables) ═══\n`;
       txt += `Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
-      _printByEmp(aSortir, (a, ctx) => `☐ [${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€ · (${ctx})`);
+      _printByEmp(aSortir, (a, emp) => `☐ ${emp}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${Math.round(a.valeurStock || 0)}€`);
       txt += '\n';
     }
 
@@ -1627,11 +1628,11 @@ function _prBuildDiagText(codeFam) {
     if (aCommander.length) {
       txt += `═══ ÉTAPE 2 — COMMANDER / RÉAPPRO (${aCommander.length} refs) ═══\n`;
       txt += `Geste : note sur bon de commande. ⭐ = pépite prioritaire · 🔧 = paramétrer MIN/MAX avant commande.\n`;
-      _printByEmp(aCommander, (a, ctx) => {
+      _printByEmp(aCommander, (a, emp) => {
         const q = _cmdQ(a);
         const cmd = q == null ? '⚠ pas de MAX' : q > 0 ? `cmd ${q}` : 'OK';
         const urg = a.status === 'rupture' ? '⚠ RUPTURE' : 'sous MIN';
-        return `☐ ${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${cmd} (${urg}) · (${ctx})`;
+        return `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${cmd} (${urg})`;
       });
       txt += '\n';
     }
@@ -1641,9 +1642,7 @@ function _prBuildDiagText(codeFam) {
     if (aMaintenir.length) {
       txt += `═══ ÉTAPE 4 — VÉRIFIER / MAINTENIR (${aMaintenir.length} refs en place) ═══\n`;
       txt += `Geste : parcours le rayon, vérifie emplacement et facing. ⭐ = pépite (ne jamais rompre) · 💤 = dormant du socle réseau (garder, surveiller) · 🔧 = MIN/MAX à paramétrer.\n`;
-      _printByEmp(aMaintenir, (a, ctx) => {
-        return `☐ ${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)} · (${ctx})`;
-      });
+      _printByEmp(aMaintenir, (a, emp) => `☐ ${emp}${_markers(a)}[${a.code}] ${a.libelle} — stock ${a.stockActuel ?? 0}, ${_mm(a)}`);
       txt += '\n';
     }
   }
@@ -1790,7 +1789,7 @@ function _prBuildDiagText(codeFam) {
   txt += `Réponds en français, style synthétique. Pas d'intro, pas de conclusion, pas de définitions.\n\n`;
 
   txt += `ORDRE ABSOLU des blocs : 0) État du rayon → 1) SORTIR → 2) COMMANDER → 3) IMPLANTER → 4) VÉRIFIER/MAINTENIR → 5) Insights.\n`;
-  txt += `TRI PHYSIQUE : dans chaque étape, conserve l'ordre par EMPLACEMENT (📍) donné dans les données. L'utilisateur doit pouvoir parcourir le rayon linéairement, sans revenir en arrière.\n`;
+  txt += `TRI : dans chaque étape, conserve l'ordre SOUS-FAMILLE (▸) puis MARQUE (·) puis CODE. L'emplacement physique est donné en @tag au début de chaque ligne pour aller directement au bon tiroir.\n`;
   txt += `MARQUEURS in-line à conserver : ⭐=pépite AF (ne jamais rompre) · 💤=dormant chez moi mais socle réseau (garder) · 🔧=MIN/MAX à paramétrer avant commande · ⚠=rupture.\n\n`;
 
   txt += `─── 0. RAYON EN UN COUP D'ŒIL ───\n`;
