@@ -1488,9 +1488,6 @@ function _prBuildDiagText(codeFam) {
     txt += `  Emplacements : ${empsKnown.join(', ')}\n`;
   }
   txt += `╚══════════════════════════════════════════════╝\n\n`;
-  txt += `[CONTEXTE PRISME — Diagnostic rayon à analyser]\n`;
-  txt += `Tu es consultant rayon expert pour une agence Legallais (distributeur B2B quincaillerie pro).\n`;
-  txt += `Agence : ${agence}. Famille analysée : ${contexteLabel}\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n`;
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
   const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
