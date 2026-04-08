@@ -45,14 +45,29 @@ function _refreshBenchEquation() {
   const _mode = _S._reseauMagasinMode || 'all';
   const _getCA = (d) => !d ? 0 : _mode === 'preleve' ? (d.caP || 0) : _mode === 'enleve' ? (d.caE || 0) : (d.ca || 0);
   const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
+  // Compte les clients uniques depuis _byMonthClients en respectant _globalPeriodePreset
+  const _countClientsByPeriode = () => {
+    if (!_S._byMonthClients) return null;
+    const _now = new Date();
+    const _nowIdx = _now.getFullYear() * 12 + _now.getMonth();
+    const _preset = _S._globalPeriodePreset || '12M';
+    const _startIdx = _preset === 'YTD' ? _now.getFullYear() * 12
+                    : _preset === '6M'  ? _nowIdx - 5
+                    :                     _nowIdx - 11; // 12M
+    const _set = new Set();
+    for (const midxStr in _S._byMonthClients) {
+      const midx = +midxStr;
+      if (midx < _startIdx || midx > _nowIdx) continue;
+      for (const cc of _S._byMonthClients[midxStr]) _set.add(cc);
+    }
+    return _set.size;
+  };
   let _ca, _nbBL, _sumVMB, _nbClients, _canalLabel;
   if (_canaux.size === 0) {
     _ca = Object.values(_ca_all).reduce((s, d) => s + _getCA(d), 0);
     _nbBL = Object.values(_ca_all).reduce((s, d) => s + (d.bl || 0), 0);
     _sumVMB = Object.values(_ca_all).reduce((s, d) => s + (d.sumVMB || 0), 0);
-    _nbClients = (_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size > 0)
-      ? _S._clientsTousCanaux.size
-      : (_S.clientLastOrderByCanal?.size || 0);
+    _nbClients = _countClientsByPeriode() ?? ((_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size > 0) ? _S._clientsTousCanaux.size : (_S.clientLastOrderByCanal?.size || 0));
     _canalLabel = 'Tous canaux';
   } else if (_canaux.size === 1) {
     const _canal = [..._canaux][0];
@@ -64,7 +79,7 @@ function _refreshBenchEquation() {
   } else {
     _ca = 0; _nbBL = 0; _sumVMB = 0;
     for (const _c of _canaux) { const _d = _ca_all[_c] || {}; _ca += _getCA(_d); _nbBL += _d.bl || 0; _sumVMB += _d.sumVMB || 0; }
-    _nbClients = _S.clientLastOrderByCanal?.size || 0;
+    _nbClients = _countClientsByPeriode() ?? (_S.clientLastOrderByCanal?.size || 0);
     _canalLabel = `${_canaux.size} canaux`;
   }
   if (!_ca) { bar.classList.add('hidden'); return; }
