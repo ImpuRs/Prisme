@@ -90,6 +90,7 @@ function computePlanStock() {
       nbClients: 0,
       nbCatalogue: catCount.get(codeFam) || 0,
       nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
+      nbDormants: 0, nbRuptures: 0, nbFin: 0, hygieneScore: 0, needsCleaning: false,
     });
     return famMap.get(codeFam);
   };
@@ -135,9 +136,26 @@ function computePlanStock() {
     if (f) f.nbClients = clientsSet.size;
   }
 
+  // Compteurs hygiène par famille depuis finalData (dormants/ruptures/fin)
+  const DORMANT_DAYS = 180;
+  for (const r of (_S.finalData || [])) {
+    const fi = getFamInfo(r.code);
+    if (!fi) continue;
+    const f = famMap.get(fi.codeFam);
+    if (!f) continue;
+    const statut = (r.statut || '').toLowerCase();
+    const isFin = statut.includes('fin de');
+    if (isFin) f.nbFin++;
+    if (r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin) f.nbDormants++;
+    if (r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0) f.nbRuptures++;
+  }
   const nbOtherStores = Math.max(1, ((_S.storesIntersection?.size || 1) - 1));
   for (const [, f] of famMap) {
     f.couverture = f.nbCatalogue > 0 ? Math.round(f.nbEnRayon / f.nbCatalogue * 100) : 0;
+    // Score hygiène : % de refs pathologiques (dormants + fin + ruptures) dans le rayon actuel
+    const nbPatho = f.nbDormants + f.nbFin + f.nbRuptures;
+    f.hygieneScore = f.nbEnRayon > 0 ? Math.round(nbPatho / Math.max(f.nbEnRayon, nbPatho) * 100) : 0;
+    f.needsCleaning = f.hygieneScore >= 30;
     // Rendement : CA/ref agence comparé au CA/ref moyen du réseau (base 100)
     if (f.nbEnRayon > 0 && f.nbRefsReseau > 0 && f.caReseau > 0) {
       const caAgPerRef = f.caAgence / f.nbEnRayon;
@@ -381,6 +399,7 @@ function _prBuildCards(data, searchText = '') {
         </div>
         <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}</span>
       </div>
+      ${f.needsCleaning ? `<div class="text-[9px] font-bold mb-1" style="color:#f59e0b" title="${f.nbDormants} dormants · ${f.nbFin} fin série/stock · ${f.nbRuptures} ruptures (${f.hygieneScore}%)">🧹 À nettoyer avant expansion (${f.hygieneScore}%)</div>` : ''}
       ${miniBar}
       <div class="flex items-center justify-between text-[10px]">
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
@@ -997,10 +1016,15 @@ function _prRenderDetail(codeFam) {
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button onclick="window._prExportDiag('${fam.codeFam}')"
+        <button onclick="window._prExportDiag('${fam.codeFam}','full')"
           class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
-          title="Copier le diagnostic terrain">
+          title="Copier le diagnostic terrain complet (4 étapes)">
           📋 Diagnostic
+        </button>
+        <button onclick="window._prExportDiag('${fam.codeFam}','implant')"
+          class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
+          title="Copier uniquement le plan d'implantation (ÉTAPE 2)">
+          🎯 Implantation
         </button>
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
@@ -1439,7 +1463,7 @@ window._prExportRayon = function() {
 };
 
 // ── Diagnostic ─────────────────────────────────────────────────────────
-function _prBuildDiagText(codeFam) {
+function _prBuildDiagText(codeFam, mode = 'full') {
   const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
   if (!fam) return '';
 
@@ -1519,6 +1543,9 @@ function _prBuildDiagText(codeFam) {
   }
   txt += `╚══════════════════════════════════════════════╝\n\n`;
   txt += `Action recommandée par PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n`;
+  if (fam.needsCleaning) {
+    txt += `🧹 **PRIORITÉ HYGIÈNE** : ${fam.hygieneScore}% du rayon est pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin série/stock · ${fam.nbRuptures} ruptures). **Nettoie avant d'implanter** — le rendement remontera mécaniquement.\n`;
+  }
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
   const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
   if (isRayonVide) txt += `Mode : RÉFÉRENCEMENT INITIAL (famille non exploitée)\n`;
@@ -1621,7 +1648,7 @@ function _prBuildDiagText(codeFam) {
       .sort(_sortPhys);
 
     // ── ÉTAPE 1 ─────────────────────────────────────────────
-    if (aSortir.length) {
+    if (mode !== 'implant' && aSortir.length) {
       const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
       const nbEmp = new Set(aSortir.map(a => (a.emplacement || '').trim()).filter(Boolean)).size;
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables · ${nbEmp} emplacements rendus) ═══\n`;
@@ -1735,7 +1762,7 @@ function _prBuildDiagText(codeFam) {
     }
 
     // ── ÉTAPE 4 ─────────────────────────────────────────────
-    if (aMaintenir.length) {
+    if (mode !== 'implant' && aMaintenir.length) {
       // Marqueurs ÉTAPE 4 : ⭐ pépite · 💤 dormant socle · ⚠ rupture · 🔧 MIN/MAX absent ERP
       const _markers4 = (a) => {
         let s = '';
@@ -1875,8 +1902,8 @@ function _prDownloadDiag(txt, codeFam) {
   URL.revokeObjectURL(url);
 }
 
-window._prExportDiag = function(codeFam) {
-  const txt = _prBuildDiagText(codeFam);
+window._prExportDiag = function(codeFam, mode = 'full') {
+  const txt = _prBuildDiagText(codeFam, mode);
   if (!txt) return;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(txt).then(() => {
