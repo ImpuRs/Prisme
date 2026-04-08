@@ -1571,10 +1571,7 @@ function _prBuildDiagText(codeFam) {
 
     if (pepites.length) {
       txt += `⭐ PÉPITES AF (ne jamais rompre) :\n`;
-      _printBySF(pepites, a => {
-        const bas = (a.stockActuel > 0 && a.stockActuel <= 3) ? ' ⚠ BAS' : '';
-        return `☐ [${a.code}] ${a.libelle} — W=${a.W}, stock ${a.stockActuel ?? 0}, ${_mm(a)}, ${_cmd(a)}${bas}`;
-      });
+      _printBySF(pepites, a => `☐ [${a.code}] ${a.libelle} — ${_mm(a)}`);
       txt += '\n';
     }
     if (socles.length) {
