@@ -75,6 +75,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         secteur: chalInfo?.secteur || '',
         cp: chalInfo?.cp || '',
         ville: chalInfo?.ville || '',
+        distanceKm: chalInfo?.distanceKm ?? null,
         dept: (chalInfo?.cp || '').slice(0, 2),
         caLegallais: chalInfo?.ca2025 || 0,
         caPDVNChal: chalInfo?.caPDVN || 0,
