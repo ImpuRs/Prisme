@@ -2064,10 +2064,12 @@
         </summary>
         <div class="flex items-center gap-2 mb-2 px-1">
           <select id="rankSortKey" onchange="setRankSortKey(this.value)" class="text-xs s-card border b-default rounded px-2 py-1">
+            <option value="ca">Trier par : CA</option>
             <option value="txMarge">Trier par : Tx marge</option>
-            <option value="freq">Trier par : Nb ventes (normalisé)</option>
-            <option value="serv">Trier par : Taux couverture</option>
-            <option value="pdmBassin">Trier par : PDM bassin</option>
+            <option value="freq">Trier par : Commandes</option>
+            <option value="caClient">Trier par : CA/client</option>
+            <option value="ref">Trier par : Réf vendues</option>
+            <option value="serv">Trier par : Taux de service</option>
           </select>
         </div>
         <div class="overflow-x-auto">
@@ -2075,13 +2077,13 @@
             <thead class="s-panel-inner t-inverse font-bold sticky top-0">
               <tr>
                 <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus ≥1 fois en prélevé comptoir sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Nb ventes<em class="info-tip" data-tip="Nombre total de lignes de BL (prélevé comptoir) sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Couv.<em class="info-tip" data-tip="Couverture réseau : réf actives ÷ total réf du bassin × 100. ≠ Taux de dispo.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Tx marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA. Colonnes VMB du consommé.">ℹ</em></th>
-                <th id="benchClientsZoneHeader" class="py-2 px-3 text-center whitespace-nowrap" title="Part du CA total du bassin réalisée par cette agence">PDM agence<em class="info-tip" data-tip="Part du CA total du bassin réalisée par cette agence : CA agence ÷ CA total bassin.">ℹ</em></th>
-                <th id="benchCanalActifHeader" class="py-2 px-3 text-center whitespace-nowrap hidden">Canal actif</th>
-                <th class="py-2 px-3 text-right whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement configurable avec le sélecteur ci-dessus. #1 = meilleure agence selon le critère choisi.">ℹ</em></th>
+                <th class="py-2 px-3 text-right whitespace-nowrap">CA<em class="info-tip" data-tip="CA tous canaux sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Commandes<em class="info-tip" data-tip="Nombre total de lignes de commande (BL) sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-right whitespace-nowrap">CA/client<em class="info-tip" data-tip="CA total ÷ nombre de clients actifs.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus avec CA > 0 sur la période.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Taux de service : réf vendues ÷ total réf réseau × 100.">ℹ</em></th>
+                <th class="py-2 px-3 text-center whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement selon le critère de tri sélectionné.">ℹ</em></th>
               </tr>
             </thead>
             <tbody id="benchStoreTable"></tbody>

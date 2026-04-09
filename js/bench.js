@@ -193,25 +193,36 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   // Section B : benchLists.under filtré par famille, top 5 par défaut, bouton voir tout paginé
   {const _UP=10;const _uShowAll=!!_S._reseauUnderShowAll;const _tUP=Math.max(1,Math.ceil(fUFiltered.length/_UP));if((_S._reseauUnderPage||0)>=_tUP)_S._reseauUnderPage=0;const _cUP=_S._reseauUnderPage||0;const fUPage=_uShowAll?fUFiltered.slice(_cUP*_UP,(_cUP+1)*_UP):fUFiltered.slice(0,5);let _uHtml='';if(!fUFiltered.length){_uHtml='<p class="t-disabled text-sm p-4">Aucun article sous-exploité détecté.</p>';}else{const _uRows=fUPage.map(o=>{const uLib=escapeHtml(o.lib||'');return`<tr class="border-b hover:i-caution-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${uLib}">${uLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-caution">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-caution font-bold text-xs">${(o.ratio*100).toFixed(0)}%</td></tr>`;}).join('');const _uFoot=!_uShowAll&&fUFiltered.length>5?`<div class="text-center py-3"><button data-action="_reseauShowAll" data-section="under" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fUFiltered.length} articles →</button></div>`:_uShowAll&&_tUP>1?`<div class="text-center mt-2"><div class="inline-flex items-center gap-2 text-xs"><button data-action="_reseauPage" data-section="under" data-dir="-1" ${_cUP===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_cUP+1} sur ${_tUP}</span><button data-action="_reseauPage" data-section="under" data-dir="1" ${_cUP>=_tUP-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></div>`:'';_uHtml=`<p class="text-[11px] t-tertiary mb-2"><strong>${fUFiltered.length}</strong> article${fUFiltered.length>1?'s':''} vendus par le réseau, sous-exploités ici.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code / Libellé</th><th class="py-1 px-2 text-center">Moi (prél.)</th><th class="py-1 px-2 text-center">Moy réseau</th><th class="py-1 px-2 text-right">Ratio</th></tr></thead><tbody>${_uRows}</tbody></table></div>${_uFoot}`;}const _uEl=document.getElementById('reseauSousExploitesContainer');if(_uEl)_uEl.innerHTML=_uHtml;}
   // Store ranking [V3] — tri dynamique par _rankSortKey / _rankSortDir
-  const showClientsZone=true;const chHdr=document.getElementById('benchClientsZoneHeader');if(chHdr)chHdr.style.display='';
   // Sync select UI avec l'état courant
-  {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'pdmBassin'))sel.value=_S._rankSortKey||'pdmBassin';}
-  const _rankKey=_S._rankSortKey||'pdmBassin';const _rankDir=_S._rankSortDir===-1||_S._rankSortDir===1?_S._rankSortDir:-1;
-  const _nbCanauxActifs=(store)=>{const ca=_S.canalAgence[store]||{};return Math.max(1,Object.values(ca).filter(v=>(v.ca||0)>500).length);};
-  const sorted=Object.entries(storePerf).sort((a,b)=>{let va=a[1][_rankKey]??0;let vb=b[1][_rankKey]??0;if(_rankKey==='freq'){va/=_nbCanauxActifs(a[0]);vb/=_nbCanauxActifs(b[0]);}return _rankDir*(va-vb);});
+  {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'ca'))sel.value=_S._rankSortKey||'ca';}
+  const _rankKey=_S._rankSortKey||'ca';const _rankDir=_S._rankSortDir===-1||_S._rankSortDir===1?_S._rankSortDir:-1;
+  const sorted=Object.entries(storePerf).sort((a,b)=>{const va=a[1][_rankKey]??0;const vb=b[1][_rankKey]??0;return _rankDir*(va-vb);});
   const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
   const rankEl=document.getElementById('benchMyRank');if(rankEl){if(myRankIdx>=0){rankEl.textContent=`#${myRankIdx+1} sur ${totalStores}`;rankEl.classList.remove('hidden');}else rankEl.classList.add('hidden');}
   const inlineRank=document.getElementById('obsMyRankInline');if(inlineRank){if(myRankIdx>=0){inlineRank.textContent=`#${myRankIdx+1}/${totalStores}`;inlineRank.classList.remove('hidden');}else inlineRank.classList.add('hidden');}
-  // ── Colonne "Canal actif" — visible uniquement si filtre canal actif ─────
-  const _rcSet=_S._reseauCanaux||new Set();
   // Sync pills canal Réseau
-  {const _isAll=_rcSet.size===0;document.querySelectorAll('[data-reseau-canal]').forEach(b=>b.classList.toggle('active',_rcSet.has(b.dataset.reseauCanal)));document.querySelectorAll('#reseauCanalBar .reseau-tous-btn').forEach(b=>b.classList.toggle('active',_isAll));}
-  const _hasCanalActif=_rcSet.size>0;
-  {const _ch=document.getElementById('benchCanalActifHeader');if(_ch){const _LM={MAGASIN:'MAGASIN',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'};_ch.classList.toggle('hidden',!_hasCanalActif);if(_hasCanalActif)_ch.textContent=_rcSet.size===1?(_LM[[..._rcSet][0]]||[..._rcSet][0]):'Canaux actifs';}}
-  const _canalActifCA=(store)=>{if(!_S.ventesParMagasinByCanal)return 0;const _cMap=_S.ventesParMagasinByCanal[store]||{};let _s=0;for(const c of _rcSet){const _arts=_cMap[c]||{};for(const code of Object.keys(_arts))_s+=(_arts[code]?.sumCA||0);}return _s;};
-  const _storeTotalCA=(store)=>{if(!_S.ventesParMagasin)return 0;const _arts=_S.ventesParMagasin[store]||{};let _s=0;for(const code of Object.keys(_arts)){for(const v of Object.values(_arts[code].byCanal||{}))_s+=(v?.sumCA||0);}return _s;};
-  const _fmtCA=v=>v>=1000?`${(v/1000).toFixed(1)}k€`:v>0?`${Math.round(v)}€`:'—';
-  p=[];const maxF=Math.max(...Object.values(storePerf).map(s=>s.freq),1);sorted.forEach(([store,data],idx)=>{const isMe=store===_S.selectedMyStore,bw=(data.freq/maxF*100).toFixed(0);const servTxt=data.serv+'%';const servColor=data.serv>25?'c-ok':data.serv>=10?'c-caution':'c-danger';const tmTxt=data.txMarge>0?data.txMarge.toFixed(2)+'%':'—';const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';const pdmB=data.pdmBassin!=null?data.pdmBassin+'%':'—';const pdmBColor=data.pdmBassin==null?'t-disabled':data.pdmBassin>=30?'c-ok':data.pdmBassin>=15?'c-caution':'c-danger';const cz=showClientsZone?`<td class="py-2 px-2 text-center text-xs font-bold ${pdmBColor}" title="Part du CA total du bassin réalisée par cette agence">${pdmB}</td>`:'';let czCanal='';if(_hasCanalActif){const _ca=_canalActifCA(store);const _tot=_storeTotalCA(store);const _pct=_tot>0?(_ca/_tot*100).toFixed(1):'0.0';czCanal=`<td class="py-2 px-2 text-center text-xs font-bold t-primary" title="${_pct}% du CA total de ${store}">${_fmtCA(_ca)}</td>`;}p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}"><td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td><td class="py-2 px-2 text-center">${data.ref}</td><td class="py-2 px-2 text-center ${isMe?'c-action font-extrabold':'font-bold'}">${data.freq.toLocaleString('fr')}</td><td class="py-2 px-2 text-center ${servColor} text-[10px] font-bold">${servTxt}</td><td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tmTxt}</td>${cz}${czCanal}<td class="py-2 px-2 text-right"><div class="flex items-center gap-1 justify-end"><div class="w-16 s-hover rounded-full h-2"><div class="perf-bar ${isMe?'bg-c-action':'bg-gray-400'} rounded-full" style="width:${bw}%"></div></div><span class="text-[10px] font-bold ${isMe?'c-action':''}">#${idx+1}/${totalStores}</span></div></td></tr>`);});
+  {const _rcSet=_S._reseauCanaux||new Set();const _isAll=_rcSet.size===0;document.querySelectorAll('[data-reseau-canal]').forEach(b=>b.classList.toggle('active',_rcSet.has(b.dataset.reseauCanal)));document.querySelectorAll('#reseauCanalBar .reseau-tous-btn').forEach(b=>b.classList.toggle('active',_isAll));}
+  p=[];sorted.forEach(([store,data],idx)=>{
+    const isMe=store===_S.selectedMyStore;
+    const ag=_S.agenceStore?.get(store);
+    const ca=ag?.ca||0;
+    const tm=data.txMarge>0?data.txMarge.toFixed(1)+'%':'—';
+    const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';
+    const freq=data.freq||0;
+    const caCl=ag?.caClient||0;
+    const refs=data.ref||0;
+    const serv=data.serv||0;
+    const servColor=serv>25?'c-ok':serv>=10?'c-caution':'c-danger';
+    p.push(`<tr class="border-b ${isMe?'i-info-bg font-bold':'hover:s-card-alt'}">
+      <td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td>
+      <td class="py-2 px-2 text-right text-xs ${isMe?'c-action font-extrabold':'font-bold'}">${formatEuro(ca)}</td>
+      <td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tm}</td>
+      <td class="py-2 px-2 text-center font-bold">${freq.toLocaleString('fr')}</td>
+      <td class="py-2 px-2 text-right text-xs font-bold">${formatEuro(caCl)}</td>
+      <td class="py-2 px-2 text-center">${refs.toLocaleString('fr')}</td>
+      <td class="py-2 px-2 text-center ${servColor} font-bold">${serv}%</td>
+      <td class="py-2 px-2 text-center"><span class="text-[10px] font-bold ${isMe?'c-action':''}">#${idx+1}/${totalStores}</span></td>
+    </tr>`);});
   rT('benchStoreTable',p.join(''));
   const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
   renderHeatmapFamilleCommercial();
