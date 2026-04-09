@@ -13,6 +13,7 @@
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
 import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, _wsToHR, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
+import { buildAgenceStore } from './agence-store.js';
 
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
@@ -618,68 +619,31 @@ export function computeBenchmark(canaux = new Set()) {
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;
-  // Vue canal-filtrée : ventesParMagasinByCanal agrégé par canaux sélectionnés, sinon ventesParMagasin
+  // ── Rebuild agenceStore avec filtre canal ──
+  const _magMode = (_canauxSet.size === 1 && _canauxSet.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : 'all';
+  buildAgenceStore({ canaux: _canauxSet, magasinMode: _magMode, univers: _S.obsFilterUnivers || '' });
+  // ── Dériver vpm, sp, bv depuis agenceStore ──
   const vpm = {};
-  // "Tous" (empty set) : agréger TOUS les canaux depuis ventesParMagasinByCanal
-  // (ventesParMagasin ne contient que MAGASIN, donc insuffisant pour "Tous canaux")
-  {
-    const _useAll = !_canauxSet.size;
-    const _m = (!_useAll && _canauxSet.size === 1 && _canauxSet.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : 'all';
-    const _byCanal = _S.ventesParMagasinByCanal || {};
-    const _hasMultiCanal = Object.values(_byCanal).some(cm => Object.keys(cm).length > 1);
-    if (_useAll && !_hasMultiCanal) {
-      // Fallback : pas de données multi-canal, utiliser ventesParMagasin
-      Object.assign(vpm, _S.ventesParMagasin);
-    } else {
-      for (const [store, canalMap] of Object.entries(_byCanal)) {
-        const f = {};
-        const canaux = _useAll ? Object.keys(canalMap) : [..._canauxSet];
-        for (const selCanal of canaux) {
-          const artMap = canalMap[selCanal] || {};
-          for (const [code, data] of Object.entries(artMap)) {
-            const _caSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumPrelevee || 0)
-              : (selCanal === 'MAGASIN' && _m === 'enleve') ? ((data.sumCA || 0) - (data.sumPrelevee || 0))
-              : (data.sumCA || 0);
-            const _vmbSrc = (selCanal === 'MAGASIN' && _m === 'preleve') ? (data.sumVMBPrel || 0)
-              : (selCanal === 'MAGASIN' && _m === 'enleve') ? ((data.sumVMB || 0) - (data.sumVMBPrel || 0))
-              : (data.sumVMB || 0);
-            if (!f[code]) f[code] = { sumPrelevee: 0, sumCA: 0, countBL: 0, sumVMB: 0 };
-            f[code].sumPrelevee += (data.sumPrelevee || 0);
-            f[code].sumCA += _caSrc;
-            f[code].countBL += (data.countBL || 0);
-            f[code].sumVMB += _vmbSrc;
-          }
-        }
-        if (Object.keys(f).length) vpm[store] = f;
-      }
-    }
-  }
-  let myV = vpm[_S.selectedMyStore] || {};
+  const sp = {};
   const bv = {};
-  for (const store of cs) {
-    const sv = vpm[store] || {};
-    for (const [a, d] of Object.entries(sv)) {
+  for (const [store, rec] of _S.agenceStore) {
+    vpm[store] = rec.artMap;
+    sp[store] = { ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, panierMoyen: rec.panierMoyen, pdmBassin: rec.pdmBassin };
+    if (!cs.includes(store)) continue;
+    for (const [a, d] of Object.entries(rec.artMap)) {
       if (!/^\d{6}$/.test(a)) continue;
       if (!bv[a]) bv[a] = { tp: 0, tb: 0, sc: 0 };
       bv[a].tp += d.sumCA || 0; bv[a].tb += d.countBL; bv[a].sc++;
     }
   }
+  let myV = vpm[_S.selectedMyStore] || {};
   if (_S.obsFilterUnivers) {
     for (const k of Object.keys(bv)) { if (_S.articleUnivers[k] !== _S.obsFilterUnivers) delete bv[k]; }
     const myVF = {}; for (const [k, v] of Object.entries(myV)) { if (_S.articleUnivers[k] === _S.obsFilterUnivers) myVF[k] = v; }
     myV = myVF;
   }
   const totalArtsInBassin = Object.keys(bv).length || 1;
-  const sp = {}; sp[_S.selectedMyStore] = { ref: 0, freq: 0, serv: 0, clientsZone: 0 };
-  const _isRefActive = (v) => (v.sumCA || 0) > 0;
-  for (const [k, v] of Object.entries(myV)) { if (_isRefActive(v)) sp[_S.selectedMyStore].ref++; sp[_S.selectedMyStore].freq += v.countBL; }
-  sp[_S.selectedMyStore].serv = Math.round((sp[_S.selectedMyStore].ref / totalArtsInBassin) * 100);
-  if (_S.chalandiseReady && _S.ventesClientsPerStore[_S.selectedMyStore]) sp[_S.selectedMyStore].clientsZone = [..._S.ventesClientsPerStore[_S.selectedMyStore]].filter(c => _S.chalandiseData.has(c)).length;
-  { const _sdMe = vpm[_S.selectedMyStore] || {}; const _cMe = Object.values(_sdMe).reduce((s, v) => s + (v.sumCA || 0), 0); const _vMe = Object.values(_sdMe).reduce((s, v) => s + (v.sumVMB || 0), 0); sp[_S.selectedMyStore].txMarge = _cMe > 0 ? _vMe / _cMe * 100 : null; const _nbClMe = _S.ventesClientsPerStore?.[_S.selectedMyStore]?.size || 0; sp[_S.selectedMyStore].panierMoyen = _nbClMe > 0 ? Math.round(_cMe / _nbClMe) : 0; }
-  for (const store of cs) { sp[store] = { ref: 0, freq: 0, serv: 0, clientsZone: 0, txMarge: null, panierMoyen: 0 }; const sv = vpm[store] || {}; let _stCA = 0; for (const [k, v] of Object.entries(sv)) { if (_S.obsFilterUnivers && _S.articleUnivers[k] !== _S.obsFilterUnivers) continue; if (_isRefActive(v)) sp[store].ref++; sp[store].freq += v.countBL; _stCA += v.sumCA || 0; } sp[store].serv = Math.round((sp[store].ref / totalArtsInBassin) * 100); if (_S.chalandiseReady && _S.ventesClientsPerStore[store]) sp[store].clientsZone = [..._S.ventesClientsPerStore[store]].filter(c => _S.chalandiseData.has(c)).length; const _c = Object.values(sv).reduce((s, v) => s + (v.sumCA || 0), 0); const _v = Object.values(sv).reduce((s, v) => s + (v.sumVMB || 0), 0); sp[store].txMarge = _c > 0 ? _v / _c * 100 : null; const _nbCl = _S.ventesClientsPerStore?.[store]?.size || 0; sp[store].panierMoyen = _nbCl > 0 ? Math.round(_stCA / _nbCl) : 0; }
   _S.benchLists.storePerf = sp;
-  // pdmBassin = CA agence ÷ CA total bassin
-  { const allSt=Object.keys(sp);const stCA={};let totCA=0;for(const s of allSt){const sv=vpm[s]||{};const ca=Object.values(sv).reduce((acc,v)=>acc+(v.sumCA||0),0);stCA[s]=ca;totCA+=ca;}for(const s of allSt)sp[s].pdmBassin=totCA>0?+(stCA[s]/totCA*100).toFixed(1):0; }
   const myFamFreq = {}; const storesFamFreq = {};
   for (const [code, data] of Object.entries(myV)) { if (!/^\d{6}$/.test(code)) continue; const fam = famLib(_S.articleFamille[code]) || ''; if (fam) myFamFreq[fam] = (myFamFreq[fam] || 0) + data.countBL; }
   for (const store of cs) { storesFamFreq[store] = {}; const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code)) continue; if (_S.obsFilterUnivers && _S.articleUnivers[code] !== _S.obsFilterUnivers) continue; const fam = famLib(_S.articleFamille[code]) || ''; if (fam) storesFamFreq[store][fam] = (storesFamFreq[store][fam] || 0) + data.countBL; } }

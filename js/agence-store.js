@@ -2,6 +2,7 @@
 // PRISME — agence-store.js
 // Store agence unifié : Map<storeCode, AgenceRecord> pré-calculé
 // Agrège toutes les sources par agence en un objet plat.
+// Supporte le filtre canal et le mode magasin (prélevé/enlevé).
 // Dépend de : state.js
 // ═══════════════════════════════════════════════════════════════
 'use strict';
@@ -12,25 +13,33 @@ import { _S } from './state.js';
  * Construit _S.agenceStore = Map<storeCode, AgenceRecord> à partir de
  * _byMonthStoreArtCanal (période-filtrée) ou ventesParMagasin (fallback).
  *
- * Chaque AgenceRecord contient les KPIs agrégés + artMap (référence directe
- * vers les données article période-filtrées) pour benchmark sans recopie.
- *
+ * @param {Object} [opts]
+ * @param {Set<string>}  [opts.canaux]       — canaux à inclure (vide = tous)
+ * @param {string}       [opts.magasinMode]  — 'all'|'preleve'|'enleve' (défaut: 'all')
+ * @param {string}       [opts.univers]      — filtre univers article
+ * @param {Set<string>}  [opts.stores]       — sous-ensemble de stores (défaut: storesIntersection)
  * @returns {Map<string, Object>}
  */
-export function buildAgenceStore() {
+export function buildAgenceStore(opts = {}) {
   const t0 = performance.now();
   const store = new Map();
-  const storesSet = _S.storesIntersection;
+
+  const canaux      = opts.canaux instanceof Set ? opts.canaux : new Set();
+  const magMode     = opts.magasinMode || 'all';
+  const univFilter  = opts.univers || '';
+  const storesSet   = opts.stores || _S.storesIntersection;
+
   if (!storesSet?.size) { _S.agenceStore = store; return store; }
 
   // ── Bornes période ──
-  const pStart = _S.periodFilterStart;
-  const pEnd   = _S.periodFilterEnd;
+  const pStart  = _S.periodFilterStart;
+  const pEnd    = _S.periodFilterEnd;
   const hasPeriod = !!(pStart || pEnd);
-  const startIdx = pStart ? (pStart.getFullYear() * 12 + pStart.getMonth()) : 0;
-  const endIdx   = pEnd   ? (pEnd.getFullYear() * 12   + pEnd.getMonth())   : 999999;
+  const startIdx  = pStart ? (pStart.getFullYear() * 12 + pStart.getMonth()) : 0;
+  const endIdx    = pEnd   ? (pEnd.getFullYear() * 12   + pEnd.getMonth())   : 999999;
 
   const bmsac = _S._byMonthStoreArtCanal;
+  const useAllCanaux = !canaux.size;
 
   // ── Comptage articles bassin (union de tous les codes 6 chiffres) ──
   const bassinArticles = new Set();
@@ -42,26 +51,27 @@ export function buildAgenceStore() {
       isMyStore: agCode === _S.selectedMyStore,
       // KPIs globaux
       ca: 0, caPrelevee: 0, vmb: 0, txMarge: null,
-      refs: 0, freq: 0, serv: 0,
-      // Per-canal
-      byCanal: {},
+      refs: 0, freq: 0, serv: 0, panierMoyen: 0,
       // Clients
       nbClients: 0, clientsZone: 0,
       // Benchmark (rempli phase 2)
       pdmBassin: 0, ranking: 0,
-      // Données article période-filtrées (référence directe, zéro copie)
+      // Données article période-filtrées
       artMap: {},
       // Stock (référence directe)
       stockMap: _S.stockParMagasin?.[agCode] || null,
     };
 
-    // ── Construire artMap filtré par période ──
+    // ── Construire artMap filtré par période + canal ──
     if (hasPeriod && bmsac?.[agCode]) {
-      const canalMap = bmsac[agCode];
+      const storeCanalMap = bmsac[agCode];
       const artMap = {};
-      for (const canal in canalMap) {
-        const codeMap = canalMap[canal];
+      const canalKeys = useAllCanaux ? Object.keys(storeCanalMap) : [...canaux];
+      for (const canal of canalKeys) {
+        const codeMap = storeCanalMap[canal];
+        if (!codeMap) continue;
         for (const code in codeMap) {
+          if (univFilter && _S.articleUnivers[code] !== univFilter) continue;
           const months = codeMap[code];
           let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0;
           for (const midxStr in months) {
@@ -74,16 +84,53 @@ export function buildAgenceStore() {
             sumVMB  += d.sumVMB || 0;
           }
           if (!countBL && !sumCA) continue;
+          // Mode magasin : ajuster CA selon prélevé/enlevé
+          let lineCA = sumCA, lineVMB = sumVMB;
+          if (canal === 'MAGASIN' && magMode === 'preleve') {
+            lineCA = sumPrel; lineVMB = sumVMB; // sumVMB already mixed, approx
+          } else if (canal === 'MAGASIN' && magMode === 'enleve') {
+            lineCA = sumCA - sumPrel;
+          }
           if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0 };
-          artMap[code].sumCA       += sumCA;
+          artMap[code].sumCA       += lineCA;
           artMap[code].sumPrelevee += sumPrel;
           artMap[code].countBL     += countBL;
-          artMap[code].sumVMB      += sumVMB;
+          artMap[code].sumVMB      += lineVMB;
+        }
+      }
+      rec.artMap = artMap;
+    } else if (!hasPeriod && canaux.size && bmsac?.[agCode]) {
+      // Pas de filtre période mais filtre canal → agréger tous les mois pour les canaux demandés
+      const storeCanalMap = bmsac[agCode];
+      const artMap = {};
+      for (const canal of canaux) {
+        const codeMap = storeCanalMap[canal];
+        if (!codeMap) continue;
+        for (const code in codeMap) {
+          if (univFilter && _S.articleUnivers[code] !== univFilter) continue;
+          const months = codeMap[code];
+          let sumCA = 0, sumPrel = 0, countBL = 0, sumVMB = 0;
+          for (const midxStr in months) {
+            const d = months[midxStr];
+            sumCA   += d.sumCA || 0;
+            sumPrel += d.sumPrelevee || 0;
+            countBL += d.countBL || 0;
+            sumVMB  += d.sumVMB || 0;
+          }
+          if (!countBL && !sumCA) continue;
+          let lineCA = sumCA, lineVMB = sumVMB;
+          if (canal === 'MAGASIN' && magMode === 'preleve') { lineCA = sumPrel; }
+          else if (canal === 'MAGASIN' && magMode === 'enleve') { lineCA = sumCA - sumPrel; }
+          if (!artMap[code]) artMap[code] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0 };
+          artMap[code].sumCA       += lineCA;
+          artMap[code].sumPrelevee += sumPrel;
+          artMap[code].countBL     += countBL;
+          artMap[code].sumVMB      += lineVMB;
         }
       }
       rec.artMap = artMap;
     } else {
-      // Fallback : ventesParMagasin (pleine période)
+      // Fallback : ventesParMagasin (pleine période, tous canaux)
       rec.artMap = _S.ventesParMagasin?.[agCode] || {};
     }
 
@@ -120,11 +167,12 @@ export function buildAgenceStore() {
         rec.clientsZone = cz;
       }
     }
+    rec.panierMoyen = rec.nbClients > 0 ? Math.round(rec.ca / rec.nbClients) : 0;
 
     store.set(agCode, rec);
   }
 
-  // ── Phase 2 : métriques bassin (pdm, ranking, serv) ──
+  // ── Phase 2 : métriques bassin (pdm, ranking, serv, médiane) ──
   const totalBassinCA = [...store.values()].reduce((s, r) => s + r.ca, 0);
   const totalBassinArts = bassinArticles.size || 1;
   const sorted = [...store.values()].sort((a, b) => b.ca - a.ca);
@@ -137,14 +185,13 @@ export function buildAgenceStore() {
   }
 
   _S.agenceStore = store;
-  console.log(`[AgenceStore] ${store.size} agences, build in ${(performance.now() - t0).toFixed(1)}ms`);
+  _S._agenceStoreBassinArts = totalBassinArts;
+  console.log(`[AgenceStore] ${store.size} agences, ${canaux.size ? [...canaux].join('+') : 'tous canaux'}, build in ${(performance.now() - t0).toFixed(1)}ms`);
   return store;
 }
 
 /**
  * Récupère une agence par code. O(1).
- * @param {string} code
- * @returns {Object|undefined}
  */
 export function getAgence(code) {
   if (!_S.agenceStore?.size && _hasAgenceSources()) buildAgenceStore();
@@ -153,7 +200,6 @@ export function getAgence(code) {
 
 /**
  * Raccourci pour l'agence sélectionnée (myStore).
- * @returns {Object|undefined}
  */
 export function getMyAgence() {
   return getAgence(_S.selectedMyStore);
@@ -161,8 +207,6 @@ export function getMyAgence() {
 
 /**
  * Filtre les agences avec un prédicat.
- * @param {function(Object): boolean} predicate
- * @returns {Object[]}
  */
 export function filterAgences(predicate) {
   if (!_S.agenceStore?.size && _hasAgenceSources()) buildAgenceStore();
@@ -175,7 +219,6 @@ export function filterAgences(predicate) {
 
 /**
  * Stats globales du bassin.
- * @returns {Object}
  */
 export function getBassinStats() {
   if (!_S.agenceStore?.size && _hasAgenceSources()) buildAgenceStore();
@@ -189,6 +232,16 @@ export function getBassinStats() {
     storeCount: recs.length,
     medianCA:   cas.length % 2 ? cas[mid] : ((cas[mid - 1] || 0) + (cas[mid] || 0)) / 2,
   };
+}
+
+/**
+ * Médiane d'un tableau de nombres.
+ */
+export function agenceMedian(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
 /** @returns {boolean} true si au moins une source agence est peuplée */
