@@ -2,7 +2,7 @@
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon } from './engine.js';
-import { FAMILLE_LOOKUP, SEGMENTS, detectSegment, dominantSegment, metierToSegments } from './constants.js';
+import { FAMILLE_LOOKUP, metierToSegments } from './constants.js';
 import { getFilteredData } from './ui.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -177,10 +177,6 @@ function computePlanStock() {
       nbCatalogue: catCount.get(codeFam) || 0,
       nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
       nbDormants: 0, nbRuptures: 0, nbFin: 0, hygieneScore: 0, needsCleaning: false,
-      // Vocation : items collectés pour calcul ultérieur
-      _itemsIncontournables: [], _itemsSortir: [],
-      vocationReelle: null, vocationSortir: null, vocationDist: null,
-      pivot: false, aligne: null,
       // Schizophrénie : refs dans socle/réseau ET pathologiques en agence
       _incCodes: new Set(),
       schizoItems: [], nbSchizo: 0,
@@ -210,9 +206,7 @@ function computePlanStock() {
             if ((a.caReseau || 0) > 0) { f.caReseau += a.caReseau; f.nbRefsReseau++; }
             if (a.enStock) f.nbEnRayon++;
           }
-          // Vocation : socle = ce qui marche, implanter (depuis réseau) = ce qui devrait marcher
           if (g === 'socle' || g === 'implanter') {
-            f._itemsIncontournables.push({ libelle: _libOf(a.code), weight: (a.caReseau || a.caAgence || 1) });
             f._incCodes.add(a.code);
           }
         }
@@ -250,9 +244,6 @@ function computePlanStock() {
     if (isFin) f.nbFin++;
     if (isDormant) f.nbDormants++;
     if (r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0) f.nbRuptures++;
-    if (isFin || isDormant) {
-      f._itemsSortir.push({ libelle: r.libelle || '', weight: (r.stockActuel * (r.prixUnitaire || 1)) || 1 });
-    }
     // Schizophrénie : ref incontournable réseau MAIS pathologique chez nous
     // = signal "rayon échantillonné" / commande à la demande, divorce de confiance
     const isPatho = isFin || isDormant || (r.stockActuel === 0 && (r.enleveTotal || 0) > 0);
@@ -286,17 +277,6 @@ function computePlanStock() {
       f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
     }
     // Vocation : segment dominant des incontournables vs sortir
-    const vocInc = dominantSegment(f._itemsIncontournables);
-    const vocSor = dominantSegment(f._itemsSortir);
-    f.vocationReelle = vocInc.share >= 0.35 ? vocInc.segment : null;
-    f.vocationSortir = vocSor.share >= 0.35 ? vocSor.segment : null;
-    f.vocationDist = vocInc.distribution;
-    f.vocationShare = vocInc.share;
-    f.pivot = !!(f.vocationReelle && f.vocationSortir && f.vocationReelle !== f.vocationSortir);
-    f.aligne = f.vocationReelle ? (f.vocationReelle === agenceCtx.dominantSegment) : null;
-    delete f._itemsIncontournables;
-    delete f._itemsSortir;
-
     const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
     const rSocle      = total > 0 ? f.socle      / total : 0;
     const rChallenger = total > 0 ? f.challenger  / total : 0;
@@ -305,14 +285,8 @@ function computePlanStock() {
     // Garde-fou petites familles : trop peu de signal pour conclure "à développer"
     const isSmall = f.nbCatalogue < 5;
 
-    // ─── Vocation prioritaire ──────────────────────────────────────
-    // À repositionner : pivot vocation détecté ET hygiène dégradée
-    // (rayon en train de changer de vocation, il faut accompagner)
-    if (!isSmall && f.pivot && f.hygieneScore >= 30 && f.nbEnRayon >= 8)
-      f.classifGlobal = 'repositionner';
-    // À spécialiser : aligné métiers MAIS rayon trop large (rendement < réseau)
-    // (le rayon parle aux bons clients mais s'éparpille)
-    else if (!isSmall && f.nbEnRayon >= 20 && f.rendement !== null && f.rendement < 65)
+    // À spécialiser : rayon trop large (rendement < réseau)
+    if (!isSmall && f.nbEnRayon >= 20 && f.rendement !== null && f.rendement < 65)
       f.classifGlobal = 'specialiser';
     else if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
@@ -547,16 +521,6 @@ function _prBuildCards(data, searchText = '') {
       </div>
       ${f.needsCleaning ? `<div class="text-[9px] font-bold mb-1" style="color:#f59e0b" title="${f.nbDormants} dormants · ${f.nbFin} fin série/stock · ${f.nbRuptures} ruptures (${f.hygieneScore}%)">🧹 À nettoyer avant expansion (${f.hygieneScore}%)</div>` : ''}
       ${f.nbSchizo >= 2 ? `<div class="text-[9px] font-bold mb-1" style="color:#a855f7" title="Refs identifiées comme incontournables réseau MAIS dormantes/ruptures chez toi — signal 'rayon échantillonné', commande à la demande sans stock fiable, divorce de confiance">🌀 ${f.nbSchizo} refs schizo (échantillonné)</div>` : ''}
-      ${f.vocationReelle ? (() => {
-        const sR = SEGMENTS[f.vocationReelle];
-        const sS = f.vocationSortir ? SEGMENTS[f.vocationSortir] : null;
-        const pivotTxt = f.pivot
-          ? `<span title="Sortir: ${sS?.label || ''} · Garder: ${sR.label}" style="color:#ea580c;font-weight:700">⚠ pivot ${sS?.icon || ''}→${sR.icon}</span>`
-          : (f.aligne === false
-              ? `<span title="Vocation rayon ≠ segment dominant clients agence" style="color:#0d9488;font-weight:700">${sR.icon} ${sR.label} (à recentrer)</span>`
-              : `<span title="${Math.round(f.vocationShare*100)}% des incontournables = ${sR.label}" style="color:#64748b">${sR.icon} ${sR.label}</span>`);
-        return `<div class="text-[9px] mb-1">${pivotTxt}</div>`;
-      })() : ''}
       ${miniBar}
       <div class="flex items-center justify-between text-[10px]">
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
@@ -1794,17 +1758,6 @@ function _prBuildDiagText(codeFam) {
     }
   }
 
-  // ── Vocation détectée (lecture courte, l'analyse complète passe par 🧠 LLM) ──
-  if (fam.vocationReelle) {
-    const sR = SEGMENTS[fam.vocationReelle];
-    const sS = fam.vocationSortir ? SEGMENTS[fam.vocationSortir] : null;
-    txt += `\n🎯 **VOCATION DÉTECTÉE**\n`;
-    txt += `Ce qui marche : ${sR.icon} ${sR.label}\n`;
-    if (sS && fam.pivot) txt += `Ce qui sort : ${sS.icon} ${sS.label} → **PIVOT vocation** (le rayon doit changer de cap)\n`;
-    if (fam.aligne === false) txt += `⚠ Désalignement : ta vocation rayon ≠ segment dominant clients agence\n`;
-    if (fam.aligne === true)  txt += `✅ Aligné avec le segment dominant clients de l'agence\n`;
-    txt += `\n💡 Pour une analyse stratégique complète (croisement métiers × patterns × plan), utilise le bouton **🧠 Pour LLM** et colle dans Gemini/Grok/ChatGPT.\n`;
-  }
   const isRayonVide = !rayonData || rayonData.monRayon.length === 0;
   const _sortCode = (a, b) => String(a.code).localeCompare(String(b.code));
   if (isRayonVide) txt += `Mode : RÉFÉRENCEMENT INITIAL (famille non exploitée)\n`;
@@ -2218,7 +2171,7 @@ function _prDownloadDiag(txt, codeFam) {
 
 // ── Pack LLM-ready ───────────────────────────────────────────────────
 // Génère un bloc texte structuré : prompt merchandiseur + contexte agence
-// + TOP métiers + vocation + données rayon segmentées. Conçu pour être
+// + TOP métiers + demande réelle par métier + données rayon. Conçu pour être
 // collé tel quel dans n'importe quel LLM (Gemini, Grok, ChatGPT, Claude).
 const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincaillerie pro).
 Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
@@ -2232,11 +2185,9 @@ Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
 7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
 
 Règles dures :
-- Croise TOUJOURS la vocation du rayon avec les TOP métiers clients de l'agence
 - Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Elle montre la demande totale dans la zone (toutes agences). Distingue 2 stratégies :
   1. CONSOLIDER : renforcer le rayon pour les métiers qui viennent déjà (captation >20%) — leur offrir leurs vrais besoins produits
   2. DÉVELOPPER : aller capter les métiers à 0% de captation — qu'est-ce qu'on implante pour les attirer ?
-- Si "pivot vocation" détecté : oser dire au chef de CHANGER la vocation, pas juste élargir
 - Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
 - Parler comme un coach autour d'un café, pas comme un consultant en costume
 
@@ -2251,8 +2202,6 @@ function _prBuildLLMPack(codeFam) {
   const ctx = _prAgenceVocationCtx();
   const lib = (c) => _S.libelleLookup?.[c] || '';
   const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
-  const segOf = (c) => detectSegment(lib(c), mark(c));
-  const segIcon = (s) => SEGMENTS[s]?.icon || '';
 
   // Agréger items de la famille depuis sqData
   const items = { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] };
@@ -2281,25 +2230,16 @@ function _prBuildLLMPack(codeFam) {
         code: r.code, libelle: r.libelle, marque: mark(r.code),
         statut: isFin ? 'fin' : isDor ? 'dormant' : 'rupture',
         valeurLib: r.stockActuel * (r.prixUnitaire || 0),
-        seg: detectSegment(r.libelle, mark(r.code)),
       });
     }
   }
   patho.sort((a, b) => b.valeurLib - a.valeurLib);
 
   const fmtItem = (a, withScore = false) => {
-    const s = segOf(a.code);
     const m = mark(a.code);
     const score = withScore && a.scoreReseau ? ` score:${a.scoreReseau}` : '';
-    return `  - [${segIcon(s)} ${s}] ${a.code} ${lib(a.code)}${m ? ' · ' + m : ''}${score}`;
+    return `  - ${a.code} ${lib(a.code)}${m ? ' · ' + m : ''}${score}`;
   };
-
-  const dist = fam.vocationDist || {};
-  const distStr = Object.entries(dist)
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `${SEGMENTS[k].icon}${k}:${Math.round(v)}`)
-    .join(' ');
 
   const topMetStr = ctx.topMetiers
     .map(m => `  - ${m.metier}: ${formatEuro(m.ca)} → ${m.segments.length ? m.segments.join('+') : '?'}`)
@@ -2312,15 +2252,7 @@ function _prBuildLLMPack(codeFam) {
   pack += `═══════════════════════════════════════════════════\n\n`;
 
   pack += `[CONTEXTE AGENCE]\n`;
-  pack += `Segment dominant clients (CA pondéré) : ${SEGMENTS[ctx.dominantSegment]?.icon} ${ctx.dominantSegment} (${Math.round(ctx.share*100)}%)\n`;
-  pack += `TOP 5 métiers clients agence (toutes familles) :\n${topMetStr}\n\n`;
-
-  pack += `[VOCATION DU RAYON]\n`;
-  pack += `Vocation réelle (ce qui marche) : ${fam.vocationReelle ? SEGMENTS[fam.vocationReelle].icon + ' ' + fam.vocationReelle : 'non détectée'}\n`;
-  pack += `Vocation à sortir (ce qui ne marche plus) : ${fam.vocationSortir ? SEGMENTS[fam.vocationSortir].icon + ' ' + fam.vocationSortir : 'non détectée'}\n`;
-  pack += `Distribution incontournables : ${distStr}\n`;
-  pack += `Pivot détecté : ${fam.pivot ? '⚠ OUI — la vocation actuelle ≠ vocation réelle' : 'non'}\n`;
-  pack += `Aligné métiers agence : ${fam.aligne === true ? '✅ oui' : fam.aligne === false ? '❌ NON — désalignement' : '?'}\n`;
+  pack += `TOP 5 métiers clients agence (toutes familles) :\n${topMetStr}\n`;
   pack += `Classification PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
 
   pack += `[KPIs RAYON]\n`;
@@ -2341,7 +2273,7 @@ function _prBuildLLMPack(codeFam) {
   if (patho.length) {
     pack += `[À SORTIR — ${patho.length} refs pathologiques, top 20 par € libérable]\n`;
     for (const p of patho.slice(0, 20)) {
-      pack += `  - [${segIcon(p.seg)} ${p.seg}] ${p.code} ${p.libelle}${p.marque ? ' · ' + p.marque : ''} (${p.statut}, ${formatEuro(p.valeurLib)})\n`;
+      pack += `  - ${p.code} ${p.libelle}${p.marque ? ' · ' + p.marque : ''} (${p.statut}, ${formatEuro(p.valeurLib)})\n`;
     }
     pack += `\n`;
   }

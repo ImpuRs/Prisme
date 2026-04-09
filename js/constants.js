@@ -231,20 +231,41 @@ const SEG_KEYWORDS = {
   ]
 };
 
+// Mapping univers (1ère lettre code famille) → segment par défaut
+const UNIVERS_SEGMENT = {
+  'L': 'chantier',  // Plomberie
+  'B': 'chantier',  // Bâtiment
+  'O': 'chantier',  // Outillage
+  'E': 'chantier',  // EPI
+  'G': 'erp',       // Génie climatique
+  'M': 'erp',       // Maintenance
+  'R': 'erp',       // Électricité
+  'C': 'source',    // Consommables
+  'A': 'deco',      // Agencement ameublement
+};
+
 /**
- * Détecte le segment vocationnel d'un article par heuristique libellé.
- * Ordre de priorité : chantier > erp > source > deco (deco = défaut).
+ * Détecte le segment vocationnel d'un article.
+ * 1) Mots-clés libellé (priorité : chantier > erp > source > deco)
+ * 2) Sinon, univers famille (1ère lettre code famille)
+ * 3) Sinon, 'deco' par défaut
  * @param {string} libelle - Libellé article
- * @param {string} [marque] - Marque (optionnel, pour boost futur)
+ * @param {string} [marque] - Marque (optionnel)
+ * @param {string} [codeFam] - Code famille (ex: 'L01') — 1ère lettre donne l'univers
  * @returns {'chantier'|'erp'|'deco'|'source'}
  */
-export function detectSegment(libelle, marque = '') {
-  if (!libelle) return 'deco';
+export function detectSegment(libelle, marque = '', codeFam = '') {
+  if (!libelle && !codeFam) return 'deco';
   const l = (libelle + ' ' + (marque || '')).toLowerCase();
   for (const seg of ['chantier','erp','source','deco']) {
     for (const kw of SEG_KEYWORDS[seg]) {
       if (l.includes(kw)) return seg;
     }
+  }
+  // Fallback : univers famille
+  if (codeFam) {
+    const letter = codeFam.charAt(0).toUpperCase();
+    if (UNIVERS_SEGMENT[letter]) return UNIVERS_SEGMENT[letter];
   }
   return 'deco';
 }
