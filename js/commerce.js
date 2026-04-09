@@ -1679,8 +1679,9 @@ function _buildCockpitClient(){
     if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||caLeg>0||_useByCanal)){silencieux.push(c);continue;}
     // 2. Perdus : 60-180j sans commande sur le canal filtré (au-delà = ancien client)
     if(daysSince!==null&&daysSince>60&&daysSince<=180&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
-    // 3. Potentiels : dans crossingStats.potentiels (zone chalandise, jamais venus au comptoir)
-    if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)){jamaisVenus.push(c);}
+    // 3. Potentiels : zone chalandise, jamais venus au comptoir, taille réaliste
+    //    Filtre : CA Legallais 500€–50k€, commercial assigné → exclut grands comptes nationaux
+    if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)&&caLeg>=500&&caLeg<=50000&&info.commercial){jamaisVenus.push(c);}
   }
   silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
   perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
