@@ -5,7 +5,7 @@ import { DataStore } from './store.js';
 import { formatEuro, escapeHtml, matchQuery, famLib } from './utils.js';
 import { csvCell } from './helpers.js';
 import { showToast, switchTab, showCockpitInTable, closeFilterDrawer } from './ui.js';
-import { computeReseauHeatmap, _clientStatusBadge, _unikLink } from './engine.js';
+import { _clientStatusBadge, _unikLink } from './engine.js';
 import { computeBenchmark } from './parser.js';
 import { SECTEUR_DIR_MAP } from './constants.js';
 
@@ -238,7 +238,6 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   rT('benchStoreTable',p.join(''));
   const rtEl=document.getElementById('benchRankingTitle');if(rtEl)rtEl.textContent=_S.obsFilterUnivers?`🏆 Classement agences — Univers : ${_S.obsFilterUnivers}`:'🏆 Classement agences';
   renderHeatmapFamilleCommercial();
-  renderReseauHeatmap();
   _refreshBenchEquation();
 }
 
@@ -272,7 +271,6 @@ function renderReseauPepites() {
   // Remplacé par onglets agences dans renderBenchmark
 }
 
-const renderReseauHeatmap = renderReseauPepites;
 
 // ── Sprint 2 — Réseau : Nomades, Orphelins, Fuites ────────────────────────
 function renderReseauNomades() {
@@ -901,7 +899,6 @@ export {
   buildBenchBassinSelect,
   onBenchBassinChange,
   renderReseauPepites,
-  renderReseauHeatmap,
   renderReseauNomades,
 
   renderReseauFuites,
@@ -936,7 +933,6 @@ window.renderBenchmark = renderBenchmark;
 window._refreshBenchEquation = _refreshBenchEquation;
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauPepites = renderReseauPepites;
-window.renderReseauHeatmap = renderReseauHeatmap;
 window._setPepAgTab = function(ag) { _pepAgTab = ag; renderBenchmark(); };
 window.renderReseauNomades = renderReseauNomades;
 

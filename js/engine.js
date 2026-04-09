@@ -629,62 +629,6 @@ export function computeSPC(cc, info) {
   return Math.min(Math.round(score), 100);
 }
 
-// ── Heatmap réseau : top 20 familles × N agences, ratio vs médiane ────────
-// Peuple _S.reseauHeatmapData depuis ventesParMagasin et articleFamille.
-// Résultat : { familles: string[], agences: string[], matrix: {fam:{store: ratio}} }
-export function computeReseauHeatmap() {
-  const myStore = _S.selectedMyStore;
-  const allStores = [..._S.storesIntersection];
-  if (allStores.length < 2) { _S.reseauHeatmapData = null; return; }
-
-  // Agréger CA par (store, famille)
-  const storeFamCA = {};
-  const famTotalCA = {};
-  for (const store of allStores) {
-    storeFamCA[store] = {};
-    const sv = _S.ventesParMagasin[store] || {};
-    for (const [code, data] of Object.entries(sv)) {
-      if (!/^\d{6}$/.test(code)) continue;
-      const fam = famLib(_S.articleFamille[code]);
-      if (!fam) continue;
-      const ca = data.sumCA || 0;
-      storeFamCA[store][fam] = (storeFamCA[store][fam] || 0) + ca;
-      famTotalCA[fam] = (famTotalCA[fam] || 0) + ca;
-    }
-  }
-
-  // Top 20 familles par CA réseau total
-  const familles = Object.entries(famTotalCA)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([fam]) => fam);
-
-  if (!familles.length) { _S.reseauHeatmapData = null; return; }
-
-  // Médiane réseau par famille (sur toutes les agences ayant du CA)
-  const famMedian = {};
-  for (const fam of familles) {
-    const vals = allStores.map(s => storeFamCA[s]?.[fam] || 0).filter(v => v > 0);
-    famMedian[fam] = vals.length ? _median(vals) : 1;
-  }
-
-  // Matrix : ratio = caStore / médiane (1 = médiane, >1 = surperf, <1 = sous-perf)
-  const matrix = {};
-  for (const fam of familles) {
-    matrix[fam] = {};
-    for (const store of allStores) {
-      const ca = storeFamCA[store]?.[fam] || 0;
-      matrix[fam][store] = famMedian[fam] > 0 ? ca / famMedian[fam] : 0;
-    }
-  }
-
-  // Agences : mon agence en premier, puis les autres triées par CA total décroissant
-  const storeCA = {};
-  for (const store of allStores) storeCA[store] = Object.values(storeFamCA[store] || {}).reduce((s,v)=>s+v,0);
-  const agences = [myStore, ...allStores.filter(s => s !== myStore).sort((a,b) => storeCA[b]-storeCA[a])];
-
-  _S.reseauHeatmapData = { familles, agences, matrix, famMedianCA: famMedian };
-}
 
 // ── Score omnicanalité par client ─────────────────────────────────────────
 // Segmente chaque client en : mono / hybride / digital / dormant
