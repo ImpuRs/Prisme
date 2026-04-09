@@ -457,11 +457,11 @@ function renderObservatoire(){
     const ecartLabel=isPctKpi?`${ecartVal>0?'+':''}${ecartVal} pts`:`${ecartVal>0?'+':''}${ecartVal}%`;
     const ecartIcon=ecartVal>=0?'🟢':ecartVal>=-10?'🟡':ecartVal>=-20?'🟠':'🔴';
     const ecartColor=ecartVal>=0?'#4ade80':ecartVal>=-20?'#fbbf24':'#f87171';
-    return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:14px;padding:16px 20px;min-width:160px;flex:1">
-      <div style="color:rgba(255,255,255,0.75);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${r.label} <em class="info-tip" data-tip="${r.tip}" style="font-style:normal">ℹ</em></div>
-      <div style="color:#fff;font-size:22px;font-weight:800;line-height:1.1">${fmtVal(me,r.fmt)}</div>
-      <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px">${fmtVal(comp,r.fmt)} · ${obsLabel}</div>
-      <div style="margin-top:8px;font-size:12px;font-weight:700;color:${ecartColor}">${ecartIcon} ${ecartLabel}</div>
+    return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:10px;padding:10px 14px;min-width:0;flex:1">
+      <div style="color:rgba(255,255,255,0.75);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${r.label} <em class="info-tip" data-tip="${r.tip}" style="font-style:normal">ℹ</em></div>
+      <div style="color:#fff;font-size:18px;font-weight:800;line-height:1.1">${fmtVal(me,r.fmt)}</div>
+      <div style="color:rgba(255,255,255,0.55);font-size:10px;margin-top:1px">${fmtVal(comp,r.fmt)} · ${obsLabel}</div>
+      <div style="margin-top:4px;font-size:11px;font-weight:700;color:${ecartColor}">${ecartIcon} ${ecartLabel}</div>
     </div>`;
   }).join('');
   if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;
