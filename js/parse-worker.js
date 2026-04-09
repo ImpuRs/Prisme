@@ -623,8 +623,8 @@ self.onmessage = async function(ev) {
         _bmce.sumVMBP += _rvp;
         if (_rncb) {
           _bmce._cmds.add(_rncb);
-          if (_rcp > 0) _bmce._cmdsP.add(_rncb);
-          if (_rce > 0) _bmce._cmdsE.add(_rncb);
+          if (_rcp) _bmce._cmdsP.add(_rncb);
+          if (_rce) _bmce._cmdsE.add(_rncb);
         }
       }
 
@@ -642,11 +642,11 @@ self.onmessage = async function(ev) {
           byMonthClientsByCanal[_midxBMC][_cBMC].add(_ccBMC);
           // Sub-mode prel/enl pour MAGASIN — permet comptage clients par mode
           if (_cBMC === 'MAGASIN') {
-            if (_rcp > 0) {
+            if (_rcp) {
               if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'] = new Set();
               byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'].add(_ccBMC);
             }
-            if (_rce > 0) {
+            if (_rce) {
               if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'] = new Set();
               byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'].add(_ccBMC);
             }
