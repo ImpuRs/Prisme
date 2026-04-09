@@ -1615,8 +1615,8 @@ function _buildCockpitClient(){
     const _todayDeg=new Date();
     const silDeg=[],perduDeg=[];
     for(const[cc,lastOrder]of _S.clientLastOrder.entries()){
-      const artMap=(_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
-      const caPDVN=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
+      const artMap=_S.ventesClientArticle?.get(cc);
+      const caPDVN=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
       if(!caPDVN)continue;
       const daysSince=Math.round((_todayDeg-lastOrder)/86400000);
       const nom=_S.clientNomLookup?.[cc]||cc;
@@ -1655,8 +1655,10 @@ function _buildCockpitClient(){
     if(_cockpitComSet&&!_cockpitComSet.has(cc))continue;
     if(!_passesAllFilters(cc))continue;
     if(!_mCK(cc))continue;
-    const clientArtData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
-    const caPDVN=clientArtData?[...clientArtData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
+    // CA MAG = ventesClientArticle (MAGASIN, prélevé) — chiffre visible sur la fiche client
+    const _magArtData=_S.ventesClientArticle?.get(cc);
+    const caMagR=_magArtData?[..._magArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+    const caPDVN=caMagR;
     // Pick last order date based on canal filter
     let lastOrder=null;
     if(_useMagOnly){
@@ -1680,8 +1682,8 @@ function _buildCockpitClient(){
     // 3. Potentiels : dans crossingStats.potentiels (zone chalandise, jamais venus au comptoir)
     if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)){jamaisVenus.push(c);}
   }
-  silencieux.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
-  perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
+  silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
+  perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
   jamaisVenus.sort((a,b)=>(b.ca2025||0)-(a.ca2025||0));
   _S._cockpitExportData={silencieux,perdus,jamaisVenus};
   // ── Helpers ──
@@ -1690,14 +1692,14 @@ function _buildCockpitClient(){
   function _clientCard(c,reason,scoreColor){
     const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';
     const daysBadge=c._daysSince>30?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(248,113,113,0.12);color:var(--c-danger)">⏰ ${c._daysSince}j</span>`:'';
-    const caMag=c.caPDVN>0?formatEuro(c.caPDVN):'—';
+    const caMagFmt=c.caPDVN>0?`${formatEuro(c.caPDVN)} MAG`:'—';
+    const caLegFmt=c.ca2025>0?`<span style="font-size:var(--fs-xs);font-weight:600;color:var(--c-caution)">${formatEuro(c.ca2025)} Legallais</span>`:'';
     const meta=[c.commercial?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${escapeHtml(c.commercial)}</span>`:'',lastOrderFmt?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${lastOrderFmt}</span>`:''].filter(Boolean).join('<span style="color:var(--b-default);margin:0 4px">·</span>');
-    return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span>${daysBadge}</div><div class="flex items-center gap-3 mt-1 flex-wrap"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMag}</span>${meta?`<span>${meta}</span>`:''}</div></div>`;
+    return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span>${daysBadge}</div><div class="flex items-center gap-3 mt-1 flex-wrap"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMagFmt}</span>${caLegFmt}${meta?`<span>${meta}</span>`:''}</div></div>`;
   }
   function _fullTable(clients,caField,listId){
-    const usePDV=caField==='caPDVN';
-    let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">${usePDV?'CA Magasin':'CA Legallais'}</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
-    for(const c of clients){const caVal=usePDV?c.caPDVN:c.ca2025;const caColor=caVal>0?(usePDV?'c-ok':'c-caution'):'t-disabled';t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span> <span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-right font-bold ${caColor}">${caVal>0?formatEuro(caVal):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
+    let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Legallais</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
+    for(const c of clients){t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span> <span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
     t+=`</tbody></table></div>`;return t;
   }
   // gradSpec : {bg, hdr, border, color, badgeBg}
@@ -1724,16 +1726,17 @@ function _buildCockpitClient(){
   // ── Reason functions (canal-aware labels) ──
   const _canalLabel=_useMagOnly?'Magasin':_useByCanal?_canal:'tous canaux';
   function _silRaison(c){
-    const caPDVFmt=c.caPDVN>0?formatEuro(c.caPDVN):'—';
-    return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caPDVFmt} CA Magasin)`:`${c._daysSince}j sans commande — à surveiller (${caPDVFmt} CA Magasin)`;
+    const parts=[];if(c.caPDVN>0)parts.push(formatEuro(c.caPDVN)+' MAG');if(c.ca2025>0)parts.push(formatEuro(c.ca2025)+' Legallais');
+    const caStr=parts.length?parts.join(' · '):'—';
+    return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caStr})`:`${c._daysSince}j sans commande — à surveiller (${caStr})`;
   }
-  function _perduRaison(c){return`${c._daysSince}j sans commande ${_canalLabel} — ${c.caPDVN>0?formatEuro(c.caPDVN)+' de CA historique':'ancien client à reconquérir'}`;}
+  function _perduRaison(c){const parts=[];if(c.caPDVN>0)parts.push(formatEuro(c.caPDVN)+' MAG');if(c.ca2025>0)parts.push(formatEuro(c.ca2025)+' Legallais');return`${c._daysSince}j sans commande ${_canalLabel} — ${parts.length?parts.join(' · '):'ancien client à reconquérir'}`;}
   function _capRaison(c){return c.ca2025>0?`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`:`Client zone — jamais passé au comptoir`;}
   // ── Render into 3 separate blocks ──
   const _silTitle=`Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
   const _perduTitle=`Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
-  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','amber','','c-caution',silencieux,'caPDVN',_silRaison,'cockpit-sil-full');
-  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'caPDVN',_perduRaison,'cockpit-perdu-full');
+  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','amber','','c-caution',silencieux,'ca2025',_silRaison,'cockpit-sil-full');
+  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'ca2025',_perduRaison,'cockpit-perdu-full');
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','blue','','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
 }
 function _setCrossFilter(status){
