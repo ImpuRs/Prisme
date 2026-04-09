@@ -574,18 +574,17 @@ function renderObservatoire(){
   }
   // Source finale : période-filtrée si dispo, sinon ventesParMagasin (pleine période)
   const _vpmSrc = store => (_hasPeriod ? _vpmFiltered[store] : _S.ventesParMagasin[store]) || {};
-  // Médiane réseau par article — excluant l'agence active, zeros ignorés pour Qté
-  const _netBL = {}, _netQte = {};
+  // Médiane réseau par article — excluant l'agence active
+  const _netBL = {};
   const _otherAgs = [...(_S.storesIntersection || [])].filter(a => a !== _curAg);
   for (const ag of _otherAgs) {
     const artMap = _vpmSrc(ag);
     for (const [code, d] of Object.entries(artMap)) {
       if (!/^\d{6}$/.test(code)) continue;
       (_netBL[code]||(_netBL[code]=[])).push(d.countBL||0);
-      if ((d.sumPrelevee||0) > 0) (_netQte[code]||(_netQte[code]=[])).push(d.sumPrelevee);
     }
   }
-  // Construction pépites — tout depuis la même source (période-filtrée ou pleine)
+  // Construction pépites — fréquence BL (période-filtrée, fiable pour toutes agences)
   const agVpm = _vpmSrc(_curAg);
   const rawPep = [];
   for (const [code, vpmD] of Object.entries(agVpm)) {
@@ -595,16 +594,14 @@ function renderObservatoire(){
     const medFreq = _med(_netBL[code]||[]);
     if (medFreq <= 0 || myFreq <= medFreq * 1.5) continue;
     if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
-    const myQte    = Math.round(vpmD.sumPrelevee || 0);
-    const compQte  = Math.round(_med(_netQte[code]||[]));
     const caMe     = Math.round(vpmD.sumCA || 0);
-    const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / medFreq - 1) * 100);
-    rawPep.push({ code, lib: _libOf(code), fam: _famOf(code), myFreq, compFreq: Math.round(medFreq), myQte, compQte, ecartPct, caMe });
+    const ecartPct = Math.round((myFreq / medFreq - 1) * 100);
+    rawPep.push({ code, lib: _libOf(code), fam: _famOf(code), myFreq, compFreq: Math.round(medFreq), myQte: myFreq, compQte: Math.round(medFreq), ecartPct, caMe });
   }
   _renderedPepites = rawPep;
   const pepBadge=el('pepitesBadge');if(pepBadge){if(rawPep.length){pepBadge.textContent=rawPep.length;pepBadge.classList.remove('hidden');}else pepBadge.classList.add('hidden');}
-  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Qté vendue (${_curAg||'Moi'})`;
-  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Qté médiane réseau';
+  if(el('pepitesMeLabel'))el('pepitesMeLabel').textContent=`Fréq BL (${_curAg||'Moi'})`;
+  if(el('pepitesCompLabel'))el('pepitesCompLabel').textContent='Fréq méd. réseau';
   if(el('pepitesCaLabel'))el('pepitesCaLabel').textContent=`CA (${_curAg||'Moi'})`;
   _renderPepitesRows();
   // 🔥 Pépites réseau
