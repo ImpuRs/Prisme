@@ -514,7 +514,7 @@ function renderObservatoire(){
       }).join('');
       const thFreq=isLose?(isMedian?'Agences':'Fréq'):'Fréq';
       const thCA=isLose?(isMedian?'CA méd.':'CA autre'):'Mon CA';
-      artPanel=`<tr id="${rowId}" class="hidden"><td colspan="7" class="${isLose?'i-danger-bg/50':'i-ok-bg/50'}"><div class="p-2 overflow-x-auto" style="max-height:250px;overflow-y:auto"><table class="min-w-full"><thead class="t-secondary font-bold text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${thFreq}</th><th class="py-1 px-2 text-right">${thCA}</th></tr></thead><tbody>${artRows}</tbody></table></div></td></tr>`;
+      artPanel=`<tr id="${rowId}" class="hidden"><td colspan="7" class="${isLose?'i-danger-bg/50':'i-ok-bg/50'}"><div class="p-2 overflow-x-auto" style="max-height:250px;overflow-y:auto"><table class="min-w-full"><thead class="t-secondary font-bold text-[10px]" style="position:sticky;top:0;z-index:1;background:var(--s-panel-inner)"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${thFreq}</th><th class="py-1 px-2 text-right">${thCA}</th></tr></thead><tbody>${artRows}</tbody></table></div></td></tr>`;
     }
     return `<tr class="border-b cursor-pointer ${hoverBg} transition-colors" onclick="toggleObsFamily('${rowId}')">
       <td class="py-1.5 px-2 font-semibold t-primary text-[11px]"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${f.fam}</td>
