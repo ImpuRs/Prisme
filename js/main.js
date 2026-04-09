@@ -492,7 +492,7 @@ _S.canalAgence=newCanalAgence;
 
     // Clients
     let silencieuxCount=0,silencieuxCA=0,silTop5=[];
-    if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30)continue;arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
+    if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
     let clientsACapter=0;
     if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
     const nbNomades=(_S.reseauNomades||[]).length;
@@ -588,7 +588,7 @@ _S.canalAgence=newCanalAgence;
     if(hasClients){
       L.push('');L.push('DYNAMIQUE CLIENTS');
       if(silencieuxCount>0){
-        L.push(`Clients silencieux (>30j sans commande PDV) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
+        L.push(`Clients silencieux (30-60j sans commande PDV) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
         if(silTop5.length)L.push(`  Top 5 : ${silTop5.map(c=>`${c.nom} (${c.days}j, ${e(c.ca)})`).join(', ')}`);
       }
       if(clientsACapter>0)L.push(`Clients actifs Legallais hors agence (à capter) : ${n(clientsACapter)}`);
@@ -659,7 +659,7 @@ _S.canalAgence=newCanalAgence;
     const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
 
     let silencieuxCount=0,silencieuxCA=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30)continue;silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}
     let clientsACapter=0;
     if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
     const nbNomades=(_S.reseauNomades||[]).length;
@@ -707,7 +707,7 @@ _S.canalAgence=newCanalAgence;
     }
 
     L.push('');L.push('CLIENTS');
-    if(silencieuxCount>0)L.push(`Silencieux >30j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
+    if(silencieuxCount>0)L.push(`Silencieux 30-60j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
     if(clientsACapter>0)L.push(`Potentiel captation zone : ${n(clientsACapter)} clients actifs hors agence`);
     if(nbNomades>0)L.push(`Nomades multi-agences : ${n(nbNomades)}`);
 
