@@ -524,7 +524,13 @@ _S.canalAgence=newCanalAgence;
         if(caCli>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,ca:caCli});}
       }
     }
-    silencieuxList.sort((a,b)=>{const dA=daysBetween(_S.clientLastOrder.get(a.cc),now);const dB=daysBetween(_S.clientLastOrder.get(b.cc),now);return dA-dB;});
+    // Tri : plus ancien d'abord, puis plus gros CA à ancienneté égale
+    silencieuxList.sort((a,b)=>{
+      const dA=daysBetween(_S.clientLastOrder.get(a.cc),now);
+      const dB=daysBetween(_S.clientLastOrder.get(b.cc),now);
+      if(dA!==dB)return dB-dA;
+      return (b.ca||0)-(a.ca||0);
+    });
     const silencieuxCount=silencieuxList.length;
     const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.ca,0);
     // Clients à capter (chalandise actifs hors agence)
