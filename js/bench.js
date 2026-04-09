@@ -537,43 +537,8 @@ function renderObservatoire(){
   const _famOf = code => famLib(_S.articleFamille[code])||'—';
   const _med = arr => { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
   const _curAg = _pepAgTab || myAg2;
-  // ── Agréger données période-filtrées depuis _byMonthStoreArtCanal ──
-  // Construit un vpm période-filtré pour TOUTES les agences (pas juste myStore)
-  const bmsac = _S._byMonthStoreArtCanal;
-  const pStart = _S.periodFilterStart, pEnd = _S.periodFilterEnd;
-  const _hasPeriod = !!(bmsac && (pStart || pEnd));
-  const _pStartIdx = pStart ? (pStart.getFullYear()*12 + pStart.getMonth()) : 0;
-  const _pEndIdx   = pEnd   ? (pEnd.getFullYear()*12   + pEnd.getMonth())   : 999999;
-  // vpmFiltered : {store → {code → {sumPrelevee, sumCA, countBL}}}
-  const _vpmFiltered = {};
-  if (_hasPeriod) {
-    for (const store in bmsac) {
-      const canalMap = bmsac[store];
-      for (const canal in canalMap) {
-        const codeMap = canalMap[canal];
-        for (const code in codeMap) {
-          if (!/^\d{6}$/.test(code)) continue;
-          const months = codeMap[code];
-          let sumCA=0, sumPrel=0, countBL=0;
-          for (const midxStr in months) {
-            const midx = +midxStr;
-            if (midx < _pStartIdx || midx > _pEndIdx) continue;
-            const d = months[midxStr];
-            sumCA   += d.sumCA||0;
-            sumPrel += d.sumPrelevee||0;
-            countBL += d.countBL||0;
-          }
-          if (!countBL && !sumCA) continue;
-          if (!_vpmFiltered[store]) _vpmFiltered[store] = {};
-          const prev = _vpmFiltered[store][code];
-          if (prev) { prev.sumCA += sumCA; prev.sumPrelevee += sumPrel; prev.countBL += countBL; }
-          else _vpmFiltered[store][code] = { sumCA, sumPrelevee: sumPrel, countBL };
-        }
-      }
-    }
-  }
-  // Source finale : période-filtrée si dispo, sinon ventesParMagasin (pleine période)
-  const _vpmSrc = store => (_hasPeriod ? _vpmFiltered[store] : _S.ventesParMagasin[store]) || {};
+  // ── Source période-filtrée : agenceStore.artMap (déjà construit) ──
+  const _vpmSrc = store => _S.agenceStore?.get(store)?.artMap || _S.ventesParMagasin?.[store] || {};
   // Médiane réseau par article — excluant l'agence active
   const _netBL = {};
   const _otherAgs = [...(_S.storesIntersection || [])].filter(a => a !== _curAg);
