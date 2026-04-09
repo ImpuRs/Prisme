@@ -328,19 +328,31 @@ self.onmessage = async function(ev) {
       var text;
       try { text = new TextDecoder('utf-8', { fatal: true }).decode(bufC); }
       catch(e) { text = new TextDecoder('windows-1252').decode(bufC); }
-      var csvLines = text.split('\n');
+      var rawLines = text.split('\n');
       // Détecter le séparateur sur la première ligne
-      var firstLine = csvLines[0] || '';
+      var firstLine = rawLines[0] || '';
       var sep = firstLine.indexOf(';') > firstLine.indexOf('\t') ? ';'
               : firstLine.indexOf('\t') >= 0 ? '\t' : ';';
       var headersC_csv = firstLine.split(sep).map(function(h) { return h.trim().replace(/\r/g,'').replace(/^"|"$/g,''); });
+      var nbCols = headersC_csv.length;
+      // Reconstruire les lignes logiques (champs entre guillemets avec retours à la ligne)
       var csvRows = [];
-      for (var cri = 1; cri < csvLines.length; cri++) {
-        var ln = csvLines[cri].replace(/\r/g,'');
+      var pending = '';
+      for (var cri = 1; cri < rawLines.length; cri++) {
+        var ln = rawLines[cri].replace(/\r/g, '');
+        if (pending) { ln = pending + '\n' + ln; pending = ''; }
+        // Compter les guillemets : si impair, la ligne est coupée dans un champ quoted
+        var nq = 0; for (var qi = 0; qi < ln.length; qi++) if (ln.charAt(qi) === '"') nq++;
+        if (nq % 2 === 1) { pending = ln; continue; }
         if (!ln) continue;
+        // Supprimer les guillemets de champ et splitter correctement
         var cells = ln.split(sep);
-        // Normaliser à la bonne longueur
-        while (cells.length < headersC_csv.length) cells.push('');
+        for (var ci = 0; ci < cells.length; ci++) {
+          var c = cells[ci];
+          if (c.length >= 2 && c.charAt(0) === '"' && c.charAt(c.length - 1) === '"')
+            cells[ci] = c.substring(1, c.length - 1).replace(/""/g, '"');
+        }
+        while (cells.length < nbCols) cells.push('');
         csvRows.push(cells);
       }
       dataC = { headers: headersC_csv, rows: csvRows };
