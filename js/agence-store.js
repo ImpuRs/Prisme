@@ -168,6 +168,7 @@ export function buildAgenceStore(opts = {}) {
       }
     }
     rec.freqClient = rec.nbClients > 0 ? parseFloat((rec.freq / rec.nbClients).toFixed(1)) : 0;
+    rec.caClient   = rec.nbClients > 0 ? Math.round(rec.ca / rec.nbClients) : 0;
 
     store.set(agCode, rec);
   }

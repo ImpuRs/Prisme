@@ -628,7 +628,7 @@ export function computeBenchmark(canaux = new Set()) {
   const bv = {};
   for (const [store, rec] of _S.agenceStore) {
     vpm[store] = rec.artMap;
-    sp[store] = { ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, pdmBassin: rec.pdmBassin };
+    sp[store] = { ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin };
     if (!cs.includes(store)) continue;
     for (const [a, d] of Object.entries(rec.artMap)) {
       if (!/^\d{6}$/.test(a)) continue;
@@ -730,7 +730,9 @@ export function computeBenchmark(canaux = new Set()) {
   const compTxMarge = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.txMarge ?? null) : (compTxMargeVals.length ? _median(compTxMargeVals) : null);
   const compFreqClVals = cs.map(s => sp[s]?.freqClient || 0).filter(v => v > 0);
   const compFreqCl = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.freqClient || 0) : (compFreqClVals.length ? parseFloat(_median(compFreqClVals).toFixed(1)) : 0);
-  _S.benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[_S.selectedMyStore]?.serv || 0, freq: sp[_S.selectedMyStore]?.freq || 0, pdm: myPdm, txMarge: sp[_S.selectedMyStore]?.txMarge ?? null, freqClient: sp[_S.selectedMyStore]?.freqClient || 0 }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm, txMarge: compTxMarge, freqClient: compFreqCl } };
+  const compCaClVals = cs.map(s => sp[s]?.caClient || 0).filter(v => v > 0);
+  const compCaCl = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.caClient || 0) : (compCaClVals.length ? Math.round(_median(compCaClVals)) : 0);
+  _S.benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[_S.selectedMyStore]?.serv || 0, freq: sp[_S.selectedMyStore]?.freq || 0, pdm: myPdm, txMarge: sp[_S.selectedMyStore]?.txMarge ?? null, freqClient: sp[_S.selectedMyStore]?.freqClient || 0, caClient: sp[_S.selectedMyStore]?.caClient || 0 }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm, txMarge: compTxMarge, freqClient: compFreqCl, caClient: compCaCl } };
   const allFams2 = new Set([...Object.keys(myFamCA), ...Object.keys(compFamCA)]);
   const obsFamiliesLose = [], obsFamiliesWin = [];
   for (const fam of allFams2) {
