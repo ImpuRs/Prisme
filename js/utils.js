@@ -307,8 +307,8 @@ export function readExcel(f, onProgress) {
   });
 }
 
-// Internal: ws['!data'] (dense:true) → {headers, rows}
-function _wsToHR(ws) {
+// ws['!data'] (dense:true) → {headers, rows} — valeurs brutes, pas de formatage
+export function _wsToHR(ws) {
   const raw = ws['!data'] || [];
   if (!raw.length) return { headers: [], rows: [] };
   const headers = (raw[0] || []).map(cell => cell != null && cell.v != null ? String(cell.v).trim() : '');

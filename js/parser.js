@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, _wsToHR, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
 
 
@@ -184,19 +184,7 @@ export async function parseLivraisons(file) {
       const wb = XLSX.read(buf, { type: 'array', cellDates: false, dense: true });
       _S._livraisonsDebug.sheets = wb.SheetNames;
       const _ws = wb.Sheets[wb.SheetNames[0]];
-      const _csv = XLSX.utils.sheet_to_csv(_ws, { FS: '\t', RS: '\n' });
-      const _lines = _csv.split('\n');
-      const _headers = _lines[0].split('\t').map(h => h.trim());
-      const _colIdx = {};
-      _headers.forEach((h, i) => { _colIdx[h] = i; });
-      data = [];
-      for (let _li = 1; _li < _lines.length; _li++) {
-        const _cells = _lines[_li].split('\t');
-        if (!_cells.length || (_cells.length === 1 && !_cells[0])) continue;
-        const _obj = {};
-        _headers.forEach((h, i) => { _obj[h] = _cells[i] !== undefined ? _cells[i] : ''; });
-        data.push(_obj);
-      }
+      data = readExcelAsObjects(_wsToHR(_ws));
     }
     const headersFound = Object.keys(data[0] || {});
     _S._livraisonsDebug.step = 'parsed';
@@ -236,6 +224,9 @@ export async function parseLivraisons(file) {
     const terrDirData = {};
     const secteurSet = new Set();
     let livDateMin = null, livDateMax = null;
+    // Map stock O(1) — évite _S.finalData.find() O(n) × 282k lignes
+    const _stockMap = new Map();
+    if (_S.finalData) for (const r of _S.finalData) _stockMap.set(r.code, r);
     for (const row of data) {
       const cc = String(row[cCC] || '').trim().padStart(6, '0');
       if (!cc || cc === '000000') continue;
@@ -247,6 +238,7 @@ export async function parseLivraisons(file) {
       if (!codeArticle) continue;
       const isSpecial = !/^\d{6}$/.test(codeArticle);
       const qty = parseInt(row[cQty]) || 0;
+      if (qty < 0) continue; // avoirs : exclure comme dans le Worker territoire
       const rawDate = cDate ? row[cDate] : null;
       // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
       const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
@@ -274,13 +266,14 @@ export async function parseLivraisons(file) {
       const direction = String(row[cDir] || '').trim() || 'Non défini';
       const secteur = String(row[cSect] || '').trim();
       const clientNom = String(row[cNomC] || '').trim();
-      const stockItem = _S.finalData?.find(a => a.code === codeArticle);
+      const stockItem = _stockMap.get(codeArticle);
       const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
       const clientType = _S.clientsMagasin?.has(cc) ? 'mixte' : 'exterieur';
       const famille = _S.articleFamille?.[codeArticle] || stockItem?.famille || 'Non classé';
       const libelle = articleStr.includes(' - ') ? articleStr.split(' - ').slice(1).join(' - ').trim() : (_S.libelleLookup?.[codeArticle] || codeArticle);
       if (secteur) secteurSet.add(secteur);
-      terrLines.push({ code: codeArticle, libelle, famille, direction, secteur, bl: blNum, ca, canal: 'EXTÉRIEUR',
+      const canal = blNum ? (_S.blCanalMap?.get(blNum) || (_S.blConsommeSet?.has(blNum) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
+      terrLines.push({ code: codeArticle, libelle, famille, direction, secteur, bl: blNum, ca, canal,
         clientCode: cc, clientNom, clientType, rayonStatus, isSpecial, commercial: '',
         dateExp: dateObj ? dateObj.getTime() : null });
 
@@ -288,10 +281,11 @@ export async function parseLivraisons(file) {
       if (!isSpecial) {
         if (!terrDirData[direction]) terrDirData[direction] = { dir: direction, caTotal: 0, caMag: 0, caExt: 0, refSet: new Set(), absentSet: new Set(), familles: {} };
         const td = terrDirData[direction];
-        td.caTotal += ca; td.caExt += ca;
+        td.caTotal += ca; if (canal === 'MAGASIN') td.caMag += ca; else td.caExt += ca;
         td.refSet.add(codeArticle); if (rayonStatus === 'red') td.absentSet.add(codeArticle);
         if (!td.familles[famille]) td.familles[famille] = { caTotal: 0, caMag: 0, caExt: 0 };
-        td.familles[famille].caTotal += ca; td.familles[famille].caExt += ca;
+        td.familles[famille].caTotal += ca;
+        if (canal === 'MAGASIN') td.familles[famille].caMag += ca; else td.familles[famille].caExt += ca;
       }
     }
 
