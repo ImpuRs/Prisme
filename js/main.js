@@ -492,7 +492,7 @@ _S.canalAgence=newCanalAgence;
 
     // Clients
     let silencieuxCount=0,silencieuxCA=0,silTop5=[];
-    if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;if((rec.caPDV||0)>0||(rec.caLegallais||0)>0)arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
+    if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30)continue;arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
     let clientsACapter=0;
     if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
     const nbNomades=(_S.reseauNomades||[]).length;
@@ -588,7 +588,7 @@ _S.canalAgence=newCanalAgence;
     if(hasClients){
       L.push('');L.push('DYNAMIQUE CLIENTS');
       if(silencieuxCount>0){
-        L.push(`Clients silencieux (30-60j) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
+        L.push(`Clients silencieux (>30j sans commande PDV) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
         if(silTop5.length)L.push(`  Top 5 : ${silTop5.map(c=>`${c.nom} (${c.days}j, ${e(c.ca)})`).join(', ')}`);
       }
       if(clientsACapter>0)L.push(`Clients actifs Legallais hors agence (à capter) : ${n(clientsACapter)}`);
@@ -659,22 +659,23 @@ _S.canalAgence=newCanalAgence;
     const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
 
     let silencieuxCount=0,silencieuxCA=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;if((rec.caPDV||0)>0||(rec.caLegallais||0)>0){silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}}
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30)continue;silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}
     let clientsACapter=0;
     if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
     const nbNomades=(_S.reseauNomades||[]).length;
 
     const L=[];
     L.push(`INSTRUCTIONS`);
-    L.push(`Tu es un analyste BI préparant un reporting pour un directeur régional en distribution B2B (réseau Legallais).`);
-    L.push(`Rédige une fiche synthétique de l'agence ${agence} au format tableau/bullet points.`);
-    L.push(`Format : tableaux Markdown, bullet points concis, pas de prose. Maximum 1/2 page.`);
+    L.push(`Tu es un chef d'agence en distribution B2B quincaillerie (réseau Legallais).`);
+    L.push(`Rédige ton reporting mensuel à destination de ta direction régionale, à la première personne ("je", "mon agence", "nous").`);
+    L.push(`Tu racontes ton mois : ce qui a marché, ce qui coince, et ce que tu comptes faire.`);
+    L.push(`Format : prose fluide et structurée, 1/2 page max. Pas de tableaux, pas de bullet points.`);
     L.push(`Structure :`);
-    L.push(`  1. TABLEAU KPIs CLÉS (CA, marge, clients, stock, dispo, rang réseau) — une ligne par indicateur avec colonne Agence | Médiane | Ecart`);
-    L.push(`  2. FORCES (3-4 bullets factuels avec chiffres)`);
-    L.push(`  3. ALERTES (3-4 bullets factuels avec chiffres)`);
-    L.push(`  4. ACTIONS DEMANDÉES AU CHEF D'AGENCE (3 max, concrètes, mesurables)`);
-    L.push(`Ton : factuel, synthétique, destiné à un comité de direction. Pas de coaching, pas de "tu".`);
+    L.push(`  1. BILAN DU MOIS — accroche chiffrée, position réseau, faits marquants`);
+    L.push(`  2. MES POINTS FORTS — ce qui performe, ce que je maîtrise`);
+    L.push(`  3. MES POINTS DE VIGILANCE — ce qui me préoccupe, les risques identifiés`);
+    L.push(`  4. MES ACTIONS POUR LE MOIS PROCHAIN — 3 engagements concrets avec objectifs chiffrés`);
+    L.push(`Ton : professionnel, direct, responsable. Tu parles à ton N+1 en réunion régionale.`);
     L.push('');
     L.push(`═══════════════════════════════════════════════════`);
     L.push(`DONNÉES AGENCE ${agence} — ${periodLabel}`);
@@ -706,7 +707,7 @@ _S.canalAgence=newCanalAgence;
     }
 
     L.push('');L.push('CLIENTS');
-    if(silencieuxCount>0)L.push(`Silencieux 30-60j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
+    if(silencieuxCount>0)L.push(`Silencieux >30j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
     if(clientsACapter>0)L.push(`Potentiel captation zone : ${n(clientsACapter)} clients actifs hors agence`);
     if(nbNomades>0)L.push(`Nomades multi-agences : ${n(nbNomades)}`);
 
