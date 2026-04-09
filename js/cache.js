@@ -285,6 +285,7 @@ export async function _saveSessionToIDB() {
       ventesClientArticle:      _serializeNestedMap(_S.ventesClientArticle),
       ventesClientArticleFull:  _serializeNestedMap(_S.ventesClientArticleFull),
       byMonth:                  _S._byMonth || null,
+      byMonthFull:              _S._byMonthFull || null,
       byMonthCanal:             _S._byMonthCanal || null,
       byMonthStoreArtCanal:     _S._byMonthStoreArtCanal || null,
       byMonthClients:           _S._byMonthClients
@@ -352,6 +353,8 @@ export async function _saveSessionToIDB() {
       livraisonsData:        [...(_S.livraisonsData||[])].map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:[...v.bl],articles:[...v.articles],lastDate:v.lastDate?.getTime()||null}]),
       livraisonsReady:       _S.livraisonsReady || false,
       livraisonsClientCount: _S.livraisonsClientCount || 0,
+      livraisonsDateMin:     _S.livraisonsDateMin?.getTime() || null,
+      livraisonsDateMax:     _S.livraisonsDateMax?.getTime() || null,
       // ── Catalogue animation (Plan de rayon) ──
       catalogueFamille:      _S.catalogueFamille     ? [..._S.catalogueFamille]     : null,
       catalogueDesignation:  _S.catalogueDesignation ? [..._S.catalogueDesignation] : null,
@@ -412,6 +415,7 @@ export async function _restoreSessionFromIDB() {
     _S.ventesClientArticle      = _deserializeNestedMap(data.ventesClientArticle      || []);
     _S.ventesClientArticleFull  = _deserializeNestedMap(data.ventesClientArticleFull  || []);
     if (data.byMonth)      _S._byMonth      = data.byMonth;
+    if (data.byMonthFull)  _S._byMonthFull  = data.byMonthFull;
     if (data.byMonthCanal) _S._byMonthCanal = data.byMonthCanal;
     if (data.byMonthStoreArtCanal) _S._byMonthStoreArtCanal = data.byMonthStoreArtCanal;
     if (data.byMonthClients) {
@@ -490,6 +494,8 @@ export async function _restoreSessionFromIDB() {
     _S.livraisonsData = new Map((data.livraisonsData||[]).map(([k,v])=>[k,{ca:v.ca,vmb:v.vmb,bl:new Set(v.bl),articles:new Map(v.articles),lastDate:v.lastDate?new Date(v.lastDate):null}]));
     _S.livraisonsReady = data.livraisonsReady || false;
     _S.livraisonsClientCount = data.livraisonsClientCount || 0;
+    _S.livraisonsDateMin = data.livraisonsDateMin ? new Date(data.livraisonsDateMin) : null;
+    _S.livraisonsDateMax = data.livraisonsDateMax ? new Date(data.livraisonsDateMax) : null;
 
     // ── Catalogue animation (Plan de rayon) ──
     _S.catalogueFamille     = data.catalogueFamille     ? new Map(data.catalogueFamille)     : null;

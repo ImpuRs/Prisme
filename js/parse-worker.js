@@ -530,6 +530,7 @@ self.onmessage = async function(ev) {
     var _tempCAAll = new Map();
     var _tempCAAllFull = new Map();
     var byMonth = {};        // cc → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBP, sumCAPrelevee}
+    var byMonthFull = {};    // cc → code → monthIdx → {sumCA} — TOUS canaux, myStore (pour captation vs Livraisons)
     var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
     var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
     var byMonthClientsByCanal = {}; // monthIdx → canal → Set<cc> — pour comptage clients par canal+période
@@ -832,6 +833,15 @@ self.onmessage = async function(ev) {
         if (qteP > 0 || qteE > 0) _bme.countBL++;
         _bme.sumVMB += _rvp + _rve;
         _bme.sumVMBP += _rvp;
+      }
+
+      // byMonthFull — accumulation mensuelle TOUS canaux, myStore, pour captation Livraisons
+      if (dateV && cc2 && code && (!selectedStore || sk === selectedStore)) {
+        var _monthIdxF = dateV.getFullYear() * 12 + dateV.getMonth();
+        if (!byMonthFull[cc2]) byMonthFull[cc2] = {};
+        if (!byMonthFull[cc2][code]) byMonthFull[cc2][code] = {};
+        if (!byMonthFull[cc2][code][_monthIdxF]) byMonthFull[cc2][code][_monthIdxF] = { sumCA: 0 };
+        byMonthFull[cc2][code][_monthIdxF].sumCA += caP + caE;
       }
 
       // ventesParMagasin (PAS de filtre période — cohérent avec articleRaw)
@@ -1300,6 +1310,7 @@ self.onmessage = async function(ev) {
         blPreleveeSet: Array.from(blPreleveeSet),
         passagesUniques: Array.from(passagesUniques),
         byMonth: byMonth,
+        byMonthFull: byMonthFull,
         byMonthCanal: byMonthCanal,
         byMonthStoreArtCanal: byMonthStoreArtCanal,
         byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),

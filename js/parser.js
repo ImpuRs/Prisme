@@ -235,6 +235,7 @@ export async function parseLivraisons(file) {
     const terrLines = [];
     const terrDirData = {};
     const secteurSet = new Set();
+    let livDateMin = null, livDateMax = null;
     for (const row of data) {
       const cc = String(row[cCC] || '').trim().padStart(6, '0');
       if (!cc || cc === '000000') continue;
@@ -249,6 +250,12 @@ export async function parseLivraisons(file) {
       const rawDate = cDate ? row[cDate] : null;
       // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
       const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
+
+      // Plage de dates Livraisons (pour alignement captation)
+      if (dateObj) {
+        if (!livDateMin || dateObj < livDateMin) livDateMin = dateObj;
+        if (!livDateMax || dateObj > livDateMax) livDateMax = dateObj;
+      }
 
       // — livraisonsData — codes 6 chiffres uniquement
       if (!isSpecial) {
@@ -290,6 +297,8 @@ export async function parseLivraisons(file) {
 
     _S.livraisonsReady = _S.livraisonsData.size > 0;
     _S.livraisonsClientCount = _S.livraisonsData.size;
+    _S.livraisonsDateMin = livDateMin;
+    _S.livraisonsDateMax = livDateMax;
     _S.territoireLines = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;

@@ -834,6 +834,7 @@ _S.canalAgence=newCanalAgence;
     _S.libelleLookup      = r.libelleLookup || {};
     _S.canalAgence        = r.canalAgence || {};
     _S._byMonth           = r.byMonth      || null;
+    _S._byMonthFull       = r.byMonthFull  || null;
     _S._byMonthCanal      = r.byMonthCanal || null;
     _S._byMonthStoreArtCanal = r.byMonthStoreArtCanal || null;
     _S._byMonthClients    = r.byMonthClients
