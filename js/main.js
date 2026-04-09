@@ -446,7 +446,9 @@ _S.canalAgence=newCanalAgence;
     return parts.length?parts.join(' | '):'';
   }
   function _clientPassesReportFilter(rec){
-    return _clientPassesFilters(rec,rec.cc);
+    const info=_S.chalandiseData?.get(rec.cc);
+    if(!info)return !_getActiveFiltersLabel();
+    return _clientPassesFilters(info,rec.cc);
   }
 
   function generateReportText(){
