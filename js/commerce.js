@@ -14,7 +14,7 @@ import {
   _passesClientCrossFilter,
   _isPDVActif, _isGlobalActif, _isPerdu, _isProspect,
   _isPerdu24plus, _clientStatusBadge, _clientStatusText,
-  _crossBadge
+  _crossBadge, _enrichClientInfo
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
@@ -400,9 +400,8 @@ window._ccc = (di,mi,ci) => {
         const caPDV=_gCanal==='MAGASIN'?caMag:caTotal;
         const caHors=_gCanal==='MAGASIN'?caHorsTot:0;
         const lastDate=_S.clientLastOrder?.get(cc);
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV,caHors,caTotal,lastDate});
+        const ec=_enrichClientInfo(cc);
+        topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV,caHors,caTotal,lastDate});
       }
       // Canal Tous : inclure aussi les clients hors-MAGASIN purs
       if(!_gCanal){
@@ -411,9 +410,8 @@ window._ccc = (di,mi,ci) => {
           const caHorsTot=[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
           if(caHorsTot<100)continue;
           const lastDate=_S.clientLastOrder?.get(cc);
-          const info=_S.chalandiseData?.get(cc);
-          const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-          topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:caHorsTot,caHors:0,caTotal:caHorsTot,lastDate});
+          const ec=_enrichClientInfo(cc);
+          topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV:caHorsTot,caHors:0,caTotal:caHorsTot,lastDate});
         }
       }
     }else{
@@ -423,9 +421,8 @@ window._ccc = (di,mi,ci) => {
         const caCanal=entries.reduce((s,v)=>s+(v.sumCA||0),0);
         if(caCanal<100)continue;
         const lastDate=_S.clientLastOrder?.get(cc);
-        const info=_S.chalandiseData?.get(cc);
-        const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-        topPDVRows.push({cc,nom,metier:info?.metier||'',commercial:info?.commercial||'',caPDV:caCanal,caHors:0,caTotal:caCanal,lastDate});
+        const ec=_enrichClientInfo(cc);
+        topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV:caCanal,caHors:0,caTotal:caCanal,lastDate});
       }
     }
     topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
@@ -458,8 +455,8 @@ window._ccc = (di,mi,ci) => {
         if(caHors<200)continue;
         const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
         let caPDV=0;for(const[,v]of pdvArts)caPDV+=v.sumCA||0;
-        const info=_S.chalandiseData?.get(cc);
-        digitaux.push({cc,nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||'',pdvSilence,caPDV,caHors,mainCanal});
+        const ec=_enrichClientInfo(cc);
+        digitaux.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,pdvSilence,caPDV,caHors,mainCanal});
       }
       digitaux.sort((a,b)=>b.caPDV-a.caPDV);
     }

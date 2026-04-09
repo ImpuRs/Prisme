@@ -411,11 +411,26 @@ export function computeHealthScore() {
   return { score, color, label, scoreStock, scoreClients, serv, scoreDorm };
 }
 
+// ── Helper : enrichissement client (chalandise + fallback territoire) ──
+let _terrFBCache=null;
+function _buildTerrFB(){
+  if(_terrFBCache)return _terrFBCache;
+  _terrFBCache=new Map();
+  if(_S.territoireLines?.length){for(const ln of _S.territoireLines){if(!ln.clientCode)continue;const cc=ln.clientCode;if(!_terrFBCache.has(cc))_terrFBCache.set(cc,{commercial:ln.commercial||''});else if(!_terrFBCache.get(cc).commercial&&ln.commercial)_terrFBCache.get(cc).commercial=ln.commercial;}}
+  return _terrFBCache;
+}
+export function _enrichClientInfo(cc){
+  const info=_S.chalandiseData?.get(cc);const fb=_buildTerrFB().get(cc);
+  return{nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||(fb?.commercial)||''};
+}
+export function _invalidateTerrFBCache(){_terrFBCache=null;}
+
 // ── A5: Cohorte reconquête (P3.5+P4.6) ────────────────────────
 // Clients perdus (>6 mois sans commande) avec historique CA significatif
 export function computeReconquestCohort() {
   _S.reconquestCohort = [];
   _S.livraisonsSansPDV = [];
+  _invalidateTerrFBCache(); // rebuild on data change
   const now = new Date();
 
   // ── Section 1 : anciens fidèles silencieux (> 60j, CA > 0 dans consommé) ──
@@ -440,7 +455,8 @@ export function computeReconquestCohort() {
       const info = _S.chalandiseData.get(cc);
       const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
       const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
-      cohort.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier || '', commercial: info?.commercial || '', totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
+      const _ec=_enrichClientInfo(cc);
+      cohort.push({ cc, nom: _ec.nom, metier: _ec.metier, commercial: _ec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
     }
     cohort.sort((a, b) => b.score - a.score);
     _S.reconquestCohort = cohort;
@@ -453,9 +469,8 @@ export function computeReconquestCohort() {
       if (livData.ca <= 0) continue;
       const artMap = _S.ventesClientArticle.get(cc);
       if (artMap && artMap.size > 0) continue; // a déjà acheté au comptoir
-      const info = _S.chalandiseData.get(cc);
-      const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
-      sansPDV.push({ cc, nom, metier: info?.metier || '', commercial: info?.commercial || '', caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
+      const _ec2=_enrichClientInfo(cc);
+      sansPDV.push({ cc, nom: _ec2.nom, metier: _ec2.metier, commercial: _ec2.commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
     }
     sansPDV.sort((a, b) => b.caLivraison - a.caLivraison);
     _S.livraisonsSansPDV = sansPDV;
@@ -526,12 +541,12 @@ export function computeOpportuniteNette() {
     if (!missingFams.length) continue;
     missingFams.sort((a, b) => b.ca - a.ca);
     const totalPotentiel = missingFams.reduce((s, f) => s + f.ca, 0);
-    const info = _S.chalandiseData?.get(cc) || {};
+    const _ec3=_enrichClientInfo(cc);
     results.push({
       cc,
-      nom: info.nom || _S.clientNomLookup?.[cc] || cc,
-      metier: info.metier || '',
-      commercial: info.commercial || '',
+      nom: _ec3.nom,
+      metier: _ec3.metier,
+      commercial: _ec3.commercial,
       missingFams,
       totalPotentiel,
       canalBreakdown: globalCanal,
