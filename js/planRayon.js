@@ -927,29 +927,28 @@ function _prRenderMetiers(fam) {
   const hasLivr = metierLivr.size > 0;
   if (!metierPDV.size && !metierLivr.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
 
-  // Trier par CA total (mon agence + livré) décroissant
+  // Trier par CA Livraisons (total) décroissant, sinon par CA agence
   const allMetiers = new Set([...metierPDV.keys(), ...metierLivr.keys()]);
   const sorted = [...allMetiers].sort((a, b) => {
-    const totalA = (metierPDV.get(a) || 0) + (metierLivr.get(a) || 0);
-    const totalB = (metierPDV.get(b) || 0) + (metierLivr.get(b) || 0);
-    return totalB - totalA;
+    const refA = hasLivr ? (metierLivr.get(a) || 0) : (metierPDV.get(a) || 0);
+    const refB = hasLivr ? (metierLivr.get(b) || 0) : (metierPDV.get(b) || 0);
+    return refB - refA;
   });
   const rows = sorted.map(m => {
     const caMon   = metierPDV.get(m) || 0;
     const caLiv   = metierLivr.get(m) || 0;
     const nbMon   = metierClientsPDV.get(m)?.size || 0;
     const nbLiv   = metierClientsLiv.get(m)?.size || 0;
-    // Clients livrés zone qui ne sont PAS déjà clients de mon agence
-    const livrSet = metierClientsLiv.get(m);
-    const monSet  = metierClientsPDV.get(m);
-    const nbNew   = livrSet ? [...livrSet].filter(cc => !monSet?.has(cc)).length : 0;
+    // Taux de captation : CA agence / CA livraisons (si livraisons > 0)
+    const captPct = caLiv > 0 ? Math.round(caMon / caLiv * 100) : null;
+    const captColor = captPct === null ? '' : captPct >= 70 ? '#10b981' : captPct >= 40 ? '#f59e0b' : '#ef4444';
     return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${nbMon || '—'}</td>
       <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${caMon > 0 ? formatEuro(caMon) : '—'}</td>
-      ${hasLivr ? `<td class="py-1.5 px-2 text-right" style="color:#f59e0b;font-weight:600">${nbLiv > 0 ? nbLiv + (nbNew > 0 ? ' <span class="text-[9px]" style="color:#ef4444" title="Clients pas encore chez vous">(' + nbNew + ' nouveaux)</span>' : '') : '—'}</td>
-      <td class="py-1.5 px-2 text-right" style="color:#f59e0b;font-weight:600">${caLiv > 0 ? formatEuro(caLiv) : '—'}</td>` : ''}
-      <td class="py-1.5 px-2 text-right font-extrabold t-primary">${formatEuro(caMon + caLiv)}</td>
+      ${hasLivr ? `<td class="py-1.5 px-2 text-right t-secondary">${nbLiv || '—'}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${caLiv > 0 ? formatEuro(caLiv) : '—'}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:${captColor}">${captPct !== null ? captPct + '%' : '—'}</td>` : ''}
     </tr>`;
   }).join('');
 
@@ -958,19 +957,19 @@ function _prRenderMetiers(fam) {
   const totClientsMon = new Set(); const totClientsLivSet = new Set();
   for (const s of metierClientsPDV.values()) for (const cc of s) totClientsMon.add(cc);
   for (const s of metierClientsLiv.values()) for (const cc of s) totClientsLivSet.add(cc);
-  const totNew = [...totClientsLivSet].filter(cc => !totClientsMon.has(cc)).length;
+  const totCaptPct = totLiv > 0 ? Math.round(totMon / totLiv * 100) : null;
 
-  const livrLabel = hasLivr ? ' · Livré zone = autres agences livrant vos clients (fichier Livraisons × Chalandise)' : '';
-  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">Mon agence = tous canaux consommé${livrLabel} · Historique complet</div><div class="overflow-x-auto">
+  const livrLabel = hasLivr ? ' · Livraisons = total réseau (fichier Livraisons × Chalandise)' : '';
+  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux${livrLabel} · Historique complet</div><div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
-          <th class="py-1.5 px-2 text-right">Clients agence</th>
+          <th class="py-1.5 px-2 text-right">Cl. agence</th>
           <th class="py-1.5 px-2 text-right">CA agence</th>
-          ${hasLivr ? `<th class="py-1.5 px-2 text-right" style="color:#f59e0b">Cl. livré zone</th>
-          <th class="py-1.5 px-2 text-right" style="color:#f59e0b">CA livré zone</th>` : ''}
-          <th class="py-1.5 px-2 text-right">CA Total</th>
+          ${hasLivr ? `<th class="py-1.5 px-2 text-right">Cl. livraisons</th>
+          <th class="py-1.5 px-2 text-right">CA livraisons</th>
+          <th class="py-1.5 px-2 text-right" title="Taux de captation : CA agence ÷ CA livraisons">Captation</th>` : ''}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -979,9 +978,9 @@ function _prRenderMetiers(fam) {
           <td class="py-1.5 px-2 t-primary">TOTAL</td>
           <td class="py-1.5 px-2 text-right t-secondary">${totClientsMon.size}</td>
           <td class="py-1.5 px-2 text-right" style="color:var(--c-action)">${formatEuro(totMon)}</td>
-          ${hasLivr ? `<td class="py-1.5 px-2 text-right" style="color:#f59e0b">${totClientsLivSet.size}${totNew > 0 ? ' <span class="text-[9px]" style="color:#ef4444">(' + totNew + ' nouveaux)</span>' : ''}</td>
-          <td class="py-1.5 px-2 text-right" style="color:#f59e0b">${formatEuro(totLiv)}</td>` : ''}
-          <td class="py-1.5 px-2 text-right t-primary">${formatEuro(totMon + totLiv)}</td>
+          ${hasLivr ? `<td class="py-1.5 px-2 text-right t-secondary">${totClientsLivSet.size}</td>
+          <td class="py-1.5 px-2 text-right t-primary">${formatEuro(totLiv)}</td>
+          <td class="py-1.5 px-2 text-right font-bold" style="color:${totCaptPct >= 70 ? '#10b981' : totCaptPct >= 40 ? '#f59e0b' : '#ef4444'}">${totCaptPct !== null ? totCaptPct + '%' : '—'}</td>` : ''}
         </tr>
       </tfoot>
     </table>
