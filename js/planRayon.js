@@ -2154,6 +2154,53 @@ function _prBuildDiagText(codeFam) {
         const captation = ca > 0 ? Math.round(caAgence / ca * 100) : 0;
         txt += `  • ${m} : ${metierLivCli.get(m)} clients, ${Math.round(ca)}€ livré · captation ${captation}%${captation < 20 ? ' ⚠' : ''}\n`;
       });
+
+      // Refs manquantes par métier (achetées dans la zone via Livraisons mais absentes du rayon)
+      const codesEnRayonDiag = new Set((_S.finalData || [])
+        .filter(r => {
+          const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+          return cf === codeFam && r.stockActuel > 0;
+        })
+        .map(r => r.code));
+
+      const metierArtsDiag = new Map(); // metier → Map<code, {ca, qty, nbCli}>
+      for (const [cc, livData] of _S.livraisonsData) {
+        if (!_prDistOk(cc)) continue;
+        const info = _S.chalandiseData?.get(cc);
+        if (!info) continue;
+        const metier = info.metier || 'Non renseigné';
+        for (const [code, artData] of livData.articles) {
+          if (codesEnRayonDiag.has(code)) continue;
+          if (!_matchFamDiag(code)) continue;
+          if (!metierArtsDiag.has(metier)) metierArtsDiag.set(metier, new Map());
+          const ma = metierArtsDiag.get(metier);
+          if (!ma.has(code)) ma.set(code, { ca: 0, qty: 0, nbCli: 0 });
+          const e = ma.get(code);
+          e.ca += artData.ca || 0;
+          e.qty += artData.qty || 0;
+          e.nbCli++;
+        }
+      }
+      if (metierArtsDiag.size) {
+        const topMetsDiag = [...metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 5);
+        txt += `\n═══ REFS MANQUANTES PAR MÉTIER — achetées dans la zone mais absentes du rayon ═══\n`;
+        txt += `Articles que ces métiers achètent via d'autres agences, à implanter pour capter la demande.\n\n`;
+        for (const [met] of topMetsDiag) {
+          const arts = metierArtsDiag.get(met);
+          if (!arts || arts.size === 0) continue;
+          const sorted = [...arts.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 8);
+          const caAg = metierCA.get(met) || 0;
+          const caLiv = metierLivCA.get(met) || 0;
+          const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
+          txt += `**${met}** (captation ${capt}%) — ${arts.size} refs manquantes :\n`;
+          for (const [code, d] of sorted) {
+            const libelle = _S.libelleLookup?.[code] || '';
+            const mq = _S.catalogueMarques?.get(code) || '';
+            txt += `  ☐ [${code}] ${libelle}${mq ? ' · ' + mq : ''} — ${Math.round(d.ca)}€ · ${d.nbCli} client${d.nbCli > 1 ? 's' : ''}\n`;
+          }
+          txt += '\n';
+        }
+      }
     }
     txt += '\n';
   }
