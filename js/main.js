@@ -19,6 +19,7 @@ import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onRelo
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
+import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès depuis nl.js et console DevTools
 import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
@@ -296,6 +297,7 @@ _S.canalAgence=newCanalAgence;
     });
 
     buildClientStore({ pdvOnly: true });
+    if (_S.storesIntersection.size > 1) buildAgenceStore();
     invalidateCache('tab','terr');
     }finally{_refilterRunning=false;}
   }
@@ -775,6 +777,7 @@ _S.canalAgence=newCanalAgence;
             btn.disabled = false;
             hideLoading();
             if (!_S.clientStore?.size) buildClientStore();
+            if (_S.storesIntersection.size > 1 && !_S.agenceStore?.size) buildAgenceStore();
             renderAll();
             buildPeriodFilter();
             return;
@@ -1064,6 +1067,7 @@ _S.canalAgence=newCanalAgence;
 
       computeClientCrossing();computeReconquestCohort();
       buildClientStore(); // store client initial (avant chalandise/omni éventuels)
+      if (useMulti) buildAgenceStore(); // store agence (avant computeBenchmark)
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
@@ -1502,6 +1506,7 @@ _S.canalAgence=newCanalAgence;
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       buildClientStore();
+      if (useMulti) buildAgenceStore();
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
@@ -2363,6 +2368,7 @@ window.computeSPC = computeSPC;
 window.computeOpportuniteNette = computeOpportuniteNette;
 window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
+window.buildAgenceStore = buildAgenceStore;
 window.computeFamillesHors = computeFamillesHors;
 window.renderHeatmapFamilleCommercial = renderHeatmapFamilleCommercial;
 window.exportTourneeCSV = exportTourneeCSV;
