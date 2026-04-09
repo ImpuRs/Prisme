@@ -512,29 +512,29 @@ _S.canalAgence=newCanalAgence;
     // Articles réseau manquants
     const manquants=_S.benchLists.missed||[];
     const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
-    // Clients silencieux >30j
-    const now=new Date();const silencieuxList=[];
-    const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
-    for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-      if(_minConsomme&&lastDate<_minConsomme)continue;
-      const _dSil=daysBetween(lastDate,now);
-      if(_dSil>30&&_dSil<=60){
-        // CA MAG = ventesClientArticle (MAGASIN, prélevé)
-        const magData=_S.ventesClientArticle?.get(cc);
-        const caMag_s=magData?[...magData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-        // CA Legallais = chalandise ca2025 (source Qlik, tous canaux toutes agences)
-        const caLeg=_S.chalandiseData?.get(cc)?.ca2025||0;
-        if(caMag_s>0||caLeg>0){
-          const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;
-          silencieuxList.push({cc,nom,caMag:caMag_s,caLeg,days:_dSil});
+    // Clients silencieux >30j — réutilise le cockpit si disponible (même source, même tri)
+    let silencieuxList;
+    if(_S._cockpitExportData?.silencieux?.length){
+      silencieuxList=_S._cockpitExportData.silencieux.map(c=>({cc:c.code,nom:c.nom,caMag:c.caPDVN||0,caLeg:c.ca2025||0,days:c._daysSince||0}));
+    }else{
+      silencieuxList=[];
+      const now=new Date();
+      const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
+      for(const[cc,lastDate] of _S.clientLastOrder.entries()){
+        if(_minConsomme&&lastDate<_minConsomme)continue;
+        const _dSil=daysBetween(lastDate,now);
+        if(_dSil>30&&_dSil<=60){
+          const magData=_S.ventesClientArticle?.get(cc);
+          const caMag_s=magData?[...magData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+          const caLeg=_S.chalandiseData?.get(cc)?.ca2025||0;
+          if(caMag_s>0||caLeg>0){
+            const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;
+            silencieuxList.push({cc,nom,caMag:caMag_s,caLeg,days:_dSil});
+          }
         }
       }
+      silencieuxList.sort((a,b)=>(b.days-a.days)||(b.caLeg-a.caLeg));
     }
-    // Tri : plus ancien d'abord, puis plus gros CA Legallais à ancienneté égale
-    silencieuxList.sort((a,b)=>{
-      if(a.days!==b.days)return b.days-a.days;
-      return (b.caLeg||0)-(a.caLeg||0);
-    });
     const silencieuxCount=silencieuxList.length;
     const silencieuxCA=silencieuxList.reduce((s,c)=>s+(c.caLeg||c.caMag||0),0);
     // Clients à capter (chalandise actifs hors agence)
