@@ -763,6 +763,12 @@ self.onmessage = async function(ev) {
               _bme_h.sumVMBPrel += _rvp;
             }
           }
+          // commandesPerStoreCanal — hors-MAGASIN
+          if (_rncb) {
+            if (!commandesPerStoreCanal[skHors]) commandesPerStoreCanal[skHors] = {};
+            if (!commandesPerStoreCanal[skHors][canal]) commandesPerStoreCanal[skHors][canal] = new Set();
+            commandesPerStoreCanal[skHors][canal].add(_rncb);
+          }
         }
         continue;
       }
