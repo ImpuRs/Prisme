@@ -57,7 +57,6 @@ const ACTION_BADGE = {
   challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.04)', cardBorder: 'rgba(248,113,113,0.22)' },
   potentiel:  { label: 'Potentiel',      gradient: 'linear-gradient(135deg,#d97706,#b45309)', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.04)',  cardBorder: 'rgba(251,191,36,0.22)' },
   surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.04)', cardBorder: 'rgba(100,116,139,0.22)' },
-  repositionner: { label: 'À repositionner', gradient: 'linear-gradient(135deg,#ea580c,#c2410c)', bg: '#ffedd5', color: '#9a3412', icon: '🔄', dot: '#fb923c', cardBg: 'rgba(251,146,60,0.04)', cardBorder: 'rgba(251,146,60,0.25)' },
   specialiser:   { label: 'À spécialiser',   gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
 };
 
@@ -323,7 +322,6 @@ function computePlanStock() {
       challenger: families.filter(f => f.classifGlobal === 'challenger').length,
       potentiel:  families.filter(f => f.classifGlobal === 'potentiel').length,
       surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
-      repositionner: families.filter(f => f.classifGlobal === 'repositionner').length,
       specialiser:   families.filter(f => f.classifGlobal === 'specialiser').length,
     }
   };
@@ -1279,7 +1277,6 @@ function _renderPlanRayonContent(data) {
     <div class="grid grid-cols-7 gap-2 mb-3">
       ${_badge('socle', totals.socle)}
       ${_badge('implanter', totals.implanter)}
-      ${_badge('repositionner', totals.repositionner || 0)}
       ${_badge('specialiser', totals.specialiser || 0)}
       ${_badge('challenger', totals.challenger)}
       ${_badge('potentiel', totals.potentiel)}
