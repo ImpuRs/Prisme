@@ -14,7 +14,7 @@ import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, p
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing } from './ui.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -603,6 +603,115 @@ _S.canalAgence=newCanalAgence;
     L.push('');L.push(`═══════════════════════════════════════════════════`);
     L.push(`Source : PRISME · ${periodLabel} · ${new Date().toLocaleDateString('fr-FR')}`);
 
+    return L.join('\n');
+  }
+
+  function generateRegionReportText(){
+    const pStart=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;
+    const pEnd=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;
+    const agence=_S.selectedMyStore||'—';
+    const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    const periodHuman=(()=>{
+      if(!pStart||!pEnd)return null;
+      try{
+        const s=new Date(pStart),e=new Date(pEnd);
+        const sm=MOIS[s.getMonth()],em=MOIS[e.getMonth()];
+        if(s.getFullYear()===e.getFullYear()) return sm===em?`${sm} ${s.getFullYear()}`:`${sm} à ${em} ${e.getFullYear()}`;
+        return `${sm} ${s.getFullYear()} à ${em} ${e.getFullYear()}`;
+      }catch{return null;}
+    })();
+    const periodLabel=periodHuman?(periodHuman.charAt(0).toUpperCase()+periodHuman.slice(1)):(pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—');
+    const n=v=>(v||0).toLocaleString('fr');
+    const e=v=>formatEuro(v||0);
+    const pct=v=>v!=null?(+v).toFixed(2)+'%':'—';
+
+    const _ca_all=_S.canalAgence||{};
+    const caMag=_ca_all['MAGASIN']?.ca||0;
+    const vmbMag=_ca_all['MAGASIN']?.sumVMB||0;
+    const blMag=_ca_all['MAGASIN']?.bl||0;
+    const caWeb=_ca_all['INTERNET']?.ca||0;
+    const caRep=_ca_all['REPRESENTANT']?.ca||0;
+    const caDcs=_ca_all['DCS']?.ca||0;
+    const caTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
+    const blTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
+    const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
+    const nbClientsPDV=_S.ventesClientArticle?.size||0;
+    let nbClientsAll=nbClientsPDV;
+    {const _bmc=_S._byMonthClients;if(_bmc){const _pMin=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;const _pMax=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;if(_pMin&&_pMax){const _si=_pMin.getFullYear()*12+_pMin.getMonth();const _ei=_pMax.getFullYear()*12+_pMax.getMonth();const _set=new Set();for(const midxStr in _bmc){const midx=+midxStr;if(midx>=_si&&midx<=_ei)for(const cc of _bmc[midxStr])_set.add(cc);}if(_set.size>0)nbClientsAll=_set.size;}}else if(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0){nbClientsAll=_S._clientsTousCanaux.size;}}
+    const txMarge=caTotal>0?vmbTotal/caTotal*100:0;
+    const txMargeMag=caMag>0?vmbMag/caMag*100:0;
+
+    let serviceOk=0,serviceTotal=0;
+    for(const r of DataStore.finalData){if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
+    const txDispo=serviceTotal>0?Math.round((serviceOk/serviceTotal)*100):null;
+    const ruptures=DataStore.finalData.filter(r=>(r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&r.stockActuel<=0&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));
+    const dormants=DataStore.finalData.filter(r=>!r.isNouveaute&&r.ageJours>DORMANT_DAYS&&(r.stockActuel*r.prixUnitaire)>50);
+    const dormantVal=Math.round(dormants.reduce((s,r)=>s+r.stockActuel*r.prixUnitaire,0));
+    const valStock=Math.round(DataStore.finalData.reduce((s,r)=>s+(r.stockActuel||0)*(r.prixUnitaire||0),0));
+
+    const kpis=_S.benchLists.obsKpis;
+    const hasBench=!!kpis;
+    const lose=(_S.benchLists.obsFamiliesLose||[]).slice(0,5);
+    const win=(_S.benchLists.obsFamiliesWin||[]).slice(0,5);
+    const manquants=_S.benchLists.missed||[];
+    const sp=_S.benchLists.storePerf||{};
+    const spSorted=Object.entries(sp).sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
+    const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
+
+    let silencieuxCount=0,silencieuxCA=0;
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;if((rec.caPDV||0)>0||(rec.caLegallais||0)>0){silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}}
+    let clientsACapter=0;
+    if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
+    const nbNomades=(_S.reseauNomades||[]).length;
+
+    const L=[];
+    L.push(`INSTRUCTIONS`);
+    L.push(`Tu es un analyste BI préparant un reporting pour un directeur régional en distribution B2B (réseau Legallais).`);
+    L.push(`Rédige une fiche synthétique de l'agence ${agence} au format tableau/bullet points.`);
+    L.push(`Format : tableaux Markdown, bullet points concis, pas de prose. Maximum 1/2 page.`);
+    L.push(`Structure :`);
+    L.push(`  1. TABLEAU KPIs CLÉS (CA, marge, clients, stock, dispo, rang réseau) — une ligne par indicateur avec colonne Agence | Médiane | Ecart`);
+    L.push(`  2. FORCES (3-4 bullets factuels avec chiffres)`);
+    L.push(`  3. ALERTES (3-4 bullets factuels avec chiffres)`);
+    L.push(`  4. ACTIONS DEMANDÉES AU CHEF D'AGENCE (3 max, concrètes, mesurables)`);
+    L.push(`Ton : factuel, synthétique, destiné à un comité de direction. Pas de coaching, pas de "tu".`);
+    L.push('');
+    L.push(`═══════════════════════════════════════════════════`);
+    L.push(`DONNÉES AGENCE ${agence} — ${periodLabel}`);
+    L.push(`═══════════════════════════════════════════════════`);
+
+    L.push('');L.push('VENTES');
+    L.push(`CA total : ${e(caTotal)} | BL : ${n(blTotal)} | Clients : ${n(nbClientsAll)}`);
+    L.push(`Marge globale : ${pct(txMarge)} | VMB : ${e(Math.round(vmbTotal))}`);
+    if(caMag>0)L.push(`Comptoir : ${e(caMag)} (${caTotal>0?Math.round(caMag/caTotal*100):0}%) marge ${pct(txMargeMag)} | ${n(nbClientsPDV)} clients`);
+    if(caWeb>0)L.push(`Internet : ${e(caWeb)}`);
+    if(caRep>0)L.push(`Représentant : ${e(caRep)}`);
+    if(caDcs>0)L.push(`DCS : ${e(caDcs)}`);
+
+    L.push('');L.push('STOCK');
+    L.push(`Valeur : ${e(valStock)} | ${n(DataStore.finalData.length)} réf.`);
+    if(txDispo!=null)L.push(`Disponibilité F+M : ${txDispo}%`);
+    L.push(`Ruptures F+M : ${n(ruptures.length)} | Dormants : ${n(dormants.length)} (${e(dormantVal)})`);
+
+    if(hasBench){
+      L.push('');L.push('POSITION RÉSEAU');
+      if(myRankIdx>=0)L.push(`Rang CA : #${myRankIdx+1}/${spSorted.length}`);
+      L.push(`CA : ${e(kpis.mine?.ca||0)} vs méd. ${e(kpis.compared?.ca||0)} (${kpis.compared?.ca>0?Math.round(((kpis.mine?.ca||0)-(kpis.compared?.ca||0))/(kpis.compared?.ca)*100):0}%)`);
+      L.push(`Marge : ${pct(kpis.mine?.txMarge)} vs méd. ${pct(kpis.compared?.txMarge)}`);
+      L.push(`Dispo : ${kpis.mine?.serv||0}% vs méd. ${kpis.compared?.serv||0}%`);
+      L.push(`Clients : ${n(kpis.mine?.nbClients||0)} vs méd. ${n(kpis.compared?.nbClients||0)}`);
+      if(manquants.length>0)L.push(`Incontournables manquants : ${n(manquants.filter(m=>(m.myFreq||0)===0).length)} absents + ${n(manquants.filter(m=>(m.myFreq||0)>0).length)} sous-exploités`);
+      if(lose.length>0){L.push('');L.push('FAMILLES EN RETRAIT');for(const f of lose)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (${f.ecartPct}%)`);}
+      if(win.length>0){L.push('');L.push('FAMILLES FORTES');for(const f of win)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (+${f.ecartPct}%)`);}
+    }
+
+    L.push('');L.push('CLIENTS');
+    if(silencieuxCount>0)L.push(`Silencieux 30-60j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
+    if(clientsACapter>0)L.push(`Potentiel captation zone : ${n(clientsACapter)} clients actifs hors agence`);
+    if(nbNomades>0)L.push(`Nomades multi-agences : ${n(nbNomades)}`);
+
+    L.push('');L.push(`═══════════════════════════════════════════════════`);
+    L.push(`Source : PRISME · ${periodLabel} · ${new Date().toLocaleDateString('fr-FR')}`);
     return L.join('\n');
   }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
@@ -2376,7 +2485,9 @@ window.initDetailsAnimations = initDetailsAnimations;
 window.openReporting = openReporting;
 window.closeReporting = closeReporting;
 window.copyReportText = copyReportText;
+window.switchReportTab = switchReportTab;
 window.generateReportText = generateReportText;
+window.generateRegionReportText = generateRegionReportText;
 window.importExclusionsJSON = importExclusionsJSON;
 window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
