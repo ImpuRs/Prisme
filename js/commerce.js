@@ -88,15 +88,15 @@ function _cmSwitchTab(id) {
     case 'omni':
       content.innerHTML = `<div style="background:linear-gradient(135deg,rgba(20,184,166,0.12),rgba(13,148,136,0.06));border:1px solid rgba(20,184,166,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
         <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2)">
-          <h3 style="font-weight:800;font-size:13px;color:#2dd4bf;display:flex;align-items:center;gap:6px">🔗 Segments omnicanaux</h3>
+          <h3 style="font-weight:800;font-size:13px;color:#2dd4bf;display:flex;align-items:center;gap:6px">🎯 Captation agence</h3>
         </div>
-        <div class="p-3"><div id="terrSegmentsOmni"></div><div id="omniSegmentClientsBlock" class="hidden mt-3"></div></div>
+        <div class="p-3"><div id="omniCaptationBlock"></div><div id="omniCaptationClients" class="hidden mt-3"></div></div>
       </div>`;
       break;
   }
   _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
   if (id === 'canal') window.renderCanalAgence?.();
-  if (id === 'omni') { window._renderSegmentsOmnicanaux?.(); window._renderOmniSegmentClients?.(); }
+  if (id === 'omni') { window._renderCaptationBlock?.(); }
   nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
 }
 
@@ -1098,6 +1098,83 @@ function _renderCommercialSummary(){
   el.innerHTML=html;
 }
 
+// ── Captation agence — remplace les segments omnicanaux ──────────────
+function _renderCaptationBlock(){
+  const el=document.getElementById('omniCaptationBlock');if(!el)return;
+  if(!_S.crossingStats||!_S.chalandiseReady){el.innerHTML='<p class="text-xs t-disabled p-2">Chargez le fichier Zone de Chalandise pour activer la captation.</p>';return;}
+  // Compute captation stats with filters
+  const cats={captes:{n:0,caMag:0,caLeg:0,clients:[]},potentiels:{n:0,caMag:0,caLeg:0,clients:[]},fideles:{n:0,caMag:0,caLeg:0,clients:[]}};
+  // Captés : dans la zone + achetés en MAGASIN
+  for(const cc of _S.crossingStats.captes){
+    const info=_S.chalandiseData.get(cc);if(!info)continue;
+    if(!_clientPassesFilters(info,cc))continue;
+    const magMap=_S.ventesClientArticle?.get(cc);
+    const caMag=magMap?[...magMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+    const caLeg=info.ca2025||0;
+    const ratio=caLeg>0?Math.round(caMag/caLeg*100):0;
+    const ec=_enrichClientInfo(cc);
+    cats.captes.n++;cats.captes.caMag+=caMag;cats.captes.caLeg+=caLeg;
+    cats.captes.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag,caLeg,ratio,classification:info.classification||''});
+  }
+  // Potentiels : dans la zone, jamais venus
+  for(const cc of _S.crossingStats.potentiels){
+    const info=_S.chalandiseData.get(cc);if(!info)continue;
+    if(!_clientPassesFilters(info,cc))continue;
+    const caLeg=info.ca2025||0;
+    const ec=_enrichClientInfo(cc);
+    cats.potentiels.n++;cats.potentiels.caLeg+=caLeg;
+    cats.potentiels.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag:0,caLeg,ratio:0,classification:info.classification||''});
+  }
+  // Fidèles hors zone : pas dans la chalandise mais viennent en MAGASIN
+  for(const cc of _S.crossingStats.fideles){
+    const info=_S.chalandiseData.get(cc);
+    if(info&&!_clientPassesFilters(info,cc))continue;
+    const magMap=_S.ventesClientArticle?.get(cc);
+    const caMag=magMap?[...magMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+    const caLeg=info?.ca2025||0;
+    const ec=_enrichClientInfo(cc);
+    cats.fideles.n++;cats.fideles.caMag+=caMag;cats.fideles.caLeg+=caLeg;
+    cats.fideles.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag,caLeg,ratio:caLeg>0?Math.round(caMag/caLeg*100):0,classification:info?.classification||''});
+  }
+  // Sort: captés by ratio ascending (less captured first = more actionable), potentiels by caLeg desc, fideles by caMag desc
+  cats.captes.clients.sort((a,b)=>a.ratio-b.ratio||(b.caLeg||0)-(a.caLeg||0));
+  cats.potentiels.clients.sort((a,b)=>(b.caLeg||0)-(a.caLeg||0));
+  cats.fideles.clients.sort((a,b)=>(b.caMag||0)-(a.caMag||0));
+  const total=cats.captes.n+cats.potentiels.n+cats.fideles.n||1;
+  const pctC=Math.round(cats.captes.n/total*100),pctP=Math.round(cats.potentiels.n/total*100),pctF=Math.max(0,100-pctC-pctP);
+  const txCaptation=cats.captes.caLeg>0?Math.round(cats.captes.caMag/cats.captes.caLeg*100):0;
+  const af=_S._captationFilter||'';
+  const filterLabel=af?`<div class="mt-2 text-[10px]"><span class="cursor-pointer hover:underline" style="color:var(--c-action)" onclick="window._toggleCaptationFilter('')">✕ Filtre actif : ${af==='captes'?'Captés':af==='potentiels'?'Potentiels':'Fidèles hors zone'}</span></div>`:'';
+  const tiles=[
+    ['captes',cats.captes,'Captés','🟢','var(--c-ok)',`${cats.captes.n} clients zone achetant en agence · taux captation ${txCaptation}%`],
+    ['potentiels',cats.potentiels,'Potentiels','🎯','var(--c-danger)',`${cats.potentiels.n} clients zone n'ayant jamais acheté en agence`],
+    ['fideles',cats.fideles,'Fidèles hors zone','🟣','#a78bfa',`${cats.fideles.n} clients hors zone venant en agence`]
+  ];
+  const tilesHtml=tiles.map(([key,cat,label,icon,color,tip])=>{
+    const isActive=af===key;
+    return`<div class="flex flex-col items-center p-2.5 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${tip}" onclick="window._toggleCaptationFilter('${key}')"><span class="text-lg leading-none mb-1">${icon}</span><span class="text-[15px] font-extrabold ${isActive?'t-inverse':'t-primary'}">${cat.n}</span><span class="text-[9px] ${isActive?'t-inverse-muted':'t-disabled'}">${label}</span><span class="text-[10px] font-bold mt-0.5" style="color:${color}">${formatEuro(cat.caMag||cat.caLeg)}</span>${key==='captes'?`<span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">captation ${txCaptation}%</span>`:key==='potentiels'?`<span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">CA Legallais</span>`:''}</div>`;
+  }).join('');
+  el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">🎯 Captation agence <span class="font-normal normal-case t-disabled">${cats.captes.n+cats.potentiels.n+cats.fideles.n} clients</span></h3><div class="grid grid-cols-3 gap-2 mb-2">${tilesHtml}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctC}%;background:var(--c-ok)"></div><div style="width:${pctP}%;background:var(--c-danger);opacity:0.6"></div><div style="width:${pctF}%;background:#a78bfa"></div></div>${filterLabel}</div>`;
+  // Render client list if filter active
+  _renderCaptationClients(af?cats[af]:null,af);
+}
+
+function _renderCaptationClients(cat,filterKey){
+  const el=document.getElementById('omniCaptationClients');if(!el)return;
+  if(!cat||!cat.clients.length){el.classList.add('hidden');el.innerHTML='';return;}
+  el.classList.remove('hidden');
+  const labels={captes:'Captés',potentiels:'Potentiels — jamais venus en agence',fideles:'Fidèles hors zone'};
+  const colors={captes:'var(--c-ok)',potentiels:'var(--c-danger)',fideles:'#a78bfa'};
+  const showRatio=(filterKey==='captes');
+  let rows='';
+  for(const c of cat.clients){
+    const ratioBar=showRatio?`<td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="w-12 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.1)"><div style="width:${Math.min(c.ratio,100)}%;background:${c.ratio>60?'var(--c-ok)':c.ratio>30?'var(--c-caution)':'var(--c-danger)'};height:100%"></div></div><span class="text-[10px] font-bold ${c.ratio>60?'c-ok':c.ratio>30?'c-caution':'c-danger'}">${c.ratio}%</span></div></td>`:'';
+    rows+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold text-[11px]">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(c.metier||'—')}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(c.commercial||'—')}</td><td class="py-1.5 px-2 text-right font-bold text-[11px] c-ok">${c.caMag>0?formatEuro(c.caMag):'—'}</td><td class="py-1.5 px-2 text-right font-bold text-[11px] c-caution">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>${ratioBar}</tr>`;
+  }
+  const ratioTh=showRatio?'<th class="py-1.5 px-2 text-left">Captation</th>':'';
+  el.innerHTML=`<details open style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden"><summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:12px;color:${colors[filterKey]||'#22d3ee'}">👤 ${labels[filterKey]||filterKey} <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${cat.clients.length})</span></h3><span class="acc-arrow" style="color:#22d3ee">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Legallais</th>${ratioTh}</tr></thead><tbody>${rows}</tbody></table></div></details>`;
+}
+
 function _renderOmniSegmentClients(){
   const el=document.getElementById('omniSegmentClientsBlock');if(!el)return;
   const seg=_S._omniSegmentFilter;
@@ -2055,6 +2132,7 @@ window._cockpitToggleFullList     = _cockpitToggleFullList;
 window._cockpitToggleSection      = _cockpitToggleSection;
 window._renderCommercialSummary   = _renderCommercialSummary;
 window._renderOmniSegmentClients  = _renderOmniSegmentClients;
+window._renderCaptationBlock      = _renderCaptationBlock;
 window._buildChalDirBlock         = _buildChalDirBlock;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
 window._buildDegradedCockpit      = _buildDegradedCockpit;
