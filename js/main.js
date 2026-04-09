@@ -216,7 +216,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
     if(bmc){
       const newCanalAgence={};
       for(const store in bmc){
-        if(_S.selectedMyStore&&store!=='INCONNU'&&store!==_S.selectedMyStore)continue;
+        if(_S.selectedMyStore&&store!==_S.selectedMyStore)continue;
         for(const canal in bmc[store]){
           const months=bmc[store][canal];
           for(const midxStr in months){
