@@ -1622,7 +1622,7 @@ function _buildCockpitClient(){
       const nom=_S.clientNomLookup?.[cc]||cc;
       const c={code:cc,nom,metier:'',commercial:'',classification:'',ca2025:0,caPDVN,ville:'',_strat:false,_daysSince:daysSince,_lastOrderDate:lastOrder};
       if(daysSince>30&&daysSince<=60)silDeg.push(c);
-      else if(daysSince>60)perduDeg.push(c);
+      else if(daysSince>60&&daysSince<=180)perduDeg.push(c);
     }
     silDeg.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
     perduDeg.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
@@ -1632,7 +1632,7 @@ function _buildCockpitClient(){
     const _GDEG={amber:{bg:'background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06))',hdr:'background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12))',border:'border:1px solid rgba(217,119,6,0.3)',color:'#fbbf24',badgeBg:'rgba(217,119,6,0.7)'},rouge:{bg:'background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06))',hdr:'background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12))',border:'border:1px solid rgba(220,38,38,0.3)',color:'#f87171',badgeBg:'rgba(220,38,38,0.7)'}};
     function renderBlockDeg(title,emoji,gradKey,scoreColor,clients,raisonFn){const g=_GDEG[gradKey]||_GDEG.amber;if(!clients.length)return`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:10px;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5)">0</span></div><p class="text-xs t-disabled px-4 pb-4 pt-3">${emptyMsgDeg}</p></div>`;let html=`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;background:${g.badgeBg};color:white">${clients.length}</span></div><div class="space-y-2 px-4 py-3">`;for(const c of clients.slice(0,10))html+=_clientCardDeg(c,raisonFn(c),scoreColor);html+=`</div></div>`;return html;}
     if(silEl)silEl.innerHTML=renderBlockDeg(`Silencieux — 30 à 60 jours sans commande Magasin`,'⏰','amber','c-caution',silDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA Magasin`);
-    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — Plus de 60 jours sans commande Magasin`,'🔴','rouge','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`);
+    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — 60 à 180 jours sans commande Magasin`,'🔴','rouge','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`);
     if(capEl)capEl.innerHTML='';
     return;
   }
@@ -1677,8 +1677,8 @@ function _buildCockpitClient(){
     const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2025:caLeg,caPDVN,ville:info.ville||'',_strat:_isMetierStrategique(info.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
     // 1. Silencieux : 30-60j sans commande sur le canal filtré
     if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||caLeg>0||_useByCanal)){silencieux.push(c);continue;}
-    // 2. Perdus : >60j sans commande sur le canal filtré
-    if(daysSince!==null&&daysSince>60&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
+    // 2. Perdus : 60-180j sans commande sur le canal filtré (au-delà = ancien client)
+    if(daysSince!==null&&daysSince>60&&daysSince<=180&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
     // 3. Potentiels : dans crossingStats.potentiels (zone chalandise, jamais venus au comptoir)
     if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)){jamaisVenus.push(c);}
   }
@@ -1734,7 +1734,7 @@ function _buildCockpitClient(){
   function _capRaison(c){return c.ca2025>0?`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`:`Client zone — jamais passé au comptoir`;}
   // ── Render into 3 separate blocks ──
   const _silTitle=`Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
-  const _perduTitle=`Perdus — Plus de 60 jours sans commande ${_canalLabel}`;
+  const _perduTitle=`Perdus — 60 à 180 jours sans commande ${_canalLabel}`;
   if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','amber','','c-caution',silencieux,'ca2025',_silRaison,'cockpit-sil-full');
   if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'ca2025',_perduRaison,'cockpit-perdu-full');
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','blue','','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
