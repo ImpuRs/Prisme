@@ -432,6 +432,7 @@ self.onmessage = async function(ev) {
       mois: _fc('mois'),
       bl: _fc('n° bl', 'numéro de bl', 'numero bl'),
       commande: _fc('numéro de commande', 'n° commande'),
+      typeCmde: _fc('type cmde pdv', 'type cmde', 'type commande'),  // non utilisé pour l'instant — conservé pour référence
       caE: _fc('ca enlevé', 'ca enleve'),
       caP: _fc('ca prélevé', 'ca preleve'),
       vmbE: _fc('vmb enlevé', 'vmb enleve'),
@@ -623,8 +624,8 @@ self.onmessage = async function(ev) {
         _bmce.sumVMBP += _rvp;
         if (_rncb) {
           _bmce._cmds.add(_rncb);
-          if (_rcp) _bmce._cmdsP.add(_rncb);
-          if (_rce) _bmce._cmdsE.add(_rncb);
+          if (_rcp || _rvp) _bmce._cmdsP.add(_rncb);
+          if (_rce || _rve) _bmce._cmdsE.add(_rncb);
         }
       }
 
@@ -642,11 +643,11 @@ self.onmessage = async function(ev) {
           byMonthClientsByCanal[_midxBMC][_cBMC].add(_ccBMC);
           // Sub-mode prel/enl pour MAGASIN — permet comptage clients par mode
           if (_cBMC === 'MAGASIN') {
-            if (_rcp) {
+            if (_rcp || _rvp) {
               if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'] = new Set();
               byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'].add(_ccBMC);
             }
-            if (_rce) {
+            if (_rce || _rve) {
               if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'] = new Set();
               byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'].add(_ccBMC);
             }
