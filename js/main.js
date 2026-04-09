@@ -431,7 +431,6 @@ _S.canalAgence=newCanalAgence;
     const pStart=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;
     const pEnd=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;
     const agence=_S.selectedMyStore||'—';
-    // Period in human form e.g. "Janvier à mars 2026"
     const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     const periodHuman=(()=>{
       if(!pStart||!pEnd)return null;
@@ -445,20 +444,37 @@ _S.canalAgence=newCanalAgence;
       }catch{return null;}
     })();
     const periodLabel=periodHuman?(periodHuman.charAt(0).toUpperCase()+periodHuman.slice(1)):(pStart&&pEnd?`${fmtDate(pStart)} → ${fmtDate(pEnd)}`:'—');
-    // NaN-safe helpers
     const ok=v=>v!==null&&v!==undefined&&!isNaN(v)&&v!=='';
-    const euro=v=>ok(v)&&v>0?formatEuro(v):null;
-    const pct=v=>ok(v)?`${Math.round(v)}%`:null;
-    // Équation commerciale — nbClients depuis ventesClientArticle (period-filtered)
-    const nbClientsPDV=_S.ventesClientArticle.size;
-    const storeData=_S.ventesParMagasin[_S.selectedMyStore]||{};
-    const caPDVTotal=Object.values(storeData).reduce((s,v)=>s+(v.sumCA||0),0);
-    const vmbPDV=Object.values(storeData).reduce((s,v)=>s+(v.sumVMB||0),0);
-    const _nbPassagesExec=_S.ventesAnalysis?_S.ventesAnalysis.nbPassages:0;
-    // Option A (passages) : fréq = passages/clients, panier = CA/passages — base cohérente
-    const freqPDV=nbClientsPDV>0&&_nbPassagesExec>0?parseFloat((_nbPassagesExec/nbClientsPDV).toFixed(1)):null;
-    const caParClient=nbClientsPDV>0?Math.round(caPDVTotal/nbClientsPDV):null;
-    const txMarge=_S.ventesAnalysis?_S.ventesAnalysis.txMarge:null;
+
+    // ── KPIs depuis canalAgence (filtré par la période sélectionnée) ──
+    const _ca_all=_S.canalAgence||{};
+    const caMag=_ca_all['MAGASIN']?.ca||0;
+    const blMag=_ca_all['MAGASIN']?.bl||0;
+    const vmbMag=_ca_all['MAGASIN']?.sumVMB||0;
+    const caWeb=_ca_all['INTERNET']?.ca||0;
+    const caRep=_ca_all['REPRESENTANT']?.ca||0;
+    const caDcs=_ca_all['DCS']?.ca||0;
+    const caTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.ca||0),0);
+    const blTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.bl||0),0);
+    const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
+    const caHorsAgence=caWeb+caRep+caDcs;
+
+    // Clients — period-filtered
+    const nbClientsPDV=_S.ventesClientArticle?.size||0;
+    const nbClientsAll=(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0)?_S._clientsTousCanaux.size:nbClientsPDV;
+    const isMultiCanal=caHorsAgence>0;
+
+    // Équation commerciale — tous canaux
+    const txMarge=caTotal>0?vmbTotal/caTotal*100:0;
+    const vmc=blTotal>0?Math.round(caTotal/blTotal):0;
+    const freq=nbClientsAll>0?parseFloat((blTotal/nbClientsAll).toFixed(1)):0;
+    const caParClient=nbClientsAll>0?Math.round(caTotal/nbClientsAll):0;
+    // Équation magasin seul
+    const txMargeMag=caMag>0?vmbMag/caMag*100:0;
+    const vmcMag=blMag>0?Math.round(caMag/blMag):0;
+    const freqMag=nbClientsPDV>0?parseFloat((blMag/nbClientsPDV).toFixed(1)):0;
+    const caParClientMag=nbClientsPDV>0?Math.round(caMag/nbClientsPDV):0;
+
     // Taux de disponibilité
     let serviceOk=0,serviceTotal=0;
     for(const r of DataStore.finalData){if((r.fmrClass==='F'||r.fmrClass==='M')&&r.W>=1&&!r.isParent&&!(r.V===0&&r.enleveTotal>0)){serviceTotal++;if(r.stockActuel>0)serviceOk++;}}
@@ -476,174 +492,185 @@ _S.canalAgence=newCanalAgence;
     // Articles réseau manquants
     const manquants=_S.benchLists.missed||[];
     const manquantsHF=manquants.filter(a=>(a.bassinFreq||0)>=5).length;
-    // Clients silencieux >30j mais dans le périmètre du consommé (pas les anciens hors-fichier)
+    // Clients silencieux >30j
     const now=new Date();const silencieuxList=[];
     const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
     for(const[cc,lastDate] of _S.clientLastOrder.entries()){
       if(_minConsomme&&lastDate<_minConsomme)continue;
       const _dSil=daysBetween(lastDate,now);
       if(_dSil>30&&_dSil<=60){
-        const artData=(_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
-        const caPDV=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
-        if(caPDV>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,caPDV});}
+        const artData=(_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
+        const caCli=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
+        if(caCli>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,ca:caCli});}
       }
     }
     silencieuxList.sort((a,b)=>{const dA=daysBetween(_S.clientLastOrder.get(a.cc),now);const dB=daysBetween(_S.clientLastOrder.get(b.cc),now);return dA-dB;});
     const silencieuxCount=silencieuxList.length;
-    const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.caPDV,0);
-    const silencieuxTop3=silencieuxList.slice(0,3).map(c=>c.nom).join(', ');
-    // Clients à capter
+    const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.ca,0);
+    // Clients à capter (chalandise actifs hors agence)
     let clientsACapter=0;
-    if(_S.chalandiseReady){const _fullClientSet=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fullClientSet.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
-    // Fichiers
+    if(_S.chalandiseReady){const _fullClientSet=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fullClientSet.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
+    // Fichiers chargés
     const fichiersList=['Consommé','État du Stock'];
     if(_S.territoireReady)fichiersList.push('Le Terrain');
     if(_S.chalandiseReady)fichiersList.push('Chalandise');
+    if(_S.livraisonsReady)fichiersList.push('Livraisons');
     // Position réseau
     let reseauRank=null,reseauTotal=null;
     if(hasBench){const sp=_S.benchLists.storePerf||{};const spSorted=Object.entries(sp).sort((a,b)=>b[1].freq-a[1].freq);if(spSorted.length>0){reseauTotal=spSorted.length;const myIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);if(myIdx>=0)reseauRank=myIdx+1;}}
     const pdmBassin=hasBench&&kpis&&ok(kpis.mine?.pdm)?kpis.mine.pdm:null;
-    // Omnicanalité
-    const caMag=_S.canalAgence['MAGASIN']?.ca||0;
-    const caWeb=_S.canalAgence['INTERNET']?.ca||0;
-    const caRep=_S.canalAgence['REPRESENTANT']?.ca||0;
-    const caDcs=_S.canalAgence['DCS']?.ca||0;
-    const caHorsAgence=caWeb+caRep+caDcs;
-    const caTotalCanal=caMag+caHorsAgence;
-    const pctHorsAgence=caTotalCanal>0?Math.round(caHorsAgence/caTotalCanal*100):null;
     // Nomades cross-agence
     const nbNomades=(_S.reseauNomades||[]).length;
     // Plan d'action familles
     const actionPlan=_S.benchLists.obsActionPlan||[];
+
     // ── Build prose ─────────────────────────────────────────────
-    const hr='─'.repeat(52);
+    const hr='────────────────────────────────────────────────────';
     const L=[];
     L.push(`REPORTING ${agence} — ${periodLabel}`);
     L.push(hr);L.push('');
-    // ── FACTEURS DE SUCCÈS ───────────────────────────────────────
-    L.push('FACTEURS DE SUCCÈS');L.push('');
-    // Para 1 : équation commerciale + taux de disponibilité intégré
+
+    // ── CE QU'IL FAUT RETENIR ──────────────────────────────────────
+    L.push('CE QU'IL FAUT RETENIR');L.push('');
     {
-      const parts=[];
-      if(ok(caPDVTotal)&&caPDVTotal>0){
-        let p=`La période se clôture avec un CA Magasin de ${formatEuro(caPDVTotal)}`;
-        if(nbClientsPDV>0){
-          p+=`, porté par ${nbClientsPDV.toLocaleString('fr')} client${nbClientsPDV!==1?'s':''} actifs en magasin`;
-          const details=[];
-          if(ok(freqPDV))details.push(`fréquence de ${freqPDV} passage${freqPDV!==1?'s':''}/client`);
-          if(ok(caParClient))details.push(`CA/client ${caParClient.toLocaleString('fr')} €`);
-          if(ok(txMarge)&&txMarge>0){const vmbStr=vmbPDV>0?` pour une VMB de ${formatEuro(Math.round(vmbPDV))}`:'';details.push(`taux de marge ${txMarge.toFixed(2)}%${vmbStr}`);}
-          if(details.length)p+=` (${details.join(', ')})`;
+      // Phrase d'accroche : CA tous canaux
+      let accroche=`Sur ${periodLabel.toLowerCase()}, l'agence a réalisé ${formatEuro(caTotal)} de CA tous canaux confondus`;
+      if(nbClientsAll>0)accroche+=` avec ${nbClientsAll.toLocaleString('fr')} clients actifs`;
+      accroche+='.';
+      L.push(accroche);
+
+      // Détail magasin si multi-canal
+      if(isMultiCanal&&caMag>0){
+        const pctMag=caTotal>0?Math.round(caMag/caTotal*100):0;
+        let magLine=`Le comptoir pèse ${pctMag}% du CA (${formatEuro(caMag)}, ${nbClientsPDV.toLocaleString('fr')} clients, panier moyen ${caParClientMag.toLocaleString('fr')} €, fréquence ${freqMag}x)`;
+        magLine+='.';
+        L.push(magLine);
+        // Canaux hors agence
+        const relais=[];
+        if(caWeb>0)relais.push(`Web ${formatEuro(caWeb)}`);
+        if(caRep>0)relais.push(`Représentant ${formatEuro(caRep)}`);
+        if(caDcs>0)relais.push(`DCS ${formatEuro(caDcs)}`);
+        if(relais.length){
+          const pctHA=caTotal>0?Math.round(caHorsAgence/caTotal*100):0;
+          L.push(`Les canaux hors agence représentent ${pctHA}% : ${relais.join(', ')}.`);
         }
-        p+='.';
-        if(ok(srNum)){
-          const qualif=srNum>=95?'excellent':'solide';
-          p+=` Le taux de disponibilité est ${qualif} à ${srNum}% avec ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`;
-        }
-        parts.push(p);
-      } else if(ok(srNum)){
-        parts.push(`Taux de disponibilité : ${srNum}% — ${rupturesList.length} rupture${rupturesList.length!==1?'s':''} en cours.`);
+      } else if(caMag>0&&!isMultiCanal){
+        // Mono-canal magasin
+        const details=[];
+        if(nbClientsPDV>0)details.push(`${nbClientsPDV.toLocaleString('fr')} clients`);
+        if(caParClientMag>0)details.push(`panier ${caParClientMag.toLocaleString('fr')} €`);
+        if(freqMag>0)details.push(`fréquence ${freqMag}x`);
+        if(details.length)L.push(`Détail comptoir : ${details.join(', ')}.`);
       }
-      if(parts.length)L.push(parts.join(' '));
-    }
-    // Para 2 : réseau / benchmark
-    if(hasBench){
-      const pdm=kpis.mine&&ok(kpis.mine.pdm)?kpis.mine.pdm:null;
-      let p='Côté réseau';
-      if(ok(pdm))p+=`, notre PDM bassin est à ${pdm}%`;
-      p+='.';
-      if(win3.length>0){
-        const w3=win3.map(f=>`${f.fam} (+${Math.round(f.ecartPct)}% vs médiane)`).join(', ');
-        p+=` Nos forces se situent sur ${w3}.`;
-      } else {
-        p+=' Aucune famille n\'est en sur-performance vs le bassin.';
+
+      // Marge
+      if(txMarge>0){
+        let margeLine=`Taux de marge : ${txMarge.toFixed(2)}%`;
+        if(vmbTotal>0)margeLine+=` soit ${formatEuro(Math.round(vmbTotal))} de VMB`;
+        margeLine+='.';
+        L.push(margeLine);
       }
-      L.push('');L.push(p);
     }
-    // Position réseau
-    if(reseauRank!==null&&reseauTotal!==null){
-      let rp=`Nous nous classons ${reseauRank}${reseauRank===1?'er':'e'} sur ${reseauTotal} agences du réseau`;
-      const mxMarge=kpis&&ok(kpis.mine?.txMarge)?kpis.mine.txMarge:null;
-      const medMarge=kpis&&ok(kpis.compared?.txMarge)?kpis.compared.txMarge:null;
-      if(ok(mxMarge)&&ok(medMarge)){if(mxMarge>=medMarge)rp+=`, avec un taux de marge au-dessus de la médiane (${mxMarge.toFixed(2)}% vs ${medMarge.toFixed(2)}%)`;}
-      if(ok(pdmBassin))rp+=`. Notre couverture bassin est à ${Math.round(pdmBassin)}%, principal levier d'assortiment`;
-      L.push(rp+'.');
-    }
-    L.push('');
-    // ── POINTS D'AMÉLIORATION ────────────────────────────────────
-    L.push("POINTS D'AMÉLIORATION");L.push('');
-    // Stock
+
+    // ── STOCK & DISPONIBILITÉ ──────────────────────────────────────
+    L.push('');L.push('STOCK & DISPONIBILITÉ');L.push('');
     {
-      const parts=[];
+      if(ok(srNum)){
+        const qualif=srNum>=97?'excellent':srNum>=95?'bon':srNum>=90?'correct':'insuffisant';
+        L.push(`Taux de disponibilité ${qualif} à ${srNum}% (${rupturesList.length} rupture${rupturesList.length!==1?'s':''} sur articles actifs).`);
+      }
+      L.push(`${DataStore.finalData.length.toLocaleString('fr')} articles référencés.`);
       if(dormantsList.length>0){
-        let s=`Stock : ${dormantsList.length.toLocaleString('fr')} dormant${dormantsList.length!==1?'s':''} à traiter`;
-        if(dormantVal>0)s+=` pour ${formatEuro(dormantVal)} immobilisés`;
-        s+='.';
-        parts.push(s);
+        L.push(`${dormantsList.length.toLocaleString('fr')} dormant${dormantsList.length!==1?'s':''} immobilisent ${formatEuro(dormantVal)} de stock — à traiter en priorité pour libérer de la place et du cash.`);
       }
       if(manquants.length>0){
-        let m=`${manquants.length.toLocaleString('fr')} article${manquants.length!==1?'s':''} vendus par le réseau ${manquants.length>1?'sont absents':'est absent'} de notre rayon`;
+        let m=`${manquants.length.toLocaleString('fr')} article${manquants.length!==1?'s':''} vendu${manquants.length!==1?'s':''} par le réseau ${manquants.length>1?'sont absents':'est absent'} de notre rayon`;
         if(manquantsHF>0)m+=`, dont ${manquantsHF} en forte rotation`;
-        m+=' — des opportunités de référencement à étudier.';
-        parts.push(m);
+        m+=` — des opportunités de référencement immédiates.`;
+        L.push(m);
       }
-      if(parts.length)L.push(parts.join(' '));
     }
-    // Marge sous médiane réseau
-    if(hasBench&&kpis&&ok(kpis.mine&&kpis.mine.txMarge)&&ok(kpis.compared&&kpis.compared.txMarge)&&kpis.mine.txMarge<kpis.compared.txMarge){
-      const potVMB=Math.round((kpis.compared.txMarge-kpis.mine.txMarge)/100*caPDVTotal);
-      L.push(`Marge : taux de marge à ${kpis.mine.txMarge.toFixed(2)}% vs médiane réseau ${kpis.compared.txMarge.toFixed(2)}% — potentiel de +${formatEuro(potVMB)} de VMB.`);
+
+    // ── POSITION RÉSEAU ───────────────────────────────────────────
+    if(hasBench){
+      L.push('');L.push('POSITION RÉSEAU');L.push('');
+      if(reseauRank!==null&&reseauTotal!==null){
+        let rp=`Nous sommes ${reseauRank}${reseauRank===1?'er':'e'} sur ${reseauTotal} agences`;
+        if(ok(pdmBassin))rp+=`, avec ${Math.round(pdmBassin)}% de part de marché bassin`;
+        rp+='.';
+        L.push(rp);
+      }
+      const mxMarge=kpis?.mine?.txMarge;
+      const medMarge=kpis?.compared?.txMarge;
+      if(ok(mxMarge)&&ok(medMarge)){
+        const ecart=mxMarge-medMarge;
+        if(ecart>=0){
+          L.push(`Notre marge (${mxMarge.toFixed(2)}%) est au-dessus de la médiane réseau (${medMarge.toFixed(2)}%) — bon positionnement.`);
+        }else{
+          const potVMB=Math.round(Math.abs(ecart)/100*caTotal);
+          L.push(`Notre marge (${mxMarge.toFixed(2)}%) est sous la médiane réseau (${medMarge.toFixed(2)}%). En s'alignant, on gagnerait +${formatEuro(potVMB)} de VMB.`);
+        }
+      }
+      if(win3.length>0){
+        L.push(`Nos forces : ${win3.map(f=>`${f.fam} (+${Math.round(f.ecartPct)}% vs médiane)`).join(', ')}.`);
+      }
+      if(lose3.length>0){
+        L.push(`En retrait : ${lose3.map(f=>`${f.fam} (${Math.round(f.ecartPct)}%)`).join(', ')} — à investiguer.`);
+      }
     }
-    // Clients silencieux
-    if(silencieuxCount>0){
-      let p=`Clients : ${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} n'ont pas commandé depuis 30 à 60 jours`;
-      if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA Magasin cumulé)`;
-      p+='.';
-      const silTop5=silencieuxList.slice(0,5);
-      if(silTop5.length){const silFmt=silTop5.map(c=>`${c.nom} (${formatEuro(c.caPDV)})`).join(', ');p+=` Priorités de relance : ${silFmt}.`;}
-      L.push(p);
-      if(nbNomades>0){L.push(`Par ailleurs, ${nbNomades.toLocaleString('fr')} client${nbNomades!==1?'s':''} de ce portefeuille achète${nbNomades!==1?'nt':''} également dans d'autres agences du réseau — un potentiel de consolidation à exploiter.`);}
-    }
-    // Familles en retrait
-    if(lose3.length>0){
-      const l3=lose3.map(f=>`${f.fam} (${Math.round(f.ecartPct)}%)`).join(', ');
-      L.push(`Familles en retrait vs le réseau : ${l3} — à investiguer avec le diagnostic Radar.`);
-    }
-    L.push('');
-    // ── PERSPECTIVES ─────────────────────────────────────────────
-    L.push('PERSPECTIVES');L.push('');
+
+    // ── DYNAMIQUE CLIENTS ─────────────────────────────────────────
     {
-      const parts=[];
-      if(clientsACapter>0){
-        parts.push(`${clientsACapter.toLocaleString('fr')} client${clientsACapter!==1?'s':''} actif${clientsACapter!==1?'s':''} Legallais ne passe${clientsACapter!==1?'nt':''} pas en agence — principal levier de croissance.`);
-      }
-      parts.push(`Période analysée : ${periodHuman||periodLabel} sur ${DataStore.finalData.length.toLocaleString('fr')} articles (${fichiersList.length} fichier${fichiersList.length!==1?'s':''} : ${fichiersList.join(', ')}).`);
-      L.push(parts.join(' '));
-    }
-    // Omnicanalité
-    if(ok(pctHorsAgence)&&pctHorsAgence>0){
-      const relais=[];
-      if(caWeb>0)relais.push(`Web (${formatEuro(Math.round(caWeb))})`);
-      if(caRep>0)relais.push(`Représentant (${formatEuro(Math.round(caRep))})`);
-      if(caDcs>0)relais.push(`DCS (${formatEuro(Math.round(caDcs))})`);
-      let op=`${pctHorsAgence}% de notre CA identifié passe hors agence`;
-      if(relais.length)op+=` — ${relais.join(', ')} constituent des relais à consolider`;
-      L.push(op+'.');
-    }
-    // ── PLAN D'ACTION ─────────────────────────────────────────────
-    if(actionPlan.length>0){
-      L.push('');
-      L.push("PLAN D'ACTION");L.push('');
-      if(actionPlan.length>=3){
-        const [a1,a2,a3]=actionPlan;
-        L.push(`Trois familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés), ${a2.fam} (${formatEuro(a2.caPotentiel)}) et ${a3.fam} (${formatEuro(a3.caPotentiel)}).`);
-      }else if(actionPlan.length===2){
-        const [a1,a2]=actionPlan;
-        L.push(`Deux familles concentrent l'essentiel du potentiel non capté : ${a1.fam} (${formatEuro(a1.caPotentiel)} identifiés) et ${a2.fam} (${formatEuro(a2.caPotentiel)}).`);
-      }else{
-        L.push(`La famille ${actionPlan[0].fam} concentre l'essentiel du potentiel non capté avec ${formatEuro(actionPlan[0].caPotentiel)} identifiés.`);
+      const hasContent=silencieuxCount>0||clientsACapter>0||nbNomades>0;
+      if(hasContent){
+        L.push('');L.push('DYNAMIQUE CLIENTS');L.push('');
+        if(silencieuxCount>0){
+          let p=`${silencieuxCount.toLocaleString('fr')} client${silencieuxCount!==1?'s':''} régulier${silencieuxCount!==1?'s':''} ${silencieuxCount!==1?'n\'ont':'n\'a'} pas commandé depuis 30 à 60 jours`;
+          if(ok(silencieuxCA)&&silencieuxCA>0)p+=` (${formatEuro(silencieuxCA)} de CA cumulé en jeu)`;
+          p+='.';
+          L.push(p);
+          const silTop5=silencieuxList.slice(0,5);
+          if(silTop5.length)L.push(`À relancer : ${silTop5.map(c=>`${c.nom} (${formatEuro(c.ca)})`).join(', ')}.`);
+        }
+        if(clientsACapter>0){
+          L.push(`${clientsACapter.toLocaleString('fr')} client${clientsACapter!==1?'s':''} actif${clientsACapter!==1?'s':''} Legallais dans notre zone ${clientsACapter!==1?'ne passent':'ne passe'} pas en agence — premier levier de croissance.`);
+        }
+        if(nbNomades>0){
+          L.push(`${nbNomades.toLocaleString('fr')} de nos clients achètent aussi dans d'autres agences — potentiel de consolidation.`);
+        }
       }
     }
+
+    // ── PRIORITÉS DU MOIS ─────────────────────────────────────────
+    {
+      const hasPrios=actionPlan.length>0||lose3.length>0||dormantsList.length>0||silencieuxCount>0;
+      if(hasPrios){
+        L.push('');L.push('PRIORITÉS');L.push('');
+        let prio=1;
+        if(dormantsList.length>50){
+          L.push(`${prio}. Hygiène stock : purger les ${dormantsList.length} dormants (${formatEuro(dormantVal)} bloqués). Chaque référence sortie libère un emplacement pour une opportunité réseau.`);
+          prio++;
+        }
+        if(silencieuxCount>3){
+          L.push(`${prio}. Relance clients silencieux : ${silencieuxCount} clients à recontacter (${formatEuro(silencieuxCA)} en jeu). Commencer par les plus gros CA.`);
+          prio++;
+        }
+        if(actionPlan.length>0){
+          const topActions=actionPlan.slice(0,3);
+          L.push(`${prio}. Développement familles : ${topActions.map(a=>`${a.fam} (${formatEuro(a.caPotentiel)})`).join(', ')}.`);
+          prio++;
+        }
+        if(lose3.length>0&&prio<=4){
+          L.push(`${prio}. Investigation sous-performance : ${lose3.map(f=>f.fam).join(', ')} — utiliser le diagnostic Radar pour comprendre l'écart.`);
+        }
+      }
+    }
+
+    // ── PIED ──────────────────────────────────────────────────────
+    L.push('');L.push(hr);
+    L.push(`${periodHuman||periodLabel} · ${fichiersList.length} fichiers (${fichiersList.join(', ')}) · ${DataStore.finalData.length.toLocaleString('fr')} articles`);
+    L.push(`Généré par PRISME le ${new Date().toLocaleDateString('fr-FR')}`);
+
     return L.join('\n');
   }
   // ── Cockpit Client (Urgences / Développer / Fidéliser) ──
