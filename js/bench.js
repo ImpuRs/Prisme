@@ -425,14 +425,14 @@ function renderObservatoire(){
   if(el('obsWinTh1'))el('obsWinTh1').textContent=isMedian?'Avance CA (bassin) vs médiane':`Avance sur ${obsLabel}`;
   // KPI CARDS
   const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,pdm:0},compared:{ca:0,ref:0,serv:0,freq:0,pdm:0}};
-  const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct2'?(v!==null&&v>0?parseFloat(v).toFixed(2)+'%':'—'):fmt==='pct'?v+'%':v.toLocaleString('fr');
+  const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct2'?(v!==null&&v>0?parseFloat(v).toFixed(2)+'%':'—'):fmt==='pct'?v+'%':fmt==='freq'?(v+'x'):v.toLocaleString('fr');
   const _kpiRcSet=_S._reseauCanaux||new Set();
   const _kpiCanalNames={MAGASIN:'en prélevé comptoir',INTERNET:'sur Internet',REPRESENTANT:'par représentant',DCS:'en DCS',AUTRE:'sur autre canal'};
   const _refTip=_kpiRcSet.size===0?'Nombre d\'articles différents vendus au moins 1 fois sur la période.':_kpiRcSet.size===1?`Nombre d\'articles différents vendus au moins 1 fois ${_kpiCanalNames[[..._kpiRcSet][0]]||'sur le canal sélectionné'} sur la période.`:`Nombre d\'articles différents vendus au moins 1 fois sur les canaux sélectionnés sur la période.`;
   const kpiDefs=[
     {label:'💰 CA vendu',       key:'ca',          fmt:'euro', tip:'CA tous canaux (Prélevé + Enlevé) sur la période. Avoirs déduits.',                                                                                            g1:'#7c3aed',g2:'#4f46e5'},
     {label:'📦 Réf actives',    key:'ref',         fmt:'num',  tip:_refTip,                                                                                                                                                        g1:'#0891b2',g2:'#0e7490'},
-    {label:'🛒 Panier moyen',   key:'panierMoyen', fmt:'euro', tip:'CA total ÷ nombre de clients actifs sur la période. Mesure l\'intensité commerciale par client.',                                                               g1:'#059669',g2:'#047857'},
+    {label:'🛒 Fréq / client',  key:'freqClient',  fmt:'freq', tip:'Nombre moyen de commandes (BL) par client actif sur la période. Mesure l\'intensité d\'achat par client.',                                                            g1:'#059669',g2:'#047857'},
     {label:'🎯 Taux de service',key:'serv',        fmt:'pct',  tip:'% des articles vendus par le réseau que vous vendez aussi. 100% = vous couvrez toute la gamme réseau. Indique vos trous de gamme.',                             g1:'#d97706',g2:'#b45309'},
     {label:'📈 Tx marge',       key:'txMarge',     fmt:'pct2', tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.', g1:'#dc2626',g2:'#b91c1c'}
   ];

@@ -51,7 +51,7 @@ export function buildAgenceStore(opts = {}) {
       isMyStore: agCode === _S.selectedMyStore,
       // KPIs globaux
       ca: 0, caPrelevee: 0, vmb: 0, txMarge: null,
-      refs: 0, freq: 0, serv: 0, panierMoyen: 0,
+      refs: 0, freq: 0, serv: 0, freqClient: 0,
       // Clients
       nbClients: 0, clientsZone: 0,
       // Benchmark (rempli phase 2)
@@ -167,7 +167,7 @@ export function buildAgenceStore(opts = {}) {
         rec.clientsZone = cz;
       }
     }
-    rec.panierMoyen = rec.nbClients > 0 ? Math.round(rec.ca / rec.nbClients) : 0;
+    rec.freqClient = rec.nbClients > 0 ? parseFloat((rec.freq / rec.nbClients).toFixed(1)) : 0;
 
     store.set(agCode, rec);
   }
