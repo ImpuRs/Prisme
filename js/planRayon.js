@@ -2101,16 +2101,22 @@ function _prBuildDiagText(codeFam) {
   txt += '\n';
 
   if (_S.chalandiseReady && _S.chalandiseData?.size) {
-    txt += `═══ MÉTIERS CLIENTS (chalandise) ═══\n`;
+    txt += `═══ MÉTIERS CLIENTS ═══\n`;
+    // Mon agence (consommé tous canaux)
     const metierCA = new Map();
     const metierCli = new Map();
+    const _matchFamDiag = (code) => {
+      const cf = catFam?.get(code);
+      if (cf?.codeFam !== codeFam) return false;
+      if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) return false;
+      return true;
+    };
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
-      const metier = _S.chalandiseData?.get(cc)?.metier || 'Hors chalandise';
+      const info = _S.chalandiseData?.get(cc);
+      const metier = info?.metier || 'Hors chalandise';
       let caFam = 0;
       for (const [code, data] of artMap) {
-        const cf = catFam?.get(code);
-        if (cf?.codeFam !== codeFam) continue;
-        if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) continue;
+        if (!_matchFamDiag(code)) continue;
         caFam += data.sumCA || 0;
       }
       if (caFam > 0) {
@@ -2118,9 +2124,51 @@ function _prBuildDiagText(codeFam) {
         metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
       }
     }
-    [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([m,ca]) => {
+    // Hors-MAGASIN de mon agence
+    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      const info = _S.chalandiseData?.get(cc);
+      const metier = info?.metier || 'Hors chalandise';
+      let caFam = 0;
+      for (const [code, data] of artMap) {
+        if (!_matchFamDiag(code)) continue;
+        caFam += data.sumCA || 0;
+      }
+      if (caFam > 0) {
+        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+        if (!metierCli.has(metier)) metierCli.set(metier, 0);
+        metierCli.set(metier, metierCli.get(metier) + 1);
+      }
+    }
+    txt += `**Mon agence (consommé tous canaux) — TOP métiers :**\n`;
+    [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([m,ca]) => {
       txt += `  • ${m} : ${metierCli.get(m)} clients, ${Math.round(ca)}€ CA famille\n`;
     });
+
+    // Livraisons × Chalandise (total réseau pour les clients de la zone)
+    if (_S.livraisonsReady && _S.livraisonsData?.size) {
+      const metierLivCA = new Map();
+      const metierLivCli = new Map();
+      for (const [cc, livData] of _S.livraisonsData) {
+        const info = _S.chalandiseData?.get(cc);
+        if (!info) continue;
+        const metier = info.metier || 'Non renseigné';
+        let caFam = 0;
+        for (const [code, artData] of livData.articles) {
+          if (!_matchFamDiag(code)) continue;
+          caFam += artData.ca || 0;
+        }
+        if (caFam > 0) {
+          metierLivCA.set(metier, (metierLivCA.get(metier) || 0) + caFam);
+          metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
+        }
+      }
+      txt += `\n**Livraisons zone (total réseau × chalandise) — TOP métiers :**\n`;
+      [...metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([m,ca]) => {
+        const caAgence = metierCA.get(m) || 0;
+        const captation = ca > 0 ? Math.round(caAgence / ca * 100) : 0;
+        txt += `  • ${m} : ${metierLivCli.get(m)} clients, ${Math.round(ca)}€ livré · captation ${captation}%${captation < 20 ? ' ⚠' : ''}\n`;
+      });
+    }
     txt += '\n';
   }
 
@@ -2154,6 +2202,9 @@ Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
 
 Règles dures :
 - Croise TOUJOURS la vocation du rayon avec les TOP métiers clients de l'agence
+- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Elle montre la demande totale dans la zone (toutes agences). Distingue 2 stratégies :
+  1. CONSOLIDER : renforcer le rayon pour les métiers qui viennent déjà (captation >20%) — leur offrir leurs vrais besoins produits
+  2. DÉVELOPPER : aller capter les métiers à 0% de captation — qu'est-ce qu'on implante pour les attirer ?
 - Si "pivot vocation" détecté : oser dire au chef de CHANGER la vocation, pas juste élargir
 - Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
 - Parler comme un coach autour d'un café, pas comme un consultant en costume
@@ -2288,6 +2339,65 @@ function _prBuildLLMPack(codeFam) {
   }
   if (empSet.size) {
     pack += `[EMPLACEMENTS OBSERVÉS] ${[...empSet].sort().join(' · ')}\n\n`;
+  }
+
+  // Livraisons × Chalandise — demande réelle par métier dans la zone
+  if (_S.livraisonsReady && _S.livraisonsData?.size && _S.chalandiseReady) {
+    const catFam = _S.catalogueFamille;
+    const metierLivCA = new Map();
+    const metierLivCli = new Map();
+    const metierAgCA = new Map();
+    // Mon agence pour calcul captation
+    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+      const info = _S.chalandiseData?.get(cc);
+      if (!info) continue;
+      const metier = info.metier || 'Non renseigné';
+      let caFam = 0;
+      for (const [code, data] of artMap) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf !== codeFam) continue;
+        caFam += data.sumCA || 0;
+      }
+      if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
+    }
+    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      const info = _S.chalandiseData?.get(cc);
+      if (!info) continue;
+      const metier = info.metier || 'Non renseigné';
+      let caFam = 0;
+      for (const [code, data] of artMap) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf !== codeFam) continue;
+        caFam += data.sumCA || 0;
+      }
+      if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
+    }
+    // Livraisons
+    for (const [cc, livData] of _S.livraisonsData) {
+      const info = _S.chalandiseData?.get(cc);
+      if (!info) continue;
+      const metier = info.metier || 'Non renseigné';
+      let caFam = 0;
+      for (const [code, artData] of livData.articles) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf !== codeFam) continue;
+        caFam += artData.ca || 0;
+      }
+      if (caFam > 0) {
+        metierLivCA.set(metier, (metierLivCA.get(metier) || 0) + caFam);
+        metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
+      }
+    }
+    if (metierLivCA.size) {
+      pack += `[DEMANDE RÉELLE PAR MÉTIER — Livraisons zone × Chalandise]\n`;
+      pack += `(= CA total livré pour les clients de la zone, toutes agences confondues. Captation = part captée par mon agence)\n`;
+      [...metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([m,ca]) => {
+        const caAg = metierAgCA.get(m) || 0;
+        const capt = ca > 0 ? Math.round(caAg / ca * 100) : 0;
+        pack += `  - ${m}: ${metierLivCli.get(m)} clients, ${formatEuro(ca)} livré, captation ${capt}%${capt < 20 ? ' ⚠ POTENTIEL NON CAPTÉ' : ''}\n`;
+      });
+      pack += `\n`;
+    }
   }
 
   pack += `═══════════════════════════════════════════════════\n`;
