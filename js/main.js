@@ -562,7 +562,7 @@ _S.canalAgence=newCanalAgence;
       // Détail magasin si multi-canal
       if(isMultiCanal&&caMag>0){
         const pctMag=caTotal>0?Math.round(caMag/caTotal*100):0;
-        let magLine=`Le canal Magasin pèse ${pctMag}% du CA (${formatEuro(caMag)}, ${nbClientsPDV.toLocaleString('fr')} clients, panier moyen ${caParClientMag.toLocaleString('fr')} €, fréquence ${freqMag}x)`;
+        let magLine=`Le canal Magasin pèse ${pctMag}% du CA (${formatEuro(caMag)}, ${nbClientsPDV.toLocaleString('fr')} clients, ${caParClientMag.toLocaleString('fr')} €/client, fréquence ${freqMag}x, VMC ${vmcMag.toLocaleString('fr')} €, marge ${txMargeMag.toFixed(1)}%)`;
         magLine+='.';
         L.push(magLine);
         // Canaux hors agence
@@ -575,18 +575,18 @@ _S.canalAgence=newCanalAgence;
           L.push(`Les canaux hors agence représentent ${pctHA}% : ${relais.join(', ')}.`);
         }
       } else if(caMag>0&&!isMultiCanal){
-        // Mono-canal magasin
         const details=[];
         if(nbClientsPDV>0)details.push(`${nbClientsPDV.toLocaleString('fr')} clients`);
         if(caParClientMag>0)details.push(`panier ${caParClientMag.toLocaleString('fr')} €`);
         if(freqMag>0)details.push(`fréquence ${freqMag}x`);
-        if(details.length)L.push(`Détail comptoir : ${details.join(', ')}.`);
+        if(details.length)L.push(`Canal Magasin : ${details.join(', ')}.`);
       }
 
-      // Marge
+      // Marge globale tous canaux
       if(txMarge>0){
-        let margeLine=`Taux de marge : ${txMarge.toFixed(2)}%`;
+        let margeLine=`Marge tous canaux : ${txMarge.toFixed(2)}%`;
         if(vmbTotal>0)margeLine+=` soit ${formatEuro(Math.round(vmbTotal))} de VMB`;
+        if(isMultiCanal&&txMargeMag>0&&Math.abs(txMargeMag-txMarge)>0.5)margeLine+=` (Magasin seul : ${txMargeMag.toFixed(2)}%)`;
         margeLine+='.';
         L.push(margeLine);
       }
