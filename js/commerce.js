@@ -90,13 +90,13 @@ function _cmSwitchTab(id) {
         <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2)">
           <h3 style="font-weight:800;font-size:13px;color:#2dd4bf;display:flex;align-items:center;gap:6px">🔗 Segments omnicanaux</h3>
         </div>
-        <div class="p-3"><div id="terrSegmentsOmni"></div></div>
+        <div class="p-3"><div id="terrSegmentsOmni"></div><div id="omniSegmentClientsBlock" class="hidden mt-3"></div></div>
       </div>`;
       break;
   }
   _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
   if (id === 'canal') window.renderCanalAgence?.();
-  if (id === 'omni') window._renderSegmentsOmnicanaux?.();
+  if (id === 'omni') { window._renderSegmentsOmnicanaux?.(); window._renderOmniSegmentClients?.(); }
   nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
 }
 
@@ -1109,10 +1109,8 @@ function _renderOmniSegmentClients(){
   for(const[cc,o]of _S.clientOmniScore){
     if(o.segment!==seg)continue;
     if(!_mOmni(cc))continue;
-    const info=_S.chalandiseData?.get(cc);
-    const nom=info?.nom||_S.clientNomLookup?.[cc]||cc;
-    const com=info?.commercial||'—';
-    clients.push({cc,nom,com,caPDV:o.caPDV||0,caHors:o.caHors||0,nbCanaux:o.nbCanaux||0});
+    const ec=_enrichClientInfo(cc);
+    clients.push({cc,nom:ec.nom,com:ec.commercial||'—',metier:ec.metier||'—',caPDV:o.caPDV||0,caHors:o.caHors||0,nbCanaux:o.nbCanaux||0});
   }
   clients.sort((a,b)=>b.caPDV-a.caPDV);
   if(!clients.length){el.classList.add('hidden');el.innerHTML='';return;}
@@ -1120,13 +1118,13 @@ function _renderOmniSegmentClients(){
   const isOpen=el.dataset.open==='1';
   let rows='';
   for(const c of clients){
-    rows+=`<tr class="border-t b-light hover:s-card-alt">
+    rows+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')">
       <td class="py-1.5 px-2 font-semibold t-primary max-w-[160px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 t-secondary text-[11px] max-w-[100px] truncate">${escapeHtml(c.metier)}</td>
       <td class="py-1.5 px-2 t-secondary text-[11px] max-w-[120px] truncate" title="${escapeHtml(c.com)}">${escapeHtml(c.com)}</td>
       <td class="py-1.5 px-2 text-right font-bold">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${c.caHors>0?formatEuro(c.caHors):'—'}</td>
       <td class="py-1.5 px-2 text-center t-secondary">${c.nbCanaux}</td>
-      <td class="py-1.5 px-2 text-center"><button class="text-[10px] c-action hover:underline font-semibold" onclick="openClient360('${escapeHtml(c.cc)}')">360°</button></td>
     </tr>`;
   }
   el.innerHTML=`<details ${isOpen?'open':''} style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px" ontoggle="document.getElementById('omniSegmentClientsBlock').dataset.open=this.open?'1':'0'">
@@ -1137,11 +1135,11 @@ function _renderOmniSegmentClients(){
     <div class="overflow-x-auto"><table class="min-w-full text-xs">
       <thead class="s-panel-inner t-inverse"><tr>
         <th class="py-1.5 px-2 text-left">Client</th>
+        <th class="py-1.5 px-2 text-left">Métier</th>
         <th class="py-1.5 px-2 text-left">Commercial</th>
         <th class="py-1.5 px-2 text-right">CA PDV</th>
         <th class="py-1.5 px-2 text-right">CA hors agence</th>
         <th class="py-1.5 px-2 text-center">Canaux</th>
-        <th class="py-1.5 px-2 text-center">Fiche</th>
       </tr></thead><tbody>${rows}</tbody>
     </table></div>
   </details>`;
