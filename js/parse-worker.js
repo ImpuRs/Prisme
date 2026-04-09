@@ -621,11 +621,10 @@ self.onmessage = async function(ev) {
         _bmce.sumPrelevee += _rcp;
         _bmce.sumVMB += _rvp + _rve;
         _bmce.sumVMBP += _rvp;
-        if (_rncb) _bmce._cmds.add(_rncb);
-        var _blKey = _rbl2 || _rncb;
-        if (_blKey) {
-          if (_rcp) _bmce._cmdsP.add(_blKey);
-          if (_rce) _bmce._cmdsE.add(_blKey);
+        if (_rncb) {
+          _bmce._cmds.add(_rncb);
+          if (_rcp) _bmce._cmdsP.add(_rncb);
+          if (_rce) _bmce._cmdsE.add(_rncb);
         }
       }
 
