@@ -490,31 +490,47 @@ function renderObservatoire(){
   const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
   const winFiltered=(obsFamiliesWin||[]).filter(f=>!minCA||Math.abs((f.caMe||0)-(f.caOther||0))>=minCA);
   if(el('obsLoseBadge'))el('obsLoseBadge').textContent=loseFiltered.length;
-  const _famRow=(f,type)=>{
+  const _famRow=(f,type,idx)=>{
     const isLose=type==='lose';
+    const rowId=`obs${isLose?'Lose':'Win'}_${idx}`;
     const caGap=f.caMe-f.caOther;
     const refDiff=isLose?Math.max(0,f.refOther-f.refMe):Math.max(0,f.refMe-f.refOther);
     const ecColor=isLose?(f.ecartPct<=-30?'c-danger font-extrabold':f.ecartPct<=-10?'c-danger font-bold':'c-caution'):'c-ok font-bold';
     const caCell=isLose?`<span class="font-extrabold c-danger">${formatEuro(caGap)}</span>`:`<span class="font-extrabold c-ok">+${formatEuro(caGap)}</span>`;
-    const refBadge=refDiff>0?`<span class="chip chip-sm ${isLose?'chip-danger':'chip-ok'}">${isLose?'':'+'}${refDiff}</span>`:'<span class="t-disabled">—</span>';
     const pdmCell=f.pdm!=null?`<td class="py-1.5 px-2 text-center text-xs font-bold ${f.pdm>=20?'c-ok':f.pdm>=10?'c-caution':'c-danger'}">${f.pdm}%</td>`:`<td class="py-1.5 px-2 text-center text-xs t-disabled">—</td>`;
-    const _fAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     const hoverBg=isLose?'hover:i-danger-bg/40':'hover:i-ok-bg/40';
-    return `<tr class="border-b cursor-pointer ${hoverBg} transition-colors" onclick="openDiagnostic('${_fAttr}','reseau')">
-      <td class="py-1.5 px-2 font-semibold t-primary text-[11px]">${f.fam}</td>
+    // Ref badge — clickable to expand article list
+    const arts=isLose?(f.missingArts||[]):(f.exclusiveArts||[]);
+    const refBadge=refDiff>0?`<span class="chip chip-sm ${isLose?'chip-danger':'chip-ok'}">${isLose?'':'+'}${refDiff}</span>`:'<span class="t-disabled">—</span>';
+    // Build inline article list (hidden by default)
+    let artPanel='';
+    if(arts.length){
+      const artRows=arts.slice(0,30).map(a=>{
+        if(isLose){
+          const freq=isMedian?(a.nbStores??a.freqOther):a.freqOther;
+          return `<tr class="border-t" style="border-color:rgba(255,255,255,0.06)"><td class="py-0.5 px-2 font-mono t-tertiary text-[10px]">${a.code}</td><td class="py-0.5 px-2 text-[10px]">${escapeHtml(a.lib||'')}</td><td class="py-0.5 px-2 text-center font-bold text-[10px]">${freq}</td><td class="py-0.5 px-2 text-right t-secondary text-[10px]">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
+        }
+        return `<tr class="border-t" style="border-color:rgba(255,255,255,0.06)"><td class="py-0.5 px-2 font-mono t-tertiary text-[10px]">${a.code}</td><td class="py-0.5 px-2 text-[10px]">${escapeHtml(a.lib||'')}</td><td class="py-0.5 px-2 text-center font-bold text-[10px]">${a.freq||''}</td><td class="py-0.5 px-2 text-right font-bold c-ok text-[10px]">${a.ca>0?formatEuro(a.ca):'—'}</td></tr>`;
+      }).join('');
+      const thFreq=isLose?(isMedian?'Agences':'Fréq'):'Fréq';
+      const thCA=isLose?(isMedian?'CA méd.':'CA autre'):'Mon CA';
+      artPanel=`<tr id="${rowId}" class="hidden"><td colspan="7" class="${isLose?'i-danger-bg/50':'i-ok-bg/50'}"><div class="p-2 overflow-x-auto" style="max-height:250px;overflow-y:auto"><table class="min-w-full"><thead class="t-secondary font-bold text-[10px]"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${thFreq}</th><th class="py-1 px-2 text-right">${thCA}</th></tr></thead><tbody>${artRows}</tbody></table></div></td></tr>`;
+    }
+    return `<tr class="border-b cursor-pointer ${hoverBg} transition-colors" onclick="toggleObsFamily('${rowId}')">
+      <td class="py-1.5 px-2 font-semibold t-primary text-[11px]"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${f.fam}</td>
       <td class="py-1.5 px-2 text-right text-xs">${formatEuro(f.caMe)}</td>
       <td class="py-1.5 px-2 text-right text-xs t-secondary">${formatEuro(f.caOther)}</td>
       <td class="py-1.5 px-2 text-right text-xs">${caCell}</td>
       <td class="py-1.5 px-2 text-center text-[10px] ${ecColor}">${f.ecartPct}%</td>
       ${pdmCell}
       <td class="py-1.5 px-2 text-center">${refBadge}</td>
-    </tr>`;
+    </tr>${artPanel}`;
   };
-  const loseRows=loseFiltered.map(f=>_famRow(f,'lose')).join('');
+  const loseRows=loseFiltered.map((f,i)=>_famRow(f,'lose',i)).join('');
   if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="7" class="py-4 text-center t-disabled">Aucune famille en retard.</td></tr>';
   // Families where I win
   if(el('obsWinBadge'))el('obsWinBadge').textContent=winFiltered.length;
-  const winRows=winFiltered.map(f=>_famRow(f,'win')).join('');
+  const winRows=winFiltered.map((f,i)=>_famRow(f,'win',i)).join('');
   if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="7" class="py-4 text-center t-disabled">—</td></tr>';
   // [V3] Bandeau biais canal — sections soft : pépites filtrées agence vs réseau brut
   const _obsCanal=_S._globalCanal||'';
@@ -705,7 +721,12 @@ function copyObsActionPlan(){
 }
 
 function copyObsArticleList(){}
-function toggleObsFamily(){}
+function toggleObsFamily(id){
+  const row=document.getElementById(id);if(!row)return;
+  const nowHidden=row.classList.toggle('hidden');
+  const prevRow=row.previousElementSibling;if(!prevRow)return;
+  const icon=prevRow.querySelector('.obs-expand-icon');if(icon)icon.textContent=nowHidden?'▶':'▼';
+}
 
 function copyObsSection(type){
   const rows=type==='lose'?_S.benchLists.obsFamiliesLose:_S.benchLists.obsFamiliesWin;
