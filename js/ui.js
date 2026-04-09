@@ -535,14 +535,14 @@ export function openReporting() {
   const _trigger = document.activeElement;
   const text = generateReportText();
   panel.innerHTML = `<div class="flex items-center justify-between mb-4 gap-3">
-    <h2 class="text-base font-extrabold text-white shrink-0">📊 Reporting ${_S.selectedMyStore || ''}</h2>
+    <h2 class="text-base font-extrabold text-white shrink-0">📊 Prompt Reporting ${_S.selectedMyStore || ''}</h2>
     <div class="flex items-center gap-2 shrink-0">
       <button onclick="copyReportText()" class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-1.5 px-3 rounded-lg font-bold transition-colors">📋 Copier</button>
       <button onclick="closeReporting()" class="text-xs s-panel-inner hover:s-panel-inner t-inverse py-1.5 px-3 rounded-lg font-bold transition-colors">✕ Fermer</button>
     </div>
   </div>
   <textarea id="reportingTextarea" class="w-full s-panel t-inverse text-xs font-mono p-4 rounded-xl border b-dark resize-y" style="min-height:480px;line-height:1.75" spellcheck="false">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
-  <p class="text-[10px] t-inverse-muted mt-2">Texte brut — collez directement dans Excel, Teams ou un email. Modifiable avant envoi.</p>`;
+  <p class="text-[10px] t-inverse-muted mt-2">Prompt structuré — collez dans Claude, ChatGPT ou Gemini pour générer votre reporting. Modifiable avant envoi.</p>`;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap = focusTrap(panel, _trigger);
 }
