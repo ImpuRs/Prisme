@@ -121,7 +121,7 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   // Show commerce tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabCommerce'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on commerce tab
-  if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.renderAll?.(); }
+  if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.buildClientStore?.(); window.renderAll?.(); }
   // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
 }
 

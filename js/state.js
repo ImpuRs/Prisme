@@ -267,6 +267,7 @@ _S._reseauMissedShowAll = false;    // mode "voir tout" missed
 _S._reseauUnderPage = 0;            // pagination under réseau
 _S._reseauUnderShowAll = false;     // mode "voir tout" under
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
+_S.clientStore = new Map();          // Map<cc, ClientRecord> — store client unifié (client-store.js)
 _S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 _S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
@@ -409,6 +410,7 @@ export function resetAppState() {
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S.clientOmniScore = new Map();
+  _S.clientStore = new Map();
   _S.famillesHors = [];
   _S._livraisonsDebug = {};
   _S._metierStrategiques = new Set();
