@@ -90,15 +90,17 @@ export function buildAgenceStore() {
     // ── Agréger KPIs depuis artMap ──
     let totalCA = 0, totalPrel = 0, totalVMB = 0, totalBL = 0, activeRefs = 0;
     for (const code in rec.artMap) {
-      if (!/^\d{6}$/.test(code)) continue;
       const d = rec.artMap[code];
       const ca = d.sumCA || 0;
       totalCA   += ca;
       totalPrel += d.sumPrelevee || 0;
       totalVMB  += d.sumVMB || 0;
       totalBL   += d.countBL || 0;
-      if (ca > 0 || (d.countBL || 0) > 0) activeRefs++;
-      bassinArticles.add(code);
+      // Refs & bassin : uniquement articles stockables (6 chiffres)
+      if (/^\d{6}$/.test(code)) {
+        if (ca > 0) activeRefs++;
+        bassinArticles.add(code);
+      }
     }
     rec.ca          = totalCA;
     rec.caPrelevee  = totalPrel;

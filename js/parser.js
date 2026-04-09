@@ -661,7 +661,7 @@ export function computeBenchmark(canaux = new Set()) {
     for (const [a, d] of Object.entries(sv)) {
       if (!/^\d{6}$/.test(a)) continue;
       if (!bv[a]) bv[a] = { tp: 0, tb: 0, sc: 0 };
-      bv[a].tp += _canauxSet.size ? d.sumCA : d.sumPrelevee; bv[a].tb += d.countBL; bv[a].sc++;
+      bv[a].tp += d.sumCA || 0; bv[a].tb += d.countBL; bv[a].sc++;
     }
   }
   if (_S.obsFilterUnivers) {
@@ -671,7 +671,7 @@ export function computeBenchmark(canaux = new Set()) {
   }
   const totalArtsInBassin = Object.keys(bv).length || 1;
   const sp = {}; sp[_S.selectedMyStore] = { ref: 0, freq: 0, serv: 0, clientsZone: 0 };
-  const _isRefActive = (v) => _canauxSet.size ? v.sumCA > 0 : v.sumPrelevee > 0;
+  const _isRefActive = (v) => (v.sumCA || 0) > 0;
   for (const [k, v] of Object.entries(myV)) { if (_isRefActive(v)) sp[_S.selectedMyStore].ref++; sp[_S.selectedMyStore].freq += v.countBL; }
   sp[_S.selectedMyStore].serv = Math.round((sp[_S.selectedMyStore].ref / totalArtsInBassin) * 100);
   if (_S.chalandiseReady && _S.ventesClientsPerStore[_S.selectedMyStore]) sp[_S.selectedMyStore].clientsZone = [..._S.ventesClientsPerStore[_S.selectedMyStore]].filter(c => _S.chalandiseData.has(c)).length;
@@ -699,7 +699,7 @@ export function computeBenchmark(canaux = new Set()) {
     _S.benchFamEcarts = fe;
   }
   for (const [a, b] of Object.entries(bv)) {
-    if (b.tb < 3) continue; const md = myV[a]; const mq = md ? (_canauxSet.size ? md.sumCA : md.sumPrelevee) : 0; const myFreq = md ? md.countBL : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
+    if (b.tb < 3) continue; const md = myV[a]; const mq = md ? (md.sumCA || 0) : 0; const myFreq = md ? md.countBL : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
     if (myFreq === 0 && b.sc >= Math.min(2, n)) { let diagnostic = mst > 0 ? '🟢 En stock — visibilité?' : '🔴 Stock 0 — référencer?'; _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myStock: mst, sv: b.tb, diagnostic }); }
     else if (myFreq > 0 && avg > 0) { const r = mq / avg; if (r < 0.5 && b.sc >= 2) _S.benchLists.under.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: avg - mq }); else if (r > 1.5 && mq >= 5) _S.benchLists.over.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: r }); }
   }
