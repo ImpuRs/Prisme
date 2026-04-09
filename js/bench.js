@@ -184,16 +184,17 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   // Detail tables
   const rT=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
   let p=[];for(const m of fMPage){
-    const isAbsent=m.myFreq===0;
-    const pctLabel=isAbsent?'—':(m.ratio*100).toFixed(0)+'%';
-    const ecartColor=isAbsent?'c-danger':m.ratio<0.3?'c-danger':m.ratio<0.6?'c-caution':'t-secondary';
-    const stockIcon=m.myStock>0?`<span class="c-ok font-bold">${m.myStock}</span>`:'<span class="c-danger">—</span>';
+    const isAbsent=(m.myFreq||0)===0;
+    const _myCA=m.myCA||0;const _ratio=m.ratio||0;
+    const pctLabel=isAbsent?'—':(_ratio*100).toFixed(0)+'%';
+    const ecartColor=isAbsent?'c-danger':_ratio<0.3?'c-danger':_ratio<0.6?'c-caution':'t-secondary';
+    const stockIcon=(m.myStock||0)>0?`<span class="c-ok font-bold">${m.myStock}</span>`:'<span class="c-danger">—</span>';
     const mLib=escapeHtml(m.lib||'');
     p.push(`<tr class="border-b ${isAbsent?'hover:i-danger-bg':'hover:i-caution-bg'}">
       <td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${m.code}</span><span class="text-[11px] font-semibold leading-tight" title="${mLib}">${mLib}</span></td>
       <td class="py-1.5 px-2 text-center t-tertiary">${m.sc}/${m.nbCompare}</td>
       <td class="py-1.5 px-2 text-center font-bold">${m.bassinFreq}</td>
-      <td class="py-1.5 px-2 text-right font-bold ${isAbsent?'c-danger':''}">${isAbsent?'0 €':formatEuro(m.myCA)}</td>
+      <td class="py-1.5 px-2 text-right font-bold ${isAbsent?'c-danger':''}">${isAbsent?'0 €':formatEuro(_myCA)}</td>
       <td class="py-1.5 px-2 text-center">${stockIcon}</td>
       <td class="py-1.5 px-2 text-center text-[10px] font-bold ${ecartColor}">${pctLabel}</td>
     </tr>`);
@@ -898,7 +899,7 @@ function copyNomadesMissedArts() {
     .catch(() => showToast('❌ Erreur copie', 'error'));
 }
 
-function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Agences','Freq réseau','Mon CA','Stock','Ecart'];rows=(_S.benchLists.missed||[]).map(m=>[m.code,csvCell(m.lib),m.bassinFreq,m.avgFreq?.toFixed(1)||'',m.myCA?.toFixed(0)||'0',m.myStock||0,m.myFreq===0?'Absent':(m.ratio*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=(_S.benchLists.over||[]).map(o=>[o.code,csvCell(o.lib),o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
+function exportBenchList(type){const SEP=';';let h,rows;if(type==='missed'){h=['Code','Libelle','Agences','Nb BL','Mon CA','Stock','Ecart'];rows=(_S.benchLists.missed||[]).map(m=>[m.code,csvCell(m.lib),m.bassinFreq,m.bassinFreq||'',m.myCA||0,m.myStock||0,(m.myFreq||0)===0?'Absent':((m.ratio||0)*100).toFixed(0)+'%']);}else{h=['Code','Libelle','Moi','Moy','Ratio'];rows=(_S.benchLists.over||[]).map(o=>[o.code,csvCell(o.lib),o.myQte,o.avg,(o.ratio*100).toFixed(0)+'%']);}const lines=['\uFEFF'+h.join(SEP),...rows.map(r=>r.join(SEP))];const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`PRISME_Bench_${type}_${_S.selectedMyStore}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(link.href);}
 
 // ── Exports ──────────────────────────────────────────────────────────────────
 export {
