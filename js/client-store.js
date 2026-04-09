@@ -92,9 +92,13 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         omniScore: omni?.score || 0,
         // Cross
         crossStatus,
+        // Détail articles (références directes — zéro copie)
+        artMapHors: horArts || null,      // Map<code, {sumCA, canal, ...}> hors-MAGASIN
+        articles: _S.clientArticles?.get(cc) || null, // Set<code> tous articles achetés
         // PDV — remplis ci-dessous
         caPDV: 0, caPDVPrelevee: 0, nbArticlesPDV: 0, nbBLPDV: 0,
         isPDVActif: false, silenceDaysPDV: null, caTotal: 0,
+        artMapPDV: null,                  // Map<code, {sumCA, sumPrelevee, ...}> MAGASIN
       };
 
       store.set(cc, rec);
@@ -103,7 +107,8 @@ export function buildClientStore({ pdvOnly = false } = {}) {
 
   // ── PDV agrégats (period-dependent, toujours recalculés) ──
   for (const [cc, rec] of store) {
-    const pdvArts = _S.ventesClientArticle?.get(cc);
+    const pdvArts = _S.ventesClientArticle?.get(cc) || null;
+    rec.artMapPDV = pdvArts; // référence directe, mise à jour au refilter
     let caPDV = 0, caPDVPrel = 0, nbArts = 0;
     if (pdvArts) {
       for (const d of pdvArts.values()) {
