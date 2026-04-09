@@ -108,8 +108,20 @@ function _refreshBenchEquation() {
   } else if (_canaux.size === 1) {
     const _canal = [..._canaux][0];
     const _d = _ca_all[_canal] || {};
-    _ca = _getCA(_d); _nbBL = _d.bl || 0; _sumVMB = _getVMB(_d);
-    _nbClients = _countClientsByPeriode(_canaux);
+    _ca = _getCA(_d);
+    // BL par mode pour MAGASIN prel/enl
+    if (_canal === 'MAGASIN' && _mode === 'preleve') _nbBL = _d.blP || _d.bl || 0;
+    else if (_canal === 'MAGASIN' && _mode === 'enleve') _nbBL = _d.blE || _d.bl || 0;
+    else _nbBL = _d.bl || 0;
+    _sumVMB = _getVMB(_d);
+    // Clients par mode pour MAGASIN prel/enl
+    if (_canal === 'MAGASIN' && _mode === 'preleve') {
+      _nbClients = _countClientsByPeriode(new Set(['MAGASIN_PREL']));
+    } else if (_canal === 'MAGASIN' && _mode === 'enleve') {
+      _nbClients = _countClientsByPeriode(new Set(['MAGASIN_ENL']));
+    } else {
+      _nbClients = _countClientsByPeriode(_canaux);
+    }
     if (_nbClients == null) {
       _nbClients = _canal === 'MAGASIN' ? (_S.clientsMagasin?.size || 0) : 0;
       if (_canal !== 'MAGASIN') for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }

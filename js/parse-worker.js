@@ -615,13 +615,17 @@ self.onmessage = async function(ev) {
         var _skC = _rs;
         if (!byMonthCanal[_skC]) byMonthCanal[_skC] = {};
         if (!byMonthCanal[_skC][canal]) byMonthCanal[_skC][canal] = {};
-        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, sumVMB: 0, sumVMBP: 0, _cmds: new Set() };
+        if (!byMonthCanal[_skC][canal][_midxC]) byMonthCanal[_skC][canal][_midxC] = { sumCA: 0, sumPrelevee: 0, sumVMB: 0, sumVMBP: 0, _cmds: new Set(), _cmdsP: new Set(), _cmdsE: new Set() };
         var _bmce = byMonthCanal[_skC][canal][_midxC];
         _bmce.sumCA += _rcp + _rce;
         _bmce.sumPrelevee += _rcp;
         _bmce.sumVMB += _rvp + _rve;
         _bmce.sumVMBP += _rvp;
-        if (_rncb) _bmce._cmds.add(_rncb);
+        if (_rncb) {
+          _bmce._cmds.add(_rncb);
+          if (_rcp > 0) _bmce._cmdsP.add(_rncb);
+          if (_rce > 0) _bmce._cmdsE.add(_rncb);
+        }
       }
 
       // byMonthClients — tous canaux, pleine période, pour comptage clients uniques par période
@@ -636,6 +640,17 @@ self.onmessage = async function(ev) {
           if (!byMonthClientsByCanal[_midxBMC]) byMonthClientsByCanal[_midxBMC] = {};
           if (!byMonthClientsByCanal[_midxBMC][_cBMC]) byMonthClientsByCanal[_midxBMC][_cBMC] = new Set();
           byMonthClientsByCanal[_midxBMC][_cBMC].add(_ccBMC);
+          // Sub-mode prel/enl pour MAGASIN — permet comptage clients par mode
+          if (_cBMC === 'MAGASIN') {
+            if (_rcp > 0) {
+              if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'] = new Set();
+              byMonthClientsByCanal[_midxBMC]['MAGASIN_PREL'].add(_ccBMC);
+            }
+            if (_rce > 0) {
+              if (!byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL']) byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'] = new Set();
+              byMonthClientsByCanal[_midxBMC]['MAGASIN_ENL'].add(_ccBMC);
+            }
+          }
         }
       }
 
@@ -956,7 +971,9 @@ self.onmessage = async function(ev) {
         for (var _bmmidx in byMonthCanal[_bmsk][_bmc]) {
           var _bme2 = byMonthCanal[_bmsk][_bmc][_bmmidx];
           _bme2.countBL = _bme2._cmds ? _bme2._cmds.size : 0;
-          delete _bme2._cmds;
+          _bme2.countBLP = _bme2._cmdsP ? _bme2._cmdsP.size : 0;
+          _bme2.countBLE = _bme2._cmdsE ? _bme2._cmdsE.size : 0;
+          delete _bme2._cmds; delete _bme2._cmdsP; delete _bme2._cmdsE;
         }
       }
     }

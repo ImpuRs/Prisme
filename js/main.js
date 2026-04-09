@@ -223,8 +223,10 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
             const midx=+midxStr;
             if(midx<startIdx||midx>endIdx)continue;
             const d=months[midxStr];
-            if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,ca:0,caP:0,caE:0,sumVMB:0,sumVMBP:0};
+            if(!newCanalAgence[canal])newCanalAgence[canal]={bl:0,blP:0,blE:0,ca:0,caP:0,caE:0,sumVMB:0,sumVMBP:0};
             newCanalAgence[canal].bl+=d.countBL;
+            newCanalAgence[canal].blP+=(d.countBLP||0);
+            newCanalAgence[canal].blE+=(d.countBLE||0);
             const _caP_c=(canal==='MAGASIN')?(d.sumPrelevee||0):0;
             const _caMode_c=(canal==='MAGASIN'&&mode==='preleve')?_caP_c:(canal==='MAGASIN'&&mode==='enleve')?(d.sumCA-_caP_c):d.sumCA;
             newCanalAgence[canal].ca+=_caMode_c;
