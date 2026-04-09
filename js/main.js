@@ -531,7 +531,7 @@ _S.canalAgence=newCanalAgence;
     L.push(hr);L.push('');
 
     // ── CE QU'IL FAUT RETENIR ──────────────────────────────────────
-    L.push('CE QU'IL FAUT RETENIR');L.push('');
+    L.push('CE QU\u2019IL FAUT RETENIR');L.push('');
     {
       // Phrase d'accroche : CA tous canaux
       let accroche=`Sur ${periodLabel.toLowerCase()}, l'agence a réalisé ${formatEuro(caTotal)} de CA tous canaux confondus`;
