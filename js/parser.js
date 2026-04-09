@@ -662,20 +662,27 @@ export function computeBenchmark(canaux = new Set()) {
     }
     _S.benchFamEcarts = fe;
   }
+  const _minAgences = Math.max(2, Math.ceil(n / 2)); // seuil 50% des agences
   for (const [a, b] of Object.entries(bv)) {
     if (b.tb < 3) continue; const md = myV[a]; const mq = md ? (md.sumCA || 0) : 0; const myFreq = md ? md.countBL : 0; const avg = b.tp / n; const _rawLib = _S.libelleLookup[a] || a; const lib = /^\d{6} - /.test(_rawLib) ? _rawLib.substring(9).trim() : _rawLib; const ms = (_S.stockParMagasin[_S.selectedMyStore] || {})[a]; const mst = ms ? ms.stockActuel : 0;
-    if (myFreq === 0 && b.sc >= Math.min(2, n)) { let diagnostic = mst > 0 ? '🟢 En stock — visibilité?' : '🔴 Stock 0 — référencer?'; _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myStock: mst, sv: b.tb, diagnostic }); }
-    else if (myFreq > 0 && avg > 0) { const r = mq / avg; if (r < 0.5 && b.sc >= 2) _S.benchLists.under.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: avg - mq }); else if (r > 1.5 && mq >= 5) _S.benchLists.over.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio: r, sv: r }); }
+    // Essentials : articles vendus par 50%+ des agences, absents ou sous la moyenne réseau (<80%)
+    const ratio = avg > 0 ? mq / avg : (mq > 0 ? 999 : 0);
+    if (b.sc >= _minAgences && ratio < 0.8) {
+      _S.benchLists.missed.push({ code: a, lib, bassinFreq: b.tb, sc: b.sc, nbCompare: n, myFreq, myCA: Math.round(mq), avgCA: Math.round(avg), myStock: mst, ratio, sv: b.tb });
+    }
+    // Over-exploités : inchangé
+    if (myFreq > 0 && avg > 0 && ratio > 1.5 && mq >= 5) {
+      _S.benchLists.over.push({ code: a, lib, myQte: Math.round(mq), avg: Math.round(avg), ratio, sv: ratio });
+    }
   }
-  // Sort missed by priority score [V3]: couverture réseau × fréquence × urgence stock zéro
-  const _totalAgences = n || 1;
-  for (const m of _S.benchLists.missed) {
-    m.priorityScore = (m.sc / _totalAgences) * 0.4
-      + Math.min(m.bassinFreq / 50, 1) * 0.4
-      + (m.myStock === 0 ? 0.2 : 0);
-  }
-  _S.benchLists.missed.sort((a, b) => b.priorityScore - a.priorityScore);
-  _S.benchLists.under.sort((a, b) => b.sv - a.sv); _S.benchLists.over.sort((a, b) => b.sv - a.sv);
+  // Tri : 0 ventes d'abord (par couverture réseau desc), puis ratio croissant
+  _S.benchLists.missed.sort((a, b) => {
+    if (a.myFreq === 0 && b.myFreq > 0) return -1;
+    if (a.myFreq > 0 && b.myFreq === 0) return 1;
+    if (a.myFreq === 0 && b.myFreq === 0) return b.sc - a.sc || b.bassinFreq - a.bassinFreq;
+    return a.ratio - b.ratio;
+  });
+  _S.benchLists.over.sort((a, b) => b.sv - a.sv);
   // === OBSERVATOIRE DATA ===
   const prixLookup = {}; for (const r of _S.finalData) prixLookup[r.code] = r.prixUnitaire || 0;
   const finalDataByCode = {}; for (const r of _S.finalData) finalDataByCode[r.code] = r;
