@@ -665,13 +665,12 @@ export function computeReseauHeatmap() {
 export function computeOmniScores() {
   const scores = new Map();
   const now = new Date();
-  const _fullPDV = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
   const allCc = new Set([
-    ...(_fullPDV?.keys() || []),
+    ...(_S.ventesClientArticle?.keys() || []),
     ...(_S.ventesClientHorsMagasin?.keys() || [])
   ]);
   for (const cc of allCc) {
-    const pdvArts = _fullPDV?.get(cc);
+    const pdvArts = _S.ventesClientArticle?.get(cc);
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
     let caPDV = 0;
     if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
@@ -686,6 +685,7 @@ export function computeOmniScores() {
     }
     const nbCanaux = canaux.size;
     const caTotal = caPDV + caHors;
+    if (caTotal <= 0) continue; // ignorer les clients sans CA effectif
     const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
     const lastPDV = _S.clientLastOrder?.get(cc);
     const silenceDays = lastPDV ? Math.round((now - lastPDV) / 86400000) : 999;
@@ -747,9 +747,8 @@ export function computeFamillesHors() {
       famData[rawFam].nbClients++;
       famData[rawFam].caHors += ca;
       famData[rawFam].canalCount[canal] = (famData[rawFam].canalCount[canal] || 0) + 1;
-      const info = _S.chalandiseData?.get(cc);
-      const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
-      famData[rawFam].clients.push({ cc, nom, ca, canal });
+      const _ecF=_enrichClientInfo(cc);
+      famData[rawFam].clients.push({ cc, nom: _ecF.nom, ca, canal });
     }
   }
   _S.famillesHors = Object.entries(famData)
