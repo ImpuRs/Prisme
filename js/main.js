@@ -461,7 +461,7 @@ _S.canalAgence=newCanalAgence;
 
     // Clients — period-filtered
     const nbClientsPDV=_S.ventesClientArticle?.size||0;
-    const nbClientsAll=(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0)?_S._clientsTousCanaux.size:nbClientsPDV;
+    const nbClientsAll=(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0)?_S._clientsTousCanaux.size:(_S.clientLastOrderByCanal?.size||nbClientsPDV);
     const isMultiCanal=caHorsAgence>0;
 
     // Équation commerciale — tous canaux
