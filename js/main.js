@@ -1272,7 +1272,9 @@ _S.canalAgence=newCanalAgence;
       // clientLastOrderAll — tous canaux, period-independent, avant le split canal
       if(!isRefilter&&dateV){const _ccAll=extractClientCode(_rc);const _skAll=_rs;if(_ccAll&&(!_S.selectedMyStore||_skAll==='INCONNU'||_skAll===_S.selectedMyStore)){const prev=_S.clientLastOrderAll.get(_ccAll);if(!prev||dateV>prev.date)_S.clientLastOrderAll.set(_ccAll,{date:dateV,canal:canal||'MAGASIN'});
       // clientLastOrderByCanal — dernière commande par canal
-      const _cByC=canal||'MAGASIN';if(!_S.clientLastOrderByCanal.has(_ccAll))_S.clientLastOrderByCanal.set(_ccAll,new Map());const _cMap=_S.clientLastOrderByCanal.get(_ccAll);const _prevC=_cMap.get(_cByC);if(!_prevC||dateV>_prevC)_cMap.set(_cByC,dateV);}}
+      const _cByC=canal||'MAGASIN';if(!_S.clientLastOrderByCanal.has(_ccAll))_S.clientLastOrderByCanal.set(_ccAll,new Map());const _cMap=_S.clientLastOrderByCanal.get(_ccAll);const _prevC=_cMap.get(_cByC);if(!_prevC||dateV>_prevC)_cMap.set(_cByC,dateV);
+      // clientLastOrder — MAGASIN uniquement, period-independent (comme clientLastOrderAll)
+      if(!canal||canal==='MAGASIN'){const _prevMag=_S.clientLastOrder.get(_ccAll);if(!_prevMag||dateV>_prevMag)_S.clientLastOrder.set(_ccAll,dateV);}}}
       // Accumulation CA tous canaux par client dans _tempCAAll (fusionné après la boucle)
       // Ne PAS créer d'entrée dans ventesClientArticle ici — seules les lignes MAGASIN (L1686) le font
       if(!(_S.periodFilterStart&&dateV&&dateV<_S.periodFilterStart)&&!(_S.periodFilterEnd&&dateV&&dateV>_S.periodFilterEnd))
@@ -1317,7 +1319,7 @@ _S.canalAgence=newCanalAgence;
       if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=_rnc;if(_nc3)commandesPDV.add(_nc3);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+formatLocalYMD(dateV));}
-      if(cc2&&dateV&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){const prev=_S.clientLastOrder.get(cc2);if(!prev||dateV>prev)_S.clientLastOrder.set(cc2,dateV);}
+      // clientLastOrder peuplé avant le filtre période (ligne ~1273) — period-independent
       // V2 Phase 2: _S.articleClients — sans filtre store ni quantité pour couvrir mono ET multi, prélevé ET enlevé
       const rawClient=_rc;
       const codeClient=extractClientCode(_rc);
