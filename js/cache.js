@@ -303,6 +303,7 @@ export async function _saveSessionToIDB() {
       clientLastOrderByCanal: [..._S.clientLastOrderByCanal].map(([cc, cMap]) => [cc, [...cMap].map(([c, d]) => [c, d instanceof Date ? d.getTime() : d])]),
       clientNomLookup:       _S.clientNomLookup,
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
+      commandesPerStoreCanal: _serializeCmdPerStoreCanal(_S.commandesPerStoreCanal),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
       clientArticles:        [..._S.clientArticles].map(([k, v]) => [k, [...v]]),
       // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
@@ -438,6 +439,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientLastOrderByCanal = new Map((data.clientLastOrderByCanal || []).map(([cc, arr]) => [cc, new Map((arr || []).map(([c, d]) => [c, d ? new Date(d) : null]))]));
     _S.clientNomLookup       = data.clientNomLookup       || {};
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
+    _S.commandesPerStoreCanal = _deserializeCmdPerStoreCanal(data.commandesPerStoreCanal || {});
     _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
@@ -591,6 +593,30 @@ export function _serializeSetsObj(obj) {
 export function _deserializeSetsObj(obj) {
   const out = {};
   for (const [k, v] of Object.entries(obj)) out[k] = Array.isArray(v) ? new Set(v) : v;
+  return out;
+}
+
+// commandesPerStoreCanal : {store: {canal: Set<nc>}} ↔ {store: {canal: [nc]}}
+export function _serializeCmdPerStoreCanal(obj) {
+  if (!obj) return {};
+  const out = {};
+  for (const store in obj) {
+    out[store] = {};
+    for (const canal in obj[store]) {
+      out[store][canal] = obj[store][canal] instanceof Set ? [...obj[store][canal]] : obj[store][canal];
+    }
+  }
+  return out;
+}
+export function _deserializeCmdPerStoreCanal(obj) {
+  if (!obj) return {};
+  const out = {};
+  for (const store in obj) {
+    out[store] = {};
+    for (const canal in obj[store]) {
+      out[store][canal] = Array.isArray(obj[store][canal]) ? new Set(obj[store][canal]) : obj[store][canal];
+    }
+  }
   return out;
 }
 

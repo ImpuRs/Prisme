@@ -51,7 +51,7 @@ export function buildAgenceStore(opts = {}) {
       isMyStore: agCode === _S.selectedMyStore,
       // KPIs globaux
       ca: 0, caPrelevee: 0, vmb: 0, txMarge: null,
-      refs: 0, freq: 0, serv: 0, freqClient: 0,
+      refs: 0, freq: 0, serv: 0, freqClient: 0, nbCommandes: 0,
       // Clients
       nbClients: 0, clientsZone: 0,
       // Benchmark (rempli phase 2)
@@ -169,6 +169,22 @@ export function buildAgenceStore(opts = {}) {
     }
     rec.freqClient = rec.nbClients > 0 ? parseFloat((rec.freq / rec.nbClients).toFixed(1)) : 0;
     rec.caClient   = rec.nbClients > 0 ? Math.round(rec.ca / rec.nbClients) : 0;
+
+    // ── Commandes uniques (N° commande distincts) ──
+    const cpsc = _S.commandesPerStoreCanal?.[agCode];
+    if (cpsc) {
+      if (useAllCanaux) {
+        // Tous canaux — union des Sets pour dédupliquer cross-canal
+        const allCmds = new Set();
+        for (const c in cpsc) { for (const nc of cpsc[c]) allCmds.add(nc); }
+        rec.nbCommandes = allCmds.size;
+      } else {
+        // Canaux filtrés — union des Sets des canaux sélectionnés
+        const filtCmds = new Set();
+        for (const c of canaux) { if (cpsc[c]) for (const nc of cpsc[c]) filtCmds.add(nc); }
+        rec.nbCommandes = filtCmds.size;
+      }
+    }
 
     store.set(agCode, rec);
   }

@@ -194,7 +194,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
   {const _UP=10;const _uShowAll=!!_S._reseauUnderShowAll;const _tUP=Math.max(1,Math.ceil(fUFiltered.length/_UP));if((_S._reseauUnderPage||0)>=_tUP)_S._reseauUnderPage=0;const _cUP=_S._reseauUnderPage||0;const fUPage=_uShowAll?fUFiltered.slice(_cUP*_UP,(_cUP+1)*_UP):fUFiltered.slice(0,5);let _uHtml='';if(!fUFiltered.length){_uHtml='<p class="t-disabled text-sm p-4">Aucun article sous-exploité détecté.</p>';}else{const _uRows=fUPage.map(o=>{const uLib=escapeHtml(o.lib||'');return`<tr class="border-b hover:i-caution-bg"><td class="py-1.5 px-2"><span class="font-mono t-tertiary block text-[10px]">${o.code}</span><span class="text-[11px] font-semibold leading-tight" title="${uLib}">${uLib}</span></td><td class="py-1.5 px-2 text-center font-bold c-caution">${o.myQte}</td><td class="py-1.5 px-2 text-center t-secondary">${o.avg}</td><td class="py-1.5 px-2 text-right c-caution font-bold text-xs">${(o.ratio*100).toFixed(0)}%</td></tr>`;}).join('');const _uFoot=!_uShowAll&&fUFiltered.length>5?`<div class="text-center py-3"><button data-action="_reseauShowAll" data-section="under" class="text-xs s-card border b-default rounded px-3 py-1.5 font-bold hover:s-hover t-secondary">Voir les ${fUFiltered.length} articles →</button></div>`:_uShowAll&&_tUP>1?`<div class="text-center mt-2"><div class="inline-flex items-center gap-2 text-xs"><button data-action="_reseauPage" data-section="under" data-dir="-1" ${_cUP===0?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">←</button><span class="t-secondary font-semibold">Page ${_cUP+1} sur ${_tUP}</span><button data-action="_reseauPage" data-section="under" data-dir="1" ${_cUP>=_tUP-1?'disabled':''} class="px-2 py-1 s-card border b-default rounded hover:s-hover disabled:opacity-30 disabled:cursor-not-allowed">→</button></div></div>`:'';_uHtml=`<p class="text-[11px] t-tertiary mb-2"><strong>${fUFiltered.length}</strong> article${fUFiltered.length>1?'s':''} vendus par le réseau, sous-exploités ici.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code / Libellé</th><th class="py-1 px-2 text-center">Moi (prél.)</th><th class="py-1 px-2 text-center">Moy réseau</th><th class="py-1 px-2 text-right">Ratio</th></tr></thead><tbody>${_uRows}</tbody></table></div>${_uFoot}`;}const _uEl=document.getElementById('reseauSousExploitesContainer');if(_uEl)_uEl.innerHTML=_uHtml;}
   // Store ranking [V3] — tri dynamique par _rankSortKey / _rankSortDir
   // Sync select UI avec l'état courant
-  {const sel=document.getElementById('rankSortKey');if(sel&&sel.value!==(_S._rankSortKey||'ca'))sel.value=_S._rankSortKey||'ca';}
+  {const sel=document.getElementById('rankSortKey');if(sel){const validKeys=new Set([...sel.options].map(o=>o.value));if(!validKeys.has(_S._rankSortKey))_S._rankSortKey='ca';sel.value=_S._rankSortKey||'ca';}}
   const _rankKey=_S._rankSortKey||'ca';const _rankDir=_S._rankSortDir===-1||_S._rankSortDir===1?_S._rankSortDir:-1;
   const sorted=Object.entries(storePerf).sort((a,b)=>{const va=a[1][_rankKey]??0;const vb=b[1][_rankKey]??0;return _rankDir*(va-vb);});
   const totalStores=sorted.length;const myRankIdx=sorted.findIndex(([s])=>s===_S.selectedMyStore);
@@ -208,7 +208,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
     const ca=ag?.ca||0;
     const tm=data.txMarge>0?data.txMarge.toFixed(1)+'%':'—';
     const tmColor=data.txMarge>0?(data.txMarge>=35?'c-ok':data.txMarge>=25?'c-caution':'c-danger'):'t-disabled';
-    const freq=data.freq||0;
+    const nbCmd=ag?.nbCommandes||0;
     const caCl=ag?.caClient||0;
     const refs=data.ref||0;
     const serv=data.serv||0;
@@ -217,7 +217,7 @@ const fl=l=>q?l.filter(x=>matchQuery(q,x.code,x.lib)):l;const fM=fl(missed),fO=f
       <td class="py-2 px-2"><span class="${isMe?'store-tag store-mine':'store-tag store-other'}">${isMe?'⭐':''}${store}</span></td>
       <td class="py-2 px-2 text-right text-xs ${isMe?'c-action font-extrabold':'font-bold'}">${formatEuro(ca)}</td>
       <td class="py-2 px-2 text-center text-[11px] font-bold ${tmColor}">${tm}</td>
-      <td class="py-2 px-2 text-center font-bold">${freq.toLocaleString('fr')}</td>
+      <td class="py-2 px-2 text-center font-bold">${nbCmd.toLocaleString('fr')}</td>
       <td class="py-2 px-2 text-right text-xs font-bold">${formatEuro(caCl)}</td>
       <td class="py-2 px-2 text-center">${refs.toLocaleString('fr')}</td>
       <td class="py-2 px-2 text-center ${servColor} font-bold">${serv}%</td>
@@ -445,6 +445,7 @@ function renderObservatoire(){
     {label:'📈 Tx marge',        key:'txMarge',     fmt:'pct2', tip:'Taux de marge brute = VMB total ÷ CA total × 100. Indique la qualité du mix vendu.',                                                                           g1:'#dc2626',g2:'#b91c1c'},
     {label:'🛒 Qté / client',    key:'freqClient',  fmt:'freq', tip:'Nombre moyen de commandes (BL) par client actif. Mesure l\'intensité d\'achat par client.',                                                                    g1:'#059669',g2:'#047857'},
     {label:'💶 CA / client',     key:'caClient',    fmt:'euro', tip:'CA total ÷ nombre de clients actifs. Mesure la valeur moyenne générée par client.',                                                                             g1:'#0891b2',g2:'#0e7490'},
+    {label:'👥 Clients actifs',   key:'nbClients',   fmt:'num',  tip:'Nombre de clients ayant acheté au moins 1 article sur la période. C\'est le dénominateur de CA/client et Qté/client.',                                          g1:'#6366f1',g2:'#4338ca'},
     {label:'🎯 Taux de service', key:'serv',        fmt:'pct',  tip:'% des articles vendus par le réseau que vous vendez aussi. 100% = vous couvrez toute la gamme réseau.',                                                        g1:'#d97706',g2:'#b45309'}
   ];
   const cardsHtml=kpiDefs.map(r=>{
@@ -456,15 +457,11 @@ function renderObservatoire(){
     const ecartLabel=isPctKpi?`${ecartVal>0?'+':''}${ecartVal} pts`:`${ecartVal>0?'+':''}${ecartVal}%`;
     const ecartIcon=ecartVal>=0?'🟢':ecartVal>=-10?'🟡':ecartVal>=-20?'🟠':'🔴';
     const ecartColor=ecartVal>=0?'#4ade80':ecartVal>=-20?'#fbbf24':'#f87171';
-    const isLagging=ecartVal<0;
-    const onclk=isLagging?`onclick="document.getElementById('benchUnderperformBanner')?.scrollIntoView({behavior:'smooth'})"` :'';
-    const drillHint=isLagging?`<div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">→ Familles en retard</div>`:'';
-    return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:14px;padding:16px 20px;min-width:160px;flex:1${isLagging?';cursor:pointer':''}" ${onclk}>
+    return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:14px;padding:16px 20px;min-width:160px;flex:1">
       <div style="color:rgba(255,255,255,0.75);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${r.label} <em class="info-tip" data-tip="${r.tip}" style="font-style:normal">ℹ</em></div>
       <div style="color:#fff;font-size:22px;font-weight:800;line-height:1.1">${fmtVal(me,r.fmt)}</div>
       <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px">${fmtVal(comp,r.fmt)} · ${obsLabel}</div>
       <div style="margin-top:8px;font-size:12px;font-weight:700;color:${ecartColor}">${ecartIcon} ${ecartLabel}</div>
-      ${drillHint}
     </div>`;
   }).join('');
   if(el('obsKpiCards'))el('obsKpiCards').innerHTML=cardsHtml;

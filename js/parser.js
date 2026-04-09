@@ -628,7 +628,7 @@ export function computeBenchmark(canaux = new Set()) {
   const bv = {};
   for (const [store, rec] of _S.agenceStore) {
     vpm[store] = rec.artMap;
-    sp[store] = { ca: rec.ca, ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin };
+    sp[store] = { ca: rec.ca, ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin, nbClients: rec.nbClients, nbCommandes: rec.nbCommandes };
     if (!cs.includes(store)) continue;
     for (const [a, d] of Object.entries(rec.artMap)) {
       if (!/^\d{6}$/.test(a)) continue;
@@ -732,7 +732,11 @@ export function computeBenchmark(canaux = new Set()) {
   const compFreqCl = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.freqClient || 0) : (compFreqClVals.length ? parseFloat(_median(compFreqClVals).toFixed(1)) : 0);
   const compCaClVals = cs.map(s => sp[s]?.caClient || 0).filter(v => v > 0);
   const compCaCl = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.caClient || 0) : (compCaClVals.length ? Math.round(_median(compCaClVals)) : 0);
-  _S.benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[_S.selectedMyStore]?.serv || 0, freq: sp[_S.selectedMyStore]?.freq || 0, pdm: myPdm, txMarge: sp[_S.selectedMyStore]?.txMarge ?? null, freqClient: sp[_S.selectedMyStore]?.freqClient || 0, caClient: sp[_S.selectedMyStore]?.caClient || 0 }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm, txMarge: compTxMarge, freqClient: compFreqCl, caClient: compCaCl } };
+  const compNbClVals = cs.map(s => sp[s]?.nbClients || 0).filter(v => v > 0);
+  const compNbCl = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.nbClients || 0) : (compNbClVals.length ? Math.round(_median(compNbClVals)) : 0);
+  const compNbCmdVals = cs.map(s => sp[s]?.nbCommandes || 0).filter(v => v > 0);
+  const compNbCmd = (obsMode !== 'median' && _S.storesIntersection.has(obsMode)) ? (sp[obsMode]?.nbCommandes || 0) : (compNbCmdVals.length ? Math.round(_median(compNbCmdVals)) : 0);
+  _S.benchLists.obsKpis = { mine: { ca: myTotalCA, ref: myRef, serv: sp[_S.selectedMyStore]?.serv || 0, freq: sp[_S.selectedMyStore]?.freq || 0, pdm: myPdm, txMarge: sp[_S.selectedMyStore]?.txMarge ?? null, freqClient: sp[_S.selectedMyStore]?.freqClient || 0, caClient: sp[_S.selectedMyStore]?.caClient || 0, nbClients: sp[_S.selectedMyStore]?.nbClients || 0, nbCommandes: sp[_S.selectedMyStore]?.nbCommandes || 0 }, compared: { ca: compTotalCA, ref: compRef, serv: compServ, freq: compFreq, pdm: compPdm, txMarge: compTxMarge, freqClient: compFreqCl, caClient: compCaCl, nbClients: compNbCl, nbCommandes: compNbCmd } };
   const allFams2 = new Set([...Object.keys(myFamCA), ...Object.keys(compFamCA)]);
   const obsFamiliesLose = [], obsFamiliesWin = [];
   for (const fam of allFams2) {
