@@ -17,6 +17,12 @@ let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
 let _prSqPage        = 99999;   // nb articles affichés dans le Squelette (tout afficher)
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
+const _prDistOk = (cc) => {
+  if (!_prMetierDist) return true;
+  const info = _S.chalandiseData?.get(cc);
+  if (!info || info.distanceKm == null) return true;
+  return info.distanceKm <= _prMetierDist;
+};
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
@@ -839,12 +845,7 @@ function _prRenderMetiers(fam) {
         id="prMetierDistLabel">${!_prMetierDist || _prMetierDist >= 100 ? 'Tous' : _prMetierDist + ' km'}</span>
     </div>` : '';
 
-  const _distOk = (cc) => {
-    if (!_prMetierDist) return true;
-    const info = _S.chalandiseData.get(cc);
-    if (!info || info.distanceKm == null) return true;
-    return info.distanceKm <= _prMetierDist;
-  };
+  const _distOk = _prDistOk;
 
   // CA famille par métier — 2 sources : Mon agence (consommé) + Livré zone (livraisonsData × chalandise)
   const metierPDV        = new Map(); // metier → CA famille mon agence
@@ -2111,7 +2112,9 @@ function _prBuildDiagText(codeFam) {
       if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) return false;
       return true;
     };
+    const _distLabel = _prMetierDist ? ` (rayon ${_prMetierDist} km)` : '';
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+      if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       const metier = info?.metier || 'Hors chalandise';
       let caFam = 0;
@@ -2126,6 +2129,7 @@ function _prBuildDiagText(codeFam) {
     }
     // Hors-MAGASIN de mon agence
     for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       const metier = info?.metier || 'Hors chalandise';
       let caFam = 0;
@@ -2139,7 +2143,7 @@ function _prBuildDiagText(codeFam) {
         metierCli.set(metier, metierCli.get(metier) + 1);
       }
     }
-    txt += `**Mon agence (consommé tous canaux) — TOP métiers :**\n`;
+    txt += `**Mon agence${_distLabel} — TOP métiers :**\n`;
     [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([m,ca]) => {
       txt += `  • ${m} : ${metierCli.get(m)} clients, ${Math.round(ca)}€ CA famille\n`;
     });
@@ -2149,6 +2153,7 @@ function _prBuildDiagText(codeFam) {
       const metierLivCA = new Map();
       const metierLivCli = new Map();
       for (const [cc, livData] of _S.livraisonsData) {
+        if (!_prDistOk(cc)) continue;
         const info = _S.chalandiseData?.get(cc);
         if (!info) continue;
         const metier = info.metier || 'Non renseigné';
@@ -2162,7 +2167,7 @@ function _prBuildDiagText(codeFam) {
           metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
         }
       }
-      txt += `\n**Livraisons zone (total réseau × chalandise) — TOP métiers :**\n`;
+      txt += `\n**Livraisons zone${_distLabel} — TOP métiers :**\n`;
       [...metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([m,ca]) => {
         const caAgence = metierCA.get(m) || 0;
         const captation = ca > 0 ? Math.round(caAgence / ca * 100) : 0;
@@ -2347,8 +2352,9 @@ function _prBuildLLMPack(codeFam) {
     const metierLivCA = new Map();
     const metierLivCli = new Map();
     const metierAgCA = new Map();
-    // Mon agence pour calcul captation
+    // Mon agence pour calcul captation (filtré distance)
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+      if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       if (!info) continue;
       const metier = info.metier || 'Non renseigné';
@@ -2361,6 +2367,7 @@ function _prBuildLLMPack(codeFam) {
       if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
     }
     for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       if (!info) continue;
       const metier = info.metier || 'Non renseigné';
@@ -2372,8 +2379,9 @@ function _prBuildLLMPack(codeFam) {
       }
       if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
     }
-    // Livraisons
+    // Livraisons (filtré distance)
     for (const [cc, livData] of _S.livraisonsData) {
+      if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
       if (!info) continue;
       const metier = info.metier || 'Non renseigné';
