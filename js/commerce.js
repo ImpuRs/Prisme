@@ -273,24 +273,17 @@ window._ccc = (di,mi,ci) => {
 
   function _renderHorsZone(){
     const el=document.getElementById('terrHorsZone');if(!el)return;
-    if(!_S.chalandiseReady||!_S.ventesClientArticle.size){el.innerHTML='';return;}
+    if(!_S.chalandiseReady||!_S.clientStore?.size){el.innerHTML='';return;}
     const page=_S._horsZonePage||0;
     const HZ_PAGE=20;
-    const nowMs=Date.now();
-    const _tcsHz=(_S._terrClientSearch||'').toLowerCase();const _mHz=cc=>!_tcsHz||(cc||'').includes(_tcsHz)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsHz);
+    const _tcsHz=(_S._terrClientSearch||'').toLowerCase();const _mHz=rec=>!_tcsHz||rec.cc.includes(_tcsHz)||rec.nom.toLowerCase().includes(_tcsHz);
     const hors=[];
-    for(const[cc,artMap]of _S.ventesClientArticle){
-      if(_S.chalandiseData.has(cc))continue;
-      if(!_passesAllFilters(cc))continue;
-      if(!_mHz(cc))continue;
-      const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-      if(caPDV<200)continue;
-      const horsMap=_S.ventesClientHorsMagasin.get(cc);
-      const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-      const caTotal=caPDV+caHors;
-      const lastDate=_S.clientLastOrder?.get(cc);
-      const nom=_S.clientNomLookup?.[cc]||cc;
-      hors.push({cc,nom,caPDV,caHors,caTotal,lastDate});
+    for(const rec of _S.clientStore.values()){
+      if(rec.inChalandise)continue;
+      if((rec.caPDV||0)<200)continue;
+      if(!_passesAllFilters(rec.cc))continue;
+      if(!_mHz(rec))continue;
+      hors.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
     }
     hors.sort((a,b)=>b.caPDV-a.caPDV);
     if(!hors.length){el.innerHTML='';return;}
@@ -334,8 +327,8 @@ window._ccc = (di,mi,ci) => {
     if(view==='potentiels'&&_S.chalandiseData?.has(cc))return false;
     if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
     if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
-    if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
-    if(view==='dormants'){const lastDate=_S.clientLastOrder?.get(cc);const silence=lastDate?Math.round((Date.now()-lastDate)/86400000):999;if(silence<=180)return false;}
+    if(view==='multicanaux'){const _r=_S.clientStore?.get(cc);if(!_r||(_r.caHors||0)<=(_r.caPDV||0))return false;}
+    if(view==='dormants'){const _r=_S.clientStore?.get(cc);const silence=_r?.silenceDaysPDV??999;if(silence<=180)return false;}
     // Segment omnicanal (specific to _passesAllFilters)
     if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
     return true;
@@ -381,85 +374,50 @@ window._ccc = (di,mi,ci) => {
 
   // ── computeClientsKPIs — pure data for renderMesClients ──────────────
   function computeClientsKPIs(){
-    const now=new Date();
     const livSansPDV=_S.livraisonsSansPDV||[];
-    // Top clients — CA selon le canal sélectionné
     const _gCanal=_S._globalCanal||'';
     const topPDVRows=[];
-    const _seenCC=new Set();
-    if(!_gCanal||_gCanal==='MAGASIN'){
-      // Tous ou MAGASIN — source : ventesClientArticle (MAGASIN)
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        _seenCC.add(cc);
-        const caMag=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caMag<100)continue;
-        const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHorsTot=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caMag+caHorsTot;
-        // Canal Tous → caPDV = total tous canaux ; Canal MAGASIN → caPDV = MAGASIN + caHors séparé
-        const caPDV=_gCanal==='MAGASIN'?caMag:caTotal;
-        const caHors=_gCanal==='MAGASIN'?caHorsTot:0;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const ec=_enrichClientInfo(cc);
-        topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV,caHors,caTotal,lastDate});
-      }
-      // Canal Tous : inclure aussi les clients hors-MAGASIN purs
-      if(!_gCanal){
-        for(const[cc,horsMap]of _S.ventesClientHorsMagasin){
-          if(_seenCC.has(cc))continue;
-          const caHorsTot=[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-          if(caHorsTot<100)continue;
-          const lastDate=_S.clientLastOrder?.get(cc);
-          const ec=_enrichClientInfo(cc);
-          topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV:caHorsTot,caHors:0,caTotal:caHorsTot,lastDate});
+    const horsZone=[];
+    const digitaux=[];
+
+    if(_S.clientStore?.size){
+      for(const rec of _S.clientStore.values()){
+        // ── Top clients par canal ──
+        let caPDV=0,caHors=0,caTotal=rec.caTotal||0;
+        if(!_gCanal){
+          // Tous canaux
+          caPDV=caTotal;caHors=0;
+        }else if(_gCanal==='MAGASIN'){
+          caPDV=rec.caPDV||0;caHors=rec.caHors||0;
+        }else{
+          // Canal spécifique hors-MAGASIN — besoin du détail par canal
+          const horsMap=_S.ventesClientHorsMagasin?.get(rec.cc);
+          if(horsMap){let ca=0;for(const v of horsMap.values())if(v.canal===_gCanal)ca+=v.sumCA||0;caPDV=ca;}
+          caHors=0;caTotal=caPDV;
+        }
+        if(caPDV>=100){
+          topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,caPDV,caHors,caTotal,lastDate:rec.lastOrderPDV});
+        }
+        // ── Hors zone (PDV sans chalandise) ──
+        if(_S.chalandiseReady&&!rec.inChalandise&&(rec.caPDV||0)>=200){
+          horsZone.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
+        }
+        // ── Digitaux en fuite (acheteurs hors-magasin silencieux PDV) ──
+        if((rec.caHors||0)>=200&&rec.isPDVActif&&(rec.silenceDaysPDV||0)>=90){
+          // Besoin du détail canal pour mainCanal
+          const horsMap=_S.ventesClientHorsMagasin?.get(rec.cc);
+          if(horsMap){
+            const canalCA={};for(const v of horsMap.values()){canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
+            const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
+            digitaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,pdvSilence:rec.silenceDaysPDV,caPDV:rec.caPDV,caHors:rec.caHors,mainCanal});
+          }
         }
       }
-    }else{
-      // Canal spécifique non-MAGASIN — filtrer ventesClientHorsMagasin par canal
-      for(const[cc,horsMap]of _S.ventesClientHorsMagasin){
-        const entries=[...horsMap.values()].filter(v=>v.canal===_gCanal);
-        const caCanal=entries.reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caCanal<100)continue;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const ec=_enrichClientInfo(cc);
-        topPDVRows.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caPDV:caCanal,caHors:0,caTotal:caCanal,lastDate});
-      }
     }
+
     topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
-    const horsZone=[];
-    if(_S.chalandiseReady&&_S.ventesClientArticle.size){
-      for(const[cc,artMap]of _S.ventesClientArticle){
-        if(_S.chalandiseData.has(cc))continue;
-        const caPDV=[...artMap.values()].reduce((s,v)=>s+(v.sumCA||0),0);
-        if(caPDV<200)continue;
-        const horsMap=_S.ventesClientHorsMagasin.get(cc);
-        const caHors=horsMap?[...horsMap.values()].reduce((s,v)=>s+(v.sumCA||0),0):0;
-        const caTotal=caPDV+caHors;
-        const lastDate=_S.clientLastOrder?.get(cc);
-        const nom=_S.clientNomLookup?.[cc]||cc;
-        horsZone.push({cc,nom,caPDV,caHors,caTotal,lastDate});
-      }
-      horsZone.sort((a,b)=>b.caPDV-a.caPDV);
-    }
-    const digitaux=[];
-    if(_S.ventesClientHorsMagasin?.size&&_S.ventesClientArticle?.size){
-      for(const[cc,horArts]of _S.ventesClientHorsMagasin){
-        const pdvArts=_S.ventesClientArticle.get(cc);
-        if(!pdvArts?.size)continue;
-        const lastPDV=_S.clientLastOrder?.get(cc);
-        if(!lastPDV)continue;
-        const pdvSilence=Math.round((now-lastPDV)/86400000);
-        if(pdvSilence<90)continue;
-        let caHors=0;const canalCA={};
-        for(const[,v]of horArts){caHors+=v.sumCA||0;canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0);}
-        if(caHors<200)continue;
-        const mainCanal=Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
-        let caPDV=0;for(const[,v]of pdvArts)caPDV+=v.sumCA||0;
-        const ec=_enrichClientInfo(cc);
-        digitaux.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,pdvSilence,caPDV,caHors,mainCanal});
-      }
-      digitaux.sort((a,b)=>b.caPDV-a.caPDV);
-    }
+    horsZone.sort((a,b)=>b.caPDV-a.caPDV);
+    digitaux.sort((a,b)=>b.caPDV-a.caPDV);
     return{livSansPDV,topPDVRows,horsZone,digitaux};
   }
 
@@ -1255,7 +1213,7 @@ function _buildChalandiseOverview(){
   const pctCapteLeg=filteredClients>0?Math.round(totalActifsLeg/filteredClients*100):0;
   // Clients hors zone : acheteurs PDV absents de la chalandise
   let _horsZoneCount=0,_horsZoneCA=0;
-  if(_S.ventesClientArticle?.size){for(const[cc,artMap]of _S.ventesClientArticle){if(_S.chalandiseData?.has(cc))continue;_horsZoneCount++;for(const d of artMap.values())_horsZoneCA+=(d.sumCA||0);}}
+  if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.inChalandise||!rec.caPDV)continue;_horsZoneCount++;_horsZoneCA+=rec.caPDV;}}
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   // ── Badges groupes sidebar Terrain ──
   {const _nGeo=(_S._selectedDepts.size||0)+((_S._distanceMaxKm>0)?1:0)+((_S._includePerdu24m)?1:0);
@@ -1650,19 +1608,16 @@ function _buildDegradedCockpit(){
   }else{
     _clientArtMap=DataStore.ventesClientArticle;
   }
-  // Silencieux >30j — MAGASIN uniquement (clientLastOrder est MAGASIN-based)
+  // Silencieux >30j — MAGASIN uniquement (via clientStore.silenceDaysPDV)
   const silencieux=[];
-  if(!_isNonMagasin){
-    const _minC2=_S.consommePeriodMinFull||_S.consommePeriodMin;
-    for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-      if(_minC2&&lastDate<_minC2)continue;
-      const d=daysBetween(lastDate,_today);if(d<=30||d>60)continue;
-      const artMap=_clientArtMap.get(cc);if(!artMap)continue;
+  if(!_isNonMagasin&&_S.clientStore?.size){
+    for(const rec of _S.clientStore.values()){
+      const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;
+      const artMap=_clientArtMap.get(rec.cc);if(!artMap)continue;
       let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
       if(ca<=0)continue;
-      const nom=_S.clientNomLookup[cc]||cc;
-      if(qClient&&!matchQuery(qClient,cc,nom))continue;
-      silencieux.push({cc,nom,ca,d});
+      if(qClient&&!matchQuery(qClient,rec.cc,rec.nom))continue;
+      silencieux.push({cc:rec.cc,nom:rec.nom,ca,d});
     }
     silencieux.sort((a,b)=>a.d-b.d);
   }
