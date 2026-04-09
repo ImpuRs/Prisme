@@ -628,7 +628,7 @@ export function computeBenchmark(canaux = new Set()) {
   const bv = {};
   for (const [store, rec] of _S.agenceStore) {
     vpm[store] = rec.artMap;
-    sp[store] = { ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin };
+    sp[store] = { ca: rec.ca, ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin };
     if (!cs.includes(store)) continue;
     for (const [a, d] of Object.entries(rec.artMap)) {
       if (!/^\d{6}$/.test(a)) continue;
