@@ -2370,6 +2370,55 @@ function _prBuildLLMPack(codeFam) {
       });
       pack += `\n`;
     }
+
+    // Refs achetées par métier dans Livraisons mais absentes du rayon
+    // = opportunités d'implantation ciblées par métier
+    const codesEnRayon = new Set((_S.finalData || [])
+      .filter(r => {
+        const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || catFam?.get(r.code)?.codeFam;
+        return cf === codeFam && r.stockActuel > 0;
+      })
+      .map(r => r.code));
+
+    // Collecter articles par métier dans Livraisons (famille courante, distance filtrée)
+    const metierArts = new Map(); // metier → Map<code, {ca, qty, nbCli}>
+    for (const [cc, livData] of _S.livraisonsData) {
+      if (!_prDistOk(cc)) continue;
+      const info = _S.chalandiseData?.get(cc);
+      if (!info) continue;
+      const metier = info.metier || 'Non renseigné';
+      for (const [code, artData] of livData.articles) {
+        if (codesEnRayon.has(code)) continue; // déjà en rayon
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+        if (cf !== codeFam) continue;
+        if (!metierArts.has(metier)) metierArts.set(metier, new Map());
+        const ma = metierArts.get(metier);
+        if (!ma.has(code)) ma.set(code, { ca: 0, qty: 0, nbCli: 0 });
+        const e = ma.get(code);
+        e.ca += artData.ca || 0;
+        e.qty += artData.qty || 0;
+        e.nbCli++;
+      }
+    }
+    // Afficher top 3 métiers (par CA livré), top 5 articles manquants chacun
+    if (metierArts.size) {
+      const topMets = [...metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 3);
+      pack += `[REFS MANQUANTES PAR MÉTIER — achetées dans la zone mais absentes de ton rayon]\n`;
+      pack += `(= articles que ces métiers achètent via d'autres agences, que tu pourrais implanter)\n`;
+      for (const [met] of topMets) {
+        const arts = metierArts.get(met);
+        if (!arts || arts.size === 0) continue;
+        const sorted = [...arts.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 5);
+        const caAg = metierAgCA.get(met) || 0;
+        const caLiv = metierLivCA.get(met) || 0;
+        const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
+        pack += `  ${met} (captation ${capt}%) :\n`;
+        for (const [code, d] of sorted) {
+          pack += `    - ${code} ${lib(code) || '?'} · ${formatEuro(d.ca)} · ${d.nbCli} client${d.nbCli > 1 ? 's' : ''}\n`;
+        }
+      }
+      pack += `\n`;
+    }
   }
 
   pack += `═══════════════════════════════════════════════════\n`;
