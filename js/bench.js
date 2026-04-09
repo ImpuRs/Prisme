@@ -438,17 +438,21 @@ function renderObservatoire(){
   ];
   const cardsHtml=kpiDefs.map(r=>{
     const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
-    const pct=comp>0?Math.round((me-comp)/comp*100):(me>0?100:0);
-    const ecartIcon=pct>=0?'🟢':pct>=-10?'🟡':pct>=-20?'🟠':'🔴';
-    const ecartColor=pct>=0?'#4ade80':pct>=-20?'#fbbf24':'#f87171';
-    const isLagging=pct<0;
+    const isPctKpi=r.fmt==='pct'||r.fmt==='pct2';
+    const ecartVal=isPctKpi
+      ? parseFloat((me-comp).toFixed(1))
+      : (comp>0?Math.round((me-comp)/comp*100):(me>0?100:0));
+    const ecartLabel=isPctKpi?`${ecartVal>0?'+':''}${ecartVal} pts`:`${ecartVal>0?'+':''}${ecartVal}%`;
+    const ecartIcon=ecartVal>=0?'🟢':ecartVal>=-10?'🟡':ecartVal>=-20?'🟠':'🔴';
+    const ecartColor=ecartVal>=0?'#4ade80':ecartVal>=-20?'#fbbf24':'#f87171';
+    const isLagging=ecartVal<0;
     const onclk=isLagging?`onclick="document.getElementById('benchUnderperformBanner')?.scrollIntoView({behavior:'smooth'})"` :'';
     const drillHint=isLagging?`<div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">→ Familles en retard</div>`:'';
     return `<div style="background:linear-gradient(135deg,${r.g1},${r.g2});border-radius:14px;padding:16px 20px;min-width:160px;flex:1${isLagging?';cursor:pointer':''}" ${onclk}>
       <div style="color:rgba(255,255,255,0.75);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${r.label} <em class="info-tip" data-tip="${r.tip}" style="font-style:normal">ℹ</em></div>
       <div style="color:#fff;font-size:22px;font-weight:800;line-height:1.1">${fmtVal(me,r.fmt)}</div>
       <div style="color:rgba(255,255,255,0.6);font-size:11px;margin-top:2px">${fmtVal(comp,r.fmt)} · ${obsLabel}</div>
-      <div style="margin-top:8px;font-size:12px;font-weight:700;color:${ecartColor}">${ecartIcon} ${pct>0?'+':''}${pct}%</div>
+      <div style="margin-top:8px;font-size:12px;font-weight:700;color:${ecartColor}">${ecartIcon} ${ecartLabel}</div>
       ${drillHint}
     </div>`;
   }).join('');
