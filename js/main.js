@@ -513,8 +513,8 @@ _S.canalAgence=newCanalAgence;
     // Clients (filtrés par les filtres chalandise actifs)
     let silencieuxCount=0,silencieuxCA=0,silTop5=[];
     if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d===null||d<=30||d>60)continue;if(!(rec.caPDV>0||rec.caLegallais>0))continue;if(!_clientPassesReportFilter(rec))continue;arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
-    let clientsACapter=0;
-    if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if(!_clientPassesFilters(info,cc))continue;if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
+    let potentielsCount=0,perdusCount=0,perdusCA=0;
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(!_clientPassesReportFilter(rec))continue;const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d!==null&&d>60&&d<=180&&(rec.caPDV>0||rec.caLegallais>0)){perdusCount++;perdusCA+=(rec.caLegallais||rec.caPDV||0);}if(rec.crossStatus==='potentiel'&&rec.caLegallais>=500&&rec.caLegallais<=50000&&rec.commercial){potentielsCount++;}}}
     const nbNomades=(_S.reseauNomades||[]).length;
     const nomadesMissed=(_S.nomadesMissedArts||[]).slice(0,10);
 
@@ -606,14 +606,15 @@ _S.canalAgence=newCanalAgence;
     }
 
     // Clients
-    const hasClients=silencieuxCount>0||clientsACapter>0||nbNomades>0||nomadesMissed.length>0;
+    const hasClients=silencieuxCount>0||potentielsCount>0||perdusCount>0||nbNomades>0||nomadesMissed.length>0;
     if(hasClients){
       L.push('');L.push('DYNAMIQUE CLIENTS');
       if(silencieuxCount>0){
-        L.push(`Clients silencieux (30-60j sans commande PDV) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
+        L.push(`Clients silencieux (30-60j) : ${n(silencieuxCount)} clients, ${e(silencieuxCA)} de CA en jeu`);
         if(silTop5.length)L.push(`  Top 5 : ${silTop5.map(c=>`${c.nom} (${c.days}j, ${e(c.ca)})`).join(', ')}`);
       }
-      if(clientsACapter>0)L.push(`Clients actifs Legallais hors agence (à capter) : ${n(clientsACapter)}`);
+      if(perdusCount>0)L.push(`Clients perdus (60-180j) : ${n(perdusCount)} clients, ${e(perdusCA)} de CA en jeu`);
+      if(potentielsCount>0)L.push(`Potentiels jamais venus au comptoir : ${n(potentielsCount)} clients`);
       if(nbNomades>0)L.push(`Clients nomades (achètent dans ≥2 agences) : ${n(nbNomades)}`);
       if(nomadesMissed.length>0){
         L.push(`Articles achetés par mes clients ailleurs (≥2 clients) : ${n(nomadesMissed.length)}`);
@@ -682,8 +683,8 @@ _S.canalAgence=newCanalAgence;
 
     let silencieuxCount=0,silencieuxCA=0;
     if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d===null||d<=30||d>60)continue;if(!(rec.caPDV>0||rec.caLegallais>0))continue;if(!_clientPassesReportFilter(rec))continue;silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}
-    let clientsACapter=0;
-    if(_S.chalandiseReady){const _fcs=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info]of _S.chalandiseData.entries()){if(!_clientPassesFilters(info,cc))continue;if((info.ca2025||0)>0&&!_fcs.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
+    let potentielsCount=0,perdusCount=0,perdusCA=0;
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(!_clientPassesReportFilter(rec))continue;const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d!==null&&d>60&&d<=180&&(rec.caPDV>0||rec.caLegallais>0)){perdusCount++;perdusCA+=(rec.caLegallais||rec.caPDV||0);}if(rec.crossStatus==='potentiel'&&rec.caLegallais>=500&&rec.caLegallais<=50000&&rec.commercial){potentielsCount++;}}}
     const nbNomades=(_S.reseauNomades||[]).length;
 
     const filtersLabel=_getActiveFiltersLabel();
@@ -734,7 +735,8 @@ _S.canalAgence=newCanalAgence;
 
     L.push('');L.push('CLIENTS');
     if(silencieuxCount>0)L.push(`Silencieux 30-60j : ${n(silencieuxCount)} (${e(silencieuxCA)} CA en jeu)`);
-    if(clientsACapter>0)L.push(`Potentiel captation zone : ${n(clientsACapter)} clients actifs hors agence`);
+    if(perdusCount>0)L.push(`Perdus 60-180j : ${n(perdusCount)} (${e(perdusCA)} CA en jeu)`);
+    if(potentielsCount>0)L.push(`Potentiels jamais venus au comptoir : ${n(potentielsCount)}`);
     if(nbNomades>0)L.push(`Nomades multi-agences : ${n(nbNomades)}`);
 
     L.push('');L.push(`═══════════════════════════════════════════════════`);
