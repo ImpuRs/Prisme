@@ -127,6 +127,10 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     const lastPDV = rec.lastOrderPDV;
     const lastValid = lastPDV && (!_minC || lastPDV >= _minC);
     rec.silenceDaysPDV = lastValid ? Math.round((now - lastPDV) / 86400000) : null;
+    // silenceDays tous canaux (fallback quand pas de PDV)
+    const lastAll = rec.lastOrderAll;
+    const lastAllValid = lastAll && (!_minC || lastAll >= _minC);
+    rec.silenceDaysAll = lastAllValid ? Math.round((now - lastAll) / 86400000) : null;
     rec.caTotal = caPDV + (rec.caHors || 0);
     if (caPDV > 0 && rec.canaux) rec.canaux.add('MAGASIN');
   }
