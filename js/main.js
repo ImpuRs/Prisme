@@ -2173,9 +2173,8 @@ _S.canalAgence=newCanalAgence;
       // 5. Activer PRISME + replier l'import
       switchTab('stock');
       collapseImportZone();
-      // Période complète par défaut — refilter instantané via byMonth si l'utilisateur change
-      _S.periodFilterStart = null;
-      _S.periodFilterEnd   = null;
+      // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
+      // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
       if(!_S.ventesClientArticleFull.size&&_S.ventesClientArticle.size){
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
