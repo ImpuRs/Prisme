@@ -718,10 +718,12 @@ self.onmessage = async function(ev) {
           if (cc_h && codeArt_h && (!selectedStore || skHors === 'INCONNU' || skHors === selectedStore)) {
             cannauxHorsMagasin.add(canal);
             var hm = ventesClientHorsMagasin.get(cc_h) || new Map();
-            var ex_h = hm.get(codeArt_h) || { sumCA: 0, sumPrelevee: 0, sumCAPrelevee: 0, countBL: 0, canal: canal };
+            var ex_h = hm.get(codeArt_h) || { sumCA: 0, sumPrelevee: 0, sumCAPrelevee: 0, sumCAP: 0, sumCAE: 0, countBL: 0, canal: canal };
             ex_h.sumCA += caLigne_h;
             ex_h.sumPrelevee += qteLigne_h;
             ex_h.sumCAPrelevee += caLigne_h;
+            ex_h.sumCAP += _rcp;
+            ex_h.sumCAE += _rce;
             ex_h.countBL++;
             hm.set(codeArt_h, ex_h);
             ventesClientHorsMagasin.set(cc_h, hm);

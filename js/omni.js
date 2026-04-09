@@ -31,7 +31,6 @@ function _passesAllFilters(cc){
     const CANAL_ORDER=['MAGASIN','REPRESENTANT','INTERNET','DCS','AUTRE'];
     const CANAL_LABELS={MAGASIN:'🏪 Magasin',INTERNET:'🌐 Web',DCS:'🏢 DCS',REPRESENTANT:'🤝 Représentant',AUTRE:'📦 Autre'};
     const CANAL_COLORS={MAGASIN:'#3b82f6',INTERNET:'#8b5cf6',DCS:'#f97316',REPRESENTANT:'#10b981',AUTRE:'#94a3b8'};
-    const _webDisplayCA=v=>Math.max(0,(v.caP||0)+(v.caE||0));
     const _activeCanal=_S._globalCanal||'';
     // La répartition n'a de sens qu'en vue tous canaux — masquer quand filtre actif
     if(_activeCanal){if(wrapper)wrapper.classList.add('hidden');return;}
@@ -48,20 +47,20 @@ function _passesAllFilters(cc){
         const _mag=_S.ventesClientArticle.get(cc);
         if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}
         const _hors=_S.ventesClientHorsMagasin.get(cc);
-        if(_hors){for(const d of _hors.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caE+=_ca;}}
+        if(_hors){for(const d of _hors.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caP+=(d.sumCAP||0);_local[_c].caE+=(d.sumCAE||0);}}
       }
       // Segment filter: also count clients NOT in chalandise but in clientOmniScore
-      if(_S._omniSegmentFilter&&_S.clientOmniScore){for(const[cc,o]of _S.clientOmniScore){if(_S.chalandiseData.has(cc))continue;if(o.segment!==_S._omniSegmentFilter)continue;_nbF++;const _mag=_S.ventesClientArticle.get(cc);if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}const _hors2=_S.ventesClientHorsMagasin.get(cc);if(_hors2){for(const d of _hors2.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caE+=_ca;}}}}
+      if(_S._omniSegmentFilter&&_S.clientOmniScore){for(const[cc,o]of _S.clientOmniScore){if(_S.chalandiseData.has(cc))continue;if(o.segment!==_S._omniSegmentFilter)continue;_nbF++;const _mag=_S.ventesClientArticle.get(cc);if(_mag){let _mCA=0,_mCAP=0;for(const d of _mag.values()){_mCA+=d.sumCA||0;_mCAP+=d.sumCAPrelevee||0;}if(_mCA>0){if(!_local.MAGASIN)_local.MAGASIN={ca:0,caP:0,caE:0,bl:0};_local.MAGASIN.ca+=_mCA;_local.MAGASIN.caP+=_mCAP;_local.MAGASIN.caE+=_mCA-_mCAP;}}const _hors2=_S.ventesClientHorsMagasin.get(cc);if(_hors2){for(const d of _hors2.values()){const _c=d.canal||'AUTRE';const _ca=d.sumCA||0;if(_ca<=0)continue;if(!_local[_c])_local[_c]={ca:0,caP:0,caE:0,bl:0};_local[_c].ca+=_ca;_local[_c].caP+=(d.sumCAP||0);_local[_c].caE+=(d.sumCAE||0);}}}}
       _canalData=_local;
       const _segLbl=_S._omniSegmentFilter?(SEG_LABELS[_S._omniSegmentFilter]||''):'';
       if(_subtitleEl)_subtitleEl.textContent=`Filtré sur ${_nbF.toLocaleString('fr-FR')} client${_nbF>1?'s':''}${_segLbl?' · '+_segLbl:''}`;
     }else{
-      if(_subtitleEl)_subtitleEl.textContent='CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé';
+      if(_subtitleEl)_subtitleEl.textContent='CA tous canaux · Split Prélevé / Enlevé · Source : consommé';
     }
-    const entries=CANAL_ORDER.map(c=>[c,_canalData[c]]).filter(([c,v])=>v&&(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0))>0);
+    const entries=CANAL_ORDER.map(c=>[c,_canalData[c]]).filter(([,v])=>v&&(v.ca||0)>0);
     if(!entries.length){el.innerHTML='<p class="t-disabled text-sm p-4">Aucune donnée canal.</p>';if(wrapper)wrapper.classList.add('hidden');return;}
     if(wrapper)wrapper.classList.remove('hidden');
-    const totalCA=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?_webDisplayCA(v):(v.ca||0)),0)||1;
+    const totalCA=entries.reduce((s,[,v])=>s+(v.ca||0),0)||1;
     let html='<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr>';
     html+='<th class="py-2 px-3 text-left">Canal</th>';
     html+='<th class="py-2 px-3 text-right">Prélevé</th>';
@@ -73,18 +72,17 @@ function _passesAllFilters(cc){
     for(const[canal,data] of entries){
       const label=CANAL_LABELS[canal]||canal;
       const color=CANAL_COLORS[canal]||CANAL_COLORS.AUTRE;
-      const isWeb=canal!=='MAGASIN';
       const isMag=canal==='MAGASIN';
-      const dispCA=isWeb?_webDisplayCA(data):(data.ca||0);
+      const dispCA=data.ca||0;
       const pct=Math.round(dispCA/totalCA*100);
       const barW=Math.max(pct,2);
-      const _caP=isWeb?0:Math.max(0,data.caP||0);const _caE=isWeb?Math.max(0,(data.caP||0)+(data.caE||0)):Math.max(0,data.caE||0);
+      const _caP=Math.max(0,data.caP||0);const _caE=Math.max(0,data.caE||0);
       const prevCell=_caP>0?`<td class="py-2 px-3 text-right font-bold t-primary">${formatEuro(_caP)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
       const enlevCell=_caE>0?`<td class="py-2 px-3 text-right t-secondary">${formatEuro(_caE)}</td>`:`<td class="py-2 px-3 text-right t-disabled">—</td>`;
-      const _barTip=_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
+      const _barTip=_caP>0&&_caE>0?`Prélevé\u00a0: ${formatEuro(_caP)} · Enlevé\u00a0: ${formatEuro(_caE)}`:_caP>0?`Prélevé\u00a0: ${formatEuro(_caP)}`:`Enlevé\u00a0: ${formatEuro(_caE)}`;
       let _barHtml;
-      if(_caP>0){
-        const _tot=Math.max(data.ca||0,_caP+_caE)||1;
+      if(_caP>0&&_caE>0){
+        const _tot=Math.max(dispCA,_caP+_caE)||1;
         const _pW=(_caP/_tot*barW).toFixed(1);
         const _eW=(_caE/_tot*barW).toFixed(1);
         _barHtml=`<div class="w-32 s-hover rounded-full h-3 overflow-hidden" title="${_barTip}"><div style="display:flex;height:100%;width:${barW}%"><div style="flex:${_pW};background:${color};border-radius:9999px 0 0 9999px"></div>${parseFloat(_eW)>0?`<div style="flex:${_eW};background:${color};opacity:0.4;border-radius:0 9999px 9999px 0"></div>`:''}</div></div>`;
@@ -100,8 +98,8 @@ function _passesAllFilters(cc){
       html+=`<td class="py-2 px-3">${_barHtml}</td>`;
       html+='</tr>';
     }
-    const totalP=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?0:Math.max(0,v.caP||0)),0);
-    const totalE=entries.reduce((s,[c,v])=>s+(c!=='MAGASIN'?Math.max(0,(v.caP||0)+(v.caE||0)):Math.max(0,v.caE||0)),0);
+    const totalP=entries.reduce((s,[,v])=>s+Math.max(0,v.caP||0),0);
+    const totalE=entries.reduce((s,[,v])=>s+Math.max(0,v.caE||0),0);
     html+=`<tr class="border-t-2 b-dark font-extrabold t-primary">`;
     html+=`<td class="py-2 px-3">TOTAL</td>`;
     html+=`<td class="py-2 px-3 text-right">${formatEuro(totalP)}</td>`;
