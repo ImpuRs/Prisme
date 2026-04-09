@@ -448,6 +448,7 @@ _S.canalAgence=newCanalAgence;
   function _clientPassesReportFilter(rec){
     const info=_S.chalandiseData?.get(rec.cc);
     if(!info)return !_getActiveFiltersLabel();
+    if(_S._distanceMaxKm>0&&info.distanceKm==null)return false;
     return _clientPassesFilters(info,rec.cc);
   }
 
