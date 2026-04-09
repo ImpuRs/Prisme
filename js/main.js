@@ -59,6 +59,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
       buildPeriodFilter();
       computeClientCrossing();_computeClientDominantUnivers();
       renderCanalAgence();renderCurrentTab();
+      if(_S.selectedMyStore)_saveSessionToIDB().catch(err=>console.warn('[applyPeriodFilter] IDB save error:',err));
       return;
     }
 
