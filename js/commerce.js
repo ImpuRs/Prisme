@@ -1676,9 +1676,9 @@ function _buildCockpitClient(){
     const caLeg=info.ca2025||0;
     const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2025:caLeg,caPDVN,ville:info.ville||'',_strat:_isMetierStrategique(info.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
     // 1. Silencieux : 30-60j sans commande sur le canal filtré
-    if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||_useByCanal)){silencieux.push(c);continue;}
+    if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||caLeg>0||_useByCanal)){silencieux.push(c);continue;}
     // 2. Perdus : >60j sans commande sur le canal filtré
-    if(daysSince!==null&&daysSince>60&&(caPDVN>0||_useByCanal)){perdus.push(c);continue;}
+    if(daysSince!==null&&daysSince>60&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
     // 3. Potentiels : dans crossingStats.potentiels (zone chalandise, jamais venus au comptoir)
     if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)){jamaisVenus.push(c);}
   }
