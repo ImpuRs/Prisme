@@ -565,8 +565,8 @@ _S.canalAgence=newCanalAgence;
     L.push('');L.push('STOCK');
     L.push(`Valeur stock : ${e(valStock)}`);
     L.push(`Références en stock : ${n(DataStore.finalData.length)}`);
-    if(ok(txDispo))L.push(`Taux de disponibilité (articles actifs F+M) : ${txDispo}%`);
-    L.push(`Ruptures actives (F+M, W≥1) : ${n(ruptures.length)}`);
+    if(ok(txDispo))L.push(`Taux de disponibilité (articles courants) : ${txDispo}%`);
+    L.push(`Ruptures actives (articles courants) : ${n(ruptures.length)}`);
     if(ruptures.length>0){
       const topRupt=ruptures.sort((a,b)=>(b.W||0)-(a.W||0)).slice(0,5);
       L.push(`Top 5 ruptures : ${topRupt.map(r=>`${r.code} ${(r.libelle||'').substring(0,30)} (W=${r.W}, ${r.abcClass}/${r.fmrClass})`).join(' | ')}`);
@@ -580,7 +580,7 @@ _S.canalAgence=newCanalAgence;
       if(ok(kpis.mine?.pdm))L.push(`Part de marché bassin : ${Math.round(kpis.mine.pdm)}%`);
       L.push(`Mon CA vs médiane : ${e(kpis.mine?.ca||0)} vs ${e(kpis.compared?.ca||0)} (${kpis.compared?.ca>0?Math.round(((kpis.mine?.ca||0)-(kpis.compared?.ca||0))/(kpis.compared?.ca)*100):0}%)`);
       L.push(`Ma marge vs médiane : ${pct(kpis.mine?.txMarge)} vs ${pct(kpis.compared?.txMarge)}`);
-      L.push(`Mon taux de service vs médiane : ${kpis.mine?.serv||0}% vs ${kpis.compared?.serv||0}%`);
+      L.push(`Part de marché stock réseau : ${kpis.mine?.serv||0}% vs méd. ${kpis.compared?.serv||0}%`);
       L.push(`Mes clients vs médiane : ${n(kpis.mine?.nbClients||0)} vs ${n(kpis.compared?.nbClients||0)}`);
 
       if(lose.length>0){
@@ -696,6 +696,7 @@ _S.canalAgence=newCanalAgence;
     L.push(`Règles d'écriture :`);
     L.push(`  - Phrases courtes, toujours chiffrées. Pas d'adjectifs superflus.`);
     L.push(`  - Pas de dramatisation : pas de "scandale", "naufrage", "foudroyant", "intolérable"`);
+    L.push(`  - Pas de jargon technique : "F+M" → "articles courants", "ABC/FMR" → ne pas mentionner`);
     L.push(`  - Constate les faits, donne le contexte (vs médiane), tire la conclusion`);
     L.push(`  - TOUTES les données doivent apparaître — rien ne doit être ignoré`);
     L.push(`  - Mets en contraste forces et faiblesses naturellement`);
@@ -723,15 +724,15 @@ _S.canalAgence=newCanalAgence;
 
     L.push('');L.push('STOCK');
     L.push(`Valeur : ${e(valStock)} | ${n(DataStore.finalData.length)} réf.`);
-    if(txDispo!=null)L.push(`Disponibilité F+M : ${txDispo}%`);
-    L.push(`Ruptures F+M : ${n(ruptures.length)} | Dormants : ${n(dormants.length)} (${e(dormantVal)})`);
+    if(txDispo!=null)L.push(`Disponibilité articles courants : ${txDispo}%`);
+    L.push(`Ruptures articles courants : ${n(ruptures.length)} | Dormants : ${n(dormants.length)} (${e(dormantVal)})`);
 
     if(hasBench){
       L.push('');L.push('POSITION RÉSEAU');
       if(myRankIdx>=0)L.push(`Rang CA : #${myRankIdx+1}/${spSorted.length}`);
       L.push(`CA : ${e(kpis.mine?.ca||0)} vs méd. ${e(kpis.compared?.ca||0)} (${kpis.compared?.ca>0?Math.round(((kpis.mine?.ca||0)-(kpis.compared?.ca||0))/(kpis.compared?.ca)*100):0}%)`);
       L.push(`Marge : ${pct(kpis.mine?.txMarge)} vs méd. ${pct(kpis.compared?.txMarge)}`);
-      L.push(`Dispo : ${kpis.mine?.serv||0}% vs méd. ${kpis.compared?.serv||0}%`);
+      L.push(`Part de marché stock réseau : ${kpis.mine?.serv||0}% vs méd. ${kpis.compared?.serv||0}%`);
       L.push(`Clients : ${n(kpis.mine?.nbClients||0)} vs méd. ${n(kpis.compared?.nbClients||0)}`);
       if(manquants.length>0)L.push(`Incontournables manquants : ${n(manquants.filter(m=>(m.myFreq||0)===0).length)} absents + ${n(manquants.filter(m=>(m.myFreq||0)>0).length)} sous-exploités`);
       if(lose.length>0){L.push('');L.push('FAMILLES EN RETRAIT');for(const f of lose)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (${f.ecartPct}%)`);}
