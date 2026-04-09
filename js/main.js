@@ -519,20 +519,24 @@ _S.canalAgence=newCanalAgence;
       if(_minConsomme&&lastDate<_minConsomme)continue;
       const _dSil=daysBetween(lastDate,now);
       if(_dSil>30&&_dSil<=60){
-        const artData=(_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle).get(cc);
-        const caCli=artData?[...artData.values()].reduce((s,d)=>s+(d.sumCAAll||d.sumCA||0),0):0;
-        if(caCli>0){const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;silencieuxList.push({cc,nom,ca:caCli});}
+        // CA MAG = ventesClientArticle (MAGASIN, prélevé)
+        const magData=_S.ventesClientArticle?.get(cc);
+        const caMag_s=magData?[...magData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+        // CA Legallais = chalandise ca2025 (source Qlik, tous canaux toutes agences)
+        const caLeg=_S.chalandiseData?.get(cc)?.ca2025||0;
+        if(caMag_s>0||caLeg>0){
+          const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;
+          silencieuxList.push({cc,nom,caMag:caMag_s,caLeg,days:_dSil});
+        }
       }
     }
-    // Tri : plus ancien d'abord, puis plus gros CA à ancienneté égale
+    // Tri : plus ancien d'abord, puis plus gros CA Legallais à ancienneté égale
     silencieuxList.sort((a,b)=>{
-      const dA=daysBetween(_S.clientLastOrder.get(a.cc),now);
-      const dB=daysBetween(_S.clientLastOrder.get(b.cc),now);
-      if(dA!==dB)return dB-dA;
-      return (b.ca||0)-(a.ca||0);
+      if(a.days!==b.days)return b.days-a.days;
+      return (b.caLeg||0)-(a.caLeg||0);
     });
     const silencieuxCount=silencieuxList.length;
-    const silencieuxCA=silencieuxList.reduce((s,c)=>s+c.ca,0);
+    const silencieuxCA=silencieuxList.reduce((s,c)=>s+(c.caLeg||c.caMag||0),0);
     // Clients à capter (chalandise actifs hors agence)
     let clientsACapter=0;
     if(_S.chalandiseReady){const _fullClientSet=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;for(const[cc,info] of _S.chalandiseData.entries()){if((info.ca2025||0)>0&&!_fullClientSet.has(cc)&&!(_S.clientsMagasin&&_S.clientsMagasin.has(cc)))clientsACapter++;}}
@@ -656,7 +660,12 @@ _S.canalAgence=newCanalAgence;
           p+='.';
           L.push(p);
           const silTop5=silencieuxList.slice(0,5);
-          if(silTop5.length)L.push(`À relancer : ${silTop5.map(c=>`${c.nom} (${formatEuro(c.ca)})`).join(', ')}.`);
+          if(silTop5.length)L.push(`À relancer : ${silTop5.map(c=>{
+            const parts=[`${c.days}j`];
+            if(c.caMag>0)parts.push(`${formatEuro(c.caMag)} MAG`);
+            if(c.caLeg>0)parts.push(`${formatEuro(c.caLeg)} Legallais`);
+            return `${c.nom} (${parts.join(' · ')})`;
+          }).join(', ')}.`);
         }
         if(clientsACapter>0){
           L.push(`${clientsACapter.toLocaleString('fr')} client${clientsACapter!==1?'s':''} actif${clientsACapter!==1?'s':''} Legallais dans notre zone ${clientsACapter!==1?'ne passent':'ne passe'} pas en agence — premier levier de croissance.`);
