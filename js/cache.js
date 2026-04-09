@@ -290,6 +290,7 @@ export async function _saveSessionToIDB() {
       ventesClientArticleFull:  _serializeNestedMap(_S.ventesClientArticleFull),
       byMonth:                  _S._byMonth || null,
       byMonthCanal:             _S._byMonthCanal || null,
+      byMonthStoreArtCanal:     _S._byMonthStoreArtCanal || null,
       ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
@@ -408,6 +409,7 @@ export async function _restoreSessionFromIDB() {
     _S.ventesClientArticleFull  = _deserializeNestedMap(data.ventesClientArticleFull  || []);
     if (data.byMonth)      _S._byMonth      = data.byMonth;
     if (data.byMonthCanal) _S._byMonthCanal = data.byMonthCanal;
+    if (data.byMonthStoreArtCanal) _S._byMonthStoreArtCanal = data.byMonthStoreArtCanal;
     _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));

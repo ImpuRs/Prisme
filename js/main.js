@@ -237,6 +237,49 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
 _S.canalAgence=newCanalAgence;
     }
 
+    // ── Reconstruire ventesParMagasinByCanal depuis _byMonthStoreArtCanal ──
+    // Fix bug Réseau : KPI Comparatifs, storePerf, familyPerf tournaient sur pleine période
+    // peu importe le filtre. vbc alimente computeBenchmark en mode multi-canal via parser.js.
+    // On ne reconstruit PAS _S.ventesParMagasin car son sumPrelevee (qté) n'est pas stockable
+    // dans bmsac (où sumPrelevee = CA prélevé). Autres onglets restent sur vpm pleine période.
+    const bmsac=_S._byMonthStoreArtCanal;
+    if(bmsac){
+      const newVpmByCanal={};
+      for(const store in bmsac){
+        const canalMap=bmsac[store];
+        for(const canal in canalMap){
+          const codeMap=canalMap[canal];
+          for(const code in codeMap){
+            const months=codeMap[code];
+            let sumCA=0,sumPrel=0,countBL=0,sumVMB=0,sumVMBPrel=0;
+            for(const midxStr in months){
+              const midx=+midxStr;
+              if(midx<startIdx||midx>endIdx)continue;
+              const d=months[midxStr];
+              sumCA+=d.sumCA||0;
+              sumPrel+=d.sumPrelevee||0;
+              countBL+=d.countBL||0;
+              sumVMB+=d.sumVMB||0;
+              sumVMBPrel+=d.sumVMBPrel||0;
+            }
+            if(!countBL&&!sumCA)continue;
+            if(!newVpmByCanal[store])newVpmByCanal[store]={};
+            if(!newVpmByCanal[store][canal])newVpmByCanal[store][canal]={};
+            newVpmByCanal[store][canal][code]={sumCA,sumPrelevee:sumPrel,countBL,sumVMB,sumVMBPrel};
+          }
+        }
+      }
+      _S.ventesParMagasinByCanal=newVpmByCanal;
+      // Invalider cache bench + recomputeBenchmark pour que benchLists reflète la période
+      _S._benchCache=null;
+      if(_S.storesIntersection.size>1&&_S.selectedMyStore){
+        try{
+          const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;
+          computeBenchmark(_rcp);
+        }catch(err){console.warn('[refilter] computeBenchmark error:',err);}
+      }
+    }
+
     // ── Recalculer ventesAnalysis depuis canalAgence reconstruit ──
     const _magData=_S.canalAgence?.['MAGASIN']||{};
     const _caMag=_magData.ca||0;
@@ -789,6 +832,7 @@ _S.canalAgence=newCanalAgence;
     _S.canalAgence        = r.canalAgence || {};
     _S._byMonth           = r.byMonth      || null;
     _S._byMonthCanal      = r.byMonthCanal || null;
+    _S._byMonthStoreArtCanal = r.byMonthStoreArtCanal || null;
     _S._byMonthClients    = r.byMonthClients
       ? Object.fromEntries(Object.entries(r.byMonthClients).map(([k, arr]) => [k, new Set(arr)]))
       : null;

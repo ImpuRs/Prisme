@@ -519,6 +519,7 @@ self.onmessage = async function(ev) {
     var byMonth = {};        // cc → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBP, sumCAPrelevee}
     var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
     var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
+    var byMonthStoreArtCanal = {}; // store → canal → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBPrel} — pour rebuild ventesParMagasinByCanal filtré période
 
     var rows = dataC.rows;
     var totalRows = rows.length;
@@ -702,6 +703,21 @@ self.onmessage = async function(ev) {
             _vpmc_h.countBL++;
             _vpmc_h.sumVMB += _rvp + _rve;
             _vpmc_h.sumVMBPrel += _rvp;
+            // byMonthStoreArtCanal — accumulation mensuelle pour rebuild période
+            if (dateV) {
+              var _midx_h = dateV.getFullYear() * 12 + dateV.getMonth();
+              if (!byMonthStoreArtCanal[_storeKey_h]) byMonthStoreArtCanal[_storeKey_h] = {};
+              if (!byMonthStoreArtCanal[_storeKey_h][canal]) byMonthStoreArtCanal[_storeKey_h][canal] = {};
+              if (!byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h]) byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h] = {};
+              var _bmsac_h = byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h];
+              if (!_bmsac_h[_midx_h]) _bmsac_h[_midx_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+              var _bme_h = _bmsac_h[_midx_h];
+              _bme_h.sumCA += caLigne_h;
+              _bme_h.sumPrelevee += _rcp;
+              _bme_h.countBL++;
+              _bme_h.sumVMB += _rvp + _rve;
+              _bme_h.sumVMBPrel += _rvp;
+            }
           }
         }
         continue;
@@ -811,6 +827,21 @@ self.onmessage = async function(ev) {
           if (qteP > 0 || qteE > 0) _vpmc2.countBL++;
           _vpmc2.sumVMB += _rvp + _rve;
           _vpmc2.sumVMBPrel += _rvp;
+          // byMonthStoreArtCanal MAGASIN — accumulation mensuelle pour rebuild période
+          if (dateV) {
+            var _midx_m = dateV.getFullYear() * 12 + dateV.getMonth();
+            if (!byMonthStoreArtCanal[sk]) byMonthStoreArtCanal[sk] = {};
+            if (!byMonthStoreArtCanal[sk][_canalKey]) byMonthStoreArtCanal[sk][_canalKey] = {};
+            if (!byMonthStoreArtCanal[sk][_canalKey][code]) byMonthStoreArtCanal[sk][_canalKey][code] = {};
+            var _bmsac_m = byMonthStoreArtCanal[sk][_canalKey][code];
+            if (!_bmsac_m[_midx_m]) _bmsac_m[_midx_m] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            var _bme_m = _bmsac_m[_midx_m];
+            _bme_m.sumCA += caP + caE;
+            _bme_m.sumPrelevee += caP;
+            if (qteP > 0 || qteE > 0) _bme_m.countBL++;
+            _bme_m.sumVMB += _rvp + _rve;
+            _bme_m.sumVMBPrel += _rvp;
+          }
         }
       }
 
@@ -1231,6 +1262,7 @@ self.onmessage = async function(ev) {
         passagesUniques: Array.from(passagesUniques),
         byMonth: byMonth,
         byMonthCanal: byMonthCanal,
+        byMonthStoreArtCanal: byMonthStoreArtCanal,
         byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),
       }
     });
