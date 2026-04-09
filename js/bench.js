@@ -444,8 +444,8 @@ function renderObservatoire(){
   // Dynamic section titles & column headers
   if(el('obsLoseTitle'))el('obsLoseTitle').textContent=isMedian?'📉 Familles sous la médiane réseau':`📉 Familles où ${obsLabel} me bat`;
   if(el('obsWinTitle'))el('obsWinTitle').textContent=isMedian?'💪 Familles au-dessus de la médiane':`💪 Familles où je bats ${obsLabel}`;
-  if(el('obsLoseTh1'))el('obsLoseTh1').textContent=isMedian?'Écart CA (bassin) vs médiane':`CA ${obsLabel}`;
-  if(el('obsWinTh1'))el('obsWinTh1').textContent=isMedian?'Avance CA (bassin) vs médiane':`Avance sur ${obsLabel}`;
+  if(el('obsLoseTh1'))el('obsLoseTh1').textContent=isMedian?'CA méd.':`CA ${obsLabel}`;
+  if(el('obsWinTh1'))el('obsWinTh1').textContent=isMedian?'CA méd.':`CA ${obsLabel}`;
   // KPI CARDS
   const kpis=obsKpis||{mine:{ca:0,ref:0,serv:0,freq:0,pdm:0},compared:{ca:0,ref:0,serv:0,freq:0,pdm:0}};
   const fmtVal=(v,fmt)=>fmt==='euro'?formatEuro(v):fmt==='pct2'?(v!==null&&v>0?parseFloat(v).toFixed(2)+'%':'—'):fmt==='pct'?v+'%':fmt==='freq'?(v+'x'):v.toLocaleString('fr');
@@ -490,50 +490,32 @@ function renderObservatoire(){
   const loseFiltered=(obsFamiliesLose||[]).filter(f=>!minCA||Math.abs(f.caOther-(f.caMe||0))>=minCA);
   const winFiltered=(obsFamiliesWin||[]).filter(f=>!minCA||Math.abs((f.caMe||0)-(f.caOther||0))>=minCA);
   if(el('obsLoseBadge'))el('obsLoseBadge').textContent=loseFiltered.length;
-  const loseRows=loseFiltered.map((f,i)=>{
-    const famId='obsLose_'+i;
+  const _famRow=(f,type)=>{
+    const isLose=type==='lose';
     const caGap=f.caMe-f.caOther;
-    const arts=f.missingArts||[];
-    const artsToRef=arts.filter(a=>a.statutMe!=='✅ En stock');
-    const artsVisi=arts.filter(a=>a.statutMe==='✅ En stock');
-    const ecGapCell=`<span class="font-extrabold c-danger">${formatEuro(caGap)}</span>`;
-    const trueMissing=artsToRef.length||Math.max(0,f.refOther-f.refMe);
-    const refBadge=trueMissing>0?`<span class="chip chip-sm chip-danger">${trueMissing}</span>`:'<span class="t-disabled">—</span>';
-    const ecText=f.caMe===0?'<span class="c-danger font-extrabold">Absent</span>':`<span class="${f.ecartPct<-30?'c-danger font-extrabold':f.ecartPct<-10?'c-caution font-bold':'t-primary'}">${f.ecartPct}%</span>`;
-    const artFreqLabel=isMedian?'Nb agences':`Nb ventes (${obsLabel})`;
-    const artCALabel=isMedian?'CA médiane réseau':`CA chez ${obsLabel}`;
-    const artRow=a=>`<tr class="border-b" style="border-color:var(--b-light)"><td class="py-0.5 px-2 font-mono t-tertiary">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${isMedian?(a.nbStores??a.freqOther):a.freqOther}</td><td class="py-0.5 px-2 text-right t-secondary">${a.caOther>0?formatEuro(a.caOther):'—'}</td></tr>`;
-    const artThead=`<thead class="t-secondary font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">${artFreqLabel}</th><th class="py-1 px-2 text-right">${artCALabel}</th></tr></thead>`;
-    const famAbsent=f.refMe===0;const list1Label=famAbsent?`📋 Articles vendus par le réseau dans cette famille (${artsToRef.length})`:`❌ ${artsToRef.length} article${artsToRef.length>1?'s':''} à référencer (non stockés)`;const list1Html=artsToRef.length?`<div class="mb-3" id="obsLose_${i}_arts"><p class="text-[10px] font-bold ${famAbsent?'c-action':'c-danger'} mb-1">${list1Label} :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsToRef.slice(0,famAbsent?50:20).map(artRow).join('')}</tbody></table></div>`:'';
-    const list2Html=artsVisi.length?`<div class="mb-2"><p class="text-[10px] font-bold c-caution mb-1">⚠️ ${artsVisi.length} article${artsVisi.length>1?'s':''} en stock non vendus — vérifier visibilité/emplacement :</p><table class="min-w-full text-[10px]">${artThead}<tbody>${artsVisi.slice(0,20).map(artRow).join('')}</tbody></table></div>`:'';
-    const copyBtn=artsToRef.length?`<button onclick="event.stopPropagation();copyObsArticleList('obsLose_${i}_arts')" class="text-[9px] s-card border c-danger px-1.5 py-0.5 rounded hover:i-danger-bg font-bold" style="border-color:var(--c-danger);opacity:0.8">📋 Copier liste 1</button>`:'';
-    const caAutreLabel=isMedian?'CA médiane réseau':`CA ${obsLabel}`;const refAutreLabel=isMedian?'Réf méd.':`Réf ${obsLabel}`;
-    const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] mb-2 pt-2 px-3"><span class="t-tertiary">CA Moi : <strong class="c-action">${formatEuro(f.caMe)}</strong></span><span class="t-tertiary">${caAutreLabel} : <strong>${formatEuro(f.caOther)}</strong></span><span class="t-tertiary">Écart : ${ecText}</span><span class="t-tertiary">Réf Moi : <strong>${f.refMe}</strong></span><span class="t-tertiary">${refAutreLabel} : <strong>${f.refOther}</strong></span>${f.caTheorique!=null?`<span class="t-tertiary">CA Théo. : <strong>${formatEuro(f.caTheorique)}</strong></span><span class="t-tertiary">Écart théo. : <strong class="${f.ecartTheorique>=0?'c-ok':'c-danger'}">${f.ecartTheorique>=0?'+':''}${formatEuro(f.ecartTheorique)}</strong></span>`:''}</div>`;
-    const ecBg=f.ecartPct<-30?'i-danger-bg/80':'i-caution-bg/70';
-    const noArts=!artsToRef.length&&!artsVisi.length?'<p class="t-disabled text-[10px] py-2">Aucun article identifié.</p>':'';
-    const specs=f.specialArts||[];const specCA=specs.reduce((s,a)=>s+a.caOther,0);
-    const specEncart=specs.length?`<div class="mx-3 mt-3 p-2 s-hover rounded border b-default text-[10px] t-tertiary"><p class="font-bold t-secondary mb-1">⚠️ ${specs.length} article${specs.length>1?'s':''} spéciaux détectés chez ${obsLabel}${specCA>0?' (CA : '+formatEuro(specCA)+')':''}</p><p class="font-mono t-disabled text-[9px] mb-1">${specs.slice(0,15).map(a=>a.code).join(' · ')}</p><p class="italic t-disabled">Vérifiez si ces commandes spéciales sont récurrentes.</p></div>`:'';
-    const _loseFamAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    const loseDiagBtn=`<button class="diag-btn i-danger-bg c-danger hover:i-danger-bg" data-fam="${_loseFamAttr}" onclick="event.stopPropagation();openDiagnostic(this.dataset.fam,'reseau')" title="Diagnostiquer cette famille">🔍 Diagnostiquer</button>`;
-    const _losePdmCell=f.pdm!=null?`<td class="py-2 px-3 text-center text-xs font-bold ${f.pdm>=20?'c-ok':f.pdm>=10?'c-caution':'c-danger'}">${f.pdm}%</td>`:`<td class="py-2 px-3 text-center text-xs t-disabled">—</td>`;return `<tr class="border-b cursor-pointer hover:i-danger-bg/40 transition-colors" onclick="toggleObsFamily('${famId}')"><td class="py-2 px-3 font-semibold t-primary"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${ecGapCell}</td>${_losePdmCell}<td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${famId}" class="hidden ${ecBg}"><td colspan="4"><div class="pb-3">${detailGrid}<div class="px-3 mb-2 flex gap-2 flex-wrap">${copyBtn||''}${loseDiagBtn}</div>${`<div class="px-3 pb-1">${noArts}${list1Html}${list2Html}</div>`}${specEncart}</div></td></tr>`;
-  }).join('');
-  if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="4" class="py-4 text-center t-disabled">🎉 Aucune famille où l\'autre vous dépasse.</td></tr>';
+    const refDiff=isLose?Math.max(0,f.refOther-f.refMe):Math.max(0,f.refMe-f.refOther);
+    const ecColor=isLose?(f.ecartPct<=-30?'c-danger font-extrabold':f.ecartPct<=-10?'c-danger font-bold':'c-caution'):'c-ok font-bold';
+    const caCell=isLose?`<span class="font-extrabold c-danger">${formatEuro(caGap)}</span>`:`<span class="font-extrabold c-ok">+${formatEuro(caGap)}</span>`;
+    const refBadge=refDiff>0?`<span class="chip chip-sm ${isLose?'chip-danger':'chip-ok'}">${isLose?'':'+'}${refDiff}</span>`:'<span class="t-disabled">—</span>';
+    const pdmCell=f.pdm!=null?`<td class="py-1.5 px-2 text-center text-xs font-bold ${f.pdm>=20?'c-ok':f.pdm>=10?'c-caution':'c-danger'}">${f.pdm}%</td>`:`<td class="py-1.5 px-2 text-center text-xs t-disabled">—</td>`;
+    const _fAttr=f.fam.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const hoverBg=isLose?'hover:i-danger-bg/40':'hover:i-ok-bg/40';
+    return `<tr class="border-b cursor-pointer ${hoverBg} transition-colors" onclick="openDiagnostic('${_fAttr}','reseau')">
+      <td class="py-1.5 px-2 font-semibold t-primary text-[11px]">${f.fam}</td>
+      <td class="py-1.5 px-2 text-right text-xs">${formatEuro(f.caMe)}</td>
+      <td class="py-1.5 px-2 text-right text-xs t-secondary">${formatEuro(f.caOther)}</td>
+      <td class="py-1.5 px-2 text-right text-xs">${caCell}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] ${ecColor}">${f.ecartPct}%</td>
+      ${pdmCell}
+      <td class="py-1.5 px-2 text-center">${refBadge}</td>
+    </tr>`;
+  };
+  const loseRows=loseFiltered.map(f=>_famRow(f,'lose')).join('');
+  if(el('obsLoseTable'))el('obsLoseTable').innerHTML=loseRows||'<tr><td colspan="7" class="py-4 text-center t-disabled">Aucune famille en retard.</td></tr>';
   // Families where I win
   if(el('obsWinBadge'))el('obsWinBadge').textContent=winFiltered.length;
-  const winRows=winFiltered.map((f,i)=>{
-    const winId='obsWin_'+i;
-    const caAdv=f.caMe-f.caOther;
-    const refAdv=Math.max(0,f.refMe-f.refOther);
-    const advCell=`<span class="font-extrabold c-ok">+${formatEuro(caAdv)}</span>`;
-    const refBadge=refAdv>0?`<span class="chip chip-sm chip-ok">+${refAdv}</span>`:'<span class="t-disabled">—</span>';
-    const caAutreWin=isMedian?'CA médiane réseau':`CA ${obsLabel}`;const refAutreWin=isMedian?'Réf méd.':`Réf ${obsLabel}`;
-    const detailGrid=`<div class="flex flex-wrap gap-4 text-[11px] pt-2 px-3 pb-3"><span class="t-tertiary">CA Moi : <strong class="c-action">${formatEuro(f.caMe)}</strong></span><span class="t-tertiary">${caAutreWin} : <strong>${formatEuro(f.caOther)}</strong></span><span class="t-tertiary">Écart : <strong class="c-ok">+${f.ecartPct}%</strong></span><span class="t-tertiary">Réf Moi : <strong class="c-action">${f.refMe}</strong></span><span class="t-tertiary">${refAutreWin} : <strong>${f.refOther}</strong></span>${f.caTheorique!=null?`<span class="t-tertiary">CA Théo. : <strong>${formatEuro(f.caTheorique)}</strong></span><span class="t-tertiary">Écart théo. : <strong class="${f.ecartTheorique>=0?'c-ok':'c-danger'}">${f.ecartTheorique>=0?'+':''}${formatEuro(f.ecartTheorique)}</strong></span>`:''}</div>`;
-    const excl=f.exclusiveArts||[];
-    const exclHtml=excl.length?`<div class="mb-3 px-3"><p class="text-[10px] font-bold c-ok mb-1">🏆 ${excl.length} article${excl.length>1?'s':''} exclusifs — vous les vendez, pas ${isMedian?'la médiane':obsLabel} :</p><table class="min-w-full text-[10px]"><thead class="t-secondary font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Fréq</th><th class="py-1 px-2 text-right">CA</th></tr></thead><tbody>${excl.slice(0,20).map(a=>`<tr class="border-b b-light"><td class="py-0.5 px-2 font-mono t-tertiary">${a.code}</td><td class="py-0.5 px-2">${a.lib}</td><td class="py-0.5 px-2 text-center font-bold">${a.freq}</td><td class="py-0.5 px-2 text-right font-bold c-ok">${formatEuro(a.ca)}</td></tr>`).join('')}</tbody></table></div>`:'';
-    const noArts=!excl.length?'<p class="t-disabled text-[10px] py-2">Aucun article exclusif identifié.</p>':'';
-    const _winPdmCell=f.pdm!=null?`<td class="py-2 px-3 text-center text-xs font-bold ${f.pdm>=20?'c-ok':f.pdm>=10?'c-caution':'c-danger'}">${f.pdm}%</td>`:`<td class="py-2 px-3 text-center text-xs t-disabled">—</td>`;return `<tr class="border-b cursor-pointer hover:i-ok-bg/40 transition-colors" onclick="toggleObsFamily('${winId}')"><td class="py-2 px-3 font-semibold t-primary"><span class="obs-expand-icon t-disabled mr-1 text-[9px]">▶</span>${f.fam}</td><td class="py-2 px-3 text-right">${advCell}</td>${_winPdmCell}<td class="py-2 px-3 text-center">${refBadge}</td></tr><tr id="${winId}" class="hidden i-ok-bg/70"><td colspan="4"><div class="pb-3">${detailGrid}${exclHtml}<div class="px-3 pb-1">${noArts}</div></div></td></tr>`;
-  }).join('');
-  if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="4" class="py-4 text-center t-disabled">—</td></tr>';
+  const winRows=winFiltered.map(f=>_famRow(f,'win')).join('');
+  if(el('obsWinTable'))el('obsWinTable').innerHTML=winRows||'<tr><td colspan="7" class="py-4 text-center t-disabled">—</td></tr>';
   // [V3] Bandeau biais canal — sections soft : pépites filtrées agence vs réseau brut
   const _obsCanal=_S._globalCanal||'';
   const biasBanner=el('benchCanalBias');
@@ -722,27 +704,14 @@ function copyObsActionPlan(){
   navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Plan copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
 }
 
-function copyObsArticleList(containerId){
-  const container=document.getElementById(containerId);if(!container)return;
-  const rows=[...container.querySelectorAll('tbody tr')];
-  if(!rows.length){showToast('Aucun article à copier','warning');return;}
-  const lines=['Code\tLibellé\tFréq autre\tStatut chez moi'];
-  for(const row of rows){const cells=[...row.querySelectorAll('td')].map(td=>td.textContent.trim());lines.push(cells.join('\t'));}
-  navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Liste copiée dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
-}
-
-function toggleObsFamily(id){
-  const row=document.getElementById(id);if(!row)return;
-  const nowHidden=row.classList.toggle('hidden');
-  const prevRow=row.previousElementSibling;if(!prevRow)return;
-  const icon=prevRow.querySelector('.obs-expand-icon');if(icon)icon.textContent=nowHidden?'▶':'▼';
-}
+function copyObsArticleList(){}
+function toggleObsFamily(){}
 
 function copyObsSection(type){
   const rows=type==='lose'?_S.benchLists.obsFamiliesLose:_S.benchLists.obsFamiliesWin;
   if(!rows||!rows.length){showToast('Aucune donnée à copier','warning');return;}
-  const lines=['Famille\tCA Moi\tCA Autre\tÉcart %\tRéf Moi\tRéf Autre'];
-  for(const f of rows)lines.push(`${f.fam}\t${Math.round(f.caMe)}\t${Math.round(f.caOther)}\t${f.ecartPct}%\t${f.refMe}\t${f.refOther}`);
+  const lines=['Famille\tMon CA\tCA méd.\tEcart\t%\tPDM\tRéf manq.'];
+  for(const f of rows){const gap=Math.round(f.caMe-f.caOther);const refDiff=type==='lose'?Math.max(0,f.refOther-f.refMe):Math.max(0,f.refMe-f.refOther);lines.push(`${f.fam}\t${Math.round(f.caMe)}\t${Math.round(f.caOther)}\t${gap}\t${f.ecartPct}%\t${f.pdm!=null?f.pdm+'%':'—'}\t${refDiff||'—'}`);}
   navigator.clipboard?.writeText(lines.join('\n')).then(()=>showToast('📋 Copié dans le presse-papier','success')).catch(()=>showToast('❌ Erreur copie','error'));
 }
 
