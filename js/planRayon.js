@@ -906,12 +906,13 @@ function _prRenderMetiers(fam) {
     }
   }
 
-  // 2) Livré zone — livraisonsData × chalandise (autres agences livrant dans ma zone)
+  // 2) Livraisons × chalandise — total réseau pour les clients de la zone
   if (_S.livraisonsReady && _S.livraisonsData?.size) {
     for (const [cc, livData] of _S.livraisonsData) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
-      const metier = info?.metier || 'Non renseigné';
+      if (!info) continue; // pas dans la chalandise → pas de métier, on skip
+      const metier = info.metier || 'Non renseigné';
       let caFam = 0;
       for (const [code, artData] of livData.articles) {
         if (!_matchFam(code)) continue;
