@@ -152,7 +152,14 @@ export function buildClientStore({ pdvOnly = false } = {}) {
  * @returns {Object|undefined}
  */
 export function getClient(cc) {
+  if (!_S.clientStore?.size && _hasClientSources()) buildClientStore();
   return _S.clientStore?.get(cc);
+}
+
+/** @returns {boolean} true si au moins une source client est peuplée */
+function _hasClientSources() {
+  return !!(_S.ventesClientArticle?.size || _S.ventesClientHorsMagasin?.size
+    || _S.chalandiseData?.size || _S.clientLastOrder?.size || _S.clientsMagasin?.size);
 }
 
 /**
@@ -162,7 +169,7 @@ export function getClient(cc) {
  */
 export function filterClients(predicate) {
   const result = [];
-  if (!_S.clientStore) return result;
+  if (!_S.clientStore?.size) { if (_hasClientSources()) buildClientStore(); else return result; }
   for (const rec of _S.clientStore.values()) {
     if (predicate(rec)) result.push(rec);
   }
@@ -176,7 +183,7 @@ export function filterClients(predicate) {
  */
 export function groupClientsBy(keyFn) {
   const groups = new Map();
-  if (!_S.clientStore) return groups;
+  if (!_S.clientStore?.size) { if (_hasClientSources()) buildClientStore(); else return groups; }
   for (const rec of _S.clientStore.values()) {
     const key = keyFn(rec);
     if (!groups.has(key)) groups.set(key, []);

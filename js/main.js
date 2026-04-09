@@ -774,6 +774,7 @@ _S.canalAgence=newCanalAgence;
             showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
             btn.disabled = false;
             hideLoading();
+            if (!_S.clientStore?.size) buildClientStore();
             renderAll();
             buildPeriodFilter();
             return;
