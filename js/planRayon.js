@@ -889,8 +889,9 @@ function _prRenderMetiers(fam) {
       }
     }
   }
-  // Aussi les canaux hors-MAGASIN de mon agence
-  if (_S.ventesClientHorsMagasin?.size) {
+  // Aussi les canaux hors-MAGASIN — seulement si ventesClientArticleFull n'existe pas
+  // (Full contient déjà TOUS les canaux, évite le double-comptage)
+  if (!_S.ventesClientArticleFull?.size && _S.ventesClientHorsMagasin?.size) {
     for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
@@ -2127,20 +2128,22 @@ function _prBuildDiagText(codeFam) {
         metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
       }
     }
-    // Hors-MAGASIN de mon agence
-    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      const metier = info?.metier || 'Hors chalandise';
-      let caFam = 0;
-      for (const [code, data] of artMap) {
-        if (!_matchFamDiag(code)) continue;
-        caFam += data.sumCA || 0;
-      }
-      if (caFam > 0) {
-        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
-        if (!metierCli.has(metier)) metierCli.set(metier, 0);
-        metierCli.set(metier, metierCli.get(metier) + 1);
+    // Hors-MAGASIN — seulement si Full n'existe pas (Full contient déjà tous canaux)
+    if (!_S.ventesClientArticleFull?.size) {
+      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+        if (!_prDistOk(cc)) continue;
+        const info = _S.chalandiseData?.get(cc);
+        const metier = info?.metier || 'Hors chalandise';
+        let caFam = 0;
+        for (const [code, data] of artMap) {
+          if (!_matchFamDiag(code)) continue;
+          caFam += data.sumCA || 0;
+        }
+        if (caFam > 0) {
+          metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+          if (!metierCli.has(metier)) metierCli.set(metier, 0);
+          metierCli.set(metier, metierCli.get(metier) + 1);
+        }
       }
     }
     txt += `**Mon agence${_distLabel} — TOP métiers :**\n`;
@@ -2366,18 +2369,21 @@ function _prBuildLLMPack(codeFam) {
       }
       if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
     }
-    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      if (!info) continue;
-      const metier = info.metier || 'Non renseigné';
-      let caFam = 0;
-      for (const [code, data] of artMap) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf !== codeFam) continue;
-        caFam += data.sumCA || 0;
+    // Hors-MAGASIN — seulement si Full n'existe pas (évite double-comptage)
+    if (!_S.ventesClientArticleFull?.size) {
+      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+        if (!_prDistOk(cc)) continue;
+        const info = _S.chalandiseData?.get(cc);
+        if (!info) continue;
+        const metier = info.metier || 'Non renseigné';
+        let caFam = 0;
+        for (const [code, data] of artMap) {
+          const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
+          if (cf !== codeFam) continue;
+          caFam += data.sumCA || 0;
+        }
+        if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
       }
-      if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
     }
     // Livraisons (filtré distance)
     for (const [cc, livData] of _S.livraisonsData) {
