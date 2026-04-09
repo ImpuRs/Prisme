@@ -608,7 +608,9 @@ self.onmessage = async function(ev) {
       }
 
       // byMonthCanal — accumulation mensuelle tous canaux pour reconstruction canalAgence par période
-      if (dateV && canal && (!selectedStore || _rs === 'INCONNU' || _rs === selectedStore)) {
+      // NB: on exclut _rs === 'INCONNU' quand un store est sélectionné — ces lignes ne doivent
+      // pas être attribuées au store actif (bug split prel AG93 mars 2026: +4491€).
+      if (dateV && canal && (!selectedStore || _rs === selectedStore)) {
         var _midxC = dateV.getFullYear() * 12 + dateV.getMonth();
         var _skC = _rs;
         if (!byMonthCanal[_skC]) byMonthCanal[_skC] = {};
@@ -626,7 +628,7 @@ self.onmessage = async function(ev) {
       if (dateV) {
         var _ccBMC = extractClientCode(_rc);
         var _skBMC = _rs;
-        if (_ccBMC && (!selectedStore || _skBMC === 'INCONNU' || _skBMC === selectedStore)) {
+        if (_ccBMC && (!selectedStore || _skBMC === selectedStore)) {
           var _midxBMC = dateV.getFullYear() * 12 + dateV.getMonth();
           if (!byMonthClients[_midxBMC]) byMonthClients[_midxBMC] = new Set();
           byMonthClients[_midxBMC].add(_ccBMC);
