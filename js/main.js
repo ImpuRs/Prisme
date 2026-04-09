@@ -2243,6 +2243,7 @@ _S.canalAgence=newCanalAgence;
       _S.filteredData = getFilteredData();
       _syncTabAccess();
       if(useMulti){
+        buildAgenceStore();
         _buildObsUniversDropdown();
         buildBenchBassinSelect();
         renderBenchmark();
