@@ -869,7 +869,9 @@ function _prRenderMetiers(fam) {
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
-        _addToMetier(metier, cc, caFam, metierPDV, metierClientsAll); // union
+        // Union clients (sans re-additionner le CA)
+        if (!metierClientsAll.has(metier)) metierClientsAll.set(metier, new Set());
+        metierClientsAll.get(metier).add(cc);
       }
     }
   }
@@ -887,7 +889,8 @@ function _prRenderMetiers(fam) {
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
-        _addToMetier(metier, cc, caFam, metierPDV, metierClientsAll);
+        if (!metierClientsAll.has(metier)) metierClientsAll.set(metier, new Set());
+        metierClientsAll.get(metier).add(cc);
       }
     }
   }
@@ -906,7 +909,9 @@ function _prRenderMetiers(fam) {
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierLivr, metierClientsLiv);
-        _addToMetier(metier, cc, 0, metierPDV, metierClientsAll); // union (CA 0 pour ne pas doubler)
+        // Union clients (sans toucher au CA agence)
+        if (!metierClientsAll.has(metier)) metierClientsAll.set(metier, new Set());
+        metierClientsAll.get(metier).add(cc);
       }
     }
   }
