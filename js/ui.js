@@ -789,7 +789,7 @@ export function _cmdBuildResults(q) {
     if (artResults.length) groups.push({ header: '📦 Articles', items: artResults });
   }
 
-  // 3. Clients (_S.chalandiseData + _S.clientNomLookup fallback)
+  // 3. Clients (_S.chalandiseData + clientStore fallback)
   const clientResults = [];
   if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.size) {
     for (const [code, info] of _S.chalandiseData) {
@@ -986,7 +986,7 @@ export function showSilencieux60() {
         const artMap = _S.ventesClientArticle?.get(cc);
         if (artMap) artMap.forEach(v => { ca += (v.sumCAPrelevee || v.sumCA || 0); });
       }
-      const nom = _S.clientNomLookup?.[cc] || chal?.nom || cc;
+      const nom = chal?.nom || cc;
       clients.push({ cc, nom, days, ca });
     });
   }

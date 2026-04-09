@@ -1394,12 +1394,10 @@ function _nlQ_ProfilClient(raw) {
   const stopwords = new Set(['profil','client','achats','articles','fiche','resume','bilan','detail','de','du','le','la','les','un','une','pour']);
   const words = raw.split(/\s+/).filter(w => w.length >= 3 && !stopwords.has(w));
 
-  // Chercher dans clientStore (fallback clientNomLookup)
-  if (words.length > 0 && (_S.clientStore?.size || _S.clientNomLookup)) {
+  // Chercher dans clientStore
+  if (words.length > 0 && _S.clientStore?.size) {
     let bestScore = 0;
-    const source = _S.clientStore?.size
-      ? [..._S.clientStore.values()].map(r => [r.cc, r.nom])
-      : Object.entries(_S.clientNomLookup || {});
+    const source = [..._S.clientStore.values()].map(r => [r.cc, r.nom]);
     for (const [cc, nom] of source) {
       const nomN = _nlNorm(nom);
       const score = words.filter(w => nomN.includes(w)).length;

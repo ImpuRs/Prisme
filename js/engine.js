@@ -431,7 +431,7 @@ export function _enrichClientInfo(cc){
   const rec=_S.clientStore?.get(cc);
   if(rec) return{nom:rec.nom,metier:rec.metier,commercial:rec.commercial};
   const info=_S.chalandiseData?.get(cc);const fb=_buildTerrFB().get(cc);
-  return{nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||(fb?.commercial)||''};
+  return{nom:info?.nom||cc,metier:info?.metier||'',commercial:info?.commercial||(fb?.commercial)||''};
 }
 export function _invalidateTerrFBCache(){_terrFBCache=null;}
 
@@ -501,7 +501,7 @@ export function computeReconquestCohort() {
         const artMap = _S.ventesClientArticle?.get(cc);
         if (artMap && artMap.size > 0) continue;
       }
-      const nom = rec?.nom || _S.clientNomLookup?.[cc] || cc;
+      const nom = rec?.nom || cc;
       const metier = rec?.metier || '';
       const commercial = rec?.commercial || _enrichClientInfo(cc).commercial;
       sansPDV.push({ cc, nom, metier, commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
@@ -1098,7 +1098,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     if (!vca && !vcaHors) {
       // Prospect sans achats
       clientDetails.push({
-        cc, nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
+        cc, nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
         cp: chal?.cp || '', commercial: chal?.commercial || '',
         classification: chal?.classification || '', statut: chal?.statut || '',
         ca: 0, nbFamilles: 0, isActif: false,
@@ -1156,7 +1156,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     }
 
     clientDetails.push({
-      cc, nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
+      cc, nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
       cp: chal?.cp || '', commercial: chal?.commercial || '',
       classification: chal?.classification || '', statut: chal?.statut || '',
       ca: clientCA, nbFamilles: clientFamilles.size, isActif: !!(vca && vca.size > 0),
@@ -1321,7 +1321,7 @@ export function computeAnimation(marque) {
     }
     clientsActifs.push({
       cc,
-      nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
+      nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
       metier: chal?.metier || '',
       commercial: chal?.commercial || '',
       cp: chal?.cp || '',
@@ -1351,7 +1351,7 @@ export function computeAnimation(marque) {
 
         clientsProspects.push({
           cc,
-          nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
+          nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
           metier: chal?.metier || '',
           commercial: chal?.commercial || '',
           cp: chal?.cp || '',
@@ -1499,7 +1499,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
         const chal = _S.chalandiseData?.get(cc);
         clientsMap.set(cc, {
           cc,
-          nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
+          nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
           metier: chal?.metier || '',
           commercial: chal?.commercial || '',
           ca: caFam,

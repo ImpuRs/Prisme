@@ -261,7 +261,7 @@ function renderReseauNomades() {
   html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Nom</th><th class="py-1 px-2 text-center">Statut</th></tr></thead><tbody>';
   for (const cc of list.slice(0, 100)) {
     const _rec = _S.clientStore?.get(cc);
-    const nom = _rec?.nom || _S.clientNomLookup[cc] || '—';
+    const nom = _rec?.nom || '—';
     const info = _rec || _S.chalandiseData.get(cc) || {};
     html += `<tr class="border-b b-light hover:i-info-bg"><td class="py-1 px-2 font-mono text-[10px]">${escapeHtml(cc)}</td><td class="py-1 px-2 font-semibold">${escapeHtml(nom)}${_unikLink(cc)}</td><td class="py-1 px-2 text-center">${_clientStatusBadge(cc, info)}</td></tr>`;
   }
@@ -820,7 +820,7 @@ function openNomadeArticleModal(code) {
   // Per-client rows
   let clientRows = '';
   for (const cc of art.clientCodes) {
-    const nom = _S.clientStore?.get(cc)?.nom || _S.clientNomLookup[cc] || (_S.chalandiseData?.get(cc)?.nom) || cc;
+    const nom = _S.clientStore?.get(cc)?.nom || cc;
     const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
     clientRows += `<tr class="border-b b-light hover:i-caution-bg/30">
       <td class="py-1.5 px-3 font-mono text-[11px] whitespace-nowrap" style="color:var(--t-secondary,#94a3b8)">${cc}</td>
@@ -883,7 +883,7 @@ function _copyNomadeClientsClipboard(code) {
   const lines = ['Code client\tNom\tCA ailleurs (estimé)\tCA chez moi'];
   const caParClient = art.nbClients > 0 ? Math.round(art.totalCaOther / art.nbClients) : 0;
   for (const cc of art.clientCodes) {
-    const nom = _S.clientStore?.get(cc)?.nom || _S.clientNomLookup[cc] || _S.chalandiseData?.get(cc)?.nom || cc;
+    const nom = _S.clientStore?.get(cc)?.nom || cc;
     const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
     lines.push(`${cc}\t${nom}\t${caParClient}\t${caMe}`);
   }

@@ -1868,7 +1868,7 @@ function renderAnimCommerciale(code) {
   const clientsActifs = [...(_S.articleClients?.get(code) || [])]
     .map(cc => {
       const d = _S.ventesClientArticle?.get(cc)?.get(code) || {};
-      return { cc, nom: _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || _S.chalandiseData?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
+      return { cc, nom: _S.clientStore?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
     })
     .sort((a, b) => b.ca - a.ca)
     .slice(0, 5);

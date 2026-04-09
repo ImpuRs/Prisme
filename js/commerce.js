@@ -687,7 +687,7 @@ window._ccc = (di,mi,ci) => {
       for(const art of ruptureArts){
         const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
         for(const cc of buyers){
-          const nom=_S.clientStore?.get(cc)?.nom||_S.clientNomLookup[cc]||cc;
+          const nom=_S.clientStore?.get(cc)?.nom||cc;
           const caArt=(DataStore.ventesClientArticle.get(cc)||new Map()).get(art.code);
           if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
           const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
