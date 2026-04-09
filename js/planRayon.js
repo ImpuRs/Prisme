@@ -683,7 +683,7 @@ function _prBuildSqTable(arts) {
 
   const _thSort = (key, label, align = 'text-right') => {
     const active = _prSqSort === key;
-    return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary select-none"
+    return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary"
       style="color:${active ? 'var(--c-action,#8b5cf6)' : 'var(--t-secondary)'};font-weight:${active ? 700 : 500}"
       onclick="window._prSqSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
   };

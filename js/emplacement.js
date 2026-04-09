@@ -94,7 +94,7 @@ function _renderArbitrageRayon(rows) {
   const rdCol = v => v >= 2 ? 'c-ok' : v >= 1 ? 'c-caution' : 'c-danger';
   const arr = k => _empSort.col === k ? (_empSort.asc ? ' \u25b2' : ' \u25bc') : '';
   const th = (label, key, align) =>
-    `<th class="py-2 px-2 ${align} text-[10px] cursor-pointer select-none hover:t-primary whitespace-nowrap" onclick="window._empSortBy('${key}')">${label}${arr(key)}</th>`;
+    `<th class="py-2 px-2 ${align} text-[10px] cursor-pointer hover:t-primary whitespace-nowrap" onclick="window._empSortBy('${key}')">${label}${arr(key)}</th>`;
 
   const rowsHtml = rows.map(r => {
     const deltaSign = r.delta > 0.05 ? '+' : '';
