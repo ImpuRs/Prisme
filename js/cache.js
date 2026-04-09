@@ -92,8 +92,6 @@ export function _saveToCache() {
       selectedMyStore:    _S.selectedMyStore,
       selectedObsCompare: _S.selectedObsCompare,
       obsFilterUnivers:   _S.obsFilterUnivers,
-      periodFilterStart:  _S.periodFilterStart ? _S.periodFilterStart.getTime() : null,
-      periodFilterEnd:    _S.periodFilterEnd   ? _S.periodFilterEnd.getTime()   : null,
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(prefs));
   } catch (e) {
@@ -116,8 +114,7 @@ export function _restoreFromCache() {
     if (prefs.selectedMyStore)    _S.selectedMyStore    = prefs.selectedMyStore;
     if (prefs.selectedObsCompare) _S.selectedObsCompare = prefs.selectedObsCompare;
     if (prefs.obsFilterUnivers)   _S.obsFilterUnivers   = prefs.obsFilterUnivers;
-    if (prefs.periodFilterStart)  _S.periodFilterStart  = new Date(prefs.periodFilterStart);
-    if (prefs.periodFilterEnd)    _S.periodFilterEnd    = new Date(prefs.periodFilterEnd);
+    // periodFilter : restauré depuis IndexedDB uniquement (source de vérité unique)
     console.log('[PRISME] préférences restaurées (agence :', prefs.selectedMyStore || '—', ')');
   } catch (e) {
     console.warn('[PRISME] restauration préférences échouée :', e);
@@ -132,8 +129,7 @@ export function _clearCache() {
   _S.selectedMyStore    = '';
   _S.selectedObsCompare = 'median';
   _S.obsFilterUnivers   = '';
-  _S.periodFilterStart  = null;
-  _S.periodFilterEnd    = null;
+  // periodFilter reset via resetAppState() — pas de double écriture
   const b = document.getElementById('cacheBanner');
   if (b) b.classList.add('hidden');
   const iz = document.getElementById('importZone');

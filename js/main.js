@@ -874,9 +874,8 @@ _S.canalAgence=newCanalAgence;
     _S.consommePeriodMax = r.maxDateVente ? new Date(r.maxDateVente) : null;
     _S.consommePeriodMinFull = _S.consommePeriodMin;
     _S.consommePeriodMaxFull = _S.consommePeriodMax;
-    // Période complète par défaut — l'utilisateur choisit son mois via le filtre (refilter instantané)
-    _S.periodFilterStart = null;
-    _S.periodFilterEnd   = null;
+    // periodFilterStart/End : NE PAS toucher ici — déjà null via resetAppState(),
+    // ou déjà set par applyPeriodFilter() avant un refilter.
 
     // Maps imbriquées
     _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
@@ -925,7 +924,9 @@ _S.canalAgence=newCanalAgence;
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
 
-      // Positionner sur le mois le plus récent par défaut
+      // Positionner sur le mois le plus récent par défaut (INIT ONLY — pas de render ici)
+      // C'est le SEUL endroit hors applyPeriodFilter() qui écrit periodFilterStart/End,
+      // justifié car les données ne sont pas encore prêtes pour un render complet.
       if (_S._byMonth && !_S.periodFilterStart) {
         const _maxD = _S.consommePeriodMaxFull || _S.consommePeriodMax;
         if (_maxD) {

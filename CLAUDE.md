@@ -332,6 +332,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Restaurée au démarrage via `_initFromCache()` dans main.js
 - Exclue si `_S.selectedMyStore` est vide (évite contamination)
 - Exclusions cockpit sauvegardées séparément (pas de TTL)
+- `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
 `finalData`, `ventesClientArticle`, `ventesClientHorsMagasin`, `chalandiseData`,
@@ -339,6 +340,17 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 `canalAgence`, `articleCanalCA`, `seasonalIndex`, `benchLists`, `storesIntersection`,
 `selectedMyStore`, `_selectedCommercial`, `_selectedMetier`, `_globalCanal`,
 `periodFilterStart`, `periodFilterEnd`
+
+### Règle de mutation `periodFilterStart/End`
+
+| Qui écrit | Où | Quand |
+|---|---|---|
+| `resetAppState()` | state.js | Reset complet → `null` |
+| `applyPeriodFilter(start,end)` | main.js | **Setter unique runtime** — refilter + render + save IDB |
+| `_postParseMain()` | main.js | Init post-parse → mois récent si pas déjà set |
+| `_restoreSessionFromIDB()` | cache.js | Hydratation au démarrage |
+
+**NE PAS écrire `_S.periodFilterStart/End` ailleurs.** Toute mutation user doit passer par `applyPeriodFilter()`.
 
 ---
 
