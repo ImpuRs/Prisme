@@ -44,6 +44,12 @@ function _refreshBenchEquation() {
   const _canaux = _S._reseauCanaux || new Set();
   const _mode = _S._reseauMagasinMode || 'all';
   const _getCA = (d) => !d ? 0 : _mode === 'preleve' ? (d.caP || 0) : _mode === 'enleve' ? (d.caE || 0) : (d.ca || 0);
+  const _getVMB = (d) => {
+    if (!d) return 0;
+    if (_mode === 'preleve') return d.sumVMBP || 0;
+    if (_mode === 'enleve')  return Math.max(0, (d.sumVMB || 0) - (d.sumVMBP || 0));
+    return d.sumVMB || 0;
+  };
   const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
   // Bornes période actuelles (filtre explicite prioritaire, sinon preset relatif)
   const _getPeriodBounds = () => {
@@ -96,13 +102,13 @@ function _refreshBenchEquation() {
   if (_canaux.size === 0) {
     _ca = Object.values(_ca_all).reduce((s, d) => s + _getCA(d), 0);
     _nbBL = Object.values(_ca_all).reduce((s, d) => s + (d.bl || 0), 0);
-    _sumVMB = Object.values(_ca_all).reduce((s, d) => s + (d.sumVMB || 0), 0);
+    _sumVMB = Object.values(_ca_all).reduce((s, d) => s + _getVMB(d), 0);
     _nbClients = _countClientsByPeriode() ?? ((_S._clientsTousCanaux instanceof Set && _S._clientsTousCanaux.size > 0) ? _S._clientsTousCanaux.size : (_S.clientLastOrderByCanal?.size || 0));
     _canalLabel = 'Tous canaux';
   } else if (_canaux.size === 1) {
     const _canal = [..._canaux][0];
     const _d = _ca_all[_canal] || {};
-    _ca = _getCA(_d); _nbBL = _d.bl || 0; _sumVMB = _d.sumVMB || 0;
+    _ca = _getCA(_d); _nbBL = _d.bl || 0; _sumVMB = _getVMB(_d);
     _nbClients = _countClientsByPeriode(_canaux);
     if (_nbClients == null) {
       _nbClients = _canal === 'MAGASIN' ? (_S.clientsMagasin?.size || 0) : 0;
@@ -111,7 +117,7 @@ function _refreshBenchEquation() {
     _canalLabel = _LMAP[_canal] || _canal;
   } else {
     _ca = 0; _nbBL = 0; _sumVMB = 0;
-    for (const _c of _canaux) { const _d = _ca_all[_c] || {}; _ca += _getCA(_d); _nbBL += _d.bl || 0; _sumVMB += _d.sumVMB || 0; }
+    for (const _c of _canaux) { const _d = _ca_all[_c] || {}; _ca += _getCA(_d); _nbBL += _d.bl || 0; _sumVMB += _getVMB(_d); }
     _nbClients = _countClientsByPeriode(_canaux) ?? (_S.clientLastOrderByCanal?.size || 0);
     _canalLabel = `${_canaux.size} canaux`;
   }
