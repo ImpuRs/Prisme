@@ -677,11 +677,21 @@ _S.canalAgence=newCanalAgence;
         }
         if(actionPlan.length>0){
           const topActions=actionPlan.slice(0,3);
-          L.push(`${prio}. Développement familles : ${topActions.map(a=>`${a.fam} (${formatEuro(a.caPotentiel)})`).join(', ')}.`);
+          // Fusionner avec lose3 si mêmes familles
+          const loseFams=new Set(lose3.map(f=>f.fam));
+          const alsoLose=topActions.filter(a=>loseFams.has(a.fam));
+          if(alsoLose.length>0){
+            L.push(`${prio}. Familles en retrait réseau : ${topActions.map(a=>`${a.fam} (${formatEuro(a.caPotentiel)} de potentiel, ${loseFams.has(a.fam)?Math.round(lose3.find(f=>f.fam===a.fam)?.ecartPct||0)+'% vs médiane':''})`).join(', ')} — lancer le diagnostic Radar pour comprendre l'écart et identifier les refs à implanter.`);
+          }else{
+            L.push(`${prio}. Développement familles : ${topActions.map(a=>`${a.fam} (${formatEuro(a.caPotentiel)})`).join(', ')}.`);
+          }
+          prio++;
+        }else if(lose3.length>0){
+          L.push(`${prio}. Familles en retrait réseau : ${lose3.map(f=>`${f.fam} (${Math.round(f.ecartPct)}%)`).join(', ')} — lancer le diagnostic Radar.`);
           prio++;
         }
-        if(lose3.length>0&&prio<=4){
-          L.push(`${prio}. Investigation sous-performance : ${lose3.map(f=>f.fam).join(', ')} — utiliser le diagnostic Radar pour comprendre l'écart.`);
+        if(manquantsHF>0&&prio<=4){
+          L.push(`${prio}. Référencement : ${manquantsHF} articles en forte rotation réseau absents de notre rayon — consulter l'onglet Radar pour prioriser les implantations.`);
         }
       }
     }
