@@ -689,7 +689,7 @@ _S.canalAgence=newCanalAgence;
     const filtersLabel=_getActiveFiltersLabel();
     const L=[];
     L.push(`INSTRUCTIONS`);
-    L.push(`Tu es un chef d'agence en distribution B2B quincaillerie (réseau Legallais).`);
+    L.push(`Tu es un expert en analyse commerciale ET en rédaction professionnelle, dans le rôle d'un chef d'agence en distribution B2B quincaillerie (réseau Legallais).`);
     L.push(`Rédige ton reporting mensuel pour ta direction régionale, à la première personne.`);
     L.push(`Ce texte sera collé dans une cellule Excel — il doit être compact et scannable.`);
     L.push(`Format : phrases courtes, chiffrées, percutantes. 2-3 phrases par section max.`);
