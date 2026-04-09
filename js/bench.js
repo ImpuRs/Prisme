@@ -430,11 +430,11 @@ function renderObservatoire(){
   const _kpiCanalNames={MAGASIN:'en prélevé comptoir',INTERNET:'sur Internet',REPRESENTANT:'par représentant',DCS:'en DCS',AUTRE:'sur autre canal'};
   const _refTip=_kpiRcSet.size===0?'Nombre d\'articles différents vendus au moins 1 fois sur la période.':_kpiRcSet.size===1?`Nombre d\'articles différents vendus au moins 1 fois ${_kpiCanalNames[[..._kpiRcSet][0]]||'sur le canal sélectionné'} sur la période.`:`Nombre d\'articles différents vendus au moins 1 fois sur les canaux sélectionnés sur la période.`;
   const kpiDefs=[
-    {label:'💰 CA vendu',   key:'ca',     fmt:'euro', tip:'CA canal MAGASIN (Prélevé + Enlevé) sur la période du consommé. Avoirs déduits.',                                                                                                          g1:'#7c3aed',g2:'#4f46e5'},
-    {label:'📦 Réf actives',key:'ref',    fmt:'num',  tip:_refTip,                                                                                                                                                                                      g1:'#0891b2',g2:'#0e7490'},
-    {label:'🔄 Fréquence',  key:'freq',   fmt:'num',  tip:'Nombre total de lignes de vente (BL) sur la période. Mesure l\'activité comptoir.',                                                                                                           g1:'#059669',g2:'#047857'},
-    {label:'🎯 PDM bassin', key:'pdm',    fmt:'pct',  tip:'Part de marché dans le bassin de comparaison. Mon CA total ÷ CA total bassin × 100. Indique votre poids relatif dans le réseau sélectionné.',                                                g1:'#d97706',g2:'#b45309'},
-    {label:'📈 Tx marge',   key:'txMarge',fmt:'pct2', tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.',                               g1:'#dc2626',g2:'#b91c1c'}
+    {label:'💰 CA vendu',       key:'ca',          fmt:'euro', tip:'CA tous canaux (Prélevé + Enlevé) sur la période. Avoirs déduits.',                                                                                            g1:'#7c3aed',g2:'#4f46e5'},
+    {label:'📦 Réf actives',    key:'ref',         fmt:'num',  tip:_refTip,                                                                                                                                                        g1:'#0891b2',g2:'#0e7490'},
+    {label:'🛒 Panier moyen',   key:'panierMoyen', fmt:'euro', tip:'CA total ÷ nombre de clients actifs sur la période. Mesure l\'intensité commerciale par client.',                                                               g1:'#059669',g2:'#047857'},
+    {label:'🎯 Taux de service',key:'serv',        fmt:'pct',  tip:'% des articles vendus par le réseau que vous vendez aussi. 100% = vous couvrez toute la gamme réseau. Indique vos trous de gamme.',                             g1:'#d97706',g2:'#b45309'},
+    {label:'📈 Tx marge',       key:'txMarge',     fmt:'pct2', tip:'Taux de marge brute = VMB total ÷ CA total × 100. Source : colonnes VMB Prélevé / VMB Enlevé du consommé. Indique qui vend le mieux, pas seulement le plus.', g1:'#dc2626',g2:'#b91c1c'}
   ];
   const cardsHtml=kpiDefs.map(r=>{
     const me=kpis.mine[r.key]||0,comp=kpis.compared[r.key]||0;
@@ -461,7 +461,7 @@ function renderObservatoire(){
   const _tipEl=el('kpiDiagTip');
   if(_tipEl&&kpis){
     const _pct=(key)=>{const me=kpis.mine[key]||0,c=kpis.compared[key]||0;return c>0?Math.round((me-c)/c*100):(me>0?100:0);};
-    const diag=generateNetworkDiagnostic(_pct('ca'),_pct('ref'),_pct('freq'));
+    const diag=generateNetworkDiagnostic(_pct('ca'),_pct('ref'),_pct('serv'));
     _tipEl.dataset.tip=`${diag.icon} ${diag.title} — ${diag.message}`;
   }
   const diagEl=el('obsNetworkDiag');if(diagEl)diagEl.innerHTML='';
