@@ -48,16 +48,26 @@ function _refreshBenchEquation() {
   // Compte les clients uniques depuis _byMonthClients en respectant _globalPeriodePreset
   const _countClientsByPeriode = () => {
     if (!_S._byMonthClients) return null;
-    const _now = new Date();
-    const _nowIdx = _now.getFullYear() * 12 + _now.getMonth();
-    const _preset = _S._globalPeriodePreset || '12M';
-    const _startIdx = _preset === 'YTD' ? _now.getFullYear() * 12
-                    : _preset === '6M'  ? _nowIdx - 5
-                    :                     _nowIdx - 11; // 12M
+    // Priorité 1 : filtre période explicite (periodFilterStart/End)
+    // Priorité 2 : preset relatif (12M/6M/YTD) par rapport à aujourd'hui
+    let _startIdx, _endIdx;
+    if (_S.periodFilterStart || _S.periodFilterEnd) {
+      const _ps = _S.periodFilterStart, _pe = _S.periodFilterEnd;
+      _startIdx = _ps ? (_ps.getFullYear() * 12 + _ps.getMonth()) : -Infinity;
+      _endIdx   = _pe ? (_pe.getFullYear() * 12 + _pe.getMonth()) : Infinity;
+    } else {
+      const _now = new Date();
+      const _nowIdx = _now.getFullYear() * 12 + _now.getMonth();
+      const _preset = _S._globalPeriodePreset || '12M';
+      _startIdx = _preset === 'YTD' ? _now.getFullYear() * 12
+                : _preset === '6M'  ? _nowIdx - 5
+                :                     _nowIdx - 11; // 12M
+      _endIdx = _nowIdx;
+    }
     const _set = new Set();
     for (const midxStr in _S._byMonthClients) {
       const midx = +midxStr;
-      if (midx < _startIdx || midx > _nowIdx) continue;
+      if (midx < _startIdx || midx > _endIdx) continue;
       for (const cc of _S._byMonthClients[midxStr]) _set.add(cc);
     }
     return _set.size;
