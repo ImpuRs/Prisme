@@ -537,41 +537,56 @@ function renderObservatoire(){
   const _famOf = code => famLib(_S.articleFamille[code])||'—';
   const _med = arr => { if(!arr.length)return 0; const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
   const _curAg = _pepAgTab || myAg2;
+  // ── Agréger données période-filtrées depuis _byMonthStoreArtCanal ──
+  // Construit un vpm période-filtré pour TOUTES les agences (pas juste myStore)
+  const bmsac = _S._byMonthStoreArtCanal;
+  const pStart = _S.periodFilterStart, pEnd = _S.periodFilterEnd;
+  const _hasPeriod = !!(bmsac && (pStart || pEnd));
+  const _pStartIdx = pStart ? (pStart.getFullYear()*12 + pStart.getMonth()) : 0;
+  const _pEndIdx   = pEnd   ? (pEnd.getFullYear()*12   + pEnd.getMonth())   : 999999;
+  // vpmFiltered : {store → {code → {sumPrelevee, sumCA, countBL}}}
+  const _vpmFiltered = {};
+  if (_hasPeriod) {
+    for (const store in bmsac) {
+      const canalMap = bmsac[store];
+      for (const canal in canalMap) {
+        const codeMap = canalMap[canal];
+        for (const code in codeMap) {
+          if (!/^\d{6}$/.test(code)) continue;
+          const months = codeMap[code];
+          let sumCA=0, sumPrel=0, countBL=0;
+          for (const midxStr in months) {
+            const midx = +midxStr;
+            if (midx < _pStartIdx || midx > _pEndIdx) continue;
+            const d = months[midxStr];
+            sumCA   += d.sumCA||0;
+            sumPrel += d.sumPrelevee||0;
+            countBL += d.countBL||0;
+          }
+          if (!countBL && !sumCA) continue;
+          if (!_vpmFiltered[store]) _vpmFiltered[store] = {};
+          const prev = _vpmFiltered[store][code];
+          if (prev) { prev.sumCA += sumCA; prev.sumPrelevee += sumPrel; prev.countBL += countBL; }
+          else _vpmFiltered[store][code] = { sumCA, sumPrelevee: sumPrel, countBL };
+        }
+      }
+    }
+  }
+  // Source finale : période-filtrée si dispo, sinon ventesParMagasin (pleine période)
+  const _vpmSrc = store => (_hasPeriod ? _vpmFiltered[store] : _S.ventesParMagasin[store]) || {};
   // Médiane réseau par article — excluant l'agence active, zeros ignorés pour Qté
   const _netBL = {}, _netQte = {};
-  for (const [ag, artMap] of Object.entries(_S.ventesParMagasin)) {
-    if (ag === _curAg) continue;
+  const _otherAgs = [...(_S.storesIntersection || [])].filter(a => a !== _curAg);
+  for (const ag of _otherAgs) {
+    const artMap = _vpmSrc(ag);
     for (const [code, d] of Object.entries(artMap)) {
       if (!/^\d{6}$/.test(code)) continue;
       (_netBL[code]||(_netBL[code]=[])).push(d.countBL||0);
       if ((d.sumPrelevee||0) > 0) (_netQte[code]||(_netQte[code]=[])).push(d.sumPrelevee);
     }
   }
-  // Filtre période via _byMonth (myStore uniquement, MAGASIN)
-  let _byMonthByCode = null;
-  if (_S._byMonth && _curAg === myAg2) {
-    const pStart = _S.periodFilterStart, pEnd = _S.periodFilterEnd;
-    const startIdx = pStart ? (pStart.getFullYear()*12 + pStart.getMonth()) : 0;
-    const endIdx   = pEnd   ? (pEnd.getFullYear()*12   + pEnd.getMonth())   : 999999;
-    _byMonthByCode = {};
-    for (const ccMap of Object.values(_S._byMonth)) {
-      for (const [code, midxMap] of Object.entries(ccMap)) {
-        for (const [midxStr, d] of Object.entries(midxMap)) {
-          const midx = +midxStr;
-          if (midx < startIdx || midx > endIdx) continue;
-          const e = _byMonthByCode[code] || (_byMonthByCode[code] = {sumPrelevee:0, sumCA:0, countBL:0});
-          e.sumPrelevee += d.sumPrelevee||0;
-          e.sumCA       += d.sumCA||0;
-          e.countBL     += d.countBL||0;
-        }
-      }
-    }
-  }
-  // finalData lookup pour myQte fallback (myStore uniquement)
-  const _fMap = {};
-  if (_curAg === myAg2) (_S.finalData||[]).forEach(r => { _fMap[r.code] = r; });
-  // Construction pépites
-  const agVpm = _S.ventesParMagasin[_curAg] || {};
+  // Construction pépites — tout depuis la même source (période-filtrée ou pleine)
+  const agVpm = _vpmSrc(_curAg);
   const rawPep = [];
   for (const [code, vpmD] of Object.entries(agVpm)) {
     if (!/^\d{6}$/.test(code)) continue;
@@ -580,17 +595,10 @@ function renderObservatoire(){
     const medFreq = _med(_netBL[code]||[]);
     if (medFreq <= 0 || myFreq <= medFreq * 1.5) continue;
     if (_obsCanal && !_S.articleCanalCA.get(code)?.has(_obsCanal)) continue;
-    let myQte;
-    if (_byMonthByCode) {
-      myQte = Math.round(_byMonthByCode[code]?.sumPrelevee || 0);
-    } else if (_fMap[code]) {
-      myQte = Math.round(_fMap[code].V || 0);
-    } else {
-      myQte = Math.round(vpmD.sumPrelevee || 0);
-    }
-    const compQte   = Math.round(_med(_netQte[code]||[]));
-    const caMe      = Math.round(vpmD.sumCA || 0);
-    const ecartPct  = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / medFreq - 1) * 100);
+    const myQte    = Math.round(vpmD.sumPrelevee || 0);
+    const compQte  = Math.round(_med(_netQte[code]||[]));
+    const caMe     = Math.round(vpmD.sumCA || 0);
+    const ecartPct = compQte > 0 ? Math.round((myQte / compQte - 1) * 100) : Math.round((myFreq / medFreq - 1) * 100);
     rawPep.push({ code, lib: _libOf(code), fam: _famOf(code), myFreq, compFreq: Math.round(medFreq), myQte, compQte, ecartPct, caMe });
   }
   _renderedPepites = rawPep;

@@ -832,8 +832,8 @@ export function computeBenchmark(canaux = new Set()) {
   }
   // Build per-code frequency + CA lists across cs stores (one pass)
   const _pepCsFreqs = {}, _pepCsCA = {}, _pepCsQte = {};
-  // _pepCsQte : depuis ventesParMagasin (sumPrelevee = qty réelle, pas CA)
-  for (const store of cs) { const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; _pepCsQte[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); _pepCsQte[code].push((_S.ventesParMagasin[store]?.[code]?.sumPrelevee) || 0); } }
+  // _pepCsQte : depuis vpm (période-filtrée, cohérent avec _pepMyStore)
+  for (const store of cs) { const sv = vpm[store] || {}; for (const [code, data] of Object.entries(sv)) { if (!/^\d{6}$/.test(code) || !(data.countBL > 0)) continue; if (!_pepCsFreqs[code]) { _pepCsFreqs[code] = []; _pepCsCA[code] = []; _pepCsQte[code] = []; } _pepCsFreqs[code].push(data.countBL); _pepCsCA[code].push(artCA(data)); _pepCsQte[code].push(data.sumPrelevee || 0); } }
   const _pepLib = code => { const r = _S.libelleLookup[code] || code; return /^\d{6} - /.test(r) ? r.substring(9).trim() : r; };
   // 💎 Mes pépites — I outperform
   const pepites = [];
