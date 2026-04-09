@@ -1685,7 +1685,8 @@ function _buildCockpitClient(){
   }
   silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
   perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
-  jamaisVenus.sort((a,b)=>(b.ca2025||0)-(a.ca2025||0));
+  const _classifPrio={'FID Pot+':0,'OCC Pot+':1,'FID Pot-':2,'OCC Pot-':3,'NC':4};
+  jamaisVenus.sort((a,b)=>(_classifPrio[a.classification]??5)-(_classifPrio[b.classification]??5)||(b.ca2025||0)-(a.ca2025||0));
   _S._cockpitExportData={silencieux,perdus,jamaisVenus};
   // ── Helpers ──
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
@@ -1695,8 +1696,10 @@ function _buildCockpitClient(){
     const daysBadge=c._daysSince>30?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(248,113,113,0.12);color:var(--c-danger)">⏰ ${c._daysSince}j</span>`:'';
     const caMagFmt=c.caPDVN>0?`${formatEuro(c.caPDVN)} MAG`:'—';
     const caLegFmt=c.ca2025>0?`<span style="font-size:var(--fs-xs);font-weight:600;color:var(--c-caution)">${formatEuro(c.ca2025)} Legallais</span>`:'';
+    const _classifColors={'FID Pot+':'background:rgba(16,185,129,0.2);color:#34d399','OCC Pot+':'background:rgba(59,130,246,0.2);color:#60a5fa','FID Pot-':'background:rgba(107,114,128,0.2);color:#9ca3af','OCC Pot-':'background:rgba(107,114,128,0.15);color:#9ca3af'};
+    const classifBadge=c.classification&&_classifColors[c.classification]?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;${_classifColors[c.classification]}">${c.classification}</span>`:'';
     const meta=[c.commercial?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${escapeHtml(c.commercial)}</span>`:'',lastOrderFmt?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${lastOrderFmt}</span>`:''].filter(Boolean).join('<span style="color:var(--b-default);margin:0 4px">·</span>');
-    return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span>${daysBadge}</div><div class="flex items-center gap-3 mt-1 flex-wrap"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMagFmt}</span>${caLegFmt}${meta?`<span>${meta}</span>`:''}</div></div>`;
+    return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span><span class="flex items-center gap-1.5">${classifBadge}${daysBadge}</span></div><div class="flex items-center gap-3 mt-1 flex-wrap"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMagFmt}</span>${caLegFmt}${meta?`<span>${meta}</span>`:''}</div></div>`;
   }
   function _fullTable(clients,caField,listId){
     let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Legallais</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
