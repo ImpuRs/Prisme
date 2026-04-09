@@ -297,7 +297,7 @@ _S.canalAgence=newCanalAgence;
     });
 
     buildClientStore({ pdvOnly: true });
-    if (_S.storesIntersection.size > 1) buildAgenceStore();
+    // agenceStore déjà rebuilt par computeBenchmark (ligne 283)
     invalidateCache('tab','terr');
     }finally{_refilterRunning=false;}
   }
@@ -1067,7 +1067,7 @@ _S.canalAgence=newCanalAgence;
 
       computeClientCrossing();computeReconquestCohort();
       buildClientStore(); // store client initial (avant chalandise/omni éventuels)
-      if (useMulti) buildAgenceStore(); // store agence (avant computeBenchmark)
+      // agenceStore rebuilt par computeBenchmark (ligne 1038 + renderBenchmark ci-dessous)
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
@@ -1506,7 +1506,7 @@ _S.canalAgence=newCanalAgence;
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       buildClientStore();
-      if (useMulti) buildAgenceStore();
+      // agenceStore rebuilt par computeBenchmark (ligne 1514 + renderBenchmark)
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
