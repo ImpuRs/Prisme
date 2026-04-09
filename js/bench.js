@@ -327,7 +327,7 @@ function renderNomadesMissedArts() {
     el.innerHTML = `<p class="t-disabled text-sm p-4">${isMulti ? 'Aucune opportunité cross-agence significative détectée sur la période.' : 'Aucune donnée — nécessite un fichier multi-agences avec clients communs.'}</p>`;
     return;
   }
-  let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par vos clients <strong>dans d'autres agences</strong> mais jamais chez vous — filtrés ≥ 150 € et ≥ 2 BL chez l'autre agence, triés par CA autre agence.</p>`;
+  let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par <strong>≥ 2 de vos clients</strong> dans d'autres agences mais jamais chez vous — triés par CA autre agence.</p>`;
   html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold sticky top-0"><tr>';
   html += '<th class="py-2 px-3 text-left">Code</th>';
   html += '<th class="py-2 px-3 text-left">Libellé</th>';

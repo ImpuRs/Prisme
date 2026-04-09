@@ -977,7 +977,7 @@ export function _reseauWorker() {
 
     // Finaliser : filtrer par seuils CA et BL, trier par CA autre agence DESC
     const nomadesMissedArts = Object.entries(missedByArt)
-      .filter(([, d]) => d.totalCaOther >= CROSS_AGENCE_MIN_CA && d.totalBLOther >= CROSS_AGENCE_MIN_BL)
+      .filter(([, d]) => d.clients.size >= 2 && d.totalCaOther >= CROSS_AGENCE_MIN_CA && d.totalBLOther >= CROSS_AGENCE_MIN_BL)
       .map(([code, d]) => {
         const caValues = Object.values(d.caByStore);
         const caMedian = caValues.length
