@@ -213,6 +213,8 @@ _S.reconquestCohort = [];
 _S.livraisonsData = new Map();   // cc → { ca, vmb, bl:Set, articles:Map, lastDate }
 _S.livraisonsReady = false;
 _S.livraisonsClientCount = 0;
+_S.livraisonsDateMin = null;  // Date — début période Livraisons (pour alignement captation)
+_S.livraisonsDateMax = null;  // Date — fin période Livraisons
 
 // ── Client aggregation (Worker B1) ──
 _S.clientFamCA = {};       // cc → {fam → caTotal}
@@ -228,6 +230,7 @@ _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, to
 
 // ── Accumulation mensuelle pour filtre période instantané ──
 _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
+_S._byMonthFull = null;     // accumulation mensuelle cc→code→monthIdx→{sumCA} (TOUS canaux, myStore)
 _S._byMonthCanal = null;    // accumulation mensuelle store→canal→monthIdx→agg
 _S._byMonthStoreArtCanal = null; // accumulation mensuelle store→canal→code→monthIdx→agg (rebuild ventesParMagasinByCanal période)
 _S._byMonthClients = null;  // accumulation mensuelle monthIdx→Set<cc> — tous canaux, pleine période
@@ -373,7 +376,7 @@ export function resetAppState() {
   _S.livraisonsSansPDV = [];
 
   // Livraisons
-  _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0;
+  _S.livraisonsData = new Map(); _S.livraisonsReady = false; _S.livraisonsClientCount = 0; _S.livraisonsDateMin = null; _S.livraisonsDateMax = null;
   _S._livSansPDVPage = 1;
   _S._oppNettePage = 1;
 
@@ -401,7 +404,7 @@ export function resetAppState() {
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._bufC = null; _S._bufS = null;
-  _S._byMonth = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
+  _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S.clientOmniScore = new Map();

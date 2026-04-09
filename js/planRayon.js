@@ -23,6 +23,27 @@ const _prDistOk = (cc) => {
   if (!info || info.distanceKm == null) return true;
   return info.distanceKm <= _prMetierDist;
 };
+// Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
+const _prLivMonthRange = () => {
+  const dMin = _S.livraisonsDateMin, dMax = _S.livraisonsDateMax;
+  if (!dMin || !dMax) return null;
+  return { min: dMin.getFullYear() * 12 + dMin.getMonth(), max: dMax.getFullYear() * 12 + dMax.getMonth() };
+};
+// CA agence par client×article filtré sur la période Livraisons (via byMonthFull)
+// Retourne sumCA sur les mois couverts par Livraisons ; fallback: ventesClientArticleFull.sumCA
+const _prClientArtCA = (cc, code, range) => {
+  if (range && _S._byMonthFull?.[cc]?.[code]) {
+    const months = _S._byMonthFull[cc][code];
+    let ca = 0;
+    for (const midx in months) {
+      if (+midx >= range.min && +midx <= range.max) ca += months[midx].sumCA;
+    }
+    return ca;
+  }
+  // Fallback: données agrégées pleine période
+  const full = (_S.ventesClientArticleFull || _S.ventesClientArticle);
+  return full?.get(cc)?.get(code)?.sumCA || 0;
+};
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
@@ -869,7 +890,8 @@ function _prRenderMetiers(fam) {
     mapClients.get(metier).add(cc);
   };
 
-  // 1) Mon agence — ventesClientArticleFull (tous canaux consommé : MAGASIN + DCS + REP + INTERNET)
+  // 1) Mon agence — CA aligné sur la période Livraisons si disponible
+  const _livRange = _prLivMonthRange();
   const vcaFull = _S.ventesClientArticleFull?.size
     ? _S.ventesClientArticleFull
     : _S.ventesClientArticle;
@@ -881,7 +903,7 @@ function _prRenderMetiers(fam) {
       let caFam = 0;
       for (const [code, v] of artMap) {
         if (!_matchFam(code)) continue;
-        caFam += v.sumCA || 0;
+        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCA || 0);
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
@@ -899,7 +921,7 @@ function _prRenderMetiers(fam) {
       let caFam = 0;
       for (const [code, v] of artMap) {
         if (!_matchFam(code)) continue;
-        caFam += v.sumCA || 0;
+        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (v.sumCA || 0);
       }
       if (caFam > 0) {
         _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
@@ -2114,6 +2136,7 @@ function _prBuildDiagText(codeFam) {
       return true;
     };
     const _distLabel = _prMetierDist ? ` (rayon ${_prMetierDist} km)` : '';
+    const _livRangeDiag = _prLivMonthRange();
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
       if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
@@ -2121,7 +2144,7 @@ function _prBuildDiagText(codeFam) {
       let caFam = 0;
       for (const [code, data] of artMap) {
         if (!_matchFamDiag(code)) continue;
-        caFam += data.sumCA || 0;
+        caFam += _livRangeDiag ? _prClientArtCA(cc, code, _livRangeDiag) : (data.sumCA || 0);
       }
       if (caFam > 0) {
         metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
@@ -2137,7 +2160,7 @@ function _prBuildDiagText(codeFam) {
         let caFam = 0;
         for (const [code, data] of artMap) {
           if (!_matchFamDiag(code)) continue;
-          caFam += data.sumCA || 0;
+          caFam += _livRangeDiag ? _prClientArtCA(cc, code, _livRangeDiag) : (data.sumCA || 0);
         }
         if (caFam > 0) {
           metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
@@ -2355,7 +2378,8 @@ function _prBuildLLMPack(codeFam) {
     const metierLivCA = new Map();
     const metierLivCli = new Map();
     const metierAgCA = new Map();
-    // Mon agence pour calcul captation (filtré distance)
+    const _livRangeLLM = _prLivMonthRange();
+    // Mon agence pour calcul captation (filtré distance + période alignée Livraisons)
     for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
       if (!_prDistOk(cc)) continue;
       const info = _S.chalandiseData?.get(cc);
@@ -2365,7 +2389,7 @@ function _prBuildLLMPack(codeFam) {
       for (const [code, data] of artMap) {
         const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
         if (cf !== codeFam) continue;
-        caFam += data.sumCA || 0;
+        caFam += _livRangeLLM ? _prClientArtCA(cc, code, _livRangeLLM) : (data.sumCA || 0);
       }
       if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
     }
@@ -2380,7 +2404,7 @@ function _prBuildLLMPack(codeFam) {
         for (const [code, data] of artMap) {
           const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
           if (cf !== codeFam) continue;
-          caFam += data.sumCA || 0;
+          caFam += _livRangeLLM ? _prClientArtCA(cc, code, _livRangeLLM) : (data.sumCA || 0);
         }
         if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
       }
