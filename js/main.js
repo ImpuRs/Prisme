@@ -10,7 +10,7 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery, buildSparklineSVG, buildDeltaBadge } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery, buildSparklineSVG } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeReseauHeatmap, computeOmniScores, computeFamillesHors } from './engine.js';
 import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
@@ -1805,12 +1805,6 @@ _S.canalAgence=newCanalAgence;
         if(DataStore.finalData.some(r=>r.code===code))months.forEach((v,i)=>{_monthlyCA[i]+=v;});
       }
       const _sparklineCA=buildSparklineSVG(_monthlyCA,{color:'rgba(255,255,255,0.7)',width:100,height:24,filled:true});
-      // Delta M vs M-1
-      const _now=new Date();const _curMIdx=_now.getFullYear()*12+_now.getMonth();const _prevMIdx=_curMIdx-1;
-      let _caCurrentMonth=0,_caPrevMonth=0;
-      const _bmc=_S._byMonthCanal;
-      if(_bmc){for(const store in _bmc){if(_S.selectedMyStore&&store!=='INCONNU'&&store!==_S.selectedMyStore)continue;const mag=_bmc[store]?.['MAGASIN'];if(!mag)continue;for(const midxStr in mag){const midx=+midxStr;if(midx===_curMIdx)_caCurrentMonth+=mag[midxStr].sumCA||0;if(midx===_prevMIdx)_caPrevMonth+=mag[midxStr].sumCA||0;}}}
-      const _deltaBadge=buildDeltaBadge(_caCurrentMonth,_caPrevMonth,{format:'pct'});
       // Read health score data from renderHealthScore (already computed)
       const fd=dataSource;const _totalRefs=fd.length;
       const _rup=fd.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent).length;
@@ -1857,7 +1851,6 @@ _S.canalAgence=newCanalAgence;
     <div class="hero-value-num kpi-update">${formatEuro(totalValue)}</div>
     <div class="hero-value-sub">
       <span>${DataStore.finalData.length.toLocaleString('fr')} réf.</span>
-      ${_deltaBadge ? `<span>${_deltaBadge} vs mois préc.</span>` : ''}
     </div>
   </div>
   <div class="hero-divider"></div>
