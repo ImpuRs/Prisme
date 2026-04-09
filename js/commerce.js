@@ -1681,80 +1681,67 @@ function _buildCockpitClient(){
   const silEl=document.getElementById('terrSilencieux');
   const perduEl=document.getElementById('terrPerdus');
   const capEl=document.getElementById('terrACapter');
-  if(!_S.chalandiseReady){
-    // Mode dégradé — pas de chalandise, utiliser clientLastOrder directement
-    if(!_S.clientLastOrder?.size){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
-    const _todayDeg=new Date();
-    const silDeg=[],perduDeg=[];
-    for(const[cc,lastOrder]of _S.clientLastOrder.entries()){
-      const artMap=_S.ventesClientArticle?.get(cc);
-      const caPDVN=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-      if(!caPDVN)continue;
-      const daysSince=Math.round((_todayDeg-lastOrder)/86400000);
-      const nom=_S.clientNomLookup?.[cc]||cc;
-      const c={code:cc,nom,metier:'',commercial:'',classification:'',ca2025:0,caPDVN,ville:'',_strat:false,_daysSince:daysSince,_lastOrderDate:lastOrder};
-      if(daysSince>30&&daysSince<=60)silDeg.push(c);
-      else if(daysSince>60&&daysSince<=180)perduDeg.push(c);
-    }
-    silDeg.sort((a,b)=>(b.caPDVN||0)-(a.caPDVN||0));
-    perduDeg.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caPDVN||0)-(a.caPDVN||0));
-    _S._cockpitExportData={silencieux:silDeg,perdus:perduDeg,jamaisVenus:[]};
-    const emptyMsgDeg='Aucun client dans cette catégorie';
-    function _clientCardDeg(c,reason,scoreColor){const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';const daysBadge=c._daysSince>30?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(248,113,113,0.12);color:var(--c-danger)">⏰ ${c._daysSince}j</span>`:'';const caMag=c.caPDVN>0?formatEuro(c.caPDVN):'—';return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span>${daysBadge}</div><div class="flex items-center gap-3 mt-1"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMag}</span>${lastOrderFmt?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${lastOrderFmt}</span>`:''}</div></div>`;}
-    const _GDEG={amber:{bg:'background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06))',hdr:'background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12))',border:'border:1px solid rgba(217,119,6,0.3)',color:'#fbbf24',badgeBg:'rgba(217,119,6,0.7)'},rouge:{bg:'background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06))',hdr:'background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12))',border:'border:1px solid rgba(220,38,38,0.3)',color:'#f87171',badgeBg:'rgba(220,38,38,0.7)'}};
-    function renderBlockDeg(title,emoji,gradKey,scoreColor,clients,raisonFn){const g=_GDEG[gradKey]||_GDEG.amber;if(!clients.length)return`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:10px;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5)">0</span></div><p class="text-xs t-disabled px-4 pb-4 pt-3">${emptyMsgDeg}</p></div>`;let html=`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px"><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;background:${g.badgeBg};color:white">${clients.length}</span></div><div class="space-y-2 px-4 py-3">`;for(const c of clients.slice(0,10))html+=_clientCardDeg(c,raisonFn(c),scoreColor);html+=`</div></div>`;return html;}
-    if(silEl)silEl.innerHTML=renderBlockDeg(`Silencieux — 30 à 60 jours sans commande Magasin`,'⏰','amber','c-caution',silDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA Magasin`);
-    if(perduEl)perduEl.innerHTML=renderBlockDeg(`Perdus — 60 à 180 jours sans commande Magasin`,'🔴','rouge','c-danger',perduDeg,c=>`${c._daysSince}j sans commande — ${formatEuro(c.caPDVN)} CA historique`);
-    if(capEl)capEl.innerHTML='';
-    return;
-  }
-  // ── Collect 3 categories from chalandise ──
-  const silencieux=[],perdus=[],jamaisVenus=[];
+  if(!_S.clientStore?.size&&!_S.clientLastOrder?.size){if(silEl)silEl.innerHTML='';if(perduEl)perduEl.innerHTML='';if(capEl)capEl.innerHTML='';return;}
+
+  // ── Canal-aware date picking ──
+  const _canal=_S._globalCanal||'';
+  const _useByCanal=_canal&&_canal!=='MAGASIN';
+  const _useMagOnly=_canal==='MAGASIN';
+  const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
   const _today=new Date();
+
+  function _pickLastOrder(rec){
+    if(_useMagOnly) return rec.lastOrderPDV||(rec.lastOrderByCanal?.get('MAGASIN'))||null;
+    if(_useByCanal) return rec.lastOrderByCanal?.get(_canal)||null;
+    return rec.lastOrderAll||null;
+  }
+
+  // ── Filtres ──
   const {activeFilters:{commercial:_cockpitCom}}=DataStore.byContext();
   const _cockpitComSet=_cockpitCom?(_S.clientsByCommercial.get(_cockpitCom)||new Set()):null;
-  // ── Canal-aware date source ──
-  const _canal=_S._globalCanal||'';
-  const _useByCanal=_canal&&_canal!=='MAGASIN'; // specific non-MAGASIN canal
-  const _useMagOnly=_canal==='MAGASIN';
-  // _useByCanal=false & _useMagOnly=false → '' (Tous) → clientLastOrderAll
-  const _tcsCK=(_S._terrClientSearch||'').toLowerCase();const _mCK=cc=>!_tcsCK||(cc||'').includes(_tcsCK)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCK);
-  for(const[cc,info] of _S.chalandiseData.entries()){
-    if(!_clientPassesFilters(info,cc))continue;
-    if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-    if(!_passesClientCrossFilter(cc))continue;
-    if(_S.excludedClients.has(cc))continue;
-    if(_cockpitComSet&&!_cockpitComSet.has(cc))continue;
-    if(!_passesAllFilters(cc))continue;
-    if(!_mCK(cc))continue;
-    // CA MAG = ventesClientArticle (MAGASIN, prélevé) — chiffre visible sur la fiche client
-    const _magArtData=_S.ventesClientArticle?.get(cc);
-    const caMagR=_magArtData?[..._magArtData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-    const caPDVN=caMagR;
-    // Pick last order date based on canal filter
-    let lastOrder=null;
-    if(_useMagOnly){
-      lastOrder=_S.clientLastOrder.get(cc)||((_S.clientLastOrderByCanal.get(cc)||new Map()).get('MAGASIN'))||null;
-    }else if(_useByCanal){
-      const cMap=_S.clientLastOrderByCanal.get(cc);
-      lastOrder=cMap?cMap.get(_canal)||null:null;
+  const _tcsCK=(_S._terrClientSearch||'').toLowerCase();
+  const _mCK=rec=>!_tcsCK||rec.cc.includes(_tcsCK)||rec.nom.toLowerCase().includes(_tcsCK);
+
+  // ── Collect 3 categories ──
+  const silencieux=[],perdus=[],jamaisVenus=[];
+  const hasChal=_S.chalandiseReady;
+
+  for(const rec of _S.clientStore.values()){
+    // Filtres chalandise (si chargée)
+    if(hasChal){
+      if(!rec.inChalandise&&!rec.isPDVActif)continue; // ni chalandise ni PDV actif → skip
+      if(rec.inChalandise){
+        const info=_S.chalandiseData.get(rec.cc);
+        if(info&&!_clientPassesFilters(info,rec.cc))continue;
+        if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
+        if(!_passesClientCrossFilter(rec.cc))continue;
+      }
     }else{
-      const allInfo=_S.clientLastOrderAll.get(cc);
-      lastOrder=allInfo?allInfo.date:null;
+      // Mode dégradé : seulement les clients avec CA PDV
+      if(!rec.caPDV)continue;
     }
-    const _minC3=_S.consommePeriodMinFull||_S.consommePeriodMin;
-    const _lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
-    const daysSince=_lastOrderValid?daysBetween(lastOrder,_today):null;
-    const caLeg=info.ca2025||0;
-    const c={code:cc,nom:info.nom||'',metier:info.metier||'',commercial:info.commercial||'',classification:info.classification||'',ca2025:caLeg,caPDVN,ville:info.ville||'',_strat:_isMetierStrategique(info.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
-    // 1. Silencieux : 30-60j sans commande sur le canal filtré
+    if(_S.excludedClients.has(rec.cc))continue;
+    if(_cockpitComSet&&!_cockpitComSet.has(rec.cc))continue;
+    if(hasChal&&!_passesAllFilters(rec.cc))continue;
+    if(!_mCK(rec))continue;
+
+    // Date + jours de silence
+    const lastOrder=_pickLastOrder(rec);
+    const lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
+    const daysSince=lastOrderValid?daysBetween(lastOrder,_today):null;
+    const caPDVN=rec.caPDV;
+    const caLeg=rec.caLegallais||0;
+
+    const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,ca2025:caLeg,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
+
+    // 1. Silencieux : 30-60j sans commande
     if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||caLeg>0||_useByCanal)){silencieux.push(c);continue;}
-    // 2. Perdus : 60-180j sans commande sur le canal filtré (au-delà = ancien client)
+    // 2. Perdus : 60-180j sans commande
     if(daysSince!==null&&daysSince>60&&daysSince<=180&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
-    // 3. Potentiels : zone chalandise, jamais venus au comptoir, taille réaliste
-    //    Filtre : CA Legallais 500€–50k€, commercial assigné → exclut grands comptes nationaux
-    if(!_useByCanal&&_S.crossingStats?.potentiels?.has(cc)&&caLeg>=500&&caLeg<=50000&&info.commercial){jamaisVenus.push(c);}
+    // 3. Potentiels : jamais venus au comptoir
+    if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
+
   silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
   perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
   const _classifPrio={'FID Pot+':0,'OCC Pot+':1,'FID Pot-':2,'OCC Pot-':3,'NC':4};
