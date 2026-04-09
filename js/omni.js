@@ -20,7 +20,7 @@ function _passesAllFilters(cc){
   if(view==='captes'&&!_S.chalandiseData?.has(cc))return false;
   if(view==='horszone'&&_S.chalandiseData?.has(cc))return false;
   if(view==='multicanaux'){let caHors=0,caMag=0;const h=_S.ventesClientHorsMagasin?.get(cc);const m2=_S.ventesClientArticle?.get(cc);if(h)for(const d of h.values())caHors+=d.sumCA||0;if(m2)for(const d of m2.values())caMag+=d.sumCA||0;if(caHors<=caMag)return false;}
-  if(view==='dormants'){const lastDate=_S.clientLastOrder?.get(cc);const silence=lastDate?Math.round((Date.now()-lastDate)/86400000):999;if(silence<=180)return false;}
+  if(view==='dormants'){const _r=_S.clientStore?.get(cc);const silence=_r?.silenceDaysPDV??(_S.clientLastOrder?.get(cc)?Math.round((Date.now()-_S.clientLastOrder.get(cc))/86400000):999);if(silence<=180)return false;}
   if(_S._omniSegmentFilter){const seg=_S.clientOmniScore?.get(cc)?.segment;if(seg!==_S._omniSegmentFilter)return false;}
   return true;
 }

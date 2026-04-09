@@ -368,9 +368,10 @@ function _getClientsActifs(canal = '') {
 // Score synthétique : stock A + captation clients + taux service + actif/dormant
 export function computeHealthScore() {
   if (!_S._hasStock) {
-    const nowTs = Date.now();
-    const actifs = [..._S.clientLastOrder.entries()].filter(([,dt]) => nowTs-dt < 90*86400000).length;
-    const total = Math.max(_S.clientLastOrder.size, 1);
+    let actifs=0,total=0;
+    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(rec.lastOrderPDV){total++;if((rec.silenceDaysPDV||999)<90)actifs++;}}}
+    else{const nowTs=Date.now();for(const[,dt] of _S.clientLastOrder){total++;if(nowTs-dt<90*86400000)actifs++;}}
+    total=Math.max(total,1);
     const momentumScore = Math.round(Math.min(1, actifs/total) * 100);
     const captationScore = (_S.chalandiseReady && _S.chalandiseData.size > 0)
       ? Math.round(Math.min(1, actifs / _S.chalandiseData.size) * 100) : 50;
@@ -388,8 +389,15 @@ export function computeHealthScore() {
   // Composante 2 : clients actifs PDV 90j vs zone chalandise (poids 30%)
   let scoreClients = 0.5; // défaut sans chalandise
   if (_S.chalandiseReady && _S.chalandiseData.size > 0) {
-    const nowTs = Date.now();
-    const actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+    let actifs = 0;
+    if (_S.clientStore?.size) {
+      for (const rec of _S.clientStore.values()) {
+        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV <= 90) actifs++;
+      }
+    } else {
+      const nowTs = Date.now();
+      actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+    }
     scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
   }
 
@@ -420,6 +428,8 @@ function _buildTerrFB(){
   return _terrFBCache;
 }
 export function _enrichClientInfo(cc){
+  const rec=_S.clientStore?.get(cc);
+  if(rec) return{nom:rec.nom,metier:rec.metier,commercial:rec.commercial};
   const info=_S.chalandiseData?.get(cc);const fb=_buildTerrFB().get(cc);
   return{nom:info?.nom||_S.clientNomLookup?.[cc]||cc,metier:info?.metier||'',commercial:info?.commercial||(fb?.commercial)||''};
 }
@@ -434,17 +444,36 @@ export function computeReconquestCohort() {
   const now = new Date();
 
   // ── Section 1 : anciens fidèles silencieux (> 60j, CA > 0 dans consommé) ──
-  // Source : crossingStats.fideles si disponible, sinon clientLastOrder × ventesClientArticle
-  const fidelesSet = _S.crossingStats?.fideles;
-  const candidates = fidelesSet?.size
-    ? [...fidelesSet]
-    : (_S.clientLastOrder.size ? [..._S.clientLastOrder.keys()] : []);
-  if (candidates.length) {
-    const cohort = [];
+  // Source : clientStore (préféré) ou fallback crossingStats × clientLastOrder
+  const _minCR = _S.consommePeriodMinFull || _S.consommePeriodMin;
+  const cohort = [];
+
+  if (_S.clientStore?.size) {
+    const fidelesSet = _S.crossingStats?.fideles;
+    for (const rec of _S.clientStore.values()) {
+      // Si crossingStats dispo, ne garder que les fidèles
+      if (fidelesSet?.size && !fidelesSet.has(rec.cc)) continue;
+      const lastDate = rec.lastOrderPDV;
+      if (!lastDate) continue;
+      if (_minCR && lastDate < _minCR) continue;
+      const daysAgo = Math.round((now - lastDate) / 86400000);
+      if (daysAgo < 60) continue;
+      if (!rec.artMapPDV || rec.artMapPDV.size === 0) continue;
+      const totalCA = [...rec.artMapPDV.values()].reduce((s, d) => s + (d.sumCAAll || d.sumCA || 0), 0);
+      if (totalCA <= 0) continue;
+      const nbFamilles = new Set([...rec.artMapPDV.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
+      const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
+      cohort.push({ cc: rec.cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
+    }
+  } else {
+    // Fallback sans clientStore
+    const fidelesSet = _S.crossingStats?.fideles;
+    const candidates = fidelesSet?.size
+      ? [...fidelesSet]
+      : (_S.clientLastOrder.size ? [..._S.clientLastOrder.keys()] : []);
     for (const cc of candidates) {
       const lastDate = _S.clientLastOrder.get(cc);
       if (!lastDate) continue;
-      const _minCR = _S.consommePeriodMinFull || _S.consommePeriodMin;
       if (_minCR && lastDate < _minCR) continue;
       const daysAgo = Math.round((now - lastDate) / 86400000);
       if (daysAgo < 60) continue;
@@ -452,25 +481,30 @@ export function computeReconquestCohort() {
       if (!artMap || artMap.size === 0) continue;
       const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCAAll || d.sumCA || 0), 0);
       if (totalCA <= 0) continue;
-      const info = _S.chalandiseData.get(cc);
       const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
       const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
       const _ec=_enrichClientInfo(cc);
       cohort.push({ cc, nom: _ec.nom, metier: _ec.metier, commercial: _ec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
     }
-    cohort.sort((a, b) => b.score - a.score);
-    _S.reconquestCohort = cohort;
   }
+  cohort.sort((a, b) => b.score - a.score);
+  _S.reconquestCohort = cohort;
 
   // ── Section 2 : livrés sans PDV (jamais dans ventesClientArticle) ──
   if (_S.livraisonsReady && _S.livraisonsData?.size) {
     const sansPDV = [];
     for (const [cc, livData] of _S.livraisonsData) {
       if (livData.ca <= 0) continue;
-      const artMap = _S.ventesClientArticle.get(cc);
-      if (artMap && artMap.size > 0) continue; // a déjà acheté au comptoir
-      const _ec2=_enrichClientInfo(cc);
-      sansPDV.push({ cc, nom: _ec2.nom, metier: _ec2.metier, commercial: _ec2.commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
+      const rec = _S.clientStore?.get(cc);
+      if (rec?.artMapPDV && rec.artMapPDV.size > 0) continue; // a déjà acheté au comptoir
+      if (!rec) {
+        const artMap = _S.ventesClientArticle?.get(cc);
+        if (artMap && artMap.size > 0) continue;
+      }
+      const nom = rec?.nom || _S.clientNomLookup?.[cc] || cc;
+      const metier = rec?.metier || '';
+      const commercial = rec?.commercial || _enrichClientInfo(cc).commercial;
+      sansPDV.push({ cc, nom, metier, commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
     }
     sansPDV.sort((a, b) => b.caLivraison - a.caLivraison);
     _S.livraisonsSansPDV = sansPDV;
@@ -686,8 +720,9 @@ export function computeOmniScores() {
     const caTotal = caPDV + caHors;
     if (caTotal <= 0) continue; // ignorer les clients sans CA effectif
     const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
-    const lastPDV = _S.clientLastOrder?.get(cc);
-    const silenceDays = lastPDV ? Math.round((now - lastPDV) / 86400000) : 999;
+    const _csRec = _S.clientStore?.get(cc);
+    const lastPDV = _csRec?.lastOrderPDV || _S.clientLastOrder?.get(cc);
+    const silenceDays = _csRec?.silenceDaysPDV ?? (lastPDV ? Math.round((now - lastPDV) / 86400000) : 999);
     // Segment par nombre de canaux
     let segment;
     if (nbCanaux >= 4) segment = 'full';
@@ -1063,7 +1098,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     if (!vca && !vcaHors) {
       // Prospect sans achats
       clientDetails.push({
-        cc, nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+        cc, nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
         cp: chal?.cp || '', commercial: chal?.commercial || '',
         classification: chal?.classification || '', statut: chal?.statut || '',
         ca: 0, nbFamilles: 0, isActif: false,
@@ -1121,7 +1156,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
     }
 
     clientDetails.push({
-      cc, nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+      cc, nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
       cp: chal?.cp || '', commercial: chal?.commercial || '',
       classification: chal?.classification || '', statut: chal?.statut || '',
       ca: clientCA, nbFamilles: clientFamilles.size, isActif: !!(vca && vca.size > 0),
@@ -1286,7 +1321,7 @@ export function computeAnimation(marque) {
     }
     clientsActifs.push({
       cc,
-      nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+      nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
       metier: chal?.metier || '',
       commercial: chal?.commercial || '',
       cp: chal?.cp || '',
@@ -1316,7 +1351,7 @@ export function computeAnimation(marque) {
 
         clientsProspects.push({
           cc,
-          nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+          nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
           metier: chal?.metier || '',
           commercial: chal?.commercial || '',
           cp: chal?.cp || '',
@@ -1331,9 +1366,10 @@ export function computeAnimation(marque) {
   // Clients reconquête : acheteurs avec lastOrder > 60j
   const clientsReconquete = [];
   for (const c of clientsActifs) {
-    const lastDate = _S.clientLastOrder?.get(c.cc);
+    const _rcRec = _S.clientStore?.get(c.cc);
+    const lastDate = _rcRec?.lastOrderPDV || _S.clientLastOrder?.get(c.cc);
     if (!lastDate) continue;
-    const daysSince = Math.round((Date.now() - lastDate) / 86400000);
+    const daysSince = _rcRec?.silenceDaysPDV ?? Math.round((Date.now() - lastDate) / 86400000);
     if (daysSince > 60) {
       clientsReconquete.push({ ...c, daysSince, type: 'reconquete' });
     }
@@ -1463,7 +1499,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
         const chal = _S.chalandiseData?.get(cc);
         clientsMap.set(cc, {
           cc,
-          nom: chal?.nom || _S.clientNomLookup?.[cc] || cc,
+          nom: chal?.nom || _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc,
           metier: chal?.metier || '',
           commercial: chal?.commercial || '',
           ca: caFam,

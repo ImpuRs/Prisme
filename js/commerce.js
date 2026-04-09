@@ -687,7 +687,7 @@ window._ccc = (di,mi,ci) => {
       for(const art of ruptureArts){
         const buyers=_S.articleClients.get(art.code);if(!buyers)continue;
         for(const cc of buyers){
-          const nom=_S.clientNomLookup[cc]||cc;
+          const nom=_S.clientStore?.get(cc)?.nom||_S.clientNomLookup[cc]||cc;
           const caArt=(DataStore.ventesClientArticle.get(cc)||new Map()).get(art.code);
           if(!clientRupMap.has(cc))clientRupMap.set(cc,{cc,nom,nbRup:0,caRup:0});
           const e=clientRupMap.get(cc);e.nbRup++;e.caRup+=(caArt?.sumCA||0);
@@ -714,7 +714,7 @@ window._ccc = (di,mi,ci) => {
     // ── Filtre recherche client (_terrClientSearch) — appliqué à toutes les sections ──
     const _qSrch=(_S._terrClientSearch||'').toLowerCase();
     if(_qSrch){
-      const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientNomLookup?.[cc]||'').toLowerCase().includes(_qSrch)||(_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
+      const _matchC=(cc,nom)=>cc.toLowerCase().includes(_qSrch)||(nom||'').toLowerCase().includes(_qSrch)||(_S.clientStore?.get(cc)?.nom||'').toLowerCase().includes(_qSrch);
       k.topPDVRows=(k.topPDVRows||[]).filter(c=>_matchC(c.cc,c.nom));
       k.livSansPDV=k.livSansPDV.filter(c=>_matchC(c.cc,c.nom));
       k.horsZone=k.horsZone.filter(c=>_matchC(c.cc,c.nom));
@@ -986,7 +986,7 @@ function _renderCommercialSummary(){
       if(am)for(const v of am.values())d.ca+=v.sumCA||0;
     }
   }else{
-    const _tcsCom=(_S._terrClientSearch||'').toLowerCase();const _mCom=cc=>!_tcsCom||(cc||'').includes(_tcsCom)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCom);
+    const _tcsCom=(_S._terrClientSearch||'').toLowerCase();const _mCom=cc=>!_tcsCom||(cc||'').includes(_tcsCom)||(_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCom);
     for(const[cc,info] of _S.chalandiseData.entries()){
       if(!_clientPassesFilters(info,cc))continue;
       if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
@@ -1139,7 +1139,7 @@ function _renderOmniSegmentClients(){
   if(!seg||!_S.clientOmniScore?.size){el.classList.add('hidden');el.innerHTML='';return;}
   const SEG_LABELS=(window.SEG_LABELS||{purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'});
   const segLabel=SEG_LABELS[seg]||seg;
-  const _tcsOmni=(_S._terrClientSearch||'').toLowerCase();const _mOmni=cc=>!_tcsOmni||(cc||'').includes(_tcsOmni)||(_S.clientNomLookup?.[cc]||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsOmni);
+  const _tcsOmni=(_S._terrClientSearch||'').toLowerCase();const _mOmni=cc=>!_tcsOmni||(cc||'').includes(_tcsOmni)||(_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsOmni);
   const clients=[];
   for(const[cc,o]of _S.clientOmniScore){
     if(o.segment!==seg)continue;

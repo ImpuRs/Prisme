@@ -73,7 +73,8 @@ function openClient360(clientCode, source) {
 function _renderClient360(clientCode,source){
   // ── Données client ──────────────────────────────────────────────
   const info=_S.chalandiseData?.get(clientCode)||{};
-  const nom=_S.clientNomLookup[clientCode]||info.nom||clientCode;
+  const _csRec=_S.clientStore?.get(clientCode);
+  const nom=_csRec?.nom||_S.clientNomLookup[clientCode]||info.nom||clientCode;
   const artMapPeriod=DataStore.ventesClientArticle?.get(clientCode);
   const artMapFull=_S.ventesClientArticleFull?.get(clientCode);
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
@@ -328,7 +329,7 @@ function _c360SwitchTab(clientCode,tabId){
 
 function _c360CopyResume(clientCode){
   const info=_S.chalandiseData?.get(clientCode)||{};
-  const nom=_S.clientNomLookup?.[clientCode]||info.nom||clientCode;
+  const nom=_S.clientStore?.get(clientCode)?.nom||_S.clientNomLookup?.[clientCode]||info.nom||clientCode;
   const _artP=DataStore.ventesClientArticle?.get(clientCode);
   const _artF=_S.ventesClientArticleFull?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);

@@ -213,8 +213,8 @@ function runPromoSearch(){
       for(const code of artMap.keys()){
         if(!matchedCodes.has(code))continue;
         if(!buyerMap.has(cc)){
-          const info=_S.chalandiseData?.get(cc)||{};
-          buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'PDV'});
+          const _r=_S.clientStore?.get(cc)||{};
+          buyerMap.set(cc,{cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',ca:0,lastDate:_r.lastOrderPDV||null,canal:'PDV'});
         }
         buyerMap.get(cc).ca+=(artMap.get(code)?.sumCA||0);
       }
@@ -228,8 +228,8 @@ function runPromoSearch(){
         if(!matchedCodes.has(code))continue;
         if(_gc && data.canal !== _gc)continue; // filtre canal spécifique
         if(!buyerMap.has(cc)){
-          const info=_S.chalandiseData?.get(cc)||{};
-          buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:data.canal});
+          const _r=_S.clientStore?.get(cc)||{};
+          buyerMap.set(cc,{cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',ca:0,lastDate:_r.lastOrderPDV||null,canal:data.canal});
         }
         buyerMap.get(cc).ca+=(data.ca||0);
         // Marquer le canal si hors PDV
@@ -245,8 +245,8 @@ function runPromoSearch(){
       if(!matchedCodes.has(l.code))continue;
       const cc=l.clientCode;if(!cc)continue;
       if(!buyerMap.has(cc)){
-        const info=_S.chalandiseData?.get(cc)||{};
-        buyerMap.set(cc,{cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca:0,lastDate:_S.clientLastOrder.get(cc)||null,canal:'TERR'});
+        const _r=_S.clientStore?.get(cc)||{};
+        buyerMap.set(cc,{cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',ca:0,lastDate:_r.lastOrderPDV||null,canal:'TERR'});
       }
       buyerMap.get(cc).ca+=(l.ca||0);
     }
@@ -277,7 +277,8 @@ function runPromoSearch(){
       const info=_S.chalandiseData.get(cc)||{};
       if(!_clientPassesFilters||_clientPassesFilters(info)){
         const terrCA=DataStore.territoireLines.filter(l=>l.clientCode===cc&&matchedFamilles.has(l.famille)).reduce((s,l)=>s+l.ca,0);
-        sectionB.push({cc,nom:_S.clientNomLookup[cc]||info.nom||cc,metier:info.metier||'',commercial:info.commercial||'',ca2025:info.ca2025||0,terrCA});
+        const _r=_S.clientStore?.get(cc)||{};
+        sectionB.push({cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',ca2025:info.ca2025||0,terrCA});
       }
     }
     sectionB.sort((a,b)=>b.terrCA-a.terrCA||b.ca2025-a.ca2025);
@@ -424,7 +425,7 @@ function exportTourneeCSV() {
       if(toPitch.length >= 3) break;
     }
 
-    const lastOrder = _S.clientLastOrder.get(c.cc);
+    const lastOrder = _S.clientStore?.get(c.cc)?.lastOrderPDV||null;
     return {
       cc: c.cc,
       nom: c.nom || info.nom || c.cc,
@@ -919,10 +920,9 @@ async function runPromoImport(){
       if(promoFams.has(f)){famCA+=(d.sumCA||d.sumPrelevee||0);if(!famStr)famStr=f;}
     }
     if(famCA>0){
-      const info=_S.chalandiseData.get(cc)||{};
-      const nom=_S.clientNomLookup[cc]||info.nom||cc;
+      const _r=_S.clientStore?.get(cc)||{};
       const raison=`Achète ${famStr||[...promoFams][0]||'la famille'} mais pas la promo`;
-      sectionF.push({cc,nom,metier:info.metier||'',commercial:info.commercial||'',famCA,raison,statut:info.statut||''});
+      sectionF.push({cc,nom:_r.nom||cc,metier:_r.metier||'',commercial:_r.commercial||'',famCA,raison,statut:_r.statut||''});
     }
   }
   sectionF.sort((a,b)=>b.famCA-a.famCA);
@@ -1307,15 +1307,12 @@ function _nlReconquete(){
 }
 
 function _nlClientsSilencieux({jours,caMin}){
-  const now=Date.now();const threshold=jours*86400000;
   const rows=[];
-  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-    const d=now-lastDate;if(d<threshold)continue;
-    const artMap=_S.ventesClientArticle.get(cc);if(!artMap)continue;
-    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
-    if(ca<caMin)continue;
-    const info=_S.chalandiseData?.get(cc)||{};
-    rows.push({cc,nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round(d/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—'),lastDate});
+  if(!_S.clientStore?.size)return;
+  for(const rec of _S.clientStore.values()){
+    const d=rec.silenceDaysPDV;if(d===null||d<jours)continue;
+    if((rec.caPDV||0)<caMin)continue;
+    rows.push({cc:rec.cc,nom:escapeHtml(rec.nom),joursN:d,ca:rec.caPDV,metier:escapeHtml(rec.metier||'—'),commercial:escapeHtml(rec.commercial||'—'),lastDate:rec.lastOrderPDV});
   }
   rows.sort((a,b)=>b.ca-a.ca);
   _renderNLResult(`Clients silencieux >${jours}j`,rows.slice(0,50).map(r=>({
@@ -1336,22 +1333,19 @@ function _nlClientsSilencieux({jours,caMin}){
 }
 
 function _nlClientsPerdus({jours,query}){
-  const now=Date.now();const threshold=jours*86400000;
   const qNorm=_normNL(query);
   const rows=[];
-  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-    const d=now-lastDate;if(d<threshold)continue;
-    const artMap=_S.ventesClientArticle.get(cc);if(!artMap)continue;
-    let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
-    if(ca<=0)continue;
-    const info=_S.chalandiseData?.get(cc)||{};
-    // Filtre métier optionnel (mots du query qui matchent des métiers)
-    if(_S.chalandiseReady&&info.metier){
-      const metNorm=_normNL(info.metier);
+  if(!_S.clientStore?.size)return;
+  for(const rec of _S.clientStore.values()){
+    const d=rec.silenceDaysPDV;if(d===null||d<jours)continue;
+    if((rec.caPDV||0)<=0)continue;
+    // Filtre métier optionnel
+    if(_S.chalandiseReady&&rec.metier){
+      const metNorm=_normNL(rec.metier);
       const hasMetier=/plombier|electricien|charpentier|menuisier|maconnerie|peintre|carreleur|serrurier|chauffagiste/.test(qNorm);
       if(hasMetier&&!qNorm.includes(metNorm.split(' ')[0]))continue;
     }
-    rows.push({cc,nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round(d/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—'),lastDate});
+    rows.push({cc:rec.cc,nom:escapeHtml(rec.nom),joursN:d,ca:rec.caPDV,metier:escapeHtml(rec.metier||'—'),commercial:escapeHtml(rec.commercial||'—'),lastDate:rec.lastOrderPDV});
   }
   rows.sort((a,b)=>b.ca-a.ca);
   _renderNLResult(`Clients perdus (>${Math.round(jours/30)}m)`,rows.slice(0,50).map(r=>({
@@ -1444,9 +1438,8 @@ function _nlClientsHorsAgence({caMin}){
   for(const[cc,artMap] of (_S.ventesClientHorsMagasin||new Map()).entries()){
     let ca=0;for(const v of artMap.values())ca+=(v.sumCA||0);
     if(ca<(caMin||0))continue;
-    const capdv=(() =>{const m=_S.ventesClientArticle?.get(cc);if(!m)return 0;let s=0;for(const v of m.values())s+=(v.sumCA||0);return s;})();
-    const info=_S.chalandiseData?.get(cc)||{};
-    agg.set(cc,{nom:_S.clientNomLookup[cc]||info.nom||cc,caHors:ca,caPdv:capdv,metier:info.metier||'—',commercial:info.commercial||'—'});
+    const _r=_S.clientStore?.get(cc)||{};
+    agg.set(cc,{nom:_r.nom||cc,caHors:ca,caPdv:_r.caPDV||0,metier:_r.metier||'—',commercial:_r.commercial||'—'});
   }
   const rows=[...agg.values()].sort((a,b)=>b.caHors-a.caHors).slice(0,50);
   _renderNLResult(`Clients hors-agence${caMin>0?' >'+formatEuro(caMin):''}`,rows.map(r=>({
@@ -1476,8 +1469,8 @@ function _nlCanalExclusif({canal}){
       ca+=(v.sumCA||0);
     }
     if(!hasCanal||ca<=0)continue;
-    const info=_S.chalandiseData?.get(cc)||{};
-    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—'});
+    const _r=_S.clientStore?.get(cc)||{};
+    rows.push({nom:_r.nom||cc,ca,metier:_r.metier||'—',commercial:_r.commercial||'—'});
   }
   rows.sort((a,b)=>b.ca-a.ca);
   _renderNLResult(`Clients ${canal} sans PDV`,rows.slice(0,50).map(r=>({
@@ -1499,8 +1492,9 @@ function _nlTopClientsCanal({canal,topN}){
     let ca=0;let hasC=false;
     for(const v of artMap.values()){if(v.canal===canal){hasC=true;ca+=(v.sumCA||0);}}
     if(!hasC||ca<=0)continue;
+    const _r=_S.clientStore?.get(cc)||{};
     const info=_S.chalandiseData?.get(cc)||{};
-    agg.set(cc,{nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—',spc:computeSPC(cc,info)});
+    agg.set(cc,{nom:_r.nom||cc,ca,metier:_r.metier||'—',commercial:_r.commercial||'—',spc:computeSPC(cc,info)});
   }
   const rows=[...agg.values()].sort((a,b)=>b.ca-a.ca).slice(0,topN||10);
   _renderNLResult(`Top ${topN||10} clients ${canal}`,rows.map((r,i)=>({
@@ -1547,14 +1541,11 @@ function _nlNouveauxClients(){
   // Nouveau = premier achat du client dans les données = client dont la date de premier achat est ce mois
   // Approximation : clients dont lastOrder est ce mois ET qui ont peu de BL (≤3)
   const rows=[];
-  for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-    if(lastDate<debutTs)continue;
-    const artMap=_S.ventesClientArticle?.get(cc);if(!artMap)continue;
-    let ca=0,bl=0;for(const v of artMap.values()){ca+=(v.sumCA||0);bl+=(v.countBL||0);}
-    if(ca<=0)continue;
-    const info=_S.chalandiseData?.get(cc)||{};
-    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,bl,metier:info.metier||'—',commercial:info.commercial||'—',lastDate});
-  }
+  if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){
+    if(!rec.lastOrderPDV||rec.lastOrderPDV<debutTs)continue;
+    if((rec.caPDV||0)<=0)continue;
+    rows.push({nom:rec.nom,ca:rec.caPDV,bl:rec.nbBLPDV||0,metier:rec.metier||'—',commercial:rec.commercial||'—',lastDate:rec.lastOrderPDV});
+  }}
   rows.sort((a,b)=>b.ca-a.ca);
   _renderNLResult('Nouveaux clients ce mois',rows.slice(0,30).map(r=>({
     nom:escapeHtml(r.nom),
@@ -1581,10 +1572,9 @@ function _nlCommercialSilence({commercial,jours}){
   const now=Date.now();const thr=jours*86400000;
   const rows=[];
   for(const cc of clients){
-    const lastDate=_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
-    const artMap=_S.ventesClientArticle?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
-    const info=_S.chalandiseData?.get(cc)||{};
-    rows.push({nom:escapeHtml(_S.clientNomLookup[cc]||info.nom||cc),joursN:Math.round((now-lastDate)/86400000),ca,classif:escapeHtml(info.classification||'—'),metier:escapeHtml(info.metier||'—'),lastDate});
+    const rec=_S.clientStore?.get(cc);if(!rec)continue;
+    const d=rec.silenceDaysPDV;if(d===null||d<jours)continue;
+    rows.push({nom:escapeHtml(rec.nom),joursN:d,ca:rec.caPDV||0,classif:escapeHtml(rec.classification||'—'),metier:escapeHtml(rec.metier||'—'),lastDate:rec.lastOrderPDV});
   }
   rows.sort((a,b)=>b.ca-a.ca);
   const comLabel=commercial.split(' - ').pop()||commercial;
@@ -1612,7 +1602,8 @@ function _nlChurnActif({jours}){
   const now=Date.now();const thr=jours*86400000;const rows=[];
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!/fid|pot\+|actif/i.test(info.classification||''))continue;
-    const lastDate=_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
+    const rec=_S.clientStore?.get(cc);
+    const lastDate=rec?.lastOrderPDV||_S.clientLastOrder?.get(cc);if(!lastDate||now-lastDate<thr)continue;
     const artMap=_S.ventesClientArticle?.get(cc);let ca=0;if(artMap)for(const v of artMap.values())ca+=(v.sumCA||0);
     if(ca<=0)continue;
     rows.push({nom:escapeHtml(info.nom||cc),classif:escapeHtml(info.classification||''),joursN:Math.round((now-lastDate)/86400000),ca,metier:escapeHtml(info.metier||'—'),commercial:escapeHtml(info.commercial||'—')});
@@ -1772,7 +1763,8 @@ function _nlMetierCanal({canal,metierKw}){
       const m=_normNL(info.metier||'');
       if(!m.includes(metierKw))continue;
     }
-    rows.push({nom:_S.clientNomLookup[cc]||info.nom||cc,ca,metier:info.metier||'—',commercial:info.commercial||'—',hasPdv:_S.ventesClientArticle?.has(cc)});
+    const _r=_S.clientStore?.get(cc)||{};
+    rows.push({nom:_r.nom||cc,ca,metier:_r.metier||'—',commercial:_r.commercial||'—',hasPdv:_r.isPDVActif||false});
   }
   rows.sort((a,b)=>b.ca-a.ca);
   const label=metierMatch||metierKw||'tous métiers';
@@ -1876,7 +1868,7 @@ function renderAnimCommerciale(code) {
   const clientsActifs = [...(_S.articleClients?.get(code) || [])]
     .map(cc => {
       const d = _S.ventesClientArticle?.get(cc)?.get(code) || {};
-      return { cc, nom: _S.clientNomLookup?.[cc] || _S.chalandiseData?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
+      return { cc, nom: _S.clientStore?.get(cc)?.nom || _S.clientNomLookup?.[cc] || _S.chalandiseData?.get(cc)?.nom || cc, ca: d.sumCA || 0 };
     })
     .sort((a, b) => b.ca - a.ca)
     .slice(0, 5);

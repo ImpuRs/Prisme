@@ -816,14 +816,15 @@ export function _cmdBuildResults(q) {
       }
     }
   }
-  if (clientResults.length < 5 && typeof _S.clientNomLookup !== 'undefined') {
-    for (const [code, nom] of Object.entries(_S.clientNomLookup)) {
+  if (clientResults.length < 5 && _S.clientStore?.size) {
+    for (const [code, rec] of _S.clientStore) {
       if (clientResults.length >= 5) break;
       if (typeof _S.chalandiseData !== 'undefined' && _S.chalandiseData.has(code)) continue;
-      if (matchQuery(q, code, nom || '')) {
+      const nom = rec.nom || code;
+      if (matchQuery(q, code, nom)) {
         clientResults.push({
           icon: '👤',
-          main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(nom || code)}`,
+          main: `<span class="font-mono text-[10px] t-disabled mr-1">${code}</span>${_cmdEsc(nom)}`,
           sub: '',
           fn: () => {
             switchTab('commerce');
@@ -969,19 +970,26 @@ export function showSilencieux60() {
   if (!el) return;
   const now = Date.now();
   const clients = [];
-  (_S.clientLastOrder || new Map()).forEach((lastDate, cc) => {
-    const days = Math.round((now - (lastDate instanceof Date ? lastDate.getTime() : +lastDate)) / 86400000);
-    if (days < 60) return;
-    const chal = _S.chalandiseData?.get(cc);
-    // CA PDV : chalandise en priorité, sinon somme ventesClientArticle
-    let ca = chal?.caPDVN || 0;
-    if (!ca) {
-      const artMap = _S.ventesClientArticle?.get(cc);
-      if (artMap) artMap.forEach(v => { ca += (v.sumCAPrelevee || v.sumCA || 0); });
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV === null || rec.silenceDaysPDV < 60) continue;
+      const ca = rec.caPDVPrelevee || rec.caPDV || rec.caPDVNChal || 0;
+      clients.push({ cc: rec.cc, nom: rec.nom, days: rec.silenceDaysPDV, ca });
     }
-    const nom = _S.clientNomLookup?.[cc] || chal?.nom || cc;
-    clients.push({ cc, nom, days, ca });
-  });
+  } else {
+    (_S.clientLastOrder || new Map()).forEach((lastDate, cc) => {
+      const days = Math.round((now - (lastDate instanceof Date ? lastDate.getTime() : +lastDate)) / 86400000);
+      if (days < 60) return;
+      const chal = _S.chalandiseData?.get(cc);
+      let ca = chal?.caPDVN || 0;
+      if (!ca) {
+        const artMap = _S.ventesClientArticle?.get(cc);
+        if (artMap) artMap.forEach(v => { ca += (v.sumCAPrelevee || v.sumCA || 0); });
+      }
+      const nom = _S.clientNomLookup?.[cc] || chal?.nom || cc;
+      clients.push({ cc, nom, days, ca });
+    });
+  }
   clients.sort((a, b) => b.ca - a.ca);
   if (!clients.length) {
     el.innerHTML = `<div class="s-card rounded-xl p-4 text-sm t-secondary">✅ Aucun client silencieux depuis plus de 60 jours.</div>`;
@@ -1112,11 +1120,17 @@ export function renderCockpitBriefing() {
   }
 
   // Card 5 — Clients silencieux
-  if (_S.clientLastOrder?.size > 0) {
-    const now = Date.now();
+  if (_S.clientStore?.size > 0 || _S.clientLastOrder?.size > 0) {
     let silCount = 0;
-    for (const [, dt] of _S.clientLastOrder) {
-      if ((now - (dt instanceof Date ? dt.getTime() : +dt)) > 30 * 86400000) silCount++;
+    if (_S.clientStore?.size) {
+      for (const rec of _S.clientStore.values()) {
+        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV > 30) silCount++;
+      }
+    } else {
+      const now = Date.now();
+      for (const [, dt] of _S.clientLastOrder) {
+        if ((now - (dt instanceof Date ? dt.getTime() : +dt)) > 30 * 86400000) silCount++;
+      }
     }
     if (silCount > 0) {
       cards.push(buildEvidenceCard({
@@ -1506,10 +1520,15 @@ export function exportAgenceSnapshot() {
   const stockScore = fmArts.length > 0 ? Math.round(100 * (1 - fmRup / fmArts.length)) : 100;
 
   let clientScore = 50, actifCount = 0, totalChaland = 0;
-  if (_S.clientLastOrder?.size > 0) {
+  if (_S.clientStore?.size > 0) {
+    totalChaland = _S.chalandiseData?.size || _S.clientStore.size;
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV <= 90) actifCount++;
+    }
+    clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
+  } else if (_S.clientLastOrder?.size > 0) {
     const nowTs = Date.now();
-    if (_S.chalandiseData?.size > 0) { totalChaland = _S.chalandiseData.size; }
-    else { totalChaland = _S.clientLastOrder.size; }
+    totalChaland = _S.chalandiseData?.size || _S.clientLastOrder.size;
     actifCount = [..._S.clientLastOrder.values()].filter(dt => nowTs - dt < 90 * 86400000).length;
     clientScore = Math.min(100, Math.round(100 * actifCount / totalChaland));
   }
@@ -1732,11 +1751,17 @@ export function _renderNoStockPlaceholder(ongletNom) {
 export function renderTabBadges() {
   // Badge "Mes clients" : clients silencieux >90j avec CA PDV
   const clientsBadge = document.getElementById('navClientsBadge');
-  if (clientsBadge && _S.clientLastOrder?.size > 0) {
-    const nowTs = Date.now();
+  if (clientsBadge && (_S.clientStore?.size > 0 || _S.clientLastOrder?.size > 0)) {
     let silentCount = 0;
-    for (const [cc, dt] of _S.clientLastOrder) {
-      if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
+    if (_S.clientStore?.size) {
+      for (const rec of _S.clientStore.values()) {
+        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV > 90 && rec.isPDVActif) silentCount++;
+      }
+    } else {
+      const nowTs = Date.now();
+      for (const [cc, dt] of _S.clientLastOrder) {
+        if ((nowTs - dt) > 90 * 86400000 && _S.ventesClientArticle?.has(cc)) silentCount++;
+      }
     }
     if (silentCount > 0) {
       clientsBadge.textContent = silentCount > 99 ? '99+' : silentCount;
