@@ -846,10 +846,28 @@ function _prRenderMetiers(fam) {
     return info.distanceKm <= _prMetierDist;
   };
 
-  // CA famille par métier (ventesClientArticle × chalandise, filtré distance)
-  const metierCA      = new Map(); // metier → CA famille
-  const metierClients = new Map(); // metier → Set<cc>
-  // Utiliser la version full (toute période du consommé) pour cohérence structurelle
+  // CA famille par métier — 2 sources : PDV (ventesClientArticleFull) + Hors PDV (ventesClientHorsMagasin)
+  const metierPDV       = new Map(); // metier → CA famille PDV
+  const metierHors      = new Map(); // metier → CA famille hors-PDV
+  const metierClientsPDV  = new Map(); // metier → Set<cc> PDV
+  const metierClientsAll  = new Map(); // metier → Set<cc> tous canaux
+
+  const _matchFam = (code) => {
+    const cf = catFam?.get(code);
+    const cfCode = cf?.codeFam || _S.articleFamille?.[code];
+    if (cfCode !== fam.codeFam) return false;
+    if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf?.codeSousFam || '')) return false;
+    if (_prSelectedMarques.size > 0 && !_prSelectedMarques.has(_S.catalogueMarques?.get(code) || '')) return false;
+    return true;
+  };
+
+  const _addToMetier = (metier, cc, ca, mapCA, mapClients) => {
+    mapCA.set(metier, (mapCA.get(metier) || 0) + ca);
+    if (!mapClients.has(metier)) mapClients.set(metier, new Set());
+    mapClients.get(metier).add(cc);
+  };
+
+  // 1) PDV — ventesClientArticleFull (MAGASIN prélevé + enlevé)
   const vcaFull = _S.ventesClientArticleFull?.size
     ? _S.ventesClientArticleFull
     : _S.ventesClientArticle;
@@ -857,49 +875,88 @@ function _prRenderMetiers(fam) {
     for (const [cc, artMap] of vcaFull) {
       if (!_distOk(cc)) continue;
       const info   = _S.chalandiseData.get(cc);
-      const metier = info?.metier || 'Hors agence';
+      const metier = info?.metier || 'Non renseigné';
       let caFam = 0;
       for (const [code, v] of artMap) {
-        const cf = catFam?.get(code);
-        const cfCode = cf?.codeFam || _S.articleFamille?.[code];
-        if (cfCode !== fam.codeFam) continue;
-        if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf?.codeSousFam || '')) continue;
-        if (_prSelectedMarques.size > 0 && !_prSelectedMarques.has(_S.catalogueMarques?.get(code) || '')) continue;
+        if (!_matchFam(code)) continue;
         caFam += v.sumCA || 0;
       }
       if (caFam > 0) {
-        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
-        if (!metierClients.has(metier)) metierClients.set(metier, new Set());
-        metierClients.get(metier).add(cc);
+        _addToMetier(metier, cc, caFam, metierPDV, metierClientsPDV);
+        _addToMetier(metier, cc, caFam, metierHors, metierClientsAll); // aussi dans le total
       }
     }
   }
 
-  if (!metierCA.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
+  // 2) Hors PDV — ventesClientHorsMagasin (DCS, REP, INTERNET, AUTRE)
+  if (_S.ventesClientHorsMagasin?.size) {
+    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+      if (!_distOk(cc)) continue;
+      const info   = _S.chalandiseData.get(cc);
+      const metier = info?.metier || 'Non renseigné';
+      let caFam = 0;
+      for (const [code, v] of artMap) {
+        if (!_matchFam(code)) continue;
+        caFam += v.sumCA || 0;
+      }
+      if (caFam > 0) {
+        _addToMetier(metier, cc, caFam, metierHors, metierClientsAll);
+      }
+    }
+  }
 
-  const sorted = [...metierCA.entries()].sort((a, b) => b[1] - a[1]);
-  const rows = sorted.map(([m, ca]) => {
-    const nbClients = metierClients.get(m)?.size || 0;
-    const panier    = nbClients > 0 ? ca / nbClients : 0;
+  if (!metierHors.size && !metierPDV.size) return sliderHtml + '<div class="t-disabled text-sm text-center py-6">Aucune donnée client × famille.</div>';
+
+  // Trier par CA tous canaux décroissant
+  const allMetiers = new Set([...metierPDV.keys(), ...metierHors.keys()]);
+  const sorted = [...allMetiers].sort((a, b) => (metierHors.get(b) || 0) - (metierHors.get(a) || 0));
+  const rows = sorted.map(m => {
+    const caPDV   = metierPDV.get(m) || 0;
+    const caAll   = metierHors.get(m) || 0;
+    const caHors  = caAll - caPDV;
+    const nbPDV   = metierClientsPDV.get(m)?.size || 0;
+    const nbAll   = metierClientsAll.get(m)?.size || 0;
+    const nbHors  = nbAll - nbPDV;
     return `<tr class="border-b b-light text-[11px] hover:bg-[rgba(0,0,0,0.03)]">
       <td class="py-1.5 px-2 t-primary font-medium">${escapeHtml(m || '—')}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${nbClients}</td>
-      <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(ca)}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${panier > 0 ? formatEuro(panier) : '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${nbPDV || '—'}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:var(--c-action)">${caPDV > 0 ? formatEuro(caPDV) : '—'}</td>
+      <td class="py-1.5 px-2 text-right" style="color:#f59e0b;font-weight:600">${nbHors > 0 ? '+' + nbHors : '—'}</td>
+      <td class="py-1.5 px-2 text-right" style="color:#f59e0b;font-weight:600">${caHors > 0 ? '+' + formatEuro(caHors) : '—'}</td>
+      <td class="py-1.5 px-2 text-right font-extrabold t-primary">${formatEuro(caAll)}</td>
     </tr>`;
   }).join('');
 
-  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">📅 Calculé sur l'historique complet (ventesClientArticleFull)</div><div class="overflow-x-auto">
+  const totPDV  = [...metierPDV.values()].reduce((s, v) => s + v, 0);
+  const totAll  = [...metierHors.values()].reduce((s, v) => s + v, 0);
+  const totHors = totAll - totPDV;
+  const totClientsPDV = new Set(); const totClientsAll = new Set();
+  for (const s of metierClientsPDV.values()) for (const cc of s) totClientsPDV.add(cc);
+  for (const s of metierClientsAll.values()) for (const cc of s) totClientsAll.add(cc);
+
+  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">PDV = Magasin (prélevé + enlevé) · Hors PDV = DCS, Représentant, Internet · Historique complet</div><div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
           <th class="py-1.5 px-2 text-left">Métier</th>
-          <th class="py-1.5 px-2 text-right">Clients</th>
-          <th class="py-1.5 px-2 text-right">CA famille</th>
-          <th class="py-1.5 px-2 text-right">Panier moyen</th>
+          <th class="py-1.5 px-2 text-right">Clients PDV</th>
+          <th class="py-1.5 px-2 text-right">CA PDV</th>
+          <th class="py-1.5 px-2 text-right" style="color:#f59e0b">Cl. hors PDV</th>
+          <th class="py-1.5 px-2 text-right" style="color:#f59e0b">CA hors PDV</th>
+          <th class="py-1.5 px-2 text-right">CA Total</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
+      <tfoot>
+        <tr class="border-t-2 font-extrabold" style="border-color:var(--color-border-secondary)">
+          <td class="py-1.5 px-2 t-primary">TOTAL</td>
+          <td class="py-1.5 px-2 text-right t-secondary">${totClientsPDV.size}</td>
+          <td class="py-1.5 px-2 text-right" style="color:var(--c-action)">${formatEuro(totPDV)}</td>
+          <td class="py-1.5 px-2 text-right" style="color:#f59e0b">${totClientsAll.size - totClientsPDV.size > 0 ? '+' + (totClientsAll.size - totClientsPDV.size) : '—'}</td>
+          <td class="py-1.5 px-2 text-right" style="color:#f59e0b">${totHors > 0 ? '+' + formatEuro(totHors) : '—'}</td>
+          <td class="py-1.5 px-2 text-right t-primary">${formatEuro(totAll)}</td>
+        </tr>
+      </tfoot>
     </table>
   </div>`;
 }
