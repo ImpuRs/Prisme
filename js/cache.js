@@ -294,6 +294,11 @@ export async function _saveSessionToIDB() {
       byMonthClients:           _S._byMonthClients
         ? Object.fromEntries(Object.entries(_S._byMonthClients).map(([k, v]) => [k, [...v]]))
         : null,
+      byMonthClientsByCanal:    _S._byMonthClientsByCanal
+        ? Object.fromEntries(Object.entries(_S._byMonthClientsByCanal).map(([k, cm]) => {
+            const _o = {}; for (const _c in cm) _o[_c] = [...cm[_c]]; return [k, _o];
+          }))
+        : null,
       ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
@@ -416,6 +421,14 @@ export async function _restoreSessionFromIDB() {
     if (data.byMonthClients) {
       _S._byMonthClients = Object.fromEntries(
         Object.entries(data.byMonthClients).map(([k, arr]) => [k, new Set(arr)])
+      );
+    }
+    if (data.byMonthClientsByCanal) {
+      _S._byMonthClientsByCanal = Object.fromEntries(
+        Object.entries(data.byMonthClientsByCanal).map(([k, cm]) => {
+          const _o = {}; for (const _c in cm) _o[_c] = new Set(cm[_c]);
+          return [k, _o];
+        })
       );
     }
     _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);

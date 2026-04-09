@@ -519,6 +519,7 @@ self.onmessage = async function(ev) {
     var byMonth = {};        // cc → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBP, sumCAPrelevee}
     var byMonthCanal = {};   // store → canal → monthIdx → {sumCA, sumPrelevee, countBL}
     var byMonthClients = {}; // monthIdx → Set<cc> — tous canaux, pleine période, pour comptage clients par période
+    var byMonthClientsByCanal = {}; // monthIdx → canal → Set<cc> — pour comptage clients par canal+période
     var byMonthStoreArtCanal = {}; // store → canal → code → monthIdx → {sumCA, sumPrelevee, countBL, sumVMB, sumVMBPrel} — pour rebuild ventesParMagasinByCanal filtré période
 
     var rows = dataC.rows;
@@ -629,6 +630,10 @@ self.onmessage = async function(ev) {
           var _midxBMC = dateV.getFullYear() * 12 + dateV.getMonth();
           if (!byMonthClients[_midxBMC]) byMonthClients[_midxBMC] = new Set();
           byMonthClients[_midxBMC].add(_ccBMC);
+          var _cBMC = canal || 'MAGASIN';
+          if (!byMonthClientsByCanal[_midxBMC]) byMonthClientsByCanal[_midxBMC] = {};
+          if (!byMonthClientsByCanal[_midxBMC][_cBMC]) byMonthClientsByCanal[_midxBMC][_cBMC] = new Set();
+          byMonthClientsByCanal[_midxBMC][_cBMC].add(_ccBMC);
         }
       }
 
@@ -1264,6 +1269,11 @@ self.onmessage = async function(ev) {
         byMonthCanal: byMonthCanal,
         byMonthStoreArtCanal: byMonthStoreArtCanal,
         byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),
+        byMonthClientsByCanal: Object.fromEntries(Object.entries(byMonthClientsByCanal).map(function(kv) {
+          var _cm = {};
+          for (var _k in kv[1]) _cm[_k] = Array.from(kv[1][_k]);
+          return [kv[0], _cm];
+        })),
       }
     });
 

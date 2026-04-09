@@ -45,11 +45,8 @@ function _refreshBenchEquation() {
   const _mode = _S._reseauMagasinMode || 'all';
   const _getCA = (d) => !d ? 0 : _mode === 'preleve' ? (d.caP || 0) : _mode === 'enleve' ? (d.caE || 0) : (d.ca || 0);
   const _LMAP = { MAGASIN: 'Magasin', INTERNET: 'Internet', REPRESENTANT: 'Représentant', DCS: 'DCS' };
-  // Compte les clients uniques depuis _byMonthClients en respectant _globalPeriodePreset
-  const _countClientsByPeriode = () => {
-    if (!_S._byMonthClients) return null;
-    // Priorité 1 : filtre période explicite (periodFilterStart/End)
-    // Priorité 2 : preset relatif (12M/6M/YTD) par rapport à aujourd'hui
+  // Bornes période actuelles (filtre explicite prioritaire, sinon preset relatif)
+  const _getPeriodBounds = () => {
     let _startIdx, _endIdx;
     if (_S.periodFilterStart || _S.periodFilterEnd) {
       const _ps = _S.periodFilterStart, _pe = _S.periodFilterEnd;
@@ -61,9 +58,32 @@ function _refreshBenchEquation() {
       const _preset = _S._globalPeriodePreset || '12M';
       _startIdx = _preset === 'YTD' ? _now.getFullYear() * 12
                 : _preset === '6M'  ? _nowIdx - 5
-                :                     _nowIdx - 11; // 12M
+                :                     _nowIdx - 11;
       _endIdx = _nowIdx;
     }
+    return { _startIdx, _endIdx };
+  };
+  // Compte les clients uniques sur la période, éventuellement restreint à un set de canaux
+  const _countClientsByPeriode = (canauxFilter) => {
+    // Cas canal-filtré : on a besoin de _byMonthClientsByCanal
+    if (canauxFilter && canauxFilter.size > 0) {
+      if (!_S._byMonthClientsByCanal) return null;
+      const { _startIdx, _endIdx } = _getPeriodBounds();
+      const _set = new Set();
+      for (const midxStr in _S._byMonthClientsByCanal) {
+        const midx = +midxStr;
+        if (midx < _startIdx || midx > _endIdx) continue;
+        const _cm = _S._byMonthClientsByCanal[midxStr];
+        for (const _c of canauxFilter) {
+          const _s = _cm[_c]; if (!_s) continue;
+          for (const cc of _s) _set.add(cc);
+        }
+      }
+      return _set.size;
+    }
+    // Cas tous-canaux
+    if (!_S._byMonthClients) return null;
+    const { _startIdx, _endIdx } = _getPeriodBounds();
     const _set = new Set();
     for (const midxStr in _S._byMonthClients) {
       const midx = +midxStr;
@@ -83,13 +103,16 @@ function _refreshBenchEquation() {
     const _canal = [..._canaux][0];
     const _d = _ca_all[_canal] || {};
     _ca = _getCA(_d); _nbBL = _d.bl || 0; _sumVMB = _d.sumVMB || 0;
-    _nbClients = _canal === 'MAGASIN' ? (_S.clientsMagasin?.size || 0) : 0;
-    if (_canal !== 'MAGASIN') for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }
+    _nbClients = _countClientsByPeriode(_canaux);
+    if (_nbClients == null) {
+      _nbClients = _canal === 'MAGASIN' ? (_S.clientsMagasin?.size || 0) : 0;
+      if (_canal !== 'MAGASIN') for (const [, cMap] of (_S.clientLastOrderByCanal || new Map())) { if (cMap.has(_canal)) _nbClients++; }
+    }
     _canalLabel = _LMAP[_canal] || _canal;
   } else {
     _ca = 0; _nbBL = 0; _sumVMB = 0;
     for (const _c of _canaux) { const _d = _ca_all[_c] || {}; _ca += _getCA(_d); _nbBL += _d.bl || 0; _sumVMB += _d.sumVMB || 0; }
-    _nbClients = _countClientsByPeriode() ?? (_S.clientLastOrderByCanal?.size || 0);
+    _nbClients = _countClientsByPeriode(_canaux) ?? (_S.clientLastOrderByCanal?.size || 0);
     _canalLabel = `${_canaux.size} canaux`;
   }
   if (!_ca) { bar.classList.add('hidden'); return; }

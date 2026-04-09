@@ -836,6 +836,13 @@ _S.canalAgence=newCanalAgence;
     _S._byMonthClients    = r.byMonthClients
       ? Object.fromEntries(Object.entries(r.byMonthClients).map(([k, arr]) => [k, new Set(arr)]))
       : null;
+    _S._byMonthClientsByCanal = r.byMonthClientsByCanal
+      ? Object.fromEntries(Object.entries(r.byMonthClientsByCanal).map(([k, cm]) => {
+          const _out = {};
+          for (const _c in cm) _out[_c] = new Set(cm[_c]);
+          return [k, _out];
+        }))
+      : null;
     _S.finalData          = r.finalData || [];
     _S.abcMatrixData      = r.abcMatrixData || {};
     _S.stockParMagasin    = r.stockParMagasin || {};
