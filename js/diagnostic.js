@@ -79,14 +79,14 @@ function _renderClient360(clientCode,source){
   const artMap=artMapPeriod||(artMapFull?.size?artMapFull:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
   const hasTerr=_S.territoireReady&&DataStore.territoireLines?.length>0;
-  // All-channels last order: prefer clientLastOrderAll (built from consommé, all canals)
-  const allOrder=_S.clientLastOrderAll?.get(clientCode);
-  const lastOrder=allOrder?.date||_S.clientLastOrder?.get(clientCode)||null;
-  const lastOrderCanal=allOrder?.canal||'MAGASIN';
+  // All-channels last order: prefer clientStore (pre-aggregated)
+  const _rec=_S.clientStore?.get(clientCode);
+  const lastOrder=_rec?.lastOrderAll||_rec?.lastOrderPDV||null;
+  const lastOrderCanal=_rec?.lastOrderCanal||'MAGASIN';
   const today=new Date();
   const daysSince=lastOrder?Math.round((today-lastOrder)/86400000):null;
   const ca2025=info.ca2025||0;
-  const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+  const caPDV=_rec?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const hasChal=_S.chalandiseReady;
 
   // ── Classification + badge statut ───────────────────────────────
@@ -333,11 +333,11 @@ function _c360CopyResume(clientCode){
   const _artF=_S.ventesClientArticleFull?.get(clientCode);
   const artMap=_artP||(_artF?.size?_artF:null);
   const horsMag=_S.ventesClientHorsMagasin?.get(clientCode);
-  const caPDV=artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-  const caHors=horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
+  const _rec2=_S.clientStore?.get(clientCode);
+  const caPDV=_rec2?.caPDV||(artMap?[...artMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
+  const caHors=_rec2?.caHors||(horsMag?[...horsMag.values()].reduce((s,d)=>s+(d.sumCA||0),0):0);
   const ca2025=info.ca2025||0;
-  const allOrder=_S.clientLastOrderAll?.get(clientCode);
-  const lastOrder=allOrder?.date||_S.clientLastOrder?.get(clientCode)||null;
+  const lastOrder=_rec2?.lastOrderAll||_rec2?.lastOrderPDV||null;
   const daysSince=lastOrder?Math.round((new Date()-lastOrder)/86400000):null;
   const priorite=daysSince===null?'':(daysSince>90?' · 🔴 URGENT':daysSince>60?' · 🟠 À RELANCER':daysSince>30?' · 🟡 SURVEILLER':' · 🟢 ACTIF');
   // Omni
@@ -415,11 +415,12 @@ function openArticlePanel(code,source){
   if(buyers&&buyers.size){
     for(const cc of buyers){
       const caArt=((DataStore.ventesClientArticle.get(cc)||new Map()).get(code)||{}).sumCA||0;
-      const lastDate=_S.clientLastOrder.get(cc)||null;
-      const daysSince=lastDate?daysBetween(lastDate,_today):null;
-      const nom=_S.clientNomLookup[cc]||(_S.chalandiseReady?_S.chalandiseData.get(cc)?.nom:null)||cc;
+      const rec=_S.clientStore?.get(cc);
+      const lastDate=rec?.lastOrderPDV||null;
+      const daysSince=rec?.silenceDaysPDV??null;
+      const nom=rec?.nom||cc;
       let statusBadge='';
-      if(_S.chalandiseReady){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(_isGlobalActif(info))statusBadge='<span class="diag-badge diag-warn">Actif Leg</span>';else statusBadge='<span class="diag-badge diag-error">Perdu</span>';}}
+      if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(_isGlobalActif(info))statusBadge='<span class="diag-badge diag-warn">Actif Leg</span>';else statusBadge='<span class="diag-badge diag-error">Perdu</span>';}}
       buyerList.push({cc,nom,caArt,daysSince,lastDate,statusBadge});
     }
     buyerList.sort((a,b)=>b.caArt-a.caArt);

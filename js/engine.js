@@ -560,18 +560,17 @@ export function computeOpportuniteNette() {
 // ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
 export function computeSPC(cc, info) {
   let score = 0;
+  const rec = _S.clientStore?.get(cc);
   // 1. Récence (30 pts)
-  const lastOrder = _S.clientLastOrder.get(cc);
-  if (lastOrder) {
-    const daysAgo = Math.round((new Date() - lastOrder) / 86400000);
+  const daysAgo = rec?.silenceDaysPDV;
+  if (daysAgo !== null && daysAgo !== undefined) {
     if (daysAgo <= 30) score += 30;
     else if (daysAgo <= 90) score += 20;
     else if (daysAgo <= 180) score += 10;
   }
   // 2. CA rapatriable (30 pts)
   const caLeg = info.ca2025 || info.ca2026 || 0;
-  const artMap = _S.ventesClientArticle.get(cc);
-  const caPDV = artMap ? [...artMap.values()].reduce((s, d) => s + (d.sumCA || 0), 0) : 0;
+  const caPDV = rec?.caPDV || 0;
   const caHorsPDV = Math.max(caLeg - caPDV, 0);
   if (caHorsPDV > 10000) score += 30;
   else if (caHorsPDV > 5000) score += 25;

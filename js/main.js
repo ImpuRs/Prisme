@@ -518,25 +518,16 @@ _S.canalAgence=newCanalAgence;
     let silencieuxList;
     if(_S._cockpitExportData?.silencieux?.length){
       silencieuxList=_S._cockpitExportData.silencieux.map(c=>({cc:c.code,nom:c.nom,caMag:c.caPDVN||0,caLeg:c.ca2025||0,days:c._daysSince||0}));
-    }else{
+    }else if(_S.clientStore?.size){
       silencieuxList=[];
-      const now=new Date();
-      const _minConsomme=_S.consommePeriodMinFull||_S.consommePeriodMin;
-      for(const[cc,lastDate] of _S.clientLastOrder.entries()){
-        if(_minConsomme&&lastDate<_minConsomme)continue;
-        const _dSil=daysBetween(lastDate,now);
-        if(_dSil>30&&_dSil<=60){
-          const magData=_S.ventesClientArticle?.get(cc);
-          const caMag_s=magData?[...magData.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-          const caLeg=_S.chalandiseData?.get(cc)?.ca2025||0;
-          if(caMag_s>0||caLeg>0){
-            const nom=_S.clientNomLookup[cc]||(_S.chalandiseData?.get(cc)||{}).nom||cc;
-            silencieuxList.push({cc,nom,caMag:caMag_s,caLeg,days:_dSil});
-          }
+      for(const rec of _S.clientStore.values()){
+        const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;
+        if((rec.caPDV||0)>0||(rec.caLegallais||0)>0){
+          silencieuxList.push({cc:rec.cc,nom:rec.nom,caMag:rec.caPDV||0,caLeg:rec.caLegallais||0,days:d});
         }
       }
       silencieuxList.sort((a,b)=>(b.days-a.days)||(b.caLeg-a.caLeg));
-    }
+    }else{silencieuxList=[];}
     const silencieuxCount=silencieuxList.length;
     const silencieuxCA=silencieuxList.reduce((s,c)=>s+(c.caLeg||c.caMag||0),0);
     // Clients à capter (chalandise actifs hors agence)
