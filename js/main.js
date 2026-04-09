@@ -562,7 +562,7 @@ _S.canalAgence=newCanalAgence;
       // Détail magasin si multi-canal
       if(isMultiCanal&&caMag>0){
         const pctMag=caTotal>0?Math.round(caMag/caTotal*100):0;
-        let magLine=`Le comptoir pèse ${pctMag}% du CA (${formatEuro(caMag)}, ${nbClientsPDV.toLocaleString('fr')} clients, panier moyen ${caParClientMag.toLocaleString('fr')} €, fréquence ${freqMag}x)`;
+        let magLine=`Le canal Magasin pèse ${pctMag}% du CA (${formatEuro(caMag)}, ${nbClientsPDV.toLocaleString('fr')} clients, panier moyen ${caParClientMag.toLocaleString('fr')} €, fréquence ${freqMag}x)`;
         magLine+='.';
         L.push(magLine);
         // Canaux hors agence
