@@ -1014,8 +1014,8 @@ function _renderCommercialSummary(){
   const isHors=canal&&canal!=='MAGASIN';
   const comData={};
   if(_S._omniSegmentFilter&&_S.clientOmniScore?.size){
-    // Segment filter active: iterate clientOmniScore, CA from ventesClientArticleFull
-    const _vcaFull=_S.ventesClientArticleFull?.size?_S.ventesClientArticleFull:_S.ventesClientArticle;
+    // Segment filter active: iterate clientOmniScore, CA from ventesClientArticle (period-filtered)
+    const _vcaFull=_S.ventesClientArticle;
     for(const[cc,o]of _S.clientOmniScore){
       if(o.segment!==_S._omniSegmentFilter)continue;
       const info=_S.chalandiseData?.get(cc);
