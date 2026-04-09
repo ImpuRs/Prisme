@@ -459,9 +459,29 @@ _S.canalAgence=newCanalAgence;
     const vmbTotal=Object.values(_ca_all).reduce((s,d)=>s+(d.sumVMB||0),0);
     const caHorsAgence=caWeb+caRep+caDcs;
 
-    // Clients — period-filtered
+    // Clients — period-filtered (même logique que bench.js _countClientsByPeriode)
     const nbClientsPDV=_S.ventesClientArticle?.size||0;
-    const nbClientsAll=(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0)?_S._clientsTousCanaux.size:(_S.clientLastOrderByCanal?.size||nbClientsPDV);
+    let nbClientsAll=nbClientsPDV;
+    {
+      // Compter clients tous canaux sur la période depuis _byMonthClients
+      const _bmc=_S._byMonthClients;
+      if(_bmc){
+        const _pMin=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;
+        const _pMax=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;
+        if(_pMin&&_pMax){
+          const _si=_pMin.getFullYear()*12+_pMin.getMonth();
+          const _ei=_pMax.getFullYear()*12+_pMax.getMonth();
+          const _set=new Set();
+          for(const midxStr in _bmc){
+            const midx=+midxStr;
+            if(midx>=_si&&midx<=_ei)for(const cc of _bmc[midxStr])_set.add(cc);
+          }
+          if(_set.size>0)nbClientsAll=_set.size;
+        }
+      } else if(_S._clientsTousCanaux instanceof Set&&_S._clientsTousCanaux.size>0){
+        nbClientsAll=_S._clientsTousCanaux.size;
+      }
+    }
     const isMultiCanal=caHorsAgence>0;
 
     // Équation commerciale — tous canaux
