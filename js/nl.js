@@ -316,7 +316,7 @@ function _nlQ_ClientsWeb(n) {
   }
   const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
   if (!top.length) return { title:'Top clients web', html:'<p class="text-xs t-disabled">Aucun achat Internet détecté.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gN = cc => (_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||cc);
   const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
   const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
   return { title:`Top ${n} clients Internet`,
@@ -335,7 +335,7 @@ function _nlQ_ClientsRepOnly() {
   results.sort((a,b)=>b.caRep-a.caRep);
   const top = results.slice(0,15);
   if (!top.length) return { title:'Clients représentant seulement', html:'<p class="text-xs t-disabled">Aucun trouvé.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gN = cc => (_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||cc);
   const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
   const rows = top.map(({cc,caRep})=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-3 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(caRep)}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
   return { title:`Clients sans comptoir — représentant uniquement (${results.length})`,
@@ -371,11 +371,11 @@ function _nlQ_ConcentrationClient() {
   // Top clients with enrichment
   const top = caMap.slice(0, 15).map(r => {
     const info = _S.chalandiseData?.get(r.cc);
-    const nom = info?.nom || _S.clientNomLookup?.[r.cc] || r.cc;
-    const metier = info?.metier || '';
+    const _csR = _S.clientStore?.get(r.cc);
+    const nom = _csR?.nom || info?.nom || r.cc;
+    const metier = _csR?.metier || info?.metier || '';
     const pct = Math.round(r.ca / totalCA * 100);
-    const lastOrder = _S.clientLastOrder?.get(r.cc);
-    const silenceDays = lastOrder ? Math.round((nowTs - lastOrder) / 86400000) : null;
+    const silenceDays = _csR?.silenceDaysPDV ?? (()=>{ const lo=_S.clientLastOrder?.get(r.cc); return lo?Math.round((nowTs-lo)/86400000):null; })();
     const omni = _S.clientOmniScore?.get(r.cc);
     const segment = omni?.segment || null;
     // Risk: silence or digital drift
@@ -464,18 +464,27 @@ function _nlQ_RupturesTopClients() {
 }
 
 function _nlQ_ClientsSilencieux(days, minEuros, metier) {
-  if (!_S.clientLastOrder?.size) return { title:'Clients silencieux', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
-  const now = new Date();
+  if (!_S.clientStore?.size && !_S.clientLastOrder?.size) return { title:'Clients silencieux', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
   const results = [];
-  for (const [cc,lastDate] of _S.clientLastOrder) {
-    const daysAgo = Math.round((now-lastDate)/86400000);
-    if (daysAgo < days) continue;
-    const info = _S.chalandiseData?.get(cc);
-    if (metier && info?.metier !== metier) continue;
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    if (minEuros && ca < minEuros) continue;
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV === null || rec.silenceDaysPDV < days) continue;
+      if (metier && rec.metier !== metier) continue;
+      if (minEuros && rec.caPDV < minEuros) continue;
+      results.push({ cc: rec.cc, nom: rec.nom, metier: rec.metier, daysAgo: rec.silenceDaysPDV, ca: rec.caPDV });
+    }
+  } else {
+    const now = new Date();
+    for (const [cc,lastDate] of _S.clientLastOrder) {
+      const daysAgo = Math.round((now-lastDate)/86400000);
+      if (daysAgo < days) continue;
+      const info = _S.chalandiseData?.get(cc);
+      if (metier && info?.metier !== metier) continue;
+      const arts = _S.ventesClientArticle?.get(cc);
+      const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
+      if (minEuros && ca < minEuros) continue;
+      results.push({ cc, nom: info?.nom||cc, metier: info?.metier||'', daysAgo, ca });
+    }
   }
   results.sort((a,b)=>b.ca-a.ca||b.daysAgo-a.daysAgo);
   const top = results.slice(0,15);
@@ -493,14 +502,13 @@ function _nlQ_CommercialSilent(commercial, days) {
   const now = new Date();
   const results = [];
   for (const cc of clients) {
-    const lastDate = _S.clientLastOrder?.get(cc);
+    const rec = _S.clientStore?.get(cc);
+    const lastDate = rec?.lastOrderPDV || _S.clientLastOrder?.get(cc);
     if (!lastDate) continue;
-    const daysAgo = Math.round((now-lastDate)/86400000);
+    const daysAgo = rec?.silenceDaysPDV ?? Math.round((now-lastDate)/86400000);
     if (daysAgo < days) continue;
-    const info = _S.chalandiseData?.get(cc);
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', daysAgo, ca });
+    const ca = rec?.caPDV ?? (()=>{ const arts=_S.ventesClientArticle?.get(cc); let s=0; if(arts)for(const v of arts.values())s+=v.sumCA||0; return s; })();
+    results.push({ cc, nom: rec?.nom || _S.chalandiseData?.get(cc)?.nom || cc, metier: rec?.metier || _S.chalandiseData?.get(cc)?.metier || '', daysAgo, ca });
   }
   results.sort((a,b)=>b.ca-a.ca);
   const top = results.slice(0,15);
@@ -518,17 +526,15 @@ function _nlQ_ClientsDigitaux() {
   for (const [cc,horArts] of _S.ventesClientHorsMagasin) {
     const pdvArts = _S.ventesClientArticle.get(cc);
     if (!pdvArts?.size) continue;
-    const lastPDV = _S.clientLastOrder?.get(cc);
-    if (!lastPDV) continue;
-    const pdvSilence = Math.round((now-lastPDV)/86400000);
-    if (pdvSilence < 90) continue;
+    const _csRec = _S.clientStore?.get(cc);
+    const pdvSilence = _csRec?.silenceDaysPDV ?? (()=>{ const lp=_S.clientLastOrder?.get(cc); return lp?Math.round((now-lp)/86400000):null; })();
+    if (pdvSilence === null || pdvSilence < 90) continue;
     let caHors=0; const canalCA={};
     for (const [,v] of horArts) { caHors+=v.sumCA||0; canalCA[v.canal]=(canalCA[v.canal]||0)+(v.sumCA||0); }
     if (caHors < 200) continue;
     const mainCanal = Object.entries(canalCA).sort((a,b)=>b[1]-a[1])[0]?.[0]||'';
-    let caPDV=0; for (const [,v] of pdvArts) caPDV+=v.sumCA||0;
-    const info = _S.chalandiseData?.get(cc);
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', pdvSilence, caPDV, caHors, mainCanal });
+    const caPDV = _csRec?.caPDV ?? (()=>{ let s=0; for(const[,v] of pdvArts)s+=v.sumCA||0; return s; })();
+    results.push({ cc, nom: _csRec?.nom || _S.chalandiseData?.get(cc)?.nom || cc, metier: _csRec?.metier || _S.chalandiseData?.get(cc)?.metier || '', pdvSilence, caPDV, caHors, mainCanal });
   }
   results.sort((a,b)=>b.caPDV-a.caPDV);
   const top = results.slice(0,15);
@@ -541,18 +547,26 @@ function _nlQ_ClientsDigitaux() {
 }
 
 function _nlQ_NouveauxClients(days) {
-  if (!_S.clientLastOrder?.size) return { title:'Nouveaux clients', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
-  const now = new Date();
-  const cutoff = days * 86400000;
+  if (!_S.clientStore?.size && !_S.clientLastOrder?.size) return { title:'Nouveaux clients', html:'<p class="text-xs t-disabled">Données non disponibles.</p>' };
   const results = [];
-  for (const [cc, lastDate] of _S.clientLastOrder) {
-    if (now - lastDate > cutoff) continue;
-    const freq = _S.clientsMagasinFreq?.get(cc) || 0;
-    if (freq > 3) continue; // clients établis exclus
-    const arts = _S.ventesClientArticle?.get(cc);
-    const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
-    const info = _S.chalandiseData?.get(cc);
-    results.push({ cc, nom:info?.nom||_S.clientNomLookup?.[cc]||cc, metier:info?.metier||'', freq, ca, daysAgo:Math.round((now-lastDate)/86400000) });
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV === null || rec.silenceDaysPDV > days) continue;
+      if (rec.nbBLPDV > 3) continue;
+      results.push({ cc: rec.cc, nom: rec.nom, metier: rec.metier, freq: rec.nbBLPDV, ca: rec.caPDV, daysAgo: rec.silenceDaysPDV });
+    }
+  } else {
+    const now = new Date();
+    const cutoff = days * 86400000;
+    for (const [cc, lastDate] of _S.clientLastOrder) {
+      if (now - lastDate > cutoff) continue;
+      const freq = _S.clientsMagasinFreq?.get(cc) || 0;
+      if (freq > 3) continue;
+      const arts = _S.ventesClientArticle?.get(cc);
+      const ca = arts ? [...arts.values()].reduce((s,v)=>s+(v.sumCA||0),0) : 0;
+      const info = _S.chalandiseData?.get(cc);
+      results.push({ cc, nom: info?.nom||cc, metier: info?.metier||'', freq, ca, daysAgo:Math.round((now-lastDate)/86400000) });
+    }
   }
   results.sort((a,b)=>a.daysAgo-b.daysAgo||b.ca-a.ca);
   if (!results.length) return { title:`Nouveaux clients (${days} derniers jours)`, html:'<p class="text-xs t-disabled">Aucun nouveau client détecté sur cette période.</p>' };
@@ -573,8 +587,8 @@ function _nlQ_FideliteClients() {
     let caPDV = 0, nbBL = 0;
     for (const [, v] of arts) { caPDV += v.sumCA || 0; nbBL += v.countBL || 0; }
     if (caPDV < 50) continue;
-    const lastOrder = _S.clientLastOrder?.get(cc);
-    const silenceDays = lastOrder ? Math.round((nowTs - lastOrder) / 86400000) : 999;
+    const _csR = _S.clientStore?.get(cc);
+    const silenceDays = _csR?.silenceDaysPDV ?? (()=>{ const lo=_S.clientLastOrder?.get(cc); return lo?Math.round((nowTs-lo)/86400000):999; })();
     clients.push({ cc, caPDV: Math.round(caPDV), nbBL, silenceDays });
   }
   if (!clients.length) return { title:'Score fidélité clients', html:'<p class="text-xs t-disabled p-2">Aucun client avec CA PDV.</p>' };
@@ -598,7 +612,7 @@ function _nlQ_FideliteClients() {
     .sort((a, b) => b.caPDV - a.caPDV)
     .slice(0, 10);
 
-  const gN = cc => _S.chalandiseData?.get(cc)?.nom || _S.clientNomLookup?.[cc] || cc;
+  const gN = cc => _S.clientStore?.get(cc)?.nom || _S.chalandiseData?.get(cc)?.nom || cc;
   const gM = cc => _S.chalandiseData?.get(cc)?.metier || '';
 
   function _scoreBar(s, color) {
@@ -655,7 +669,7 @@ function _nlQ_ClientsHorsAgence(minEuros) {
   }
   const top = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15);
   if (!top.length) return { title:`Clients hors agence >${formatEuro(minEuros)}`, html:'<p class="text-xs t-disabled">Aucun client correspondant.</p>' };
-  const gN = cc => (_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc);
+  const gN = cc => (_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||cc);
   const gM = cc => (_S.chalandiseData?.get(cc)?.metier||'');
   const hasPDV = cc => !!(_S.ventesClientArticle?.get(cc)?.size);
   const rows = top.map(([cc,ca])=>`<tr class="text-[10px] b-light border-b cursor-pointer hover:s-hover" onclick="openClient360('${cc}','nl')"><td class="py-1 pr-2">${gN(cc).slice(0,25)}</td><td class="py-1 pr-2 t-disabled">${gM(cc)}</td><td class="py-1 text-right font-bold">${formatEuro(ca)}</td><td class="py-1 pl-2 text-[8px]">${hasPDV(cc)?'<span class="text-emerald-500">+PDV</span>':'<span style="color:var(--c-danger)">PDV absent</span>'}</td><td class="py-1 pl-1 text-[8px] t-disabled">360°→</td></tr>`).join('');
@@ -766,7 +780,7 @@ function _nlQ_OmniSegment(segment) {
     for (const [cc, o] of scores) {
       if (o.segment !== seg) continue;
       const info = _S.chalandiseData?.get(cc);
-      list.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier||'', o });
+      list.push({ cc, nom: _S.clientStore?.get(cc)?.nom || info?.nom || cc, metier: info?.metier||'', o });
     }
     list.sort((a,b)=>(b.o.caPDV+b.o.caHors)-(a.o.caPDV+a.o.caHors));
     if (!list.length) continue;
@@ -829,7 +843,7 @@ function _nlQ_CommercialFuites(commercial) {
         if (!famData[r]) famData[r] = { ca: 0, clients: [] };
         famData[r].ca += ca;
         const info = _S.chalandiseData?.get(cc);
-        famData[r].clients.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, ca });
+        famData[r].clients.push({ cc, nom: _S.clientStore?.get(cc)?.nom || info?.nom || cc, ca });
       }
     }
     return Object.entries(famData)
@@ -1061,9 +1075,10 @@ function _nlQ_SyntheseCommercial() {
       if (pdvArts) for (const [, v] of pdvArts) caPDV += (v.sumCA || 0);
 
       // Actif / silencieux
-      const lastOrder = _S.clientLastOrder?.get(cc);
+      const _csR2 = _S.clientStore?.get(cc);
+      const lastOrder = _csR2?.lastOrderPDV || _S.clientLastOrder?.get(cc);
       if (lastOrder) {
-        const ageDays = (nowTs - lastOrder) / 86400000;
+        const ageDays = _csR2?.silenceDaysPDV ?? (nowTs - lastOrder) / 86400000;
         if (ageDays < SILENCE_DAYS) nbActifs++;
         else if (pdvArts?.size > 0) nbSilencieux++;
       }
@@ -1438,30 +1453,39 @@ function _nlQ_PrevisionRupture() {
 
 // ── Sprint AK : Relance clients ce mois ──────────────────────
 function _nlQ_RelanceClients() {
-  if (!_S.clientLastOrder?.size)
+  if (!_S.clientStore?.size && !_S.clientLastOrder?.size)
     return { title:'Relance clients', html:'<p class="text-xs t-disabled p-2">Chargez les données clients (consommé + stock).</p>' };
 
-  const nowTs = Date.now();
   const MIN_SILENCE = 45; // jours
   const MIN_CA = 500;     // €
 
   const rows = [];
-  for (const [cc, lastDt] of _S.clientLastOrder) {
-    const silence = Math.round((nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt)) / 86400000);
-    if (silence < MIN_SILENCE) continue;
-    // CA PDV total du client
-    let caPDV = 0;
-    const arts = _S.ventesClientArticle?.get(cc);
-    if (arts) for (const [, v] of arts) caPDV += (v.sumCA || 0);
-    if (caPDV < MIN_CA) continue;
-    const info = _S.chalandiseData?.get(cc);
-    const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
-    const commercial = info?.commercial || '';
-    const metier = info?.metier || '';
-    const classif = info?.classification || '';
-    const lastArt = arts ? [...arts.entries()].sort((a, b) => (b[1].sumCA || 0) - (a[1].sumCA || 0))[0] : null;
-    const lastArtLib = lastArt ? (_S.libelleLookup?.[lastArt[0]] || lastArt[0]) : '';
-    rows.push({ cc, nom, silence, caPDV, commercial, metier, classif, lastArtLib });
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV === null || rec.silenceDaysPDV < MIN_SILENCE) continue;
+      if (rec.caPDV < MIN_CA) continue;
+      const lastArt = rec.artMapPDV ? [...rec.artMapPDV.entries()].sort((a,b)=>(b[1].sumCA||0)-(a[1].sumCA||0))[0] : null;
+      const lastArtLib = lastArt ? (_S.libelleLookup?.[lastArt[0]] || lastArt[0]) : '';
+      rows.push({ cc: rec.cc, nom: rec.nom, silence: rec.silenceDaysPDV, caPDV: rec.caPDV, commercial: rec.commercial, metier: rec.metier, classif: rec.classification, lastArtLib });
+    }
+  } else {
+    const nowTs = Date.now();
+    for (const [cc, lastDt] of _S.clientLastOrder) {
+      const silence = Math.round((nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt)) / 86400000);
+      if (silence < MIN_SILENCE) continue;
+      let caPDV = 0;
+      const arts = _S.ventesClientArticle?.get(cc);
+      if (arts) for (const [, v] of arts) caPDV += (v.sumCA || 0);
+      if (caPDV < MIN_CA) continue;
+      const info = _S.chalandiseData?.get(cc);
+      const nom = info?.nom || cc;
+      const commercial = info?.commercial || '';
+      const metier = info?.metier || '';
+      const classif = info?.classification || '';
+      const lastArt = arts ? [...arts.entries()].sort((a, b) => (b[1].sumCA || 0) - (a[1].sumCA || 0))[0] : null;
+      const lastArtLib = lastArt ? (_S.libelleLookup?.[lastArt[0]] || lastArt[0]) : '';
+      rows.push({ cc, nom, silence, caPDV, commercial, metier, classif, lastArtLib });
+    }
   }
   rows.sort((a, b) => b.caPDV - a.caPDV);
 
@@ -2193,30 +2217,7 @@ function _nlQ_BriefingJour() {
     }
   }
 
-  // ── 3. Clients à relancer (silencieux >60j, CA>1k) ──
-  if (_S.clientLastOrder?.size) {
-    const nowTs = Date.now();
-    let relanceCount = 0;
-    for (const [cc, dt] of _S.clientLastOrder) {
-      const silence = (nowTs - (dt instanceof Date ? dt.getTime() : dt)) / 86400000;
-      if (silence < 60) continue;
-      let ca = 0;
-      const arts = _S.ventesClientArticle?.get(cc);
-      if (arts) for (const [, v] of arts) ca += (v.sumCA || 0);
-      if (ca >= 1000) relanceCount++;
-    }
-    if (relanceCount > 0) {
-      items.push({
-        icon: '📞', priority: 3,
-        title: `${relanceCount} client${relanceCount > 1 ? 's' : ''} à relancer (>60j, CA>1k€)`,
-        detail: 'Clients actifs silencieux depuis plus de 2 mois',
-        action: 'Contacter en priorité',
-        color: 'var(--c-action)',
-      });
-    }
-  }
-
-  // ── 4. Sous MIN ERP ──
+  // ── 3. Sous MIN ERP ──
   const sousMin = _S.finalData.filter(r =>
     !r.isParent && r.ancienMin > 0 && r.stockActuel > 0 && r.stockActuel < r.ancienMin &&
     r.W >= 3 && !(r.V === 0 && r.enleveTotal > 0)
@@ -2504,10 +2505,15 @@ function _nlQ_ProfilCommercial(commercial) {
     if (artsH) for (const [, v] of artsH) caHors += (v.sumCA || 0);
 
     // Silence
-    const lastDt = _S.clientLastOrder?.get(cc);
-    if (lastDt) {
-      const age = nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt);
-      if (age < SILENCE) nbActifs++; else nbSilencieux++;
+    const _csRC = _S.clientStore?.get(cc);
+    if (_csRC?.silenceDaysPDV !== undefined && _csRC?.silenceDaysPDV !== null) {
+      if (_csRC.silenceDaysPDV < SILENCE / 86400000) nbActifs++; else nbSilencieux++;
+    } else {
+      const lastDt = _S.clientLastOrder?.get(cc);
+      if (lastDt) {
+        const age = nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt);
+        if (age < SILENCE) nbActifs++; else nbSilencieux++;
+      }
     }
 
     // Métiers
@@ -2626,30 +2632,36 @@ function _nlQ_CouvertureJours() {
 
 // ── Sprint AZ : Clients gagnés vs perdus ─────────────────────
 function _nlQ_ClientsGagnesPerdus() {
-  if (!_S.clientLastOrder?.size)
+  if (!_S.clientStore?.size && !_S.clientLastOrder?.size)
     return { title:'Gagnés vs perdus', html:'<p class="text-xs t-disabled p-2">Chargez les données clients.</p>' };
-
-  const nowTs = Date.now();
-  const NOUVEAU = 90  * 86400000; // < 90j = nouveau/gagné
-  const PERDU   = 180 * 86400000; // > 180j = perdu
 
   const gagnes = [], perdus = [], actifs = [];
 
-  for (const [cc, dt] of _S.clientLastOrder) {
-    const age = nowTs - (dt instanceof Date ? dt.getTime() : dt);
-    let caPDV = 0;
-    const arts = _S.ventesClientArticle?.get(cc);
-    if (arts) for (const [, v] of arts) caPDV += (v.sumCA || 0);
-    if (caPDV < 100) continue; // filtrer bruit
-
-    const info = _S.chalandiseData?.get(cc);
-    const nom = info?.nom || _S.clientNomLookup?.[cc] || cc;
-    const metier = info?.metier || '';
-    const row = { cc, nom, metier, caPDV, ageDays: Math.round(age / 86400000) };
-
-    if (age < NOUVEAU) gagnes.push(row);
-    else if (age > PERDU) perdus.push(row);
-    else actifs.push(row);
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.silenceDaysPDV === null) continue;
+      if (rec.caPDV < 100) continue;
+      const row = { cc: rec.cc, nom: rec.nom, metier: rec.metier, caPDV: rec.caPDV, ageDays: rec.silenceDaysPDV };
+      if (rec.silenceDaysPDV < 90) gagnes.push(row);
+      else if (rec.silenceDaysPDV > 180) perdus.push(row);
+      else actifs.push(row);
+    }
+  } else {
+    const nowTs = Date.now();
+    for (const [cc, dt] of _S.clientLastOrder) {
+      const age = nowTs - (dt instanceof Date ? dt.getTime() : dt);
+      let caPDV = 0;
+      const arts = _S.ventesClientArticle?.get(cc);
+      if (arts) for (const [, v] of arts) caPDV += (v.sumCA || 0);
+      if (caPDV < 100) continue;
+      const info = _S.chalandiseData?.get(cc);
+      const nom = info?.nom || cc;
+      const metier = info?.metier || '';
+      const row = { cc, nom, metier, caPDV, ageDays: Math.round(age / 86400000) };
+      if (age < 90 * 86400000) gagnes.push(row);
+      else if (age > 180 * 86400000) perdus.push(row);
+      else actifs.push(row);
+    }
   }
 
   gagnes.sort((a, b) => b.caPDV - a.caPDV);
@@ -2714,10 +2726,13 @@ function _nlQ_ProfilClient(raw) {
   const stopwords = new Set(['profil','client','achats','articles','fiche','resume','bilan','detail','de','du','le','la','les','un','une','pour']);
   const words = raw.split(/\s+/).filter(w => w.length >= 3 && !stopwords.has(w));
 
-  // Chercher dans clientNomLookup
-  if (words.length > 0 && _S.clientNomLookup) {
+  // Chercher dans clientStore (fallback clientNomLookup)
+  if (words.length > 0 && (_S.clientStore?.size || _S.clientNomLookup)) {
     let bestScore = 0;
-    for (const [cc, nom] of Object.entries(_S.clientNomLookup)) {
+    const source = _S.clientStore?.size
+      ? [..._S.clientStore.values()].map(r => [r.cc, r.nom])
+      : Object.entries(_S.clientNomLookup || {});
+    for (const [cc, nom] of source) {
       const nomN = _nlNorm(nom);
       const score = words.filter(w => nomN.includes(w)).length;
       if (score > bestScore) { bestScore = score; targetCC = cc; targetNom = nom; }
@@ -2748,8 +2763,8 @@ function _nlQ_ProfilClient(raw) {
   let caHors = 0;
   for (const [, v] of artsH) caHors += (v.sumCA || 0);
 
-  const lastDt = _S.clientLastOrder?.get(targetCC);
-  const silence = lastDt ? Math.round((Date.now() - (lastDt instanceof Date ? lastDt.getTime() : lastDt)) / 86400000) : null;
+  const _csRP = _S.clientStore?.get(targetCC);
+  const silence = _csRP?.silenceDaysPDV ?? (()=>{ const ld=_S.clientLastOrder?.get(targetCC); return ld?Math.round((Date.now()-ld)/86400000):null; })();
 
   // Top 5 articles PDV
   const topArts = [...arts.entries()]
@@ -3135,37 +3150,47 @@ function _nlQ_RepartitionGeo() {
 
 // ── Sprint BG : Score engagement clients ─────────────────────
 function _nlQ_EngagementClients() {
-  if (!_S.clientLastOrder?.size || !_S.ventesClientArticle?.size)
+  if (!_S.clientStore?.size && (!_S.clientLastOrder?.size || !_S.ventesClientArticle?.size))
     return { title:'Engagement clients', html:'<p class="text-xs t-disabled p-2">Chargez les données clients.</p>' };
 
-  const nowTs = Date.now();
-  const MAX_SILENCE = 365 * 86400000; // 1 an max pour la note
   const rows = [];
 
-  for (const [cc, lastDt] of _S.clientLastOrder) {
-    const arts = _S.ventesClientArticle.get(cc);
-    if (!arts) continue;
-    let caPDV = 0, nbBL = 0;
-    for (const [, v] of arts) { caPDV += (v.sumCA || 0); nbBL += (v.countBL || 0); }
-    if (caPDV < 200) continue;
-
-    const silence = (nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt)) / 86400000;
-    // Score RFM simplifié (0-100)
-    // R : récence (silence) — 35 pts : 0j=35, 365j=0
-    const rScore = Math.max(0, Math.round(35 * (1 - Math.min(silence, 365) / 365)));
-    // F : fréquence (nbBL) — 35 pts : 20+ BL = max
-    const fScore = Math.min(35, Math.round(nbBL / 20 * 35));
-    // M : montant (caPDV) — 30 pts : log scale, 10k€ = max
-    const mScore = Math.min(30, Math.round(Math.log(caPDV + 1) / Math.log(10001) * 30));
-    const total  = rScore + fScore + mScore;
-
-    const info = _S.chalandiseData?.get(cc);
-    rows.push({
-      cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
-      metier: info?.metier || '', commercial: info?.commercial || '',
-      caPDV, nbBL, silence: Math.round(silence),
-      rScore, fScore, mScore, total,
-    });
+  if (_S.clientStore?.size) {
+    for (const rec of _S.clientStore.values()) {
+      if (rec.caPDV < 200) continue;
+      const silence = rec.silenceDaysPDV ?? 999;
+      const rScore = Math.max(0, Math.round(35 * (1 - Math.min(silence, 365) / 365)));
+      const fScore = Math.min(35, Math.round(rec.nbBLPDV / 20 * 35));
+      const mScore = Math.min(30, Math.round(Math.log(rec.caPDV + 1) / Math.log(10001) * 30));
+      const total  = rScore + fScore + mScore;
+      rows.push({
+        cc: rec.cc, nom: rec.nom,
+        metier: rec.metier, commercial: rec.commercial,
+        caPDV: rec.caPDV, nbBL: rec.nbBLPDV, silence: Math.round(silence),
+        rScore, fScore, mScore, total,
+      });
+    }
+  } else {
+    const nowTs = Date.now();
+    for (const [cc, lastDt] of _S.clientLastOrder) {
+      const arts = _S.ventesClientArticle.get(cc);
+      if (!arts) continue;
+      let caPDV = 0, nbBL = 0;
+      for (const [, v] of arts) { caPDV += (v.sumCA || 0); nbBL += (v.countBL || 0); }
+      if (caPDV < 200) continue;
+      const silence = (nowTs - (lastDt instanceof Date ? lastDt.getTime() : lastDt)) / 86400000;
+      const rScore = Math.max(0, Math.round(35 * (1 - Math.min(silence, 365) / 365)));
+      const fScore = Math.min(35, Math.round(nbBL / 20 * 35));
+      const mScore = Math.min(30, Math.round(Math.log(caPDV + 1) / Math.log(10001) * 30));
+      const total  = rScore + fScore + mScore;
+      const info = _S.chalandiseData?.get(cc);
+      rows.push({
+        cc, nom: info?.nom || cc,
+        metier: info?.metier || '', commercial: info?.commercial || '',
+        caPDV, nbBL, silence: Math.round(silence),
+        rScore, fScore, mScore, total,
+      });
+    }
   }
   rows.sort((a, b) => b.total - a.total);
 

@@ -83,12 +83,12 @@ export function computeCommercialSilencieux() {
       if (info && !_clientPassesFilters(info)) continue;
 
       // Dernière commande MAGASIN
-      let lastDate = null;
-      const canalMap = _S.clientLastOrderByCanal?.get(cc);
-      if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+      const _csR = _S.clientStore?.get(cc);
+      let lastDate = _csR?.lastOrderPDV || null;
+      if (!lastDate) { const canalMap = _S.clientLastOrderByCanal?.get(cc); if (canalMap) lastDate = canalMap.get('MAGASIN') || null; }
       if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
 
-      const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+      const daysSince = _csR?.silenceDaysPDV ?? (lastDate ? Math.round((now - lastDate) / 86400000) : null);
       let bucket;
       if (daysSince === null) bucket = 'jamais';
       else if (daysSince <= 30) bucket = 'actif';
@@ -105,7 +105,7 @@ export function computeCommercialSilencieux() {
       else if (bucket === 'perdu') { nbPerdus++; caPerdus += ca; }
       else { nbJamais++; }
 
-      clients.push({ cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc, metier: info?.metier || '', daysSince, bucket, ca });
+      clients.push({ cc, nom: _S.clientStore?.get(cc)?.nom || info?.nom || cc, metier: info?.metier || '', daysSince, bucket, ca });
     }
 
     const total = nbActifs + nbSilencieux + nbPerdus + nbJamais;
@@ -279,7 +279,7 @@ export function computeFamilleCommercial(seuil) {
       for (const [fam, stats] of famillesAttendues) {
         if (!famsAchetees.has(fam)) {
           opportunites.push({
-            cc, nom: info.nom || _S.clientNomLookup?.[cc] || cc,
+            cc, nom: _S.clientStore?.get(cc)?.nom || info.nom || cc,
             metier: info.metier,
             familleManquante: fam,
             famLib: famLib(fam) || fam,
@@ -354,11 +354,11 @@ function _quickScanSilencieux() {
     for (const cc of ccSet) {
       const info = _S.chalandiseData?.get(cc);
       if (info && !_clientPassesFilters(info)) continue;
-      let lastDate = null;
-      const canalMap = _S.clientLastOrderByCanal?.get(cc);
-      if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+      const _csR2 = _S.clientStore?.get(cc);
+      let lastDate = _csR2?.lastOrderPDV || null;
+      if (!lastDate) { const canalMap = _S.clientLastOrderByCanal?.get(cc); if (canalMap) lastDate = canalMap.get('MAGASIN') || null; }
       if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
-      const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+      const daysSince = _csR2?.silenceDaysPDV ?? (lastDate ? Math.round((now - lastDate) / 86400000) : null);
       if (daysSince !== null && daysSince > 30) {
         n++;
         const artMap = _S.ventesClientArticleFull?.get(cc) || _S.ventesClientArticle?.get(cc);
@@ -410,12 +410,11 @@ function _hasFullYear() {
 }
 
 function _clientBadge(cc) {
-  const now = Date.now();
-  let lastDate = null;
-  const canalMap = _S.clientLastOrderByCanal?.get(cc);
-  if (canalMap) lastDate = canalMap.get('MAGASIN') || null;
+  const _csR3 = _S.clientStore?.get(cc);
+  let lastDate = _csR3?.lastOrderPDV || null;
+  if (!lastDate) { const canalMap = _S.clientLastOrderByCanal?.get(cc); if (canalMap) lastDate = canalMap.get('MAGASIN') || null; }
   if (!lastDate) lastDate = _S.clientLastOrder?.get(cc) || null;
-  const daysSince = lastDate ? Math.round((now - lastDate) / 86400000) : null;
+  const daysSince = _csR3?.silenceDaysPDV ?? (lastDate ? Math.round((Date.now() - lastDate) / 86400000) : null);
   let badge = 'perdu';
   if (daysSince !== null && daysSince <= 30) badge = 'actif';
   else if (daysSince !== null && daysSince <= 60) badge = 'silencieux';
@@ -476,7 +475,7 @@ export function computeClientSaisonnier(monthOffset) {
         if (!artData || (artData.sumCA || 0) <= 0) continue;
         const { lastDate, daysSince, badge } = _clientBadge(cc);
         opps.push({
-          cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
+          cc, nom: _S.clientStore?.get(cc)?.nom || info?.nom || cc,
           code, libelle: article.libelle || _S.libelleLookup?.[code] || code,
           famille: famLib(article.famille) || article.famille,
           profile: seasonIdx[article.famille],
@@ -514,7 +513,7 @@ export function computeClientSaisonnier(monthOffset) {
       const profile = seasonIdx?.[article.famille] || null;
 
       opps.push({
-        cc, nom: info?.nom || _S.clientNomLookup?.[cc] || cc,
+        cc, nom: _S.clientStore?.get(cc)?.nom || info?.nom || cc,
         code, libelle: article.libelle || _S.libelleLookup?.[code] || code,
         famille: famLib(article.famille) || article.famille,
         profile,
