@@ -2093,38 +2093,29 @@
       <!-- ARTICLES RÉSEAU SOUS-EXPLOITÉS — ouvert par défaut [V3] -->
       <details open style="background:linear-gradient(135deg,rgba(190,24,93,0.14),rgba(124,58,237,0.07));border:1px solid rgba(190,24,93,0.3);border-radius:14px;overflow:hidden;margin-bottom:24px">
         <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(190,24,93,0.22),rgba(124,58,237,0.13));border-bottom:1px solid rgba(190,24,93,0.2);list-style:none" class="select-none">
-          <div><h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#f472b6">📊 Articles réseau sous-exploités <span id="badgeMissed" style="background:rgba(244,114,182,0.15);color:#f472b6;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Deux sources : articles achetés ≥50% du réseau absents chez vous (manquants), et articles vendus ≥50% des agences non stockés (orphelins).">ℹ</em></h3><p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Référencer · Vérifier gamme</p></div>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();exportBenchList('missed')" style="font-size:10px;color:#f472b6;background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📥 CSV manquants</button><span class="acc-arrow" style="color:#f472b6">▶</span></div>
+          <div><h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#f472b6">🎯 Incontournables réseau <span id="badgeMissed" style="background:rgba(244,114,182,0.15);color:#f472b6;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Articles récurrents dans les commandes de 50%+ des agences, que vous ne vendez pas ou sous-vendez (< 80% de la moyenne réseau). Triés : absents d'abord, puis sous-exploités.">ℹ</em></h3><p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Consensus réseau · Potentiel de vente</p></div>
+          <div class="flex items-center gap-2"><button onclick="event.preventDefault();exportBenchList('missed')" style="font-size:10px;color:#f472b6;background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📥 CSV</button><span class="acc-arrow" style="color:#f472b6">▶</span></div>
         </summary>
-        <div class="p-4 space-y-4">
-          <!-- Section A : Articles vendus par le réseau, absents de mes ventes -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <div class="mb-1"><p class="text-xs font-bold t-secondary">🚫 Articles vendus par le réseau — absents de mes ventes</p><p class="text-[10px] t-tertiary">Ces articles sont vendus fréquemment ailleurs mais pas chez vous — à référencer ou commander</p></div>
-              <select id="benchMissedFamFilter" onchange="window._setReseauFamFilter(this.value)" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary ml-2"><option value="">Toutes familles</option></select>
-              <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="min-w-full text-xs">
-                <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-                  <tr>
-                    <th class="py-2 px-2 text-left">Article</th>
-                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('freq')">Fréq réseau <span id="missedSortFreq" class="text-[10px]">↓</span></th>
-                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('agences')">Agences <span id="missedSortAgences" class="text-[10px]"></span></th>
-                    <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('stock')">Mon stock <span id="missedSortStock" class="text-[10px]"></span></th>
-                    <th class="py-2 px-2 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="benchMissedTable"></tbody>
-              </table>
-            </div>
+        <div class="p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <select id="benchMissedFamFilter" onchange="window._setReseauFamFilter(this.value)" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary"><option value="">Toutes familles</option></select>
+            <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
           </div>
-          <!-- Section B : En stock chez moi — sous-exploités vs réseau (benchmark) -->
-          <div>
-            <div class="mb-2"><p class="text-xs font-bold t-secondary">📦 En stock chez moi — sous-exploités vs réseau</p><p class="text-[10px] t-tertiary">Ces articles sont dans votre stock mais se vendent moins que dans le reste du réseau</p></div>
-            <div id="reseauSousExploitesContainer"><p class="t-disabled text-sm">Chargement après analyse benchmark…</p></div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="s-panel-inner t-inverse font-bold sticky top-0">
+                <tr>
+                  <th class="py-2 px-2 text-left">Article</th>
+                  <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('agences')">Agences<span id="missedSortAgences" class="text-[10px]"></span></th>
+                  <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('freq')">Fréq réseau<span id="missedSortFreq" class="text-[10px]"></span></th>
+                  <th class="py-2 px-2 text-right cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('myCA')">Mon CA<span id="missedSortMyCA" class="text-[10px]"></span></th>
+                  <th class="py-2 px-2 text-center cursor-pointer select-none hover:t-primary" onclick="benchMissedSort('stock')">Stock<span id="missedSortStock" class="text-[10px]"></span></th>
+                  <th class="py-2 px-2 text-center">Ecart</th>
+                </tr>
+              </thead>
+              <tbody id="benchMissedTable"></tbody>
+            </table>
           </div>
-
         </div>
       </details>
       <!-- 4+5. POSITION VS BASSIN — double colonne, fermé par défaut [V3] -->

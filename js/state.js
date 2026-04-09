@@ -265,8 +265,6 @@ _S._chalandiseLoading = false;      // guard anti-appels concurrents parseChalan
 _S._reseauMissedFamFilter = '';     // filtre famille missed réseau
 _S._reseauMissedPage = 0;           // pagination missed réseau
 _S._reseauMissedShowAll = false;    // mode "voir tout" missed
-_S._reseauUnderPage = 0;            // pagination under réseau
-_S._reseauUnderShowAll = false;     // mode "voir tout" under
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
 _S.clientStore = new Map();          // Map<cc, ClientRecord> — store client unifié (client-store.js)
 _S.agenceStore = new Map();          // Map<storeCode, AgenceRecord> — store agence unifié (agence-store.js)
@@ -410,7 +408,6 @@ export function resetAppState() {
   _S._bufC = null; _S._bufS = null;
   _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
-  _S._reseauUnderPage = 0; _S._reseauUnderShowAll = false;
   _S.clientOmniScore = new Map();
   _S.clientStore = new Map();
   _S.agenceStore = new Map();
