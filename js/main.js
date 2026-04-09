@@ -929,6 +929,14 @@ _S.canalAgence=newCanalAgence;
     _S.ventesClientsPerStore = {};
     for (const sk in vcps) { _S.ventesClientsPerStore[sk] = new Set(vcps[sk]); }
 
+    // Reconstruire commandesPerStoreCanal (Sets)
+    const cpsc = r.commandesPerStoreCanal || {};
+    _S.commandesPerStoreCanal = {};
+    for (const sk in cpsc) {
+      _S.commandesPerStoreCanal[sk] = {};
+      for (const c in cpsc[sk]) { _S.commandesPerStoreCanal[sk][c] = new Set(cpsc[sk][c]); }
+    }
+
     // blData — worker retourne { codesSize, famillesSize } uniquement (Sets non sérialisables)
     // On recrée une structure allégée compatible avec le reste du code
     _S.blData = {};
@@ -1310,8 +1318,8 @@ _S.canalAgence=newCanalAgence;
       // V2 Phase 1: DataStore.ventesClientArticle (myStore only) + _S.ventesClientsPerStore (all stores)
       // cc2 et nc déclarés avant le filtre période (hoistés pour W/V/MIN/MAX et ventesClientArticleFull)
       if(cc2&&code){if(!_S.ventesClientsPerStore[sk])_S.ventesClientsPerStore[sk]=new Set();_S.ventesClientsPerStore[sk].add(cc2);}
-      // commandesPerStoreCanal : N° commande uniques par store × canal (pour nbCommandes dans agenceStore)
-      {const _ncCmd=_rnc;if(_ncCmd){const _canalCmd=canal||'MAGASIN';if(!_S.commandesPerStoreCanal[sk])_S.commandesPerStoreCanal[sk]={};if(!_S.commandesPerStoreCanal[sk][_canalCmd])_S.commandesPerStoreCanal[sk][_canalCmd]=new Set();_S.commandesPerStoreCanal[sk][_canalCmd].add(_ncCmd);}}
+      // commandesPerStoreCanal : N° commande (ou BL) uniques par store × canal (pour nbCommandes dans agenceStore)
+      {const _ncCmd=_rncb;if(_ncCmd){const _canalCmd=canal||'MAGASIN';if(!_S.commandesPerStoreCanal[sk])_S.commandesPerStoreCanal[sk]={};if(!_S.commandesPerStoreCanal[sk][_canalCmd])_S.commandesPerStoreCanal[sk][_canalCmd]=new Set();_S.commandesPerStoreCanal[sk][_canalCmd].add(_ncCmd);}}
       // _S.clientsMagasin : clients du consommé de l'agence sélectionnée uniquement (après filtre canal+store)
       if(cc2&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){_S.clientsMagasin.add(cc2);const _nc4m=_rncb||('__row_'+j);if(!_clientMagasinBLsTemp.has(cc2))_clientMagasinBLsTemp.set(cc2,new Set());_clientMagasinBLsTemp.get(cc2).add(_nc4m);}
       // clientNomLookup already populated above (before canal split) for ALL canals

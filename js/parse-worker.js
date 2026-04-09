@@ -506,6 +506,7 @@ self.onmessage = async function(ev) {
     var ventesClientArticleFull = new Map();
     var ventesClientHorsMagasin = new Map();
     var ventesClientsPerStore = {};
+    var commandesPerStoreCanal = {};
     var clientsMagasin = new Set();
     var clientsMagasinFreq = new Map(); // built post-loop from _clientMagasinBLsTemp
     var _clientMagasinBLsTemp = new Map();
@@ -906,6 +907,13 @@ self.onmessage = async function(ev) {
         if (!ventesClientsPerStore[sk]) ventesClientsPerStore[sk] = new Set();
         ventesClientsPerStore[sk].add(cc2);
       }
+      // commandesPerStoreCanal : N° commande (ou BL) uniques par store × canal
+      if (_rncb) {
+        var _canalCmd = canal || 'MAGASIN';
+        if (!commandesPerStoreCanal[sk]) commandesPerStoreCanal[sk] = {};
+        if (!commandesPerStoreCanal[sk][_canalCmd]) commandesPerStoreCanal[sk][_canalCmd] = new Set();
+        commandesPerStoreCanal[sk][_canalCmd].add(_rncb);
+      }
       if (cc2 && (!selectedStore || sk === selectedStore)) {
         clientsMagasin.add(cc2);
         var _nc4m = _rncb || ('__row_' + i);
@@ -1261,6 +1269,15 @@ self.onmessage = async function(ev) {
       ventesClientsPerStoreSer[vsk] = Array.from(ventesClientsPerStore[vsk]);
     }
 
+    // Serialize commandesPerStoreCanal ({store: {canal: Set}} → {store: {canal: array}})
+    var commandesPerStoreCanalSer = {};
+    for (var csk in commandesPerStoreCanal) {
+      commandesPerStoreCanalSer[csk] = {};
+      for (var cc in commandesPerStoreCanal[csk]) {
+        commandesPerStoreCanalSer[csk][cc] = Array.from(commandesPerStoreCanal[csk][cc]);
+      }
+    }
+
     self.postMessage({
       type: 'done',
       payload: {
@@ -1271,6 +1288,7 @@ self.onmessage = async function(ev) {
         ventesParMagasin: ventesParMagasin,
         ventesParMagasinByCanal: ventesParMagasinByCanal,
         ventesClientsPerStore: ventesClientsPerStoreSer,
+        commandesPerStoreCanal: commandesPerStoreCanalSer,
         clientNomLookup: clientNomLookup,
         articleFamille: articleFamille,
         articleUnivers: articleUnivers,
