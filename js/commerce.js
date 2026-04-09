@@ -1734,7 +1734,7 @@ function _buildCockpitClient(){
     // Pick last order date based on canal filter
     let lastOrder=null;
     if(_useMagOnly){
-      lastOrder=_S.clientLastOrder.get(cc)||null;
+      lastOrder=_S.clientLastOrder.get(cc)||((_S.clientLastOrderByCanal.get(cc)||new Map()).get('MAGASIN'))||null;
     }else if(_useByCanal){
       const cMap=_S.clientLastOrderByCanal.get(cc);
       lastOrder=cMap?cMap.get(_canal)||null:null;

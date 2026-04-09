@@ -618,6 +618,11 @@ self.onmessage = async function(ev) {
           var _cMap = clientLastOrderByCanal.get(_ccAll);
           var _prevC = _cMap.get(_cByC);
           if (!_prevC || dateV > _prevC) _cMap.set(_cByC, dateV);
+          // clientLastOrder — MAGASIN uniquement, period-independent (comme clientLastOrderAll)
+          if (!canal || canal === 'MAGASIN') {
+            var _prevMag = clientLastOrder.get(_ccAll);
+            if (!_prevMag || dateV > _prevMag) clientLastOrder.set(_ccAll, dateV);
+          }
         }
       }
 
@@ -927,11 +932,7 @@ self.onmessage = async function(ev) {
         }
       }
 
-      // clientLastOrder (MAGASIN, période filtrée)
-      if (cc2 && dateV && (!selectedStore || sk === selectedStore)) {
-        var prev_lo = clientLastOrder.get(cc2);
-        if (!prev_lo || dateV > prev_lo) clientLastOrder.set(cc2, dateV);
-      }
+      // clientLastOrder peuplé avant le filtre période (ligne ~615) — period-independent
 
       // articleClients + clientArticles
       var codeClient = extractClientCode(_rc);
