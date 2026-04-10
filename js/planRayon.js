@@ -2247,6 +2247,8 @@ window._prExportPilotage = function() {
   const codeFam = _prOpenFam;
   const catFam = _S.catalogueFamille;
   const roles = _prComputeRoles(codeFam);
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const rows = [];
   for (const d of sqData.directions) {
@@ -2259,8 +2261,9 @@ window._prExportPilotage = function() {
         const v = _prVerdict(g, role);
         const sf = catFam?.get(a.code)?.sousFam || '';
         const lib = a.libelle || _S.libelleLookup?.[a.code] || '';
-        rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || ((_S.finalData||[]).find(r=>r.code===a.code)?.W||0),
-          a.caClientsZone || 0, a.nbClientsZone || 0, g, role, v.name].join(';'));
+        const caZ = +(a.caClientsZone || 0);
+        rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || (fdMap.get(a.code)?.W || 0),
+          caZ.toFixed(2), a.nbClientsZone || 0, g, role, v.name].join(';'));
       }
     }
   }

@@ -815,7 +815,7 @@ export function computeSquelette(directionFilter) {
         if (!/^\d{6}$/.test(code)) continue;
         const a = _ensure(code);
         a.nbClientsZone++;
-        a.caClientsZone += data.sumCA || 0;
+        a.caClientsZone += +(data.sumCA || 0);
         a.sources.add('chalandise');
       }
     }
@@ -831,7 +831,7 @@ export function computeSquelette(directionFilter) {
           a.nbClientsZone++;
         }
         // Toujours ajouter le CA hors magasin
-        a.caClientsZone += data.sumCA || 0;
+        a.caClientsZone += +(data.sumCA || 0);
         a.sources.add('chalandise');
       }
     }
