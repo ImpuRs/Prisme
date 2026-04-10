@@ -1578,18 +1578,13 @@ let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'caZone'|'cliZone'|'classi
 let _prPilotPage   = 60;
 
 function _prRenderPilotage(fam) {
-  console.time('⏱ Pilotage total');
-  console.time('⏱ computeSquelette');
   const sqData = _S._prSqData || computeSquelette();
   _S._prSqData = sqData;
-  console.timeEnd('⏱ computeSquelette');
   if (!sqData) return '<div class="t-disabled text-sm text-center py-6">Données indisponibles.</div>';
 
   const codeFam = fam.codeFam;
   const catFam = _S.catalogueFamille;
-  console.time('⏱ computeRoles');
   const roles = _prComputeRoles(codeFam);
-  console.timeEnd('⏱ computeRoles');
   _prRoleCache = roles;
   _prRoleCache._fam = codeFam;
 
@@ -1742,7 +1737,6 @@ function _prRenderPilotage(fam) {
     <span style="color:#ec4899">■ Clients PDV</span>
   </div>`;
 
-  console.time('⏱ buildHTML');
   const html = `${_prSFPills()}${summary}
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}</div>
   ${srcLegend}
@@ -1768,8 +1762,6 @@ function _prRenderPilotage(fam) {
   <div class="mt-2">
     <button onclick="window._prExportPilotage()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
   </div>`;
-  console.timeEnd('⏱ buildHTML');
-  console.timeEnd('⏱ Pilotage total');
   return html;
 }
 
@@ -1953,14 +1945,10 @@ function _renderPlanRayonContent(data) {
 
 // ── Rerender + search ─────────────────────────────────────────────────
 function _prRerender() {
-  console.time('⏱ _prRerender');
   const el = document.getElementById('planRayonBlock');
   if (!el || !_S._prData) return;
-  console.time('⏱ _renderContent');
   el.innerHTML = _renderPlanRayonContent(_S._prData);
-  console.timeEnd('⏱ _renderContent');
   _initPrSearch();
-  console.timeEnd('⏱ _prRerender');
 }
 
 function _initPrSearch() {
