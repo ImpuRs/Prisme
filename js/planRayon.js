@@ -1296,10 +1296,16 @@ function _prRenderPhysigamme(fam) {
   const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role === 'standard')
     .sort((a, b) => (b.prix * b.stock) - (a.prix * a.stock)).slice(0, 10);
 
-  // SF sans premier prix en stock
+  // SF sans premier prix en stock — avec candidat suggéré
   const sfNoPP = [];
   for (const [sf, arts] of bySF) {
-    if (!arts.some(a => a.role === 'premierprix' && a.enStock)) sfNoPP.push(sf);
+    if (!arts.some(a => a.role === 'premierprix' && a.enStock)) {
+      // Candidat : le moins cher avec détention réseau, ou le PP détecté non stocké
+      const candidate = arts.filter(a => a.role === 'premierprix')[0]
+        || [...arts].filter(a => a.detention >= 0.2).sort((x, y) => x.prix - y.prix)[0]
+        || [...arts].sort((x, y) => x.prix - y.prix)[0];
+      sfNoPP.push({ sf, candidate });
+    }
   }
   // Premiers prix dormants — signal d'alerte visibilité
   const ppDormants = artList.filter(a => a.enStock && a.W === 0 && a.role === 'premierprix');
@@ -1343,8 +1349,15 @@ function _prRenderPhysigamme(fam) {
   }
   if (sfNoPP.length) {
     actions += `<div class="mb-3">
-      <h4 class="text-[11px] font-bold mb-1" style="color:#f59e0b">⚠️ ${sfNoPP.length} sous-famille${sfNoPP.length > 1 ? 's' : ''} sans premier prix en stock</h4>
-      <div class="text-[10px] t-secondary">${sfNoPP.join(' · ')}</div>
+      <h4 class="text-[11px] font-bold mb-1.5" style="color:#f59e0b">⚠️ ${sfNoPP.length} sous-famille${sfNoPP.length > 1 ? 's' : ''} sans premier prix en stock</h4>
+      <table class="w-full">${sfNoPP.map(({ sf, candidate: c }) => `<tr class="border-b b-light text-[11px]${c ? ' cursor-pointer hover:s-hover' : ''}"
+        ${c ? `onclick="if(window.openArticlePanel)window.openArticlePanel('${c.code}','planRayon')"` : ''}>
+        <td class="py-1 px-2 t-secondary">${escapeHtml(sf)}</td>
+        ${c ? `<td class="py-1 px-2 font-mono t-disabled">${c.code}</td>
+        <td class="py-1 px-2 t-primary truncate max-w-[140px]">${escapeHtml(c.lib)}</td>
+        <td class="py-1 px-2 text-right t-secondary">${c.prix.toFixed(2)} €</td>
+        <td class="py-1 px-2 text-right t-secondary">${Math.round(c.detention * 100)}%</td>` : '<td colspan="4" class="py-1 px-2 t-disabled">—</td>'}
+      </tr>`).join('')}</table>
     </div>`;
   }
   if (!aRemplir.length && !aVider.length && !ppDormants.length && !sfNoPP.length) {
