@@ -706,7 +706,15 @@ function _prBuildSqTable(arts) {
       <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
       <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
       <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
-      <td class="py-1.5 px-2 text-right font-bold" style="color:${(a.score||0) >= 50 ? '#22c55e' : (a.score||0) >= 25 ? '#f59e0b' : 'var(--t-disabled)'}">${a.score || 0}</td>
+      <td class="py-1.5 px-2 text-right font-bold cursor-help" style="color:${(a.score||0) >= 50 ? '#22c55e' : (a.score||0) >= 25 ? '#f59e0b' : 'var(--t-disabled)'}"
+        title="${[
+          a.nbAgencesReseau >= 3 ? `Réseau ${a.nbAgencesReseau} ag. → +40` : a.nbAgencesReseau >= 1 ? `Réseau ${a.nbAgencesReseau} ag. → +15` : '',
+          a.nbClientsZone >= 5 ? `Zone ${a.nbClientsZone} cli → +30` : a.nbClientsZone >= 2 ? `Zone ${a.nbClientsZone} cli → +15` : a.nbClientsZone >= 1 ? `Zone ${a.nbClientsZone} cli → +5` : '',
+          a.nbClientsHorsZone >= 3 ? `Hors-zone ${a.nbClientsHorsZone} cli → +20` : a.nbClientsHorsZone >= 1 ? `Hors-zone ${a.nbClientsHorsZone} cli → +8` : '',
+          a.nbClientsPDV >= 10 ? `PDV ${a.nbClientsPDV} cli → +25` : a.nbClientsPDV >= 5 ? `PDV ${a.nbClientsPDV} cli → +15` : a.nbClientsPDV >= 3 ? `PDV ${a.nbClientsPDV} cli → +8` : '',
+          a.nbBLLivraisons >= 50 ? `Livr. ${a.nbBLLivraisons} BL → +30` : a.nbBLLivraisons >= 10 ? `Livr. ${a.nbBLLivraisons} BL → +20` : a.nbBLLivraisons >= 3 ? `Livr. ${a.nbBLLivraisons} BL → +10` : '',
+          a.sources.size >= 4 ? `${a.sources.size} sources → ×1.5` : a.sources.size >= 3 ? `${a.sources.size} sources → ×1.3` : a.sources.size >= 2 ? `${a.sources.size} sources → ×1.1` : '',
+        ].filter(Boolean).join('\n') || 'Aucun signal'}">${a.score || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbAgencesReseau || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbBLLivraisons || 0}</td>
