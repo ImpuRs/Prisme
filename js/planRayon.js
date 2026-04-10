@@ -2238,18 +2238,20 @@ window._prToggleEmp = function(emp) {
     _prSelectedEmps.delete(emp);
     _prSelectedSFs.clear();
     if (_prSelectedEmps.size > 0) {
-      for (const r of (_S._prRayonData?.monRayon || [])) {
+      for (const r of (_S.finalData || [])) {
+        const cf = catFam?.get(r.code);
+        if (!cf || cf.codeFam !== _prOpenFam) continue;
         if (!_prSelectedEmps.has(r.emplacement || '')) continue;
-        const csf = catFam?.get(r.code)?.codeSousFam || '';
-        if (csf) _prSelectedSFs.add(csf);
+        if (cf.codeSousFam) _prSelectedSFs.add(cf.codeSousFam);
       }
     }
   } else {
     _prSelectedEmps.add(emp);
-    for (const r of (_S._prRayonData?.monRayon || [])) {
+    for (const r of (_S.finalData || [])) {
+      const cf = catFam?.get(r.code);
+      if (!cf || cf.codeFam !== _prOpenFam) continue;
       if ((r.emplacement || '') !== emp) continue;
-      const csf = catFam?.get(r.code)?.codeSousFam || '';
-      if (csf) _prSelectedSFs.add(csf);
+      if (cf.codeSousFam) _prSelectedSFs.add(cf.codeSousFam);
     }
   }
   _prRerenderDetail();
@@ -2268,7 +2270,8 @@ window._prToggleSF = function(csf) {
   _prSelectedEmps.clear();
   if (_prSelectedSFs.size > 0) {
     const catFam = _S.catalogueFamille;
-    for (const r of (_S._prRayonData?.monRayon || [])) {
+    // Utiliser finalData (toujours dispo) plutôt que _prRayonData (dépend de l'onglet)
+    for (const r of (_S.finalData || [])) {
       const cf = catFam?.get(r.code);
       if (!cf || cf.codeFam !== _prOpenFam) continue;
       if (_prSelectedSFs.has(cf.codeSousFam || '') && r.emplacement) _prSelectedEmps.add(r.emplacement);
@@ -2284,7 +2287,10 @@ window._prToggleMarque = function(marque) {
   // Sync _prSelectedEmps depuis les marques sélectionnées (comme _prToggleSF)
   _prSelectedEmps.clear();
   if (_prSelectedMarques.size > 0) {
-    for (const r of (_S._prRayonData?.monRayon || [])) {
+    const catFam = _S.catalogueFamille;
+    for (const r of (_S.finalData || [])) {
+      const cf = catFam?.get(r.code);
+      if (!cf || cf.codeFam !== _prOpenFam) continue;
       const m = _S.catalogueMarques?.get(r.code) || '';
       if (_prSelectedMarques.has(m) && r.emplacement) _prSelectedEmps.add(r.emplacement);
     }
