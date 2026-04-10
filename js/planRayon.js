@@ -3107,32 +3107,52 @@ function _prDownloadDiag(txt, codeFam) {
 // + TOP métiers + demande réelle par métier + données rayon. Conçu pour être
 // collé tel quel dans n'importe quel LLM (Gemini, Grok, ChatGPT, Claude).
 const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincaillerie pro).
-Tu maîtrises la PHYSIGAMME — la grille stratégique qui classe chaque article par RÔLE :
-🏆 Incontournable = présent chez ≥60% du réseau OU ABC-A forte rotation. OBJECTIF : 98% en stock.
-🆕 Nouveauté = <90 jours, signal réseau. Le renouvellement qui garde le rayon vivant.
-🎯 Spécialiste = acheté principalement par les métiers stratégiques (menuisiers, serruriers, plombiers…). Fidélisation métier.
 
-La PHYSIGAMME croise le SQUELETTE (signal data : socle/implanter/challenger) :
-- 🏆 Incont. + 🔵 Implanter = TROU CRITIQUE — le réseau le vend, tu ne l'as pas
-- 📦 Standard + 🔴 Challenger = candidat sortie de rayon
-- 💰 PP dormant = problème de visibilité en rayon, PAS de pertinence produit
+[PHYSIGAMME — Rôles stratégiques]
+Chaque article a un RÔLE :
+🏆 Incontournable = présent chez ≥60% du réseau OU ABC-A forte rotation. OBJECTIF : 98% en stock.
+🆕 Nouveauté = <90 jours, signal réseau. Renouvellement qui garde le rayon vivant.
+🎯 Spécialiste = acheté par les métiers stratégiques (menuisiers, serruriers, plombiers…). Fidélisation métier.
+📦 Standard = le reste.
+
+[SQUELETTE — Statut agence]
+Chaque article a un STATUT calculé :
+🔴 Challenger = en stock ET 0 vente 90 jours.
+🔵 Socle = en stock + ≥3 clients distincts + ≥3 BL.
+🟡 À surveiller = en stock, ni Socle ni Challenger.
+🟢 À implanter = pas en stock + signal fort (🏆/🆕 OU ≥5 clients zone OU ≥1000€ CA zone).
+
+[MATRICE VERDICT — Rôle × Statut]
+Le croisement donne un VERDICT actionnable :
+SOCLE × 🏆 = Le Capitaine (protéger) · SOCLE × 🆕 = La Bonne Pioche (observer) · SOCLE × 🎯 = Le Lien Fort (maintenir) · SOCLE × 📦 = Le Bon Soldat (maintenir)
+SURVEILLER × 🏆 = L'Alerte Rouge (agir vite) · SURVEILLER × 🆕 = Le Stagiaire (patience) · SURVEILLER × 🎯 = Le Point de Rupture (contacter client) · SURVEILLER × 📦 = Le Déclinant (réduire)
+CHALLENGER × 🏆 = La Réf Schizo (divorce confiance) · CHALLENGER × 🆕 = L'Erreur de Casting (sortir) · CHALLENGER × 🎯 = La Trahison (sortir + appeler) · CHALLENGER × 📦 = Le Poids Mort (sortir)
+IMPLANTER × 🏆 = Le Trou Critique (implanter sans discuter) · IMPLANTER × 🆕 = Le Pari du Réseau (tester) · IMPLANTER × 🎯 = La Conquête (signal fort) · IMPLANTER × 📦 = L'Opportunité Locale (évaluer)
+
+[SCANNER DE RAYON — 3 KPIs famille]
+- ❤️ Score de Santé Interne (0-100) : incontournables en stock + dormants + couverture catalogue
+- 📊 Indice Performance Réseau (100=médiane) : CA/ref vs réseau
+- 💰 Potentiel Externe (€) : CA zone des articles à implanter
+
+[RÈGLE DE DÉROGATION : L'ANCRE MÉTIER]
+Un Challenger peut être sauvé si c'est un 🎯 Spécialiste qui ancre un métier clé, stock=1, max 5 Ancres par rayon.
 
 Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
 
 1. **La phrase à retenir** — UNE phrase qui frappe (image mentale + diagnostic + direction)
 2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI
 3. **Le piège mental à éviter** — le réflexe à ne PAS avoir face à ces données
-4. **Ce que je vois vraiment dans les données** — pattern caché, croisements (rôles × métiers × emplacements × benchmark)
-5. **Le plan Physigamme** — "Je vide / J'optimise / Je remplis" en 5 gestes max, chacun avec le RÔLE ciblé
-6. **Prédiction chiffrée** — détention incontournables, couverture PP, rotation, rendement APRÈS le plan
+4. **Ce que je vois vraiment dans les données** — patterns cachés, croisements (verdicts × métiers × benchmark)
+5. **Le plan Physigamme** — "Je vide / J'optimise / Je remplis" en 5 gestes max. Chaque geste cite le RÔLE (🏆/🆕/🎯/📦) ET le VERDICT MATRICE (ex: "Le Trou Critique", "La Réf Schizo")
+6. **Prédiction chiffrée** — détention incontournables, Score Santé, Perf Réseau APRÈS le plan
 7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
 
 Règles dures :
-- Section [PHYSIGAMME] = la GRILLE DE LECTURE. Chaque recommandation doit citer le rôle de l'article (🏆/🆕/💰/🎯/📦)
-- Section [BENCHMARK RÉSEAU VS MOI] = ton miroir. Un écart >20% en CA ou rotation = signal fort
-- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Distingue 2 stratégies :
-  1. CONSOLIDER : renforcer le rayon pour les métiers qui viennent déjà (captation >20%)
-  2. DÉVELOPPER : capter les métiers à 0% de captation — qu'est-ce qu'on implante pour les attirer ?
+- Chaque recommandation DOIT citer le VERDICT MATRICE, pas juste le rôle ou le statut isolément
+- Section [BENCHMARK RÉSEAU VS MOI] = ton miroir. Écart >20% = signal fort
+- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Distingue :
+  1. CONSOLIDER : renforcer pour les métiers qui viennent déjà (captation >20%)
+  2. DÉVELOPPER : capter les métiers à 0% — qu'est-ce qu'on implante pour les attirer ?
 - Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
 - Parler comme un coach autour d'un café, pas comme un consultant en costume
 
@@ -3156,11 +3176,14 @@ function _prBuildLLMPack(codeFam) {
   const _roles = _prComputeRoles(codeFam);
 
   const ROLE_EMOJI = { incontournable: '🏆', nouveaute: '🆕', specialiste: '🎯', standard: '📦' };
-  const fmtItem = (a, withScore = false) => {
+  const fmtItem = (a, classif, withScore = false) => {
     const m = mark(a.code);
     const score = withScore && a.scoreReseau ? ` score:${a.scoreReseau}` : '';
-    const roleTag = ROLE_EMOJI[_roles.get(a.code)] || '';
-    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${m ? ' · ' + m : ''}${score}`;
+    const role = _roles.get(a.code) || 'standard';
+    const roleTag = ROLE_EMOJI[role] || '';
+    const v = _prVerdict(classif, role);
+    const verdictTag = v.name !== '—' ? ` → ${v.name}` : '';
+    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${verdictTag}${m ? ' · ' + m : ''}${score}`;
   };
 
   const topMetStr = ctx.topMetiers
@@ -3175,13 +3198,19 @@ function _prBuildLLMPack(codeFam) {
 
   pack += `[CONTEXTE AGENCE]\n`;
   pack += `TOP 5 métiers clients agence (toutes familles) :\n${topMetStr}\n`;
-  pack += `Classification PRISME : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
+  pack += `Scanner de Rayon : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
+
+  pack += `[SCANNER DE RAYON — 3 KPIs]\n`;
+  pack += `- ❤️ Score Santé Interne : ${fam.scoreSante}/100${fam.scoreSante < 70 ? ' ⚠ CRITIQUE' : fam.scoreSante < 90 ? ' ⚠ MOYEN' : ' ✅'}\n`;
+  pack += `- 📊 Indice Perf Réseau : ${fam.perfReseau || 'n/a'}${fam.perfReseau && fam.perfReseau < 80 ? ' ⚠ SOUS-PERFORMANT' : fam.perfReseau >= 100 ? ' ✅' : ''} (100=médiane)\n`;
+  pack += `- 💰 Potentiel Externe : ${formatEuro(fam.potentielExterne)} (CA zone des IMPLANTER)\n`;
+  pack += `- 🎯 % CA strat : ${fam.pctStrat}% porté par métiers stratégiques\n\n`;
 
   pack += `[KPIs RAYON]\n`;
   pack += `- ${fam.nbEnRayon} refs en rayon · ${fam.nbCatalogue} catalogue · couverture ${fam.couverture}%\n`;
   pack += `- ${fam.nbClients} clients servis · CA agence ${formatEuro(fam.caAgence)}\n`;
   pack += `- Hygiène : ${fam.hygieneScore}% pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin · ${fam.nbRuptures} ruptures)\n`;
-  pack += `- Rendement réseau : ${fam.rendement != null ? fam.rendement + ' (base 100)' : 'n/a'}\n\n`;
+  pack += `- Incontournables : ${fam.nbIncontEnStock}/${fam.nbIncontournables} en stock (${fam.nbIncontournables > 0 ? Math.round(fam.nbIncontEnStock / fam.nbIncontournables * 100) : 100}%)\n\n`;
 
   // ── PHYSIGAMME ──
   const _vpm = _S.ventesParMagasin || {};
@@ -3260,17 +3289,17 @@ function _prBuildLLMPack(codeFam) {
 
   if (items.socle.length) {
     pack += `[INCONTOURNABLES — ${items.socle.length} refs qui marchent]\n`;
-    for (const a of items.socle.slice(0, 25)) pack += fmtItem(a) + '\n';
+    for (const a of items.socle.slice(0, 25)) pack += fmtItem(a, 'socle') + '\n';
     pack += `\n`;
   }
   if (items.implanter.length) {
     pack += `[À IMPLANTER (suggéré par PRISME) — ${items.implanter.length} refs]\n`;
-    for (const a of items.implanter.slice(0, 25)) pack += fmtItem(a, true) + '\n';
+    for (const a of items.implanter.slice(0, 25)) pack += fmtItem(a, 'implanter', true) + '\n';
     pack += `\n`;
   }
   if (items.challenger.length) {
     pack += `[CHALLENGER — ${items.challenger.length} refs en rayon mais sous-performantes]\n`;
-    for (const a of items.challenger.slice(0, 15)) pack += fmtItem(a) + '\n';
+    for (const a of items.challenger.slice(0, 15)) pack += fmtItem(a, 'challenger') + '\n';
     pack += `\n`;
   }
 
