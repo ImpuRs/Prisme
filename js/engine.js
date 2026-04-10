@@ -501,10 +501,12 @@ export function computeReconquestCohort() {
         const artMap = _S.ventesClientArticle?.get(cc);
         if (artMap && artMap.size > 0) continue;
       }
-      const nom = rec?.nom || cc;
-      const metier = rec?.metier || '';
-      const commercial = rec?.commercial || _enrichClientInfo(cc).commercial;
-      sansPDV.push({ cc, nom, metier, commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
+      const chalInfo = _S.chalandiseData?.get(cc);
+      const nom = rec?.nom || chalInfo?.nom || _S.clientNomLookup?.[cc] || cc;
+      const metier = rec?.metier || chalInfo?.metier || '';
+      const commercial = rec?.commercial || chalInfo?.commercial || _enrichClientInfo(cc).commercial;
+      const classification = rec?.classification || chalInfo?.classification || '';
+      sansPDV.push({ cc, nom, metier, classification, commercial, caLivraison: livData.ca, nbBL: livData.bl.size, lastDate: livData.lastDate });
     }
     sansPDV.sort((a, b) => b.caLivraison - a.caLivraison);
     _S.livraisonsSansPDV = sansPDV;
