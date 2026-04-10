@@ -312,11 +312,13 @@ export function clientMatchesDistanceFilter(info) {
 export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
   if (!clientMatchesUniversFilter(cc)) return false;
+  // Distance : client PDV actif → vient déjà au comptoir, ne pas exclure par distance
+  const distOk = clientMatchesDistanceFilter(info) || (cc && _S.clientsMagasin?.has(cc));
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
     clientMatchesStatutFilter(info) && clientMatchesStatutDetailleFilter(info) &&
     clientMatchesActivitePDVFilter(info) && clientMatchesDirectionFilter(info) &&
     clientMatchesCommercialFilter(info) && clientMatchesMetierFilter(info) &&
-    clientMatchesDistanceFilter(info);
+    distOk;
 }
 
 // ── Diagnostic helpers ────────────────────────────────────────
@@ -746,7 +748,7 @@ export function computeFamillesHors() {
 
 // ═══════════════════════════════════════════════════════════════
 // SQUELETTE — Plan de Stock Stratégique par direction
-// Croise 4 sources : réseau, chalandise, hors-zone, livraisons
+// Croise 5 sources : réseau, chalandise, hors-zone, livraisons, pénétration PDV
 // ═══════════════════════════════════════════════════════════════
 
 const FAM_UNIVERS_TO_DIR = {
@@ -782,6 +784,7 @@ export function computeSquelette(directionFilter) {
         nbAgencesReseau: 0, caReseau: 0,
         nbClientsZone: 0, caClientsZone: 0,
         nbClientsHorsZone: 0, caClientsHorsZone: 0,
+        nbClientsPDV: 0,
         nbBLLivraisons: 0, caLivraisons: 0,
         direction: '',
         enStock: false, stockActuel: 0, emplacement: '', statut: '',
@@ -867,6 +870,22 @@ export function computeSquelette(directionFilter) {
     }
   }
 
+  // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
+  if (_S.articleClients?.size && _S.clientsMagasin?.size) {
+    for (const [code, clients] of _S.articleClients) {
+      if (!/^\d{6}$/.test(code)) continue;
+      let n = 0;
+      for (const cc of clients) {
+        if (_S.clientsMagasin.has(cc)) n++;
+      }
+      if (n >= 2) {
+        const a = _ensure(code);
+        a.nbClientsPDV = n;
+        a.sources.add('pdvClients');
+      }
+    }
+  }
+
   // ── Enrichir stock + CA agence ──
   for (const r of (_S.finalData || [])) {
     const a = _ensure(r.code);
@@ -901,6 +920,10 @@ export function computeSquelette(directionFilter) {
     else if (a.nbClientsZone >= 1) score += 5;
     if (a.nbClientsHorsZone >= 3) score += 20;
     else if (a.nbClientsHorsZone >= 1) score += 8;
+    // Pénétration PDV : articles populaires auprès de ma base clients
+    if (a.nbClientsPDV >= 10) score += 25;
+    else if (a.nbClientsPDV >= 5) score += 15;
+    else if (a.nbClientsPDV >= 3) score += 8;
     if (a.nbBLLivraisons >= 50) score += 30;
     else if (a.nbBLLivraisons >= 10) score += 20;
     else if (a.nbBLLivraisons >= 3) score += 10;

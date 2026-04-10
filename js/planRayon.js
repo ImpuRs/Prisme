@@ -21,7 +21,9 @@ const _prDistOk = (cc) => {
   if (!_prMetierDist) return true;
   const info = _S.chalandiseData?.get(cc);
   if (!info || info.distanceKm == null) return true;
-  return info.distanceKm <= _prMetierDist;
+  if (info.distanceKm <= _prMetierDist) return true;
+  // Client PDV actif → vient déjà au comptoir, distance irrelevante
+  return _S.clientsMagasin?.has(cc) || false;
 };
 // Plage de mois Livraisons pour alignement captation (monthIdx = year*12+month)
 const _prLivMonthRange = () => {
@@ -205,6 +207,7 @@ function computePlanStock() {
           if (a.sources?.has('chalandise')) f.srcChalandise = true;
           if (a.sources?.has('horsZone'))   f.srcHorsZone   = true;
           if (a.sources?.has('livraisons')) f.srcLivraisons = true;
+          if (a.sources?.has('pdvClients')) f.srcPdvClients = true;
           if (inFilter) {
             f.caAgence += a.caAgence || 0;
             if ((a.caReseau || 0) > 0) { f.caReseau += a.caReseau; f.nbRefsReseau++; }
@@ -345,6 +348,7 @@ function _prSourceBar(src) {
     ${seg(has('chalandise'), '#22c55e', 'Chalandise')}
     ${seg(has('horsZone'),   '#f59e0b', 'Hors-zone')}
     ${seg(has('livraisons'), '#8b5cf6', 'Livraisons')}
+    ${seg(has('pdvClients'), '#ec4899', 'Clients PDV')}
   </span>`;
 }
 
@@ -510,7 +514,7 @@ function _prBuildCards(data, searchText = '') {
       ${f.potentiel ? `<div title="${f.potentiel} potentiel" style="width:${bw(f.potentiel)}%;background:#f59e0b"></div>` : ''}
       ${f.surveiller? `<div title="${f.surveiller} surveiller" style="width:${bw(f.surveiller)}%;background:#94a3b8"></div>` : ''}
     </div>`;
-    const srcObj = { reseau: f.srcReseau, chalandise: f.srcChalandise, horsZone: f.srcHorsZone, livraisons: f.srcLivraisons };
+    const srcObj = { reseau: f.srcReseau, chalandise: f.srcChalandise, horsZone: f.srcHorsZone, livraisons: f.srcLivraisons, pdvClients: f.srcPdvClients };
     const covColor = f.couverture >= 70 ? '#22c55e' : f.couverture >= 40 ? '#f59e0b' : '#ef4444';
     out += `<div class="s-card rounded-xl border p-3 cursor-pointer transition-all"
       style="background:${b.cardBg};border-color:${b.cardBorder}"
