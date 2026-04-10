@@ -806,15 +806,19 @@ export function computeSquelette(directionFilter) {
     }
   }
 
-  // ── Source 2 : Chalandise (clients zone) ──
+  // ── Source 2 : Chalandise (clients zone) — TOUS CANAUX confondus ──
+  // clientsZoneByArt : dédup nbClientsZone entre Source 2a + 2b + 4
+  const _clientsZoneByArt = new Map(); // code → Set<cc>
   if (hasChal) {
     const chalClients = new Set(_S.chalandiseData.keys());
+    // Source 2a : ventes MAGASIN clients zone → CA Zone + Cli Zone
     for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
       if (!chalClients.has(cc)) continue;
       for (const [code, data] of artMap) {
         if (!/^\d{6}$/.test(code)) continue;
         const a = _ensure(code);
-        a.nbClientsZone++;
+        if (!_clientsZoneByArt.has(code)) _clientsZoneByArt.set(code, new Set());
+        _clientsZoneByArt.get(code).add(cc);
         a.caClientsZone += +(data.sumCA || 0);
         a.sources.add('chalandise');
       }
@@ -825,12 +829,8 @@ export function computeSquelette(directionFilter) {
       for (const [code, data] of artMap) {
         if (!/^\d{6}$/.test(code)) continue;
         const a = _ensure(code);
-        // Ne pas doubler nbClientsZone si déjà compté via ventesClientArticle
-        const alreadyCounted = _S.ventesClientArticle?.get(cc)?.has(code);
-        if (!alreadyCounted) {
-          a.nbClientsZone++;
-        }
-        // Toujours ajouter le CA hors magasin
+        if (!_clientsZoneByArt.has(code)) _clientsZoneByArt.set(code, new Set());
+        _clientsZoneByArt.get(code).add(cc);
         a.caClientsZone += +(data.sumCA || 0);
         a.sources.add('chalandise');
       }
@@ -852,8 +852,9 @@ export function computeSquelette(directionFilter) {
     }
   }
 
-  // ── Source 4 : Livraisons ──
+  // ── Source 4 : Livraisons (réseau) ──
   if (hasTerr) {
+    const chalClients = hasChal ? new Set(_S.chalandiseData.keys()) : null;
     const artBLCount = new Map();
     for (const l of _S.territoireLines) {
       if (l.isSpecial) continue;
@@ -863,11 +864,23 @@ export function computeSquelette(directionFilter) {
       a.caLivraisons += l.ca;
       a.direction = a.direction || l.direction;
       a.sources.add('livraisons');
+      // Livraisons réseau vers clients zone → CA Zone
+      if (chalClients && l.clientCode && chalClients.has(l.clientCode)) {
+        if (!_clientsZoneByArt.has(l.code)) _clientsZoneByArt.set(l.code, new Set());
+        _clientsZoneByArt.get(l.code).add(l.clientCode);
+        a.caClientsZone += +(l.ca || 0);
+      }
     }
     for (const [code, blSet] of artBLCount) {
       const a = articleData.get(code);
       if (a) a.nbBLLivraisons = blSet.size;
     }
+  }
+
+  // ── nbClientsZone depuis le Set dédupliqué (Source 2b + Source 4) ──
+  for (const [code, clients] of _clientsZoneByArt) {
+    const a = articleData.get(code);
+    if (a) a.nbClientsZone = clients.size;
   }
 
   // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
