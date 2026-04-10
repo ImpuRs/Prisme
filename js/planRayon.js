@@ -9,7 +9,7 @@ import { getFilteredData } from './ui.js';
 let _prFilterClassif = '';
 let _prOpenFam       = null;
 let _prOpenSousFam   = '';
-let _prDetailTab     = 'rayon';
+let _prDetailTab     = 'pilotage';
 let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
@@ -73,9 +73,39 @@ const CLASSIF_BADGE = {
   socle:      { label: 'Socle',      bg: 'rgba(34,197,94,0.2)',   color: '#22c55e',           icon: '🟢' },
   implanter:  { label: 'Implanter',  bg: 'rgba(59,130,246,0.2)',  color: '#3b82f6',           icon: '🔵' },
   challenger: { label: 'Challenger', bg: 'rgba(239,68,68,0.2)',   color: '#ef4444',           icon: '🔴' },
-  potentiel:  { label: 'Potentiel',  bg: 'rgba(245,158,11,0.2)',  color: '#f59e0b',           icon: '🟡' },
   surveiller: { label: 'Surveiller', bg: 'rgba(148,163,184,0.2)', color: 'var(--t-secondary)', icon: '👁'  },
 };
+
+// ── Matrice verdict Squelette × Physigamme ──────────────────────────
+const VERDICT_MATRIX = {
+  socle: {
+    incontournable: { name: 'Le Capitaine',     icon: '🏆', color: '#22c55e', tip: 'Produit star — zéro rupture, on protège' },
+    nouveaute:      { name: 'La Bonne Pioche',  icon: '🆕', color: '#22c55e', tip: 'Nouveauté qui a trouvé son public — observer si futur Incontournable' },
+    specialiste:    { name: 'Le Lien Fort',      icon: '🎯', color: '#22c55e', tip: 'Niche qui soude les clients strat. — maintenir absolument' },
+    standard:       { name: 'Le Bon Soldat',     icon: '⚪', color: '#94a3b8', tip: 'Fond de rayon qui tourne — maintenir tant que ça performe' },
+  },
+  surveiller: {
+    incontournable: { name: "L'Alerte Rouge",   icon: '🚨', color: '#f59e0b', tip: 'Incontournable qui ralentit — risque divorce client' },
+    nouveaute:      { name: 'Le Stagiaire',      icon: '🔰', color: '#f59e0b', tip: 'Normal pour une nouveauté — 90-120j pour faire ses preuves' },
+    specialiste:    { name: 'Le Point de Rupture', icon: '⚡', color: '#f59e0b', tip: 'Produit pro qui ralentit — le client part peut-être' },
+    standard:       { name: 'Le Déclinant',      icon: '📉', color: '#94a3b8', tip: 'Son heure est peut-être passée — réduire stock, observer' },
+  },
+  challenger: {
+    incontournable: { name: 'La Réf Schizo',    icon: '💀', color: '#ef4444', tip: 'Indispensable réseau, mort chez toi — divorce de confiance' },
+    nouveaute:      { name: "L'Erreur de Casting", icon: '🚫', color: '#ef4444', tip: "La nouveauté n'a pas pris — pas d'acharnement" },
+    specialiste:    { name: 'La Trahison',       icon: '🗡️', color: '#ef4444', tip: 'Produit pro dormant — client parti ou achète ailleurs' },
+    standard:       { name: 'Le Poids Mort',     icon: '🪨', color: '#ef4444', tip: 'Ne se vend plus — sortir, libérer cash et place' },
+  },
+  implanter: {
+    incontournable: { name: 'Le Trou Critique',  icon: '🕳️', color: '#3b82f6', tip: 'Autoroute de CA ignorée — implanter sans discuter' },
+    nouveaute:      { name: 'Le Pari du Réseau', icon: '🎲', color: '#3b82f6', tip: 'Opportunité early adopters — implanter si clientèle cible' },
+    specialiste:    { name: 'La Conquête',       icon: '🧲', color: '#8b5cf6', tip: 'Aller chercher un client strat. — signal fort' },
+    standard:       { name: "L'Opportunité Locale", icon: '📡', color: '#94a3b8', tip: 'Demande locale prouvée — analyser couple produit/métier' },
+  },
+};
+function _prVerdict(classif, role) {
+  return VERDICT_MATRIX[classif]?.[role] || { name: '—', icon: '', color: '#94a3b8', tip: '' };
+}
 
 // ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
 function _prComputeRoles(codeFam) {
@@ -1514,8 +1544,196 @@ function _prRenderPhysigamme(fam) {
     </div>`;
 }
 
+// ── Onglet Pilotage (fusion Mon Rayon + Squelette + Physigamme) ──────
+let _prPilotFilter = '';   // 'socle'|'challenger'|'surveiller'|'implanter'|''
+let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'caZone'|'cliZone'|'classif'|'verdict'
+let _prPilotPage   = 60;
+
+function _prRenderPilotage(fam) {
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  if (!sqData) return '<div class="t-disabled text-sm text-center py-6">Données indisponibles.</div>';
+
+  const codeFam = fam.codeFam;
+  const catFam = _S.catalogueFamille;
+  const roles = _prComputeRoles(codeFam);
+  _prRoleCache = roles;
+  _prRoleCache._fam = codeFam;
+
+  // ── Collecter articles squelette de cette famille ──
+  const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
+  const arts = [];
+  for (const d of sqData.directions) {
+    for (const g of CLASSIFS) {
+      for (const a of (d[g] || [])) {
+        const cfCat = catFam?.get(a.code)?.codeFam;
+        const cfArt = _S.articleFamille?.[a.code] || '';
+        const matches = cfCat === codeFam || (!cfCat && cfArt.startsWith(codeFam)) || cfArt === codeFam;
+        if (!matches) continue;
+        if (_prSelectedSFs.size > 0) {
+          const csf = catFam?.get(a.code)?.codeSousFam || '';
+          if (!_prSelectedSFs.has(csf)) continue;
+        }
+        if (_prSelectedMarques.size > 0) {
+          if (!_prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '')) continue;
+        }
+        const fd = (_S.finalData || []).find(r => r.code === a.code);
+        const sf = catFam?.get(a.code);
+        const role = roles.get(a.code) || 'standard';
+        const verdict = _prVerdict(g, role);
+        arts.push({
+          ...a, _g: g, role, verdict,
+          W: fd?.W || 0,
+          sf: sf?.sousFam || '',
+          codeSF: sf?.codeSousFam || '',
+          caZone: a.caClientsZone || 0,
+          cliZone: a.nbClientsZone || 0,
+        });
+      }
+    }
+  }
+
+  // ── Counts par classif ──
+  const counts = {};
+  for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
+
+  // ── Filtre ──
+  const filtered = _prPilotFilter
+    ? arts.filter(a => a._g === _prPilotFilter)
+    : arts;
+
+  // ── Tri ──
+  const SORT_FNS = {
+    code:    (a, b) => String(a.code).localeCompare(String(b.code)),
+    stock:   (a, b) => (b.stockActuel || 0) - (a.stockActuel || 0),
+    w:       (a, b) => (b.W || 0) - (a.W || 0),
+    caZone:  (a, b) => (b.caZone || 0) - (a.caZone || 0),
+    cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
+    classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
+    verdict: (a, b) => {
+      const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
+      if (o !== 0) return o;
+      return (b.score || 0) - (a.score || 0);
+    },
+  };
+  const sorted = [...filtered].sort(SORT_FNS[_prPilotSort] || SORT_FNS.verdict);
+
+  // ── Séparer en stock / implanter ──
+  const inStock = sorted.filter(a => a._g !== 'implanter');
+  const implanter = sorted.filter(a => a._g === 'implanter');
+  const all = _prPilotFilter === 'implanter' ? implanter : [...inStock, ...implanter];
+  const shown = all.slice(0, _prPilotPage);
+
+  // ── KPIs synthèse ──
+  const nbTotal = arts.length;
+  const nbEnStock = arts.filter(a => a.enStock).length;
+  const valStock = arts.reduce((s, a) => s + (a.enStock ? (a.stockActuel || 0) * ((_S.finalData || []).find(r => r.code === a.code)?.prixUnitaire || 0) : 0), 0);
+  const nbImplanter = counts.implanter || 0;
+
+  // ── Pills filtre classif ──
+  const pills = CLASSIFS.map(g => {
+    const b = CLASSIF_BADGE[g];
+    if (!b) return '';
+    const active = _prPilotFilter === g;
+    return `<button onclick="window._prPilotFilterFn('${g}')"
+      class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}"
+      style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g] || 0}</strong></button>`;
+  }).join('');
+
+  // ── Tri header helper ──
+  const _thSort = (key, label, align = 'text-right', title = '') => {
+    const active = _prPilotSort === key;
+    return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary whitespace-nowrap"
+      style="color:${active ? 'var(--c-action,#8b5cf6)' : 'var(--t-secondary)'};font-weight:${active ? 700 : 500}"
+      ${title ? `title="${title}"` : ''}
+      onclick="window._prPilotSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
+  };
+
+  // ── Table rows ──
+  let lastGroup = '';
+  const rows = shown.map(a => {
+    // Séparateur implanter
+    let sep = '';
+    if (a._g === 'implanter' && lastGroup !== 'implanter' && !_prPilotFilter) {
+      sep = `<tr><td colspan="11" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
+        🔵 À implanter — ${implanter.length} réf${implanter.length > 1 ? 's' : ''} avec signal fort
+      </td></tr>`;
+    }
+    lastGroup = a._g;
+
+    const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.surveiller;
+    const rb = ROLE_BADGE[a.role];
+    const v = a.verdict;
+    const absent = !a.enStock;
+    const rowBg = absent ? 'background:rgba(239,68,68,0.04)' : '';
+    const stockCell = absent
+      ? '<span style="color:#ef4444;font-weight:600">✕</span>'
+      : `${a.stockActuel}`;
+    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
+
+    return `${sep}<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
+      onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+      <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
+      <td class="py-1.5 px-2 t-primary" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
+      <td class="py-1.5 px-2 text-[10px] t-secondary" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(a.sf)}">${escapeHtml(a.sf)}</td>
+      <td class="py-1.5 px-2 text-right">${stockCell}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.cliZone || '—'}</td>
+      <td class="py-1.5 px-2 text-center"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
+      <td class="py-1.5 px-2 text-center">${rb?.icon ? `<span class="text-[8px] px-1 py-0.5 rounded" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>` : '<span class="t-disabled text-[9px]">—</span>'}</td>
+      <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
+        <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>
+      </td>
+      <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Résumé ──
+  const summary = `<div class="flex items-center gap-4 mb-3 text-[10px] flex-wrap">
+    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter</span>
+    <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
+  </div>`;
+
+  const srcLegend = `<div class="flex items-center gap-3 mb-2 text-[9px] t-disabled">
+    <span>Sources :</span>
+    <span style="color:#3b82f6">■ Réseau</span>
+    <span style="color:#22c55e">■ Chalandise</span>
+    <span style="color:#f59e0b">■ Hors-zone</span>
+    <span style="color:#8b5cf6">■ Livraisons</span>
+    <span style="color:#ec4899">■ Clients PDV</span>
+  </div>`;
+
+  return `${_prSFPills()}${summary}
+  <div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}</div>
+  ${srcLegend}
+  <div class="overflow-x-auto" id="prPilotTable" style="max-height:560px;overflow-y:auto">
+    <table class="w-full text-[11px]">
+      <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
+        ${_thSort('code', 'Code', 'text-left')}
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">SF</th>
+        ${_thSort('stock', 'Stock', 'text-right')}
+        ${_thSort('w', 'Vte 90J', 'text-right', 'Fréquence BL 90 jours')}
+        ${_thSort('caZone', 'CA Zone', 'text-right', 'CA clients zone de chalandise')}
+        ${_thSort('cliZone', 'Cli Zone', 'text-right', 'Nb clients zone')}
+        ${_thSort('classif', 'Classif', 'text-center')}
+        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500">Rôle</th>
+        ${_thSort('verdict', 'Verdict', 'text-left')}
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${all.length > _prPilotPage ? `<div class="mt-2 text-center"><button onclick="window._prMorePilot()" class="text-[10px] t-secondary hover:t-primary px-3 py-1 rounded border b-light cursor-pointer">Voir plus (${all.length - _prPilotPage} restants)</button></div>` : ''}
+  </div>
+  <div class="mt-2">
+    <button onclick="window._prExportPilotage()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
+  </div>`;
+}
+
 // ── Contenu onglet détail ────────────────────────────────────────────
 function _prGetTabContent(tab, fam) {
+  if (tab === 'pilotage') return _prRenderPilotage(fam);
   if (tab === 'rayon') {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
     // Index code → classification Squelette (sans écraser status Mon Rayon)
@@ -1587,9 +1805,7 @@ function _prRenderDetail(codeFam) {
         : _prOpenSousFam)
     : '';
   const tabs = [
-    { key: 'rayon',      label: '📊 Mon Rayon' },
-    { key: 'physigamme', label: '🎭 Physigamme' },
-    { key: 'squelette',  label: '🦴 Squelette' },
+    { key: 'pilotage',   label: '🧭 Pilotage'  },
     { key: 'metiers',    label: '🎯 Métiers'   },
     { key: 'analyse',    label: '📦 Analyse'   },
   ];
@@ -1633,9 +1849,7 @@ function _prRenderDetail(codeFam) {
         style="${_prDetailTab === t.key ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${t.label}</button>`).join('')}
     </div>
     <div class="text-[9px] t-disabled px-4 pb-2">
-      📊 Classif. famille : historique complet
-      · Mon Rayon : ${_S._globalPeriodePreset || 'historique complet'}
-      · Métiers : historique complet
+      🧭 Pilotage : historique complet · Métiers : historique complet
     </div>
     <div id="prDetailContent">${_prGetTabContent(_prDetailTab, fam)}</div>
   </div>`;
@@ -1838,7 +2052,7 @@ window._prSetFilter = function(key) {
 window._prOpenDetail = function(codeFam) {
   _prOpenFam = codeFam;
   _prOpenSousFam = '';
-  _prDetailTab = 'rayon';
+  _prDetailTab = 'pilotage';
   _S._prSqFilter = '';
   _S._prSqData = null;
   _prSqPage = 50;
@@ -1938,11 +2152,11 @@ window._prToggleMarque = function(marque) {
 };
 
 window._prApplyAnalyseFilter = function() {
-  _prDetailTab = 'rayon';
+  _prDetailTab = 'pilotage';
   const el = document.getElementById('prDetailContent');
   if (el && _S._prData && _prOpenFam) {
     const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
-    if (fam) el.innerHTML = _prGetTabContent('rayon', fam);
+    if (fam) el.innerHTML = _prGetTabContent('pilotage', fam);
   }
 };
 
@@ -1978,6 +2192,51 @@ window._prToggleMRSortCode = function() {
   _S._prMRSortByCode = !_S._prMRSortByCode;
   const el = document.getElementById('prDetailContent');
   if (el && _S._prRayonData) el.innerHTML = _prRenderRayon(_S._prRayonData);
+};
+
+// ── Pilotage handlers ──
+window._prPilotFilterFn = function(key) {
+  _prPilotFilter = _prPilotFilter === key ? '' : key;
+  _prPilotPage = 60;
+  _prRerenderDetail();
+};
+window._prPilotSortFn = function(key) {
+  _prPilotSort = key;
+  _prRerenderDetail();
+};
+window._prMorePilot = function() {
+  _prPilotPage += 60;
+  _prRerenderDetail();
+};
+window._prExportPilotage = function() {
+  const sqData = _S._prSqData;
+  if (!sqData || !_prOpenFam) return;
+  const codeFam = _prOpenFam;
+  const catFam = _S.catalogueFamille;
+  const roles = _prComputeRoles(codeFam);
+  const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
+  const rows = [];
+  for (const d of sqData.directions) {
+    for (const g of CLASSIFS) {
+      for (const a of (d[g] || [])) {
+        const cfCat = catFam?.get(a.code)?.codeFam;
+        const cfArt = _S.articleFamille?.[a.code] || '';
+        if (cfCat !== codeFam && !((!cfCat && cfArt.startsWith(codeFam)) || cfArt === codeFam)) continue;
+        const role = roles.get(a.code) || 'standard';
+        const v = _prVerdict(g, role);
+        const sf = catFam?.get(a.code)?.sousFam || '';
+        const lib = a.libelle || _S.libelleLookup?.[a.code] || '';
+        rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || ((_S.finalData||[]).find(r=>r.code===a.code)?.W||0),
+          a.caClientsZone || 0, a.nbClientsZone || 0, g, role, v.name].join(';'));
+      }
+    }
+  }
+  const csv = ['Code;Libellé;SF;Stock;Vte 90J;CA Zone;Cli Zone;Classif;Rôle;Verdict', ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `pilotage_${codeFam}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 window._prSqFilterFn = function(key) {
@@ -2036,7 +2295,7 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   _prSearchText  = '';
   _prOpenFam     = codeFam;
   _prOpenSousFam = codeSousFam || '';
-  _prDetailTab    = 'rayon';
+  _prDetailTab    = 'pilotage';
   _prGridVisible  = true;
   _prRayonFilter  = '';
   _S._prSqFilter  = '';
@@ -3044,7 +3303,7 @@ export function renderPlanRayon() {
   _prFilterClassif = '';
   _prOpenFam       = null;
   _prOpenSousFam   = '';
-  _prDetailTab     = 'rayon';
+  _prDetailTab     = 'pilotage';
   _prGridVisible   = false;
   _prSearchText    = '';
   _S._prSqFilter   = '';
