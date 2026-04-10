@@ -313,6 +313,7 @@ function computePlanStock() {
       schizoItems: [], nbSchizo: 0,
       // KPIs Scanner de Rayon
       nbIncontournables: 0, nbIncontEnStock: 0,
+      nbSpecialistes: 0, nbSpecEnStock: 0,
       potentielExterne: 0, // CA zone des IMPLANTER
       caZoneTotal: 0,     // CA zone TOUS articles (pour captation famille)
       caStratClients: 0, caTotalClients: 0, // pour signal spécialiste
@@ -360,6 +361,10 @@ function computePlanStock() {
           if (role === 'incontournable') {
             f.nbIncontournables++;
             if (a.enStock) f.nbIncontEnStock++;
+          }
+          if (role === 'specialiste') {
+            f.nbSpecialistes++;
+            if (a.enStock) f.nbSpecEnStock++;
           }
           // CA Zone : potentiel externe (IMPLANTER only) + total famille (tous)
           f.caZoneTotal += +(a.caClientsZone || 0);
@@ -448,17 +453,17 @@ function computePlanStock() {
       f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
     }
     // ── Scanner de Rayon : 3 KPIs + signal spécialiste ──
-    // 1. Score de Santé Interne (0-100)
+    // 1. Score de Santé Interne V2 (0-100)
+    //    = (détention Incont. % × 50 + (100 - patho%) × 30 + détention Spé. % × 20) / 100
     const pctIncEnStock = f.nbIncontournables > 0
-      ? f.nbIncontEnStock / f.nbIncontournables : 1;
+      ? (f.nbIncontEnStock / f.nbIncontournables) * 100 : 100;
     const total = f.socle + f.implanter + f.challenger + f.surveiller;
     const nbEnStockTotal = f.nbEnRayon || 1;
-    const pctDormants = f.nbDormants / nbEnStockTotal;
-    const pctCouverture = f.couverture / 100;
+    const pctPatho = Math.min((f.nbDormants / nbEnStockTotal) * 100, 100);
+    const pctSpecEnStock = f.nbSpecialistes > 0
+      ? (f.nbSpecEnStock / f.nbSpecialistes) * 100 : 100;
     f.scoreSante = Math.round(
-      pctIncEnStock * 40 +
-      (1 - Math.min(pctDormants, 1)) * 30 +
-      Math.min(pctCouverture, 1) * 30
+      (pctIncEnStock * 50 + (100 - pctPatho) * 30 + pctSpecEnStock * 20) / 100
     );
 
     // 2. Indice Performance Réseau (100 = médiane)
@@ -496,12 +501,13 @@ function computePlanStock() {
     .filter(f => f.socle + f.implanter + f.challenger + f.surveiller > 0)
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
 
-  // DEBUG: distribution scoreSante + perfReseau
+  // DEBUG: distribution scoreSante V2
   console.table(families.map(f => ({
     fam: f.libFam.slice(0, 30), scoreSante: f.scoreSante, perfReseau: f.perfReseau,
     hasBench: f.rendement != null && f.rendement > 0,
-    couv: f.couverture, dormants: f.nbDormants, nbEnRayon: f.nbEnRayon,
-    incStock: f.nbIncontEnStock + '/' + f.nbIncontournables,
+    inc: f.nbIncontEnStock + '/' + f.nbIncontournables,
+    spe: f.nbSpecEnStock + '/' + f.nbSpecialistes,
+    patho: f.nbDormants + '/' + (f.nbEnRayon || 1),
     captation: f.captation, potExt: Math.round(f.potentielExterne),
     classif: f.classifGlobal, tag: f.tagSpecialiste ? '🎯' : '',
   })));
