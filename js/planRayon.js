@@ -509,17 +509,6 @@ function computePlanStock() {
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
   const nbInactive = allFamilies.filter(f => f.classifGlobal === 'inactive').length;
 
-  // DEBUG: distribution scoreSante V2
-  console.table(families.map(f => ({
-    fam: f.libFam.slice(0, 30), scoreSante: f.scoreSante, perfReseau: f.perfReseau,
-    hasBench: f.rendement != null && f.rendement > 0,
-    inc: f.nbIncontEnStock + '/' + f.nbIncontournables,
-    spe: f.nbSpecEnStock + '/' + f.nbSpecialistes,
-    patho: f.nbDormants + '/' + (f.nbEnRayon || 1),
-    captation: f.captation, potExt: Math.round(f.potentielExterne),
-    classif: f.classifGlobal, tag: f.tagSpecialiste ? '🎯' : '',
-  })));
-
   const result = {
     families,
     totals: {
