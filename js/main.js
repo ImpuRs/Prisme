@@ -28,6 +28,7 @@ import { renderLaboTab, updateLaboTiles } from './labo.js';
 import { renderPlanRayon, renderPlanStock } from './planRayon.js';
 import { renderArbitrageRayonBlock } from './emplacement.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
+import { renderAssociationsTab } from './associations.js';
 // ── P3 Modules — extracted from main.js ──
 import { onBenchParamChange, buildBenchCheckboxes, getBenchCompareStores, recalcBenchmarkInstant, renderBenchmark, buildBenchBassinSelect, renderReseauNomades, renderReseauFuites, renderNomadesMissedArts, renderHeatmapFamilleCommercial, _obsNav, renderObservatoire, buildObsCompareSelect, _buildObsUniversDropdown, onObsCompareChange, onObsFilterChange, resetObsFilters, _setBenchPeriode, renderObsArticleSearch, copyObsActionPlan, copyObsArticleList, toggleObsFamily, copyObsSection, copyPepitesList, copyPepitesOtherList, openNomadeArticleModal, closeNomadeArticleModal, _copyNomadeClientsClipboard, copyNomadesMissedArts, exportBenchList } from './bench.js';
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
@@ -2299,6 +2300,7 @@ _S.canalAgence=newCanalAgence;
         break;
       case 'animation':
         await renderAnimationTab();
+        renderAssociationsTab();
         break;
       case 'labo':
         renderLaboTab();
@@ -2646,6 +2648,21 @@ window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._m
 window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
 window.buildBenchBassinSelect = buildBenchBassinSelect;
 window.renderReseauNomades = renderReseauNomades;
+
+// Sous-onglets Animation (Marques / Associations)
+window._animSwitchSub = function(sub) {
+  const marques = document.getElementById('animSubMarques');
+  const assocs  = document.getElementById('animSubAssociations');
+  if (marques) marques.style.display = sub === 'marques' ? '' : 'none';
+  if (assocs)  assocs.style.display  = sub === 'associations' ? '' : 'none';
+  document.querySelectorAll('[data-animsub]').forEach(btn => {
+    const active = btn.dataset.animsub === sub;
+    btn.className = `text-[11px] px-4 py-2 cursor-pointer border-b-2 ${active ? 'font-bold' : 'hover:t-primary'}`;
+    btn.style.borderColor = active ? 'var(--c-action)' : 'transparent';
+    btn.style.color       = active ? 'var(--t-primary)' : 'var(--t-secondary)';
+  });
+  if (sub === 'associations') renderAssociationsTab();
+};
 
 window.renderReseauFuites = renderReseauFuites;
 window.renderNomadesMissedArts = renderNomadesMissedArts;

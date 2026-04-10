@@ -426,16 +426,39 @@ function computePlanStock() {
 }
 
 // ── Source bar ───────────────────────────────────────────────────────
+/** Résout le libellé d'un codeSousFam depuis le catalogue */
+function _prSFLabel(csf) {
+  if (!csf) return csf;
+  const catFam = _S.catalogueFamille;
+  if (!catFam) return csf;
+  for (const f of catFam.values()) {
+    if (f.codeSousFam === csf && f.sousFam) return f.sousFam;
+  }
+  return csf;
+}
+
+/** Pilules SF sélectionnées — à insérer dans chaque onglet */
+function _prSFPills() {
+  if (!_prSelectedSFs.size) return '';
+  return `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
+    <span class="text-[10px] t-disabled">📂 SF :</span>
+    ${[..._prSelectedSFs].map(csf => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px #f59e0b">
+      ${escapeHtml(_prSFLabel(csf))}
+      <button onclick="window._prToggleSF('${csf.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+    </span>`).join('')}
+  </div>`;
+}
+
 function _prSourceBar(src) {
-  const seg = (active, color, label) =>
-    `<span title="${label}" style="display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:2px;background:${active ? color : '#e2e8f0'};opacity:${active ? 1 : 0.25}"></span>`;
+  const seg = (active, color, label, letter) =>
+    `<span title="${label}" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:14px;border-radius:3px;margin-right:1px;background:${active ? color : 'rgba(148,163,184,0.12)'};color:${active ? '#fff' : 'rgba(148,163,184,0.3)'};font-size:8px;font-weight:700;letter-spacing:0">${letter}</span>`;
   const has = (key) => src instanceof Set ? src.has(key) : !!src[key];
   return `<span class="inline-flex items-center">
-    ${seg(has('reseau'),     '#3b82f6', 'Réseau')}
-    ${seg(has('chalandise'), '#22c55e', 'Chalandise')}
-    ${seg(has('horsZone'),   '#f59e0b', 'Hors-zone')}
-    ${seg(has('livraisons'), '#8b5cf6', 'Livraisons')}
-    ${seg(has('pdvClients'), '#ec4899', 'Clients PDV')}
+    ${seg(has('reseau'),     '#3b82f6', 'Réseau',      'R')}
+    ${seg(has('chalandise'), '#22c55e', 'Chalandise',   'C')}
+    ${seg(has('horsZone'),   '#f59e0b', 'Hors-zone',   'H')}
+    ${seg(has('livraisons'), '#8b5cf6', 'Livraisons',   'L')}
+    ${seg(has('pdvClients'), '#ec4899', 'Clients PDV', 'P')}
   </span>`;
 }
 
@@ -727,7 +750,7 @@ function _prRenderRayon(data) {
   return `<div class="mb-3 text-[11px] t-secondary">
     ${displayedForHeader.length} articles en rayon · ${couverture}% couverture (${displayedForHeader.length}/${nbCatalogue}) · ${formatEuro(valeurTotale)} valeur stock
   </div>
-  ${empPills}${marquePillsRayon}
+  ${empPills}${_prSFPills()}${marquePillsRayon}
   <div class="flex flex-wrap gap-1.5 mb-3 items-center">
     ${_pill('pepite',     pepites,  '🟢', 'pépites AF',  '#22c55e', 'rgba(34,197,94,0.2)',   600)}
     ${_pill('standard',   standard, '⚪', 'standard',    '#94a3b8', 'rgba(148,163,184,0.2)', 500)}
@@ -787,33 +810,48 @@ function _prBuildSqTable(arts) {
   };
 
   const _famCode = _prOpenFam || '';
+  // Max agences pour barre détention proportionnelle
+  const maxAg = Math.max(1, ...filtered.map(a => a.nbAgencesReseau || 0));
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
     const role = _famCode ? _prGetRole(a.code, _famCode) : 'standard';
     const rb = _prRoleBadge(role);
-    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer"
+    const absent = !a.enStock;
+    const rowBg = absent ? 'background:rgba(239,68,68,0.06)' : '';
+    // Détention réseau — mini-barre
+    const detPct = Math.round((a.nbAgencesReseau || 0) / maxAg * 100);
+    const detColor = detPct >= 60 ? '#22c55e' : detPct >= 30 ? '#f59e0b' : '#94a3b8';
+    const detBar = `<span style="display:inline-flex;align-items:center;gap:4px">
+      <span style="display:inline-block;width:28px;height:5px;border-radius:3px;background:rgba(148,163,184,0.15);overflow:hidden">
+        <span style="display:block;height:100%;width:${detPct}%;background:${detColor}"></span>
+      </span><span>${a.nbAgencesReseau || 0}</span></span>`;
+    // Stock — pastille + valeur
+    const stockCell = absent
+      ? '<span style="color:#ef4444;font-weight:600">✕</span>'
+      : `<span style="color:#22c55e">●</span> ${a.stockActuel}`;
+    return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
-      <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
+      <td class="py-1.5 px-2 t-primary" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.libelle || a.code)}</td>
       <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${rb ? ' ' + rb : ''}</td>
       <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.nbAgencesReseau || 0}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${detBar}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbBLLivraisons || 0}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.enStock ? a.stockActuel : '—'}</td>
+      <td class="py-1.5 px-2 text-right">${stockCell}</td>
     </tr>`;
   }).join('');
 
-  return `<div class="overflow-x-auto" id="prSqTable">
+  return `<div class="overflow-x-auto" id="prSqTable" style="max-height:520px;overflow-y:auto">
     <table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px]">
+      <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
         ${_thSort('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
-        ${_thSort('agence',    'Ventes ag.')}
-        ${_thSort('reseau',    'Nb agences')}
-        ${_thSort('livraison', 'BL Livr.')}
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500" title="Classification squelette + rôle Physigamme">Classif.</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500" title="R=Réseau C=Chalandise H=Hors-zone L=Livraisons P=PDV">Sources</th>
+        ${_thSort('agence',    'W', 'text-right', 'Fréquence (passages/an)')}
+        ${_thSort('reseau',    'Détention', 'text-right', 'Nb agences réseau qui vendent cet article')}
+        ${_thSort('livraison', 'BL zone', 'text-right', 'BL livraisons zone de chalandise')}
         ${_thSort('classif',   'Stock', 'text-right')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -896,7 +934,32 @@ function _prRenderSquelette(fam) {
     ? `<span class="ml-2 text-[10px]" style="color:var(--t-secondary)">· filtré sur <em>${escapeHtml(sousFamLib)}</em></span>`
     : '';
 
-  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prBuildSqTable(artsWithW)}`;
+  // Résumé rapide
+  const nbTotal = arts.length;
+  const nbEnStock = arts.filter(a => a.enStock).length;
+  const pctStock = nbTotal ? Math.round(nbEnStock / nbTotal * 100) : 0;
+  const pctColor = pctStock >= 80 ? '#22c55e' : pctStock >= 50 ? '#f59e0b' : '#ef4444';
+  const summary = `<div class="flex items-center gap-4 mb-3 text-[10px]">
+    <span class="t-disabled">${nbTotal} articles squelette</span>
+    <span style="display:inline-flex;align-items:center;gap:4px">
+      <span style="display:inline-block;width:48px;height:6px;border-radius:3px;background:rgba(148,163,184,0.15);overflow:hidden">
+        <span style="display:block;height:100%;width:${pctStock}%;background:${pctColor}"></span>
+      </span>
+      <span style="color:${pctColor};font-weight:700">${pctStock}% en stock</span>
+    </span>
+    ${nbAbsent ? `<span style="color:#ef4444;font-weight:600">✕ ${nbAbsent} absents</span>` : ''}
+  </div>`;
+
+  const srcLegend = `<div class="flex items-center gap-3 mb-2 text-[9px] t-disabled">
+    <span>Sources :</span>
+    <span style="color:#3b82f6">■ Réseau</span>
+    <span style="color:#22c55e">■ Chalandise</span>
+    <span style="color:#f59e0b">■ Hors-zone</span>
+    <span style="color:#8b5cf6">■ Livraisons</span>
+    <span style="color:#ec4899">■ Clients PDV</span>
+  </div>`;
+
+  return `<div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}${sousFamNote}</div>${_prSFPills()}${summary}${srcLegend}${_prBuildSqTable(artsWithW)}`;
 }
 
 // ── Onglet Métiers ───────────────────────────────────────────────────
@@ -1053,7 +1116,7 @@ function _prRenderMetiers(fam) {
   const totCaptPct = totLiv > 0 ? Math.round(totMon / totLiv * 100) : null;
 
   const livrLabel = hasLivr ? ' · Livraisons = total réseau (fichier Livraisons × Chalandise)' : '';
-  return `${sliderHtml}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux${livrLabel} · Historique complet</div><div class="overflow-x-auto">
+  return `${sliderHtml}${_prSFPills()}<div class="text-[10px] t-disabled mb-3">Mon agence = consommé tous canaux${livrLabel} · Historique complet</div><div class="overflow-x-auto">
     <table class="w-full text-[11px]">
       <thead style="border-bottom:1px solid var(--color-border-tertiary)">
         <tr style="color:var(--t-secondary);font-size:10px;font-weight:600">
@@ -1222,7 +1285,7 @@ function _prRenderAnalyse(fam) {
       class="text-[11px] px-2 py-1.5 t-disabled hover:t-primary">✕ Reset</button>
   </div>` : '';
 
-  return `${empPillsAnalyse}${marquePills}<div class="grid grid-cols-2 gap-6">
+  return `${empPillsAnalyse}${_prSFPills()}${marquePills}<div class="grid grid-cols-2 gap-6">
     <div>
       <h4 class="text-[11px] font-bold t-primary mb-2">Sous-familles</h4>
       <div class="overflow-x-auto"><table class="w-full text-[11px]">${thSF}<tbody>${sfRows}</tbody></table></div>
@@ -1426,7 +1489,7 @@ function _prRenderPhysigamme(fam) {
       <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(a.lib)}</td>
       <td class="py-1 px-2">
         <span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>
-        ${sqBadge ? `<span class="text-[8px] px-1 py-0.5 rounded ml-0.5" style="background:${sqBadge.bg};color:${sqBadge.color}">${sqBadge.icon}</span>` : ''}
+        ${sqBadge ? `<span class="text-[8px] px-1 py-0.5 rounded ml-0.5" style="background:${sqBadge.bg};color:${sqBadge.color}">${sqBadge.icon} ${sqBadge.label}</span>` : ''}
       </td>
       <td class="py-1 px-2 text-right t-secondary">${Math.round(a.detention * 100)}%</td>
       <td class="py-1 px-2 text-right t-secondary">${a.enStock ? a.stock : '—'}</td>
@@ -1471,7 +1534,7 @@ function _prRenderPhysigamme(fam) {
     actions = '<div class="text-[11px] t-disabled text-center py-3">✅ Gamme équilibrée — aucune action prioritaire détectée.</div>';
   }
 
-  return `
+  return `${_prSFPills()}
     <div class="grid grid-cols-2 gap-6 mb-4">
       <div>
         <h4 class="text-[11px] font-bold t-primary mb-2">📊 Réseau vs Mon agence <span class="text-[9px] t-disabled font-normal">${stores.length} agences</span></h4>
