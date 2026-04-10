@@ -691,10 +691,11 @@ function _prBuildSqTable(arts) {
   const sorted = [...filtered].sort(_SQ_SORT_FNS[_prSqSort] || _SQ_SORT_FNS.reseau);
   const shown = sorted.slice(0, _prSqPage);
 
-  const _thSort = (key, label, align = 'text-right') => {
+  const _thSort = (key, label, align = 'text-right', title = '') => {
     const active = _prSqSort === key;
     return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary"
       style="color:${active ? 'var(--c-action,#8b5cf6)' : 'var(--t-secondary)'};font-weight:${active ? 700 : 500}"
+      ${title ? `title="${title}"` : ''}
       onclick="window._prSqSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
   };
 
@@ -729,7 +730,7 @@ function _prBuildSqTable(arts) {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
-        ${_thSort('score',     'Score')}
+        ${_thSort('score',     'Score', 'text-right', 'Score composite 0-200+. Croise 5 signaux :\\n• Réseau : nb agences qui vendent (+15 à +40)\\n• Zone : clients chalandise acheteurs (+5 à +30)\\n• Hors-zone : clients hors chalandise (+8 à +20)\\n• Clients PDV : pénétration comptoir (+8 à +25)\\n• Livraisons : BL territoire (+10 à +30)\\nMultiplicateur si ≥2 sources croisées (×1.1 à ×1.5)\\n\\n≥50 = signal fort (vert) · ≥25 = signal moyen (orange)')}
         ${_thSort('agence',    'Ventes ag.')}
         ${_thSort('reseau',    'Nb agences')}
         ${_thSort('livraison', 'BL Livr.')}
