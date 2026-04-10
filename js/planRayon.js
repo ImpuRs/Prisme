@@ -531,6 +531,12 @@ function _prSFLabel(csf) {
   if (!csf) return csf;
   const catFam = _S.catalogueFamille;
   if (!catFam) return csf;
+  // Priorité : match dans la famille ouverte
+  const openFam = _prOpenFam || '';
+  for (const f of catFam.values()) {
+    if (f.codeSousFam === csf && f.sousFam && f.codeFam === openFam) return f.sousFam;
+  }
+  // Fallback : premier match
   for (const f of catFam.values()) {
     if (f.codeSousFam === csf && f.sousFam) return f.sousFam;
   }
@@ -2258,13 +2264,14 @@ window._prClearEmps = function() {
 window._prToggleSF = function(csf) {
   if (_prSelectedSFs.has(csf)) _prSelectedSFs.delete(csf);
   else _prSelectedSFs.add(csf);
-  // Sync _prSelectedEmps depuis les SFs sélectionnées
+  // Sync _prSelectedEmps depuis les SFs sélectionnées (filtrées par famille ouverte)
   _prSelectedEmps.clear();
   if (_prSelectedSFs.size > 0) {
     const catFam = _S.catalogueFamille;
     for (const r of (_S._prRayonData?.monRayon || [])) {
-      const rcsf = catFam?.get(r.code)?.codeSousFam || '';
-      if (_prSelectedSFs.has(rcsf) && r.emplacement) _prSelectedEmps.add(r.emplacement);
+      const cf = catFam?.get(r.code);
+      if (!cf || cf.codeFam !== _prOpenFam) continue;
+      if (_prSelectedSFs.has(cf.codeSousFam || '') && r.emplacement) _prSelectedEmps.add(r.emplacement);
     }
     _prOpenSousFam = '';
   }
