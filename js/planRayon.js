@@ -1212,11 +1212,16 @@ function _prRenderPhysigamme(fam) {
     if (a.sf && a.prix > 0) { if (!bySF.has(a.sf)) bySF.set(a.sf, []); bySF.get(a.sf).push(a); }
   }
 
-  // Premier prix : Q1 par SF (si pas déjà classé)
+  // Premier prix : max 2 par SF, le(s) moins cher(s) avec détention réseau ≥ 20%
   for (const [, arts] of bySF) {
-    const sorted = [...arts].sort((x, y) => x.prix - y.prix);
-    const q1 = Math.max(1, Math.ceil(sorted.length * 0.25));
-    for (let i = 0; i < q1; i++) { if (sorted[i].role === 'standard') sorted[i].role = 'premierprix'; }
+    const sorted = [...arts].filter(a => a.role === 'standard').sort((x, y) => x.prix - y.prix);
+    let count = 0;
+    for (const a of sorted) {
+      if (count >= 2) break;
+      if (a.detention >= 0.2 || a.enStock) { a.role = 'premierprix'; count++; }
+    }
+    // Fallback : au moins 1 PP par SF même si détention < 20%
+    if (count === 0 && sorted.length > 0) sorted[0].role = 'premierprix';
   }
 
   // ── Benchmark RÉSEAU VS MOI ──
