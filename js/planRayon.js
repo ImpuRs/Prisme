@@ -1224,7 +1224,7 @@ function _prRenderPhysigamme(fam) {
     let nr = 0, ca = 0, bl = 0, sv = 0, ns = 0;
     for (const code of allCodes) {
       const d = vpm[s]?.[code]; if (d?.countBL > 0) { nr++; ca += d.sumCA || 0; bl += d.countBL || 0; }
-      const sk = spm[s]?.[code]; if (sk?.stockActuel > 0) { ns++; const fd2 = fdMap.get(code); sv += (fd2?.prixUnitaire || 0) * sk.stockActuel; }
+      const sk = spm[s]?.[code]; if (sk?.stockActuel > 0) { ns++; sv += (sk.valeurStock || 0) || ((fdMap.get(code)?.prixUnitaire || 0) * sk.stockActuel); }
     }
     return { nr, ca, bl, sv, ns };
   });
