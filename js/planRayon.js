@@ -3212,10 +3212,23 @@ SURVEILLER × 🏆 = L'Alerte Rouge (agir vite) · SURVEILLER × 🆕 = Le Stagi
 CHALLENGER × 🏆 = La Réf Schizo (divorce confiance) · CHALLENGER × 🆕 = L'Erreur de Casting (sortir) · CHALLENGER × 🎯 = La Trahison (sortir + appeler) · CHALLENGER × 📦 = Le Poids Mort (sortir)
 IMPLANTER × 🏆 = Le Trou Critique (implanter sans discuter) · IMPLANTER × 🆕 = Le Pari du Réseau (tester) · IMPLANTER × 🎯 = La Conquête (signal fort) · IMPLANTER × 📦 = L'Opportunité Locale (évaluer)
 
-[SCANNER DE RAYON — 3 KPIs famille]
-- ❤️ Score de Santé Interne (0-100) : incontournables en stock + dormants + couverture catalogue
-- 📊 Indice Performance Réseau (100=médiane) : CA/ref vs réseau
-- 💰 Potentiel Externe (€) : CA zone des articles à implanter
+[SCANNER DE RAYON V2 — KPIs famille]
+Score de Santé Interne (0-100) = détention Incontournables ×50 + (100 - % pathologique) ×30 + détention Spécialistes ×20, le tout ÷100.
+  ROUGE (< 50) = À retravailler — problème structurel, refonte nécessaire.
+  ORANGE (50-79) = À surveiller — optimisation ciblée, réparer ce qui est cassé.
+  VERT (≥ 80) = Bien couverte — maintenir l'excellence.
+Indice Performance Réseau (100=médiane) = CA/ref agence vs CA/ref réseau.
+Potentiel Externe (€) = CA zone total des articles À IMPLANTER.
+Part de Marché famille (PdM%) = CA Magasin ÷ CA Zone Total. C'est la taille de ta part du gâteau.
+  PdM > 70% = leader, défendre. PdM 40-70% = challenger, conquérir. PdM < 40% = suiveur, rattraper.
+Captation famille = CA Magasin ÷ CA Zone Total (même formule que PdM, appliquée au niveau famille).
+Tag Axe Spécialiste = si >30% du CA famille est porté par des clients métiers stratégiques, la famille a une vocation pro forte. Ce tag est CUMULABLE avec tout statut.
+
+[COLONNES PILOTAGE — par article]
+- Cli PDV = clients distincts dans TON agence sur la période (diffusion interne)
+- CA Zone = CA total TOUS CANAUX confondus, clients zone de chalandise (taille du marché)
+- Cli Zone = clients distincts zone, tous canaux (largeur du marché)
+- PdM% = CA Magasin ÷ CA Zone (ta part de marché sur cet article)
 
 [RÈGLE DE DÉROGATION : L'ANCRE MÉTIER]
 Un Challenger peut être sauvé si c'est un 🎯 Spécialiste qui ancre un métier clé, stock=1, max 5 Ancres par rayon.
@@ -3223,15 +3236,16 @@ Un Challenger peut être sauvé si c'est un 🎯 Spécialiste qui ancre un méti
 Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
 
 1. **La phrase à retenir** — UNE phrase qui frappe (image mentale + diagnostic + direction)
-2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI
+2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI (utilise PdM% et captation)
 3. **Le piège mental à éviter** — le réflexe à ne PAS avoir face à ces données
-4. **Ce que je vois vraiment dans les données** — patterns cachés, croisements (verdicts × métiers × benchmark)
+4. **Ce que je vois vraiment dans les données** — patterns cachés, croisements (verdicts × métiers × PdM% × benchmark)
 5. **Le plan Physigamme** — "Je vide / J'optimise / Je remplis" en 5 gestes max. Chaque geste cite le RÔLE (🏆/🆕/🎯/📦) ET le VERDICT MATRICE (ex: "Le Trou Critique", "La Réf Schizo")
-6. **Prédiction chiffrée** — détention incontournables, Score Santé, Perf Réseau APRÈS le plan
+6. **Prédiction chiffrée** — détention incontournables, Score Santé, PdM% APRÈS le plan
 7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
 
 Règles dures :
 - Chaque recommandation DOIT citer le VERDICT MATRICE, pas juste le rôle ou le statut isolément
+- PdM% est le KPI roi : un produit avec PdM 95% = défendre, PdM 0% = opportunité pure
 - Section [BENCHMARK RÉSEAU VS MOI] = ton miroir. Écart >20% = signal fort
 - Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Distingue :
   1. CONSOLIDER : renforcer pour les métiers qui viennent déjà (captation >20%)
@@ -3266,7 +3280,9 @@ function _prBuildLLMPack(codeFam) {
     const roleTag = ROLE_EMOJI[role] || '';
     const v = _prVerdict(classif, role);
     const verdictTag = v.name !== '—' ? ` → ${v.name}` : '';
-    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${verdictTag}${m ? ' · ' + m : ''}${score}`;
+    const pdmStr = a.pdm != null ? ` PdM:${a.pdm}%` : '';
+    const cliStr = a.nbClientsPDV ? ` cli:${a.nbClientsPDV}` : '';
+    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${verdictTag}${pdmStr}${cliStr}${m ? ' · ' + m : ''}${score}`;
   };
 
   const topMetStr = ctx.topMetiers
@@ -3283,17 +3299,21 @@ function _prBuildLLMPack(codeFam) {
   pack += `TOP 5 métiers clients agence (toutes familles) :\n${topMetStr}\n`;
   pack += `Scanner de Rayon : ${ACTION_BADGE[fam.classifGlobal]?.label || fam.classifGlobal}\n\n`;
 
-  pack += `[SCANNER DE RAYON — 3 KPIs]\n`;
-  pack += `- ❤️ Score Santé Interne : ${fam.scoreSante}/100${fam.scoreSante < 70 ? ' ⚠ CRITIQUE' : fam.scoreSante < 90 ? ' ⚠ MOYEN' : ' ✅'}\n`;
-  pack += `- 📊 Indice Perf Réseau : ${fam.perfReseau || 'n/a'}${fam.perfReseau && fam.perfReseau < 80 ? ' ⚠ SOUS-PERFORMANT' : fam.perfReseau >= 100 ? ' ✅' : ''} (100=médiane)\n`;
+  const hasBench = fam.rendement != null && fam.rendement > 0;
+  pack += `[SCANNER DE RAYON — KPIs]\n`;
+  pack += `- ❤️ Score Santé Interne : ${fam.scoreSante}/100${fam.scoreSante < 50 ? ' 🔴 CRITIQUE' : fam.scoreSante < 80 ? ' 🟠 MOYEN' : ' ✅ BON'}\n`;
+  pack += `- 📊 Indice Perf Réseau : ${hasBench ? fam.perfReseau : 'n/a'}${hasBench && fam.perfReseau < 80 ? ' ⚠ SOUS-PERFORMANT' : hasBench && fam.perfReseau >= 100 ? ' ✅' : ''} (100=médiane)\n`;
   pack += `- 💰 Potentiel Externe : ${formatEuro(fam.potentielExterne)} (CA zone des IMPLANTER)\n`;
-  pack += `- 🎯 % CA strat : ${fam.pctStrat}% porté par métiers stratégiques\n\n`;
+  pack += `- 🎯 % CA strat : ${fam.pctStrat}% porté par métiers stratégiques${fam.tagSpecialiste ? ' · TAG AXE SPÉCIALISTE' : ''}\n`;
+  pack += `- 📈 PdM famille : ${fam.captation != null ? fam.captation + '%' : 'n/a'} (CA agence / CA zone total)\n`;
+  pack += `- 🌍 CA Zone total : ${formatEuro(fam.caZoneTotal)} (tous canaux, tous clients zone)\n\n`;
 
   pack += `[KPIs RAYON]\n`;
   pack += `- ${fam.nbEnRayon} refs en rayon · ${fam.nbCatalogue} catalogue · couverture ${fam.couverture}%\n`;
   pack += `- ${fam.nbClients} clients servis · CA agence ${formatEuro(fam.caAgence)}\n`;
   pack += `- Hygiène : ${fam.hygieneScore}% pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin · ${fam.nbRuptures} ruptures)\n`;
-  pack += `- Incontournables : ${fam.nbIncontEnStock}/${fam.nbIncontournables} en stock (${fam.nbIncontournables > 0 ? Math.round(fam.nbIncontEnStock / fam.nbIncontournables * 100) : 100}%)\n\n`;
+  pack += `- Incontournables : ${fam.nbIncontEnStock}/${fam.nbIncontournables} en stock (${fam.nbIncontournables > 0 ? Math.round(fam.nbIncontEnStock / fam.nbIncontournables * 100) : 100}%)\n`;
+  pack += `- Spécialistes : ${fam.nbSpecEnStock}/${fam.nbSpecialistes} en stock (${fam.nbSpecialistes > 0 ? Math.round(fam.nbSpecEnStock / fam.nbSpecialistes * 100) : 100}%)\n\n`;
 
   // ── PHYSIGAMME ──
   const _vpm = _S.ventesParMagasin || {};
