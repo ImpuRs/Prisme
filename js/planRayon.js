@@ -496,6 +496,16 @@ function computePlanStock() {
     .filter(f => f.socle + f.implanter + f.challenger + f.surveiller > 0)
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
 
+  // DEBUG: distribution scoreSante + perfReseau
+  console.table(families.map(f => ({
+    fam: f.libFam.slice(0, 30), scoreSante: f.scoreSante, perfReseau: f.perfReseau,
+    hasBench: f.rendement != null && f.rendement > 0,
+    couv: f.couverture, dormants: f.nbDormants, nbEnRayon: f.nbEnRayon,
+    incStock: f.nbIncontEnStock + '/' + f.nbIncontournables,
+    captation: f.captation, potExt: Math.round(f.potentielExterne),
+    classif: f.classifGlobal, tag: f.tagSpecialiste ? '🎯' : '',
+  })));
+
   const result = {
     families,
     totals: {
