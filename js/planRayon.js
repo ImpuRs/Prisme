@@ -46,6 +46,7 @@ const _prClientArtCA = (cc, code, range) => {
   const full = (_S.ventesClientArticleFull || _S.ventesClientArticle);
   return full?.get(cc)?.get(code)?.sumCA || 0;
 };
+let _prConqueteMode  = false; // true when viewing an inactive family in conquest mode
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
@@ -509,8 +510,12 @@ function computePlanStock() {
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
   const nbInactive = allFamilies.filter(f => f.classifGlobal === 'inactive').length;
 
+  const inactiveFamilies = allFamilies
+    .filter(f => f.classifGlobal === 'inactive')
+    .sort((a, b) => (b.caAgence || 0) - (a.caAgence || 0));
   const result = {
     families,
+    inactiveFamilies,
     totals: {
       socle:      families.filter(f => f.classifGlobal === 'socle').length,
       implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
@@ -705,11 +710,13 @@ function _prBuildCards(data, searchText = '') {
     }
   }
 
-  let families = data.families;
+  let families = _prFilterClassif === 'inactive'
+    ? (data.inactiveFamilies || [])
+    : data.families;
   if (empFamilles !== null) {
     families = families.filter(f => empFamilles.has(f.codeFam));
   }
-  if (_prFilterClassif) families = families.filter(f => f.classifGlobal === _prFilterClassif);
+  if (_prFilterClassif && _prFilterClassif !== 'inactive') families = families.filter(f => f.classifGlobal === _prFilterClassif);
   if (searchText) families = families.filter(f =>
     f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
   );
@@ -1645,6 +1652,7 @@ function _prRenderPhysigamme(fam) {
 // ── Onglet Pilotage (fusion Mon Rayon + Squelette + Physigamme) ──────
 let _prPilotFilter = '';   // 'socle'|'challenger'|'surveiller'|'implanter'|''
 let _prPilotVerdict = '';  // verdict name filter (e.g. 'Le Poids Mort')
+let _prPilotRole   = '';   // 'incontournable'|'specialiste'|'nouveaute'|'standard'|''
 let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'cliPDV'|'caZone'|'cliZone'|'classif'|'verdict'
 let _prPilotPage   = 60;
 
@@ -1710,6 +1718,9 @@ function _prRenderPilotage(fam) {
   if (_prPilotVerdict) {
     filtered = filtered.filter(a => a.verdict.name === _prPilotVerdict);
   }
+  if (_prPilotRole) {
+    filtered = filtered.filter(a => a.role === _prPilotRole);
+  }
 
   // ── Tri ──
   const SORT_FNS = {
@@ -1751,9 +1762,10 @@ function _prRenderPilotage(fam) {
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g] || 0}</strong></button>`;
   }).join('');
 
-  // ── Pills filtre verdict (verdicts présents dans cette famille) ──
+  // ── Pills filtre verdict (verdicts présents dans le filtre classif actif) ──
+  const verdictSource = _prPilotFilter ? arts.filter(a => a._g === _prPilotFilter) : arts;
   const verdictCounts = {};
-  for (const a of arts) {
+  for (const a of verdictSource) {
     const vn = a.verdict.name;
     if (vn && vn !== '—') verdictCounts[vn] = (verdictCounts[vn] || 0) + 1;
   }
@@ -1772,6 +1784,22 @@ function _prRenderPilotage(fam) {
         class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
         style="border-color:${color}40;${active ? `background:${color}20;color:${color};box-shadow:0 0 0 1px ${color}` : `color:${color}`}"
         title="${cnt} articles">${name} <strong>${cnt}</strong></button>`;
+    }).join('');
+
+  // ── Pills filtre rôle ──
+  const roleSource = _prPilotFilter ? arts.filter(a => a._g === _prPilotFilter) : arts;
+  const roleCounts = {};
+  for (const a of roleSource) { roleCounts[a.role] = (roleCounts[a.role] || 0) + 1; }
+  const ROLE_ORDER = ['incontournable', 'specialiste', 'nouveaute', 'standard'];
+  const rolePills = ROLE_ORDER
+    .filter(r => roleCounts[r] > 0)
+    .map(r => {
+      const b = ROLE_BADGE[r];
+      const active = _prPilotRole === r;
+      return `<button onclick="window._prPilotRoleFn('${r}')"
+        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+        style="border-color:${b.color}40;${active ? `background:${b.color}20;color:${b.color};box-shadow:0 0 0 1px ${b.color}` : `color:${b.color}`}"
+        title="${roleCounts[r]} articles">${b.icon} ${b.label || 'Standard'} <strong>${roleCounts[r]}</strong></button>`;
     }).join('');
 
   // ── Tri header helper ──
@@ -1842,7 +1870,8 @@ function _prRenderPilotage(fam) {
 
   const html = `${_prSFPills()}${summary}
   <div class="flex flex-wrap gap-1.5 mb-2 items-center">${pills}</div>
-  <div class="flex flex-wrap gap-1 mb-3 items-center">${verdictPills}</div>
+  <div class="flex flex-wrap gap-1 mb-1 items-center">${verdictPills}</div>
+  <div class="flex flex-wrap gap-1 mb-3 items-center">${rolePills}</div>
   ${srcLegend}
   <div class="overflow-x-auto" id="prPilotTable" style="max-height:560px;overflow-y:auto">
     <table class="w-full text-[11px]">
@@ -1871,8 +1900,185 @@ function _prRenderPilotage(fam) {
   return html;
 }
 
+// ── Mode Conquête — Kit de Démarrage ─────────────────────────────────
+function _prBuildConqueteKit(codeFam) {
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const catFam = _S.catalogueFamille;
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  const nbStores = stores.length || 1;
+  const roles = _prComputeRoles(codeFam);
+
+  // Gather all articles in this family across the network
+  const matchFam = (code) => {
+    const cf = catFam?.get(code)?.codeFam;
+    return cf ? cf === codeFam : (_S.articleFamille?.[code] || '') === codeFam;
+  };
+  const allCodes = new Set();
+  for (const arts of Object.values(vpm)) {
+    for (const code of Object.keys(arts)) { if (matchFam(code)) allCodes.add(code); }
+  }
+  for (const r of (_S.finalData || [])) { if (matchFam(r.code)) allCodes.add(r.code); }
+
+  // Get squelette data for zone metrics
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  const sqMap = new Map();
+  if (sqData) {
+    for (const d of sqData.directions) {
+      for (const g of ['socle','implanter','challenger','surveiller']) {
+        for (const a of (d[g] || [])) sqMap.set(a.code, a);
+      }
+    }
+  }
+
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+
+  const articles = [];
+  for (const code of allCodes) {
+    const role = roles.get(code) || 'standard';
+    const sq = sqMap.get(code);
+    const fd = fdMap.get(code);
+    const inStock = fd && (fd.stockActuel || 0) > 0;
+    let nbAgences = 0, caReseau = 0;
+    for (const s of stores) {
+      if (vpm[s]?.[code]?.countBL > 0) { nbAgences++; caReseau += vpm[s][code].sumCA || 0; }
+    }
+    articles.push({
+      code, role, inStock,
+      libelle: _S.libelleLookup?.[code] || fd?.libelle || '',
+      marque: _S.catalogueMarques?.get(code) || '',
+      sousFam: catFam?.get(code)?.sousFam || '',
+      caReseau,
+      detention: Math.round(nbAgences / nbStores * 100),
+      nbAgences,
+      caZone: sq?.caClientsZone || 0,
+      nbClientsZone: sq?.nbClientsZone || 0,
+    });
+  }
+
+  // Sort into 4 priority buckets (excluding articles already in stock)
+  const notInStock = articles.filter(a => !a.inStock);
+  const p1 = notInStock.filter(a => a.role === 'incontournable')
+    .sort((a, b) => b.caReseau - a.caReseau).slice(0, 20);
+  const p1Set = new Set(p1.map(a => a.code));
+  const p2 = notInStock.filter(a => a.role === 'specialiste' && !p1Set.has(a.code))
+    .sort((a, b) => b.caZone - a.caZone).slice(0, 10);
+  const p12Set = new Set([...p1Set, ...p2.map(a => a.code)]);
+  const p3 = notInStock.filter(a => a.role === 'standard' && !p12Set.has(a.code) && (a.caZone > 0 || a.nbClientsZone > 0))
+    .sort((a, b) => (b.caZone + b.nbClientsZone * 100) - (a.caZone + a.nbClientsZone * 100)).slice(0, 5);
+  const p123Set = new Set([...p12Set, ...p3.map(a => a.code)]);
+  const p4 = notInStock.filter(a => a.role === 'nouveaute' && !p123Set.has(a.code))
+    .sort((a, b) => b.caReseau - a.caReseau).slice(0, 3);
+
+  return {
+    priorities: [
+      { key: 'p1', label: '🏆 Trous Critiques',     color: '#22c55e', desc: 'Incontournables réseau absents de ton stock', items: p1 },
+      { key: 'p2', label: '🎯 La Conquête',          color: '#8b5cf6', desc: 'Spécialistes à forte demande zone',          items: p2 },
+      { key: 'p3', label: '📦 Opportunité Locale',   color: '#3b82f6', desc: 'Standards avec demande zone prouvée',        items: p3 },
+      { key: 'p4', label: '🆕 Pari du Réseau',       color: '#f59e0b', desc: 'Nouveautés à tester',                        items: p4 },
+    ],
+    totalKit: p1.length + p2.length + p3.length + p4.length,
+    alreadyInStock: articles.filter(a => a.inStock),
+    allArticles: articles,
+  };
+}
+
+function _prRenderConquete(fam) {
+  const kit = _prBuildConqueteKit(fam.codeFam);
+  if (!kit.totalKit && !kit.alreadyInStock.length) {
+    return `<div class="text-center py-8 t-disabled text-[12px]">Aucune donnée réseau pour construire un kit. Chargez le fichier Le Terrain ou un benchmark.</div>`;
+  }
+
+  const caTotal = kit.priorities.reduce((s, p) => s + p.items.reduce((s2, a) => s2 + a.caReseau, 0), 0);
+  const caZoneTotal = kit.priorities.reduce((s, p) => s + p.items.reduce((s2, a) => s2 + a.caZone, 0), 0);
+
+  // Header KPIs
+  let html = `<div class="mb-4 p-3 rounded-xl s-panel-inner">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-[18px]">🚀</span>
+      <span class="text-[14px] font-extrabold t-primary">Kit de Démarrage — ${kit.totalKit} références</span>
+    </div>
+    <div class="flex flex-wrap gap-4 text-[11px]">
+      <span class="t-secondary">CA réseau potentiel : <strong class="t-primary">${formatEuro(caTotal)}</strong></span>
+      <span class="t-secondary">CA zone clients : <strong class="t-primary">${formatEuro(caZoneTotal)}</strong></span>
+      <span class="t-secondary">Refs réseau total : <strong class="t-primary">${kit.allArticles.length}</strong></span>
+      ${kit.alreadyInStock.length ? `<span class="t-secondary">Déjà en stock : <strong style="color:#22c55e">${kit.alreadyInStock.length}</strong></span>` : ''}
+    </div>
+  </div>`;
+
+  // Priority groups
+  for (const p of kit.priorities) {
+    if (!p.items.length) continue;
+    const caP = p.items.reduce((s, a) => s + a.caReseau, 0);
+    html += `<div class="mb-4">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-[12px] font-bold" style="color:${p.color}">${p.label}</span>
+        <span class="text-[10px] t-disabled">— ${p.desc}</span>
+        <span class="text-[10px] font-bold t-secondary">${p.items.length} refs · ${formatEuro(caP)}</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[11px]">
+          <thead><tr class="border-b b-light text-[10px]">
+            <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Code</th>
+            <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Libellé</th>
+            <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Marque</th>
+            <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Réseau</th>
+            <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Zone</th>
+            <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Cli Zone</th>
+            <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Détention</th>
+          </tr></thead><tbody>`;
+    for (const a of p.items) {
+      const detColor = a.detention >= 60 ? '#22c55e' : a.detention >= 30 ? '#f59e0b' : '#ef4444';
+      html += `<tr class="border-b b-light hover:s-panel-inner transition-colors">
+        <td class="py-1 px-2 font-mono text-[10px]">${a.code}</td>
+        <td class="py-1 px-2 truncate max-w-[220px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+        <td class="py-1 px-2 text-[10px] t-secondary">${escapeHtml(a.marque || '—')}</td>
+        <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caReseau)}</td>
+        <td class="py-1 px-2 text-right" style="color:#3b82f6">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
+        <td class="py-1 px-2 text-right">${a.nbClientsZone || '—'}</td>
+        <td class="py-1 px-2 text-right font-bold" style="color:${detColor}">${a.detention}%</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+
+  // Already in stock
+  if (kit.alreadyInStock.length) {
+    html += `<details class="mb-4"><summary class="text-[11px] t-secondary cursor-pointer hover:t-primary">
+      ✅ ${kit.alreadyInStock.length} refs déjà en stock — base existante
+    </summary><div class="mt-2 overflow-x-auto"><table class="w-full text-[10px]">
+      <thead><tr class="border-b b-light">
+        <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
+        <th class="py-1 px-2 text-left">Rôle</th><th class="py-1 px-2 text-right">CA Réseau</th>
+      </tr></thead><tbody>`;
+    for (const a of kit.alreadyInStock.sort((x, y) => y.caReseau - x.caReseau).slice(0, 30)) {
+      const rb = ROLE_BADGE[a.role];
+      html += `<tr class="border-b b-light">
+        <td class="py-1 px-2 font-mono">${a.code}</td>
+        <td class="py-1 px-2">${escapeHtml(a.libelle)}</td>
+        <td class="py-1 px-2">${rb?.icon || ''} ${rb?.label || ''}</td>
+        <td class="py-1 px-2 text-right">${formatEuro(a.caReseau)}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></details>`;
+  }
+
+  // Export buttons
+  html += `<div class="flex gap-2 mt-3">
+    <button onclick="window._prExportConquete('${fam.codeFam}')"
+      class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV Kit</button>
+    <button onclick="window._prCopyConqueteLLM('${fam.codeFam}')"
+      class="text-[10px] px-2 py-1 rounded border"
+      style="border-color:#7c3aed;color:#7c3aed;background:rgba(124,58,237,0.06)">🧠 Pour LLM</button>
+  </div>`;
+  return html;
+}
+
 // ── Contenu onglet détail ────────────────────────────────────────────
 function _prGetTabContent(tab, fam) {
+  if (tab === 'conquete') return _prRenderConquete(fam);
   if (tab === 'pilotage') return _prRenderPilotage(fam);
   if (tab === 'rayon') {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
@@ -1933,7 +2139,7 @@ function _prGetTabContent(tab, fam) {
 
 // ── Panel détail famille ─────────────────────────────────────────────
 function _prRenderDetail(codeFam) {
-  const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
+  const fam = _prFindFam(codeFam);
   if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
 
   const b = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
@@ -1944,11 +2150,13 @@ function _prRenderDetail(codeFam) {
             ?.sousFam || _prOpenSousFam
         : _prOpenSousFam)
     : '';
-  const tabs = [
-    { key: 'pilotage',   label: '🧭 Pilotage'  },
-    { key: 'metiers',    label: '🎯 Métiers'   },
-    { key: 'analyse',    label: '📦 Analyse'   },
-  ];
+  const tabs = _prConqueteMode
+    ? [{ key: 'conquete', label: '🚀 Kit de Démarrage' }]
+    : [
+        { key: 'pilotage',   label: '🧭 Pilotage'  },
+        { key: 'metiers',    label: '🎯 Métiers'   },
+        { key: 'analyse',    label: '📦 Analyse'   },
+      ];
 
   const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
   return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
@@ -2031,7 +2239,12 @@ function _renderPlanRayonContent(data) {
       ${_badge('challenger', totals.challenger)}
       ${_badge('surveiller', totals.surveiller)}
       <div class="text-center text-[10px] t-secondary" title="${totals.specialiste} familles avec >30% CA clients stratégiques">🎯 ${totals.specialiste} spé.</div>
-      ${totals.inactive ? `<div class="text-center text-[10px] t-disabled" title="${totals.inactive} familles CA < 500€ et < 5 refs actives">💤 ${totals.inactive} inact.</div>` : ''}
+      ${totals.inactive ? `<button onclick="window._prSetFilter('inactive')" data-prbadge="inactive"
+        class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${_prFilterClassif === 'inactive' ? 's-panel-inner' : 's-card'}"
+        style="${_prFilterClassif === 'inactive' ? 'box-shadow:0 0 0 2px #4b5563' : ''}"
+        title="${totals.inactive} familles CA < 500€ et < 5 refs — Mode Conquête disponible">
+        <span class="text-[16px]">💤</span><span class="text-[11px] font-bold">${totals.inactive}</span><span class="text-[9px] t-disabled">Inactives</span>
+      </button>` : ''}
     </div>
     <div class="relative mb-3">
       <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
@@ -2193,13 +2406,16 @@ window._prSetFilter = function(key) {
 window._prOpenDetail = function(codeFam) {
   _prOpenFam = codeFam;
   _prOpenSousFam = '';
-  _prDetailTab = 'pilotage';
   _S._prSqFilter = '';
   _prSqPage = 50;
   _prSqSort = 'reseau';
   _prMetierDist = 0;
   _prSelectedSFs.clear();
   _prSelectedEmps.clear();
+  // Detect if this is an inactive family → force conquest mode
+  const isInactive = _S._prData?.inactiveFamilies?.some(f => f.codeFam === codeFam);
+  _prConqueteMode = !!isInactive;
+  _prDetailTab = isInactive ? 'conquete' : 'pilotage';
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
@@ -2218,6 +2434,7 @@ window._prSelectEmp = function(emp) {
 
 window._prCloseDetail = function() {
   _prOpenFam = null;
+  _prConqueteMode = false;
   _prMetierDist = 0;
   _prEmpFilter = '';
   _prSelectedSFs.clear();
@@ -2225,10 +2442,14 @@ window._prCloseDetail = function() {
   _prRerender();
 };
 
+function _prFindFam(codeFam) {
+  return _S._prData?.families.find(f => f.codeFam === codeFam)
+      || _S._prData?.inactiveFamilies?.find(f => f.codeFam === codeFam);
+}
 function _prRerenderDetail() {
   const el = document.getElementById('prDetailContent');
   if (!el || !_S._prData || !_prOpenFam) return;
-  const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+  const fam = _prFindFam(_prOpenFam);
   if (fam) el.innerHTML = _prGetTabContent(_prDetailTab, fam);
 }
 
@@ -2345,11 +2566,17 @@ window._prToggleMRSortCode = function() {
 window._prPilotFilterFn = function(key) {
   _prPilotFilter = _prPilotFilter === key ? '' : key;
   _prPilotVerdict = ''; // reset verdict filter on classif change
+  _prPilotRole = '';    // reset role filter on classif change
   _prPilotPage = 60;
   _prRerenderDetail();
 };
 window._prPilotVerdictFn = function(name) {
   _prPilotVerdict = _prPilotVerdict === name ? '' : name;
+  _prPilotPage = 60;
+  _prRerenderDetail();
+};
+window._prPilotRoleFn = function(role) {
+  _prPilotRole = _prPilotRole === role ? '' : role;
   _prPilotPage = 60;
   _prRerenderDetail();
 };
@@ -2394,6 +2621,85 @@ window._prExportPilotage = function() {
   const a = document.createElement('a');
   a.href = url; a.download = `pilotage_${codeFam}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// ── Mode Conquête handlers ──
+window._prExportConquete = function(codeFam) {
+  const kit = _prBuildConqueteKit(codeFam);
+  if (!kit.totalKit) return;
+  const rows = [];
+  for (const p of kit.priorities) {
+    for (const a of p.items) {
+      rows.push([p.label.replace(/[🏆🎯📦🆕] /,''), a.code, a.libelle, a.sousFam, a.marque,
+        a.role, a.caReseau.toFixed(2), a.caZone.toFixed(2), a.nbClientsZone, a.detention + '%'].join(';'));
+    }
+  }
+  const csv = ['Priorité;Code;Libellé;Sous-famille;Marque;Rôle;CA Réseau;CA Zone;Cli Zone;Détention', ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `kit-conquete_${codeFam}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window._prCopyConqueteLLM = function(codeFam) {
+  const fam = _prFindFam(codeFam);
+  if (!fam) return;
+  const kit = _prBuildConqueteKit(codeFam);
+  const lib = (code) => _S.libelleLookup?.[code] || '';
+
+  let pack = `Tu es un expert en gestion de rayon B2B spécialisé en distribution professionnelle.\n`;
+  pack += `Un chef d'agence veut LANCER un nouveau rayon sur une famille qu'il ne commercialise pas encore.\n`;
+  pack += `Ton rôle : analyser le Kit de Démarrage ci-dessous et produire un plan d'implantation opérationnel.\n\n`;
+  pack += `STRUCTURE TA RÉPONSE EN 5 SECTIONS :\n`;
+  pack += `1. LA PHRASE À RETENIR — Résume en une phrase percutante pourquoi ce rayon vaut le coup\n`;
+  pack += `2. ANALYSE DU POTENTIEL — Chiffres clés : CA zone, nb clients zone, détention réseau\n`;
+  pack += `3. LE PLAN D'IMPLANTATION — Priorise le kit par vagues (V1 immédiat, V2 M+1, V3 M+3)\n`;
+  pack += `4. OBJECTIF CHIFFRÉ — CA cible M+3, M+6, nombre de clients à capter\n`;
+  pack += `5. LA LEÇON STRATÉGIQUE — Ce que ce lancement dit de la stratégie de l'agence\n\n`;
+  pack += `═══════════════════════════════════════════════════\n`;
+  pack += `MODE CONQUÊTE : ${fam.libFam} (${fam.codeFam})\n`;
+  pack += `Agence : ${_S.selectedMyStore || '?'}\n`;
+  pack += `═══════════════════════════════════════════════════\n\n`;
+
+  for (const p of kit.priorities) {
+    if (!p.items.length) continue;
+    const caP = p.items.reduce((s, a) => s + a.caReseau, 0);
+    pack += `[${p.label.replace(/[🏆🎯📦🆕] /,'')} — ${p.items.length} refs · ${formatEuro(caP)}]\n`;
+    pack += `${p.desc}\n`;
+    for (const a of p.items) {
+      pack += `  - ${a.code} ${lib(a.code) || a.libelle} · CA réseau ${formatEuro(a.caReseau)} · CA zone ${a.caZone ? formatEuro(a.caZone) : '—'} · ${a.nbClientsZone || 0} cli zone · détention ${a.detention}%\n`;
+    }
+    pack += `\n`;
+  }
+
+  if (kit.alreadyInStock.length) {
+    pack += `[DÉJÀ EN STOCK — ${kit.alreadyInStock.length} refs existantes]\n`;
+    for (const a of kit.alreadyInStock.sort((x, y) => y.caReseau - x.caReseau).slice(0, 15)) {
+      pack += `  - ${a.code} ${lib(a.code) || a.libelle} · ${ROLE_BADGE[a.role]?.icon || ''} ${a.role}\n`;
+    }
+    pack += `\n`;
+  }
+
+  pack += `[CONTEXTE]\n`;
+  pack += `- Refs totales dans le réseau pour cette famille : ${kit.allArticles.length}\n`;
+  pack += `- Refs proposées dans le kit : ${kit.totalKit}\n`;
+  pack += `- Refs déjà en stock : ${kit.alreadyInStock.length}\n`;
+  pack += `═══════════════════════════════════════════════════\n`;
+  pack += `Maintenant, applique les 5 sections.\n`;
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(pack).then(() => {
+      const btn = document.querySelector('[onclick*="_prCopyConqueteLLM"]');
+      if (btn) { const o = btn.textContent; btn.textContent = '✅ Copié !'; setTimeout(() => { btn.textContent = o; }, 2200); }
+    }).catch(() => {
+      const blob = new Blob([pack], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `kit-conquete-llm_${codeFam}.txt`; a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
 };
 
 window._prSqFilterFn = function(key) {
@@ -3513,6 +3819,7 @@ export function renderPlanRayon() {
   _prOpenFam       = null;
   _prOpenSousFam   = '';
   _prDetailTab     = 'pilotage';
+  _prConqueteMode  = false;
   _prGridVisible   = false;
   _prSearchText    = '';
   _S._prSqFilter   = '';
