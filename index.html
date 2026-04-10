@@ -1568,11 +1568,6 @@
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5 mt-1.5">
 
-            <!-- Clients PDV quick toggles -->
-            <div class="flex flex-wrap gap-1">
-              <button onclick="window._toggleHorsZone()" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-amber-600 hover:border-amber-500 hover:text-white" data-view="horszone">⚠️ Hors zone</button>
-              <button onclick="window._toggleHorsAgence()" class="client-view-btn text-[9px] py-0.5 px-1.5 rounded-full border font-semibold transition-colors cursor-pointer s-card t-primary b-default hover:bg-indigo-600 hover:border-indigo-500 hover:text-white" data-view="multicanaux">🌐 Multi-canaux</button>
-            </div>
 
             <!-- GROUPE 1 : GÉOGRAPHIE (first per UX) -->
             <details class="filter-group">
@@ -1847,8 +1842,8 @@
                 <span class="font-bold text-sm c-caution">🗺️ Zone de Chalandise</span>
                 <span id="statusChalandise" class="text-lg">⭕</span>
               </div>
-              <p class="text-[10px] t-secondary mb-2">Export Qlik clients — active Commerce</p>
-              <input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
+              <p class="text-[10px] t-secondary mb-2">Export Qlik clients — active Commerce · multi-agences possible</p>
+              <input type="file" id="fileChalandise" accept=".xlsx,.xls,.csv" multiple onchange="onChalandiseSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
             </div>
             <div id="dropLivraisons" class="onboarding-dropzone onboarding-dropzone--optional">
               <div class="flex items-center justify-between mb-1">
