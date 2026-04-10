@@ -1660,6 +1660,7 @@ function _prRenderPilotage(fam) {
           cliPDV: a.nbClientsPDV || 0,
           caZone: a.caClientsZone || 0,
           cliZone: a.nbClientsZone || 0,
+          pdm: a.caClientsZone > 0 ? Math.round((a.caAgence || 0) / a.caClientsZone * 100) : null,
         });
       }
     }
@@ -1682,6 +1683,7 @@ function _prRenderPilotage(fam) {
     cliPDV:  (a, b) => (b.cliPDV || 0) - (a.cliPDV || 0),
     caZone:  (a, b) => (b.caZone || 0) - (a.caZone || 0),
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
+    pdm:     (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
     verdict: (a, b) => {
       const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
@@ -1754,6 +1756,7 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliZone || '—'}</td>
+      <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
       <td class="py-1.5 px-2 text-center"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
       <td class="py-1.5 px-2 text-center">${rb?.icon ? `<span class="text-[8px] px-1 py-0.5 rounded" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>` : '<span class="t-disabled text-[9px]">—</span>'}</td>
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
@@ -1792,6 +1795,7 @@ function _prRenderPilotage(fam) {
         ${_thSort('cliPDV', 'Cli PDV', 'text-right', 'Clients distincts agence sur la période')}
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
         ${_thSort('cliZone', 'Cli Zone', 'text-right', 'Clients distincts zone tous canaux')}
+        ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
         ${_thSort('classif', 'Classif', 'text-center')}
         <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500">Rôle</th>
         ${_thSort('verdict', 'Verdict', 'text-left')}
@@ -2304,12 +2308,13 @@ window._prExportPilotage = function() {
         const sf = catFam?.get(a.code)?.sousFam || '';
         const lib = a.libelle || _S.libelleLookup?.[a.code] || '';
         const caZ = +(a.caClientsZone || 0);
+        const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
         rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || (fdMap.get(a.code)?.W || 0),
-          a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, g, role, v.name].join(';'));
+          a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, g, role, v.name].join(';'));
       }
     }
   }
-  const csv = ['Code;Libellé;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;Classif;Rôle;Verdict', ...rows].join('\n');
+  const csv = ['Code;Libellé;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
