@@ -227,21 +227,23 @@ export function expandImportZone() {
 }
 
 // ── Canal global — pill selector ──────────────────────────────
+let _canalDebounceTimer = 0;
 export function _setGlobalCanal(canal) {
   _S._globalCanal = canal;
-  // _reseauCanaux est indépendant — aucune sync
-  invalidateCache('tab', 'terr');
-  // Sync active state sur les pills globales (data-global-canal)
+  // Sync visuel immédiat (pas de latence perçue)
   document.querySelectorAll('#globalCanalFilter [data-global-canal]').forEach(p => {
     p.classList.toggle('active', (p.dataset.globalCanal || '') === canal);
   });
-  // Sous-pills Prélevé/Enlevé — visibles uniquement si Magasin actif
   const _mmBar = document.getElementById('globalMagasinModeBar');
   if (_mmBar) _mmBar.classList.toggle('hidden', canal !== 'MAGASIN');
-  // Refilter ventesClientArticle + canalAgence pour le canal actif
-  window._refilterFromByMonth?.();
-  if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
-  window._refreshBenchEquation?.();
+  // Debounce le travail lourd — seul le dernier clic dans 120ms est traité
+  clearTimeout(_canalDebounceTimer);
+  _canalDebounceTimer = setTimeout(() => {
+    invalidateCache('tab'); // PAS 'terr' : le cache territoire a le canal dans sa clé, pas de stale risk
+    window._refilterFromByMonth?.();
+    if (typeof window.renderCurrentTab === 'function') window.renderCurrentTab();
+    window._refreshBenchEquation?.();
+  }, 120);
 }
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
@@ -403,7 +405,11 @@ export function getFilteredData() {
   return filtered;
 }
 
+let _renderAllTimer = 0;
+let _renderAllRunning = false;
 export function renderAll() {
+  if (_renderAllRunning || _S._parsingInProgress) return; // guard anti-réentrance + parsing
+  _renderAllRunning = true;
   document.body.classList.add('filtering');
   _S.filteredData = getFilteredData();
   _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
@@ -414,6 +420,7 @@ export function renderAll() {
   updateAmbientSignal();
   // Wrap glossary terms in <th> headers (idempotent — skips already-processed elements)
   requestAnimationFrame(() => { document.body.classList.remove('filtering'); wrapGlossaryTerms(document); });
+  _renderAllRunning = false;
 }
 
 export function onFilterChange() { _S.currentPage = 0; clearCockpitFilter(true); renderAll(); }
@@ -1140,31 +1147,6 @@ export function renderCockpitBriefing() {
       cta: 'Voir SASO',
       ctaFn: "showCockpitInTable('saso');switchTab('table')",
     }));
-  }
-
-  // Card 5 — Clients silencieux
-  if (_S.clientStore?.size > 0 || _S.clientLastOrder?.size > 0) {
-    let silCount = 0;
-    if (_S.clientStore?.size) {
-      for (const rec of _S.clientStore.values()) {
-        if (rec.silenceDaysPDV !== null && rec.silenceDaysPDV > 30) silCount++;
-      }
-    } else {
-      const now = Date.now();
-      for (const [, dt] of _S.clientLastOrder) {
-        if ((now - (dt instanceof Date ? dt.getTime() : +dt)) > 30 * 86400000) silCount++;
-      }
-    }
-    if (silCount > 0) {
-      cards.push(buildEvidenceCard({
-        icon: '🤫',
-        value: silCount.toString(),
-        label: `client${silCount > 1 ? 's' : ''} silencieux >30j`,
-        severity: silCount > 10 ? 'caution' : 'muted',
-        cta: 'Relancer',
-        ctaFn: "switchTab('commerce')",
-      }));
-    }
   }
 
   const narrativeHtml = _buildCockpitBriefingNarrative(d);

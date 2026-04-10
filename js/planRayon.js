@@ -14,7 +14,7 @@ let _prSearchIndex   = null;
 let _prGridVisible   = false;
 let _prSearchText    = '';
 let _prRayonFilter   = '';   // 'pepite'|'challenger'|'dormant'|'socle'|''
-let _prSqPage        = 99999;   // nb articles affichés dans le Squelette (tout afficher)
+let _prSqPage        = 50;     // nb articles affichés dans le Squelette
 let _prSqSort        = 'reseau'; // 'agence'|'reseau'|'livraison'|'classif'
 let _prMetierDist    = 0;    // 0 = Tous, sinon filtre km
 const _prDistOk = (cc) => {
@@ -126,12 +126,17 @@ function _prAgenceVocationCtx() {
 export function _prInvalidateAgenceCtx() { _prAgenceCtxCache = null; }
 
 // ── computePlanStock ─────────────────────────────────────────────────
+let _prPlanCache = null;
+let _prPlanCacheKey = '';
 function computePlanStock() {
   // Filtres structurels uniquement — PAS l'emplacement ni l'âge
   const fam_f  = (document.getElementById('filterFamille')?.value || '').trim().toLowerCase();
   const abc_f  = document.getElementById('filterABC')?.value || '';
   const fmr_f  = document.getElementById('filterFMR')?.value || '';
   const stat_f = document.getElementById('filterStatut')?.value || '';
+
+  const _cacheKey = `${fam_f}|${abc_f}|${fmr_f}|${stat_f}|${_S.finalData?.length||0}|${_S.selectedMyStore||''}|${_S.storesIntersection?.size||0}|${_S.ventesClientArticle?.size||0}`;
+  if (_prPlanCacheKey === _cacheKey && _prPlanCache) return _prPlanCache;
 
   const filteredData = (_S.finalData || []).filter(r => {
     if (fam_f  && !(r.famille||'').toLowerCase().includes(fam_f)
@@ -314,7 +319,7 @@ function computePlanStock() {
     .filter(f => f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller > 0)
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
 
-  return {
+  const result = {
     families,
     totals: {
       socle:      families.filter(f => f.classifGlobal === 'socle').length,
@@ -325,6 +330,9 @@ function computePlanStock() {
       specialiser:   families.filter(f => f.classifGlobal === 'specialiser').length,
     }
   };
+  _prPlanCache = result;
+  _prPlanCacheKey = _cacheKey;
+  return result;
 }
 
 // ── Source bar ───────────────────────────────────────────────────────
@@ -454,9 +462,6 @@ function _buildPrSearchIndex() {
       searchText: emp.toLowerCase(),
     });
   }
-
-  const empEntries = index.filter(e => e.level === 5);
-  console.log('[PrSearch] Emplacements indexés:', empEntries.length, empEntries.slice(0, 5));
 
   index.sort((a, b) => a.level - b.level || b.nbArticlesCat - a.nbArticlesCat);
   _prSearchIndex = index;
@@ -1235,6 +1240,15 @@ function _prRenderDetail(codeFam) {
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
     </div>
+    ${_S.chalandiseReady && [...(_S.chalandiseData?.values()||[])].some(i=>i.distanceKm!=null) ? `
+    <div class="flex items-center gap-1.5 mb-2 px-1">
+      <span class="text-[10px] t-disabled">📍 Distance :</span>
+      ${[{v:0,l:'Off'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:20,l:'20 km'}].map(d=>
+        `<button onclick="window._prMetierDistChange(${d.v||100})" data-prdist="${d.v}"
+          class="text-[9px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors"
+          style="${(!_prMetierDist&&!d.v)||(_prMetierDist===d.v)?'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)':'border-color:var(--b-light);color:var(--t-secondary);background:transparent'}">${d.l}</button>`
+      ).join('')}
+    </div>` : ''}
     <div class="flex flex-wrap gap-0 mb-1 border-b b-light">
       ${tabs.map(t => `<button onclick="window._prSetTab('${t.key}')" data-prtab="${t.key}"
         class="text-[11px] px-4 py-2 cursor-pointer border-b-2 transition-colors ${_prDetailTab === t.key ? 'font-bold' : 'hover:t-primary'}"
@@ -1319,8 +1333,6 @@ function _initPrSearch() {
 
   _prSearchIndex = null; // forcer rebuild
   const searchIndex = _buildPrSearchIndex();
-  console.log('[PrSearch] Index total:', searchIndex.length,
-    'dont level5:', searchIndex.filter(e => e.level === 5).length);
   if (!searchIndex.length && _S.catalogueFamille?.size) {
     // Catalogue présent mais index vide — retry après micro-délai
     setTimeout(() => {
@@ -1611,6 +1623,20 @@ window._prMetierDistChange = function(val) {
   _prMetierDist = parseInt(val) >= 100 ? 0 : parseInt(val);
   const label = document.getElementById('prMetierDistLabel');
   if (label) label.textContent = !_prMetierDist ? 'Tous' : _prMetierDist + ' km';
+  // Update distance slider if present
+  const slider = document.querySelector('#prDetailPanel input[type="range"]');
+  if (slider) slider.value = _prMetierDist || 100;
+  // Re-render quick buttons active state
+  const panel = document.getElementById('prDetailPanel');
+  if (panel) {
+    panel.querySelectorAll('[data-prdist]').forEach(b => {
+      const v = parseInt(b.dataset.prdist);
+      const active = (!_prMetierDist && !v) || (_prMetierDist === v);
+      b.style.background = active ? 'var(--c-action,#8b5cf6)' : 'transparent';
+      b.style.color = active ? '#fff' : 'var(--t-secondary)';
+      b.style.borderColor = active ? 'var(--c-action,#8b5cf6)' : 'var(--b-light)';
+    });
+  }
   const el = document.getElementById('prDetailContent');
   if (!el || !_S._prData || !_prOpenFam) return;
   const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
@@ -1668,6 +1694,143 @@ window._prExportRayon = function() {
   a.href = url; a.download = `plan_rayon_${codeFam}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+// ── Données communes Diag + LLM ────────────────────────────────────────
+// Collecte items squelette, pathologies, métiers agence/livraisons, refs manquantes
+function _prGatherFamData(codeFam, matchFn) {
+  const catFam = _S.catalogueFamille;
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+
+  // Items squelette par classification
+  const items = { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] };
+  if (sqData) {
+    for (const d of sqData.directions || []) {
+      for (const g of Object.keys(items)) {
+        for (const a of (d[g] || [])) {
+          const cf = catFam?.get(a.code)?.codeFam || (_S.articleFamille?.[a.code] || '').slice(0, 3);
+          if (cf !== codeFam) continue;
+          items[g].push(a);
+        }
+      }
+    }
+  }
+
+  // Pathologies depuis finalData
+  const patho = [];
+  const DORMANT_DAYS = 180;
+  for (const r of (_S.finalData || [])) {
+    const cf = catFam?.get(r.code)?.codeFam || (_S.articleFamille?.[r.code] || '').slice(0, 3);
+    if (cf !== codeFam) continue;
+    const statut = (r.statut || '').toLowerCase();
+    const isFin = statut.includes('fin de');
+    const isDor = r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin;
+    const isRup = r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0;
+    if (isFin || isDor || isRup) {
+      patho.push({
+        code: r.code, libelle: r.libelle, marque: _S.catalogueMarques?.get(r.code) || '',
+        statut: isFin ? 'fin' : isDor ? 'dormant' : 'rupture',
+        valeurLib: r.stockActuel * (r.prixUnitaire || 0),
+        ageJours: r.ageJours || 0,
+      });
+    }
+  }
+  patho.sort((a, b) => b.valeurLib - a.valeurLib);
+
+  // Métiers agence
+  const metierCA = new Map();
+  const metierCli = new Map();
+  const _livRange = _prLivMonthRange();
+  const _match = matchFn || ((code) => {
+    const cf = catFam?.get(code)?.codeFam || (_S.articleFamille?.[code] || '').slice(0, 3);
+    return cf === codeFam;
+  });
+
+  if (_S.chalandiseReady && _S.chalandiseData?.size) {
+    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
+      if (!_prDistOk(cc)) continue;
+      const info = _S.chalandiseData?.get(cc);
+      const metier = info?.metier || 'Hors chalandise';
+      let caFam = 0;
+      for (const [code, data] of artMap) {
+        if (!_match(code)) continue;
+        caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (data.sumCA || 0);
+      }
+      if (caFam > 0) {
+        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+        metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
+      }
+    }
+    if (!_S.ventesClientArticleFull?.size) {
+      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+        if (!_prDistOk(cc)) continue;
+        const info = _S.chalandiseData?.get(cc);
+        const metier = info?.metier || 'Hors chalandise';
+        let caFam = 0;
+        for (const [code, data] of artMap) {
+          if (!_match(code)) continue;
+          caFam += _livRange ? _prClientArtCA(cc, code, _livRange) : (data.sumCA || 0);
+        }
+        if (caFam > 0) {
+          metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
+          if (!metierCli.has(metier)) metierCli.set(metier, 0);
+          metierCli.set(metier, metierCli.get(metier) + 1);
+        }
+      }
+    }
+  }
+
+  // Livraisons + refs manquantes
+  const metierLivCA = new Map();
+  const metierLivCli = new Map();
+  const metierArts = new Map(); // metier → Map<code, {ca, qty, nbCli}>
+  const codesEnRayon = new Set((_S.finalData || [])
+    .filter(r => {
+      const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+      return cf === codeFam && r.stockActuel > 0;
+    })
+    .map(r => r.code));
+
+  if (_S.livraisonsReady && _S.livraisonsData?.size && _S.chalandiseReady) {
+    for (const [cc, livData] of _S.livraisonsData) {
+      if (!_prDistOk(cc)) continue;
+      const info = _S.chalandiseData?.get(cc);
+      if (!info) continue;
+      const metier = info.metier || 'Non renseigné';
+      let caFam = 0;
+      for (const [code, artData] of livData.articles) {
+        if (!_match(code)) continue;
+        caFam += artData.ca || 0;
+        // Refs manquantes
+        if (!codesEnRayon.has(code)) {
+          if (!metierArts.has(metier)) metierArts.set(metier, new Map());
+          const ma = metierArts.get(metier);
+          if (!ma.has(code)) ma.set(code, { ca: 0, qty: 0, nbCli: 0 });
+          const e = ma.get(code);
+          e.ca += artData.ca || 0;
+          e.qty += artData.qty || 0;
+          e.nbCli++;
+        }
+      }
+      if (caFam > 0) {
+        metierLivCA.set(metier, (metierLivCA.get(metier) || 0) + caFam);
+        metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
+      }
+    }
+  }
+
+  // Emplacements connus
+  const emplacements = [...new Set(
+    (_S.finalData || [])
+      .filter(r => {
+        const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+        return cf === codeFam && r.emplacement?.trim();
+      })
+      .map(r => r.emplacement.trim())
+  )].sort();
+
+  return { sqData, items, patho, metierCA, metierCli, metierLivCA, metierLivCli, metierArts, codesEnRayon, emplacements };
+}
 
 // ── Diagnostic ─────────────────────────────────────────────────────────
 function _prBuildDiagText(codeFam) {
@@ -1775,6 +1938,27 @@ function _prBuildDiagText(codeFam) {
     }
   }
   const nbCat = nbCatalogueFiltered > 0 ? nbCatalogueFiltered : (rayonData?.nbCatalogue ?? fam.nbCatalogue);
+
+  // ── Pré-calcul signal métier (réutilisé dans ÉTAPE 2 + section MÉTIERS) ──
+  const _matchFamDiag = (code) => {
+    const cf = catFam?.get(code);
+    if (cf?.codeFam !== codeFam) return false;
+    if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) return false;
+    return true;
+  };
+  const gd = (_S.chalandiseReady && _S.chalandiseData?.size) ? _prGatherFamData(codeFam, _matchFamDiag) : null;
+  const metierDemand = new Map();
+  if (gd?.metierArts?.size) {
+    for (const [met, arts] of gd.metierArts) {
+      for (const [code, d] of arts) {
+        if (!metierDemand.has(code)) metierDemand.set(code, { totalCA: 0, totalCli: 0, metiers: [] });
+        const e = metierDemand.get(code);
+        e.totalCA += d.ca;
+        e.totalCli += d.nbCli;
+        e.metiers.push({ name: met, ca: d.ca, nbCli: d.nbCli });
+      }
+    }
+  }
 
   if (isRayonVide) {
     txt += `═══ FAMILLE NON EXPLOITÉE ═══\n`;
@@ -1925,11 +2109,42 @@ function _prBuildDiagText(codeFam) {
         // Médiane helper
         const _median = (arr) => { const s = [...arr].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
         const _otherStores = [...(_S.storesIntersection || [])].filter(s => s !== _S.selectedMyStore);
+        // Estimation MIN/MAX via formule PRISME appliquée aux ventes réseau
+        const _joursOuvres = _S.globalJoursOuvres || 250;
+        const _estimMinMax = (code) => {
+          if (!_otherStores.length) return null;
+          const computed = [];
+          for (const s of _otherStores) {
+            const v = _S.ventesParMagasin?.[s]?.[code];
+            if (!v || !v.countBL || v.countBL <= 1) continue;
+            const W = v.countBL;
+            const V = v.sumPrelevee || 0;
+            if (V <= 0) continue;
+            const Wp = W; // approx: on n'a pas le split prélevé/enlevé par agence
+            const U = V / Wp;
+            const X = V / _joursOuvres;
+            if (W === 2) { computed.push({ min: 1, max: 2 }); continue; }
+            const dlR = Math.min(3 * U, V > 0 ? Math.max(...[V]) : U); // T ≈ max single BL, approx V (conservative)
+            // On n'a pas T (max BL) par agence, on prend 3×U comme proxy d'écrêtage
+            const dl = Math.min(3 * U, U * 5);
+            const secDays = Wp >= 12 ? 4 : Wp >= 4 ? 3 : 2;
+            let mn = Math.max(Math.min(Math.round(dl + X * secDays), Math.ceil(V / 6)), 1);
+            if (mn < 0) mn = 0;
+            const df = Wp > 12 ? 21 : 10;
+            const me = Wp > 12 ? 3 : 1;
+            const mx = Math.max(Math.round(mn + X * df), mn + me);
+            computed.push({ min: mn, max: mx });
+          }
+          if (computed.length < 2) return null; // besoin d'au moins 2 agences pour une médiane fiable
+          computed.sort((a, b) => a.min - b.min);
+          const mid = Math.floor(computed.length / 2);
+          return { min: computed[mid].min, max: computed[mid].max };
+        };
         const _mmLine = (a) => {
           const fd = fdByCode.get(a.code);
           if (fd && fd.nouveauMin > 0 && fd.nouveauMax > 0) return `MIN ${fd.nouveauMin}/MAX ${fd.nouveauMax}`;
           let mn = fd?.medMinReseau, mx = fd?.medMaxReseau;
-          // Fallback : calcul direct depuis stockParMagasin (articles hors finalData)
+          // Fallback 1 : calcul direct depuis stockParMagasin (articles hors finalData)
           if ((mn == null || mx == null) && _otherStores.length) {
             const mins = _otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMin).filter(v => v > 0);
             const maxs = _otherStores.map(s => _S.stockParMagasin?.[s]?.[a.code]?.qteMax).filter(v => v > 0);
@@ -1938,6 +2153,19 @@ function _prBuildDiagText(codeFam) {
           }
           if (mn != null && mx != null) return `MIN ${Math.round(mn)}/MAX ${Math.round(mx)} (méd. réseau)`;
           if (mx != null) return `MAX ${Math.round(mx)} (méd. réseau)`;
+          // Fallback 2 : estimation PRISME depuis ventes réseau
+          const est = _estimMinMax(a.code);
+          if (est) return `MIN ${est.min}/MAX ${est.max} (estim. réseau)`;
+          // Fallback 3 : heuristique depuis fréquence squelette (nbBL / nbAgences)
+          if (a.nbBLLivraisons > 0 && a.nbAgencesReseau > 0) {
+            const avgBL = a.nbBLLivraisons / a.nbAgencesReseau;
+            let mn, mx;
+            if (avgBL >= 24)     { mn = 2; mx = 5; }
+            else if (avgBL >= 8) { mn = 1; mx = 3; }
+            else if (avgBL >= 3) { mn = 1; mx = 2; }
+            else                 { mn = 1; mx = 1; }
+            return `MIN ${mn}/MAX ${mx} (estim. ${Math.round(avgBL)} BL/ag)`;
+          }
           return `MIN/MAX à paramétrer`;
         };
         // Signal cumulé pour l'en-tête
@@ -1945,12 +2173,18 @@ function _prBuildDiagText(codeFam) {
         const totAg = toImpl.reduce((s, a) => s + (a.nbAgencesReseau || 0), 0);
         txt += `═══ ÉTAPE 2 — IMPLANTER (${toImpl.length} refs à créer · ${totBL} BL réseau cumulés · ${totAg} présences agences) ═══\n`;
         txt += `⏱ Budget : ~45 min  ·  Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
-        // TOP 3 prioritaires par score (visibilité immédiate pour les maîtrisants)
-        const top3 = [...toImpl].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3);
+        // TOP 3 prioritaires par score composite (réseau + demande métier zone)
+        const top3 = [...toImpl].sort((a, b) => {
+          const sa = (a.score || 0) + Math.min((metierDemand.get(a.code)?.totalCA || 0) * 0.1, 30);
+          const sb = (b.score || 0) + Math.min((metierDemand.get(b.code)?.totalCA || 0) * 0.1, 30);
+          return sb - sa;
+        }).slice(0, 3);
         if (top3.length) {
-          txt += `\n**🎯 TOP 3 prioritaires** (plus fort signal réseau)\n`;
+          txt += `\n**🎯 TOP 3 prioritaires** (signal réseau + demande métier)\n`;
           top3.forEach(a => {
-            txt += `      ☐ [${a.code}] ${a.libelle} — score ${a.score} · ${a.nbAgencesReseau} agences · ${a.nbBLLivraisons} BL · ${_mmLine(a)}\n`;
+            const md = metierDemand.get(a.code);
+            const mdTag = md ? ` · 🏪 ${md.totalCli} clients zone, ${Math.round(md.totalCA)}€ (${md.metiers.sort((x,y)=>y.nbCli-x.nbCli).map(m=>m.name).slice(0,2).join(', ')})` : '';
+            txt += `      ☐ [${a.code}] ${a.libelle} — score ${a.score} · ${a.nbAgencesReseau} agences · ${a.nbBLLivraisons} BL · ${_mmLine(a)}${mdTag}\n`;
           });
           txt += `\n**Liste complète** (triée par sous-famille → marque)\n`;
         }
@@ -1969,9 +2203,31 @@ function _prBuildDiagText(codeFam) {
             txt += `  **· ${mq}**\n`;
             curMQ = mq;
           }
-          txt += `      ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}\n`;
+          const md = metierDemand.get(a.code);
+          const mdTag = md ? ` 🏪 ${md.totalCli} cli, ${Math.round(md.totalCA)}€ zone` : '';
+          txt += `      ☐ [${a.code}] ${a.libelle} — ${_mmLine(a)}${mdTag}\n`;
         });
         txt += '\n';
+        // BONUS CAPTATION — refs à forte demande métier non détectées par le squelette
+        if (metierDemand.size) {
+          const codesImpl = new Set(toImpl.map(a => a.code));
+          const bonus = [...metierDemand.entries()]
+            .filter(([code]) => !codesInRayon.has(code) && !codesImpl.has(code))
+            .sort((a, b) => b[1].totalCli - a[1].totalCli || b[1].totalCA - a[1].totalCA)
+            .slice(0, 5);
+          if (bonus.length && bonus[0][1].totalCli >= 2) {
+            txt += `**🏪 BONUS CAPTATION MÉTIER** — refs achetées par vos clients zone via d'autres agences\n`;
+            txt += `(Non détectées par le squelette réseau, mais signal commercial fort)\n`;
+            for (const [code, d] of bonus) {
+              if (d.totalCli < 2) break;
+              const libelle = _S.libelleLookup?.[code] || '';
+              const mq = _S.catalogueMarques?.get(code) || '';
+              const mets = d.metiers.sort((x, y) => y.nbCli - x.nbCli).map(m => m.name).slice(0, 3).join(', ');
+              txt += `      ☐ [${code}] ${libelle}${mq ? ' · ' + mq : ''} — ${d.totalCli} clients, ${Math.round(d.totalCA)}€ · métiers: ${mets}\n`;
+            }
+            txt += '\n';
+          }
+        }
       }
     }
 
@@ -2079,118 +2335,33 @@ function _prBuildDiagText(codeFam) {
   }
   txt += '\n';
 
-  if (_S.chalandiseReady && _S.chalandiseData?.size) {
-    txt += `═══ MÉTIERS CLIENTS ═══\n`;
-    // Mon agence (consommé tous canaux)
-    const metierCA = new Map();
-    const metierCli = new Map();
-    const _matchFamDiag = (code) => {
-      const cf = catFam?.get(code);
-      if (cf?.codeFam !== codeFam) return false;
-      if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) return false;
-      return true;
-    };
+  if (gd && gd.metierCA.size) {
     const _distLabel = _prMetierDist ? ` (rayon ${_prMetierDist} km)` : '';
-    const _livRangeDiag = _prLivMonthRange();
-    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      const metier = info?.metier || 'Hors chalandise';
-      let caFam = 0;
-      for (const [code, data] of artMap) {
-        if (!_matchFamDiag(code)) continue;
-        caFam += _livRangeDiag ? _prClientArtCA(cc, code, _livRangeDiag) : (data.sumCA || 0);
-      }
-      if (caFam > 0) {
-        metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
-        metierCli.set(metier, (metierCli.get(metier) || 0) + 1);
-      }
-    }
-    // Hors-MAGASIN — seulement si Full n'existe pas (Full contient déjà tous canaux)
-    if (!_S.ventesClientArticleFull?.size) {
-      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
-        if (!_prDistOk(cc)) continue;
-        const info = _S.chalandiseData?.get(cc);
-        const metier = info?.metier || 'Hors chalandise';
-        let caFam = 0;
-        for (const [code, data] of artMap) {
-          if (!_matchFamDiag(code)) continue;
-          caFam += _livRangeDiag ? _prClientArtCA(cc, code, _livRangeDiag) : (data.sumCA || 0);
-        }
-        if (caFam > 0) {
-          metierCA.set(metier, (metierCA.get(metier) || 0) + caFam);
-          if (!metierCli.has(metier)) metierCli.set(metier, 0);
-          metierCli.set(metier, metierCli.get(metier) + 1);
-        }
-      }
-    }
+
+    txt += `═══ MÉTIERS CLIENTS ═══\n`;
     txt += `**Mon agence${_distLabel} — TOP métiers :**\n`;
-    [...metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([m,ca]) => {
-      txt += `  • ${m} : ${metierCli.get(m)} clients, ${Math.round(ca)}€ CA famille\n`;
+    [...gd.metierCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8).forEach(([m,ca]) => {
+      txt += `  • ${m} : ${gd.metierCli.get(m)} clients, ${Math.round(ca)}€ CA famille\n`;
     });
 
-    // Livraisons × Chalandise (total réseau pour les clients de la zone)
-    if (_S.livraisonsReady && _S.livraisonsData?.size) {
-      const metierLivCA = new Map();
-      const metierLivCli = new Map();
-      for (const [cc, livData] of _S.livraisonsData) {
-        if (!_prDistOk(cc)) continue;
-        const info = _S.chalandiseData?.get(cc);
-        if (!info) continue;
-        const metier = info.metier || 'Non renseigné';
-        let caFam = 0;
-        for (const [code, artData] of livData.articles) {
-          if (!_matchFamDiag(code)) continue;
-          caFam += artData.ca || 0;
-        }
-        if (caFam > 0) {
-          metierLivCA.set(metier, (metierLivCA.get(metier) || 0) + caFam);
-          metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
-        }
-      }
+    if (gd.metierLivCA.size) {
       txt += `\n**Livraisons zone${_distLabel} — TOP métiers :**\n`;
-      [...metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([m,ca]) => {
-        const caAgence = metierCA.get(m) || 0;
+      [...gd.metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10).forEach(([m,ca]) => {
+        const caAgence = gd.metierCA.get(m) || 0;
         const captation = ca > 0 ? Math.round(caAgence / ca * 100) : 0;
-        txt += `  • ${m} : ${metierLivCli.get(m)} clients, ${Math.round(ca)}€ livré · captation ${captation}%${captation < 20 ? ' ⚠' : ''}\n`;
+        txt += `  • ${m} : ${gd.metierLivCli.get(m)} clients, ${Math.round(ca)}€ livré · captation ${captation}%${captation < 20 ? ' ⚠' : ''}\n`;
       });
 
-      // Refs manquantes par métier (achetées dans la zone via Livraisons mais absentes du rayon)
-      const codesEnRayonDiag = new Set((_S.finalData || [])
-        .filter(r => {
-          const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
-          return cf === codeFam && r.stockActuel > 0;
-        })
-        .map(r => r.code));
-
-      const metierArtsDiag = new Map(); // metier → Map<code, {ca, qty, nbCli}>
-      for (const [cc, livData] of _S.livraisonsData) {
-        if (!_prDistOk(cc)) continue;
-        const info = _S.chalandiseData?.get(cc);
-        if (!info) continue;
-        const metier = info.metier || 'Non renseigné';
-        for (const [code, artData] of livData.articles) {
-          if (codesEnRayonDiag.has(code)) continue;
-          if (!_matchFamDiag(code)) continue;
-          if (!metierArtsDiag.has(metier)) metierArtsDiag.set(metier, new Map());
-          const ma = metierArtsDiag.get(metier);
-          if (!ma.has(code)) ma.set(code, { ca: 0, qty: 0, nbCli: 0 });
-          const e = ma.get(code);
-          e.ca += artData.ca || 0;
-          e.qty += artData.qty || 0;
-          e.nbCli++;
-        }
-      }
-      if (metierArtsDiag.size) {
-        const topMetsDiag = [...metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 5);
+      if (gd.metierArts.size) {
+        const topMetsDiag = [...gd.metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 5);
         txt += `\n═══ REFS MANQUANTES PAR MÉTIER — achetées dans la zone mais absentes du rayon ═══\n`;
         txt += `Articles que ces métiers achètent via d'autres agences, à implanter pour capter la demande.\n\n`;
         for (const [met] of topMetsDiag) {
-          const arts = metierArtsDiag.get(met);
+          const arts = gd.metierArts.get(met);
           if (!arts || arts.size === 0) continue;
           const sorted = [...arts.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 8);
-          const caAg = metierCA.get(met) || 0;
-          const caLiv = metierLivCA.get(met) || 0;
+          const caAg = gd.metierCA.get(met) || 0;
+          const caLiv = gd.metierLivCA.get(met) || 0;
           const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
           txt += `**${met}** (captation ${capt}%) — ${arts.size} refs manquantes :\n`;
           for (const [code, d] of sorted) {
@@ -2243,46 +2414,17 @@ Règles dures :
 `;
 
 function _prBuildLLMPack(codeFam) {
-  const sqData = _S._prSqData || computeSquelette();
   const data = _S._prData;
-  if (!sqData || !data) return null;
+  if (!data) return null;
   const fam = data.families.find(f => f.codeFam === codeFam);
   if (!fam) return null;
   const ctx = _prAgenceVocationCtx();
   const lib = (c) => _S.libelleLookup?.[c] || '';
   const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
 
-  // Agréger items de la famille depuis sqData
-  const items = { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] };
-  for (const d of sqData.directions || []) {
-    for (const g of Object.keys(items)) {
-      for (const a of (d[g] || [])) {
-        const cf = (_S.articleFamille?.[a.code] || '').slice(0, 3) || _S.catalogueFamille?.get(a.code)?.codeFam;
-        if (cf !== codeFam) continue;
-        items[g].push(a);
-      }
-    }
-  }
-
-  // Pathologies depuis finalData
-  const patho = [];
-  const DORMANT_DAYS = 180;
-  for (const r of (_S.finalData || [])) {
-    const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || _S.catalogueFamille?.get(r.code)?.codeFam;
-    if (cf !== codeFam) continue;
-    const statut = (r.statut || '').toLowerCase();
-    const isFin = statut.includes('fin de');
-    const isDor = r.stockActuel > 0 && (r.ageJours || 0) > DORMANT_DAYS && !isFin;
-    const isRup = r.stockActuel === 0 && !isFin && (r.enleveTotal || 0) > 0;
-    if (isFin || isDor || isRup) {
-      patho.push({
-        code: r.code, libelle: r.libelle, marque: mark(r.code),
-        statut: isFin ? 'fin' : isDor ? 'dormant' : 'rupture',
-        valeurLib: r.stockActuel * (r.prixUnitaire || 0),
-      });
-    }
-  }
-  patho.sort((a, b) => b.valeurLib - a.valeurLib);
+  const gd = _prGatherFamData(codeFam);
+  if (!gd.sqData) return null;
+  const { items, patho } = gd;
 
   const fmtItem = (a, withScore = false) => {
     const m = mark(a.code);
@@ -2344,128 +2486,40 @@ function _prBuildLLMPack(codeFam) {
   }
 
   // Emplacements observés
-  const empSet = new Set();
-  for (const r of (_S.finalData || [])) {
-    const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || _S.catalogueFamille?.get(r.code)?.codeFam;
-    if (cf === codeFam && r.emplacement?.trim()) empSet.add(r.emplacement.trim());
-  }
-  if (empSet.size) {
-    pack += `[EMPLACEMENTS OBSERVÉS] ${[...empSet].sort().join(' · ')}\n\n`;
+  if (gd.emplacements.length) {
+    pack += `[EMPLACEMENTS OBSERVÉS] ${gd.emplacements.join(' · ')}\n\n`;
   }
 
   // Livraisons × Chalandise — demande réelle par métier dans la zone
-  if (_S.livraisonsReady && _S.livraisonsData?.size && _S.chalandiseReady) {
-    const catFam = _S.catalogueFamille;
-    const metierLivCA = new Map();
-    const metierLivCli = new Map();
-    const metierAgCA = new Map();
-    const _livRangeLLM = _prLivMonthRange();
-    // Mon agence pour calcul captation (filtré distance + période alignée Livraisons)
-    for (const [cc, artMap] of (_S.ventesClientArticleFull || _S.ventesClientArticle || new Map())) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      if (!info) continue;
-      const metier = info.metier || 'Non renseigné';
-      let caFam = 0;
-      for (const [code, data] of artMap) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf !== codeFam) continue;
-        caFam += _livRangeLLM ? _prClientArtCA(cc, code, _livRangeLLM) : (data.sumCA || 0);
-      }
-      if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
-    }
-    // Hors-MAGASIN — seulement si Full n'existe pas (évite double-comptage)
-    if (!_S.ventesClientArticleFull?.size) {
-      for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
-        if (!_prDistOk(cc)) continue;
-        const info = _S.chalandiseData?.get(cc);
-        if (!info) continue;
-        const metier = info.metier || 'Non renseigné';
-        let caFam = 0;
-        for (const [code, data] of artMap) {
-          const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-          if (cf !== codeFam) continue;
-          caFam += _livRangeLLM ? _prClientArtCA(cc, code, _livRangeLLM) : (data.sumCA || 0);
-        }
-        if (caFam > 0) metierAgCA.set(metier, (metierAgCA.get(metier) || 0) + caFam);
-      }
-    }
-    // Livraisons (filtré distance)
-    for (const [cc, livData] of _S.livraisonsData) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      if (!info) continue;
-      const metier = info.metier || 'Non renseigné';
-      let caFam = 0;
-      for (const [code, artData] of livData.articles) {
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf !== codeFam) continue;
-        caFam += artData.ca || 0;
-      }
-      if (caFam > 0) {
-        metierLivCA.set(metier, (metierLivCA.get(metier) || 0) + caFam);
-        metierLivCli.set(metier, (metierLivCli.get(metier) || 0) + 1);
-      }
-    }
-    if (metierLivCA.size) {
-      pack += `[DEMANDE RÉELLE PAR MÉTIER — Livraisons zone × Chalandise]\n`;
-      pack += `(= CA total livré pour les clients de la zone, toutes agences confondues. Captation = part captée par mon agence)\n`;
-      [...metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([m,ca]) => {
-        const caAg = metierAgCA.get(m) || 0;
-        const capt = ca > 0 ? Math.round(caAg / ca * 100) : 0;
-        pack += `  - ${m}: ${metierLivCli.get(m)} clients, ${formatEuro(ca)} livré, captation ${capt}%${capt < 20 ? ' ⚠ POTENTIEL NON CAPTÉ' : ''}\n`;
-      });
-      pack += `\n`;
-    }
+  if (gd.metierLivCA.size) {
+    pack += `[DEMANDE RÉELLE PAR MÉTIER — Livraisons zone × Chalandise]\n`;
+    pack += `(= CA total livré pour les clients de la zone, toutes agences confondues. Captation = part captée par mon agence)\n`;
+    [...gd.metierLivCA.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([m,ca]) => {
+      const caAg = gd.metierCA.get(m) || 0;
+      const capt = ca > 0 ? Math.round(caAg / ca * 100) : 0;
+      pack += `  - ${m}: ${gd.metierLivCli.get(m)} clients, ${formatEuro(ca)} livré, captation ${capt}%${capt < 20 ? ' ⚠ POTENTIEL NON CAPTÉ' : ''}\n`;
+    });
+    pack += `\n`;
+  }
 
-    // Refs achetées par métier dans Livraisons mais absentes du rayon
-    // = opportunités d'implantation ciblées par métier
-    const codesEnRayon = new Set((_S.finalData || [])
-      .filter(r => {
-        const cf = (_S.articleFamille?.[r.code] || '').slice(0, 3) || catFam?.get(r.code)?.codeFam;
-        return cf === codeFam && r.stockActuel > 0;
-      })
-      .map(r => r.code));
-
-    // Collecter articles par métier dans Livraisons (famille courante, distance filtrée)
-    const metierArts = new Map(); // metier → Map<code, {ca, qty, nbCli}>
-    for (const [cc, livData] of _S.livraisonsData) {
-      if (!_prDistOk(cc)) continue;
-      const info = _S.chalandiseData?.get(cc);
-      if (!info) continue;
-      const metier = info.metier || 'Non renseigné';
-      for (const [code, artData] of livData.articles) {
-        if (codesEnRayon.has(code)) continue; // déjà en rayon
-        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code];
-        if (cf !== codeFam) continue;
-        if (!metierArts.has(metier)) metierArts.set(metier, new Map());
-        const ma = metierArts.get(metier);
-        if (!ma.has(code)) ma.set(code, { ca: 0, qty: 0, nbCli: 0 });
-        const e = ma.get(code);
-        e.ca += artData.ca || 0;
-        e.qty += artData.qty || 0;
-        e.nbCli++;
+  // Refs manquantes par métier
+  if (gd.metierArts.size) {
+    const topMets = [...gd.metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 3);
+    pack += `[REFS MANQUANTES PAR MÉTIER — achetées dans la zone mais absentes de ton rayon]\n`;
+    pack += `(= articles que ces métiers achètent via d'autres agences, que tu pourrais implanter)\n`;
+    for (const [met] of topMets) {
+      const arts = gd.metierArts.get(met);
+      if (!arts || arts.size === 0) continue;
+      const sorted = [...arts.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 5);
+      const caAg = gd.metierCA.get(met) || 0;
+      const caLiv = gd.metierLivCA.get(met) || 0;
+      const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
+      pack += `  ${met} (captation ${capt}%) :\n`;
+      for (const [code, d] of sorted) {
+        pack += `    - ${code} ${lib(code) || '?'} · ${formatEuro(d.ca)} · ${d.nbCli} client${d.nbCli > 1 ? 's' : ''}\n`;
       }
     }
-    // Afficher top 3 métiers (par CA livré), top 5 articles manquants chacun
-    if (metierArts.size) {
-      const topMets = [...metierLivCA.entries()].sort((a,b) => b[1] - a[1]).slice(0, 3);
-      pack += `[REFS MANQUANTES PAR MÉTIER — achetées dans la zone mais absentes de ton rayon]\n`;
-      pack += `(= articles que ces métiers achètent via d'autres agences, que tu pourrais implanter)\n`;
-      for (const [met] of topMets) {
-        const arts = metierArts.get(met);
-        if (!arts || arts.size === 0) continue;
-        const sorted = [...arts.entries()].sort((a, b) => b[1].ca - a[1].ca).slice(0, 5);
-        const caAg = metierAgCA.get(met) || 0;
-        const caLiv = metierLivCA.get(met) || 0;
-        const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
-        pack += `  ${met} (captation ${capt}%) :\n`;
-        for (const [code, d] of sorted) {
-          pack += `    - ${code} ${lib(code) || '?'} · ${formatEuro(d.ca)} · ${d.nbCli} client${d.nbCli > 1 ? 's' : ''}\n`;
-        }
-      }
-      pack += `\n`;
-    }
+    pack += `\n`;
   }
 
   pack += `═══════════════════════════════════════════════════\n`;
