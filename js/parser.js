@@ -142,7 +142,9 @@ export async function parseChalandise(file) {
   // Show commerce tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabCommerce'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on commerce tab
-  if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); window.buildClientStore?.(); window.renderAll?.(); }
+  // NB: buildClientStore + renderAll sont appelés par main.js après le parsing complet
+  // Ici on ne fait que le croisement nécessaire pour que les données soient prêtes
+  if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); }
   // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
 }
 
@@ -337,8 +339,7 @@ export async function parseLivraisons(file) {
     // livraisonsData reste la Map client ; pas de réassignation ici
     window.computeReconquestCohort?.();
     window.computeOpportuniteNette?.();
-    window.renderTerritoireTab?.();
-    window.renderAll?.();
+    // renderTerritoireTab + renderAll sont appelés par main.js après le parsing complet
     // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
   } catch (e) {
     console.error('[PRISME] parseLivraisons error:', e);

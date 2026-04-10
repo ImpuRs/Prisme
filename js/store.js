@@ -30,6 +30,19 @@ function _filterByPeriode(lines) {
   });
 }
 
+// Cache filteredTerritoireLines — invalidé par clé (période + nb lignes source)
+let _ftlCache = null;
+let _ftlCacheKey = '';
+function _cachedFilteredTerrLines() {
+  const lines = _S.territoireLines;
+  if (!lines?.length) return lines || [];
+  const key = `${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${lines.length}`;
+  if (_ftlCacheKey === key && _ftlCache) return _ftlCache;
+  _ftlCache = _filterByPeriode(lines);
+  _ftlCacheKey = key;
+  return _ftlCache;
+}
+
 export const DataStore = {
 
   // ── [CANAL-INVARIANT] Données enrichies stock + MIN/MAX + ABC/FMR ──────────
@@ -54,7 +67,7 @@ export const DataStore = {
   // territoireLines : source brute non filtrée (pour presence checks, lookups, period-range detection)
   // filteredTerritoireLines : filtrée par _S.periodFilterStart/End (pour KPI computation)
   get territoireLines()         { return _S.territoireLines; },
-  get filteredTerritoireLines() { return _filterByPeriode(_S.territoireLines); },
+  get filteredTerritoireLines() { return _cachedFilteredTerrLines(); },
 
   // ── [CANAL-INVARIANT] Clients / Chalandise ────────────────────────────────
   // Dualité PDV/hors-agence = feature métier (voir synthèse débat 2026-03-27)
