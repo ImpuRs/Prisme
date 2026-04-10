@@ -1638,6 +1638,7 @@ function _prRenderPhysigamme(fam) {
 
 // ── Onglet Pilotage (fusion Mon Rayon + Squelette + Physigamme) ──────
 let _prPilotFilter = '';   // 'socle'|'challenger'|'surveiller'|'implanter'|''
+let _prPilotVerdict = '';  // verdict name filter (e.g. 'Le Poids Mort')
 let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'cliPDV'|'caZone'|'cliZone'|'classif'|'verdict'
 let _prPilotPage   = 60;
 
@@ -1696,10 +1697,13 @@ function _prRenderPilotage(fam) {
   const counts = {};
   for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
 
-  // ── Filtre ──
-  const filtered = _prPilotFilter
+  // ── Filtre classif + verdict ──
+  let filtered = _prPilotFilter
     ? arts.filter(a => a._g === _prPilotFilter)
     : arts;
+  if (_prPilotVerdict) {
+    filtered = filtered.filter(a => a.verdict.name === _prPilotVerdict);
+  }
 
   // ── Tri ──
   const SORT_FNS = {
@@ -1740,6 +1744,29 @@ function _prRenderPilotage(fam) {
       class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}"
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g] || 0}</strong></button>`;
   }).join('');
+
+  // ── Pills filtre verdict (verdicts présents dans cette famille) ──
+  const verdictCounts = {};
+  for (const a of arts) {
+    const vn = a.verdict.name;
+    if (vn && vn !== '—') verdictCounts[vn] = (verdictCounts[vn] || 0) + 1;
+  }
+  const verdictPills = Object.entries(verdictCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, cnt]) => {
+      const active = _prPilotVerdict === name;
+      // Find color from VERDICT_MATRIX
+      let color = '#94a3b8';
+      for (const classifs of Object.values(VERDICT_MATRIX)) {
+        for (const v of Object.values(classifs)) {
+          if (v.name === name) { color = v.color; break; }
+        }
+      }
+      return `<button onclick="window._prPilotVerdictFn('${name.replace(/'/g, "\\'")}')"
+        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+        style="border-color:${color}40;${active ? `background:${color}20;color:${color};box-shadow:0 0 0 1px ${color}` : `color:${color}`}"
+        title="${cnt} articles">${name} <strong>${cnt}</strong></button>`;
+    }).join('');
 
   // ── Tri header helper ──
   const _thSort = (key, label, align = 'text-right', title = '') => {
@@ -1808,7 +1835,8 @@ function _prRenderPilotage(fam) {
   </div>`;
 
   const html = `${_prSFPills()}${summary}
-  <div class="flex flex-wrap gap-1.5 mb-3 items-center">${pills}</div>
+  <div class="flex flex-wrap gap-1.5 mb-2 items-center">${pills}</div>
+  <div class="flex flex-wrap gap-1 mb-3 items-center">${verdictPills}</div>
   ${srcLegend}
   <div class="overflow-x-auto" id="prPilotTable" style="max-height:560px;overflow-y:auto">
     <table class="w-full text-[11px]">
@@ -2303,6 +2331,12 @@ window._prToggleMRSortCode = function() {
 // ── Pilotage handlers ──
 window._prPilotFilterFn = function(key) {
   _prPilotFilter = _prPilotFilter === key ? '' : key;
+  _prPilotVerdict = ''; // reset verdict filter on classif change
+  _prPilotPage = 60;
+  _prRerenderDetail();
+};
+window._prPilotVerdictFn = function(name) {
+  _prPilotVerdict = _prPilotVerdict === name ? '' : name;
   _prPilotPage = 60;
   _prRerenderDetail();
 };
