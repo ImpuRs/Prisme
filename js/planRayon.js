@@ -2796,7 +2796,10 @@ function _prBuildLLMPack(codeFam) {
   const fam = data.families.find(f => f.codeFam === codeFam);
   if (!fam) return null;
   const ctx = _prAgenceVocationCtx();
-  const lib = (c) => _S.libelleLookup?.[c] || '';
+  // Lookup libellé multi-source : consommé → territoire
+  const _tLib = {};
+  if (_S.territoireLines) for (const l of _S.territoireLines) { if (l.code && l.libelle && !_tLib[l.code]) _tLib[l.code] = l.libelle; }
+  const lib = (c) => _S.libelleLookup?.[c] || _tLib[c] || '';
   const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
 
   const gd = _prGatherFamData(codeFam);
