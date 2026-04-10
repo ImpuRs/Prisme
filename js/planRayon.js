@@ -1142,6 +1142,229 @@ function _prRenderAnalyse(fam) {
   </div>${selBar}`;
 }
 
+// ── Onglet Physigamme ────────────────────────────────────────────────
+function _prRenderPhysigamme(fam) {
+  const vpm = _S.ventesParMagasin || {};
+  const spm = _S.stockParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const catFam = _S.catalogueFamille;
+  const codeFam = fam.codeFam;
+
+  const matchFam = (code) => {
+    const cf = catFam?.get(code);
+    if (cf) {
+      if (cf.codeFam !== codeFam) return false;
+      if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(cf.codeSousFam || '')) return false;
+      return true;
+    }
+    return (_S.articleFamille?.[code] || '') === codeFam && _prSelectedSFs.size === 0;
+  };
+
+  // Tous les codes de la famille (finalData + réseau)
+  const allCodes = new Set();
+  for (const r of (_S.finalData || [])) { if (matchFam(r.code)) allCodes.add(r.code); }
+  for (const arts of Object.values(vpm)) { for (const code of Object.keys(arts)) { if (matchFam(code)) allCodes.add(code); } }
+  if (!allCodes.size) return '<div class="t-disabled text-sm text-center py-6">Aucun article dans cette famille.</div>';
+
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  const nbStores = stores.length || 1;
+
+  // ── Classification par rôle ──
+  const artList = [];
+  const bySF = new Map(); // pour premier prix
+
+  for (const code of allCodes) {
+    const fd = fdMap.get(code);
+    const sf = catFam?.get(code);
+    // Détention réseau
+    let nbSt = 0, caRes = 0, blRes = 0;
+    for (const s of stores) { const d = vpm[s]?.[code]; if (d?.countBL > 0) { nbSt++; caRes += d.sumCA || 0; blRes += d.countBL || 0; } }
+    const detention = nbSt / nbStores;
+    // Mon agence
+    const my = vpm[myStore]?.[code];
+    const myCa = my?.sumCA || 0, myBL = my?.countBL || 0, myPrel = my?.sumPrelevee || 0;
+    const stock = fd?.stockActuel || 0, enStock = stock > 0;
+    const prix = fd?.prixUnitaire || 0;
+    const W = fd?.W || myBL;
+    // Clients stratégiques
+    const buyers = _S.articleClients?.get(code);
+    let nbCli = 0, nbCliFID = 0;
+    if (buyers && _S.chalandiseData?.size) {
+      for (const cc of buyers) {
+        if (!_S.clientsMagasin?.has(cc)) continue;
+        nbCli++;
+        const cl = (_S.chalandiseData.get(cc)?.classification || '').toUpperCase();
+        if ((cl.includes('FID') || cl.includes('OCC')) && cl.includes('POT+')) nbCliFID++;
+      }
+    }
+    // Rôle
+    let role = 'standard';
+    if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (nbCli >= 2 && nbCliFID / nbCli >= 0.5) role = 'specialiste';
+
+    const a = { code, lib: _S.libelleLookup?.[code] || code, sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
+      role, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliFID,
+      abc: fd?.abcClass || '', fmr: fd?.fmrClass || '' };
+    artList.push(a);
+    if (a.sf && a.prix > 0) { if (!bySF.has(a.sf)) bySF.set(a.sf, []); bySF.get(a.sf).push(a); }
+  }
+
+  // Premier prix : Q1 par SF (si pas déjà classé)
+  for (const [, arts] of bySF) {
+    const sorted = [...arts].sort((x, y) => x.prix - y.prix);
+    const q1 = Math.max(1, Math.ceil(sorted.length * 0.25));
+    for (let i = 0; i < q1; i++) { if (sorted[i].role === 'standard') sorted[i].role = 'premierprix'; }
+  }
+
+  // ── Benchmark RÉSEAU VS MOI ──
+  const storeStats = stores.map(s => {
+    let nr = 0, ca = 0, bl = 0, sv = 0, ns = 0;
+    for (const code of allCodes) {
+      const d = vpm[s]?.[code]; if (d?.countBL > 0) { nr++; ca += d.sumCA || 0; bl += d.countBL || 0; }
+      const sk = spm[s]?.[code]; if (sk?.stockActuel > 0) { ns++; sv += sk.valeurStock || 0; }
+    }
+    return { nr, ca, bl, sv, ns };
+  });
+  const _med = (arr) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  let myNR = 0, myCA = 0, myBL = 0, mySV = 0, myNS = 0;
+  for (const a of artList) { if (a.myBL > 0) { myNR++; myCA += a.myCa; myBL += a.myBL; } if (a.enStock) { myNS++; mySV += a.prix * a.stock; } }
+  const medNR = _med(storeStats.map(s => s.nr)), medCA = _med(storeStats.map(s => s.ca));
+  const medBL = _med(storeStats.map(s => s.bl)), medSV = _med(storeStats.map(s => s.sv));
+  const medNS = _med(storeStats.map(s => s.ns));
+  const myRot = mySV > 0 ? myCA / mySV : 0, medRot = _med(storeStats.filter(s => s.sv > 0).map(s => s.ca / s.sv));
+
+  // Détention incontournables
+  const incont = artList.filter(a => a.role === 'incontournable');
+  const incontOK = incont.filter(a => a.enStock).length;
+  const tauxInc = incont.length ? Math.round(incontOK / incont.length * 100) : 100;
+
+  const _ecart = (v, m) => {
+    if (!m) return '';
+    const d = Math.round((v - m) / m * 100);
+    const c = d >= 0 ? '#22c55e' : d >= -20 ? '#f59e0b' : '#ef4444';
+    return `<span style="color:${c};font-weight:600">${d >= 0 ? '+' : ''}${d}%</span>`;
+  };
+  const _n = (v) => Math.round(v).toLocaleString('fr');
+  const benchRows = [
+    ['Réfs vendues', myNR, Math.round(medNR)],
+    ['CA TTC', _n(myCA) + ' €', _n(medCA) + ' €', myCA, medCA],
+    ['Nb BL', myBL, Math.round(medBL)],
+    ['Réfs en stock', myNS, Math.round(medNS)],
+    ['Valeur stock', _n(mySV) + ' €', _n(medSV) + ' €', mySV, medSV],
+    ['Rotation', myRot.toFixed(1) + '×', medRot.toFixed(1) + '×', myRot, medRot],
+  ].map(r => {
+    const mine = r.length > 3 ? r[3] : r[1], med = r.length > 3 ? r[4] : r[2];
+    return `<tr class="border-b b-light text-[11px]">
+      <td class="py-1.5 px-2 t-secondary">${r[0]}</td>
+      <td class="py-1.5 px-2 text-right font-bold t-primary">${r.length > 3 ? r[1] : r[1]}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${r.length > 3 ? r[2] : r[2]}</td>
+      <td class="py-1.5 px-2 text-right">${_ecart(mine, med)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Rôles cards ──
+  const ROLES = [
+    { k: 'incontournable', i: '🏆', l: 'Incontournables', c: '#22c55e', obj: 98 },
+    { k: 'nouveaute', i: '🆕', l: 'Nouveautés', c: '#3b82f6' },
+    { k: 'premierprix', i: '💰', l: 'Premiers prix', c: '#f59e0b' },
+    { k: 'specialiste', i: '🎯', l: 'Spécialistes', c: '#8b5cf6' },
+    { k: 'standard', i: '📦', l: 'Standard', c: '#94a3b8' },
+  ];
+  const rc = {}, ri = {};
+  for (const r of ROLES) { rc[r.k] = 0; ri[r.k] = 0; }
+  for (const a of artList) { rc[a.role]++; if (a.enStock) ri[a.role]++; }
+
+  const roleCards = ROLES.filter(r => rc[r.k] > 0).map(r => {
+    const pct = Math.round(ri[r.k] / rc[r.k] * 100);
+    const alert = r.obj ? (pct >= r.obj ? ' ✅' : ' ⚠️') : (pct >= 80 ? '' : '');
+    return `<div class="rounded-lg p-2.5 border b-light s-card text-center min-w-[90px]">
+      <div class="text-[14px]">${r.i}</div>
+      <div class="text-[10px] font-bold mt-1" style="color:${r.c}">${r.l}</div>
+      <div class="text-[16px] font-black t-primary mt-0.5">${ri[r.k]}<span class="text-[11px] t-disabled">/${rc[r.k]}</span></div>
+      <div class="text-[10px] t-secondary">${pct}%${r.obj ? ` · obj ${r.obj}%` : ''}${alert}</div>
+    </div>`;
+  }).join('');
+
+  // ── JE VIDE / JE REMPLIS ──
+  const aRemplir = artList.filter(a => !a.enStock && (a.role === 'incontournable' || a.role === 'nouveaute'))
+    .sort((a, b) => b.detention - a.detention).slice(0, 10);
+  const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role !== 'incontournable' && a.role !== 'specialiste')
+    .sort((a, b) => (b.prix * b.stock) - (a.prix * a.stock)).slice(0, 10);
+
+  // SF sans premier prix en stock
+  const sfNoPP = [];
+  for (const [sf, arts] of bySF) {
+    if (!arts.some(a => a.role === 'premierprix' && a.enStock)) sfNoPP.push(sf);
+  }
+
+  const ROLE_COLORS = { incontournable: '#22c55e', nouveaute: '#3b82f6', premierprix: '#f59e0b', specialiste: '#8b5cf6', standard: '#94a3b8' };
+  const ROLE_ICONS = { incontournable: '🏆', nouveaute: '🆕', premierprix: '💰', specialiste: '🎯', standard: '📦' };
+  const _artRow = (a) => `<tr class="border-b b-light text-[11px] cursor-pointer hover:s-hover"
+    onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+    <td class="py-1 px-2 font-mono t-disabled">${a.code}</td>
+    <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(a.lib)}</td>
+    <td class="py-1 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${ROLE_COLORS[a.role]}20;color:${ROLE_COLORS[a.role]}">${ROLE_ICONS[a.role]} ${a.role}</span></td>
+    <td class="py-1 px-2 text-right t-secondary">${Math.round(a.detention * 100)}%</td>
+    <td class="py-1 px-2 text-right t-secondary">${a.enStock ? a.stock : '—'}</td>
+    <td class="py-1 px-2 text-right t-secondary">${a.W || 0}</td>
+  </tr>`;
+
+  let actions = '';
+  if (aRemplir.length) {
+    actions += `<div class="mb-4">
+      <h4 class="text-[11px] font-bold mb-1.5" style="color:#22c55e">📥 Je remplis — ${aRemplir.length} réf${aRemplir.length > 1 ? 's' : ''} essentielles manquantes</h4>
+      <table class="w-full"><tbody>${aRemplir.map(_artRow).join('')}</tbody></table>
+    </div>`;
+  }
+  if (aVider.length) {
+    const valVider = aVider.reduce((s, a) => s + a.prix * a.stock, 0);
+    actions += `<div class="mb-4">
+      <h4 class="text-[11px] font-bold mb-1.5" style="color:#ef4444">📤 Je vide — ${aVider.length} dormant${aVider.length > 1 ? 's' : ''} non-essentiels (${_n(valVider)} € de stock)</h4>
+      <table class="w-full"><tbody>${aVider.map(_artRow).join('')}</tbody></table>
+    </div>`;
+  }
+  if (sfNoPP.length) {
+    actions += `<div class="mb-3">
+      <h4 class="text-[11px] font-bold mb-1" style="color:#f59e0b">⚠️ ${sfNoPP.length} sous-famille${sfNoPP.length > 1 ? 's' : ''} sans premier prix en stock</h4>
+      <div class="text-[10px] t-secondary">${sfNoPP.join(' · ')}</div>
+    </div>`;
+  }
+  if (!aRemplir.length && !aVider.length && !sfNoPP.length) {
+    actions = '<div class="text-[11px] t-disabled text-center py-3">✅ Gamme équilibrée — aucune action prioritaire détectée.</div>';
+  }
+
+  return `
+    <div class="grid grid-cols-2 gap-6 mb-4">
+      <div>
+        <h4 class="text-[11px] font-bold t-primary mb-2">📊 Réseau vs Mon agence <span class="text-[9px] t-disabled font-normal">${stores.length} agences</span></h4>
+        <table class="w-full">
+          <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+            <th class="py-1 px-2 text-left">KPI</th><th class="py-1 px-2 text-right">Moi</th>
+            <th class="py-1 px-2 text-right">Méd. rés.</th><th class="py-1 px-2 text-right">Écart</th>
+          </tr></thead><tbody>${benchRows}</tbody>
+        </table>
+        <div class="mt-3 px-2 py-2 rounded-lg border b-light flex items-center gap-2">
+          <span class="text-[10px] t-secondary">🏆 Détention incontournables :</span>
+          <span class="text-[13px] font-black ${tauxInc >= 98 ? 'text-green-400' : tauxInc >= 80 ? 'text-amber-400' : 'text-red-400'}">${tauxInc}%</span>
+          <span class="text-[9px] t-disabled">obj. 98%</span>
+          ${tauxInc >= 98 ? '<span class="text-[11px]">✅</span>' : '<span class="text-[11px]">⚠️</span>'}
+        </div>
+      </div>
+      <div>
+        <h4 class="text-[11px] font-bold t-primary mb-2">🎭 Rôles stratégiques</h4>
+        <div class="flex flex-wrap gap-2">${roleCards}</div>
+      </div>
+    </div>
+    <div class="border-t b-light pt-3">
+      <h4 class="text-[12px] font-bold t-primary mb-3">⚡ Actions — Je vide, j'optimise, je remplis</h4>
+      ${actions}
+    </div>`;
+}
+
 // ── Contenu onglet détail ────────────────────────────────────────────
 function _prGetTabContent(tab, fam) {
   if (tab === 'rayon') {
@@ -1194,9 +1417,10 @@ function _prGetTabContent(tab, fam) {
     _prRayonFilter  = '';
     return _prRenderRayon(filtered);
   }
-  if (tab === 'squelette') return _prRenderSquelette(fam);
-  if (tab === 'metiers')   return _prRenderMetiers(fam);
-  if (tab === 'analyse')   return _prRenderAnalyse(fam);
+  if (tab === 'squelette')  return _prRenderSquelette(fam);
+  if (tab === 'metiers')    return _prRenderMetiers(fam);
+  if (tab === 'analyse')    return _prRenderAnalyse(fam);
+  if (tab === 'physigamme') return _prRenderPhysigamme(fam);
   return '';
 }
 
@@ -1214,10 +1438,11 @@ function _prRenderDetail(codeFam) {
         : _prOpenSousFam)
     : '';
   const tabs = [
-    { key: 'rayon',     label: '📊 Mon Rayon' },
-    { key: 'squelette', label: '🦴 Squelette' },
-    { key: 'metiers',   label: '🎯 Métiers'   },
-    { key: 'analyse',   label: '📦 Analyse'   },
+    { key: 'rayon',      label: '📊 Mon Rayon' },
+    { key: 'physigamme', label: '🎭 Physigamme' },
+    { key: 'squelette',  label: '🦴 Squelette' },
+    { key: 'metiers',    label: '🎯 Métiers'   },
+    { key: 'analyse',    label: '📦 Analyse'   },
   ];
 
   const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
