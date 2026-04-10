@@ -314,8 +314,10 @@ function computePlanStock() {
       // KPIs Scanner de Rayon
       nbIncontournables: 0, nbIncontEnStock: 0,
       potentielExterne: 0, // CA zone des IMPLANTER
+      caZoneTotal: 0,     // CA zone TOUS articles (pour captation famille)
       caStratClients: 0, caTotalClients: 0, // pour signal spécialiste
-      scoreSante: 0, perfReseau: 0, pctStrat: 0,
+      scoreSante: 0, perfReseau: 0, pctStrat: 0, captation: null,
+      tagSpecialiste: false,
     });
     return famMap.get(codeFam);
   };
@@ -359,6 +361,8 @@ function computePlanStock() {
             f.nbIncontournables++;
             if (a.enStock) f.nbIncontEnStock++;
           }
+          // CA Zone : potentiel externe (IMPLANTER only) + total famille (tous)
+          f.caZoneTotal += +(a.caClientsZone || 0);
           if (g === 'implanter') {
             f.potentielExterne += +(a.caClientsZone || 0);
           }
@@ -466,18 +470,25 @@ function computePlanStock() {
     f.pctStrat = f.caTotalClients > 0
       ? Math.round(f.caStratClients / f.caTotalClients * 100) : 0;
 
-    // ── Classification Scanner ──
-    // Priorité : Spécialiser → Retravailler → Développer → Bien couverte → Surveiller
-    if (f.pctStrat >= 40 && f.nbClients >= 3)
-      f.classifGlobal = 'specialiser';
-    else if (f.scoreSante < 70 || f.perfReseau < 80)
+    // ── Captation famille = CA Magasin / CA Zone Total ──
+    f.captation = f.caZoneTotal > 0 ? Math.round((f.caAgence || 0) / f.caZoneTotal * 100) : null;
+
+    // ── Classification Scanner (cascade exclusive) ──
+    // 1. À retravailler : santé faible OU sous-perf réseau
+    if (f.scoreSante < 70 || f.perfReseau < 80)
       f.classifGlobal = 'challenger';    // À retravailler
-    else if (f.potentielExterne >= 50000 || (f.implanter >= 5 && total > 0 && f.implanter / total > 0.3))
-      f.classifGlobal = 'implanter';     // À développer
-    else if (f.scoreSante >= 90 && f.perfReseau >= 100)
+    // 2. Bien couverte : santé excellente ET perf réseau au-dessus médiane
+    else if (f.scoreSante > 90 && f.perfReseau > 100)
       f.classifGlobal = 'socle';         // Bien couverte
+    // 3. À développer : gros potentiel externe OU captation faible sur gros marché
+    else if (f.potentielExterne > 30000 || (f.captation !== null && f.captation < 10 && f.caZoneTotal > 50000))
+      f.classifGlobal = 'implanter';     // À développer
+    // 4. À surveiller : tout le reste
     else
       f.classifGlobal = 'surveiller';    // À surveiller
+
+    // ── Tag Spécialiste (cumulable avec tout statut) ──
+    f.tagSpecialiste = f.pctStrat > 30;
   }
 
   const families = [...famMap.values()]
@@ -491,7 +502,7 @@ function computePlanStock() {
       implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
       challenger: families.filter(f => f.classifGlobal === 'challenger').length,
       surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
-      specialiser:   families.filter(f => f.classifGlobal === 'specialiser').length,
+      specialiste: families.filter(f => f.tagSpecialiste).length,
     }
   };
   _prPlanCache = result;
@@ -707,7 +718,7 @@ function _prBuildCards(data, searchText = '') {
           <div class="text-[12px] font-bold t-primary truncate">${escapeHtml(f.libFam)}</div>
           <div class="text-[10px] t-disabled">${f.codeFam}</div>
         </div>
-        <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}</span>
+        <span class="text-[9px] font-semibold shrink-0 flex items-center gap-1" style="color:${b.dot}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${b.dot};flex-shrink:0"></span>${b.label}${f.tagSpecialiste ? ' 🎯' : ''}</span>
       </div>
       ${f.needsCleaning ? `<div class="text-[9px] font-bold mb-1" style="color:#f59e0b" title="${f.nbDormants} dormants · ${f.nbFin} fin série/stock · ${f.nbRuptures} ruptures (${f.hygieneScore}%)">🧹 À nettoyer avant expansion (${f.hygieneScore}%)</div>` : ''}
       ${f.nbSchizo >= 2 ? `<div class="text-[9px] font-bold mb-1" style="color:#a855f7" title="Refs identifiées comme incontournables réseau MAIS dormantes/ruptures chez toi — signal 'rayon échantillonné', commande à la demande sans stock fiable, divorce de confiance">🌀 ${f.nbSchizo} refs schizo (échantillonné)</div>` : ''}
@@ -1968,9 +1979,9 @@ function _renderPlanRayonContent(data) {
     <div class="grid grid-cols-7 gap-2 mb-3">
       ${_badge('socle', totals.socle)}
       ${_badge('implanter', totals.implanter)}
-      ${_badge('specialiser', totals.specialiser || 0)}
       ${_badge('challenger', totals.challenger)}
       ${_badge('surveiller', totals.surveiller)}
+      <div class="text-center text-[10px] t-secondary" title="${totals.specialiste} familles avec >30% CA clients stratégiques">🎯 ${totals.specialiste} spé.</div>
     </div>
     <div class="relative mb-3">
       <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
