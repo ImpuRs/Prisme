@@ -2100,7 +2100,6 @@ window._prOpenDetail = function(codeFam) {
   _prOpenSousFam = '';
   _prDetailTab = 'pilotage';
   _S._prSqFilter = '';
-  _S._prSqData = null;
   _prSqPage = 50;
   _prSqSort = 'reseau';
   _prMetierDist = 0;
@@ -2345,7 +2344,6 @@ window._prSelectFam = function(codeFam, codeSousFam) {
   _prGridVisible  = true;
   _prRayonFilter  = '';
   _S._prSqFilter  = '';
-  _S._prSqData    = null;
   // Montrer uniquement la famille sélectionnée dans la grille
   const grid = document.getElementById('prFamGrid');
   if (grid && _S._prData) {
