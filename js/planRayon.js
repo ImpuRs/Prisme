@@ -1292,7 +1292,7 @@ function _prRenderPhysigamme(fam) {
   // ── JE VIDE / JE REMPLIS ──
   const aRemplir = artList.filter(a => !a.enStock && (a.role === 'incontournable' || a.role === 'nouveaute'))
     .sort((a, b) => b.detention - a.detention).slice(0, 10);
-  const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role !== 'incontournable' && a.role !== 'specialiste')
+  const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role === 'standard')
     .sort((a, b) => (b.prix * b.stock) - (a.prix * a.stock)).slice(0, 10);
 
   // SF sans premier prix en stock
@@ -1300,9 +1300,16 @@ function _prRenderPhysigamme(fam) {
   for (const [sf, arts] of bySF) {
     if (!arts.some(a => a.role === 'premierprix' && a.enStock)) sfNoPP.push(sf);
   }
+  // Premiers prix dormants — signal d'alerte visibilité
+  const ppDormants = artList.filter(a => a.enStock && a.W === 0 && a.role === 'premierprix');
 
   const ROLE_COLORS = { incontournable: '#22c55e', nouveaute: '#3b82f6', premierprix: '#f59e0b', specialiste: '#8b5cf6', standard: '#94a3b8' };
   const ROLE_ICONS = { incontournable: '🏆', nouveaute: '🆕', premierprix: '💰', specialiste: '🎯', standard: '📦' };
+  const _artTh = `<thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+    <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
+    <th class="py-1 px-2 text-left">Rôle</th><th class="py-1 px-2 text-right">Dét. rés.</th>
+    <th class="py-1 px-2 text-right">Stock</th><th class="py-1 px-2 text-right">W</th>
+  </tr></thead>`;
   const _artRow = (a) => `<tr class="border-b b-light text-[11px] cursor-pointer hover:s-hover"
     onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
     <td class="py-1 px-2 font-mono t-disabled">${a.code}</td>
@@ -1317,14 +1324,20 @@ function _prRenderPhysigamme(fam) {
   if (aRemplir.length) {
     actions += `<div class="mb-4">
       <h4 class="text-[11px] font-bold mb-1.5" style="color:#22c55e">📥 Je remplis — ${aRemplir.length} réf${aRemplir.length > 1 ? 's' : ''} essentielles manquantes</h4>
-      <table class="w-full"><tbody>${aRemplir.map(_artRow).join('')}</tbody></table>
+      <table class="w-full">${_artTh}<tbody>${aRemplir.map(_artRow).join('')}</tbody></table>
     </div>`;
   }
   if (aVider.length) {
     const valVider = aVider.reduce((s, a) => s + a.prix * a.stock, 0);
     actions += `<div class="mb-4">
       <h4 class="text-[11px] font-bold mb-1.5" style="color:#ef4444">📤 Je vide — ${aVider.length} dormant${aVider.length > 1 ? 's' : ''} non-essentiels (${_n(valVider)} € de stock)</h4>
-      <table class="w-full"><tbody>${aVider.map(_artRow).join('')}</tbody></table>
+      <table class="w-full">${_artTh}<tbody>${aVider.map(_artRow).join('')}</tbody></table>
+    </div>`;
+  }
+  if (ppDormants.length) {
+    actions += `<div class="mb-4">
+      <h4 class="text-[11px] font-bold mb-1.5" style="color:#f59e0b">👀 ${ppDormants.length} premier${ppDormants.length > 1 ? 's' : ''} prix dormant${ppDormants.length > 1 ? 's' : ''} — vérifier visibilité en rayon</h4>
+      <table class="w-full">${_artTh}<tbody>${ppDormants.map(_artRow).join('')}</tbody></table>
     </div>`;
   }
   if (sfNoPP.length) {
@@ -1333,7 +1346,7 @@ function _prRenderPhysigamme(fam) {
       <div class="text-[10px] t-secondary">${sfNoPP.join(' · ')}</div>
     </div>`;
   }
-  if (!aRemplir.length && !aVider.length && !sfNoPP.length) {
+  if (!aRemplir.length && !aVider.length && !ppDormants.length && !sfNoPP.length) {
     actions = '<div class="text-[11px] t-disabled text-center py-3">✅ Gamme équilibrée — aucune action prioritaire détectée.</div>';
   }
 
