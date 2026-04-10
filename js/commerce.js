@@ -377,6 +377,7 @@ window._ccc = (di,mi,ci) => {
     const livSansPDV=_S.livraisonsSansPDV||[];
     const _gCanal=_S._globalCanal||'';
     const topPDVRows=[];
+    const nouveaux=[];
     const horsZone=[];
     const digitaux=[];
 
@@ -398,6 +399,14 @@ window._ccc = (di,mi,ci) => {
         if(caPDV>=100){
           topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caLegallais||0,commercial:rec.commercial,caPDV,caHors,caTotal,lastDate:rec.lastOrderPDV});
         }
+        // ── Nouveaux / Réactivés (≤3 BL, dernière commande <60j) ──
+        if(rec.isPDVActif&&(rec.nbBLPDV||0)<=3&&(rec.caPDV||0)>=100){
+          const daysSince=rec.lastOrderPDV?Math.round((Date.now()-rec.lastOrderPDV)/86400000):null;
+          if(daysSince!==null&&daysSince<60){
+            const isReactive=(rec.caLegallais||0)>0;
+            nouveaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caLegallais||0,commercial:rec.commercial,caPDV,nbBL:rec.nbBLPDV||0,lastDate:rec.lastOrderPDV,type:isReactive?'reactive':'nouveau'});
+          }
+        }
         // ── Hors zone (PDV sans chalandise) ──
         if(_S.chalandiseReady&&!rec.inChalandise&&(rec.caPDV||0)>=200){
           horsZone.push({cc:rec.cc,nom:rec.nom,caPDV:rec.caPDV,caHors:rec.caHors||0,caTotal:rec.caTotal||0,lastDate:rec.lastOrderPDV});
@@ -416,9 +425,10 @@ window._ccc = (di,mi,ci) => {
     }
 
     topPDVRows.sort((a,b)=>b.caPDV-a.caPDV);
+    nouveaux.sort((a,b)=>b.caPDV-a.caPDV);
     horsZone.sort((a,b)=>b.caPDV-a.caPDV);
     digitaux.sort((a,b)=>b.caPDV-a.caPDV);
-    return{livSansPDV,topPDVRows,horsZone,digitaux};
+    return{livSansPDV,topPDVRows,nouveaux,horsZone,digitaux};
   }
 
   function renderTerritoireTab(){
@@ -745,6 +755,27 @@ window._ccc = (di,mi,ci) => {
       const thStr=`<thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead>`;
       return`<details open style="background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${rows.length} clients · ${_caLbl}</span></h3><span class="acc-arrow" style="color:#fde047">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
     })();
+    // ── S1b: Nouveaux clients (≤3 BL, <60j) ──────────────────────────────────
+    const nouveauxHtml=(()=>{
+      const nv=k.nouveaux||[];
+      if(!nv.length)return'';
+      const nowMs=Date.now();
+      const nbNouv=nv.filter(r=>r.type==='nouveau').length;
+      const nbReact=nv.filter(r=>r.type==='reactive').length;
+      const _mkRow=r=>{
+        const daysSince=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;
+        const silTxt=daysSince!==null?`${daysSince}j`:'—';
+        const _clCls=r.classification?.startsWith('FID')?'c-ok':r.classification?.startsWith('OCC')?'c-caution':'t-disabled';
+        const typeBadge=r.type==='reactive'?'<span class="text-[8px] px-1.5 py-0.5 rounded-full font-semibold" style="background:rgba(59,130,246,0.2);color:#60a5fa">🔄 Réactivé</span>':'<span class="text-[8px] px-1.5 py-0.5 rounded-full font-semibold" style="background:rgba(34,197,94,0.2);color:#4ade80">🆕 Nouveau</span>';
+        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)} ${typeBadge}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-center text-[10px] t-secondary">${r.nbBL} BL</td><td class="py-1.5 px-2 text-center text-[10px] c-ok">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
+      };
+      const _subLabel=[nbNouv?`${nbNouv} nouveaux`:'',(nbReact?`${nbReact} réactivés`:'')].filter(Boolean).join(' · ');
+      const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-center">Fréq.</th><th class="py-2 px-2 text-center">Dernier</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
+      const top20=nv.slice(0,20);
+      const moreHtml=nv.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${nv.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${nv.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
+      return`<details style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.06));border:1px solid rgba(34,197,94,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(34,197,94,0.18),rgba(22,163,74,0.10));border-bottom:1px solid rgba(34,197,94,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#4ade80;display:flex;align-items:center;gap:6px">🆕 Nouveaux / Réactivés <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${nv.length} clients · ${_subLabel}</span></h3><span class="acc-arrow" style="color:#4ade80">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
+    })();
+
     // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
     const _livAllB=(k.livSansPDV||[]).filter(r=>r.caLivraison>=500&&r.metier&&_isMetierStrategique(r.metier));
     const livSPDVHtml=(()=>{
@@ -771,7 +802,7 @@ window._ccc = (di,mi,ci) => {
           const _dc=deltaColor(r.caHors,r.caPDV);
           return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
         }).join('');
-        horsZoneHtml=`<div style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:20px"><div style="padding:14px 20px;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2)"><h3 style="font-weight:800;font-size:13px;color:#fbbf24">⚠️ Clients PDV hors zone <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p style="font-size:11px;color:rgba(255,255,255,0.45);padding:8px 20px;border-bottom:1px solid rgba(217,119,6,0.15)">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        horsZoneHtml=`<details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">⚠️ Clients PDV hors zone <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow" style="color:#fbbf24">▶</span></summary><p style="font-size:11px;color:rgba(255,255,255,0.45);padding:8px 20px;border-bottom:1px solid rgba(217,119,6,0.15)">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
       }
     }
 
@@ -799,7 +830,7 @@ window._ccc = (di,mi,ci) => {
       }
     }
 
-    el.innerHTML = topPDVHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
+    el.innerHTML = topPDVHtml + nouveauxHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
   }
 
 
