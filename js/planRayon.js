@@ -1291,7 +1291,7 @@ function _prRenderPhysigamme(fam) {
   }).join('');
 
   // ── JE VIDE / JE REMPLIS ──
-  const aRemplir = artList.filter(a => !a.enStock && (a.role === 'incontournable' || a.role === 'nouveaute'))
+  const aRemplir = artList.filter(a => !a.enStock && (a.role === 'incontournable' || a.role === 'nouveaute' || a.role === 'specialiste'))
     .sort((a, b) => b.detention - a.detention).slice(0, 10);
   const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role === 'standard')
     .sort((a, b) => (b.prix * b.stock) - (a.prix * a.stock)).slice(0, 10);
