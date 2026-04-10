@@ -3355,7 +3355,7 @@ export function renderPlanRayon() {
   _prGridVisible   = false;
   _prSearchText    = '';
   _S._prSqFilter   = '';
-  _S._prSqData     = null;
+  // _S._prSqData déjà peuplé par computePlanStock() → on garde le cache
 
   el.innerHTML = _renderPlanRayonContent(data);
   _initPrSearch();
