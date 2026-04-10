@@ -474,11 +474,12 @@ function computePlanStock() {
     f.captation = f.caZoneTotal > 0 ? Math.round((f.caAgence || 0) / f.caZoneTotal * 100) : null;
 
     // ── Classification Scanner (cascade exclusive) ──
-    // 1. À retravailler : santé faible OU sous-perf réseau
-    if (f.scoreSante < 70 || f.perfReseau < 80)
+    const hasBench = f.rendement != null && f.rendement > 0;
+    // 1. À retravailler : santé faible OU sous-perf réseau (si benchmark dispo)
+    if (f.scoreSante < 70 || (hasBench && f.perfReseau < 80))
       f.classifGlobal = 'challenger';    // À retravailler
-    // 2. Bien couverte : santé excellente ET perf réseau au-dessus médiane
-    else if (f.scoreSante > 90 && f.perfReseau > 100)
+    // 2. Bien couverte : santé excellente ET perf réseau au-dessus médiane (ou pas de bench)
+    else if (f.scoreSante > 90 && (!hasBench || f.perfReseau > 100))
       f.classifGlobal = 'socle';         // Bien couverte
     // 3. À développer : gros potentiel externe OU captation faible sur gros marché
     else if (f.potentielExterne > 30000 || (f.captation !== null && f.captation < 10 && f.caZoneTotal > 50000))
