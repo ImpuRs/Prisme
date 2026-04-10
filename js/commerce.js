@@ -32,6 +32,7 @@ const getKPIsByCanal = (...a) => window.getKPIsByCanal?.(...a);
 
 // ── Nav 4 sous-vues Commerce ─────────────────────────────────────────────
 let _cmTab = 'silencieux';
+let _commerceRafId = 0; // rAF ID pour annuler les rAF en attente au re-render
 
 // ── Secteur dropdown outside click handler (migré depuis omni.js) ─────────
 document.addEventListener('click',function(e){
@@ -60,22 +61,11 @@ function _cmRenderNav(counts) {
 // Chaque case injecte d'abord ses slots HTML, puis appelle la fonction de peuplement.
 // index.html ne contient que les conteneurs d'onglets vides.
 // Pour déplacer un pavé : changer le case ici, rien d'autre.
-function _cmSwitchTab(id) {
-  _cmTab = id;
-  _S._cmTab = id;
-  const nav = document.getElementById('cm-tab-nav');
-  const content = document.getElementById('cm-tab-content');
-  if (!nav || !content) return;
+function _cmInjectSlot(id, content) {
   switch (id) {
-    case 'silencieux':
-      content.innerHTML = `<div id="terrSilencieux"></div>`;
-      break;
-    case 'perdus':
-      content.innerHTML = `<div id="terrPerdus"></div>`;
-      break;
-    case 'potentiels':
-      content.innerHTML = `<div id="terrACapter"></div>`;
-      break;
+    case 'silencieux': content.innerHTML = `<div id="terrSilencieux"></div>`; break;
+    case 'perdus':     content.innerHTML = `<div id="terrPerdus"></div>`; break;
+    case 'potentiels': content.innerHTML = `<div id="terrACapter"></div>`; break;
     case 'canal':
       content.innerHTML = `<div id="terrCanalBlock" style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
         <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2)">
@@ -83,21 +73,42 @@ function _cmSwitchTab(id) {
           <p id="canalAgenceSubtitle" style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:2px">CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé</p>
         </div>
         <div id="canalAgenceBlock" class="p-3"></div>
-      </div>`;
-      break;
+      </div>`; break;
     case 'omni':
-      content.innerHTML = `<div style="background:linear-gradient(135deg,rgba(20,184,166,0.12),rgba(13,148,136,0.06));border:1px solid rgba(20,184,166,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-        <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2)">
-          <h3 style="font-weight:800;font-size:13px;color:#2dd4bf;display:flex;align-items:center;gap:6px">🎯 Captation agence</h3>
-        </div>
-        <div class="p-3"><div id="omniCaptationBlock"></div><div id="omniCaptationClients" class="hidden mt-3"></div></div>
-      </div>`;
-      break;
+      content.innerHTML = `<div id="omniCaptationBlock"></div><div id="omniCaptationClients" class="hidden"></div>`; break;
   }
-  _buildCockpitClient(); // calcule _cockpitExportData avec les filtres actifs
+}
+
+function _cmRenderContent(id) {
+  if (id === 'silencieux' || id === 'perdus' || id === 'potentiels') _renderCockpitTables();
   if (id === 'canal') window.renderCanalAgence?.();
-  if (id === 'omni') { window._renderCaptationBlock?.(); }
-  nav.innerHTML = _cmRenderNav(_cmComputeCounts()); // badges à jour après calcul
+  if (id === 'omni') window._renderCaptationBlock?.();
+}
+
+// Changement d'onglet complet (user click) — recalcule les données
+function _cmSwitchTab(id) {
+  _cmTab = id;
+  _S._cmTab = id;
+  _S._cmPages = {};
+  const nav = document.getElementById('cm-tab-nav');
+  const content = document.getElementById('cm-tab-content');
+  if (!nav || !content) return;
+  _cmInjectSlot(id, content);
+  _buildCockpitClient();
+  _cmRenderContent(id);
+  nav.innerHTML = _cmRenderNav(_cmComputeCounts());
+}
+
+// Rendu seul (pas de recalcul) — utilisé au chargement initial
+function _cmSwitchTabRenderOnly(id) {
+  _cmTab = id;
+  _S._cmTab = id;
+  const nav = document.getElementById('cm-tab-nav');
+  const content = document.getElementById('cm-tab-content');
+  if (!nav || !content) return;
+  _cmInjectSlot(id, content);
+  _cmRenderContent(id);
+  nav.innerHTML = _cmRenderNav(_cmComputeCounts());
 }
 
 function _cmComputeCounts() {
@@ -114,8 +125,19 @@ function _cmComputeCounts() {
 const _DIR_LABELS = { '-': 'Second Œuvre', 'DVM': 'Maintenance', 'DVI': 'DVI Industrie', 'DVP': 'DVP Plomberie' };
 
 // ── Vue territoire en cascade (Direction → Métier → Clients, tout en DOM) ──
+let _chalDirHtml = '';
+let _chalDirKey = '';
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
+  // Cache : canal-invariant, ne dépend que des filtres sidebar chalandise
+  const _key = `${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}`;
+  if (_chalDirKey === _key && _chalDirHtml) {
+    // Ne ré-injecter que si le DOM a été détruit (renderCommerceTab recrée le skeleton)
+    if (blkEl.dataset.cdk === _key) return; // déjà dans le DOM, skip
+    blkEl.innerHTML = _chalDirHtml;
+    blkEl.dataset.cdk = _key;
+    return;
+  }
   const all = [...(_S.chalandiseData||new Map()).entries()]
     .filter(([cc]) => _passesAllFilters(cc))
     .map(([cc, info]) => ({ cc, ...info }));
@@ -227,6 +249,9 @@ function _buildChalDirBlock(blkEl) {
     </tr></thead>
     <tbody>${html||`<tr><td colspan="9" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
   </table></div>`;
+  _chalDirHtml = blkEl.innerHTML;
+  _chalDirKey = _key;
+  blkEl.dataset.cdk = _key;
 }
 
 // ── Toggles cascade ────────────────────────────────────────────────────────
@@ -459,7 +484,8 @@ window._ccc = (di,mi,ci) => {
     if(_degBanner){const _showBanner=!!_cg&&!_kpi.capabilities.hasTerritoire&&hasData;_degBanner.classList.toggle('hidden',!_showBanner);}}
 
     // Show chalandise overview + left panel filters if chalandise loaded
-    _buildChalandiseOverview();
+    // NB: _buildChalandiseOverview() n'est PAS appelé ici — c'est le caller qui l'orchestre
+    _buildChalandiseOverviewInner();
     const chalFilBlk=document.getElementById('terrChalandiseFiltersBlock');
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
@@ -471,7 +497,8 @@ window._ccc = (di,mi,ci) => {
     // Chalandise chargée → _buildChalDirBlock remplace par vue drill client
     {const _dc=document.getElementById('terrDirectionContainer');if(_dc){if(hasChal||hasTerr){
       if(!_dc.querySelector('#terrDirectionTable')){_dc.innerHTML=`<div style="background:linear-gradient(135deg,rgba(139,92,246,0.13),rgba(109,40,217,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px"><details><summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px">🎯 Vue par Direction commerciale</h3></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr class="text-[10px]"><th class="py-1.5 px-3 text-left">Direction</th><th class="py-1.5 px-3 text-right">CA Le Terrain</th><th class="py-1.5 px-3 text-center">Nb articles</th><th class="py-1.5 px-3 text-center">✅</th><th class="py-1.5 px-3 text-center">⚠️</th><th class="py-1.5 px-3 text-center">❌</th><th class="py-1.5 px-3">Couverture</th></tr></thead><tbody id="terrDirectionTable"></tbody></table></div></details></div>`;}
-      if(hasChal)_buildChalDirBlock(_dc);
+      // chalDirBlock différé : 6.7MB HTML → ne pas bloquer le rendu principal
+      if(hasChal) setTimeout(()=>{const dc2=document.getElementById('terrDirectionContainer');if(dc2)_buildChalDirBlock(dc2);},0);
     }else{_dc.innerHTML='';}}}
 
     _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
@@ -518,12 +545,15 @@ window._ccc = (di,mi,ci) => {
       return; // ← cache hit : ~0ms vs ~15-80ms pour un re-rendu complet
     }
 
+    // Cache local : évite 3× _filterByPeriode sur ~250k lignes
+    const _allFilteredLines = DataStore.filteredTerritoireLines;
+
     // Global KPI stats — always from ALL lines (for croisement summary, lignes KPI)
     let caTotal=0,specialCA=0;
     const blSetAll=new Set();
     const clientsMap={};
     const dirSet=new Set();
-    for(const l of DataStore.filteredTerritoireLines){ // [Adapter Étape 5] — canal-invariant total, période filtrée
+    for(const l of _allFilteredLines){
       caTotal+=l.ca;blSetAll.add(l.bl);
       if(l.isSpecial)specialCA+=l.ca;
       else dirSet.add(l.direction);
@@ -561,7 +591,7 @@ window._ccc = (di,mi,ci) => {
     if(_contribTitleEl){if(_canalGlobal)_contribTitleEl.innerHTML='🔗 Contributeurs agence <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">🌐 tous canaux</span>';else _contribTitleEl.textContent='🔗 Contributeurs agence';}
 
     const setSafe=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-    setSafe('terrKpiLignes',DataStore.filteredTerritoireLines.length.toLocaleString('fr')); // filtrées par période
+    setSafe('terrKpiLignes',_allFilteredLines.length.toLocaleString('fr')); // filtrées par période
     setSafe('terrKpiLignesSub',blSetAll.size.toLocaleString('fr')+' BL');
     // CA Total KPI: show canal-filtered value + note when filter active
     setSafe('terrKpiCATotal',formatEuro(caTotalFiltered));
@@ -584,7 +614,7 @@ window._ccc = (di,mi,ci) => {
 
     // Local filter — specials always excluded from direction/top100/rayon views
     const selectedSecteurs=getSelectedSecteurs();
-    const linesFiltered=DataStore.filteredTerritoireLines.filter(l=>{
+    const linesFiltered=_allFilteredLines.filter(l=>{
       if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
       if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
@@ -667,8 +697,8 @@ window._ccc = (di,mi,ci) => {
     _S._insights.absentsTerr=absentsTerr;_S._insights.extClients=extClients;_S._insights.hasTerr=true;
     renderInsightsBanner();
 
-    // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path)
-    if(_S.chalandiseReady){const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
+    // _buildChalDirBlock réactif aux filtres sidebar (hasTerr path) — différé (6.7MB HTML)
+    if(_S.chalandiseReady) setTimeout(()=>{const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);},0);
 
     // ── Stockage cache territoire ─────────────────────────────────────────
     // Captures les innerHTML APRÈS le rendu complet
@@ -897,7 +927,9 @@ function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPane
 function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
 function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
 function _onCommercialFilter(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';if(_S._selectedCommercial===val)_buildChalandiseOverview();}
-function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_buildChalandiseOverview();}
+function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_updateDistQuickBtns(v);_buildChalandiseOverview();}
+function _setDistanceQuick(km){_S._distanceMaxKm=km;const sl=document.getElementById('distKmSlider');if(sl)sl.value=km;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=km>0?km+'km':'∞';_updateDistQuickBtns(km);_buildChalandiseOverview();}
+function _updateDistQuickBtns(activeKm){document.querySelectorAll('.dist-quick-btn').forEach(b=>{const v=parseInt(b.textContent)||0;const isActive=(v===activeKm)||(activeKm===0&&b.textContent.includes('Off'));b.style.background=isActive?'var(--c-action)':'';b.style.color=isActive?'white':'';b.style.borderColor=isActive?'var(--c-action)':'';});}
 function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
   const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
@@ -1157,13 +1189,35 @@ function _renderCaptationClients(cat,filterKey){
   const labels={captes:'Captés',potentiels:'Potentiels — jamais venus en agence',fideles:'Fidèles hors zone'};
   const colors={captes:'var(--c-ok)',potentiels:'var(--c-danger)',fideles:'#a78bfa'};
   const showRatio=(filterKey==='captes');
-  let rows='';
-  for(const c of cat.clients){
-    const ratioBar=showRatio?`<td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="w-12 h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.1)"><div style="width:${Math.min(c.ratio,100)}%;background:${c.ratio>60?'var(--c-ok)':c.ratio>30?'var(--c-caution)':'var(--c-danger)'};height:100%"></div></div><span class="text-[10px] font-bold ${c.ratio>60?'c-ok':c.ratio>30?'c-caution':'c-danger'}">${c.ratio}%</span></div></td>`:'';
-    rows+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold text-[11px]">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(c.metier||'—')}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(c.commercial||'—')}</td><td class="py-1.5 px-2 text-right font-bold text-[11px] c-ok">${c.caMag>0?formatEuro(c.caMag):'—'}</td><td class="py-1.5 px-2 text-right font-bold text-[11px] c-caution">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>${ratioBar}</tr>`;
+  const PAGE=20;
+  if(!_S._cmPages)_S._cmPages={};
+  const listId='capt-'+filterKey;
+  const page=_S._cmPages[listId]||0;
+  const total=cat.clients.length;
+  const totalPages=Math.ceil(total/PAGE)||1;
+  const start=page*PAGE;
+  const slice=cat.clients.slice(start,start+PAGE);
+
+  let html=`<div class="mt-3"><div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px"><span style="font-size:12px;font-weight:800;color:${colors[filterKey]||'#22d3ee'}">👤 ${labels[filterKey]||filterKey}</span><span class="text-[10px] t-disabled">${total} clients</span></div>`;
+  html+=`<div class="overflow-x-auto"><table class="min-w-full text-[11px]">`;
+  html+=`<thead class="sticky top-0 s-card" style="z-index:1"><tr class="text-[10px] font-bold t-secondary">`;
+  html+=`<th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Leg</th>`;
+  if(showRatio)html+=`<th class="py-1.5 px-2 text-center">Captation</th>`;
+  html+=`</tr></thead><tbody>`;
+  for(const c of slice){
+    const ratioCell=showRatio?`<td class="py-1.5 px-2 text-center"><span class="text-[10px] font-bold ${c.ratio>60?'c-ok':c.ratio>30?'c-caution':'c-danger'}">${c.ratio}%</span></td>`:'';
+    html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier||'—')}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.commercial||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-ok">${c.caMag>0?formatEuro(c.caMag):'—'}</td><td class="py-1.5 px-2 text-right font-bold c-caution">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>${ratioCell}</tr>`;
   }
-  const ratioTh=showRatio?'<th class="py-1.5 px-2 text-left">Captation</th>':'';
-  el.innerHTML=`<details open style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden"><summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:12px;color:${colors[filterKey]||'#22d3ee'}">👤 ${labels[filterKey]||filterKey} <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${cat.clients.length})</span></h3><span class="acc-arrow" style="color:#22d3ee">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Legallais</th>${ratioTh}</tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  html+=`</tbody></table></div>`;
+  if(totalPages>1){
+    html+=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">`;
+    html+=`<button onclick="_cmPage('${listId}',-1);_renderCaptationBlock()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page<=0?' opacity-30 pointer-events-none':''}">&larr; Préc</button>`;
+    html+=`<span class="text-[10px] t-secondary">${start+1}–${Math.min(start+PAGE,total)} sur ${total}</span>`;
+    html+=`<button onclick="_cmPage('${listId}',1);_renderCaptationBlock()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page>=totalPages-1?' opacity-30 pointer-events-none':''}">Suiv &rarr;</button>`;
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
 }
 
 function _renderOmniSegmentClients(){
@@ -1183,44 +1237,60 @@ function _renderOmniSegmentClients(){
   clients.sort((a,b)=>b.caPDV-a.caPDV);
   if(!clients.length){el.classList.add('hidden');el.innerHTML='';return;}
   el.classList.remove('hidden');
-  const isOpen=el.dataset.open==='1';
-  let rows='';
-  for(const c of clients){
-    rows+=`<tr class="border-t b-light hover:s-card-alt cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')">
-      <td class="py-1.5 px-2 font-semibold t-primary max-w-[160px] truncate" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
-      <td class="py-1.5 px-2 t-secondary text-[11px] max-w-[100px] truncate">${escapeHtml(c.metier)}</td>
-      <td class="py-1.5 px-2 t-secondary text-[11px] max-w-[120px] truncate" title="${escapeHtml(c.com)}">${escapeHtml(c.com)}</td>
-      <td class="py-1.5 px-2 text-right font-bold">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${c.caHors>0?formatEuro(c.caHors):'—'}</td>
-      <td class="py-1.5 px-2 text-center t-secondary">${c.nbCanaux}</td>
-    </tr>`;
+  const PAGE=20;
+  if(!_S._cmPages)_S._cmPages={};
+  const listId='omni-seg';
+  const page=_S._cmPages[listId]||0;
+  const total=clients.length;
+  const totalPages=Math.ceil(total/PAGE)||1;
+  const start=page*PAGE;
+  const slice=clients.slice(start,start+PAGE);
+
+  let html=`<div class="mt-3"><div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px"><span style="font-size:12px;font-weight:800;color:#22d3ee">👤 Clients — ${escapeHtml(segLabel)}</span><span class="text-[10px] t-disabled">${total} clients</span></div>`;
+  html+=`<div class="overflow-x-auto"><table class="min-w-full text-[11px]">`;
+  html+=`<thead class="sticky top-0 s-card" style="z-index:1"><tr class="text-[10px] font-bold t-secondary">`;
+  html+=`<th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-right">CA hors agence</th><th class="py-1.5 px-2 text-center">Canaux</th>`;
+  html+=`</tr></thead><tbody>`;
+  for(const c of slice){
+    html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.com)}</td><td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td><td class="py-1.5 px-2 text-right font-bold c-caution">${c.caHors>0?formatEuro(c.caHors):'—'}</td><td class="py-1.5 px-2 text-center t-secondary">${c.nbCanaux}</td></tr>`;
   }
-  el.innerHTML=`<details ${isOpen?'open':''} style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px" ontoggle="document.getElementById('omniSegmentClientsBlock').dataset.open=this.open?'1':'0'">
-    <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none">
-      <h3 style="font-weight:800;font-size:12px;color:#22d3ee">👤 Clients — ${escapeHtml(segLabel)} <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${clients.length})</span></h3>
-      <span class="acc-arrow" style="color:#22d3ee">▶</span>
-    </summary>
-    <div class="overflow-x-auto"><table class="min-w-full text-xs">
-      <thead class="s-panel-inner t-inverse"><tr>
-        <th class="py-1.5 px-2 text-left">Client</th>
-        <th class="py-1.5 px-2 text-left">Métier</th>
-        <th class="py-1.5 px-2 text-left">Commercial</th>
-        <th class="py-1.5 px-2 text-right">CA PDV</th>
-        <th class="py-1.5 px-2 text-right">CA hors agence</th>
-        <th class="py-1.5 px-2 text-center">Canaux</th>
-      </tr></thead><tbody>${rows}</tbody>
-    </table></div>
-  </details>`;
+  html+=`</tbody></table></div>`;
+  if(totalPages>1){
+    html+=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">`;
+    html+=`<button onclick="_cmPage('${listId}',-1);_renderOmniSegmentClients()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page<=0?' opacity-30 pointer-events-none':''}">&larr; Préc</button>`;
+    html+=`<span class="text-[10px] t-secondary">${start+1}–${Math.min(start+PAGE,total)} sur ${total}</span>`;
+    html+=`<button onclick="_cmPage('${listId}',1);_renderOmniSegmentClients()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page>=totalPages-1?' opacity-30 pointer-events-none':''}">Suiv &rarr;</button>`;
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  el.innerHTML=html;
 }
 
+function _buildChalandiseOverviewData(){
+  // Partie données pure de l'overview — sans re-trigger les sous-onglets
+  _buildChalandiseOverviewInner();
+}
 function _buildChalandiseOverview(){
-  // Toujours rafraîchir le sous-onglet actif, même si terrChalandiseOverview absent
+  // Rafraîchir le sous-onglet actif + overview data
   _buildOverviewFilterChips();
   if (document.getElementById('cm-tab-nav')) {
-    window._cmSwitchTab?.(_cmTab);
+    // Recalcul complet (filtres ont changé)
+    _buildCockpitClient();
+    _cmRenderContent(_cmTab);
+    const nav = document.getElementById('cm-tab-nav');
+    if(nav) nav.innerHTML = _cmRenderNav(_cmComputeCounts());
   } else if (document.getElementById('tabClients')) {
     renderMesClients();
   }
+  _buildChalandiseOverviewInner();
+}
+// _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner
+let _bcoiCacheKey='';
+function _buildChalandiseOverviewInner(force){
+  // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
+  const _key=`${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
+  if(!force&&_bcoiCacheKey===_key)return;
+  _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
   // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
   const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
@@ -1309,8 +1379,8 @@ function _buildChalandiseOverview(){
     bar.style.cssText='display:block;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,rgba(15,23,42,0.97),rgba(30,27,75,0.95));border:1px solid rgba(139,92,246,0.3);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.35),0 0 0 1px rgba(139,92,246,0.08)';
     bar.classList.remove('hidden');
   }}
-  // Vue direction cascade — toujours mise à jour avant le return terrChalandiseOverview
-  {const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);}
+  // Vue direction cascade — différé (6.7MB HTML ne doit pas bloquer le rendu)
+  setTimeout(()=>{const _dc=document.getElementById('terrDirectionContainer');if(_dc)_buildChalDirBlock(_dc);},0);
   // terrChalandiseOverview — table seulement si dans le DOM
   const blk=document.getElementById('terrChalandiseOverview');
   if(!blk)return;
@@ -1661,7 +1731,11 @@ function _buildDegradedCockpit(){
   el.innerHTML=html;
 }
 
-function _buildCockpitClient(){
+let _bccLastRun=0;
+function _buildCockpitClient(force){
+  const now=performance.now();
+  if(!force&&now-_bccLastRun<100){_renderCockpitTables();return;} // debounce 100ms — rendu seul
+  _bccLastRun=now;
   const silEl=document.getElementById('terrSilencieux');
   const perduEl=document.getElementById('terrPerdus');
   const capEl=document.getElementById('terrACapter');
@@ -1719,9 +1793,10 @@ function _buildCockpitClient(){
     const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,ca2025:caLeg,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
 
     // 1. Silencieux : 30-60j sans commande
-    if(daysSince!==null&&daysSince>30&&daysSince<=60&&(caPDVN>0||caLeg>0||_useByCanal)){silencieux.push(c);continue;}
+    const _caOk=_useMagOnly?caPDVN>0:(caPDVN>0||caLeg>0||_useByCanal);
+    if(daysSince!==null&&daysSince>30&&daysSince<=60&&_caOk){silencieux.push(c);continue;}
     // 2. Perdus : 60-180j sans commande
-    if(daysSince!==null&&daysSince>60&&daysSince<=180&&(caPDVN>0||caLeg>0||_useByCanal)){perdus.push(c);continue;}
+    if(daysSince!==null&&daysSince>60&&daysSince<=180&&_caOk){perdus.push(c);continue;}
     // 3. Potentiels : jamais venus au comptoir
     if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
@@ -1731,60 +1806,96 @@ function _buildCockpitClient(){
   const _classifPrio={'FID Pot+':0,'OCC Pot+':1,'FID Pot-':2,'OCC Pot-':3,'NC':4};
   jamaisVenus.sort((a,b)=>(_classifPrio[a.classification]??5)-(_classifPrio[b.classification]??5)||(b.ca2025||0)-(a.ca2025||0));
   _S._cockpitExportData={silencieux,perdus,jamaisVenus};
-  // ── Helpers ──
+  _renderCockpitTables();
+}
+
+// ── Rendu pur (séparé du calcul) — rapide, utilisé aussi par pagination ──
+const _CM_PAGE_SIZE=20;
+
+const _classifBadge=cl=>{
+  const m={'FID Pot+':'background:rgba(16,185,129,0.2);color:#34d399','OCC Pot+':'background:rgba(59,130,246,0.2);color:#60a5fa','FID Pot-':'background:rgba(107,114,128,0.2);color:#9ca3af','OCC Pot-':'background:rgba(107,114,128,0.15);color:#9ca3af'};
+  return cl&&m[cl]?`<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:9999px;${m[cl]}">${cl}</span>`:'<span class="t-disabled text-[9px]">—</span>';
+};
+const _daysBadge=(d,threshold)=>{
+  if(d==null)return'<span class="t-disabled">—</span>';
+  const danger=d>threshold;
+  return`<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:9999px;${danger?'background:rgba(248,113,113,0.15);color:#f87171':'background:rgba(251,191,36,0.12);color:#fbbf24'}">${d}j</span>`;
+};
+
+function _directTable(clients,listId,dayThreshold){
+  if(!_S._cmPages)_S._cmPages={};
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
-  function _clientCard(c,reason,scoreColor){
-    const lastOrderFmt=c._lastOrderDate?`Dernière commande : ${fmtDate(c._lastOrderDate)}`:'';
-    const daysBadge=c._daysSince>30?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(248,113,113,0.12);color:var(--c-danger)">⏰ ${c._daysSince}j</span>`:'';
-    const caMagFmt=c.caPDVN>0?`${formatEuro(c.caPDVN)} MAG`:'—';
-    const caLegFmt=c.ca2025>0?`<span style="font-size:var(--fs-xs);font-weight:600;color:var(--c-caution)">${formatEuro(c.ca2025)} Legallais</span>`:'';
-    const _classifColors={'FID Pot+':'background:rgba(16,185,129,0.2);color:#34d399','OCC Pot+':'background:rgba(59,130,246,0.2);color:#60a5fa','FID Pot-':'background:rgba(107,114,128,0.2);color:#9ca3af','OCC Pot-':'background:rgba(107,114,128,0.15);color:#9ca3af'};
-    const classifBadge=c.classification&&_classifColors[c.classification]?`<span style="font-size:var(--fs-2xs);font-weight:700;padding:2px 6px;border-radius:9999px;${_classifColors[c.classification]}">${c.classification}</span>`:'';
-    const meta=[c.commercial?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${escapeHtml(c.commercial)}</span>`:'',lastOrderFmt?`<span style="font-size:var(--fs-xs);color:var(--t-disabled)">${lastOrderFmt}</span>`:''].filter(Boolean).join('<span style="color:var(--b-default);margin:0 4px">·</span>');
-    return`<div class="rounded-lg border s-card hover:i-info-bg cursor-pointer" style="padding:10px var(--sp-3,12px);border-bottom:1px solid var(--b-light)" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><div class="flex items-center justify-between gap-2"><span style="font-size:var(--fs-base);font-weight:600;color:var(--t-primary)">${escapeHtml(c.nom)}</span><span class="flex items-center gap-1.5">${classifBadge}${daysBadge}</span></div><div class="flex items-center gap-3 mt-1 flex-wrap"><span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-ok)">${caMagFmt}</span>${caLegFmt}${meta?`<span>${meta}</span>`:''}</div></div>`;
+  const total=clients.length;
+  const totalCALeg=clients.reduce((s,c)=>s+(c.ca2025||0),0);
+  const totalCAMag=clients.reduce((s,c)=>s+(c.caPDVN||0),0);
+  const nbFid=clients.filter(c=>(c.classification||'').startsWith('FID')).length;
+  const nbStrat=clients.filter(c=>c._strat).length;
+  const page=_S._cmPages[listId]||0;
+  const totalPages=Math.ceil(total/_CM_PAGE_SIZE)||1;
+  const start=page*_CM_PAGE_SIZE;
+  const slice=clients.slice(start,start+_CM_PAGE_SIZE);
+
+  // ── Summary bandeau ──
+  let html=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;margin-bottom:6px">`;
+  if(totalCALeg>0)html+=`<span class="text-[11px] font-bold c-caution">${formatEuro(totalCALeg)} CA Leg</span><span class="t-disabled text-[9px]">·</span>`;
+  if(totalCAMag>0)html+=`<span class="text-[11px] font-bold c-ok">${formatEuro(totalCAMag)} CA MAG</span><span class="t-disabled text-[9px]">·</span>`;
+  if(nbFid)html+=`<span class="text-[11px] font-bold" style="color:#34d399">${nbFid} FID</span><span class="t-disabled text-[9px]">·</span>`;
+  if(nbStrat)html+=`<span class="text-[11px] font-bold c-caution">${nbStrat} ⭐ stratégiques</span>`;
+  html+=`<button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button>`;
+  html+=`</div>`;
+
+  if(!total){html+=`<p class="text-xs t-disabled py-6 text-center">${emptyMsg}</p>`;return html;}
+
+  // ── Table directe ──
+  html+=`<div class="overflow-x-auto"><table class="min-w-full text-[11px]">`;
+  html+=`<thead class="sticky top-0 s-card" style="z-index:1"><tr class="text-[10px] font-bold t-secondary">`;
+  html+=`<th class="py-1.5 px-2 text-left">Client</th>`;
+  html+=`<th class="py-1.5 px-2 text-left">Métier</th>`;
+  html+=`<th class="py-1.5 px-2 text-center">Classif</th>`;
+  html+=`<th class="py-1.5 px-2 text-right">CA MAG</th>`;
+  html+=`<th class="py-1.5 px-2 text-right">CA Leg</th>`;
+  html+=`<th class="py-1.5 px-2 text-center">Silence</th>`;
+  html+=`<th class="py-1.5 px-2 text-left">Commercial</th>`;
+  html+=`<th class="py-1.5 px-2 text-left">Ville</th>`;
+  html+=`</tr></thead><tbody>`;
+
+  for(const c of slice){
+    const rowBg=c._daysSince!=null&&c._daysSince>dayThreshold?'background:rgba(248,113,113,0.06)':'';
+    html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" style="${rowBg}" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')">`;
+    html+=`<td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[9px]" title="Métier stratégique">⭐</span>':''}</td>`;
+    html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td>`;
+    html+=`<td class="py-1.5 px-2 text-center">${_classifBadge(c.classification)}</td>`;
+    html+=`<td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>`;
+    html+=`<td class="py-1.5 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>`;
+    html+=`<td class="py-1.5 px-2 text-center">${_daysBadge(c._daysSince,dayThreshold)}</td>`;
+    html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td>`;
+    html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td>`;
+    html+=`</tr>`;
   }
-  function _fullTable(clients,caField,listId){
-    let t=`<div id="${listId}" style="display:none" class="mt-3 overflow-x-auto"><table class="min-w-full text-[11px]"><thead class="sticky top-0 s-card/90 font-bold t-secondary text-[10px]"><tr><th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Legallais</th><th class="py-1.5 px-2 text-left">Ville</th></tr></thead><tbody>`;
-    for(const c of clients){t+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')"><td class="py-1 px-2"><span class="font-mono t-disabled text-[10px]">${escapeHtml(c.code)}</span> <span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[10px]" title="Métier stratégique">⭐</span>':''}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td><td class="py-1 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td><td class="py-1 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td></tr>`;}
-    t+=`</tbody></table></div>`;return t;
-  }
-  // gradSpec : {bg, hdr, border, color, badgeBg}
-  const _GRAD={
-    amber:{bg:'background:linear-gradient(135deg,rgba(217,119,6,0.13),rgba(180,83,9,0.06))',hdr:'background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12))',border:'border:1px solid rgba(217,119,6,0.3);border-bottom:1px solid rgba(217,119,6,0.2)',color:'#fbbf24',badgeBg:'rgba(217,119,6,0.7)'},
-    rouge:{bg:'background:linear-gradient(135deg,rgba(220,38,38,0.13),rgba(185,28,28,0.06))',hdr:'background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(185,28,28,0.12))',border:'border:1px solid rgba(220,38,38,0.3);border-bottom:1px solid rgba(220,38,38,0.2)',color:'#f87171',badgeBg:'rgba(220,38,38,0.7)'},
-    blue:{bg:'background:linear-gradient(135deg,rgba(59,130,246,0.13),rgba(37,99,235,0.06))',hdr:'background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(37,99,235,0.12))',border:'border:1px solid rgba(59,130,246,0.3);border-bottom:1px solid rgba(59,130,246,0.2)',color:'#60a5fa',badgeBg:'rgba(59,130,246,0.7)'},
-  };
-  function renderBlock(title,emoji,gradKey,_unused,scoreColor,clients,caField,raisonFn,listId,topN=10){
-    const g=_GRAD[gradKey]||_GRAD.blue;
-    const total=clients.length;
-    const arrow='▼';
-    if(!total)return`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px"><div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px;cursor:pointer" class="select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" style="font-size:10px;color:rgba(255,255,255,0.4);width:12px">${arrow}</span><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:9999px;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.5)">0</span></div><div id="${listId}-body"><p class="text-xs t-disabled px-4 pb-4 pt-3">${emptyMsg}</p></div></div>`;
-    let html=`<div style="${g.bg};${g.border};border-radius:14px;overflow:hidden;margin-bottom:12px">`;
-    html+=`<div style="${g.hdr};padding:14px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer" class="select-none" onclick="_cockpitToggleSection('${listId}')"><span id="${listId}-arrow" style="font-size:10px;color:rgba(255,255,255,0.4);width:12px">${arrow}</span><span class="text-lg">${emoji}</span><h4 style="font-weight:800;font-size:13px;color:${g.color}">${title}</h4><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:9999px;background:${g.badgeBg};color:white">${total}</span><button onclick="event.stopPropagation();exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button></div>`;
-    html+=`<div id="${listId}-body">`;
-    html+=`<div class="space-y-2 px-4 py-3">`;
-    for(const c of clients.slice(0,topN))html+=_clientCard(c,raisonFn(c),scoreColor);
+  html+=`</tbody></table></div>`;
+
+  // ── Pagination ──
+  if(totalPages>1){
+    html+=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0;margin-top:4px">`;
+    html+=`<button onclick="_cmPage('${listId}',-1)" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page<=0?' opacity-30 pointer-events-none':''}">&larr; Préc</button>`;
+    html+=`<span class="text-[10px] t-secondary">${start+1}–${Math.min(start+_CM_PAGE_SIZE,total)} sur ${total}</span>`;
+    html+=`<button onclick="_cmPage('${listId}',1)" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page>=totalPages-1?' opacity-30 pointer-events-none':''}">Suiv &rarr;</button>`;
     html+=`</div>`;
-    if(total>topN){html+=`<div class="px-4 pb-2"><button id="${listId}-btn" class="mt-3 text-[11px] font-bold c-action hover:underline" onclick="_cockpitToggleFullList('${listId}')">▼ Voir tous les ${total} clients →</button></div>`;html+=_fullTable(clients,caField,listId);}
-    html+=`</div></div>`;
-    return html;
   }
-  // ── Reason functions (canal-aware labels) ──
-  const _canalLabel=_useMagOnly?'Magasin':_useByCanal?_canal:'tous canaux';
-  function _silRaison(c){
-    const parts=[];if(c.caPDVN>0)parts.push(formatEuro(c.caPDVN)+' MAG');if(c.ca2025>0)parts.push(formatEuro(c.ca2025)+' Legallais');
-    const caStr=parts.length?parts.join(' · '):'—';
-    return c._daysSince>45?`Silencieux depuis ${c._daysSince}j — à relancer rapidement (${caStr})`:`${c._daysSince}j sans commande — à surveiller (${caStr})`;
-  }
-  function _perduRaison(c){const parts=[];if(c.caPDVN>0)parts.push(formatEuro(c.caPDVN)+' MAG');if(c.ca2025>0)parts.push(formatEuro(c.ca2025)+' Legallais');return`${c._daysSince}j sans commande ${_canalLabel} — ${parts.length?parts.join(' · '):'ancien client à reconquérir'}`;}
-  function _capRaison(c){return c.ca2025>0?`CA Legallais ${formatEuro(c.ca2025)} — jamais passé au comptoir`:`Client zone — jamais passé au comptoir`;}
-  // ── Render into 3 separate blocks ──
-  const _silTitle=`Silencieux — 30 à 60 jours sans commande ${_canalLabel}`;
-  const _perduTitle=`Perdus — 60 à 180 jours sans commande ${_canalLabel}`;
-  if(silEl)silEl.innerHTML=renderBlock(_silTitle,'⏰','amber','','c-caution',silencieux,'ca2025',_silRaison,'cockpit-sil-full');
-  if(perduEl)perduEl.innerHTML=renderBlock(_perduTitle,'🔴','rouge','','c-danger',perdus,'ca2025',_perduRaison,'cockpit-perdu-full');
-  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=renderBlock('Potentiels — Jamais venus au comptoir','🎯','blue','','c-action',jamaisVenus,'ca2025',_capRaison,'cockpit-cap-full');}}
+  return html;
+}
+
+function _renderCockpitTables(){
+  const d=_S._cockpitExportData;if(!d)return;
+  const silEl=document.getElementById('terrSilencieux');
+  const perduEl=document.getElementById('terrPerdus');
+  const capEl=document.getElementById('terrACapter');
+  const _canal=_S._globalCanal||'';
+  const _useByCanal=_canal&&_canal!=='MAGASIN';
+  if(silEl)silEl.innerHTML=_directTable(d.silencieux||[],'cockpit-sil-full',45);
+  if(perduEl)perduEl.innerHTML=_directTable(d.perdus||[],'cockpit-perdu-full',120);
+  if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=_directTable(d.jamaisVenus||[],'cockpit-cap-full',999);}}
 }
 function _setCrossFilter(status){
   _S._selectedCrossStatus=status;
@@ -2046,19 +2157,30 @@ function renderCommerceTab() {
   // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
   document.getElementById('globalCanalFilter')?.classList.remove('hidden');
   document.getElementById('terrFamilleFilter')?.classList.add('hidden');
-  const counts = _cmComputeCounts();
   const el = document.getElementById('tabCommerce');
   if (!el) return;
+  // 1. Layout squelette — rapide
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
-    <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(counts)}</div>
+    <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div>
     <div id="cm-tab-content" class="pt-3"></div>
     <div id="terrOmniBlock" class="mt-4">
       <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
     </div>`;
-  _buildChalandiseOverview();
-  window.renderOmniContent?.();
-  renderTerritoireTab();
+  // 2. Calcul cockpit une seule fois → peuple _cockpitExportData
+  _buildCockpitClient();
+  // 3. Injecte le contenu de l'onglet actif (rendu seul, sans recalcul)
+  _cmSwitchTabRenderOnly(keepTab);
+  // 4. KPI bar chalandise + territoire (différé pour ne pas bloquer)
+  if (_commerceRafId) cancelAnimationFrame(_commerceRafId);
+  _commerceRafId = requestAnimationFrame(() => {
+    _commerceRafId = 0;
+    _buildOverviewFilterChips();
+    _buildChalandiseOverviewData();
+    window.renderOmniContent?.();
+    // renderTerritoireTab seulement si les blocs territoire sont visibles (fichier BL chargé)
+    if(_S.territoireLines?.length) renderTerritoireTab();
+  });
 }
 
 // ── Window expositions ──────────────────────────────────────────────────
@@ -2066,6 +2188,12 @@ window.renderTerritoireTab        = renderTerritoireTab;
 window._renderPDVTab              = renderMesClients;
 window.renderCommerceTab          = renderCommerceTab;
 window._cmSwitchTab               = _cmSwitchTab;
+window._cmPage = function(listId, dir) {
+  if (!_S._cmPages) _S._cmPages = {};
+  _S._cmPages[listId] = (_S._cmPages[listId] || 0) + dir;
+  if (_S._cmPages[listId] < 0) _S._cmPages[listId] = 0;
+  _renderCockpitTables(); // rendu seul, pas de recalcul
+};
 window._renderHorsZone            = _renderHorsZone;
 window.computeTerritoireKPIs      = computeTerritoireKPIs;
 window.computeClientsKPIs         = computeClientsKPIs;
@@ -2087,6 +2215,7 @@ window._toggleDirectionDropdown   = _toggleDirectionDropdown;
 window._toggleStrategiqueFilter   = _toggleStrategiqueFilter;
 window._onCommercialFilter        = _onCommercialFilter;
 window._onDistanceSlider          = _onDistanceSlider;
+window._setDistanceQuick          = _setDistanceQuick;
 window._onTerrClientSearch        = _onTerrClientSearch;
 window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;

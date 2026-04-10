@@ -261,6 +261,7 @@ _S._bufS = null;                    // ArrayBuffer stock — conservé pour refi
 _S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
 _S._livraisonsLoading = false;      // guard anti-appels concurrents parseLivraisons
 _S._chalandiseLoading = false;      // guard anti-appels concurrents parseChalandise
+_S._parsingInProgress = false;      // guard anti-renderAll pendant parsing/restauration
 _S._reseauMissedFamFilter = '';     // filtre famille missed réseau
 _S._reseauMissedPage = 0;           // pagination missed réseau
 _S._reseauMissedShowAll = false;    // mode "voir tout" missed
@@ -287,7 +288,7 @@ _S._rfData = null;             // cache du dernier computeRadarFamille
 // Combine : invalidateCache('tab', 'terr') pour invalider tab + territoire
 export function invalidateCache(...scopes) {
   const all = scopes.length === 0 || scopes.includes('all');
-  if (all || scopes.includes('tab'))   _S._tabRendered = {};
+  if (all || scopes.includes('tab'))   { _S._tabRendered = {}; if (typeof window !== 'undefined') window._invalidateKpiCache?.(); }
   if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; }
   if (all || scopes.includes('bench')) _S._benchCache = null;
 }

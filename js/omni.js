@@ -381,29 +381,30 @@ function _passesAllFilters(cc){
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
   // Lit les structures existantes, zéro re-parsing, zéro modification de finalData.
   // Invariant : finalData (MIN/MAX, ABC/FMR, V) reste stable quelle que soit la valeur de canal.
+  let _kpiCache = new Map(); // cache par canal — invalidé par invalidateCache('tab')
   function getKPIsByCanal(canal) {
     const _c = canal && canal !== 'ALL' ? canal : null;
+    const _key = _c || '';
+    if (_kpiCache.has(_key)) return _kpiCache.get(_key);
     const hasTerritoire = _S.territoireReady||Object.keys(_S.terrDirectionData||{}).length>0||(_S.terrContribByDirection?.size>0);
     const terrLines = _c ? DataStore.filteredTerritoireLines.filter(l => l.canal === _c) : DataStore.filteredTerritoireLines;
-    return {
+    const result = {
       canal: _c || 'ALL',
-      // Stats canal depuis canalAgence (déjà agrégé au parsing, accès O(1))
       canalStats: _c ? (_S.canalAgence[_c] || { bl: 0, ca: 0, caP: 0, caE: 0 }) : _S.canalAgence,
       totalCA: Object.values(_S.canalAgence).reduce((s, v) => s + v.ca, 0),
-      // Lignes territoire filtrées par canal (dérivées de territoireLines, source brute conservée)
       terrLines,
-      // [F1 fix] En mode dégradé (pas de fichier territoire), articleFacts fournit les CA canal
-      // depuis le consommé agence — source différente de territoireLines (agence ≠ omnicanal)
       articleFacts: !hasTerritoire ? _S.articleCanalCA : null,
-      // finalData est un invariant canal — jamais recalculé au changement de filtre
       finalData: DataStore.finalData,
-      // capabilities : permet aux consommateurs d'adapter leur rendu sans hardcoder des vérifications
       capabilities: {
         hasTerritoire,
         hasArticleFacts: _S.articleCanalCA.size > 0,
       },
     };
+    _kpiCache.set(_key, result);
+    return result;
   }
+  // Exposer l'invalidation du cache KPI
+  function _invalidateKpiCache() { _kpiCache = new Map(); }
 
   // ── Segments omnicanaux — affiché au-dessus de Familles à fort achat en ligne ──
   const SEG_LABELS={purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'};
@@ -596,6 +597,7 @@ window.openCanalDrillArticles = openCanalDrillArticles;
 window.closeCanalDrill = closeCanalDrill;
 window.exportCanalDrillCSV = exportCanalDrillCSV;
 window.getKPIsByCanal = getKPIsByCanal;
+window._invalidateKpiCache = _invalidateKpiCache;
 window.computePhantomArticles = computePhantomArticles;
 window._setTerrClientsCanalFilter = _setTerrClientsCanalFilter;
 window._renderSegmentsOmnicanaux  = _renderSegmentsOmnicanaux;
