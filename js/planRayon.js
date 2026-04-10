@@ -2630,7 +2630,7 @@ window._prExportConquete = function(codeFam) {
   const rows = [];
   for (const p of kit.priorities) {
     for (const a of p.items) {
-      rows.push([p.label.replace(/[🏆🎯📦🆕] /,''), a.code, a.libelle, a.sousFam, a.marque,
+      rows.push([p.label, a.code, a.libelle, a.sousFam, a.marque,
         a.role, a.caReseau.toFixed(2), a.caZone.toFixed(2), a.nbClientsZone, a.detention + '%'].join(';'));
     }
   }
@@ -2665,7 +2665,7 @@ window._prCopyConqueteLLM = function(codeFam) {
   for (const p of kit.priorities) {
     if (!p.items.length) continue;
     const caP = p.items.reduce((s, a) => s + a.caReseau, 0);
-    pack += `[${p.label.replace(/[🏆🎯📦🆕] /,'')} — ${p.items.length} refs · ${formatEuro(caP)}]\n`;
+    pack += `[${p.label} — ${p.items.length} refs · ${formatEuro(caP)}]\n`;
     pack += `${p.desc}\n`;
     for (const a of p.items) {
       pack += `  - ${a.code} ${lib(a.code) || a.libelle} · CA réseau ${formatEuro(a.caReseau)} · CA zone ${a.caZone ? formatEuro(a.caZone) : '—'} · ${a.nbClientsZone || 0} cli zone · détention ${a.detention}%\n`;
