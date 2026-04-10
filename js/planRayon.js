@@ -129,6 +129,20 @@ function _prComputeRoles(codeFam) {
   const roles = new Map(); // code → role
   const bySF = new Map();
 
+  // Index inversé hors-magasin : code → Set<cc> (construit une seule fois)
+  const hmBuyers = new Map();
+  const vchm = _S.ventesClientHorsMagasin;
+  if (vchm) {
+    for (const [cc, artMap] of vchm) {
+      for (const code of artMap.keys()) {
+        if (!allCodes.has(code)) continue;
+        let s = hmBuyers.get(code);
+        if (!s) { s = new Set(); hmBuyers.set(code, s); }
+        s.add(cc);
+      }
+    }
+  }
+
   for (const code of allCodes) {
     const fd = fdMap.get(code);
     const sf = catFam?.get(code);
@@ -141,8 +155,8 @@ function _prComputeRoles(codeFam) {
     const allBuyers = new Set();
     const buyersMag = _S.articleClients?.get(code);
     if (buyersMag) for (const cc of buyersMag) allBuyers.add(cc);
-    const vchm = _S.ventesClientHorsMagasin;
-    if (vchm) for (const [cc, artMap] of vchm) { if (artMap.has(code)) allBuyers.add(cc); }
+    const hmSet = hmBuyers.get(code);
+    if (hmSet) for (const cc of hmSet) allBuyers.add(cc);
     let nbCli = 0, nbCliMetierStrat = 0;
     if (allBuyers.size && _S.chalandiseData?.size) {
       for (const cc of allBuyers) {
@@ -1349,7 +1363,21 @@ function _prRenderPhysigamme(fam) {
 
   // ── Classification par rôle ──
   const artList = [];
-  const bySF = new Map(); // pour premier prix
+  const bySF = new Map();
+
+  // Index inversé hors-magasin pour cette famille
+  const _hmBuyers = new Map();
+  const _vchm = _S.ventesClientHorsMagasin;
+  if (_vchm) {
+    for (const [cc, artMap] of _vchm) {
+      for (const code of artMap.keys()) {
+        if (!allCodes.has(code)) continue;
+        let s = _hmBuyers.get(code);
+        if (!s) { s = new Set(); _hmBuyers.set(code, s); }
+        s.add(cc);
+      }
+    }
+  }
 
   for (const code of allCodes) {
     const fd = fdMap.get(code);
@@ -1368,8 +1396,8 @@ function _prRenderPhysigamme(fam) {
     const allBuyers = new Set();
     const buyersMag = _S.articleClients?.get(code);
     if (buyersMag) for (const cc of buyersMag) allBuyers.add(cc);
-    const vchm = _S.ventesClientHorsMagasin;
-    if (vchm) for (const [cc, artMap] of vchm) { if (artMap.has(code)) allBuyers.add(cc); }
+    const _hmSet = _hmBuyers.get(code);
+    if (_hmSet) for (const cc of _hmSet) allBuyers.add(cc);
     let nbCli = 0, nbCliMetierStrat = 0;
     if (allBuyers.size && _S.chalandiseData?.size) {
       for (const cc of allBuyers) {
@@ -1560,6 +1588,10 @@ function _prRenderPilotage(fam) {
   _prRoleCache = roles;
   _prRoleCache._fam = codeFam;
 
+  // ── Lookup rapide finalData par code (évite .find() en O(n)) ──
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const arts = [];
@@ -1577,13 +1609,14 @@ function _prRenderPilotage(fam) {
         if (_prSelectedMarques.size > 0) {
           if (!_prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '')) continue;
         }
-        const fd = (_S.finalData || []).find(r => r.code === a.code);
+        const fd = fdMap.get(a.code);
         const sf = catFam?.get(a.code);
         const role = roles.get(a.code) || 'standard';
         const verdict = _prVerdict(g, role);
         arts.push({
           ...a, _g: g, role, verdict,
           W: fd?.W || 0,
+          prix: fd?.prixUnitaire || 0,
           sf: sf?.sousFam || '',
           codeSF: sf?.codeSousFam || '',
           caZone: a.caClientsZone || 0,
@@ -1627,7 +1660,7 @@ function _prRenderPilotage(fam) {
   // ── KPIs synthèse ──
   const nbTotal = arts.length;
   const nbEnStock = arts.filter(a => a.enStock).length;
-  const valStock = arts.reduce((s, a) => s + (a.enStock ? (a.stockActuel || 0) * ((_S.finalData || []).find(r => r.code === a.code)?.prixUnitaire || 0) : 0), 0);
+  const valStock = arts.reduce((s, a) => s + (a.enStock ? (a.stockActuel || 0) * (a.prix || 0) : 0), 0);
   const nbImplanter = counts.implanter || 0;
 
   // ── Pills filtre classif ──
@@ -2063,7 +2096,7 @@ window._prOpenDetail = function(codeFam) {
   _prRerender();
   setTimeout(() => {
     const panel = document.getElementById('prDetailPanel');
-    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 50);
 };
 
@@ -2307,6 +2340,10 @@ window._prSelectFam = function(codeFam, codeSousFam) {
     grid.innerHTML = _prBuildCards({ families: onlyFam }, '');
   }
   _prRerender();
+  setTimeout(() => {
+    const panel = document.getElementById('prDetailPanel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
 };
 
 window._prMoreRayon = function() {
