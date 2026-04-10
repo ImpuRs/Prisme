@@ -149,7 +149,7 @@ function _renderClient360(clientCode,source){
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(horsMag&&horsMag.size>0){
     const nbOpp=[...horsMag.keys()].filter(c=>!artMap?.has(c)).length;
-    actionText=nbOpp>0?`Client actif · ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence que vous ne lui vendez pas — voir onglet Opportunités.`:'Client actif — aucune action urgente.';
+    actionText=nbOpp>0?`Client actif · ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence que vous ne lui vendez pas — voir onglet Ailleurs.`:'Client actif — aucune action urgente.';
     actionBg=nbOpp>0?'bg-blue-900/40 border-blue-700':'bg-emerald-900/40 border-emerald-700';
   }else{
     actionText='Client actif — aucune action urgente.';
@@ -207,7 +207,7 @@ function _renderClient360(clientCode,source){
     if(artMap?.has(code))return false;
     const r=DataStore.finalData?.find(f=>f.code===code);
     return!r||r.stockActuel===0||(r.ancienMin||0)===0;
-  }).slice(0,20);
+  }).slice(0,20); // used for action text count
 
   // ── Omni data ────────────────────────────────────────────────────
   const omni=_S.clientOmniScore?.get(clientCode);
@@ -256,7 +256,6 @@ function _renderClient360(clientCode,source){
   const tabs=[];
   if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
-  if(oppArts.length)tabs.push({id:'opport',label:`💡 Opportunités — ${oppArts.length}`});
   if(omni)tabs.push({id:'omni',label:`📡 Omni — ${omni.score}/100`});
 
   const CANAL_LABELS={INTERNET:'🌐 Web',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS',MAGASIN:'🏪 Magasin'};
@@ -283,20 +282,16 @@ function _renderClient360(clientCode,source){
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const canalLabel=CANAL_LABELS[d.canal]||d.canal||'—';
       const alreadyHere=artMap?.has(code);
-      return`<tr class="border-b b-dark hover:s-panel-inner ${alreadyHere?'opacity-50':''}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${alreadyHere?'✅ aussi ici':'⚠️ pas ici'}</td></tr>`;
+      const r=DataStore.finalData?.find(f=>f.code===code);
+      const statut=alreadyHere?'✅ Ici aussi':!r?'❌ Non référencé':r.stockActuel>0?`📦 Stock ${r.stockActuel}`:(r.ancienMin||0)===0?'⚪ MIN=0':'⚠️ Rupture';
+      const cls=alreadyHere?'opacity-50':'';
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${statut}</td></tr>`;
     }).join('');
 
-    const oppRows=oppArts.map(([code,d])=>{
-      const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
-      const r=DataStore.finalData?.find(f=>f.code===code);
-      const statut=!r?'❌ Non référencé':r.ancienMin===0?'📦 MIN = 0':'⚠️ Rupture';
-      return`<tr class="border-b b-dark hover:s-panel-inner"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-right font-bold c-caution">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-[10px] c-danger">${statut}</td></tr>`;
-    }).join('');
 
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${iciRows}</tbody></table>`,
-      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Statut</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
-      opport:`<p class="text-[10px] t-inverse-muted mb-2">Articles que ce client achète hors agence, absents ou non référencés dans votre stock.</p><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA hors agence</th><th class="py-1 px-2 text-left">Statut stock</th></tr></thead><tbody>${oppRows}</tbody></table>`,
+      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 
