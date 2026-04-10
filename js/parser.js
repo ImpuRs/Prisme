@@ -18,87 +18,106 @@ import { buildAgenceStore } from './agence-store.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
 export async function parseChalandise(file) {
-const isCSV = file.name.toLowerCase().endsWith('.csv');
-  let data;
-  if (isCSV) {
-    const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'UTF-8'); });
-    const first = text.split('\n')[0] || '';
-    const sep = first.includes(';') ? ';' : ',';
-    data = parseCSVText(text, sep);
-    if (!data.length) {
-      // Retry with CP1252 encoding
-      const text2 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'windows-1252'); });
-      data = parseCSVText(text2, sep);
-    }
-  } else {
-    data = readExcelAsObjects(await readExcel(file));
-  }
-  if (!data || !data.length) { showToast('⚠️ Fichier Chalandise vide ou illisible', 'error'); return; }
-  const sample = data[0];
-  const findCol = s => Object.keys(sample).find(k => k.toLowerCase().includes(s.toLowerCase()));
-  const cCode = findCol('code client') || findCol('code et nom');
-  const cNom = findCol('nom client') || findCol('nom');
-  const cMetier = findCol('libellé court métier') || findCol('libelle court metier') || findCol('métier') || findCol('metier');
-  const cStatut = findCol('statut actuel général') || findCol('statut actuel general') || findCol('statut');
-  const cStatutDetaille = findCol('statut actuel détaillé') || findCol('statut actuel detaille');
-  const cClassif = findCol('classification') || findCol('classif');
-  const cActiviteLeg = findCol('activité client n/n-1') || findCol('activite client n/n-1') || findCol('activité client n') || findCol('activite client n');
-  const cActivite = findCol('activité pdv zone client n/n-1') || findCol('activite pdv zone client n/n-1') || findCol('activité pdv zone') || findCol('activite pdv zone');
-  const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
-  const findColExact = s => Object.keys(sample).find(k => k.toLowerCase() === s.toLowerCase());
-  const cDirection = findColExact('direction') || findCol('direction commerciale') || findCol('libellé direction') || findCol('libelle direction') || findCol('direction');
-  const cSecteur = findCol('secteur') || findCol('code secteur');
-  const cCommercial = findCol('commercial') || findCol('nom commercial');
-  const cCP = findCol('code postal') || findCol('cp');
-  const cVille = findCol('ville') || findCol('commune');
-  const cCA2025 = findCol('ca 2025') || findCol('ca n-1') || findCol('ca n');
-  const cCA2026 = findCol('ca 2026') || findCol('ca n');
-  const cCaPDVN = findCol('ca pdv zone n') || findCol('ca pdv n') || findCol('ca pdv');
-  const cCaEnleveN = findCol('ca enlevé n pdv') || findCol('ca enleve n pdv');
-  const cCaPreleveN = findCol('ca prélevé n pdv') || findCol('ca preleve n pdv');
-  const cTournee = findCol('libellé tournée') || findCol('libelle tournee') || findCol('tournée') || findCol('tournee');
-  const cSolvabilite = findCol('libellé solvabilité') || findCol('libelle solvabilite') || findCol('solvabilité') || findCol('solvabilite');
-  const cCodeAPE = findCol('code ape');
-  const cLibelleAPE = findCol('libellé ape') || findCol('libelle ape');
-  const cEffectifs = findCol('effectifs client') || findCol('effectif');
-  if (!cCode) { showToast('⚠️ Colonne "Code client" introuvable dans le fichier Chalandise', 'error'); return; }
+  // Support multi-fichier : file peut être un File ou un FileList/Array
+  const files = (file instanceof FileList || Array.isArray(file)) ? [...file] : [file];
+  if (!files.length) return;
 
   _S.chalandiseData = new Map();
   const metiersSet = new Set();
-  for (const row of data) {
-    const rawCode = (cCode ? row[cCode] || '' : '').toString().trim();
-    const cc = extractClientCode(rawCode);
-    if (!cc) continue;
-    const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
-    if (metier) metiersSet.add(metier);
+  let enrichedCount = 0;
+
+  for (let fi = 0; fi < files.length; fi++) {
+    const f = files[fi];
+    const isEnrich = fi > 0; // fichiers suivants = enrichissement
+    const isCSV = f.name.toLowerCase().endsWith('.csv');
+    let data;
+    if (isCSV) {
+      const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(f, 'UTF-8'); });
+      const first = text.split('\n')[0] || '';
+      const sep = first.includes(';') ? ';' : ',';
+      data = parseCSVText(text, sep);
+      if (!data.length) {
+        const text2 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(f, 'windows-1252'); });
+        data = parseCSVText(text2, sep);
+      }
+    } else {
+      data = readExcelAsObjects(await readExcel(f));
+    }
+    if (!data || !data.length) { showToast(`⚠️ Fichier Chalandise ${isEnrich ? '(enrichissement) ' : ''}vide ou illisible`, 'error'); continue; }
+    const sample = data[0];
+    const findCol = s => Object.keys(sample).find(k => k.toLowerCase().includes(s.toLowerCase()));
+    const cCode = findCol('code client') || findCol('code et nom');
+    const cNom = findCol('nom client') || findCol('nom');
+    const cMetier = findCol('libellé court métier') || findCol('libelle court metier') || findCol('métier') || findCol('metier');
+    const cStatut = findCol('statut actuel général') || findCol('statut actuel general') || findCol('statut');
+    const cStatutDetaille = findCol('statut actuel détaillé') || findCol('statut actuel detaille');
+    const cClassif = findCol('classification') || findCol('classif');
+    const cActiviteLeg = findCol('activité client n/n-1') || findCol('activite client n/n-1') || findCol('activité client n') || findCol('activite client n');
+    const cActivite = findCol('activité pdv zone client n/n-1') || findCol('activite pdv zone client n/n-1') || findCol('activité pdv zone') || findCol('activite pdv zone');
+    const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
+    const findColExact = s => Object.keys(sample).find(k => k.toLowerCase() === s.toLowerCase());
+    const cDirection = findColExact('direction') || findCol('direction commerciale') || findCol('libellé direction') || findCol('libelle direction') || findCol('direction');
+    const cSecteur = findCol('secteur') || findCol('code secteur');
+    const cCommercial = findCol('commercial') || findCol('nom commercial');
+    const cCP = findCol('code postal') || findCol('cp');
+    const cVille = findCol('ville') || findCol('commune');
+    const cCA2025 = findCol('ca 2025') || findCol('ca n-1') || findCol('ca n');
+    const cCA2026 = findCol('ca 2026') || findCol('ca n');
+    const cCaPDVN = findCol('ca pdv zone n') || findCol('ca pdv n') || findCol('ca pdv');
+    const cCaEnleveN = findCol('ca enlevé n pdv') || findCol('ca enleve n pdv');
+    const cCaPreleveN = findCol('ca prélevé n pdv') || findCol('ca preleve n pdv');
+    const cTournee = findCol('libellé tournée') || findCol('libelle tournee') || findCol('tournée') || findCol('tournee');
+    const cSolvabilite = findCol('libellé solvabilité') || findCol('libelle solvabilite') || findCol('solvabilité') || findCol('solvabilite');
+    const cCodeAPE = findCol('code ape');
+    const cLibelleAPE = findCol('libellé ape') || findCol('libelle ape');
+    const cEffectifs = findCol('effectifs client') || findCol('effectif');
+    if (!cCode) { showToast(`⚠️ Colonne "Code client" introuvable dans ${f.name}`, 'error'); continue; }
+
+    // Extraire un label agence court du nom de fichier (ex: "Chalandise_AG93.xlsx" → "AG93")
+    const _agLabel = isEnrich ? (f.name.replace(/\.(xlsx?|csv)$/i, '').replace(/^.*?_/, '').substring(0, 20)) : '';
+
     const _p = s => parseFloat((s||'').toString().replace(/\s/g,'').replace(',','.')) || 0;
-    _S.chalandiseData.set(cc, {
-      nom: (cNom ? row[cNom] || '' : '').toString().trim(),
-      metier,
-      statut: (cStatut ? row[cStatut] || '' : '').toString().trim(),
-      statutDetaille: (cStatutDetaille ? row[cStatutDetaille] || '' : '').toString().trim(),
-      classification: (cClassif ? row[cClassif] || '' : '').toString().trim(),
-      activiteLeg: (cActiviteLeg ? row[cActiviteLeg] || '' : '').toString().trim(),
-      activitePDV: (cActivite ? row[cActivite] || '' : '').toString().trim(),
-      activiteGlobale: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
-      activite: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
-      direction: (cDirection ? row[cDirection] || '' : '').toString().trim(),
-      secteur: (cSecteur ? row[cSecteur] || '' : '').toString().trim(),
-      commercial: (cCommercial ? row[cCommercial] || '' : '').toString().trim(),
-      cp: (cCP ? row[cCP] || '' : '').toString().trim(),
-      ville: (cVille ? row[cVille] || '' : '').toString().trim(),
-      tournee: (cTournee ? row[cTournee] || '' : '').toString().trim(),
-      solvabilite: (cSolvabilite ? row[cSolvabilite] || '' : '').toString().trim(),
-      codeAPE: (cCodeAPE ? row[cCodeAPE] || '' : '').toString().trim(),
-      libelleAPE: (cLibelleAPE ? row[cLibelleAPE] || '' : '').toString().trim(),
-      effectifs: (cEffectifs ? row[cEffectifs] || '' : '').toString().trim(),
-      ca2025: _p(cCA2025 ? row[cCA2025] : ''),
-      ca2026: _p(cCA2026 ? row[cCA2026] : ''),
-      caPDVN: _p(cCaPDVN ? row[cCaPDVN] : ''),
-      caEnleveN: _p(cCaEnleveN ? row[cCaEnleveN] : ''),
-      caPreleveN: _p(cCaPreleveN ? row[cCaPreleveN] : ''),
-    });
+    for (const row of data) {
+      const rawCode = (cCode ? row[cCode] || '' : '').toString().trim();
+      const cc = extractClientCode(rawCode);
+      if (!cc) continue;
+
+      // Enrichissement : ne prendre que les clients ABSENTS de la chalandise principale
+      if (isEnrich && _S.chalandiseData.has(cc)) continue;
+
+      const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
+      if (metier) metiersSet.add(metier);
+      const info = {
+        nom: (cNom ? row[cNom] || '' : '').toString().trim(),
+        metier,
+        statut: (cStatut ? row[cStatut] || '' : '').toString().trim(),
+        statutDetaille: (cStatutDetaille ? row[cStatutDetaille] || '' : '').toString().trim(),
+        classification: (cClassif ? row[cClassif] || '' : '').toString().trim(),
+        activiteLeg: (cActiviteLeg ? row[cActiviteLeg] || '' : '').toString().trim(),
+        activitePDV: (cActivite ? row[cActivite] || '' : '').toString().trim(),
+        activiteGlobale: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
+        activite: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
+        direction: (cDirection ? row[cDirection] || '' : '').toString().trim(),
+        secteur: (cSecteur ? row[cSecteur] || '' : '').toString().trim(),
+        commercial: (cCommercial ? row[cCommercial] || '' : '').toString().trim(),
+        cp: (cCP ? row[cCP] || '' : '').toString().trim(),
+        ville: (cVille ? row[cVille] || '' : '').toString().trim(),
+        tournee: (cTournee ? row[cTournee] || '' : '').toString().trim(),
+        solvabilite: (cSolvabilite ? row[cSolvabilite] || '' : '').toString().trim(),
+        codeAPE: (cCodeAPE ? row[cCodeAPE] || '' : '').toString().trim(),
+        libelleAPE: (cLibelleAPE ? row[cLibelleAPE] || '' : '').toString().trim(),
+        effectifs: (cEffectifs ? row[cEffectifs] || '' : '').toString().trim(),
+        ca2025: _p(cCA2025 ? row[cCA2025] : ''),
+        ca2026: _p(cCA2026 ? row[cCA2026] : ''),
+        caPDVN: _p(cCaPDVN ? row[cCaPDVN] : ''),
+        caEnleveN: _p(cCaEnleveN ? row[cCaEnleveN] : ''),
+        caPreleveN: _p(cCaPreleveN ? row[cCaPreleveN] : ''),
+      };
+      if (isEnrich) { info._enrichSource = _agLabel; enrichedCount++; }
+      _S.chalandiseData.set(cc, info);
+    }
   }
+
   _S.chalandiseMetiers = [...metiersSet].sort();
   // ── Distance km — calcul Haversine CP client vs CP agence ──
   _computeChalandiseDistances();
@@ -118,7 +137,8 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
   _S.chalandiseReady = true;
   const nbActifs = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('actif') && !s.includes('inactif'); }).length;
   const nbPerdus = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('perdu') || s.includes('inactif'); }).length;
-  showToast(`📋 Chalandise : ${_S.chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus`, 'success');
+  const enrichMsg = enrichedCount > 0 ? ` · ${enrichedCount} enrichis via autres agences` : '';
+  showToast(`📋 Chalandise : ${_S.chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus${enrichMsg}`, 'success');
   // Show commerce tab if chalandise loaded (even without territoire file)
   const terrBtn = document.getElementById('btnTabCommerce'); if (terrBtn) terrBtn.classList.remove('hidden');
   // Rebuild overview if already on commerce tab
@@ -128,7 +148,7 @@ const isCSV = file.name.toLowerCase().endsWith('.csv');
 
 export function onChalandiseSelected(input) {
   onFileSelected(input, 'dropChalandise');
-  if (input.files && input.files[0]) parseChalandise(input.files[0]);
+  if (input.files && input.files.length) parseChalandise(input.files);
 }
 
 // ── Chargement table CP → coordonnées GPS ──────────────────────

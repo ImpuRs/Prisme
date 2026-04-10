@@ -1077,7 +1077,7 @@ _S.canalAgence=newCanalAgence;
       updatePipeline('stock','done');
 
       // Chalandise + livraisons (si fichiers chargés)
-      {const f4=document.getElementById('fileChalandise').files[0];if(f4&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(f4);}finally{_S._chalandiseLoading=false;}}}
+      {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
       {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
       if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);}
 
@@ -2401,7 +2401,7 @@ window.onChalandiseSelected = async function(input) {
   if (DataStore.finalData.length === 0) return;
   if (_S._chalandiseLoading || _S.chalandiseReady) return;
   _S._chalandiseLoading = true;
-  try { await parseChalandise(input.files[0]); } finally { _S._chalandiseLoading = false; }
+  try { await parseChalandise(input.files); } finally { _S._chalandiseLoading = false; }
   if (_S.storesIntersection.size > 1) { computeBenchmark(_S._globalCanal || null); renderBenchmark(); }
 };
 window.exportSaisonCSV = exportSaisonCSV;
