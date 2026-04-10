@@ -427,7 +427,7 @@ export function resetAppState() {
   _S._animationData = null;
   // Associations (persistées en IDB)
   if (!_S._associations) _S._associations = []; // ne PAS reset si déjà chargé
-  _S._assocEditMode = false; _S._assocEditing = null; _S._assocShowThird = false; _S._assocOpenId = null;
+  _S._assocEditMode = false; _S._assocEditing = null; _S._assocOpenId = null;
 
   // Mon Rayon
   _S._rayonData = null;

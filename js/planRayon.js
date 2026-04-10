@@ -2,7 +2,7 @@
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon } from './engine.js';
-import { FAMILLE_LOOKUP, metierToSegments } from './constants.js';
+import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData } from './ui.js';
 
 // ── State local ──────────────────────────────────────────────────────
@@ -57,7 +57,6 @@ let _prRoleCache = null; // Map<code, role> — cache rôles Physigamme, invalid
 const ROLE_BADGE = {
   incontournable: { icon: '🏆', label: 'Incont.', color: '#22c55e' },
   nouveaute:      { icon: '🆕', label: 'Nouv.',   color: '#3b82f6' },
-  premierprix:    { icon: '💰', label: 'PP',      color: '#f59e0b' },
   specialiste:    { icon: '🎯', label: 'Spéc.',   color: '#8b5cf6' },
   standard:       { icon: '',   label: '',         color: '#94a3b8' },
 };
@@ -108,34 +107,30 @@ function _prComputeRoles(codeFam) {
     const detention = nbSt / nbStores;
     const W = fd?.W || (vpm[myStore]?.[code]?.countBL || 0);
 
-    // Clients stratégiques
-    const buyers = _S.articleClients?.get(code);
-    let nbCli = 0, nbCliFID = 0;
-    if (buyers && _S.chalandiseData?.size) {
-      for (const cc of buyers) {
-        if (!_S.clientsMagasin?.has(cc)) continue;
+    // Clients métiers stratégiques — comptoir + livraisons
+    const allBuyers = new Set();
+    const buyersMag = _S.articleClients?.get(code);
+    if (buyersMag) for (const cc of buyersMag) allBuyers.add(cc);
+    const vchm = _S.ventesClientHorsMagasin;
+    if (vchm) for (const [cc, artMap] of vchm) { if (artMap.has(code)) allBuyers.add(cc); }
+    let nbCli = 0, nbCliMetierStrat = 0;
+    if (allBuyers.size && _S.chalandiseData?.size) {
+      for (const cc of allBuyers) {
         nbCli++;
-        const cl = (_S.chalandiseData.get(cc)?.classification || '').toUpperCase();
-        if ((cl.includes('FID') || cl.includes('OCC')) && cl.includes('POT+')) nbCliFID++;
+        const metier = (_S.chalandiseData.get(cc)?.metier || '').toLowerCase();
+        if (metier && METIERS_STRATEGIQUES.some(m => metier.includes(m))) nbCliMetierStrat++;
       }
     }
 
     let role = 'standard';
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
-    else if (nbCli >= 2 && nbCliFID / nbCli >= 0.5) role = 'specialiste';
+    else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
     roles.set(code, role);
     const sfName = sf?.sousFam || '';
     const prix = fd?.prixUnitaire || 0;
     if (sfName && prix > 0) { if (!bySF.has(sfName)) bySF.set(sfName, []); bySF.get(sfName).push({ code, role, detention, prix }); }
-  }
-
-  // Premier prix : 1 par SF
-  for (const [, arts] of bySF) {
-    const candidate = arts.filter(a => roles.get(a.code) === 'standard' && a.detention >= 0.3)
-      .sort((x, y) => x.prix - y.prix)[0];
-    if (candidate) roles.set(candidate.code, 'premierprix');
   }
 
   return roles;
@@ -263,12 +258,12 @@ function computePlanStock() {
   const _ensure = (codeFam, libFam) => {
     if (!famMap.has(codeFam)) famMap.set(codeFam, {
       codeFam, libFam,
-      socle: 0, implanter: 0, challenger: 0, potentiel: 0, surveiller: 0,
+      socle: 0, implanter: 0, challenger: 0, surveiller: 0,
       srcReseau: false, srcChalandise: false, srcHorsZone: false, srcLivraisons: false,
       caAgence: 0, caReseau: 0, nbRefsReseau: 0, rendement: null,
       nbClients: 0,
       nbCatalogue: catCount.get(codeFam) || 0,
-      nbEnRayon: 0, couverture: 0, classifGlobal: 'potentiel',
+      nbEnRayon: 0, couverture: 0, classifGlobal: 'surveiller',
       nbDormants: 0, nbRuptures: 0, nbFin: 0, hygieneScore: 0, needsCleaning: false,
       // Schizophrénie : refs dans socle/réseau ET pathologiques en agence
       _incCodes: new Set(),
@@ -280,7 +275,7 @@ function computePlanStock() {
   // Lookup libellé robuste
   const _libOf = (code) => _S.libelleLookup?.[code] || _S.finalData?.find(r => r.code === code)?.libelle || '';
 
-  const CLASSIFS = ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller'];
+  const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
@@ -371,12 +366,11 @@ function computePlanStock() {
       f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
     }
     // Vocation : segment dominant des incontournables vs sortir
-    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
+    const total = f.socle + f.implanter + f.challenger + f.surveiller;
     const rSocle      = total > 0 ? f.socle      / total : 0;
     const rChallenger = total > 0 ? f.challenger  / total : 0;
     const rSurveiller = total > 0 ? f.surveiller  / total : 0;
     const nbSrc = (f.srcReseau?1:0) + (f.srcChalandise?1:0) + (f.srcHorsZone?1:0) + (f.srcLivraisons?1:0);
-    // Garde-fou petites familles : trop peu de signal pour conclure "à développer"
     const isSmall = f.nbCatalogue < 5;
 
     // À spécialiser : rayon trop large (rendement < réseau)
@@ -384,7 +378,7 @@ function computePlanStock() {
       f.classifGlobal = 'specialiser';
     else if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
       f.classifGlobal = 'implanter';
-    else if (!isSmall && f.implanter >= 4 && total > 0 && (f.implanter + f.potentiel) / total > 0.4)
+    else if (!isSmall && f.implanter >= 4 && total > 0 && f.implanter / total > 0.4)
       f.classifGlobal = 'implanter';
     else if (rSocle >= 0.4 && f.nbClients >= 5 && nbSrc >= 2)
       f.classifGlobal = 'socle';
@@ -396,17 +390,16 @@ function computePlanStock() {
       f.classifGlobal = 'challenger';
     else if (f.challenger >= 5 && f.challenger > f.socle * 2)
       f.classifGlobal = 'challenger';
-    // Rayon endormi : beaucoup de refs en stock sans signal → à retravailler
     else if (rSurveiller >= 0.4 && f.surveiller >= 5 && f.surveiller > f.socle)
       f.classifGlobal = 'challenger';
-    else if (f.implanter >= 1 || f.potentiel >= 3)
-      f.classifGlobal = 'potentiel';
+    else if (f.implanter >= 1)
+      f.classifGlobal = 'implanter';
     else
       f.classifGlobal = 'surveiller';
   }
 
   const families = [...famMap.values()]
-    .filter(f => f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller > 0)
+    .filter(f => f.socle + f.implanter + f.challenger + f.surveiller > 0)
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
 
   const result = {
@@ -415,7 +408,6 @@ function computePlanStock() {
       socle:      families.filter(f => f.classifGlobal === 'socle').length,
       implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
       challenger: families.filter(f => f.classifGlobal === 'challenger').length,
-      potentiel:  families.filter(f => f.classifGlobal === 'potentiel').length,
       surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
       specialiser:   families.filter(f => f.classifGlobal === 'specialiser').length,
     }
@@ -613,15 +605,14 @@ function _prBuildCards(data, searchText = '') {
   if (!families.length) return `<div class="col-span-2 text-center py-6 t-disabled text-[12px]">${_prEmpFilter ? `Aucune famille trouvée à l'emplacement "${escapeHtml(_prEmpFilter)}".` : 'Aucune famille pour ce filtre.'}</div>`;
   let out = '';
   for (const f of families) {
-    const b = ACTION_BADGE[f.classifGlobal] || ACTION_BADGE.potentiel;
-    const total = f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller;
+    const b = ACTION_BADGE[f.classifGlobal] || ACTION_BADGE.surveiller;
+    const total = f.socle + f.implanter + f.challenger + f.surveiller;
     const safeCF = f.codeFam.replace(/'/g, "\\'");
     const bw = (n) => total > 0 ? Math.max(n / total * 100, n > 0 ? 3 : 0) : 0;
     const miniBar = `<div class="flex rounded overflow-hidden h-1.5 my-1.5" style="gap:1px">
       ${f.socle     ? `<div title="${f.socle} socle" style="width:${bw(f.socle)}%;background:#22c55e"></div>` : ''}
       ${f.implanter ? `<div title="${f.implanter} à implanter" style="width:${bw(f.implanter)}%;background:#3b82f6"></div>` : ''}
       ${f.challenger? `<div title="${f.challenger} challenger" style="width:${bw(f.challenger)}%;background:#ef4444"></div>` : ''}
-      ${f.potentiel ? `<div title="${f.potentiel} potentiel" style="width:${bw(f.potentiel)}%;background:#f59e0b"></div>` : ''}
       ${f.surveiller? `<div title="${f.surveiller} surveiller" style="width:${bw(f.surveiller)}%;background:#94a3b8"></div>` : ''}
     </div>`;
     const srcObj = { reseau: f.srcReseau, chalandise: f.srcChalandise, horsZone: f.srcHorsZone, livraisons: f.srcLivraisons, pdvClients: f.srcPdvClients };
@@ -723,7 +714,7 @@ function _prRenderRayon(data) {
     else if (s === 'rupture')    { sBg='rgba(245,158,11,0.2)';   sC='#f59e0b';            sL='⚠️ Rupture'; }
     else                         { sBg='rgba(148,163,184,0.15)'; sC='var(--t-secondary)'; sL='⚪ Standard'; }
     const sq = a.sqClassif;
-    const cb = sq ? (CLASSIF_BADGE[sq] || CLASSIF_BADGE.potentiel) : null;
+    const cb = sq ? (CLASSIF_BADGE[sq] || CLASSIF_BADGE.surveiller) : null;
     const isCleEntree = s === 'dormant' && sq === 'socle';
     const sqBadge = cb
       ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${isCleEntree ? ' <span title="Clé d\'entrée métier — dormant mais socle réseau" style="cursor:help">🔑</span>' : ''}`
@@ -779,7 +770,7 @@ function _prRenderRayon(data) {
 }
 
 // ── Onglet Squelette ─────────────────────────────────────────────────
-const _SQ_CLASSIF_ORDER = ['socle','implanter','challenger','potentiel','surveiller'];
+const _SQ_CLASSIF_ORDER = ['socle','implanter','challenger','surveiller'];
 const _SQ_SORT_FNS = {
   agence:    (a, b) => (b.W || 0) - (a.W || 0),
   reseau:    (a, b) => (b.nbAgencesReseau || 0) - (a.nbAgencesReseau || 0),
@@ -813,7 +804,7 @@ function _prBuildSqTable(arts) {
   // Max agences pour barre détention proportionnelle
   const maxAg = Math.max(1, ...filtered.map(a => a.nbAgencesReseau || 0));
   const rows = shown.map(a => {
-    const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
+    const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.surveiller;
     const role = _famCode ? _prGetRole(a.code, _famCode) : 'standard';
     const rb = _prRoleBadge(role);
     const absent = !a.enStock;
@@ -865,7 +856,7 @@ function _prRenderSquelette(fam) {
   _S._prSqData = sqData;
   if (!sqData) return '<div class="t-disabled text-sm text-center py-6">Données squelette indisponibles.</div>';
 
-  const CLASSIFS = ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller'];
+  const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const arts = [];
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
@@ -1180,34 +1171,34 @@ function _prRenderAnalyse(fam) {
       </div>`
     : '';
 
-  // nbCat par sousFam — catalogue INVARIANT (pas de filtre emplacement)
-  const sfCatCount = new Map(); // sousFam → nbCat
+  // nbCat par codeSousFam — catalogue INVARIANT (pas de filtre emplacement)
+  const sfCatCount = new Map(); // codeSousFam → { nbCat, sf (libellé) }
   if (catFam) for (const [, f] of catFam) {
-    if (f.codeFam !== fam.codeFam || !f.sousFam) continue;
-    sfCatCount.set(f.sousFam, (sfCatCount.get(f.sousFam) || 0) + 1);
+    if (f.codeFam !== fam.codeFam || !f.sousFam || !f.codeSousFam) continue;
+    const entry = sfCatCount.get(f.codeSousFam);
+    if (entry) entry.nbCat++;
+    else sfCatCount.set(f.codeSousFam, { nbCat: 1, sf: f.sousFam });
   }
 
-  // nbStock par sousFam — filtré sur emplacements si actif
-  const sfStockCount = new Map(); // sousFam → nbStock
+  // nbStock par codeSousFam — filtré sur emplacements si actif
+  const sfStockCount = new Map(); // codeSousFam → nbStock
   const empList = _prSelectedEmps.size > 0 ? _prSelectedEmps : null;
   for (const r of (_S.finalData || [])) {
     const cf = catFam?.get(r.code);
-    if (!cf || cf.codeFam !== fam.codeFam || !cf.sousFam) continue;
+    if (!cf || cf.codeFam !== fam.codeFam || !cf.codeSousFam) continue;
     if (empList && !empList.has(r.emplacement || '')) continue;
     if ((r.stockActuel || 0) > 0)
-      sfStockCount.set(cf.sousFam, (sfStockCount.get(cf.sousFam) || 0) + 1);
+      sfStockCount.set(cf.codeSousFam, (sfStockCount.get(cf.codeSousFam) || 0) + 1);
   }
 
   // Liste finale : toutes les SFs du catalogue, triées par nbCat desc
   const sfSorted = [...sfCatCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([sf, nbCat]) => ({
+    .sort((a, b) => b[1].nbCat - a[1].nbCat)
+    .map(([codeSousFam, { nbCat, sf }]) => ({
       sf,
       nbCat,
-      nbStock: sfStockCount.get(sf) || 0,
-      codeSousFam: [...(catFam?.values() || [])].find(f =>
-        f.codeFam === fam.codeFam && f.sousFam === sf
-      )?.codeSousFam || '',
+      nbStock: sfStockCount.get(codeSousFam) || 0,
+      codeSousFam,
     }));
 
   // Quand filtre emplacement actif, masquer (opacity) les SFs sans stock dans ces emplacements
@@ -1343,46 +1334,41 @@ function _prRenderPhysigamme(fam) {
     const stock = fd?.stockActuel || 0, enStock = stock > 0;
     const prix = fd?.prixUnitaire || 0;
     const W = fd?.W || myBL;
-    // Clients stratégiques
-    const buyers = _S.articleClients?.get(code);
-    let nbCli = 0, nbCliFID = 0;
-    if (buyers && _S.chalandiseData?.size) {
-      for (const cc of buyers) {
-        if (!_S.clientsMagasin?.has(cc)) continue;
+    // Clients métiers stratégiques — comptoir + livraisons
+    const allBuyers = new Set();
+    const buyersMag = _S.articleClients?.get(code);
+    if (buyersMag) for (const cc of buyersMag) allBuyers.add(cc);
+    const vchm = _S.ventesClientHorsMagasin;
+    if (vchm) for (const [cc, artMap] of vchm) { if (artMap.has(code)) allBuyers.add(cc); }
+    let nbCli = 0, nbCliMetierStrat = 0;
+    if (allBuyers.size && _S.chalandiseData?.size) {
+      for (const cc of allBuyers) {
         nbCli++;
-        const cl = (_S.chalandiseData.get(cc)?.classification || '').toUpperCase();
-        if ((cl.includes('FID') || cl.includes('OCC')) && cl.includes('POT+')) nbCliFID++;
+        const metier = (_S.chalandiseData.get(cc)?.metier || '').toLowerCase();
+        if (metier && METIERS_STRATEGIQUES.some(m => metier.includes(m))) nbCliMetierStrat++;
       }
     }
     // Rôle
     let role = 'standard';
     if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
-    else if (nbCli >= 2 && nbCliFID / nbCli >= 0.5) role = 'specialiste';
+    else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
     // Classification squelette
     let sqClassif = '';
     if (_S._prSqData) {
       for (const d of _S._prSqData.directions) {
-        for (const g of ['socle','implanter','challenger','potentiel','surveiller']) {
+        for (const g of ['socle','implanter','challenger','surveiller']) {
           if ((d[g] || []).some(x => x.code === code)) { sqClassif = g; break; }
         }
         if (sqClassif) break;
       }
     }
     const a = { code, lib: _S.libelleLookup?.[code] || code, sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
-      role, sqClassif, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliFID,
+      role, sqClassif, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliMetierStrat,
       abc: fd?.abcClass || '', fmr: fd?.fmrClass || '' };
     artList.push(a);
     if (a.sf && a.prix > 0) { if (!bySF.has(a.sf)) bySF.set(a.sf, []); bySF.get(a.sf).push(a); }
-  }
-
-  // Premier prix : 1 par SF, le moins cher vendu par le réseau (détention ≥ 30%)
-  for (const [, arts] of bySF) {
-    const candidate = [...arts]
-      .filter(a => a.role === 'standard' && a.detention >= 0.3)
-      .sort((x, y) => x.prix - y.prix)[0];
-    if (candidate) candidate.role = 'premierprix';
   }
 
   // ── Benchmark RÉSEAU VS MOI ──
@@ -1436,9 +1422,7 @@ function _prRenderPhysigamme(fam) {
   const ROLES = [
     { k: 'incontournable', i: '🏆', l: 'Incontournables', c: '#22c55e', obj: 98 },
     { k: 'nouveaute', i: '🆕', l: 'Nouveautés', c: '#3b82f6' },
-    { k: 'premierprix', i: '💰', l: 'Premiers prix', c: '#f59e0b' },
     { k: 'specialiste', i: '🎯', l: 'Spécialistes', c: '#8b5cf6' },
-    { k: 'standard', i: '📦', l: 'Standard', c: '#94a3b8' },
   ];
   const rc = {}, ri = {};
   for (const r of ROLES) { rc[r.k] = 0; ri[r.k] = 0; }
@@ -1461,19 +1445,6 @@ function _prRenderPhysigamme(fam) {
   const aVider = artList.filter(a => a.enStock && a.W === 0 && a.role === 'standard')
     .sort((a, b) => (b.prix * b.stock) - (a.prix * a.stock)).slice(0, 10);
 
-  // SF sans premier prix en stock — avec candidat suggéré
-  const sfNoPP = [];
-  for (const [sf, arts] of bySF) {
-    if (!arts.some(a => a.role === 'premierprix' && a.enStock)) {
-      // Candidat : le moins cher avec détention réseau, ou le PP détecté non stocké
-      const candidate = arts.filter(a => a.role === 'premierprix')[0]
-        || [...arts].filter(a => a.detention >= 0.2).sort((x, y) => x.prix - y.prix)[0]
-        || [...arts].sort((x, y) => x.prix - y.prix)[0];
-      sfNoPP.push({ sf, candidate });
-    }
-  }
-  // Premiers prix dormants — signal d'alerte visibilité
-  const ppDormants = artList.filter(a => a.enStock && a.W === 0 && a.role === 'premierprix');
 
   const _artTh = `<thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
     <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
@@ -1511,26 +1482,7 @@ function _prRenderPhysigamme(fam) {
       <table class="w-full">${_artTh}<tbody>${aVider.map(_artRow).join('')}</tbody></table>
     </div>`;
   }
-  if (ppDormants.length) {
-    actions += `<div class="mb-4">
-      <h4 class="text-[11px] font-bold mb-1.5" style="color:#f59e0b">👀 ${ppDormants.length} premier${ppDormants.length > 1 ? 's' : ''} prix dormant${ppDormants.length > 1 ? 's' : ''} — vérifier visibilité en rayon</h4>
-      <table class="w-full">${_artTh}<tbody>${ppDormants.map(_artRow).join('')}</tbody></table>
-    </div>`;
-  }
-  if (sfNoPP.length) {
-    actions += `<div class="mb-3">
-      <h4 class="text-[11px] font-bold mb-1.5" style="color:#f59e0b">⚠️ ${sfNoPP.length} sous-famille${sfNoPP.length > 1 ? 's' : ''} sans premier prix en stock</h4>
-      <table class="w-full">${sfNoPP.map(({ sf, candidate: c }) => `<tr class="border-b b-light text-[11px]${c ? ' cursor-pointer hover:s-hover' : ''}"
-        ${c ? `onclick="if(window.openArticlePanel)window.openArticlePanel('${c.code}','planRayon')"` : ''}>
-        <td class="py-1 px-2 t-secondary">${escapeHtml(sf)}</td>
-        ${c ? `<td class="py-1 px-2 font-mono t-disabled">${c.code}</td>
-        <td class="py-1 px-2 t-primary truncate max-w-[140px]">${escapeHtml(c.lib)}</td>
-        <td class="py-1 px-2 text-right t-secondary">${c.prix.toFixed(2)} €</td>
-        <td class="py-1 px-2 text-right t-secondary">${Math.round(c.detention * 100)}%</td>` : '<td colspan="4" class="py-1 px-2 t-disabled">—</td>'}
-      </tr>`).join('')}</table>
-    </div>`;
-  }
-  if (!aRemplir.length && !aVider.length && !ppDormants.length && !sfNoPP.length) {
+  if (!aRemplir.length && !aVider.length) {
     actions = '<div class="text-[11px] t-disabled text-center py-3">✅ Gamme équilibrée — aucune action prioritaire détectée.</div>';
   }
 
@@ -1572,7 +1524,7 @@ function _prGetTabContent(tab, fam) {
     const sqClassif = new Map();
     if (sqData) {
       for (const d of sqData.directions) {
-        for (const g of ['socle', 'implanter', 'challenger', 'potentiel', 'surveiller']) {
+        for (const g of ['socle', 'implanter', 'challenger', 'surveiller']) {
           for (const a of (d[g] || [])) sqClassif.set(a.code, g);
         }
       }
@@ -1626,7 +1578,7 @@ function _prRenderDetail(codeFam) {
   const fam = _S._prData?.families.find(f => f.codeFam === codeFam);
   if (!fam) return '<div class="t-disabled text-sm text-center py-4">Famille introuvable.</div>';
 
-  const b = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
+  const b = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
   const sousFamLib = _prOpenSousFam
     ? (_S.catalogueFamille
         ? [..._S.catalogueFamille.values()]
@@ -1642,7 +1594,7 @@ function _prRenderDetail(codeFam) {
     { key: 'analyse',    label: '📦 Analyse'   },
   ];
 
-  const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.potentiel;
+  const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
   return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
@@ -1724,7 +1676,6 @@ function _renderPlanRayonContent(data) {
       ${_badge('implanter', totals.implanter)}
       ${_badge('specialiser', totals.specialiser || 0)}
       ${_badge('challenger', totals.challenger)}
-      ${_badge('potentiel', totals.potentiel)}
       ${_badge('surveiller', totals.surveiller)}
     </div>
     <div class="relative mb-3">
@@ -2129,7 +2080,7 @@ function _prGatherFamData(codeFam, matchFn) {
   _S._prSqData = sqData;
 
   // Items squelette par classification
-  const items = { socle: [], implanter: [], challenger: [], potentiel: [], surveiller: [] };
+  const items = { socle: [], implanter: [], challenger: [], surveiller: [] };
   if (sqData) {
     for (const d of sqData.directions || []) {
       for (const g of Object.keys(items)) {
@@ -2709,12 +2660,12 @@ function _prBuildDiagText(codeFam) {
   // Totaux Squelette filtrés sur sous-famille et/ou _prSelectedSFs si actifs
   let sqTotals = {
     socle: fam.socle, implanter: fam.implanter,
-    challenger: fam.challenger, potentiel: fam.potentiel, surveiller: fam.surveiller
+    challenger: fam.challenger, surveiller: fam.surveiller
   };
   if ((_prOpenSousFam || _prSelectedSFs.size > 0) && sqData) {
-    sqTotals = { socle:0, implanter:0, challenger:0, potentiel:0, surveiller:0 };
+    sqTotals = { socle:0, implanter:0, challenger:0, surveiller:0 };
     for (const d of sqData.directions) {
-      for (const g of ['socle','implanter','challenger','potentiel','surveiller']) {
+      for (const g of ['socle','implanter','challenger','surveiller']) {
         for (const a of (d[g] || [])) {
           const cf = catFam?.get(a.code);
           if (cf?.codeFam !== codeFam) continue;
@@ -2727,7 +2678,7 @@ function _prBuildDiagText(codeFam) {
   }
 
   txt += `═══ SQUELETTE RÉSEAU (4 sources croisées) ═══\n`;
-  txt += `🟢 Socle : ${sqTotals.socle} articles · 🔵 À implanter : ${sqTotals.implanter} · 🔴 Challenger : ${sqTotals.challenger} · 🟡 Potentiel : ${sqTotals.potentiel} · 👁 Surveiller : ${sqTotals.surveiller}\n`;
+  txt += `🟢 Socle : ${sqTotals.socle} articles · 🔵 À implanter : ${sqTotals.implanter} · 🔴 Challenger : ${sqTotals.challenger} · 👁 Surveiller : ${sqTotals.surveiller}\n`;
   txt += `Sources actives : ${[fam.srcReseau?'Réseau':'',fam.srcChalandise?'Chalandise':'',fam.srcHorsZone?'Hors-zone':'',fam.srcLivraisons?'Livraisons':''].filter(Boolean).join(', ')}\n\n`;
 
   txt += `═══ CATALOGUE ═══\n`;
@@ -2823,9 +2774,7 @@ const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincail
 Tu maîtrises la PHYSIGAMME — la grille stratégique qui classe chaque article par RÔLE :
 🏆 Incontournable = présent chez ≥60% du réseau OU ABC-A forte rotation. OBJECTIF : 98% en stock.
 🆕 Nouveauté = <90 jours, signal réseau. Le renouvellement qui garde le rayon vivant.
-💰 Premier prix = entrée de gamme par sous-famille. Le client qui compare DOIT trouver un prix plancher chez toi.
-🎯 Spécialiste = acheté principalement par les clients stratégiques (FID/OCC Pot+). Fidélisation pure.
-📦 Standard = le reste. Candidat "je vide" si dormant.
+🎯 Spécialiste = acheté principalement par les métiers stratégiques (menuisiers, serruriers, plombiers…). Fidélisation métier.
 
 La PHYSIGAMME croise le SQUELETTE (signal data : socle/implanter/challenger) :
 - 🏆 Incont. + 🔵 Implanter = TROU CRITIQUE — le réseau le vend, tu ne l'as pas
@@ -2870,7 +2819,7 @@ function _prBuildLLMPack(codeFam) {
   const { items, patho } = gd;
   const _roles = _prComputeRoles(codeFam);
 
-  const ROLE_EMOJI = { incontournable: '🏆', nouveaute: '🆕', premierprix: '💰', specialiste: '🎯', standard: '📦' };
+  const ROLE_EMOJI = { incontournable: '🏆', nouveaute: '🆕', specialiste: '🎯', standard: '📦' };
   const fmtItem = (a, withScore = false) => {
     const m = mark(a.code);
     const score = withScore && a.scoreReseau ? ` score:${a.scoreReseau}` : '';
@@ -2909,16 +2858,14 @@ function _prBuildLLMPack(codeFam) {
 
   // Compteurs par rôle
   const _rc = {}, _ri = {};
-  for (const r of ['incontournable','nouveaute','premierprix','specialiste','standard']) { _rc[r] = 0; _ri[r] = 0; }
-  for (const [code, role] of _roles) { _rc[role]++; if ((_fdMap2.get(code)?.stockActuel || 0) > 0) _ri[role]++; }
+  for (const r of ['incontournable','nouveaute','specialiste']) { _rc[r] = 0; _ri[r] = 0; }
+  for (const [code, role] of _roles) { if (_rc[role] !== undefined) { _rc[role]++; if ((_fdMap2.get(code)?.stockActuel || 0) > 0) _ri[role]++; } }
   const _tauxInc = _rc.incontournable ? Math.round(_ri.incontournable / _rc.incontournable * 100) : 100;
 
   pack += `[PHYSIGAMME — Rôles stratégiques]\n`;
   pack += `- 🏆 Incontournables : ${_ri.incontournable}/${_rc.incontournable} en stock (${_tauxInc}%, objectif 98%)\n`;
   pack += `- 🆕 Nouveautés : ${_ri.nouveaute}/${_rc.nouveaute} en stock\n`;
-  pack += `- 💰 Premiers prix : ${_ri.premierprix}/${_rc.premierprix} en stock\n`;
   if (_rc.specialiste) pack += `- 🎯 Spécialistes : ${_ri.specialiste}/${_rc.specialiste} en stock\n`;
-  pack += `- 📦 Standard : ${_ri.standard}/${_rc.standard} en stock\n`;
 
   // Incontournables manquants
   const _incManq = [];
@@ -2934,18 +2881,6 @@ function _prBuildLLMPack(codeFam) {
     for (const a of _incManq.sort((x, y) => y.det - x.det)) {
       pack += `  - ${a.code} ${lib(a.code)} (${a.det}% détention réseau)\n`;
     }
-  }
-
-  // PP dormants
-  const _ppDorm = [];
-  for (const [code, role] of _roles) {
-    if (role === 'premierprix' && (_fdMap2.get(code)?.stockActuel > 0) && !(_fdMap2.get(code)?.W)) {
-      _ppDorm.push(code);
-    }
-  }
-  if (_ppDorm.length) {
-    pack += `👀 Premiers prix DORMANTS (problème visibilité ?) :\n`;
-    for (const code of _ppDorm) pack += `  - ${code} ${lib(code)}\n`;
   }
   pack += `\n`;
 

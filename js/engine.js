@@ -933,18 +933,31 @@ export function computeSquelette(directionFilter) {
     else if (nbSources >= 2) score *= 1.1;
     a.score = Math.round(score);
 
+    // ── Classification squelette ──────────────────────────────────
+    // W = fréquence BL agence, nbClientsPDV = clients distincts PDV
+    const fd = (_S.finalData || []).find(r => r.code === a.code);
+    const W = fd?.W || 0;
+
     if (a.enStock) {
-      if (a.sources.size === 0 && a.caAgence === 0) a.classification = 'challenger';
-      else if (a.score >= 40 || a.sources.size >= 2) a.classification = 'socle';
-      else a.classification = 'surveiller';
+      // CHALLENGER : en stock ET 0 vente (W=0 = aucun BL sur la période)
+      if (W === 0)
+        a.classification = 'challenger';
+      // SOCLE : ≥3 clients distincts ET ≥3 BL — validé par le marché
+      else if (a.nbClientsPDV >= 3 && W >= 3)
+        a.classification = 'socle';
+      // À SURVEILLER : le reste — en stock, actif mais pas encore socle
+      else
+        a.classification = 'surveiller';
     } else {
-      // Récurrence terrain : ≥2 BL/mois réseau ET ≥3 agences ET ≥3 BL/agence en moyenne
-      const blParMois = nbMoisTerr > 0 ? a.nbBLLivraisons / nbMoisTerr : 0;
-      const blParAgence = a.nbAgencesReseau > 0 ? a.nbBLLivraisons / a.nbAgencesReseau : 0;
-      const recurrent = blParMois >= 2 && a.nbAgencesReseau >= 3 && blParAgence >= 3;
-      if (recurrent && a.score >= 50 && a.sources.size >= 2) a.classification = 'implanter';
-      else if (a.score >= 25) a.classification = 'potentiel';
-      else a.classification = 'bruit';
+      // À IMPLANTER : pas en stock ET signal fort
+      const nbStores = Object.keys(vpm).filter(s => s !== myStore).length || 1;
+      const detention = a.nbAgencesReseau / nbStores;
+      const isIncontournable = detention >= 0.6 || (fd?.abcClass === 'A');
+      const isNouveaute = fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && a.nbAgencesReseau >= 2);
+      if (isIncontournable || isNouveaute || a.nbClientsZone >= 5 || a.caClientsZone >= 1000)
+        a.classification = 'implanter';
+      else
+        a.classification = 'bruit';
     }
   }
 
@@ -958,7 +971,7 @@ export function computeSquelette(directionFilter) {
   const byDir = new Map();
   for (const a of results) {
     const dir = a.direction || 'NON CLASSÉ';
-    if (!byDir.has(dir)) byDir.set(dir, { direction: dir, socle: [], implanter: [], challenger: [], surveiller: [], potentiel: [] });
+    if (!byDir.has(dir)) byDir.set(dir, { direction: dir, socle: [], implanter: [], challenger: [], surveiller: [] });
     byDir.get(dir)[a.classification].push(a);
   }
   for (const [, d] of byDir) {
@@ -966,7 +979,6 @@ export function computeSquelette(directionFilter) {
     d.implanter.sort((a, b) => b.score - a.score);
     d.challenger.sort((a, b) => a.score - b.score);
     d.surveiller.sort((a, b) => b.score - a.score);
-    d.potentiel.sort((a, b) => b.score - a.score);
   }
 
   return {
@@ -978,7 +990,6 @@ export function computeSquelette(directionFilter) {
       implanter: results.filter(a => a.classification === 'implanter').length,
       challenger: results.filter(a => a.classification === 'challenger').length,
       surveiller: results.filter(a => a.classification === 'surveiller').length,
-      potentiel: results.filter(a => a.classification === 'potentiel').length,
     }
   };
 }

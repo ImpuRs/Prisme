@@ -21,30 +21,54 @@ function _ensureAssoc() {
 function _assocId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // ═══════════════════════════════════════════════════════════════
-// Calcul du taux d'association par agence
+// Calcul du taux d'association par agence (via ventesParMagasin)
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Pour une agence du réseau, calcule le poids de la famille B
- * relativement à la famille A (ratio CA B / CA A en %).
- * Ce n'est pas un taux d'association client (impossible sans croisement client par agence)
- * mais un ratio de mix produit — utile pour identifier les agences qui vendent
- * bien B quand elles vendent A.
+ * Agrège ventesParMagasinByCanal pour un store (tous canaux confondus).
+ * Retourne un objet {code → {sumCA, countBL}} — sensible au filtre période.
+ * Fallback sur ventesParMagasin (pleine période) si byCanal absent.
+ */
+function _vpmForStore(store) {
+  const vbc = _S.ventesParMagasinByCanal;
+  if (vbc && vbc[store]) {
+    const merged = {};
+    for (const canal in vbc[store]) {
+      for (const [code, data] of Object.entries(vbc[store][canal])) {
+        if (!merged[code]) merged[code] = { sumCA: 0, countBL: 0 };
+        merged[code].sumCA += data.sumCA || 0;
+        merged[code].countBL += data.countBL || 0;
+      }
+    }
+    return merged;
+  }
+  return _S.ventesParMagasin?.[store] || {};
+}
+
+/**
+ * Pour une agence du réseau, calcule le mix A/B :
+ * caA, caB, refsA, refsB, blA, blB + ratio brut caB/caA.
+ * Utilise ventesParMagasinByCanal (sensible période) avec fallback ventesParMagasin.
  */
 function _computeAssocForStore(store, famA, famB) {
-  const vpm = _S.ventesParMagasin || {};
-  const sd = vpm[store];
-  if (!sd) return { caA: 0, caB: 0, refsA: 0, refsB: 0, ratio: 0 };
+  const sd = _vpmForStore(store);
+  if (!sd || !Object.keys(sd).length) return { blA: 0, blB: 0, ratioRaw: 0, caA: 0, caB: 0, refsA: 0, refsB: 0 };
 
   const catFam = _S.catalogueFamille;
-  let caA = 0, caB = 0, refsA = 0, refsB = 0;
+  let caA = 0, caB = 0, blA = 0, blB = 0, refsA = 0, refsB = 0;
   for (const [code, data] of Object.entries(sd)) {
     const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    if (cf === famA && (data.countBL || 0) > 0) { caA += data.sumCA || 0; refsA++; }
-    if (cf === famB && (data.countBL || 0) > 0) { caB += data.sumCA || 0; refsB++; }
+    const bl = data.countBL || 0;
+    if (bl <= 0) continue;
+    if (cf === famA) { caA += data.sumCA || 0; blA += bl; refsA++; }
+    if (cf === famB) { caB += data.sumCA || 0; blB += bl; refsB++; }
   }
 
-  return { caA, caB, refsA, refsB, ratio: caA > 0 ? Math.round(caB / caA * 100) : 0 };
+  return {
+    blA, blB, refsA, refsB,
+    ratioRaw: caA > 0 ? caB / caA : 0,
+    caA, caB
+  };
 }
 
 /**
@@ -88,22 +112,47 @@ function _computeAssocMyStore(famA, famB) {
 }
 
 /**
- * Benchmark réseau : ratio mix produit B/A pour chaque agence
+ * Benchmark réseau : indice d'association normalisé par agence.
+ * Indice = (caB/caA)_store / median(caB/caA)_réseau × 100
+ * 100 = niveau médiane, >100 = vend mieux l'association, <100 = en retard.
+ * Trié par indice décroissant — qui cross-sell le mieux ?
  */
 function _benchmarkAssoc(famA, famB) {
+  // Lister les stores depuis ventesParMagasinByCanal (sensible période) ou ventesParMagasin
+  const vbc = _S.ventesParMagasinByCanal || {};
   const vpm = _S.ventesParMagasin || {};
+  const allStores = new Set([...Object.keys(vbc), ...Object.keys(vpm)]);
   const myStore = _S.selectedMyStore;
-  const stores = Object.keys(vpm).filter(s => s !== myStore);
-  const results = [];
+  const raw = [];
 
-  for (const store of stores) {
+  for (const store of allStores) {
     const r = _computeAssocForStore(store, famA, famB);
-    if (r.caA > 0) { // l'agence vend au moins famille A
-      results.push({ store, ...r });
+    if (r.caA > 0 && r.blA >= 5) {
+      raw.push({ store, ...r });
     }
   }
 
-  results.sort((a, b) => b.refsB - a.refsB || b.caB - a.caB);
+  if (raw.length === 0) return [];
+
+  // Médiane du ratio brut caB/caA sur l'ensemble du réseau
+  const ratios = raw.map(r => r.ratioRaw).sort((a, b) => a - b);
+  const medRatio = ratios[Math.floor(ratios.length / 2)];
+
+  // Indice normalisé pour chaque agence (100 = médiane)
+  const results = [];
+  for (const r of raw) {
+    if (r.store === myStore) continue;
+    r.indice = medRatio > 0 ? Math.round(r.ratioRaw / medRatio * 100) : 0;
+    results.push(r);
+  }
+
+  // Mon indice aussi
+  const myR = raw.find(r => r.store === myStore);
+  const myIndice = myR && medRatio > 0 ? Math.round(myR.ratioRaw / medRatio * 100) : 0;
+
+  results.sort((a, b) => b.indice - a.indice || b.caB - a.caB);
+  results._myIndice = myIndice;
+  results._medRatio = medRatio;
   return results;
 }
 
@@ -111,11 +160,10 @@ function _benchmarkAssoc(famA, famB) {
  * Refs vendues par la meilleure agence sur famB que mon agence ne vend pas bien
  */
 function _findMissingRefs(famB, bestStore) {
-  const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
-  const myData = vpm[myStore] || {};
-  const bestData = vpm[bestStore] || {};
+  const myData = _vpmForStore(myStore);
+  const bestData = _vpmForStore(bestStore);
 
   const refs = [];
   for (const [code, data] of Object.entries(bestData)) {
@@ -304,7 +352,7 @@ function _suggestAssociatedFams(famA) {
   const results = [];
   for (const [cf, clients] of coCount) {
     const sB = fStats.get(cf);
-    if (!sB || sB.nbClients < 2) continue;
+    if (!sB || sB.nbClients < 2 || !/^[A-Z]\d{2}$/.test(cf)) continue;
     const coTaux = Math.round(clients.size / statsA.nbClients * 100);
     if (coTaux < 5) continue; // trop marginal
     const tooBig = sB.ca > statsA.ca * 2;
@@ -327,7 +375,7 @@ function _renderAssocEditor() {
   const fStats = _famStats();
   // Familles éligibles comme A : ≥5 clients actifs, triées par CA décroissant
   const eligible = [...fStats.values()]
-    .filter(f => f.nbClients >= 5)
+    .filter(f => f.nbClients >= 5 && /^[A-Z]\d{2}$/.test(f.codeFam))
     .sort((a, b) => b.ca - a.ca);
 
   const optsA = eligible.map(f =>
@@ -338,19 +386,18 @@ function _renderAssocEditor() {
   const famB = _S._assocEditing?.famB || '';
 
   // Suggestions pour B si A est choisi
-  let suggestionsHtml = '';
+  let suggestBHtml = '';
   if (famA) {
-    const suggestions = _suggestAssociatedFams(famA);
-    if (suggestions.length) {
-      suggestionsHtml = `<div class="mt-3">
-        <h5 class="text-[10px] font-bold t-secondary mb-2">Familles associées suggérées <span class="font-normal t-disabled">— triées par taux de co-achat naturel</span></h5>
-        <div class="grid grid-cols-2 gap-2">
-          ${suggestions.map(s => {
-            const selected = famB === s.codeFam;
+    const sugB = _suggestAssociatedFams(famA);
+    suggestBHtml = sugB.length
+      ? `<div class="mt-3">
+          <h5 class="text-[10px] font-bold t-secondary mb-2">② Famille associée <span class="font-normal t-disabled">— triées par taux de co-achat naturel</span></h5>
+          <div class="grid grid-cols-2 gap-2">${sugB.map(s => {
+            const sel = famB === s.codeFam;
             const tauxColor = s.coTaux >= 40 ? '#22c55e' : s.coTaux >= 20 ? '#f59e0b' : '#94a3b8';
             return `<div onclick="window._assocPickB('${s.codeFam}')"
-              class="p-2 rounded-lg border cursor-pointer transition-all ${selected ? 'border-2' : 'hover:s-hover'}"
-              style="${selected ? 'border-color:var(--c-action);background:rgba(139,92,246,0.08)' : 'border-color:var(--color-border-tertiary)'}">
+              class="p-2 rounded-lg border cursor-pointer transition-all ${sel ? 'border-2' : 'hover:s-hover'}"
+              style="${sel ? 'border-color:var(--c-action);background:rgba(139,92,246,0.08)' : 'border-color:var(--color-border-tertiary)'}">
               <div class="flex items-center justify-between mb-1">
                 <span class="text-[11px] font-medium t-primary">${escapeHtml(s.lib)}</span>
                 <span class="text-[11px] font-black" style="color:${tauxColor}">${s.coTaux}%</span>
@@ -358,12 +405,23 @@ function _renderAssocEditor() {
               <div class="text-[9px] t-disabled">${s.nbCoClients} clients communs · ${formatEuro(s.ca)} CA · ${s.nbClients} cl.</div>
               ${s.warning ? `<div class="text-[9px] mt-1" style="color:#f59e0b">⚠️ ${s.warning}</div>` : ''}
             </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    } else {
-      suggestionsHtml = '<div class="mt-3 text-[11px] t-disabled text-center py-3">Aucune association significative détectée pour cette famille.</div>';
-    }
+          }).join('')}</div>
+        </div>`
+      : '<div class="mt-3 text-[11px] t-disabled text-center py-3">Aucune association significative détectée pour cette famille.</div>';
+  }
+
+  // Résumé
+  let chainPreview = '';
+  if (famA && famB) {
+    const my = _computeAssocMyStore(famA, famB);
+    const tauxColor = my.taux >= 50 ? '#22c55e' : my.taux >= 25 ? '#f59e0b' : '#ef4444';
+    chainPreview = `<div class="flex items-center gap-3 p-2 rounded-lg border b-light text-[11px] mt-3">
+      <span class="font-mono px-1.5 py-0.5 rounded" style="background:rgba(139,92,246,0.15);color:#8b5cf6">${escapeHtml(famA)}</span>
+      <span class="t-disabled">→</span>
+      <span class="font-mono px-1.5 py-0.5 rounded" style="background:rgba(59,130,246,0.15);color:#3b82f6">${escapeHtml(famB)}</span>
+      <span class="ml-2">Taux : <strong style="color:${tauxColor}">${my.taux}%</strong></span>
+      <span class="t-disabled">${my.clientsAB.size} / ${my.clientsA.size} clients</span>
+    </div>`;
   }
 
   return `<div class="s-card rounded-xl border p-4 mb-4">
@@ -374,11 +432,8 @@ function _renderAssocEditor() {
         <option value="">— Choisir une famille —</option>${optsA}
       </select>
     </div>
-    ${famA ? `<div class="mt-3">
-      <label class="text-[10px] font-bold t-secondary mb-1 block">② Famille associée <span class="font-normal t-disabled">— le cross-sell à développer</span></label>
-    </div>` : ''}
-    ${suggestionsHtml}
-    <div id="assocPreview" class="mt-3"></div>
+    ${suggestBHtml}
+    ${chainPreview}
     <div class="flex gap-2 mt-3">
       <button onclick="window._assocSave()" class="text-[11px] px-4 py-1.5 rounded-lg font-bold cursor-pointer ${famA && famB ? '' : 'opacity-50 pointer-events-none'}" style="background:var(--c-action);color:#fff">✓ Enregistrer</button>
       <button onclick="window._assocCancel()" class="text-[11px] px-3 py-1.5 t-disabled hover:t-primary cursor-pointer">Annuler</button>
@@ -387,46 +442,23 @@ function _renderAssocEditor() {
 }
 
 function _renderAssocCard(assoc) {
-  const { famA, famB, famC, id } = assoc;
+  const { famA, famB, id } = assoc;
   const labelA = _famLabel(famA);
   const labelB = _famLabel(famB);
-  const labelC = famC ? _famLabel(famC) : '';
 
   // Calcul mon agence (taux client)
   const my = _computeAssocMyStore(famA, famB);
-  // Benchmark réseau (refs B vendues par agence, trié par nbRefs)
+  // Benchmark réseau : indice normalisé (100 = médiane)
   const bench = _benchmarkAssoc(famA, famB);
   const best = bench[0] || null;
-  // Mon nombre de refs B vs médiane réseau
-  const vpmMy = _S.ventesParMagasin?.[_S.selectedMyStore] || {};
-  let myRefsB = 0;
-  for (const [code, d] of Object.entries(vpmMy)) {
-    const cf = _S.catalogueFamille?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
-    if (cf === famB && (d.countBL || 0) > 0) myRefsB++;
-  }
-  const medianRefsB = bench.length > 0
-    ? bench[Math.floor(bench.length / 2)].refsB
-    : 0;
+  const myIndice = bench._myIndice || 0;
   const targets = _findClientTargets(famA, famB);
   const missingRefs = best ? _findMissingRefs(famB, best.store) : [];
 
   // Taux couleur
   const tauxColor = my.taux >= 50 ? '#22c55e' : my.taux >= 25 ? '#f59e0b' : '#ef4444';
-  const ecartRefs = myRefsB - medianRefsB;
-  const ecartColor = ecartRefs >= 0 ? '#22c55e' : '#ef4444';
-
-  // Association tertiaire (A→B→C)
-  let blockC = '';
-  if (famC) {
-    const myBC = _computeAssocMyStore(famB, famC);
-    blockC = `<div class="mt-3 pt-3 border-t b-light">
-      <div class="text-[10px] t-disabled mb-1">Association chaînée : ${escapeHtml(labelB)} → ${escapeHtml(labelC)}</div>
-      <div class="flex gap-4 text-[11px]">
-        <span>Taux : <strong style="color:${myBC.taux >= 50 ? '#22c55e' : myBC.taux >= 25 ? '#f59e0b' : '#ef4444'}">${myBC.taux}%</strong></span>
-        <span class="t-secondary">${myBC.clientsA.size} clients ${escapeHtml(labelB)} · ${myBC.clientsAB.size} achètent aussi ${escapeHtml(labelC)}</span>
-      </div>
-    </div>`;
-  }
+  const ecartIndice = myIndice - 100; // vs médiane (100)
+  const ecartColor = ecartIndice >= 0 ? '#22c55e' : '#ef4444';
 
   const isOpen = _S._assocOpenId === id;
 
@@ -436,12 +468,11 @@ function _renderAssocCard(assoc) {
         <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(139,92,246,0.15);color:#8b5cf6">${escapeHtml(famA)}</span>
         <span class="t-disabled">→</span>
         <span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);color:#3b82f6">${escapeHtml(famB)}</span>
-        ${famC ? `<span class="t-disabled">→</span><span class="text-[10px] font-mono px-2 py-0.5 rounded" style="background:rgba(34,197,94,0.15);color:#22c55e">${escapeHtml(famC)}</span>` : ''}
         <span class="text-[11px] t-primary font-medium ml-2">${escapeHtml(labelA)} × ${escapeHtml(labelB)}</span>
       </div>
       <div class="flex items-center gap-3">
         <span class="text-lg font-black" style="color:${tauxColor}">${my.taux}%</span>
-        <span class="text-[10px]" style="color:${ecartColor}">${ecartRefs >= 0 ? '+' : ''}${ecartRefs} refs vs méd.</span>
+        <span class="text-[10px]" style="color:${ecartColor}">indice ${myIndice} <span class="t-disabled">(méd. 100)</span></span>
         <button onclick="event.stopPropagation();window._assocDelete('${id}')" class="text-[10px] t-disabled hover:text-red-400 ml-2" title="Supprimer">🗑️</button>
       </div>
     </div>
@@ -454,14 +485,14 @@ function _renderAssocCard(assoc) {
           <div class="text-[11px] t-secondary mt-0.5">${my.clientsAB.size} / ${my.clientsA.size} clients</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(59,130,246,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Méd. réseau refs B</div>
-          <div class="text-2xl font-black t-primary">${medianRefsB}</div>
-          <div class="text-[11px] t-secondary mt-0.5">${bench.length} agences · moi : ${myRefsB}</div>
+          <div class="text-[11px] font-semibold t-secondary mb-1">Mon indice réseau</div>
+          <div class="text-2xl font-black" style="color:${ecartColor}">${myIndice}</div>
+          <div class="text-[11px] t-secondary mt-0.5">${bench.length} agences · méd. = 100</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(34,197,94,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Top agence</div>
-          <div class="text-2xl font-black" style="color:#22c55e">${best ? best.refsB + ' refs' : '—'}</div>
-          <div class="text-[11px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) : '—'}</div>
+          <div class="text-[11px] font-semibold t-secondary mb-1">Meilleure agence</div>
+          <div class="text-2xl font-black" style="color:#22c55e">${best ? 'indice ' + best.indice : '—'}</div>
+          <div class="text-[11px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) + ' CA B' : '—'}</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(245,158,11,0.12)">
           <div class="text-[11px] font-semibold t-secondary mb-1">Clients cibles</div>
@@ -470,11 +501,9 @@ function _renderAssocCard(assoc) {
         </div>
       </div>
 
-      ${blockC}
-
       <!-- Refs manquantes -->
       ${missingRefs.length ? `<div class="mb-4">
-        <h4 class="text-[11px] font-bold t-primary mb-2">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vendues par ${best?.store || '?'}, pas/peu par moi</span></h4>
+        <h4 class="text-[11px] font-bold t-primary mb-2">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vendues par ${best?.store || '?'} (taux ${best?.taux || 0}%), pas/peu par moi</span></h4>
         <div style="max-height:300px;overflow-y:auto">
         <table class="w-full text-[11px]">
           <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
@@ -608,7 +637,6 @@ window._assocSave = function() {
     id: _assocId(),
     famA,
     famB,
-    famC: null,
     label: `${_famLabel(famA)} × ${_famLabel(famB)}`,
     dateCreated: new Date().toISOString()
   });
