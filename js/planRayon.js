@@ -64,7 +64,6 @@ const ACTION_BADGE = {
   socle:      { label: 'Bien couverte',  gradient: 'linear-gradient(135deg,#16a34a,#059669)', bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.04)',  cardBorder: 'rgba(52,211,153,0.22)' },
   implanter:  { label: 'À développer',   gradient: 'linear-gradient(135deg,#2563eb,#4f46e5)', bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.04)',  cardBorder: 'rgba(96,165,250,0.22)' },
   challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.04)', cardBorder: 'rgba(248,113,113,0.22)' },
-  potentiel:  { label: 'Potentiel',      gradient: 'linear-gradient(135deg,#d97706,#b45309)', bg: '#fef9c3', color: '#854d0e', icon: '🟡', dot: '#fbbf24', cardBg: 'rgba(251,191,36,0.04)',  cardBorder: 'rgba(251,191,36,0.22)' },
   surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.04)', cardBorder: 'rgba(100,116,139,0.22)' },
   specialiser:   { label: 'À spécialiser',   gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
 };
@@ -312,12 +311,24 @@ function computePlanStock() {
       // Schizophrénie : refs dans socle/réseau ET pathologiques en agence
       _incCodes: new Set(),
       schizoItems: [], nbSchizo: 0,
+      // KPIs Scanner de Rayon
+      nbIncontournables: 0, nbIncontEnStock: 0,
+      potentielExterne: 0, // CA zone des IMPLANTER
+      caStratClients: 0, caTotalClients: 0, // pour signal spécialiste
+      scoreSante: 0, perfReseau: 0, pctStrat: 0,
     });
     return famMap.get(codeFam);
   };
 
   // Lookup libellé robuste
   const _libOf = (code) => _S.libelleLookup?.[code] || _S.finalData?.find(r => r.code === code)?.libelle || '';
+
+  // Cache rôles Physigamme par famille pour enrichir les KPIs Scanner
+  const _rolesByFam = new Map();
+  const _getRoleFam = (code, codeFam) => {
+    if (!_rolesByFam.has(codeFam)) _rolesByFam.set(codeFam, _prComputeRoles(codeFam));
+    return _rolesByFam.get(codeFam).get(code) || 'standard';
+  };
 
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   for (const d of sqData.directions) {
@@ -335,33 +346,56 @@ function computePlanStock() {
           if (a.sources?.has('livraisons')) f.srcLivraisons = true;
           if (a.sources?.has('pdvClients')) f.srcPdvClients = true;
           if (inFilter) {
-            f.caAgence += a.caAgence || 0;
-            if ((a.caReseau || 0) > 0) { f.caReseau += a.caReseau; f.nbRefsReseau++; }
+            f.caAgence += +(a.caAgence || 0);
+            if ((a.caReseau || 0) > 0) { f.caReseau += +(a.caReseau); f.nbRefsReseau++; }
             if (a.enStock) f.nbEnRayon++;
           }
           if (g === 'socle' || g === 'implanter') {
             f._incCodes.add(a.code);
+          }
+          // KPIs Scanner : incontournables + potentiel externe
+          const role = _getRoleFam(a.code, fi.codeFam);
+          if (role === 'incontournable') {
+            f.nbIncontournables++;
+            if (a.enStock) f.nbIncontEnStock++;
+          }
+          if (g === 'implanter') {
+            f.potentielExterne += +(a.caClientsZone || 0);
           }
         }
       }
     }
   }
 
-  // nbClients : MAGASIN + hors-MAGASIN (livraison, DCS, web…) — un rayon vendu en livraison compte
+  // nbClients + signal spécialiste (CA clients métiers strat vs CA total)
   const seenClientsByFam = new Map(); // codeFam → Set<cc>
-  const _addClient = (cc, code) => {
+  const caByFamClient = new Map(); // codeFam → { total, strat }
+  const _isStrat = (cc) => {
+    const metier = (_S.chalandiseData?.get(cc)?.metier || '').toLowerCase();
+    return metier && METIERS_STRATEGIQUES.some(m => metier.includes(m));
+  };
+  const _addClient = (cc, code, ca) => {
     if (!filteredCodes.has(code)) return;
     const fi = getFamInfo(code);
     if (!fi) return;
     if (!seenClientsByFam.has(fi.codeFam)) seenClientsByFam.set(fi.codeFam, new Set());
     seenClientsByFam.get(fi.codeFam).add(cc);
+    if (!caByFamClient.has(fi.codeFam)) caByFamClient.set(fi.codeFam, { total: 0, strat: 0 });
+    const entry = caByFamClient.get(fi.codeFam);
+    const numCA = +(ca || 0);
+    entry.total += numCA;
+    if (_isStrat(cc)) entry.strat += numCA;
   };
   const vcaFull = _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
-  if (vcaFull) for (const [cc, artMap] of vcaFull) for (const code of artMap.keys()) _addClient(cc, code);
-  if (_S.ventesClientHorsMagasin) for (const [cc, artMap] of _S.ventesClientHorsMagasin) for (const code of artMap.keys()) _addClient(cc, code);
+  if (vcaFull) for (const [cc, artMap] of vcaFull) for (const [code, data] of artMap) _addClient(cc, code, data.sumCA || data.sumCAAll || 0);
+  if (_S.ventesClientHorsMagasin) for (const [cc, artMap] of _S.ventesClientHorsMagasin) for (const [code, data] of artMap) _addClient(cc, code, data.sumCA || 0);
   for (const [codeFam, clientsSet] of seenClientsByFam) {
     const f = famMap.get(codeFam);
     if (f) f.nbClients = clientsSet.size;
+  }
+  for (const [codeFam, entry] of caByFamClient) {
+    const f = famMap.get(codeFam);
+    if (f) { f.caStratClients = entry.strat; f.caTotalClients = entry.total; }
   }
 
   // Compteurs hygiène par famille depuis finalData (dormants/ruptures/fin)
@@ -409,37 +443,41 @@ function computePlanStock() {
       const caResPerRefPerStore = (f.caReseau / nbOtherStores) / f.nbRefsReseau;
       f.rendement = caResPerRefPerStore > 0 ? Math.round(caAgPerRef / caResPerRefPerStore * 100) : null;
     }
-    // Vocation : segment dominant des incontournables vs sortir
+    // ── Scanner de Rayon : 3 KPIs + signal spécialiste ──
+    // 1. Score de Santé Interne (0-100)
+    const pctIncEnStock = f.nbIncontournables > 0
+      ? f.nbIncontEnStock / f.nbIncontournables : 1;
     const total = f.socle + f.implanter + f.challenger + f.surveiller;
-    const rSocle      = total > 0 ? f.socle      / total : 0;
-    const rChallenger = total > 0 ? f.challenger  / total : 0;
-    const rSurveiller = total > 0 ? f.surveiller  / total : 0;
-    const nbSrc = (f.srcReseau?1:0) + (f.srcChalandise?1:0) + (f.srcHorsZone?1:0) + (f.srcLivraisons?1:0);
-    const isSmall = f.nbCatalogue < 5;
+    const nbEnStockTotal = f.nbEnRayon || 1;
+    const pctDormants = f.nbDormants / nbEnStockTotal;
+    const pctCouverture = f.couverture / 100;
+    f.scoreSante = Math.round(
+      pctIncEnStock * 40 +
+      (1 - Math.min(pctDormants, 1)) * 30 +
+      Math.min(pctCouverture, 1) * 30
+    );
 
-    // À spécialiser : rayon trop large (rendement < réseau)
-    if (!isSmall && f.nbEnRayon >= 20 && f.rendement !== null && f.rendement < 65)
+    // 2. Indice Performance Réseau (100 = médiane)
+    f.perfReseau = f.rendement || 0;
+
+    // 3. Potentiel Externe déjà calculé (somme CA Zone des IMPLANTER)
+
+    // 4. Signal spécialiste : % CA porté par clients métiers stratégiques
+    f.pctStrat = f.caTotalClients > 0
+      ? Math.round(f.caStratClients / f.caTotalClients * 100) : 0;
+
+    // ── Classification Scanner ──
+    // Priorité : Spécialiser → Retravailler → Développer → Bien couverte → Surveiller
+    if (f.pctStrat >= 40 && f.nbClients >= 3)
       f.classifGlobal = 'specialiser';
-    else if (!isSmall && f.implanter >= 5 && f.challenger >= 3)
-      f.classifGlobal = 'implanter';
-    else if (!isSmall && f.implanter >= 4 && total > 0 && f.implanter / total > 0.4)
-      f.classifGlobal = 'implanter';
-    else if (rSocle >= 0.4 && f.nbClients >= 5 && nbSrc >= 2)
-      f.classifGlobal = 'socle';
-    else if (rSocle >= 0.5 && f.nbClients >= 10)
-      f.classifGlobal = 'socle';
-    else if (f.socle >= 3 && f.challenger === 0)
-      f.classifGlobal = 'socle';
-    else if (rChallenger >= 0.4 && f.nbClients < 5)
-      f.classifGlobal = 'challenger';
-    else if (f.challenger >= 5 && f.challenger > f.socle * 2)
-      f.classifGlobal = 'challenger';
-    else if (rSurveiller >= 0.4 && f.surveiller >= 5 && f.surveiller > f.socle)
-      f.classifGlobal = 'challenger';
-    else if (f.implanter >= 1)
-      f.classifGlobal = 'implanter';
+    else if (f.scoreSante < 70 || f.perfReseau < 80)
+      f.classifGlobal = 'challenger';    // À retravailler
+    else if (f.potentielExterne >= 50000 || (f.implanter >= 5 && total > 0 && f.implanter / total > 0.3))
+      f.classifGlobal = 'implanter';     // À développer
+    else if (f.scoreSante >= 90 && f.perfReseau >= 100)
+      f.classifGlobal = 'socle';         // Bien couverte
     else
-      f.classifGlobal = 'surveiller';
+      f.classifGlobal = 'surveiller';    // À surveiller
   }
 
   const families = [...famMap.values()]
@@ -678,11 +716,11 @@ function _prBuildCards(data, searchText = '') {
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
         <span class="font-bold" style="color:${covColor}">${f.couverture}% couv.</span>
       </div>
-      <div class="flex items-center justify-between text-[10px] mt-0.5">
-        <span class="t-secondary">Rendement réseau</span>
-        ${f.rendement != null
-          ? `<span class="font-bold" style="color:${f.rendement >= 130 ? '#22c55e' : f.rendement >= 70 ? '#94a3b8' : '#ef4444'}" title="CA/ref vs médiane réseau (base 100)">${f.rendement}</span>`
-          : `<span class="t-disabled">—</span>`}
+      <div class="flex items-center gap-3 text-[10px] mt-1">
+        <span title="Score de Santé Interne (0-100)" style="color:${f.scoreSante >= 90 ? '#22c55e' : f.scoreSante >= 70 ? '#f59e0b' : '#ef4444'}">❤️ ${f.scoreSante}</span>
+        <span title="Indice Performance Réseau (100=médiane)" style="color:${f.perfReseau >= 100 ? '#22c55e' : f.perfReseau >= 80 ? '#f59e0b' : '#ef4444'}">📊 ${f.perfReseau || '—'}</span>
+        ${f.potentielExterne >= 1000 ? `<span title="Potentiel externe (CA zone IMPLANTER)" style="color:#3b82f6">💰 ${formatEuro(f.potentielExterne)}</span>` : ''}
+        ${f.pctStrat >= 20 ? `<span title="${f.pctStrat}% CA porté par clients métiers stratégiques" style="color:#8b5cf6">🎯 ${f.pctStrat}%</span>` : ''}
       </div>
       <div class="flex items-center justify-between mt-1.5">
         ${_prSourceBar(srcObj)}
