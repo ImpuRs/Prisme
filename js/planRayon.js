@@ -674,6 +674,7 @@ const _SQ_SORT_FNS = {
   agence:    (a, b) => (b.W || 0) - (a.W || 0),
   reseau:    (a, b) => (b.nbAgencesReseau || 0) - (a.nbAgencesReseau || 0),
   livraison: (a, b) => (b.nbBLLivraisons  || 0) - (a.nbBLLivraisons  || 0),
+  score:     (a, b) => (b.score || 0) - (a.score || 0),
   classif:   (a, b) => _SQ_CLASSIF_ORDER.indexOf(a._g) - _SQ_CLASSIF_ORDER.indexOf(b._g),
   code:      (a, b) => String(a.code).localeCompare(String(b.code)),
 };
@@ -705,6 +706,7 @@ function _prBuildSqTable(arts) {
       <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
       <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
       <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
+      <td class="py-1.5 px-2 text-right font-bold" style="color:${(a.score||0) >= 50 ? '#22c55e' : (a.score||0) >= 25 ? '#f59e0b' : 'var(--t-disabled)'}">${a.score || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbAgencesReseau || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbBLLivraisons || 0}</td>
@@ -719,6 +721,7 @@ function _prBuildSqTable(arts) {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Classif.</th>
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
+        ${_thSort('score',     'Score')}
         ${_thSort('agence',    'Ventes ag.')}
         ${_thSort('reseau',    'Nb agences')}
         ${_thSort('livraison', 'BL Livr.')}
