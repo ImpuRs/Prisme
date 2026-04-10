@@ -2757,20 +2757,34 @@ function _prDownloadDiag(txt, codeFam) {
 // + TOP métiers + demande réelle par métier + données rayon. Conçu pour être
 // collé tel quel dans n'importe quel LLM (Gemini, Grok, ChatGPT, Claude).
 const _LLM_PROMPT = `Tu es un merchandiseur expert en distribution B2B (quincaillerie pro).
+Tu maîtrises la PHYSIGAMME — la grille stratégique qui classe chaque article par RÔLE :
+🏆 Incontournable = présent chez ≥60% du réseau OU ABC-A forte rotation. OBJECTIF : 98% en stock.
+🆕 Nouveauté = <90 jours, signal réseau. Le renouvellement qui garde le rayon vivant.
+💰 Premier prix = entrée de gamme par sous-famille. Le client qui compare DOIT trouver un prix plancher chez toi.
+🎯 Spécialiste = acheté principalement par les clients stratégiques (FID/OCC Pot+). Fidélisation pure.
+📦 Standard = le reste. Candidat "je vide" si dormant.
+
+La PHYSIGAMME croise le SQUELETTE (signal data : socle/implanter/challenger) :
+- 🏆 Incont. + 🔵 Implanter = TROU CRITIQUE — le réseau le vend, tu ne l'as pas
+- 📦 Standard + 🔴 Challenger = candidat sortie de rayon
+- 💰 PP dormant = problème de visibilité en rayon, PAS de pertinence produit
+
 Analyse le rayon ci-dessous et réponds STRICTEMENT en 7 sections :
 
 1. **La phrase à retenir** — UNE phrase qui frappe (image mentale + diagnostic + direction)
 2. **Les signaux qui crient fort** — les 2-3 chiffres qui doivent alerter, et POURQUOI
 3. **Le piège mental à éviter** — le réflexe à ne PAS avoir face à ces données
-4. **Ce que je vois vraiment dans les données** — pattern caché, croisements (marques × métiers × emplacements)
-5. **Le plan que tu ferais** — 5 priorités concrètes max, avec geste physique + budget temps
-6. **Prédiction chiffrée** — nb refs, stock, hygiène, rendement APRÈS le plan
+4. **Ce que je vois vraiment dans les données** — pattern caché, croisements (rôles × métiers × emplacements × benchmark)
+5. **Le plan Physigamme** — "Je vide / J'optimise / Je remplis" en 5 gestes max, chacun avec le RÔLE ciblé
+6. **Prédiction chiffrée** — détention incontournables, couverture PP, rotation, rendement APRÈS le plan
 7. **La leçon qui dépasse ce rayon** — ce que cette famille enseigne pour le reste du magasin
 
 Règles dures :
-- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Elle montre la demande totale dans la zone (toutes agences). Distingue 2 stratégies :
-  1. CONSOLIDER : renforcer le rayon pour les métiers qui viennent déjà (captation >20%) — leur offrir leurs vrais besoins produits
-  2. DÉVELOPPER : aller capter les métiers à 0% de captation — qu'est-ce qu'on implante pour les attirer ?
+- Section [PHYSIGAMME] = la GRILLE DE LECTURE. Chaque recommandation doit citer le rôle de l'article (🏆/🆕/💰/🎯/📦)
+- Section [BENCHMARK RÉSEAU VS MOI] = ton miroir. Un écart >20% en CA ou rotation = signal fort
+- Si section [DEMANDE RÉELLE PAR MÉTIER] présente : c'est la donnée CLEF. Distingue 2 stratégies :
+  1. CONSOLIDER : renforcer le rayon pour les métiers qui viennent déjà (captation >20%)
+  2. DÉVELOPPER : capter les métiers à 0% de captation — qu'est-ce qu'on implante pour les attirer ?
 - Refuser de réimplanter ce qui sort déjà en volume (signal "rayon échantillonné")
 - Parler comme un coach autour d'un café, pas comme un consultant en costume
 
@@ -2788,11 +2802,14 @@ function _prBuildLLMPack(codeFam) {
   const gd = _prGatherFamData(codeFam);
   if (!gd.sqData) return null;
   const { items, patho } = gd;
+  const _roles = _prComputeRoles(codeFam);
 
+  const ROLE_EMOJI = { incontournable: '🏆', nouveaute: '🆕', premierprix: '💰', specialiste: '🎯', standard: '📦' };
   const fmtItem = (a, withScore = false) => {
     const m = mark(a.code);
     const score = withScore && a.scoreReseau ? ` score:${a.scoreReseau}` : '';
-    return `  - ${a.code} ${lib(a.code)}${m ? ' · ' + m : ''}${score}`;
+    const roleTag = ROLE_EMOJI[_roles.get(a.code)] || '';
+    return `  - ${a.code} ${lib(a.code)}${roleTag ? ' ' + roleTag : ''}${m ? ' · ' + m : ''}${score}`;
   };
 
   const topMetStr = ctx.topMetiers
@@ -2814,6 +2831,78 @@ function _prBuildLLMPack(codeFam) {
   pack += `- ${fam.nbClients} clients servis · CA agence ${formatEuro(fam.caAgence)}\n`;
   pack += `- Hygiène : ${fam.hygieneScore}% pathologique (${fam.nbDormants} dormants · ${fam.nbFin} fin · ${fam.nbRuptures} ruptures)\n`;
   pack += `- Rendement réseau : ${fam.rendement != null ? fam.rendement + ' (base 100)' : 'n/a'}\n\n`;
+
+  // ── PHYSIGAMME ──
+  const _vpm = _S.ventesParMagasin || {};
+  const _spm = _S.stockParMagasin || {};
+  const _myS = _S.selectedMyStore;
+  const _stores = Object.keys(_vpm).filter(s => s !== _myS);
+  const _nbSt = _stores.length || 1;
+  const _fdMap2 = new Map();
+  for (const r of (_S.finalData || [])) _fdMap2.set(r.code, r);
+
+  // Compteurs par rôle
+  const _rc = {}, _ri = {};
+  for (const r of ['incontournable','nouveaute','premierprix','specialiste','standard']) { _rc[r] = 0; _ri[r] = 0; }
+  for (const [code, role] of _roles) { _rc[role]++; if ((_fdMap2.get(code)?.stockActuel || 0) > 0) _ri[role]++; }
+  const _tauxInc = _rc.incontournable ? Math.round(_ri.incontournable / _rc.incontournable * 100) : 100;
+
+  pack += `[PHYSIGAMME — Rôles stratégiques]\n`;
+  pack += `- 🏆 Incontournables : ${_ri.incontournable}/${_rc.incontournable} en stock (${_tauxInc}%, objectif 98%)\n`;
+  pack += `- 🆕 Nouveautés : ${_ri.nouveaute}/${_rc.nouveaute} en stock\n`;
+  pack += `- 💰 Premiers prix : ${_ri.premierprix}/${_rc.premierprix} en stock\n`;
+  if (_rc.specialiste) pack += `- 🎯 Spécialistes : ${_ri.specialiste}/${_rc.specialiste} en stock\n`;
+  pack += `- 📦 Standard : ${_ri.standard}/${_rc.standard} en stock\n`;
+
+  // Incontournables manquants
+  const _incManq = [];
+  for (const [code, role] of _roles) {
+    if (role === 'incontournable' && !(_fdMap2.get(code)?.stockActuel > 0)) {
+      let det = 0;
+      for (const s of _stores) { if (_vpm[s]?.[code]?.countBL > 0) det++; }
+      _incManq.push({ code, det: Math.round(det / _nbSt * 100) });
+    }
+  }
+  if (_incManq.length) {
+    pack += `⚠ Incontournables MANQUANTS :\n`;
+    for (const a of _incManq.sort((x, y) => y.det - x.det)) {
+      pack += `  - ${a.code} ${lib(a.code)} (${a.det}% détention réseau)\n`;
+    }
+  }
+
+  // PP dormants
+  const _ppDorm = [];
+  for (const [code, role] of _roles) {
+    if (role === 'premierprix' && (_fdMap2.get(code)?.stockActuel > 0) && !(_fdMap2.get(code)?.W)) {
+      _ppDorm.push(code);
+    }
+  }
+  if (_ppDorm.length) {
+    pack += `👀 Premiers prix DORMANTS (problème visibilité ?) :\n`;
+    for (const code of _ppDorm) pack += `  - ${code} ${lib(code)}\n`;
+  }
+  pack += `\n`;
+
+  // ── BENCHMARK RÉSEAU VS MOI ──
+  const _stStats = _stores.map(s => {
+    let nr = 0, ca = 0, bl = 0;
+    for (const [code] of _roles) {
+      const d = _vpm[s]?.[code]; if (d?.countBL > 0) { nr++; ca += d.sumCA || 0; bl += d.countBL || 0; }
+    }
+    return { nr, ca, bl };
+  });
+  const _med = (arr) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  let _myNR = 0, _myCA = 0, _myBL = 0;
+  for (const [code] of _roles) { const d = _vpm[_myS]?.[code]; if (d?.countBL > 0) { _myNR++; _myCA += d.sumCA || 0; _myBL += d.countBL || 0; } }
+  const _medNR = Math.round(_med(_stStats.map(s => s.nr)));
+  const _medCA = Math.round(_med(_stStats.map(s => s.ca)));
+  const _medBL = Math.round(_med(_stStats.map(s => s.bl)));
+  const _ecart = (v, m) => m ? `${v >= m ? '+' : ''}${Math.round((v - m) / m * 100)}%` : 'n/a';
+
+  pack += `[BENCHMARK RÉSEAU VS MOI — ${_stores.length} agences]\n`;
+  pack += `- Réfs vendues : ${_myNR} vs ${_medNR} médiane (${_ecart(_myNR, _medNR)})\n`;
+  pack += `- CA : ${formatEuro(_myCA)} vs ${formatEuro(_medCA)} (${_ecart(_myCA, _medCA)})\n`;
+  pack += `- BL : ${_myBL} vs ${_medBL} (${_ecart(_myBL, _medBL)})\n\n`;
 
   if (fam.nbSchizo > 0) {
     pack += `[REFS SCHIZO — ${fam.nbSchizo} refs incontournables réseau MAIS dormantes/ruptures chez toi]\n`;
