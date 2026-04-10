@@ -878,7 +878,7 @@ export function computeSquelette(directionFilter) {
       for (const cc of clients) {
         if (_S.clientsMagasin.has(cc)) n++;
       }
-      if (n >= 2) {
+      if (n >= 1) {
         const a = _ensure(code);
         a.nbClientsPDV = n;
         a.sources.add('pdvClients');

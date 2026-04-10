@@ -1612,7 +1612,7 @@ function _prRenderPhysigamme(fam) {
 
 // ── Onglet Pilotage (fusion Mon Rayon + Squelette + Physigamme) ──────
 let _prPilotFilter = '';   // 'socle'|'challenger'|'surveiller'|'implanter'|''
-let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'caZone'|'cliZone'|'classif'|'verdict'
+let _prPilotSort   = 'verdict'; // 'code'|'stock'|'w'|'cliPDV'|'caZone'|'cliZone'|'classif'|'verdict'
 let _prPilotPage   = 60;
 
 function _prRenderPilotage(fam) {
@@ -1657,6 +1657,7 @@ function _prRenderPilotage(fam) {
           prix: fd?.prixUnitaire || 0,
           sf: sf?.sousFam || '',
           codeSF: sf?.codeSousFam || '',
+          cliPDV: a.nbClientsPDV || 0,
           caZone: a.caClientsZone || 0,
           cliZone: a.nbClientsZone || 0,
         });
@@ -1678,6 +1679,7 @@ function _prRenderPilotage(fam) {
     code:    (a, b) => String(a.code).localeCompare(String(b.code)),
     stock:   (a, b) => (b.stockActuel || 0) - (a.stockActuel || 0),
     w:       (a, b) => (b.W || 0) - (a.W || 0),
+    cliPDV:  (a, b) => (b.cliPDV || 0) - (a.cliPDV || 0),
     caZone:  (a, b) => (b.caZone || 0) - (a.caZone || 0),
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
@@ -1749,6 +1751,7 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-[10px] t-secondary" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(a.sf)}">${escapeHtml(a.sf)}</td>
       <td class="py-1.5 px-2 text-right">${stockCell}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
+      <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliZone || '—'}</td>
       <td class="py-1.5 px-2 text-center"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
@@ -1786,8 +1789,9 @@ function _prRenderPilotage(fam) {
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">SF</th>
         ${_thSort('stock', 'Stock', 'text-right')}
         ${_thSort('w', 'Vte 90J', 'text-right', 'Fréquence BL 90 jours')}
-        ${_thSort('caZone', 'CA Zone', 'text-right', 'CA clients zone de chalandise')}
-        ${_thSort('cliZone', 'Cli Zone', 'text-right', 'Nb clients zone')}
+        ${_thSort('cliPDV', 'Cli PDV', 'text-right', 'Clients distincts agence sur la période')}
+        ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
+        ${_thSort('cliZone', 'Cli Zone', 'text-right', 'Clients distincts zone tous canaux')}
         ${_thSort('classif', 'Classif', 'text-center')}
         <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500">Rôle</th>
         ${_thSort('verdict', 'Verdict', 'text-left')}
@@ -2301,11 +2305,11 @@ window._prExportPilotage = function() {
         const lib = a.libelle || _S.libelleLookup?.[a.code] || '';
         const caZ = +(a.caClientsZone || 0);
         rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || (fdMap.get(a.code)?.W || 0),
-          caZ.toFixed(2), a.nbClientsZone || 0, g, role, v.name].join(';'));
+          a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, g, role, v.name].join(';'));
       }
     }
   }
-  const csv = ['Code;Libellé;SF;Stock;Vte 90J;CA Zone;Cli Zone;Classif;Rôle;Verdict', ...rows].join('\n');
+  const csv = ['Code;Libellé;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;Classif;Rôle;Verdict', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
