@@ -51,8 +51,16 @@ let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Ana
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
 let _prSelectedEmps    = new Set(); // Set<emplacement> actifs dans Mon Rayon
 const PAGE_SIZE = 20;
+let _prRoleCache = null; // Map<code, role> — cache rôles Physigamme, invalidé au changement famille
 
 // ── Constantes visuelles ─────────────────────────────────────────────
+const ROLE_BADGE = {
+  incontournable: { icon: '🏆', label: 'Incont.', color: '#22c55e' },
+  nouveaute:      { icon: '🆕', label: 'Nouv.',   color: '#3b82f6' },
+  premierprix:    { icon: '💰', label: 'PP',      color: '#f59e0b' },
+  specialiste:    { icon: '🎯', label: 'Spéc.',   color: '#8b5cf6' },
+  standard:       { icon: '',   label: '',         color: '#94a3b8' },
+};
 const ACTION_BADGE = {
   socle:      { label: 'Bien couverte',  gradient: 'linear-gradient(135deg,#16a34a,#059669)', bg: '#dcfce7', color: '#166534', icon: '🟢', dot: '#34d399', cardBg: 'rgba(52,211,153,0.04)',  cardBorder: 'rgba(52,211,153,0.22)' },
   implanter:  { label: 'À développer',   gradient: 'linear-gradient(135deg,#2563eb,#4f46e5)', bg: '#dbeafe', color: '#1e40af', icon: '🔵', dot: '#60a5fa', cardBg: 'rgba(96,165,250,0.04)',  cardBorder: 'rgba(96,165,250,0.22)' },
@@ -69,6 +77,85 @@ const CLASSIF_BADGE = {
   potentiel:  { label: 'Potentiel',  bg: 'rgba(245,158,11,0.2)',  color: '#f59e0b',           icon: '🟡' },
   surveiller: { label: 'Surveiller', bg: 'rgba(148,163,184,0.2)', color: 'var(--t-secondary)', icon: '👁'  },
 };
+
+// ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
+function _prComputeRoles(codeFam) {
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  const catFam = _S.catalogueFamille;
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  const nbStores = stores.length || 1;
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+
+  // Tous les codes de la famille
+  const allCodes = new Set();
+  const matchFam = (code) => {
+    const cf = catFam?.get(code);
+    return cf ? cf.codeFam === codeFam : (_S.articleFamille?.[code] || '') === codeFam;
+  };
+  for (const r of (_S.finalData || [])) { if (matchFam(r.code)) allCodes.add(r.code); }
+  for (const arts of Object.values(vpm)) { for (const code of Object.keys(arts)) { if (matchFam(code)) allCodes.add(code); } }
+
+  const roles = new Map(); // code → role
+  const bySF = new Map();
+
+  for (const code of allCodes) {
+    const fd = fdMap.get(code);
+    const sf = catFam?.get(code);
+    let nbSt = 0;
+    for (const s of stores) { if (vpm[s]?.[code]?.countBL > 0) nbSt++; }
+    const detention = nbSt / nbStores;
+    const W = fd?.W || (vpm[myStore]?.[code]?.countBL || 0);
+
+    // Clients stratégiques
+    const buyers = _S.articleClients?.get(code);
+    let nbCli = 0, nbCliFID = 0;
+    if (buyers && _S.chalandiseData?.size) {
+      for (const cc of buyers) {
+        if (!_S.clientsMagasin?.has(cc)) continue;
+        nbCli++;
+        const cl = (_S.chalandiseData.get(cc)?.classification || '').toUpperCase();
+        if ((cl.includes('FID') || cl.includes('OCC')) && cl.includes('POT+')) nbCliFID++;
+      }
+    }
+
+    let role = 'standard';
+    if (detention >= 0.6 || (fd?.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (nbCli >= 2 && nbCliFID / nbCli >= 0.5) role = 'specialiste';
+
+    roles.set(code, role);
+    const sfName = sf?.sousFam || '';
+    const prix = fd?.prixUnitaire || 0;
+    if (sfName && prix > 0) { if (!bySF.has(sfName)) bySF.set(sfName, []); bySF.get(sfName).push({ code, role, detention, prix }); }
+  }
+
+  // Premier prix : 1 par SF
+  for (const [, arts] of bySF) {
+    const candidate = arts.filter(a => roles.get(a.code) === 'standard' && a.detention >= 0.3)
+      .sort((x, y) => x.prix - y.prix)[0];
+    if (candidate) roles.set(candidate.code, 'premierprix');
+  }
+
+  return roles;
+}
+
+/** Retourne le rôle Physigamme d'un article (avec cache par famille) */
+function _prGetRole(code, codeFam) {
+  if (!_prRoleCache || _prRoleCache._fam !== codeFam) {
+    _prRoleCache = _prComputeRoles(codeFam);
+    _prRoleCache._fam = codeFam;
+  }
+  return _prRoleCache.get(code) || 'standard';
+}
+
+/** Badge HTML compact pour le rôle */
+function _prRoleBadge(role) {
+  const r = ROLE_BADGE[role];
+  if (!r || !r.icon) return '';
+  return `<span class="text-[8px] px-1 py-0.5 rounded" style="background:${r.color}20;color:${r.color}" title="${role}">${r.icon} ${r.label}</span>`;
+}
 
 // ── Vocation contexte agence ─────────────────────────────────────────
 // Calcule la distribution segments cible des clients de l'agence pondérée
@@ -699,13 +786,16 @@ function _prBuildSqTable(arts) {
       onclick="window._prSqSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
   };
 
+  const _famCode = _prOpenFam || '';
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.potentiel;
+    const role = _famCode ? _prGetRole(a.code, _famCode) : 'standard';
+    const rb = _prRoleBadge(role);
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
       <td class="py-1.5 px-2 t-primary">${escapeHtml(a.libelle || a.code)}</td>
-      <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
+      <td class="py-1.5 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${rb ? ' ' + rb : ''}</td>
       <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbAgencesReseau || 0}</td>
@@ -1207,8 +1297,18 @@ function _prRenderPhysigamme(fam) {
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliFID / nbCli >= 0.5) role = 'specialiste';
 
+    // Classification squelette
+    let sqClassif = '';
+    if (_S._prSqData) {
+      for (const d of _S._prSqData.directions) {
+        for (const g of ['socle','implanter','challenger','potentiel','surveiller']) {
+          if ((d[g] || []).some(x => x.code === code)) { sqClassif = g; break; }
+        }
+        if (sqClassif) break;
+      }
+    }
     const a = { code, lib: _S.libelleLookup?.[code] || code, sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
-      role, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliFID,
+      role, sqClassif, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliFID,
       abc: fd?.abcClass || '', fmr: fd?.fmrClass || '' };
     artList.push(a);
     if (a.sf && a.prix > 0) { if (!bySF.has(a.sf)) bySF.set(a.sf, []); bySF.get(a.sf).push(a); }
@@ -1312,22 +1412,27 @@ function _prRenderPhysigamme(fam) {
   // Premiers prix dormants — signal d'alerte visibilité
   const ppDormants = artList.filter(a => a.enStock && a.W === 0 && a.role === 'premierprix');
 
-  const ROLE_COLORS = { incontournable: '#22c55e', nouveaute: '#3b82f6', premierprix: '#f59e0b', specialiste: '#8b5cf6', standard: '#94a3b8' };
-  const ROLE_ICONS = { incontournable: '🏆', nouveaute: '🆕', premierprix: '💰', specialiste: '🎯', standard: '📦' };
   const _artTh = `<thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
     <th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th>
     <th class="py-1 px-2 text-left">Rôle</th><th class="py-1 px-2 text-right">Dét. rés.</th>
     <th class="py-1 px-2 text-right">Stock</th><th class="py-1 px-2 text-right">W</th>
   </tr></thead>`;
-  const _artRow = (a) => `<tr class="border-b b-light text-[11px] cursor-pointer hover:s-hover"
-    onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
-    <td class="py-1 px-2 font-mono t-disabled">${a.code}</td>
-    <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(a.lib)}</td>
-    <td class="py-1 px-2"><span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${ROLE_COLORS[a.role]}20;color:${ROLE_COLORS[a.role]}">${ROLE_ICONS[a.role]} ${a.role}</span></td>
-    <td class="py-1 px-2 text-right t-secondary">${Math.round(a.detention * 100)}%</td>
-    <td class="py-1 px-2 text-right t-secondary">${a.enStock ? a.stock : '—'}</td>
-    <td class="py-1 px-2 text-right t-secondary">${a.W || 0}</td>
-  </tr>`;
+  const _artRow = (a) => {
+    const rb = ROLE_BADGE[a.role] || ROLE_BADGE.standard;
+    const sqBadge = a.sqClassif ? (CLASSIF_BADGE[a.sqClassif] || null) : null;
+    return `<tr class="border-b b-light text-[11px] cursor-pointer hover:s-hover"
+      onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
+      <td class="py-1 px-2 font-mono t-disabled">${a.code}</td>
+      <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(a.lib)}</td>
+      <td class="py-1 px-2">
+        <span class="text-[8px] px-1.5 py-0.5 rounded-full" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>
+        ${sqBadge ? `<span class="text-[8px] px-1 py-0.5 rounded ml-0.5" style="background:${sqBadge.bg};color:${sqBadge.color}">${sqBadge.icon}</span>` : ''}
+      </td>
+      <td class="py-1 px-2 text-right t-secondary">${Math.round(a.detention * 100)}%</td>
+      <td class="py-1 px-2 text-right t-secondary">${a.enStock ? a.stock : '—'}</td>
+      <td class="py-1 px-2 text-right t-secondary">${a.W || 0}</td>
+    </tr>`;
+  };
 
   let actions = '';
   if (aRemplir.length) {
