@@ -299,7 +299,7 @@ _S.canalAgence=newCanalAgence;
 
     buildClientStore({ pdvOnly: true });
     // agenceStore déjà rebuilt par computeBenchmark (ligne 283)
-    invalidateCache('tab','terr');
+    invalidateCache('tab'); // 'terr' invalidé par le caller si besoin (applyPeriodFilter le fait déjà)
     }finally{_refilterRunning=false;}
   }
   // ── Sélecteur période — helpers ──────────────────────────────────────────
@@ -605,6 +605,76 @@ _S.canalAgence=newCanalAgence;
       }
     }
 
+    // Commerciaux contributeurs
+    if(_S.clientStore?.size && _S.chalandiseReady){
+      const comCA=new Map();
+      const comCli=new Map();
+      const comSil=new Map();
+      for(const rec of _S.clientStore.values()){
+        if(!_clientPassesReportFilter(rec))continue;
+        const com=rec.commercial;
+        if(!com)continue;
+        const ca=rec.caPDV||0;
+        if(ca>0){
+          comCA.set(com,(comCA.get(com)||0)+ca);
+          comCli.set(com,(comCli.get(com)||0)+1);
+        }
+        const d=rec.silenceDaysPDV??rec.silenceDaysAll;
+        if(d!==null&&d>30&&d<=180&&ca>0){
+          comSil.set(com,(comSil.get(com)||0)+1);
+        }
+      }
+      if(comCA.size>0){
+        const sorted=[...comCA.entries()].sort((a,b)=>b[1]-a[1]);
+        L.push('');L.push('COMMERCIAUX CONTRIBUTEURS');
+        for(const [com,ca] of sorted){
+          const cli=comCli.get(com)||0;
+          const sil=comSil.get(com)||0;
+          const silTag=sil>0?` | ${sil} silencieux/perdus`:'';
+          L.push(`  ${com} : CA PDV ${e(ca)}, ${n(cli)} clients actifs${silTag}`);
+        }
+      }
+    }
+
+    // Directions / Secteurs (territoire)
+    if(_S.terrContribByDirection?.size>0){
+      L.push('');L.push('DIRECTIONS COMMERCIALES (territoire)');
+      const sorted=[..._S.terrContribByDirection.entries()].sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
+      for(const [dir,d] of sorted){
+        if(!d.ca)continue;
+        L.push(`  ${dir} : ${e(d.ca)} CA, ${n(d.blTerr||0)} BL`);
+      }
+    }
+
+    // Métiers clients (chalandise)
+    if(_S.clientStore?.size && _S.chalandiseReady){
+      const metCA=new Map();
+      const metCli=new Map();
+      for(const rec of _S.clientStore.values()){
+        if(!_clientPassesReportFilter(rec))continue;
+        const met=rec.metier;
+        if(!met)continue;
+        const ca=rec.caTotal||rec.caPDV||0;
+        if(ca>0){
+          metCA.set(met,(metCA.get(met)||0)+ca);
+          metCli.set(met,(metCli.get(met)||0)+1);
+        }
+      }
+      if(metCA.size>0){
+        const sorted=[...metCA.entries()].sort((a,b)=>b[1]-a[1]);
+        const isStrat=(m)=>{const ml=m.toLowerCase();return METIERS_STRATEGIQUES.some(s=>ml.includes(s));};
+        L.push('');L.push('MÉTIERS CLIENTS');
+        for(const [met,ca] of sorted.slice(0,15)){
+          const cli=metCli.get(met)||0;
+          const tag=isStrat(met)?'⭐ ':'';
+          L.push(`  ${tag}${met} : ${e(ca)}, ${n(cli)} clients`);
+        }
+        const nbStrat=sorted.filter(([m])=>isStrat(m)).length;
+        const caStrat=sorted.filter(([m])=>isStrat(m)).reduce((s,[,ca])=>s+ca,0);
+        if(nbStrat>0)L.push(`  → ${n(nbStrat)} métiers stratégiques (⭐) = ${e(caStrat)} (${caTotal>0?Math.round(caStrat/caTotal*100):0}% du CA)`);
+      }
+    }
+
     // Clients
     const hasClients=silencieuxCount>0||potentielsCount>0||perdusCount>0||nbNomades>0||nomadesMissed.length>0;
     if(hasClients){
@@ -693,20 +763,45 @@ _S.canalAgence=newCanalAgence;
     L.push(`Tu es un chef d'agence en distribution B2B quincaillerie (réseau Legallais).`);
     L.push(`Rédige ton reporting mensuel pour ta direction régionale, à la première personne.`);
     L.push(`Ce texte sera collé dans une cellule Excel — il doit être compact et agréable à lire.`);
-    L.push(`Règles d'écriture :`);
+    L.push(``);
+    L.push(`RÈGLES D'ÉCRITURE (non négociables) :`);
     L.push(`  - Phrases courtes, toujours chiffrées. Pas d'adjectifs superflus.`);
     L.push(`  - Pas de dramatisation : pas de "scandale", "naufrage", "foudroyant", "intolérable"`);
     L.push(`  - Pas de jargon technique : "F+M" → "articles courants", "ABC/FMR" → ne pas mentionner`);
-    L.push(`  - Constate les faits, donne le contexte (vs médiane), tire la conclusion`);
-    L.push(`  - TOUTES les données doivent apparaître — rien ne doit être ignoré`);
-    L.push(`  - Mets en contraste forces et faiblesses naturellement`);
-    L.push(`Structure :`);
-    L.push(`  1. SYNTHÈSE — 2 phrases max : position, CA, fait marquant du mois`);
-    L.push(`  2. PERFORMANCE — CA, rang, marge, ventilation canaux`);
-    L.push(`  3. STOCK — dispo, ruptures, dormants`);
-    L.push(`  4. RÉSEAU — position vs médiane, TOUTES les familles fortes et en retrait`);
-    L.push(`  5. CLIENTS — silencieux, perdus, potentiels, nomades`);
-    L.push(`  6. MES 3 ACTIONS — engagements concrets, datés, chiffrés`);
+    L.push(`  - SYNTHÉTISE : ne recrache jamais une liste brute. Extrais le signal, pas le bruit.`);
+    L.push(`  - Chaque phrase doit CONCLURE quelque chose, pas juste constater un chiffre.`);
+    L.push(`  - Mets en contraste forces et faiblesses — le lecteur doit sentir l'équilibre.`);
+    L.push(`  - Longueur totale : 350 mots max. La densité prime sur l'exhaustivité.`);
+    L.push(``);
+    L.push(`STRUCTURE (6 sections obligatoires) :`);
+    L.push(``);
+    L.push(`1. SYNTHÈSE (2 phrases max)`);
+    L.push(`   Position, CA, le SEUL fait marquant qui résume le mois.`);
+    L.push(``);
+    L.push(`2. PERFORMANCE (3-4 phrases)`);
+    L.push(`   CA total, rang, marge vs médiane. Ventilation canaux en UNE phrase.`);
+    L.push(`   Ne pas lister les canaux un par un — donner la répartition en %.`);
+    L.push(``);
+    L.push(`3. STOCK (2-3 phrases)`);
+    L.push(`   Dispo, ruptures, dormants. Conclure : est-ce un frein ou non ?`);
+    L.push(``);
+    L.push(`4. RÉSEAU + MÉTIERS (4-5 phrases)`);
+    L.push(`   Position vs médiane en UNE phrase. Puis : les 2-3 familles fortes (regrouper si possible),`);
+    L.push(`   les 2-3 familles en retrait (avec le gap €). Croiser avec les métiers stratégiques (⭐) :`);
+    L.push(`   quels métiers portent la croissance ? Quels métiers sont sous-exploités ?`);
+    L.push(`   NE PAS lister tous les métiers — identifier les 2-3 insights clés.`);
+    L.push(``);
+    L.push(`5. DYNAMIQUE COMMERCIALE + CLIENTS (3-4 phrases)`);
+    L.push(`   Identifier le commercial principal et son poids. Alerter sur les silencieux/perdus`);
+    L.push(`   en €, pas en liste de noms. Potentiels : combien, quel levier.`);
+    L.push(`   NE PAS lister tous les commerciaux — donner la concentration et les alertes.`);
+    L.push(``);
+    L.push(`6. MES 3 ACTIONS (3 lignes max)`);
+    L.push(`   Chaque action doit citer : la donnée qui déclenche (famille, commercial, ou segment client),`);
+    L.push(`   le geste concret, la date butoir, le résultat attendu en €.`);
+    L.push(`   Mauvais : "Lancer une campagne d'appels sur les potentiels".`);
+    L.push(`   Bon : "Phoning avec Laborialle sur ses 9 silencieux (>10k€ CA) — objectif 3 réactivations avant le 25/04".`);
+    L.push(``);
     L.push(`Ton : professionnel, lucide, posé. Tu présentes ton agence avec clarté, pas avec des effets de manche.`);
     L.push('');
     L.push(`═══════════════════════════════════════════════════`);
@@ -737,6 +832,76 @@ _S.canalAgence=newCanalAgence;
       if(manquants.length>0)L.push(`Incontournables manquants : ${n(manquants.filter(m=>(m.myFreq||0)===0).length)} absents + ${n(manquants.filter(m=>(m.myFreq||0)>0).length)} sous-exploités`);
       if(lose.length>0){L.push('');L.push('FAMILLES EN RETRAIT');for(const f of lose)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (${f.ecartPct}%)`);}
       if(win.length>0){L.push('');L.push('FAMILLES FORTES');for(const f of win)L.push(`  ${f.fam} : ${e(f.caMe)} vs méd. ${e(f.caOther)} (+${f.ecartPct}%)`);}
+    }
+
+    // Commerciaux contributeurs
+    if(_S.clientStore?.size && _S.chalandiseReady){
+      const comCA=new Map();
+      const comCli=new Map();
+      const comSil=new Map(); // silencieux par commercial
+      for(const rec of _S.clientStore.values()){
+        if(!_clientPassesReportFilter(rec))continue;
+        const com=rec.commercial;
+        if(!com)continue;
+        const ca=rec.caPDV||0;
+        if(ca>0){
+          comCA.set(com,(comCA.get(com)||0)+ca);
+          comCli.set(com,(comCli.get(com)||0)+1);
+        }
+        const d=rec.silenceDaysPDV??rec.silenceDaysAll;
+        if(d!==null&&d>30&&d<=180&&ca>0){
+          comSil.set(com,(comSil.get(com)||0)+1);
+        }
+      }
+      if(comCA.size>0){
+        const sorted=[...comCA.entries()].sort((a,b)=>b[1]-a[1]);
+        L.push('');L.push('COMMERCIAUX CONTRIBUTEURS');
+        for(const [com,ca] of sorted){
+          const cli=comCli.get(com)||0;
+          const sil=comSil.get(com)||0;
+          const silTag=sil>0?` | ${sil} silencieux/perdus`:'';
+          L.push(`  ${com} : ${e(ca)} CA PDV, ${n(cli)} clients actifs${silTag}`);
+        }
+      }
+    }
+
+    // Directions / Secteurs (territoire)
+    if(_S.terrContribByDirection?.size>0){
+      L.push('');L.push('DIRECTIONS COMMERCIALES (territoire)');
+      const sorted=[..._S.terrContribByDirection.entries()].sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
+      for(const [dir,d] of sorted){
+        if(!d.ca)continue;
+        L.push(`  ${dir} : ${e(d.ca)} CA, ${n(d.blTerr||0)} BL territoire`);
+      }
+    }
+
+    // Métiers clients (chalandise)
+    if(_S.clientStore?.size && _S.chalandiseReady){
+      const metCA=new Map();
+      const metCli=new Map();
+      for(const rec of _S.clientStore.values()){
+        if(!_clientPassesReportFilter(rec))continue;
+        const met=rec.metier;
+        if(!met)continue;
+        const ca=rec.caTotal||rec.caPDV||0;
+        if(ca>0){
+          metCA.set(met,(metCA.get(met)||0)+ca);
+          metCli.set(met,(metCli.get(met)||0)+1);
+        }
+      }
+      if(metCA.size>0){
+        const sorted=[...metCA.entries()].sort((a,b)=>b[1]-a[1]);
+        L.push('');L.push('MÉTIERS CLIENTS');
+        const isStrat=(m)=>{const ml=m.toLowerCase();return METIERS_STRATEGIQUES.some(s=>ml.includes(s));};
+        for(const [met,ca] of sorted.slice(0,12)){
+          const cli=metCli.get(met)||0;
+          const tag=isStrat(met)?'⭐ ':'';
+          L.push(`  ${tag}${met} : ${e(ca)}, ${n(cli)} clients`);
+        }
+        const nbStrat=sorted.filter(([m])=>isStrat(m)).length;
+        const caStrat=sorted.filter(([m])=>isStrat(m)).reduce((s,[,ca])=>s+ca,0);
+        if(nbStrat>0)L.push(`  → ${n(nbStrat)} métiers stratégiques (⭐) = ${e(caStrat)} (${caTotal>0?Math.round(caStrat/caTotal*100):0}% du CA)`);
+      }
     }
 
     L.push('');L.push('CLIENTS');
@@ -1253,6 +1418,7 @@ _S.canalAgence=newCanalAgence;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
     const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;btn.classList.add('loading');
+    _S._parsingInProgress=true; // bloque les renderAll parasites pendant le parsing
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
       let headersC=null;
@@ -1559,7 +1725,8 @@ _S.canalAgence=newCanalAgence;
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
-      _S.currentPage=0;if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
+      _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
+      if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
@@ -2256,6 +2423,7 @@ _S.canalAgence=newCanalAgence;
       if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
       // 4. Période + render (L2485)
+      _S._parsingInProgress=true; // bloque renders parasites pendant la restauration
       updatePeriodAlert();
       buildPeriodFilter();
       computeClientCrossing();
@@ -2289,9 +2457,10 @@ _S.canalAgence=newCanalAgence;
           renderNomadesMissedArts();
         }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
       }
-      if(_S.territoireReady){renderTerritoireTab();}
+      // renderTerritoireTab différé — on switch sur stock, pas besoin de rendre territoire maintenant
 
       // 5. Activer PRISME + replier l'import
+      _S._parsingInProgress=false;
       switchTab('stock');
       collapseImportZone();
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
