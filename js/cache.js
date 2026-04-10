@@ -359,6 +359,8 @@ export async function _saveSessionToIDB() {
       // ── Catalogue animation (Plan de rayon) ──
       catalogueFamille:      _S.catalogueFamille     ? [..._S.catalogueFamille]     : null,
       catalogueDesignation:  _S.catalogueDesignation ? [..._S.catalogueDesignation] : null,
+      // ── Associations de ventes ──
+      _associations:         _S._associations || [],
     };
     st.put(payload, 'current');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
@@ -502,6 +504,9 @@ export async function _restoreSessionFromIDB() {
     // ── Catalogue animation (Plan de rayon) ──
     _S.catalogueFamille     = data.catalogueFamille     ? new Map(data.catalogueFamille)     : null;
     _S.catalogueDesignation = data.catalogueDesignation ? new Map(data.catalogueDesignation) : null;
+
+    // ── Associations de ventes ──
+    _S._associations = data._associations || [];
 
     _idbTimestamp = data.timestamp;
     console.log('[PRISME] session restaurée depuis IndexedDB (' + _S.finalData.length + ' articles, ' + new Date(data.timestamp).toLocaleString('fr') + ')');
