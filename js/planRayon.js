@@ -66,6 +66,7 @@ const ACTION_BADGE = {
   challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.04)', cardBorder: 'rgba(248,113,113,0.22)' },
   surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.04)', cardBorder: 'rgba(100,116,139,0.22)' },
   specialiser:   { label: 'À spécialiser',   gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
+  inactive:      { label: 'Inactive',        gradient: 'linear-gradient(135deg,#374151,#1f2937)', bg: '#1f2937', color: '#6b7280', icon: '💤', dot: '#4b5563', cardBg: 'rgba(75,85,99,0.04)',    cardBorder: 'rgba(75,85,99,0.15)' },
 };
 
 const CLASSIF_BADGE = {
@@ -480,16 +481,20 @@ function computePlanStock() {
 
     // ── Classification Scanner (cascade exclusive) ──
     const hasBench = f.rendement != null && f.rendement > 0;
-    // 1. À retravailler : santé faible OU sous-perf réseau (si benchmark dispo)
-    if (f.scoreSante < 70 || (hasBench && f.perfReseau < 80))
+
+    // 0. INACTIVE : CA < 500€ ET refs actives < 5 → hors scanner
+    if (f.caAgence < 500 && f.nbEnRayon < 5)
+      f.classifGlobal = 'inactive';
+    // 1. À retravailler (ROUGE) : santé < 50 OU sous-perf réseau < 80
+    else if (f.scoreSante < 50 || (hasBench && f.perfReseau < 80))
       f.classifGlobal = 'challenger';    // À retravailler
-    // 2. Bien couverte : santé excellente ET perf réseau au-dessus médiane (ou pas de bench)
-    else if (f.scoreSante > 90 && (!hasBench || f.perfReseau > 100))
+    // 2. Bien couverte (VERT) : santé ≥ 80 ET perf réseau au-dessus médiane (ou pas de bench)
+    else if (f.scoreSante >= 80 && (!hasBench || f.perfReseau > 100))
       f.classifGlobal = 'socle';         // Bien couverte
     // 3. À développer : gros potentiel externe OU captation faible sur gros marché
     else if (f.potentielExterne > 30000 || (f.captation !== null && f.captation < 10 && f.caZoneTotal > 50000))
       f.classifGlobal = 'implanter';     // À développer
-    // 4. À surveiller : tout le reste
+    // 4. À surveiller (ORANGE) : santé 50-79, tout le reste
     else
       f.classifGlobal = 'surveiller';    // À surveiller
 
@@ -497,9 +502,12 @@ function computePlanStock() {
     f.tagSpecialiste = f.pctStrat > 30;
   }
 
-  const families = [...famMap.values()]
-    .filter(f => f.socle + f.implanter + f.challenger + f.surveiller > 0)
+  const allFamilies = [...famMap.values()]
+    .filter(f => f.socle + f.implanter + f.challenger + f.surveiller > 0);
+  const families = allFamilies
+    .filter(f => f.classifGlobal !== 'inactive')
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
+  const nbInactive = allFamilies.filter(f => f.classifGlobal === 'inactive').length;
 
   // DEBUG: distribution scoreSante V2
   console.table(families.map(f => ({
@@ -520,6 +528,7 @@ function computePlanStock() {
       challenger: families.filter(f => f.classifGlobal === 'challenger').length,
       surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
       specialiste: families.filter(f => f.tagSpecialiste).length,
+      inactive: nbInactive,
     }
   };
   _prPlanCache = result;
@@ -1999,6 +2008,7 @@ function _renderPlanRayonContent(data) {
       ${_badge('challenger', totals.challenger)}
       ${_badge('surveiller', totals.surveiller)}
       <div class="text-center text-[10px] t-secondary" title="${totals.specialiste} familles avec >30% CA clients stratégiques">🎯 ${totals.specialiste} spé.</div>
+      ${totals.inactive ? `<div class="text-center text-[10px] t-disabled" title="${totals.inactive} familles CA < 500€ et < 5 refs actives">💤 ${totals.inactive} inact.</div>` : ''}
     </div>
     <div class="relative mb-3">
       <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
