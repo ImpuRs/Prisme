@@ -1712,8 +1712,8 @@ export function computeRadarFamille() {
   for (let i = 0; i < fpArr.length; i++) fpIdx.set(fpArr[i].fam, i + 1);
 
   for (const [, f] of famMap) {
-    // Croiser par famLib(codeFam) — c'est la clé utilisée par le benchmark
-    const famKey = famLib(f.codeFam) || f.libFam;
+    // Croiser par libFam — c'est la clé utilisée par le benchmark (famLib sur code 2 lettres)
+    const famKey = f.libFam;
     const obs = obsIdx.get(famKey);
     f.ecartReseau   = obs ? Math.round(obs.caMe - obs.caOther)     : null;
     f.ecartReseauPct = obs ? obs.ecartPct                           : null;
