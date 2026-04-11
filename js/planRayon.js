@@ -2309,6 +2309,26 @@ function _prRenderDetail(codeFam) {
   </div>`;
 }
 
+// ── Bandeau performance agence ───────────────────────────────────────
+function _prPerfBanner() {
+  const sp = _S.benchLists?.storePerf || {};
+  const spSorted = Object.entries(sp).sort((a, b) => (b[1].ca || 0) - (a[1].ca || 0));
+  const myRankIdx = spSorted.findIndex(([s]) => s === _S.selectedMyStore);
+  const myPerf = sp[_S.selectedMyStore];
+  const hasBench = spSorted.length > 1 && myPerf;
+  if (!hasBench) return '';
+  const medianCA = spSorted.map(([, d]) => d.ca || 0).sort((a, b) => a - b)[Math.floor(spSorted.length / 2)];
+  const ecartMed = Math.round((myPerf.ca || 0) - medianCA);
+  return `<div class="flex flex-wrap items-center gap-3 mb-3 px-3 py-2 rounded-xl text-[11px]" style="background:linear-gradient(135deg,rgba(99,153,34,0.12),rgba(55,138,221,0.08));border:1px solid rgba(99,153,34,0.2)">
+    <span class="font-extrabold text-[13px]" style="color:var(--c-action,#8b5cf6)" title="Classement CA agence dans le réseau">#${myRankIdx + 1}<span class="text-[10px] font-normal t-disabled">/${spSorted.length}</span></span>
+    <span class="t-secondary">CA <b class="t-primary">${formatEuro(myPerf.ca || 0)}</b></span>
+    <span class="t-secondary">Tx marge <b class="${(myPerf.txMarge || 0) >= 35 ? 'c-ok' : (myPerf.txMarge || 0) >= 25 ? 'c-caution' : 'c-danger'}">${(myPerf.txMarge || 0).toFixed(1)}%</b></span>
+    <span class="t-secondary">Refs <b class="t-primary">${(myPerf.ref || 0).toLocaleString('fr')}</b></span>
+    <span class="t-secondary">Tx service <b class="${(myPerf.serv || 0) >= 25 ? 'c-ok' : 'c-caution'}">${myPerf.serv || 0}%</b></span>
+    <span style="color:${ecartMed >= 0 ? '#22c55e' : '#ef4444'}" title="Écart vs médiane réseau">${ecartMed >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(ecartMed))} vs médiane</span>
+  </div>`;
+}
+
 // ── Render principal ─────────────────────────────────────────────────
 function _renderPlanRayonContent(data) {
   const { totals } = data;
@@ -2335,26 +2355,7 @@ function _renderPlanRayonContent(data) {
     <span><span style="display:inline-block;width:10px;height:8px;border-radius:2px;background:#8b5cf6;margin-right:3px;vertical-align:middle"></span>Livraisons</span>
   </div>`;
 
-  // ── Bandeau performance agence (réseau) ──
-  const sp = _S.benchLists?.storePerf || {};
-  const spSorted = Object.entries(sp).sort((a, b) => (b[1].ca || 0) - (a[1].ca || 0));
-  const myRankIdx = spSorted.findIndex(([s]) => s === _S.selectedMyStore);
-  const myPerf = sp[_S.selectedMyStore];
-  const hasBench = spSorted.length > 1 && myPerf;
-  const medianCA = hasBench ? spSorted.map(([, d]) => d.ca || 0).sort((a, b) => a - b)[Math.floor(spSorted.length / 2)] : 0;
-  const ecartMed = hasBench ? Math.round((myPerf.ca || 0) - medianCA) : 0;
-
-  const perfBanner = hasBench ? `<div class="flex flex-wrap items-center gap-3 mb-3 px-3 py-2 rounded-xl text-[11px]" style="background:linear-gradient(135deg,rgba(99,153,34,0.12),rgba(55,138,221,0.08));border:1px solid rgba(99,153,34,0.2)">
-    <span class="font-extrabold text-[13px]" style="color:var(--c-action,#8b5cf6)" title="Classement CA agence dans le réseau">#${myRankIdx + 1}<span class="text-[10px] font-normal t-disabled">/${spSorted.length}</span></span>
-    <span class="t-secondary">CA <b class="t-primary">${formatEuro(myPerf.ca || 0)}</b></span>
-    <span class="t-secondary">Tx marge <b class="${(myPerf.txMarge || 0) >= 35 ? 'c-ok' : (myPerf.txMarge || 0) >= 25 ? 'c-caution' : 'c-danger'}">${(myPerf.txMarge || 0).toFixed(1)}%</b></span>
-    <span class="t-secondary">Refs <b class="t-primary">${(myPerf.ref || 0).toLocaleString('fr')}</b></span>
-    <span class="t-secondary">Tx service <b class="${(myPerf.serv || 0) >= 25 ? 'c-ok' : 'c-caution'}">${myPerf.serv || 0}%</b></span>
-    <span style="color:${ecartMed >= 0 ? '#22c55e' : '#ef4444'}" title="Écart vs médiane réseau">${ecartMed >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(ecartMed))} vs médiane</span>
-  </div>` : '';
-
   return `<div class="mb-3">
-    ${perfBanner}
     <div class="flex items-center justify-between mb-2">
       <h3 class="font-extrabold text-sm t-primary">🦴 Plan de rayon stratégique — ${data.families.length} familles analysées</h3>
     </div>
@@ -2446,7 +2447,7 @@ function _renderPlanRayonContent(data) {
 function _prRerender() {
   const el = document.getElementById('planRayonBlock');
   if (!el || !_S._prData) return;
-  el.innerHTML = _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(_S._prData));
+  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(_S._prData));
   if (_prTopView === 'famille') _initPrSearch();
 }
 
@@ -4879,7 +4880,7 @@ export function renderPlanRayon() {
   _prMPage = 60;
   // _S._prSqData déjà peuplé par computePlanStock() → on garde le cache
 
-  el.innerHTML = _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(data));
+  el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(data));
   if (_prTopView === 'famille') _initPrSearch();
   // Exposer les lookups squelette pour les filtres sidebar
   buildSqLookup();
