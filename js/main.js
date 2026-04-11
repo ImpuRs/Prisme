@@ -1404,13 +1404,7 @@ _S.canalAgence=newCanalAgence;
     // Le Réseau — visible uniquement si multi-agences
     const reseauGroup=document.getElementById('stg-reseau');
     if(reseauGroup){reseauGroup.style.display=(_S.storesIntersection?.size>1)?'':'none';}
-    // Labo pill — verrouillé si pas de chalandise
-    const laboPill=document.querySelector('.supertab-pill[data-subtab="labo"]');
-    if(laboPill){
-      const hasChal=_S.chalandiseData?.size>0;
-      if(!hasChal){laboPill.style.opacity='0.45';laboPill.title='Nécessite la Zone de Chalandise';laboPill.style.pointerEvents='none';}
-      else{laboPill.style.opacity='';laboPill.title='';laboPill.style.pointerEvents='';}
-    }
+    // Labo pill — pas de verrouillage (espace réservé)
   }
 
   // Univers dominant par client — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
