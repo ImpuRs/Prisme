@@ -3944,10 +3944,10 @@ function _renderPilotageMetierContent() {
   // Build metier options
   const metierOpts = [];
   for (const [metier, clients] of _S.clientsByMetier) {
-    if (!metier) continue;
+    if (!metier || metier === '-' || metier.trim() === '') continue;
     metierOpts.push({ metier, nb: clients.size });
   }
-  metierOpts.sort((a, b) => b.nb - a.nb);
+  metierOpts.sort((a, b) => a.metier.localeCompare(b.metier, 'fr'));
 
   const options = metierOpts.map(m =>
     `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.metier} (${m.nb} clients)</option>`
