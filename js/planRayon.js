@@ -775,6 +775,10 @@ function _prBuildCards(data, searchText = '') {
         ${f.potentielExterne >= 1000 ? `<span title="Potentiel externe (CA zone)" style="color:#3b82f6">💰 ${formatEuro(f.potentielExterne)}</span>` : '<span></span>'}
         <span class="font-bold t-secondary">${formatEuro(f.caAgence)}</span>
       </div>
+      ${f.ecartReseau != null ? `<div class="flex items-center justify-between mt-1 text-[9px]">
+        <span style="color:${f.ecartReseau >= 0 ? '#22c55e' : '#ef4444'}" title="Écart CA vs médiane réseau">${f.ecartReseau >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(f.ecartReseau))} vs réseau (${f.ecartReseauPct > 0 ? '+' : ''}${f.ecartReseauPct}%)</span>
+        ${f.rangReseau ? `<span class="t-disabled" title="Rang dans le réseau">#${f.rangReseau}/${f.rangReseauTotal}</span>` : ''}
+      </div>` : ''}
     </div>`;
   }
   return out;

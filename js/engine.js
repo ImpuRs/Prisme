@@ -1699,6 +1699,28 @@ export function computeRadarFamille() {
       f.classifGlobal = 'surveiller';
   }
 
+  // ── Enrichissement réseau : écart médiane, rang ──
+  const obsLose = _S.benchLists?.obsFamiliesLose || [];
+  const obsWin  = _S.benchLists?.obsFamiliesWin  || [];
+  const obsAll  = [...obsLose, ...obsWin];
+  // Index par libellé de famille
+  const obsIdx = new Map();
+  for (const o of obsAll) obsIdx.set(o.fam, o);
+  // Rang réseau : familyPerf trié par priorityScore (déjà trié dans parser)
+  const fpArr = _S.benchLists?.familyPerf || [];
+  const fpIdx = new Map();
+  for (let i = 0; i < fpArr.length; i++) fpIdx.set(fpArr[i].fam, i + 1);
+
+  for (const [, f] of famMap) {
+    const obs = obsIdx.get(f.libFam);
+    f.ecartReseau   = obs ? Math.round(obs.caMe - obs.caOther)     : null;
+    f.ecartReseauPct = obs ? obs.ecartPct                           : null;
+    f.caReseauMe     = obs ? Math.round(obs.caMe)                   : null;
+    f.caReseauOther  = obs ? Math.round(obs.caOther)                : null;
+    f.rangReseau     = fpIdx.get(f.libFam) || null;
+    f.rangReseauTotal = fpArr.length || null;
+  }
+
   const families = [...famMap.values()]
     .filter(f => f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller > 0)
     .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
