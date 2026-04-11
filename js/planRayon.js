@@ -280,7 +280,7 @@ function computePlanStock() {
   const fmr_f  = document.getElementById('filterFMR')?.value || '';
   const stat_f = document.getElementById('filterStatut')?.value || '';
 
-  const _cacheKey = `${fam_f}|${abc_f}|${fmr_f}|${stat_f}|${_S.finalData?.length||0}|${_S.selectedMyStore||''}|${_S.storesIntersection?.size||0}|${_S.ventesClientArticle?.size||0}`;
+  const _cacheKey = `${fam_f}|${abc_f}|${fmr_f}|${stat_f}|${_S.finalData?.length||0}|${_S.selectedMyStore||''}|${_S.storesIntersection?.size||0}|${_S.ventesClientArticle?.size||0}|${_S.benchLists?.obsFamiliesLose?.length||0}`;
   if (_prPlanCacheKey === _cacheKey && _prPlanCache) return _prPlanCache;
 
   const filteredData = (_S.finalData || []).filter(r => {
@@ -517,6 +517,22 @@ function computePlanStock() {
 
     // ── Tag Spécialiste (cumulable avec tout statut) ──
     f.tagSpecialiste = f.pctStrat > 30;
+  }
+
+  // ── Enrichissement réseau : écart médiane, rang ──
+  const obsLose = _S.benchLists?.obsFamiliesLose || [];
+  const obsWin  = _S.benchLists?.obsFamiliesWin  || [];
+  const obsIdx  = new Map();
+  for (const o of [...obsLose, ...obsWin]) obsIdx.set(o.fam, o);
+  const fpArr = _S.benchLists?.familyPerf || [];
+  const fpIdx = new Map();
+  for (let i = 0; i < fpArr.length; i++) fpIdx.set(fpArr[i].fam, i + 1);
+  for (const [, f] of famMap) {
+    const obs = obsIdx.get(f.libFam);
+    f.ecartReseau    = obs ? Math.round(obs.caMe - obs.caOther) : null;
+    f.ecartReseauPct = obs ? obs.ecartPct                       : null;
+    f.rangReseau     = fpIdx.get(f.libFam) || null;
+    f.rangReseauTotal = fpArr.length || null;
   }
 
   const allFamilies = [...famMap.values()]
