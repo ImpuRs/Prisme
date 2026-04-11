@@ -1069,8 +1069,8 @@
     .evidence-cta:hover { opacity: .75; }
 
     /* ═══ SECTIONS ACCORDÉONS PREMIUM ═══════════════════════════ */
-    #tabStock details,
-    #tabStock .s-card.rounded-xl {
+    #tabArbitrage details,
+    #tabArbitrage .s-card.rounded-xl {
       background: var(--s-card);
       border: 1px solid var(--b-default);
       border-radius: var(--r-lg);
@@ -1078,19 +1078,19 @@
       overflow: hidden;
       transition: border-color .15s;
     }
-    #tabStock details:hover,
-    #tabStock .s-card.rounded-xl:hover { border-color: var(--b-strong); }
-    #tabStock details > summary {
+    #tabArbitrage details:hover,
+    #tabArbitrage .s-card.rounded-xl:hover { border-color: var(--b-strong); }
+    #tabArbitrage details > summary {
       display: flex; align-items: center; justify-content: space-between;
       padding: 11px 14px; cursor: pointer;
       background: rgba(255,255,255,0.01);
       transition: background .15s; list-style: none;
     }
-    #tabStock details > summary:hover { background: rgba(255,255,255,0.03); }
-    #tabStock details > summary h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--t-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
-    #tabStock details > summary .acc-arrow { color: var(--t-disabled); font-size: var(--fs-xs); transition: transform .2s; flex-shrink: 0; }
-    #tabStock details[open] > summary .acc-arrow { transform: rotate(90deg); }
-    #tabStock details > *:not(summary) { border-top: 1px solid var(--b-light); }
+    #tabArbitrage details > summary:hover { background: rgba(255,255,255,0.03); }
+    #tabArbitrage details > summary h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--t-primary); display: flex; align-items: center; gap: 8px; margin: 0; }
+    #tabArbitrage details > summary .acc-arrow { color: var(--t-disabled); font-size: var(--fs-xs); transition: transform .2s; flex-shrink: 0; }
+    #tabArbitrage details[open] > summary .acc-arrow { transform: rotate(90deg); }
+    #tabArbitrage details > *:not(summary) { border-top: 1px solid var(--b-light); }
 
     /* ═══ SIDEBAR PREMIUM ════════════════════════════════════════ */
     #filterPanel { background: var(--s-sidebar, #0b0e16); border-right: 1px solid var(--b-light); }
@@ -1414,11 +1414,13 @@
     </div>
     <div class="flex items-stretch flex-1" style="overflow-x:auto;scrollbar-width:none">
 
-      <!-- SUPER-TAB 1 : Mon Stock -->
+      <!-- SUPER-TAB 1 : Pilotage Stock -->
       <div class="supertab-group active" id="stg-stock">
-        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn active" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Le Stock</span></button>
+        <button data-tab="stock" onclick="switchSuperTab('stock')" class="tab-btn supertab-btn active" id="stbtn-stock" style="--tab-color:#639922;--tab-bg:#97C4591F;--tab-text:#3B6D11"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="3" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="21" y2="12"/></svg><span>Pilotage Stock</span></button>
         <div class="supertab-pills" id="stpills-stock">
-          <button class="supertab-pill active" data-subtab="stock" onclick="switchTab('stock')">Analyse</button>
+          <button class="supertab-pill active" data-subtab="plan" onclick="switchTab('plan')">Plan</button>
+          <button class="supertab-pill" data-subtab="arbitrage" onclick="switchTab('arbitrage')">Arbitrage</button>
+          <button class="supertab-pill" data-subtab="matrice" onclick="switchTab('matrice')">Matrice</button>
           <button class="supertab-pill" data-subtab="table" onclick="switchTab('table')">Articles</button>
         </div>
       </div>
@@ -1921,9 +1923,13 @@
       <div class="flex items-center justify-between mt-4 text-sm t-secondary"><span id="pageInfo"></span><span id="filteredCATotal" class="hidden text-xs font-semibold c-ok" style="margin-left:12px"></span><div class="flex gap-2"><button onclick="changePage(-1)" id="btnPrev" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>←</button><button onclick="changePage(1)" id="btnNext" class="px-3 py-1 s-hover rounded-lg disabled:opacity-40 font-semibold" disabled>→</button></div></div>
     </div>
 
-    <!-- TAB 2 : ANALYSE DU STOCK (fusion Stock + Analyse) -->
-    <div id="tabStock" class="tab-content hidden">
+    <!-- TAB : PLAN DE RAYON -->
+    <div id="tabPlan" class="tab-content">
+      <div id="planRayonBlock" class="p-4"></div>
+    </div>
 
+    <!-- TAB : ARBITRAGE -->
+    <div id="tabArbitrage" class="tab-content hidden">
       <!-- Compat JS: anciens IDs chip + healthScoreBadge (mis à jour par JS, masqués) -->
       <div class="hidden" aria-hidden="true">
         <div id="healthScoreBadge"></div>
@@ -1931,43 +1937,14 @@
         <span id="dashChipSansEmplacement">0</span><span id="dashChipFins">0</span><span id="dashChipSaison">0</span><span id="dashChipSaso">0</span>
         <span id="dashDeadStock"></span><span id="dashDeadPct"></span><span id="dashSurstock"></span><span id="dashSurstockPct"></span><span id="dashCapalin"></span><span id="dashCapalinCount"></span><span id="dashServiceRate"></span><span id="dashServiceDetail"></span><span id="dashCAPerdu"></span><span id="dashCAPerduCount"></span>
       </div>
-
-      <!-- 1. Bandeau Sante + Valeur Stock (toujours visible) -->
       <div id="stockHeroBanner">
         <div id="stockHeroContent"></div>
       </div>
-      <!-- Compat: IDs used by existing JS renderers -->
       <span id="healthScoreContent" class="hidden"></span>
       <span id="healthScoreInline" class="hidden"></span>
       <span id="valeurStockInline" class="hidden"></span>
-
-      <!-- Compat: cockpitBriefing ID kept hidden for JS -->
       <div id="cockpitBriefing" class="hidden"><div id="cockpitBriefingText"></div></div>
-
-      <!-- 1. Plan de rayon stratégique -->
-      <details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">🦴 Plan de rayon stratégique <span id="planRayonInline" style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.45)"></span></h3>
-          <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-        </summary>
-        <div id="planRayonBlock" class="p-4"></div>
-      </details>
-
-      <!-- 2. Arbitrage rayon -->
       <div id="arbitrageRayonBlock"></div>
-
-      <!-- 3. Matrice ABC/FMR -->
-      <details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📡 Matrice ABC / FMR <span id="abcCountBadge" style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.45)"></span>
-  <span style="font-size:10px;color:rgba(255,255,255,0.35)">· articles sans vente exclus du classement</span></h3>
-          <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-        </summary>
-        <div class="p-4">
-          <div id="abcMatrixContainer" class="overflow-x-auto mb-4"></div>
-        </div>
-      </details>
-
       <!-- Compat JS: anciens IDs supprimés, gardés masqués -->
       <div class="hidden" aria-hidden="true">
         <div id="ghostArticlesBlock"></div>
@@ -1978,8 +1955,17 @@
         <table><tbody id="dashStatusTable"></tbody></table>
         <table><tbody id="dashFamilyTable"></tbody></table>
       </div>
-
     </div>
+
+    <!-- TAB : MATRICE ABC/FMR -->
+    <div id="tabMatrice" class="tab-content hidden">
+      <div id="abcMatrixContainer" class="overflow-x-auto p-4"></div>
+      <span id="abcCountBadge" class="hidden"></span>
+      <span id="planRayonInline" class="hidden"></span>
+    </div>
+
+    <!-- Compat: ancien tabStock redirigé -->
+    <div id="tabStock" class="tab-content hidden"></div>
 
     <!-- NL Search Results — shared, used by cmd palette NL search -->
     <div id="cematinResults" class="hidden mb-4"></div>
