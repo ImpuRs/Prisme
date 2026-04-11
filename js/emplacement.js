@@ -257,8 +257,10 @@ function _renderArbitrageRayon(rows) {
   const median = rendements.length ? rendements[Math.floor(rendements.length / 2)] : 0;
   const caTotalPeriode = rows.reduce((s, r) => s + r.caPeriode, 0);
   const caVpmTotal = rows.reduce((s, r) => s + (r.caVpm || 0), 0);
-  const vmbTotal = rows.reduce((s, r) => s + r.vmb, 0);
-  const txMargeGlobal = caVpmTotal > 0 ? Math.round(vmbTotal / caVpmTotal * 100) : 0;
+  const vmbTotalVpm = rows.reduce((s, r) => s + r.vmb, 0);
+  const txMargeGlobal = caVpmTotal > 0 ? Math.round(vmbTotalVpm / caVpmTotal * 100) : 0;
+  // Marge estimée sur la période = CA période × tx marge (cohérent avec le CA affiché)
+  const margePeriode = Math.round(caTotalPeriode * txMargeGlobal / 100);
 
   const rendements3m = rowsAvecCA.filter(r => r.ca3m > 0).map(r => r.rendement3m).sort((a, b) => a - b);
   const median3m = rendements3m.length ? rendements3m[Math.floor(rendements3m.length / 2)] : 0;
@@ -316,7 +318,7 @@ function _renderArbitrageRayon(rows) {
     <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:800;font-size:13px;color:#cbd5e1">&#128205; Arbitrage rayon</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} CA \xb7 ${formatEuro(vmbTotal)} marge \xb7 tx ${txMargeGlobal}%</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} CA \xb7 ${formatEuro(margePeriode)} marge \xb7 tx ${txMargeGlobal}%</span>
       </div>
       <span class="acc-arrow" style="color:#cbd5e1">&#9654;</span>
     </summary>
