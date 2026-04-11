@@ -2319,14 +2319,55 @@ function _prPerfBanner() {
   if (!hasBench) return '';
   const medianCA = spSorted.map(([, d]) => d.ca || 0).sort((a, b) => a - b)[Math.floor(spSorted.length / 2)];
   const ecartMed = Math.round((myPerf.ca || 0) - medianCA);
-  return `<div class="flex flex-wrap items-center gap-3 mb-3 px-3 py-2 rounded-xl text-[11px]" style="background:linear-gradient(135deg,rgba(99,153,34,0.12),rgba(55,138,221,0.08));border:1px solid rgba(99,153,34,0.2)">
-    <span class="font-extrabold text-[13px]" style="color:var(--c-action,#8b5cf6)" title="Classement CA agence dans le réseau">#${myRankIdx + 1}<span class="text-[10px] font-normal t-disabled">/${spSorted.length}</span></span>
-    <span class="t-secondary">CA <b class="t-primary">${formatEuro(myPerf.ca || 0)}</b></span>
-    <span class="t-secondary">Tx marge <b class="${(myPerf.txMarge || 0) >= 35 ? 'c-ok' : (myPerf.txMarge || 0) >= 25 ? 'c-caution' : 'c-danger'}">${(myPerf.txMarge || 0).toFixed(1)}%</b></span>
-    <span class="t-secondary">Refs <b class="t-primary">${(myPerf.ref || 0).toLocaleString('fr')}</b></span>
-    <span class="t-secondary">Tx service <b class="${(myPerf.serv || 0) >= 25 ? 'c-ok' : 'c-caution'}">${myPerf.serv || 0}%</b></span>
-    <span style="color:${ecartMed >= 0 ? '#22c55e' : '#ef4444'}" title="Écart vs médiane réseau">${ecartMed >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(ecartMed))} vs médiane</span>
-  </div>`;
+
+  // Tableau classement agences
+  let rows = '';
+  spSorted.forEach(([store, data], idx) => {
+    const isMe = store === _S.selectedMyStore;
+    const ag = _S.agenceStore?.get(store);
+    const ca = ag?.ca || 0;
+    const tm = data.txMarge > 0 ? data.txMarge.toFixed(1) + '%' : '—';
+    const tmColor = data.txMarge > 0 ? (data.txMarge >= 35 ? 'c-ok' : data.txMarge >= 25 ? 'c-caution' : 'c-danger') : 't-disabled';
+    const refs = data.ref || 0;
+    const serv = data.serv || 0;
+    const servColor = serv > 25 ? 'c-ok' : serv >= 10 ? 'c-caution' : 'c-danger';
+    const nbCli = data.nbClients || ag?.nbClients || 0;
+    rows += `<tr class="border-b b-light ${isMe ? 'i-info-bg font-bold' : 'hover:s-card-alt'}">
+      <td class="py-1.5 px-2 text-[11px]"><span class="${isMe ? 'font-extrabold' : ''}">${isMe ? '⭐ ' : ''}${store}</span></td>
+      <td class="py-1.5 px-2 text-right text-[11px] ${isMe ? 'c-action font-extrabold' : 'font-bold'}">${formatEuro(ca)}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] font-bold ${tmColor}">${tm}</td>
+      <td class="py-1.5 px-2 text-center text-[10px]">${refs.toLocaleString('fr')}</td>
+      <td class="py-1.5 px-2 text-center text-[10px]">${nbCli.toLocaleString('fr')}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] ${servColor} font-bold">${serv}%</td>
+      <td class="py-1.5 px-2 text-center"><span class="text-[10px] font-bold ${isMe ? 'c-action' : ''}">#${idx + 1}</span></td>
+    </tr>`;
+  });
+
+  return `<details class="mb-3 rounded-xl overflow-hidden" style="background:linear-gradient(135deg,rgba(99,153,34,0.12),rgba(55,138,221,0.08));border:1px solid rgba(99,153,34,0.2)">
+    <summary class="flex flex-wrap items-center gap-3 px-3 py-2 cursor-pointer select-none text-[11px]" style="list-style:none">
+      <span class="font-extrabold text-[13px]" style="color:var(--c-action,#8b5cf6)" title="Classement CA agence dans le réseau">#${myRankIdx + 1}<span class="text-[10px] font-normal t-disabled">/${spSorted.length}</span></span>
+      <span class="t-secondary">CA <b class="t-primary">${formatEuro(myPerf.ca || 0)}</b></span>
+      <span class="t-secondary">Tx marge <b class="${(myPerf.txMarge || 0) >= 35 ? 'c-ok' : (myPerf.txMarge || 0) >= 25 ? 'c-caution' : 'c-danger'}">${(myPerf.txMarge || 0).toFixed(1)}%</b></span>
+      <span class="t-secondary">Refs <b class="t-primary">${(myPerf.ref || 0).toLocaleString('fr')}</b></span>
+      <span class="t-secondary">Tx service <b class="${(myPerf.serv || 0) >= 25 ? 'c-ok' : 'c-caution'}">${myPerf.serv || 0}%</b></span>
+      <span style="color:${ecartMed >= 0 ? '#22c55e' : '#ef4444'}" title="Écart vs médiane réseau">${ecartMed >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(ecartMed))} vs médiane</span>
+      <span class="t-disabled text-[9px] ml-auto">▶ classement</span>
+    </summary>
+    <div class="px-2 pb-2 overflow-x-auto">
+      <table class="min-w-full text-xs">
+        <thead><tr class="text-[9px] t-disabled uppercase">
+          <th class="py-1 px-2 text-left">Agence</th>
+          <th class="py-1 px-2 text-right">CA</th>
+          <th class="py-1 px-2 text-center">Marge</th>
+          <th class="py-1 px-2 text-center">Refs</th>
+          <th class="py-1 px-2 text-center">Clients</th>
+          <th class="py-1 px-2 text-center">Service</th>
+          <th class="py-1 px-2 text-center">Rang</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </details>`;
 }
 
 // ── Render principal ─────────────────────────────────────────────────
