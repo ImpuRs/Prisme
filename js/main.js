@@ -2201,7 +2201,8 @@ _S.canalAgence=newCanalAgence;
     {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
       const isUncalib=r.nouveauMin===0&&r.nouveauMax===0;
-      const bg=isUncalib?'s-card-alt':'';
+      const isDormant=r.W===0&&r.stockActuel>0;
+      const bg=isDormant?'i-danger-bg':isUncalib?'s-card-alt':'';
       const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<0)return 'c-danger font-extrabold i-danger-bg'; if(r.stockActuel===0)return 'c-danger font-bold i-danger-bg'; if(r.stockActuel<=r.nouveauMin)return 'c-caution font-bold i-caution-bg'; if(r.stockActuel>r.nouveauMax)return 'c-info font-bold'; return 'c-ok font-bold'; })();
       const br=getAgeBracket(r.ageJours);
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs ${r.nouveauMin>2*r.medMinReseau?'c-caution i-caution-bg font-bold':r.nouveauMin>r.medMinReseau?'c-caution font-semibold':'t-disabled'}" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
