@@ -2371,7 +2371,7 @@ function _renderPlanRayonContent(data) {
       </div>
     </details>
   </div>
-  <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3" ${_prOpenFam ? 'style="display:none"' : ''}>
     ${(_prFilterClassif || _prSearchText || _prOpenFam || _prEmpFilter)
       ? _prBuildCards(data, _prSearchText)
       : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
@@ -2513,6 +2513,7 @@ window._prSetFilter = function(key) {
   _prSearchText    = '';
   _prOpenFam = null;
   const grid = document.getElementById('prFamGrid');
+  if (grid) grid.style.display = '';
   if (grid && _S._prData) grid.innerHTML = _prFilterClassif
     ? _prBuildCards(_S._prData, '')
     : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>';
