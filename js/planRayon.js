@@ -47,6 +47,15 @@ const _prClientArtCA = (cc, code, range) => {
   return full?.get(cc)?.get(code)?.sumCA || 0;
 };
 let _prConqueteMode  = false; // true when viewing an inactive family in conquest mode
+let _prTopView       = 'famille'; // 'famille' | 'metier'
+let _prSelectedMetier2 = '';      // selected metier in Pilotage Métier
+let _prMetierIndex   = null;      // Map<code, {caZone, monCA, nbClientsZone, inStock, ...}>
+let _prMetierFamBreak = null;     // [{codeFam, libFam, caZone, monCA, ...}]
+let _prMFilterFam    = '';        // filter by family in metier view
+let _prMFilterStock  = '';        // '' | 'oui' | 'non'
+let _prMFilterRole   = '';        // '' | 'incontournable' | ...
+let _prMSort         = 'caZone';
+let _prMPage         = 60;
 let _prEmpFilter     = '';   // filtre emplacement interne Mon Rayon
 let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Analyse
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
@@ -2267,8 +2276,8 @@ function _renderPlanRayonContent(data) {
 function _prRerender() {
   const el = document.getElementById('planRayonBlock');
   if (!el || !_S._prData) return;
-  el.innerHTML = _renderPlanRayonContent(_S._prData);
-  _initPrSearch();
+  el.innerHTML = _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(_S._prData));
+  if (_prTopView === 'famille') _initPrSearch();
 }
 
 function _initPrSearch() {
@@ -3793,6 +3802,380 @@ window._prExportDiag = function(codeFam) {
   }
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// ── PILOTAGE MÉTIER — Vue cross-famille par métier ──────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+function _prTopTabBar() {
+  const tab = (key, icon, label) => {
+    const active = _prTopView === key;
+    return `<button onclick="window._prSetTopView('${key}')"
+      class="text-[12px] px-5 py-2.5 cursor-pointer border-b-2 transition-colors font-semibold ${active ? 'font-bold' : 'hover:t-primary'}"
+      style="${active ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${icon} ${label}</button>`;
+  };
+  return `<div class="flex gap-0 mb-3 border-b b-light">
+    ${tab('famille', '📦', 'Pilotage Famille')}
+    ${tab('metier', '🎯', 'Pilotage Métier')}
+  </div>`;
+}
+
+window._prSetTopView = function(view) {
+  _prTopView = view;
+  _prRerender();
+};
+
+function _prComputeMetierIndex(metier) {
+  const clientSet = _S.clientsByMetier?.get(metier);
+  if (!clientSet?.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
+
+  const agg = new Map(); // code → {caZone, monCA, clients: Set<cc>}
+  const _ens = (code) => {
+    if (!agg.has(code)) agg.set(code, { caZone: 0, monCA: 0, clients: new Set() });
+    return agg.get(code);
+  };
+
+  // Source 1: ventesClientArticle (MAGASIN = monCA + caZone)
+  for (const cc of clientSet) {
+    const artMap = _S.ventesClientArticle?.get(cc);
+    if (!artMap) continue;
+    for (const [code, data] of artMap) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const a = _ens(code);
+      const ca = +(data.sumCA || 0);
+      a.monCA += ca;
+      a.caZone += ca;
+      a.clients.add(cc);
+    }
+  }
+
+  // Source 2: ventesClientHorsMagasin (hors-MAGASIN → caZone only)
+  for (const cc of clientSet) {
+    const artMap = _S.ventesClientHorsMagasin?.get(cc);
+    if (!artMap) continue;
+    for (const [code, data] of artMap) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const a = _ens(code);
+      a.caZone += +(data.sumCA || 0);
+      a.clients.add(cc);
+    }
+  }
+
+  // Source 3: territoireLines (livraisons zone → caZone only, dedup by client)
+  if (_S.territoireLines?.length) {
+    for (const l of _S.territoireLines) {
+      if (!l.clientCode || !clientSet.has(l.clientCode)) continue;
+      if (!/^\d{6}$/.test(l.code)) continue;
+      // Avoid double-counting if already counted via ventes sources
+      const a = _ens(l.code);
+      if (!a.clients.has(l.clientCode)) {
+        a.caZone += +(l.ca || 0);
+        a.clients.add(l.clientCode);
+      }
+    }
+  }
+
+  // Enrich with metadata
+  const catFam = _S.catalogueFamille;
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const rolesByFam = new Map(); // cache per family
+
+  const result = new Map();
+  const famAgg = new Map(); // codeFam → {caZone, monCA, nbArts, nbEnStock}
+
+  for (const [code, d] of agg) {
+    const fd = fdMap.get(code);
+    const inStock = fd && (fd.stockActuel || 0) > 0;
+    const cf = catFam?.get(code);
+    const codeFam = cf?.codeFam || _S.articleFamille?.[code] || '';
+    const libFam = codeFam ? (FAMILLE_LOOKUP[codeFam] || codeFam) : '?';
+
+    // Role (cached per family)
+    if (!rolesByFam.has(codeFam)) rolesByFam.set(codeFam, _prComputeRoles(codeFam));
+    const role = rolesByFam.get(codeFam)?.get(code) || 'standard';
+
+    const pdm = d.caZone > 0 ? Math.round(d.monCA / d.caZone * 100) : null;
+
+    result.set(code, {
+      code,
+      libelle: _S.libelleLookup?.[code] || fd?.libelle || '',
+      marque: _S.catalogueMarques?.get(code) || '',
+      codeFam, libFam,
+      sousFam: cf?.sousFam || '',
+      caZone: d.caZone,
+      monCA: d.monCA,
+      nbClientsZone: d.clients.size,
+      inStock,
+      stockActuel: fd?.stockActuel || 0,
+      role, pdm,
+    });
+
+    // Family aggregation
+    if (!famAgg.has(codeFam)) famAgg.set(codeFam, { codeFam, libFam, caZone: 0, monCA: 0, nbArts: 0, nbEnStock: 0 });
+    const fb = famAgg.get(codeFam);
+    fb.caZone += d.caZone;
+    fb.monCA += d.monCA;
+    fb.nbArts++;
+    if (inStock) fb.nbEnStock++;
+  }
+
+  _prMetierIndex = result;
+  _prMetierFamBreak = [...famAgg.values()]
+    .map(f => ({ ...f, pdm: f.caZone > 0 ? Math.round(f.monCA / f.caZone * 100) : null }))
+    .sort((a, b) => b.caZone - a.caZone);
+}
+
+function _renderPilotageMetierContent() {
+  if (!_S.chalandiseReady || !_S.clientsByMetier?.size) {
+    return `<div class="text-center py-8 t-disabled text-[12px]">Chargez la Zone de Chalandise pour activer le Pilotage Métier.</div>`;
+  }
+
+  // Build metier options
+  const metierOpts = [];
+  for (const [metier, clients] of _S.clientsByMetier) {
+    if (!metier) continue;
+    metierOpts.push({ metier, nb: clients.size });
+  }
+  metierOpts.sort((a, b) => b.nb - a.nb);
+
+  const options = metierOpts.map(m =>
+    `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.metier} (${m.nb} clients)</option>`
+  ).join('');
+
+  let html = `<div class="mb-4">
+    <h3 class="font-extrabold text-sm t-primary mb-3">🎯 Pilotage Métier — Vue cross-famille</h3>
+    <select onchange="window._prSelectMetier(this.value)"
+      class="w-full max-w-md px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none">
+      <option value="">— Choisir un métier —</option>
+      ${options}
+    </select>
+  </div>`;
+
+  if (!_prSelectedMetier2 || !_prMetierIndex) {
+    html += `<div class="text-center py-8 t-disabled text-[12px]">Sélectionnez un métier pour voir les produits achetés dans votre zone.</div>`;
+    return html;
+  }
+
+  html += `<div id="prMetierBody">${_renderMetierBody()}</div>`;
+  return html;
+}
+
+function _renderMetierBody() {
+  if (!_prMetierIndex?.size) {
+    return `<div class="text-center py-6 t-disabled text-[12px]">Aucun article trouvé pour ce métier dans la zone.</div>`;
+  }
+
+  const articles = [..._prMetierIndex.values()];
+  const famBreak = _prMetierFamBreak || [];
+
+  // Global KPIs
+  const totalCaZone = articles.reduce((s, a) => s + a.caZone, 0);
+  const totalMonCA = articles.reduce((s, a) => s + a.monCA, 0);
+  const globalPdm = totalCaZone > 0 ? Math.round(totalMonCA / totalCaZone * 100) : 0;
+  const nbEnStock = articles.filter(a => a.inStock).length;
+  const nbClients = _S.clientsByMetier?.get(_prSelectedMetier2)?.size || 0;
+
+  let html = `<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">CA Zone</div><div class="text-[14px] font-bold t-primary">${formatEuro(totalCaZone)}</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Mon CA</div><div class="text-[14px] font-bold" style="color:#22c55e">${formatEuro(totalMonCA)}</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">PdM globale</div><div class="text-[14px] font-bold" style="color:${globalPdm >= 40 ? '#22c55e' : globalPdm >= 15 ? '#f59e0b' : '#ef4444'}">${globalPdm}%</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Articles</div><div class="text-[14px] font-bold t-primary">${nbEnStock}<span class="text-[10px] t-disabled">/${articles.length}</span></div><div class="text-[9px] t-disabled">en stock</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Clients zone</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
+  </div>`;
+
+  // Family breakdown
+  if (famBreak.length) {
+    html += `<details class="mb-4" open><summary class="text-[11px] font-bold t-primary cursor-pointer mb-2">📊 Répartition par famille — ${famBreak.length} familles</summary>
+    <div class="overflow-x-auto"><table class="w-full text-[11px]">
+      <thead><tr class="border-b b-light text-[10px]">
+        <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Famille</th>
+        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Zone</th>
+        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Mon CA</th>
+        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">PdM%</th>
+        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Articles</th>
+        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">En stock</th>
+      </tr></thead><tbody>`;
+    for (const f of famBreak.slice(0, 30)) {
+      const pdmColor = f.pdm == null ? 'var(--t-disabled)' : f.pdm >= 40 ? '#22c55e' : f.pdm >= 15 ? '#f59e0b' : '#ef4444';
+      const active = _prMFilterFam === f.codeFam;
+      html += `<tr class="border-b b-light cursor-pointer hover:s-panel-inner transition-colors${active ? ' s-panel-inner' : ''}"
+        onclick="window._prMFilterFamFn('${f.codeFam}')">
+        <td class="py-1 px-2 font-medium${active ? ' font-bold' : ''}">${escapeHtml(f.libFam)}<span class="text-[9px] t-disabled ml-1">${f.codeFam}</span></td>
+        <td class="py-1 px-2 text-right font-bold">${formatEuro(f.caZone)}</td>
+        <td class="py-1 px-2 text-right" style="color:#22c55e">${formatEuro(f.monCA)}</td>
+        <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${f.pdm != null ? f.pdm + '%' : '—'}</td>
+        <td class="py-1 px-2 text-right">${f.nbArts}</td>
+        <td class="py-1 px-2 text-right">${f.nbEnStock}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></details>`;
+  }
+
+  // Filters
+  const ROLES_LIST = ['incontournable', 'specialiste', 'nouveaute', 'standard'];
+  const roleCounts = {};
+  for (const a of articles) roleCounts[a.role] = (roleCounts[a.role] || 0) + 1;
+  const stockOui = articles.filter(a => a.inStock).length;
+  const stockNon = articles.length - stockOui;
+
+  html += `<div class="flex flex-wrap gap-1.5 mb-3 items-center">`;
+  // Stock filter pills
+  for (const [val, label, cnt] of [['oui', '✅ En stock', stockOui], ['non', '❌ Pas en stock', stockNon]]) {
+    const active = _prMFilterStock === val;
+    html += `<button onclick="window._prMFilterStockFn('${val}')"
+      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold s-panel-inner' : 'hover:t-primary s-card'}">${label} <strong>${cnt}</strong></button>`;
+  }
+  html += `<span class="mx-1 text-[10px] t-disabled">|</span>`;
+  // Role filter pills
+  for (const r of ROLES_LIST) {
+    if (!roleCounts[r]) continue;
+    const b = ROLE_BADGE[r];
+    const active = _prMFilterRole === r;
+    html += `<button onclick="window._prMFilterRoleFn('${r}')"
+      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+      style="border-color:${b.color}40;${active ? `background:${b.color}20;color:${b.color};box-shadow:0 0 0 1px ${b.color}` : `color:${b.color}`}">${b.icon} ${b.label || 'Standard'} <strong>${roleCounts[r]}</strong></button>`;
+  }
+  if (_prMFilterFam) {
+    const famLib = FAMILLE_LOOKUP[_prMFilterFam] || _prMFilterFam;
+    html += `<span class="mx-1 text-[10px] t-disabled">|</span>
+      <button onclick="window._prMFilterFamFn('${_prMFilterFam}')"
+        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer s-panel-inner font-bold" style="border-color:var(--c-action)">📂 ${escapeHtml(famLib)} ✕</button>`;
+  }
+  html += `</div>`;
+
+  // Filter + sort articles
+  let filtered = articles;
+  if (_prMFilterFam) filtered = filtered.filter(a => a.codeFam === _prMFilterFam);
+  if (_prMFilterStock === 'oui') filtered = filtered.filter(a => a.inStock);
+  if (_prMFilterStock === 'non') filtered = filtered.filter(a => !a.inStock);
+  if (_prMFilterRole) filtered = filtered.filter(a => a.role === _prMFilterRole);
+
+  const sortFns = {
+    code: (a, b) => String(a.code).localeCompare(String(b.code)),
+    caZone: (a, b) => b.caZone - a.caZone,
+    monCA: (a, b) => b.monCA - a.monCA,
+    pdm: (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
+    cliZone: (a, b) => b.nbClientsZone - a.nbClientsZone,
+    stock: (a, b) => (b.stockActuel || 0) - (a.stockActuel || 0),
+  };
+  const sorted = [...filtered].sort(sortFns[_prMSort] || sortFns.caZone);
+  const shown = sorted.slice(0, _prMPage);
+
+  // Sort header helper
+  const th = (key, label, align = 'text-right', title = '') => {
+    const active = _prMSort === key;
+    return `<th class="py-1.5 px-2 ${align} cursor-pointer hover:t-primary whitespace-nowrap"
+      style="color:${active ? 'var(--c-action,#8b5cf6)' : 'var(--t-secondary)'};font-weight:${active ? 700 : 500}"
+      ${title ? `title="${title}"` : ''}
+      onclick="window._prMSortFn('${key}')">${label}${active ? ' ▼' : ''}</th>`;
+  };
+
+  html += `<div class="overflow-x-auto" style="max-height:560px;overflow-y:auto">
+    <table class="w-full text-[11px]">
+      <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
+        ${th('code', 'Code', 'text-left')}
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
+        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Famille</th>
+        ${th('caZone', 'CA Zone')}
+        ${th('cliZone', 'Cli Zone')}
+        ${th('monCA', 'Mon CA')}
+        ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
+        ${th('stock', 'Stock')}
+        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500">Rôle</th>
+      </tr></thead><tbody>`;
+
+  for (const a of shown) {
+    const rb = ROLE_BADGE[a.role];
+    const pdmColor = a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 40 ? '#22c55e' : a.pdm >= 15 ? '#f59e0b' : '#ef4444';
+    const stockColor = a.inStock ? '#22c55e' : '#ef4444';
+    html += `<tr class="border-b b-light hover:s-panel-inner transition-colors">
+      <td class="py-1 px-2 font-mono text-[10px]">${a.code}</td>
+      <td class="py-1 px-2 truncate max-w-[200px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>
+      <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caZone)}</td>
+      <td class="py-1 px-2 text-right">${a.nbClientsZone}</td>
+      <td class="py-1 px-2 text-right" style="color:#22c55e">${a.monCA ? formatEuro(a.monCA) : '—'}</td>
+      <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
+      <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
+      <td class="py-1 px-2 text-center">${rb?.icon || ''}<span class="text-[9px] t-disabled ml-0.5">${rb?.label || ''}</span></td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  if (shown.length < sorted.length) {
+    html += `<div class="text-center py-2"><button onclick="window._prMoreMetierArts()"
+      class="text-[11px] t-secondary hover:t-primary cursor-pointer">▼ Voir plus (${shown.length}/${sorted.length})</button></div>`;
+  }
+
+  html += `<div class="flex gap-2 mt-3">
+    <button onclick="window._prExportMetierCSV()"
+      class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
+    <span class="text-[10px] t-disabled self-center">${filtered.length} articles${_prMFilterFam || _prMFilterStock || _prMFilterRole ? ' (filtré)' : ''}</span>
+  </div>`;
+
+  return html;
+}
+
+// ── Pilotage Métier handlers ──
+window._prSelectMetier = function(metier) {
+  _prSelectedMetier2 = metier;
+  _prMetierIndex = null;
+  _prMetierFamBreak = null;
+  _prMFilterFam = '';
+  _prMFilterStock = '';
+  _prMFilterRole = '';
+  _prMPage = 60;
+  if (metier) _prComputeMetierIndex(metier);
+  const el = document.getElementById('prMetierBody');
+  if (el) { el.innerHTML = _renderMetierBody(); return; }
+  _prRerender();
+};
+
+window._prMFilterFamFn = function(codeFam) {
+  _prMFilterFam = _prMFilterFam === codeFam ? '' : codeFam;
+  _prMPage = 60;
+  _prRerenderMetier();
+};
+window._prMFilterStockFn = function(val) {
+  _prMFilterStock = _prMFilterStock === val ? '' : val;
+  _prMPage = 60;
+  _prRerenderMetier();
+};
+window._prMFilterRoleFn = function(role) {
+  _prMFilterRole = _prMFilterRole === role ? '' : role;
+  _prMPage = 60;
+  _prRerenderMetier();
+};
+window._prMSortFn = function(key) {
+  _prMSort = key;
+  _prRerenderMetier();
+};
+window._prMoreMetierArts = function() {
+  _prMPage += 60;
+  _prRerenderMetier();
+};
+
+function _prRerenderMetier() {
+  const el = document.getElementById('prMetierBody');
+  if (el) { el.innerHTML = _renderMetierBody(); return; }
+  _prRerender();
+}
+
+window._prExportMetierCSV = function() {
+  if (!_prMetierIndex?.size) return;
+  const articles = [..._prMetierIndex.values()].sort((a, b) => b.caZone - a.caZone);
+  const rows = articles.map(a =>
+    [a.code, a.libelle, a.libFam, a.sousFam, a.marque, a.caZone.toFixed(2),
+     a.nbClientsZone, a.monCA.toFixed(2), a.pdm != null ? a.pdm : '', a.inStock ? 'Oui' : 'Non', a.role].join(';')
+  );
+  const csv = ['Code;Libellé;Famille;SF;Marque;CA Zone;Cli Zone;Mon CA;PdM%;En stock;Rôle', ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `pilotage-metier_${_prSelectedMetier2.replace(/[^a-zA-Z0-9]/g, '_')}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // ── Export ─────────────────────────────────────────────────────────────
 export function renderPlanRayon() {
   const el = document.getElementById('planRayonBlock');
@@ -3823,10 +4206,16 @@ export function renderPlanRayon() {
   _prGridVisible   = false;
   _prSearchText    = '';
   _S._prSqFilter   = '';
+  // Reset metier view (preserve _prTopView to keep user's tab choice)
+  _prSelectedMetier2 = '';
+  _prMetierIndex   = null;
+  _prMetierFamBreak = null;
+  _prMFilterFam = ''; _prMFilterStock = ''; _prMFilterRole = '';
+  _prMPage = 60;
   // _S._prSqData déjà peuplé par computePlanStock() → on garde le cache
 
-  el.innerHTML = _renderPlanRayonContent(data);
-  _initPrSearch();
+  el.innerHTML = _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(data));
+  if (_prTopView === 'famille') _initPrSearch();
 }
 
 export const renderPlanStock = renderPlanRayon;
