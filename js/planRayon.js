@@ -3970,7 +3970,7 @@ function _prTopTabBar() {
       class="text-[12px] px-5 py-2.5 cursor-pointer border-b-2 transition-colors font-semibold ${active ? 'font-bold' : 'hover:t-primary'}"
       style="${active ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${icon} ${label}</button>`;
   };
-  return `<div class="flex gap-0 mb-3 border-b b-light">
+  return `<div class="flex gap-0 mb-3 border-b b-light" style="position:sticky;top:0;z-index:20;background:var(--color-bg-primary,#0f172a);padding-top:4px">
     ${tab('famille', '📦', 'Pilotage Famille')}
     ${tab('metier', '🎯', 'Pilotage Métier')}
   </div>`;
