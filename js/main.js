@@ -2335,14 +2335,10 @@ _S.canalAgence=newCanalAgence;
         const _ts0=performance.now();
         renderDashboardAndCockpit();
         renderArbitrageRayonBlock();
+        renderABCTab();
         renderHealthScore();
         renderTabBadges();
         console.log('[PERF arbitrage]',(performance.now()-_ts0|0)+'ms');
-        break;}
-      case 'matrice':{
-        const _ts0=performance.now();
-        renderABCTab();
-        console.log('[PERF matrice]',(performance.now()-_ts0|0)+'ms');
         break;}
       case 'stock':{ // compat — redirige vers plan
         renderPlanRayon();

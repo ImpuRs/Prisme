@@ -250,7 +250,7 @@ if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 // ── Super-tab navigation ──────────────────────────────────────
 const _SUPERTAB_DEFAULT = { stock: 'plan', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
 const _TAB_TO_SUPERTAB  = {
-  plan: 'stock', arbitrage: 'stock', matrice: 'stock', table: 'stock', stock: 'stock',
+  plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
   reseau: 'reseau',
   labo: 'labo', animation: 'labo',
@@ -269,7 +269,7 @@ export function switchSuperTab(supertabId) {
 
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
-  if (id === 'abc') id = 'matrice'; // abc → matrice
+  if (id === 'abc' || id === 'matrice') id = 'arbitrage'; // abc/matrice → arbitrage
   if (id === 'stock') id = 'plan'; // ancien stock → plan
   if (id === 'omni') { switchTab('commerce'); return; }
   window.scrollTo(0, 0);
@@ -699,9 +699,8 @@ const _CMD_ACTIONS = [
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('commerce'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
   { kw: ['les clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Les Clients', fn: () => { switchTab('clients'); } },
-  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Matrice ABC/FMR', fn: () => { switchTab('matrice'); } },
+  { kw: ['radar','abc','fmr','matrice','analyse','arbitrage','ruptures','dormants','calibrage'], icon: '⚖️', label: 'Arbitrage stock', fn: () => { switchTab('arbitrage'); } },
   { kw: ['plan','rayon','familles','squelette'], icon: '🦴', label: 'Plan de rayon', fn: () => { switchTab('plan'); } },
-  { kw: ['arbitrage','ruptures','dormants','calibrage'], icon: '⚖️', label: 'Arbitrage stock', fn: () => { switchTab('arbitrage'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('commerce'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('reseau'); } },
   { kw: ['le labo','labo','prisme'], icon: '🧪', label: 'Onglet Le Labo', fn: () => { switchTab('labo'); } },
