@@ -2203,7 +2203,7 @@ _S.canalAgence=newCanalAgence;
       const isUncalib=r.nouveauMin===0&&r.nouveauMax===0;
       const isDormant=r.W===0&&r.stockActuel>0;
       const bg=isDormant?'':isUncalib?'s-card-alt':'';
-      const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; return ''; })();
+      const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; if(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)return 'c-caution font-bold'; return ''; })();
       const br=getAgeBracket(r.ageJours);
       const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs t-disabled" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
       const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs t-disabled" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
