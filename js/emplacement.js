@@ -80,21 +80,19 @@ function computePerfEmplacement() {
       valStock: e.valStock,
       nbRef: e.nbRef,
       nbClients: e.clients.size,
-      rotMoyW: e.nbRef > 0 ? e.sumW / e.nbRef : 0,
       caPeriode: e.caPeriode,
       ca3m: e.ca3m,
-      caVpm: e.caVpm,
-      vmb: e.vmb,
       txMarge: e.caVpm > 0 ? Math.round(e.vmb / e.caVpm * 100) : 0,
-      rendementPeriode: e.valStock > 0 ? e.caPeriode / e.valStock : 0,
+      marge3m: 0, // rempli ci-dessous après txMarge
       rendement3m: e.valStock > 0 ? e.ca3m / e.valStock : 0,
-      delta: e.valStock > 0 ? (e.ca3m / e.valStock) - (e.caPeriode / e.valStock) : 0,
       nbRupture: e.nbRupture,
       nbDormant: e.nbDormant,
       txService: e.nbRef > 0 ? Math.round((e.nbRef - e.nbRupture) / e.nbRef * 100) : 100,
-      densiteClient: e.nbRef > 0 ? +(e.clients.size / e.nbRef).toFixed(1) : 0,
       statut: '', // rempli ci-dessous
     }));
+
+  // Marge 3m estimée = ca3m × txMarge
+  for (const r of rows) r.marge3m = Math.round(r.ca3m * r.txMarge / 100);
 
   // ── Classification MOTEUR / TRAFIC / POIDS MORT (ABC sur CA puis trafic client) ──
   const caTotal = rows.reduce((s, r) => s + r.caPeriode, 0);
@@ -136,105 +134,6 @@ function computePerfEmplacement() {
   return rows;
 }
 
-// ── Verdicts : top emplacements à revoir (1 card par emplacement max) ──
-// Basé sur rendement 3 mois (plus récent, plus actionnable)
-function _buildVerdicts(rows, median3m) {
-  const scored = [];
-  for (const r of rows) {
-    const problems = [];
-    let severity = 0;
-
-    // Dormants — rendement 3m sous médiane
-    if (r.valStock > 0 && r.rendement3m < median3m * 0.7 && r.nbDormant >= 2) {
-      problems.push(`${r.nbDormant} dormants · ${formatEuro(r.valStock)} immobilisés`);
-      severity += r.valStock;
-    }
-
-    // Ruptures (seuil CA 3m relevé)
-    if (r.nbRupture >= 2 && r.ca3m > 300) {
-      problems.push(`${r.nbRupture} ruptures`);
-      severity += r.ca3m * 4; // annualisé
-    }
-
-    // Rendement en chute
-    if (r.delta < -0.3 && r.caPeriode > 500) {
-      problems.push(`rendement ${r.rendementPeriode.toFixed(1)}× → ${r.rendement3m.toFixed(1)}×`);
-      severity += Math.abs(r.delta) * 1000;
-    }
-
-    if (problems.length) scored.push({ r, problems, severity });
-  }
-
-  scored.sort((a, b) => b.severity - a.severity);
-
-  // Pépite : meilleur rendement 3m avec CA significatif
-  const pepite = rows
-    .filter(r => r.rendement3m > median3m && r.delta >= -0.05 && r.ca3m > 150 && r.nbRupture === 0)
-    .sort((a, b) => b.rendement3m - a.rendement3m)[0];
-
-  const verdicts = [];
-
-  for (const s of scored.slice(0, 3)) {
-    const r = s.r;
-    const hasRupt = s.problems.some(p => p.includes('rupture'));
-    const hasDorm = s.problems.some(p => p.includes('dormant'));
-    const hasChute = s.problems.some(p => p.includes('→'));
-
-    const icon = hasRupt ? '🚨' : hasDorm ? '💤' : '📉';
-    const color = hasRupt ? '#ef4444' : hasDorm ? '#f59e0b' : '#f97316';
-    const bg = hasRupt ? 'rgba(239,68,68,0.10)' : hasDorm ? 'rgba(245,158,11,0.10)' : 'rgba(249,115,22,0.10)';
-    const border = hasRupt ? 'rgba(239,68,68,0.25)' : hasDorm ? 'rgba(245,158,11,0.25)' : 'rgba(249,115,22,0.25)';
-
-    const titles = [];
-    if (hasRupt) titles.push('Ruptures');
-    if (hasDorm) titles.push('Dormants');
-    if (hasChute) titles.push('En baisse');
-
-    const actions = [];
-    if (hasRupt) actions.push('vérifier MIN/MAX');
-    if (hasDorm) actions.push('purger les dormants');
-    if (hasChute) actions.push('analyser la tendance');
-
-    verdicts.push({
-      icon, color, bg, border,
-      emp: r.emp,
-      title: titles.join(' + '),
-      desc: `${s.problems.join(' · ')} · rdt 3m ${r.rendement3m.toFixed(1)}× (méd. ${median3m.toFixed(1)}×)`,
-      action: actions.join(', ').replace(/^./, c => c.toUpperCase()),
-    });
-  }
-
-  if (pepite && !scored.some(s => s.r.emp === pepite.emp)) {
-    verdicts.push({
-      icon: '🌟', color: '#22c55e', bg: 'rgba(34,197,94,0.10)', border: 'rgba(34,197,94,0.25)',
-      emp: pepite.emp,
-      title: 'Meilleur rendement',
-      desc: `${pepite.rendement3m.toFixed(1)}× sur 3 mois · ${formatEuro(pepite.ca3m)} CA · ${pepite.nbClients} clients`,
-      action: 'Modèle à répliquer',
-    });
-  }
-
-  return verdicts;
-}
-
-function _renderVerdicts(verdicts) {
-  if (!verdicts.length) return '';
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;padding:12px 16px">
-    ${verdicts.map(v => `
-      <div style="background:${v.bg};border:1px solid ${v.border};border-radius:10px;padding:10px 12px;cursor:pointer"
-        onclick="window._filterByEmplacement('${escapeHtml(v.emp)}')">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-size:16px">${v.icon}</span>
-          <span style="font-weight:800;font-size:11px;color:${v.color}">${v.title}</span>
-        </div>
-        <div style="font-size:11px;font-weight:700;color:var(--t-primary);margin-bottom:2px">${escapeHtml(v.emp)}</div>
-        <div style="font-size:10px;color:var(--t-secondary);line-height:1.4">${v.desc}</div>
-        <div style="font-size:9px;color:${v.color};margin-top:4px;font-weight:600">→ ${v.action}</div>
-      </div>
-    `).join('')}
-  </div>`;
-}
-
 const STATUT_BADGE = {
   moteur:     { icon: '🔥', label: 'Moteur',     color: '#22c55e', bg: 'rgba(34,197,94,0.15)',  border: 'rgba(34,197,94,0.3)',  action: 'Optimiser la marge, accélérer la rotation' },
   trafic:     { icon: '👥', label: 'Trafic',     color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)', action: 'Fiabiliser le stock, simplifier l\'offre' },
@@ -252,24 +151,14 @@ function _renderArbitrageRayon(rows) {
     return asc ? va - vb : vb - va;
   });
 
-  const rowsAvecCA = rows.filter(r => r.caPeriode > 0);
-  const rendements = rowsAvecCA.map(r => r.rendementPeriode).sort((a, b) => a - b);
-  const median = rendements.length ? rendements[Math.floor(rendements.length / 2)] : 0;
-  const caTotalPeriode = rows.reduce((s, r) => s + r.caPeriode, 0);
-  const caVpmTotal = rows.reduce((s, r) => s + (r.caVpm || 0), 0);
-  const vmbTotalVpm = rows.reduce((s, r) => s + r.vmb, 0);
-  const txMargeGlobal = caVpmTotal > 0 ? Math.round(vmbTotalVpm / caVpmTotal * 100) : 0;
-  // Marge estimée sur la période = CA période × tx marge (cohérent avec le CA affiché)
-  const margePeriode = Math.round(caTotalPeriode * txMargeGlobal / 100);
+  const marge3mTotal = rows.reduce((s, r) => s + r.marge3m, 0);
 
-  const rendements3m = rowsAvecCA.filter(r => r.ca3m > 0).map(r => r.rendement3m).sort((a, b) => a - b);
+  const rendements3m = rows.filter(r => r.ca3m > 0).map(r => r.rendement3m).sort((a, b) => a - b);
   const median3m = rendements3m.length ? rendements3m[Math.floor(rendements3m.length / 2)] : 0;
 
   // Compteurs par statut
   const statutCounts = { moteur: 0, trafic: 0, poids_mort: 0 };
   for (const r of rows) statutCounts[r.statut]++;
-
-  const verdicts = _buildVerdicts(rows, median3m);
 
   // Filtre statut
   const displayed = _empFilterStatut ? rows.filter(r => r.statut === _empFilterStatut) : rows;
@@ -291,26 +180,16 @@ function _renderArbitrageRayon(rows) {
 
   const rowsHtml = displayed.map(r => {
     const sb = STATUT_BADGE[r.statut];
-    const deltaSign = r.delta > 0.05 ? '+' : '';
-    const deltaCol = r.delta > 0.05 ? 'c-ok' : r.delta < -0.05 ? 'c-danger' : 't-disabled';
-    const deltaFmt = Math.abs(r.delta) < 0.005 ? '\u2014' : deltaSign + r.delta.toFixed(1) + '\xd7';
-    const ruptBadge = r.nbRupture > 0 ? ` <span class="c-danger font-bold">(${r.nbRupture}R)</span>` : '';
-    const dormBadge = r.nbDormant > 0 ? ` <span class="c-caution">(${r.nbDormant}D)</span>` : '';
     const txSrvCol = r.txService >= 98 ? 'c-ok' : r.txService >= 90 ? 'c-caution' : 'c-danger';
-    const txMargeCol = r.txMarge >= 35 ? 'c-ok' : r.txMarge >= 25 ? 'c-caution' : 'c-danger';
     return `<tr class="hover:s-hover cursor-pointer border-b b-light" onclick="window._filterByEmplacement('${escapeHtml(r.emp)}')">
-      <td class="py-1.5 px-2 font-semibold t-primary">${escapeHtml(r.emp)}${ruptBadge}${dormBadge}</td>
+      <td class="py-1.5 px-2 font-semibold t-primary">${escapeHtml(r.emp)}</td>
       <td class="py-1.5 px-2 text-center"><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:${sb.bg};color:${sb.color}" title="${sb.action}">${sb.icon} ${sb.label}</span></td>
-      <td class="py-1.5 px-2 text-right">${r.caPeriode > 0 ? formatEuro(r.caPeriode) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-right" style="color:#8b5cf6">${r.caPeriode > 0 ? formatEuro(Math.round(r.caPeriode * r.txMarge / 100)) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center font-bold ${txMargeCol}">${r.txMarge}%</td>
+      <td class="py-1.5 px-2 text-right" style="color:#8b5cf6">${r.marge3m > 0 ? formatEuro(r.marge3m) : '\u2014'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${r.valStock > 0 ? formatEuro(r.valStock) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-center">${r.nbRef}</td>
-      <td class="py-1.5 px-2 text-center">${r.nbClients || '\u2014'}</td>
       <td class="py-1.5 px-2 text-center font-bold ${rdCol(r.rendement3m)}">${rdFmt(r.rendement3m)}</td>
+      <td class="py-1.5 px-2 text-center">${r.nbClients || '\u2014'}</td>
       <td class="py-1.5 px-2 text-center font-bold ${txSrvCol}">${r.txService}%</td>
-      <td class="py-1.5 px-2 text-center t-secondary">${r.densiteClient}</td>
-      <td class="py-1.5 px-2 text-center font-bold ${deltaCol}">${deltaFmt}</td>
+      <td class="py-1.5 px-2 text-center">${r.nbDormant || '\u2014'}</td>
     </tr>`;
   }).join('');
 
@@ -318,7 +197,7 @@ function _renderArbitrageRayon(rows) {
     <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:800;font-size:13px;color:#cbd5e1">&#128205; Arbitrage rayon</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(caTotalPeriode)} CA \xb7 ${formatEuro(margePeriode)} marge \xb7 tx ${txMargeGlobal}%</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.45)">${rows.length} emplacements \xb7 ${formatEuro(marge3mTotal)} marge 3m</span>
       </div>
       <span class="acc-arrow" style="color:#cbd5e1">&#9654;</span>
     </summary>
@@ -334,16 +213,12 @@ function _renderArbitrageRayon(rows) {
           <tr>
             ${th('Emplacement', 'emp', 'text-left')}
             ${th('Statut', 'statut', 'text-center')}
-            ${th('CA', 'caPeriode', 'text-right')}
-            ${th('Marge', 'vmb', 'text-right')}
-            ${th('Tx marge', 'txMarge', 'text-center')}
+            ${th('Marge VMB (3m)', 'marge3m', 'text-right')}
             ${th('Val. stock', 'valStock', 'text-right')}
-            ${th('R\xe9f.', 'nbRef', 'text-center')}
-            ${th('Clients', 'nbClients', 'text-center')}
             ${th('Rdt 3m', 'rendement3m', 'text-center')}
-            ${th('Tx service', 'txService', 'text-center')}
-            ${th('Cli/R\xe9f', 'densiteClient', 'text-center')}
-            ${th('\u0394', 'delta', 'text-center')}
+            ${th('Clients', 'nbClients', 'text-center')}
+            ${th('Tx service %', 'txService', 'text-center')}
+            ${th('Dormants', 'nbDormant', 'text-center')}
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -397,9 +272,9 @@ window._empExportCSV = function() {
   const rows = computePerfEmplacement();
   if (!rows.length) return;
   const sep = ';';
-  const header = ['Emplacement','Statut','CA','Marge VMB','Tx marge %','Val stock','Refs','Clients','Rdt 3m','Tx service %','Cli/Ref','Delta','Ruptures','Dormants'].join(sep);
+  const header = ['Emplacement','Statut','Marge VMB (3m)','Val stock','Rdt 3m','Clients','Tx service %','Dormants'].join(sep);
   const lines = rows.map(r =>
-    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.caPeriode.toFixed(0), Math.round(r.caPeriode * r.txMarge / 100), r.txMarge, r.valStock.toFixed(0), r.nbRef, r.nbClients, r.rendement3m.toFixed(2), r.txService, r.densiteClient, r.delta.toFixed(2), r.nbRupture, r.nbDormant].join(sep)
+    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.marge3m, r.valStock.toFixed(0), r.rendement3m.toFixed(2), r.nbClients, r.txService, r.nbDormant].join(sep)
   );
   const csv = '\uFEFF' + [header, ...lines].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
