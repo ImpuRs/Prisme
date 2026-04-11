@@ -2745,9 +2745,15 @@ window._prMetierDistChange = function(val) {
       b.style.borderColor = active ? 'var(--c-action,#8b5cf6)' : 'var(--b-light)';
     });
   }
+  // Re-render Pilotage Métier if active
+  if (_prTopView === 'metier' && _prSelectedMetier2) {
+    _prComputeMetierIndex(_prSelectedMetier2);
+    _prRerenderMetier();
+    return;
+  }
   const el = document.getElementById('prDetailContent');
   if (!el || !_S._prData || !_prOpenFam) return;
-  const fam = _S._prData.families.find(f => f.codeFam === _prOpenFam);
+  const fam = _prFindFam(_prOpenFam);
   if (fam) el.innerHTML = _prRenderMetiers(fam);
 };
 
@@ -3825,8 +3831,12 @@ window._prSetTopView = function(view) {
 };
 
 function _prComputeMetierIndex(metier) {
-  const clientSet = _S.clientsByMetier?.get(metier);
-  if (!clientSet?.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
+  const clientSetRaw = _S.clientsByMetier?.get(metier);
+  if (!clientSetRaw?.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
+
+  // Apply distance filter
+  const clientSet = new Set([...clientSetRaw].filter(cc => _prDistOk(cc)));
+  if (!clientSet.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
 
   const agg = new Map(); // code → {caZone, monCA, clients: Set<cc>}
   const _ens = (code) => {
@@ -3888,7 +3898,8 @@ function _prComputeMetierIndex(metier) {
     const inStock = fd && (fd.stockActuel || 0) > 0;
     const cf = catFam?.get(code);
     const codeFam = cf?.codeFam || _S.articleFamille?.[code] || '';
-    const libFam = codeFam ? (FAMILLE_LOOKUP[codeFam] || codeFam) : '?';
+    if (!codeFam) continue; // skip articles without family
+    const libFam = FAMILLE_LOOKUP[codeFam] || codeFam;
 
     // Role (cached per family)
     if (!rolesByFam.has(codeFam)) rolesByFam.set(codeFam, _prComputeRoles(codeFam));
@@ -3942,13 +3953,27 @@ function _renderPilotageMetierContent() {
     `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.metier} (${m.nb} clients)</option>`
   ).join('');
 
+  const hasDist = _S.chalandiseReady && [...(_S.chalandiseData?.values() || [])].some(i => i.distanceKm != null);
+  const distBtns = hasDist ? `<div class="flex items-center gap-1.5 mt-2">
+    <span class="text-[10px] t-disabled">📍 Distance :</span>
+    ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:20,l:'20 km'}].map(d => {
+      const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
+      return `<button onclick="window._prMetierDistChange(${d.v || 100})" data-prdist="${d.v}"
+        class="text-[9px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors"
+        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'border-color:var(--b-light);color:var(--t-secondary);background:transparent'}">${d.l}</button>`;
+    }).join('')}
+  </div>` : '';
+
   let html = `<div class="mb-4">
     <h3 class="font-extrabold text-sm t-primary mb-3">🎯 Pilotage Métier — Vue cross-famille</h3>
-    <select onchange="window._prSelectMetier(this.value)"
-      class="w-full max-w-md px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none">
-      <option value="">— Choisir un métier —</option>
-      ${options}
-    </select>
+    <div class="flex flex-wrap items-end gap-3">
+      <select onchange="window._prSelectMetier(this.value)"
+        class="flex-1 max-w-md px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none">
+        <option value="">— Choisir un métier —</option>
+        ${options}
+      </select>
+    </div>
+    ${distBtns}
   </div>`;
 
   if (!_prSelectedMetier2 || !_prMetierIndex) {
