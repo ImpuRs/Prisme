@@ -1712,12 +1712,14 @@ export function computeRadarFamille() {
   for (let i = 0; i < fpArr.length; i++) fpIdx.set(fpArr[i].fam, i + 1);
 
   for (const [, f] of famMap) {
-    const obs = obsIdx.get(f.libFam);
+    // Croiser par famLib(codeFam) — c'est la clé utilisée par le benchmark
+    const famKey = famLib(f.codeFam) || f.libFam;
+    const obs = obsIdx.get(famKey);
     f.ecartReseau   = obs ? Math.round(obs.caMe - obs.caOther)     : null;
     f.ecartReseauPct = obs ? obs.ecartPct                           : null;
     f.caReseauMe     = obs ? Math.round(obs.caMe)                   : null;
     f.caReseauOther  = obs ? Math.round(obs.caOther)                : null;
-    f.rangReseau     = fpIdx.get(f.libFam) || null;
+    f.rangReseau     = fpIdx.get(famKey) || null;
     f.rangReseauTotal = fpArr.length || null;
   }
 
