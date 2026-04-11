@@ -140,6 +140,8 @@ _S.ventesClientArticle = new Map();
 _S.ventesClientArticleFull = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesClientHorsMagasin = new Map();
+// CA MAGASIN dans d'autres agences : cc → totalCA (comptoir ailleurs)
+_S.ventesClientAutresAgences = new Map();
 // Canaux détectés hors MAGASIN dans le fichier
 _S.cannauxHorsMagasin = new Set();
 // CA agrégé par article et par canal (précalculé après chalandise)
@@ -288,7 +290,7 @@ _S._rfData = null;             // cache du dernier computeRadarFamille
 // Combine : invalidateCache('tab', 'terr') pour invalider tab + territoire
 export function invalidateCache(...scopes) {
   const all = scopes.length === 0 || scopes.includes('all');
-  if (all || scopes.includes('tab'))   { _S._tabRendered = {}; if (typeof window !== 'undefined') window._invalidateKpiCache?.(); }
+  if (all || scopes.includes('tab'))   { _S._tabRendered = {}; _S._prDeferred = false; if (typeof window !== 'undefined') window._invalidateKpiCache?.(); }
   if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; }
   if (all || scopes.includes('bench')) _S._benchCache = null;
 }
@@ -336,7 +338,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise

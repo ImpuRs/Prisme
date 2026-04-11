@@ -453,6 +453,33 @@ _S.canalAgence=newCanalAgence;
     return _clientPassesFilters(info,rec.cc);
   }
 
+  // ── Cohortes clients (partagé entre les deux prompts LLM) ──
+  function _computeClientCohorts(withTop5){
+    const result={silencieuxCount:0,silencieuxCA:0,silTop5:[],perdusCount:0,perdusCA:0,potentielsCount:0};
+    if(!_S.clientStore?.size)return result;
+    const arr=withTop5?[]:null;
+    for(const rec of _S.clientStore.values()){
+      if(!_clientPassesReportFilter(rec))continue;
+      const d=rec.silenceDaysPDV??rec.silenceDaysAll;
+      // Silencieux : 30-60j
+      if(d!==null&&d>30&&d<=60&&(rec.caPDV>0||rec.caTotal>0)){
+        const ca=rec.caTotal||rec.caPDV||0;
+        result.silencieuxCount++;result.silencieuxCA+=ca;
+        if(arr)arr.push({nom:rec.nom,ca,days:d});
+      }
+      // Perdus : 60-180j
+      if(d!==null&&d>60&&d<=180&&(rec.caPDV>0||rec.caTotal>0)){
+        result.perdusCount++;result.perdusCA+=(rec.caTotal||rec.caPDV||0);
+      }
+      // Potentiels
+      if(rec.crossStatus==='potentiel'&&rec.caLegallaisN1>=500&&rec.caLegallaisN1<=50000&&rec.commercial){
+        result.potentielsCount++;
+      }
+    }
+    if(arr){arr.sort((a,b)=>b.ca-a.ca);result.silTop5=arr.slice(0,5);}
+    return result;
+  }
+
   function generateReportText(){
     const pStart=_S.periodFilterStart||_S.consommePeriodMinFull||_S.consommePeriodMin;
     const pEnd=_S.periodFilterEnd||_S.consommePeriodMaxFull||_S.consommePeriodMax;
@@ -512,10 +539,9 @@ _S.canalAgence=newCanalAgence;
     const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
 
     // Clients (filtrés par les filtres chalandise actifs)
-    let silencieuxCount=0,silencieuxCA=0,silTop5=[];
-    if(_S.clientStore?.size){const arr=[];for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d===null||d<=30||d>60)continue;if(!(rec.caPDV>0||rec.caLegallais>0))continue;if(!_clientPassesReportFilter(rec))continue;arr.push({nom:rec.nom,ca:rec.caLegallais||rec.caPDV||0,days:d});}arr.sort((a,b)=>b.ca-a.ca);silencieuxCount=arr.length;silencieuxCA=arr.reduce((s,c)=>s+c.ca,0);silTop5=arr.slice(0,5);}
-    let potentielsCount=0,perdusCount=0,perdusCA=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(!_clientPassesReportFilter(rec))continue;const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d!==null&&d>60&&d<=180&&(rec.caPDV>0||rec.caLegallais>0)){perdusCount++;perdusCA+=(rec.caLegallais||rec.caPDV||0);}if(rec.crossStatus==='potentiel'&&rec.caLegallais>=500&&rec.caLegallais<=50000&&rec.commercial){potentielsCount++;}}}
+    const _coh1=_computeClientCohorts(true);
+    const {silencieuxCount,silencieuxCA,silTop5}=_coh1;
+    const {potentielsCount,perdusCount,perdusCA}=_coh1;
     const nbNomades=(_S.reseauNomades||[]).length;
     const nomadesMissed=(_S.nomadesMissedArts||[]).slice(0,10);
 
@@ -752,10 +778,8 @@ _S.canalAgence=newCanalAgence;
     const spSorted=Object.entries(sp).sort((a,b)=>(b[1].ca||0)-(a[1].ca||0));
     const myRankIdx=spSorted.findIndex(([s])=>s===_S.selectedMyStore);
 
-    let silencieuxCount=0,silencieuxCA=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d===null||d<=30||d>60)continue;if(!(rec.caPDV>0||rec.caLegallais>0))continue;if(!_clientPassesReportFilter(rec))continue;silencieuxCount++;silencieuxCA+=(rec.caLegallais||rec.caPDV||0);}}
-    let potentielsCount=0,perdusCount=0,perdusCA=0;
-    if(_S.clientStore?.size){for(const rec of _S.clientStore.values()){if(!_clientPassesReportFilter(rec))continue;const d=rec.silenceDaysPDV??rec.silenceDaysAll;if(d!==null&&d>60&&d<=180&&(rec.caPDV>0||rec.caLegallais>0)){perdusCount++;perdusCA+=(rec.caLegallais||rec.caPDV||0);}if(rec.crossStatus==='potentiel'&&rec.caLegallais>=500&&rec.caLegallais<=50000&&rec.commercial){potentielsCount++;}}}
+    const _coh2=_computeClientCohorts(false);
+    const {silencieuxCount,silencieuxCA,perdusCount,perdusCA,potentielsCount}=_coh2;
     const nbNomades=(_S.reseauNomades||[]).length;
 
     const filtersLabel=_getActiveFiltersLabel();
@@ -1196,6 +1220,7 @@ _S.canalAgence=newCanalAgence;
   async function _postParseMain(opts) {
     const {storeOverride='', _f1=null, _f2=null} = opts;
     const t0 = performance.now();
+    const _perf=[];const _mark=(label)=>{_perf.push({etape:label,ms:Math.round(performance.now()-t0)});};
     const btn = document.getElementById('btnCalculer'); btn.disabled = true;
     try {
       const useMulti = _S.storesIntersection.size > 1 && _S.selectedMyStore;
@@ -1203,6 +1228,7 @@ _S.canalAgence=newCanalAgence;
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
+      _mark('Enrichissement prix/CA');
 
       // Positionner sur le mois le plus récent par défaut (INIT ONLY — pas de render ici)
       // C'est le SEUL endroit hors applyPeriodFilter() qui écrit periodFilterStart/End,
@@ -1243,9 +1269,13 @@ _S.canalAgence=newCanalAgence;
       updatePipeline('stock','done');
 
       // Chalandise + livraisons (si fichiers chargés)
+      _mark('Avant chalandise');
+      console.log('[PERF] chalandiseReady=',_S.chalandiseReady,'livraisonsReady=',_S.livraisonsReady,'chalFiles=',document.getElementById('fileChalandise').files?.length,'livFile=',!!document.getElementById('fileLivraisons').files[0]);
       {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
+      _mark('Après chalandise');
       {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);}
+      _mark('Après livraisons');
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);_mark('Benchmark');}
 
       // ABC/FMR + selects
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
@@ -1276,7 +1306,7 @@ _S.canalAgence=newCanalAgence;
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
       computeClientCrossing();computeReconquestCohort();
-      buildClientStore(); // store client initial (avant chalandise/omni éventuels)
+      buildClientStore();_mark('ClientStore + crossing');
       // agenceStore rebuilt par computeBenchmark (ligne 1038 + renderBenchmark ci-dessous)
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
@@ -1287,7 +1317,7 @@ _S.canalAgence=newCanalAgence;
       }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
       if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
-      renderAll();
+      renderAll();_mark('renderAll');
       initDetailsAnimations();
       _syncTabAccess();
 
@@ -1296,6 +1326,7 @@ _S.canalAgence=newCanalAgence;
 
       if(_S.cannauxHorsMagasin.size>0){const _labelsCanaux={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS'};const _listeCanaux=[..._S.cannauxHorsMagasin].map(c=>_labelsCanaux[c]||c).join(', ');showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`,'success',6000);}
 
+      _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       switchTab('omni');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
@@ -1418,7 +1449,8 @@ _S.canalAgence=newCanalAgence;
     const{isRefilter=false,storeOverride='',_f1=null,_f2=null}=opts;
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
-    const t0=performance.now();const btn=document.getElementById('btnCalculer');btn.disabled=true;btn.classList.add('loading');
+    const t0=performance.now();const _perf=[];const _mark=(label)=>{_perf.push({etape:label,ms:Math.round(performance.now()-t0)});};
+    const btn=document.getElementById('btnCalculer');btn.disabled=true;btn.classList.add('loading');
     _S._parsingInProgress=true; // bloque les renderAll parasites pendant le parsing
     if(isRefilter){showLoading('Recalcul période…','');await yieldToMain();}
     try{
@@ -1450,6 +1482,7 @@ _S.canalAgence=newCanalAgence;
 
       updatePipeline('stock','active');updatePipeline('consomme','active');
       _resetColCache(); // colonnes consommé différentes du stock
+      _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
       const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();}_S.ventesClientsPerStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();
       _S.ventesParMagasinByCanal={};
@@ -1531,6 +1564,8 @@ _S.canalAgence=newCanalAgence;
       // ventesClientArticle = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
       if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}
+      // CA MAGASIN dans d'autres agences (sk ≠ myStore)
+      if(!isRefilter&&cc2&&code&&_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore){const _caAut=caP+caE;if(_caAut>0)_S.ventesClientAutresAgences.set(cc2,(_S.ventesClientAutresAgences.get(cc2)||0)+_caAut);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=_rnc;if(_nc3)commandesPDV.add(_nc3);}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)&&(qteP>0||qteE>0)){if(cc2&&dateV&&!isNaN(dateV.getTime()))passagesUniques.add(cc2+'_'+formatLocalYMD(dateV));}
       // clientLastOrder peuplé avant le filtre période (ligne ~1273) — period-independent
@@ -1604,6 +1639,7 @@ _S.canalAgence=newCanalAgence;
       if(!isRefilter){_computeSeasonalIndex(monthlySales);}
 
       const synth=_buildSynthFromRaw(articleRaw);
+      _mark('Boucle consommé');
 
       updateProgress(68,100,'Analyse ventes…');
       const joursOuvres=(minDateVente<Infinity&&maxDateVente>0)?Math.max(Math.round(daysBetween(new Date(minDateVente),new Date(maxDateVente))*(5/7)),30):250;
@@ -1634,6 +1670,7 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes stock différentes du consommé
       // Pré-détection colonnes stock qty / valeur — évite Object.keys par ligne
       {const _ks0=Object.keys(dataS[0]||{});_cSStk=_ks0.find(k=>{const lk=k.toLowerCase();return(lk.includes('stock')||lk.includes('qt')||lk.includes('quant'))&&!lk.includes('min')&&!lk.includes('max')&&!lk.includes('valeur')&&!lk.includes('alerte')&&!lk.includes('statut');});_cSValS=_ks0.find(k=>{const lk=k.toLowerCase().replace(/[\r\n]/g,' ');return lk.includes('valeur')&&lk.includes('stock');});}
+      _mark('Analyse ventes');
       updateProgress(70,100,'Min/Max…',dataS.length.toLocaleString('fr'));
       // C1: snapshot des libellés bâtis depuis le consommé avant le reset — merger après la boucle stock
       const _libelleFromConsomme = Object.assign({}, _S.libelleLookup);
@@ -1677,6 +1714,7 @@ _S.canalAgence=newCanalAgence;
       }updateProgress(70+Math.round(i/dataS.length*20),100);await yieldToMain();}
       // C1: enrichir _S.libelleLookup avec les libellés consommé pour les codes absents du stock
       for(const k in _libelleFromConsomme){if(!_S.libelleLookup[k])_S.libelleLookup[k]=_libelleFromConsomme[k];}
+      _mark('Boucle stock');
       updatePipeline('stock','done');
 
       // ★ Médiane réseau MIN/MAX par article (multi-agences uniquement)
@@ -1696,12 +1734,12 @@ _S.canalAgence=newCanalAgence;
       // Chalandise : géré dans _postParseMain (point d'entrée principal)
       if(!isRefilter){
         {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
-        if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);}
+        if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);_mark('Benchmark');}
       }
       // ABC/FMR, selects — skipped for isRefilter (finalData unchanged)
       if(!isRefilter){
         if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
-        updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);assertPostParseInvariants();
+        updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);_mark('ABC/FMR');assertPostParseInvariants();
         updateProgress(95,100,'Affichage…');await yieldToMain();
         populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
       }
@@ -1720,16 +1758,17 @@ _S.canalAgence=newCanalAgence;
       }
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
-      buildClientStore();
+      buildClientStore();_mark('ClientStore + crossing');
       // agenceStore rebuilt par computeBenchmark (ligne 1514 + renderBenchmark)
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
-      if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
+      if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
+      _mark('Prêt');console.table(_perf);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       if(!isRefilter){switchTab('stock');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
@@ -2233,8 +2272,13 @@ _S.canalAgence=newCanalAgence;
     const _countBadge=document.getElementById('abcCountBadge');
     if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
     _renderGhostArticles();
-    renderPlanRayon();
-    renderArbitrageRayonBlock();
+    // Différer Plan de Rayon — calcul lourd (computeSquelette ~3s), pas visible au démarrage
+    if (!_S._prDeferred) {
+      _S._prDeferred = true;
+      requestIdleCallback(() => { renderPlanRayon(); renderArbitrageRayonBlock(); }, { timeout: 2000 });
+    } else {
+      renderPlanRayon(); renderArbitrageRayonBlock();
+    }
     const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Piliers',AR:'💰 Projets',BF:'⚙️ Moteur',BM:'➡️ Standard',BR:'❓ Poids Faible',CF:'🔁 Trafic',CM:'📉 Poussière',CR:'❌ Boulet'};
     const RECOS={
@@ -2290,12 +2334,13 @@ _S.canalAgence=newCanalAgence;
       case 'table':
         renderTable(true); // articles always re-renders; no cache flag
         return;
-      case 'stock':
-        renderDashboardAndCockpit();
-        renderABCTab();
+      case 'stock':{
+        const _ts0=performance.now();
+        renderDashboardAndCockpit();console.log('[PERF stock] dashboard:',(performance.now()-_ts0|0)+'ms');
+        renderABCTab();console.log('[PERF stock] +ABCTab:',(performance.now()-_ts0|0)+'ms');
         renderHealthScore();
-        renderTabBadges();
-        break;
+        renderTabBadges();console.log('[PERF stock] total:',(performance.now()-_ts0|0)+'ms');
+        break;}
       case 'commerce':
         window.renderCommerceTab && window.renderCommerceTab();
         break;
@@ -2375,6 +2420,8 @@ _S.canalAgence=newCanalAgence;
     // 3. Tenter la restauration complète depuis IndexedDB
     const restored = await _restoreSessionFromIDB();
     if (restored && DataStore.finalData.length > 0) {
+      const _t0c=performance.now();const _pc=[];const _mc=(l)=>{_pc.push({etape:l,ms:Math.round(performance.now()-_t0c)});};
+      _mc('IDB restore');
       // ── 0. Gardes-fous AVANT tout code UI — _S.storesIntersection et _S.selectedMyStore ──
       // Doit s'exécuter immédiatement après await _restoreSessionFromIDB(),
       // avant toute référence à _S.selectedMyStore ou _S.storesIntersection dans l'UI.
@@ -2435,45 +2482,40 @@ _S.canalAgence=newCanalAgence;
       if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
       // 4. Période + render (L2485)
+      _mc('UI init');
       _S._parsingInProgress=true; // bloque renders parasites pendant la restauration
       updatePeriodAlert();
       buildPeriodFilter();
       computeClientCrossing();
       if (_S.chalandiseReady) _computeChalandiseDistances();
+      _mc('crossing + distances');
       // Reconquête : non persistée → recalculer depuis les données IDB restaurées
       if (_S.clientLastOrder.size || _S.livraisonsReady) computeReconquestCohort();
       if (_S.chalandiseReady && DataStore.ventesClientArticle.size) { computeOmniScores(); computeFamillesHors(); }
-      buildClientStore();
+      buildClientStore();_mc('buildClientStore');
       if (_S.ventesClientHorsMagasin.size) _rebuildCaByArticleCanal();
-      // Univers dominant : non persisté → recomputer depuis ventesClientArticle × articleUnivers
       if(_S.ventesClientArticle.size) _computeClientDominantUnivers();
-      // Synchroniser l'input commercial filter depuis _S (restauré depuis IDB)
       const _comInput = document.getElementById('terrCommercialFilter');
       if (_comInput && _S._selectedCommercial) _comInput.value = _S._selectedCommercial;
-      // Synchroniser le sous-onglet actif Clients
       const _tab = _S._clientsActiveTab || 'priorites';
       document.querySelectorAll('.clients-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === _tab));
       renderSidebarAgenceSelector();
       _S.currentPage=0;
-      // Sprint 0 fix: ne pas appeler renderAll() ici — le render sera fait par
-      // processDataFromRaw(isRefilter) ou le else-branch ci-dessous.
-      // On prépare juste filteredData pour _syncTabAccess et benchmark.
       _S.filteredData = getFilteredData();
       _syncTabAccess();
+      _mc('filteredData + sync');
       if(useMulti){
         buildAgenceStore();
         _buildObsUniversDropdown();
         buildBenchBassinSelect();
-        renderBenchmark();
+        renderBenchmark();_mc('renderBenchmark');
         launchReseauWorker().then(()=>{
           renderNomadesMissedArts();
         }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
       }
-      // renderTerritoireTab différé — on switch sur stock, pas besoin de rendre territoire maintenant
 
-      // 5. Activer PRISME + replier l'import
       _S._parsingInProgress=false;
-      switchTab('stock');
+      switchTab('stock');_mc('switchTab stock');
       collapseImportZone();
       // Période : respecter le filtre persisté dans IDB (restauré par _restoreSessionFromIDB).
       // Si aucun filtre n'était actif, _S.periodFilterStart/End sont déjà null.
@@ -2481,8 +2523,11 @@ _S.canalAgence=newCanalAgence;
         _S.ventesClientArticleFull=new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
       }
       invalidateCache('tab','terr');buildPeriodFilter();
+      _mc('pré-render');
       renderCanalAgence();renderCurrentTab();
+      _mc('renderCurrentTab');
 
+      _mc('Prêt');console.table(_pc);
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
     } else {
@@ -2565,9 +2610,12 @@ window.onSecteurChange = onSecteurChange;
 window.onLivraisonsSelected = async function(input) {
   onFileSelected(input, 'dropLivraisons');
   if (!input.files?.[0]) return;
-  await parseLivraisons(input.files[0]);
-  // territoireLines, territoireReady, computeReconquestCohort et computeOpportuniteNette
-  // sont déjà gérés dans parseLivraisons() — pas de post-traitement nécessaire ici
+  // Parser immédiatement seulement si les données sont déjà chargées (recalcul à chaud).
+  // Sinon, _postParseMain appellera parseLivraisons après Analyser — évite le double parse.
+  if (DataStore.finalData.length === 0) return;
+  if (_S._livraisonsLoading || _S.livraisonsReady) return;
+  _S._livraisonsLoading = true;
+  try { await parseLivraisons(input.files[0]); } finally { _S._livraisonsLoading = false; }
 };
 window.onConsommeReseauSelected = function(input) {
   onFileSelected(input, 'dropConsommeReseau');

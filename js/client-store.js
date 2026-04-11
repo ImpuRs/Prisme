@@ -77,7 +77,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         ville: chalInfo?.ville || '',
         distanceKm: chalInfo?.distanceKm ?? null,
         dept: (chalInfo?.cp || '').slice(0, 2),
-        caLegallais: chalInfo?.ca2025 || 0,
+        caLegallaisN1: chalInfo?.ca2025 || 0,
         caPDVNChal: chalInfo?.caPDVN || 0,
         ca2026: chalInfo?.ca2026 || 0,
         // Hors-MAGASIN (period-invariant)
@@ -98,7 +98,7 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         articles: _S.clientArticles?.get(cc) || null, // Set<code> tous articles achetés
         // PDV — remplis ci-dessous
         caPDV: 0, caPDVPrelevee: 0, nbArticlesPDV: 0, nbBLPDV: 0,
-        isPDVActif: false, silenceDaysPDV: null, caTotal: 0,
+        isPDVActif: false, silenceDaysPDV: null, caTotal: 0, caAutresAgences: 0,
         artMapPDV: null,                  // Map<code, {sumCA, sumPrelevee, ...}> MAGASIN
       };
 
@@ -133,6 +133,17 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     rec.silenceDaysAll = lastAllValid ? Math.round((now - lastAll) / 86400000) : null;
     rec.caTotal = caPDV + (rec.caHors || 0);
     if (caPDV > 0 && rec.canaux) rec.canaux.add('MAGASIN');
+  }
+
+  // ── CA MAGASIN dans d'autres agences (depuis le Consommé multi-agences) ──
+  if (_S.ventesClientAutresAgences?.size) {
+    for (const [cc, caAutres] of _S.ventesClientAutresAgences) {
+      const rec = store.get(cc);
+      if (rec) {
+        rec.caAutresAgences = caAutres;
+        rec.caTotal += caAutres;
+      }
+    }
   }
 
   // ── pdvOnly : ajouter les nouveaux clients absents du store ──

@@ -422,14 +422,14 @@ window._ccc = (di,mi,ci) => {
           caHors=0;caTotal=caPDV;
         }
         if(caPDV>=100){
-          topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caLegallais||0,commercial:rec.commercial,caPDV,caHors,caTotal,lastDate:rec.lastOrderPDV});
+          topPDVRows.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caTotal||0,commercial:rec.commercial,caPDV,caHors,caTotal,lastDate:rec.lastOrderPDV});
         }
         // ── Nouveaux / Réactivés (≤3 BL, dernière commande <60j) ──
         if(rec.isPDVActif&&(rec.nbBLPDV||0)<=3&&(rec.caPDV||0)>=100){
           const daysSince=rec.lastOrderPDV?Math.round((Date.now()-rec.lastOrderPDV)/86400000):null;
           if(daysSince!==null&&daysSince<60){
-            const isReactive=(rec.caLegallais||0)>0;
-            nouveaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caLegallais||0,commercial:rec.commercial,caPDV,nbBL:rec.nbBLPDV||0,lastDate:rec.lastOrderPDV,type:isReactive?'reactive':'nouveau'});
+            const isReactive=(rec.caLegallaisN1||0)>0;
+            nouveaux.push({cc:rec.cc,nom:rec.nom,metier:rec.metier,classification:rec.classification,caLeg:rec.caTotal||0,commercial:rec.commercial,caPDV,nbBL:rec.nbBLPDV||0,lastDate:rec.lastOrderPDV,type:isReactive?'reactive':'nouveau'});
           }
         }
         // ── Hors zone (PDV sans chalandise) ──
@@ -780,7 +780,7 @@ window._ccc = (di,mi,ci) => {
       const _gc=_S._globalCanal||'';
       const _caLbl=_gc===''?'CA Total':_gc==='MAGASIN'?'CA PDV':_gc==='INTERNET'?'CA Internet':_gc==='REPRESENTANT'?'CA Représentant':_gc==='DCS'?'CA DCS':'CA';
       const _horsLbl=_gc==='MAGASIN'?'Hors agence':'';
-      const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">${_caLbl}</th><th class="py-2 px-2 text-right">CA Leg.</th>${_horsLbl?`<th class="py-2 px-2 text-right">${_horsLbl}</th>`:''}<th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
+      const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">${_caLbl}</th><th class="py-2 px-2 text-right">CA Zone</th>${_horsLbl?`<th class="py-2 px-2 text-right">${_horsLbl}</th>`:''}<th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
       const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
       const thStr=`<thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead>`;
       return`<details open style="background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${rows.length} clients · ${_caLbl}</span></h3><span class="acc-arrow" style="color:#fde047">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
@@ -1788,12 +1788,13 @@ function _buildCockpitClient(force){
     const lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
     const daysSince=lastOrderValid?daysBetween(lastOrder,_today):null;
     const caPDVN=rec.caPDV;
-    const caLeg=rec.caLegallais||0;
+    const caLeg=rec.caLegallaisN1||0;
+    const caZone=rec.caTotal||0; // vrai CA zone sur la période (PDV + hors-magasin)
 
-    const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,ca2025:caLeg,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
+    const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,caZone,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
 
     // 1. Silencieux : 30-60j sans commande
-    const _caOk=_useMagOnly?caPDVN>0:(caPDVN>0||caLeg>0||_useByCanal);
+    const _caOk=_useMagOnly?caPDVN>0:(caPDVN>0||caLeg>0||caZone>0||_useByCanal);
     if(daysSince!==null&&daysSince>30&&daysSince<=60&&_caOk){silencieux.push(c);continue;}
     // 2. Perdus : 60-180j sans commande
     if(daysSince!==null&&daysSince>60&&daysSince<=180&&_caOk){perdus.push(c);continue;}
@@ -1801,10 +1802,10 @@ function _buildCockpitClient(force){
     if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
 
-  silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
-  perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.ca2025||0)-(a.ca2025||0));
+  silencieux.sort((a,b)=>(b._daysSince||0)-(a._daysSince||0)||(b.caZone||0)-(a.caZone||0));
+  perdus.sort((a,b)=>(a._daysSince||0)-(b._daysSince||0)||(b.caZone||0)-(a.caZone||0));
   const _classifPrio={'FID Pot+':0,'OCC Pot+':1,'FID Pot-':2,'OCC Pot-':3,'NC':4};
-  jamaisVenus.sort((a,b)=>(_classifPrio[a.classification]??5)-(_classifPrio[b.classification]??5)||(b.ca2025||0)-(a.ca2025||0));
+  jamaisVenus.sort((a,b)=>(_classifPrio[a.classification]??5)-(_classifPrio[b.classification]??5)||(b.caZone||0)-(a.caZone||0));
   _S._cockpitExportData={silencieux,perdus,jamaisVenus};
   _renderCockpitTables();
 }
@@ -1827,7 +1828,7 @@ function _directTable(clients,listId,dayThreshold){
   const filterActive=_S._selectedDepts.size||_S._selectedClassifs.size||_S._selectedStatuts.size||_S._selectedActivitesPDV.size||_S._selectedDirections.size||_S._selectedUnivers.size||_S._selectedCommercial||_S._selectedMetier||_S._filterStrategiqueOnly;
   const emptyMsg=filterActive?'Aucun client ne correspond aux filtres':'Aucun client dans cette catégorie';
   const total=clients.length;
-  const totalCALeg=clients.reduce((s,c)=>s+(c.ca2025||0),0);
+  const totalCALeg=clients.reduce((s,c)=>s+(c.caZone||0),0);
   const totalCAMag=clients.reduce((s,c)=>s+(c.caPDVN||0),0);
   const nbFid=clients.filter(c=>(c.classification||'').startsWith('FID')).length;
   const nbStrat=clients.filter(c=>c._strat).length;
@@ -1838,7 +1839,7 @@ function _directTable(clients,listId,dayThreshold){
 
   // ── Summary bandeau ──
   let html=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;margin-bottom:6px">`;
-  if(totalCALeg>0)html+=`<span class="text-[11px] font-bold c-caution">${formatEuro(totalCALeg)} CA Leg</span><span class="t-disabled text-[9px]">·</span>`;
+  if(totalCALeg>0)html+=`<span class="text-[11px] font-bold c-caution">${formatEuro(totalCALeg)} CA Zone</span><span class="t-disabled text-[9px]">·</span>`;
   if(totalCAMag>0)html+=`<span class="text-[11px] font-bold c-ok">${formatEuro(totalCAMag)} CA MAG</span><span class="t-disabled text-[9px]">·</span>`;
   if(nbFid)html+=`<span class="text-[11px] font-bold" style="color:#34d399">${nbFid} FID</span><span class="t-disabled text-[9px]">·</span>`;
   if(nbStrat)html+=`<span class="text-[11px] font-bold c-caution">${nbStrat} ⭐ stratégiques</span>`;
@@ -1854,7 +1855,7 @@ function _directTable(clients,listId,dayThreshold){
   html+=`<th class="py-1.5 px-2 text-left">Métier</th>`;
   html+=`<th class="py-1.5 px-2 text-center">Classif</th>`;
   html+=`<th class="py-1.5 px-2 text-right">CA MAG</th>`;
-  html+=`<th class="py-1.5 px-2 text-right">CA Leg</th>`;
+  html+=`<th class="py-1.5 px-2 text-right">CA Zone</th>`;
   html+=`<th class="py-1.5 px-2 text-center">Silence</th>`;
   html+=`<th class="py-1.5 px-2 text-left">Commercial</th>`;
   html+=`<th class="py-1.5 px-2 text-left">Ville</th>`;
@@ -1867,7 +1868,7 @@ function _directTable(clients,listId,dayThreshold){
     html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td>`;
     html+=`<td class="py-1.5 px-2 text-center">${_classifBadge(c.classification)}</td>`;
     html+=`<td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>`;
-    html+=`<td class="py-1.5 px-2 text-right font-bold c-caution">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>`;
+    html+=`<td class="py-1.5 px-2 text-right font-bold c-caution">${c.caZone>0?formatEuro(c.caZone):'—'}</td>`;
     html+=`<td class="py-1.5 px-2 text-center">${_daysBadge(c._daysSince,dayThreshold)}</td>`;
     html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.commercial?escapeHtml(c.commercial):'—'}</td>`;
     html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.ville?escapeHtml(c.ville):'—'}</td>`;
@@ -1924,7 +1925,7 @@ function _setClientView(view){
 // ── Cockpit Client CSV Export ──
 function _cockpitRowCSV(cat,c,exclu,exclusionReason){
   const SEP=';';
-  const caLeg=c.ca2025>0?c.ca2025.toFixed(2).replace('.',','):'—';
+  const caLeg=c.caZone>0?c.caZone.toFixed(2).replace('.',','):'—';
   const caPDV=c.caPDVN>0?c.caPDVN.toFixed(2).replace('.',','):'—';
   const dernCmd=c._lastOrderDate?c._lastOrderDate.toLocaleDateString('fr-FR'):'—';
   const jours=c._daysSince!=null?c._daysSince:'—';

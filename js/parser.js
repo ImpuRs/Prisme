@@ -191,6 +191,7 @@ export function _computeChalandiseDistances() {
 
 // ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
 export async function parseLivraisons(file) {
+  const _lt0=performance.now();const _lm=[];const _lmk=(l)=>{_lm.push({etape:l,ms:Math.round(performance.now()-_lt0)});};
   _S.livraisonsData = new Map();
   _S.livraisonsReady = false;
   _S.livraisonsClientCount = 0;
@@ -202,12 +203,16 @@ export async function parseLivraisons(file) {
       const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'windows-1252'); });
       const sep = (text.split('\n')[0] || '').includes(';') ? ';' : ',';
       data = parseCSVText(text, sep);
+      _lmk('CSV parse');
     } else {
       const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
+      _lmk('FileReader');
       const wb = XLSX.read(buf, { type: 'array', cellDates: false, dense: true });
+      _lmk('XLSX.read');
       _S._livraisonsDebug.sheets = wb.SheetNames;
       const _ws = wb.Sheets[wb.SheetNames[0]];
       data = readExcelAsObjects(_wsToHR(_ws));
+      _lmk('readExcelAsObjects');
     }
     const headersFound = Object.keys(data[0] || {});
     _S._livraisonsDebug.step = 'parsed';
@@ -312,6 +317,7 @@ export async function parseLivraisons(file) {
       }
     }
 
+    _lmk('Boucle lignes');
     _S.livraisonsReady = _S.livraisonsData.size > 0;
     _S.livraisonsClientCount = _S.livraisonsData.size;
     _S.livraisonsDateMin = livDateMin;
@@ -329,6 +335,7 @@ export async function parseLivraisons(file) {
     // Secteurs — met à jour les checkboxes dans le filtre Terrain
     buildSecteurCheckboxes([...secteurSet].sort());
 
+    _lmk('Fin');console.table(_lm);
     if (!_S.livraisonsReady) {
       showToast(`⚠️ Livraisons : 0 client chargé sur ${data.length} lignes — inspectez _S._livraisonsDebug`, 'error');
       return;
@@ -349,7 +356,7 @@ export async function parseLivraisons(file) {
 
 export function onLivraisonsSelected(input) {
   onFileSelected(input, 'dropLivraisons');
-  if (input.files && input.files[0]) parseLivraisons(input.files[0]);
+  // parsing différé au pipeline principal (processDataFromRaw / _postParseMain)
 }
 
 // ── Territoire file parsing (3ème fichier) ────────────────────
@@ -604,6 +611,7 @@ export function getSelectedSecteurs() {
 
 // ── Benchmark multi-agences ───────────────────────────────────
 export function computeBenchmark(canaux = new Set()) {
+  const _bt0=performance.now();const _bm=[];const _bmk=(l)=>{_bm.push({etape:l,ms:Math.round(performance.now()-_bt0)});};
   // Normalise : accepte un Set, un Array, un string, ou null → toujours Set
   const _canauxSet = canaux instanceof Set ? canaux
     : Array.isArray(canaux) ? new Set(canaux)
@@ -643,6 +651,7 @@ export function computeBenchmark(canaux = new Set()) {
   // ── Rebuild agenceStore avec filtre canal ──
   const _magMode = (_canauxSet.size === 1 && _canauxSet.has('MAGASIN')) ? (_S._reseauMagasinMode || 'all') : 'all';
   buildAgenceStore({ canaux: _canauxSet, magasinMode: _magMode, univers: _S.obsFilterUnivers || '' });
+  _bmk('buildAgenceStore');
   // ── Dériver vpm, sp, bv depuis agenceStore ──
   const vpm = {};
   const sp = {};
@@ -704,6 +713,7 @@ export function computeBenchmark(canaux = new Set()) {
     return a.ratio - b.ratio;
   });
   _S.benchLists.over.sort((a, b) => b.sv - a.sv);
+  _bmk('missed/over');
   // === OBSERVATOIRE DATA ===
   const prixLookup = {}; for (const r of _S.finalData) prixLookup[r.code] = r.prixUnitaire || 0;
   const finalDataByCode = {}; for (const r of _S.finalData) finalDataByCode[r.code] = r;
@@ -784,6 +794,7 @@ export function computeBenchmark(canaux = new Set()) {
   obsFamiliesLose.sort((a, b) => Math.abs(b.caOther - b.caMe) - Math.abs(a.caOther - a.caMe) || a.ecartPct - b.ecartPct);
   obsFamiliesWin.sort((a, b) => (b.caMe - b.caOther) - (a.caMe - a.caOther));
   _S.benchLists.obsFamiliesLose = obsFamiliesLose; _S.benchLists.obsFamiliesWin = obsFamiliesWin;
+  _bmk('Observatoire familles');
   _S.benchLists.obsActionPlan = obsFamiliesLose.slice(0, 3).map(f => { const artsToRef = (f.missingArts || []).filter(a => a.statutMe !== '✅ En stock'); const artsVisi = (f.missingArts || []).filter(a => a.statutMe === '✅ En stock'); return { fam: f.fam, ecartPct: f.ecartPct, nbToRef: artsToRef.length, nbVisibility: artsVisi.length, refOther: f.refOther, caPotentiel: Math.round(Math.abs(f.caOther - f.caMe)) }; });
   // === PÉPITES — articles où je surperforme / où le réseau me surpasse ===
   // ── Agréger les ventes myStore sur la période active depuis _byMonth ──
@@ -871,6 +882,8 @@ export function computeBenchmark(canaux = new Set()) {
   pepitesOther.sort((a, b) => (b.compFreq - b.myFreq) - (a.compFreq - a.myFreq));
   _S.benchLists.pepitesOther = pepitesOther.slice(0, 50);
 
+  _bmk('Observatoire + pépites');
+  console.table(_bm);
   // Mémoriser le résultat — clé sans canal (invariant architectural)
   _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts };
 }
