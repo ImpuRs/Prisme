@@ -519,20 +519,44 @@ function computePlanStock() {
     f.tagSpecialiste = f.pctStrat > 30;
   }
 
-  // ── Enrichissement réseau : écart médiane, rang ──
+  // ── Enrichissement réseau : écart médiane + rang agence par famille ──
   const obsLose = _S.benchLists?.obsFamiliesLose || [];
   const obsWin  = _S.benchLists?.obsFamiliesWin  || [];
   const obsIdx  = new Map();
   for (const o of [...obsLose, ...obsWin]) obsIdx.set(o.fam, o);
-  const fpArr = _S.benchLists?.familyPerf || [];
-  const fpIdx = new Map();
-  for (let i = 0; i < fpArr.length; i++) fpIdx.set(fpArr[i].fam, i + 1);
+
+  // Rang agence par famille : CA par store par codeFam → classement
+  const vpm = _S.ventesParMagasin || {};
+  const stores = [...(_S.storesIntersection || [])];
+  const myStore = _S.selectedMyStore;
+  if (stores.length > 1 && myStore) {
+    // CA par store par codeFam
+    const storeFamCA = new Map(); // codeFam → Map<store, ca>
+    for (const store of stores) {
+      const arts = vpm[store] || {};
+      for (const [code, data] of Object.entries(arts)) {
+        const fi = getFamInfo(code);
+        if (!fi) continue;
+        if (!storeFamCA.has(fi.codeFam)) storeFamCA.set(fi.codeFam, new Map());
+        const m = storeFamCA.get(fi.codeFam);
+        m.set(store, (m.get(store) || 0) + (data.sumCA || 0));
+      }
+    }
+    for (const [codeFam, storeMap] of storeFamCA) {
+      const f = famMap.get(codeFam);
+      if (!f) continue;
+      const sorted = [...storeMap.entries()].sort((a, b) => b[1] - a[1]);
+      const myIdx = sorted.findIndex(([s]) => s === myStore);
+      f.rangReseau = myIdx >= 0 ? myIdx + 1 : null;
+      f.rangReseauTotal = sorted.length;
+    }
+  }
+
   for (const [, f] of famMap) {
     const obs = obsIdx.get(f.libFam);
     f.ecartReseau    = obs ? Math.round(obs.caMe - obs.caOther) : null;
     f.ecartReseauPct = obs ? obs.ecartPct                       : null;
-    f.rangReseau     = fpIdx.get(f.libFam) || null;
-    f.rangReseauTotal = fpArr.length || null;
+    if (!f.rangReseau) { f.rangReseau = null; f.rangReseauTotal = null; }
   }
 
   const allFamilies = [...famMap.values()]
