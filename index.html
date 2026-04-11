@@ -1496,13 +1496,8 @@
           <div id="cematinSearchBlock" class="hidden mb-1">
             <button onclick="window.openCmdPalette()" style="display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:10px;border:1px solid rgba(128,128,128,0.25);background:rgba(128,128,128,0.08);cursor:pointer;font-size:0.78rem;font-weight:600;color:var(--t-primary);transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">🔍 Rechercher<kbd style="margin-left:auto;font-size:0.65rem;opacity:0.5;background:var(--s-card-alt);padding:1px 5px;border-radius:4px;border:1px solid var(--b-default)">Cmd+K</kbd></button>
           </div>
-          <!-- Score IRA sidebar — visible uniquement sur Ce matin -->
-          <div id="cematinScoreBlock" class="hidden mb-1">
-            <button id="cematinScoreBadge" onclick="openDiagAgence()" style="display:block;width:100%;text-align:left;padding:8px 10px;border-radius:10px;border:1px solid rgba(128,128,128,0.25);background:rgba(128,128,128,0.08);cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
-              <div id="cematinScoreText" style="font-size:0.72rem;font-weight:700;line-height:1.4">📊 —/100 · —</div>
-              <p id="cematinScoreSub" style="font-size:0.63rem;color:var(--t-tertiary,#94a3b8);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</p>
-            </button>
-          </div>
+          <!-- Score IRA sidebar — compat JS -->
+          <div id="cematinScoreBlock" class="hidden mb-1"><div id="cematinScoreBadge"></div><div id="cematinScoreText"></div><p id="cematinScoreSub"></p></div>
           <div id="globalFilters" class="hidden flex flex-col gap-1">
             <input type="text" id="searchInput" oninput="debouncedRender()" class="w-full py-1 px-2 text-[11px] border rounded-lg focus:ring-2 focus:ring-blue-400 font-semibold" placeholder="🔍 Code, libellé, famille…">
 
@@ -1518,7 +1513,10 @@
                   <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
                 </div>
                 <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
-                <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut</option></select>
+                <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut ERP</option></select>
+                <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">🏗️ Métier</option></select>
+                <select id="filterRolePhysigamme" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">Rôle Physigamme</option><option value="incontournable">🏆 Incontournable</option><option value="nouveaute">🆕 Nouveauté</option><option value="specialiste">🎯 Spécialiste</option><option value="standard">📦 Standard</option></select>
+                <select id="filterClassifSq" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">Statut Squelette</option><option value="socle">🟢 Socle</option><option value="implanter">🔵 À Implanter</option><option value="challenger">🔴 Challenger</option><option value="surveiller">🟡 À Surveiller</option></select>
               </div>
             </details>
 

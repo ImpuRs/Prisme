@@ -3,7 +3,7 @@ import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
 import { computeSquelette, computeMonRayon } from './engine.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
-import { getFilteredData } from './ui.js';
+import { getFilteredData, buildSqLookup } from './ui.js';
 
 // ── State local ──────────────────────────────────────────────────────
 let _prFilterClassif = '';
@@ -4790,6 +4790,11 @@ export function renderPlanRayon() {
 
   el.innerHTML = _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(data));
   if (_prTopView === 'famille') _initPrSearch();
+  // Exposer les lookups squelette pour les filtres sidebar
+  buildSqLookup();
 }
+
+// Exposer _prComputeRoles pour le filtre Rôle Physigamme
+window._prComputeRoles = _prComputeRoles;
 
 export const renderPlanStock = renderPlanRayon;

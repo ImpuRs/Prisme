@@ -2175,6 +2175,12 @@ _S.canalAgence=newCanalAgence;
     if(cockpit)badges.push({label:document.getElementById('activeCockpitLabel')?.textContent||cockpit,clear:()=>clearCockpitFilter()});
     const emp=document.getElementById('filterEmplacement')?.value||'';
     if(emp)badges.push({label:`Empl : ${emp}`,clear:()=>{document.getElementById('filterEmplacement').value='';onFilterChange();}});
+    const metier=document.getElementById('filterMetier')?.value||'';
+    if(metier)badges.push({label:`Métier : ${metier}`,clear:()=>{document.getElementById('filterMetier').value='';onFilterChange();}});
+    const rolePhy=document.getElementById('filterRolePhysigamme')?.value||'';
+    if(rolePhy)badges.push({label:`Rôle : ${rolePhy}`,clear:()=>{document.getElementById('filterRolePhysigamme').value='';onFilterChange();}});
+    const classifSq=document.getElementById('filterClassifSq')?.value||'';
+    if(classifSq)badges.push({label:`Squelette : ${classifSq}`,clear:()=>{document.getElementById('filterClassifSq').value='';onFilterChange();}});
     if(!badges.length){container.innerHTML='';container.style.display='none';return;}
     container.style.display='flex';
     container.innerHTML=badges.map((b,i)=>

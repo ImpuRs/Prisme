@@ -371,12 +371,60 @@ export function populateSelect(id, vals, labelFn) {
   [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o); });
 }
 
+// ── Lookup squelette : code article → { classif, role, direction } ──
+let _sqLookup = null; // Map<code, {classif, role, direction}>
+export function buildSqLookup() {
+  _sqLookup = new Map();
+  const sqData = _S._prSqData;
+  if (!sqData?.directions) return;
+  const metiers = new Set();
+  for (const d of sqData.directions) {
+    for (const g of ['socle', 'implanter', 'challenger', 'surveiller']) {
+      for (const a of (d[g] || [])) {
+        _sqLookup.set(a.code, { classif: g, direction: d.direction || '' });
+        if (d.direction) metiers.add(d.direction);
+      }
+    }
+  }
+  // Peupler le filtre Métier
+  const sel = document.getElementById('filterMetier');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">🏗️ Métier</option>';
+    [...metiers].sort().forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
+    sel.value = cur;
+    sel.classList.remove('hidden');
+  }
+  // Rendre visibles les filtres squelette
+  document.getElementById('filterRolePhysigamme')?.classList.remove('hidden');
+  document.getElementById('filterClassifSq')?.classList.remove('hidden');
+}
+
 // ── Filters ───────────────────────────────────────────────────
 export function getFilteredData() {
   const fam = (document.getElementById('filterFamille').value || '').trim(), sFam = (document.getElementById('filterSousFamille').value || '').trim(), emp = (document.getElementById('filterEmplacement').value || '').trim(), stat = document.getElementById('filterStatut').value, af = document.getElementById('filterAge').value;
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const searchQuery = document.getElementById('searchInput').value.trim();
+  const metier = document.getElementById('filterMetier')?.value || '';
+  const rolePhy = document.getElementById('filterRolePhysigamme')?.value || '';
+  const classifSq = document.getElementById('filterClassifSq')?.value || '';
+  // Rôle Physigamme lookup : code → rôle (via planRayon _prComputeRoles)
+  let _roleCache = null;
+  if (rolePhy && _S._prSqData) {
+    _roleCache = new Map();
+    const _prComputeRoles = window._prComputeRoles;
+    if (_prComputeRoles) {
+      for (const r of DataStore.finalData) {
+        if (!r.famille) continue;
+        const famCode = r.famille.slice(0, 3);
+        if (!_roleCache.has(famCode)) {
+          const roles = _prComputeRoles(famCode);
+          if (roles) for (const [code, role] of roles) _roleCache.set(code, role);
+        }
+      }
+    }
+  }
   const filtered = DataStore.finalData.filter(r => {
     if(fam){
       const famCode = r.famille||'';
@@ -389,13 +437,16 @@ export function getFilteredData() {
     if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
+    if (metier && _sqLookup) { const sq = _sqLookup.get(r.code); if (!sq || sq.direction !== metier) return false; }
+    if (classifSq && _sqLookup) { const sq = _sqLookup.get(r.code); if (!sq || sq.classif !== classifSq) return false; }
+    if (rolePhy && _roleCache) { const role = _roleCache.get(r.code) || 'standard'; if (role !== rolePhy) return false; }
     if (searchQuery) { return matchQuery(searchQuery, r.code, r.libelle, famLib(r.famille || '')); }
     return true;
   });
-  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++;
+  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (metier) activeCount++; if (rolePhy) activeCount++; if (classifSq) activeCount++;
   const el = document.getElementById('filterActiveCount'); if (el) el.textContent = activeCount > 0 ? `(${activeCount} actif${activeCount > 1 ? 's' : ''})` : '';
   // Badges groupes sidebar
-  const _classifActive = [abc, fmr, fam, stat].filter(Boolean).length;
+  const _classifActive = [abc, fmr, fam, stat, metier, rolePhy, classifSq].filter(Boolean).length;
   const _advancedActive = [sFam, emp, af].filter(Boolean).length;
   const _bgClassif = document.getElementById('fgBadgeClassif');
   if (_bgClassif) { _bgClassif.textContent = _classifActive; _bgClassif.classList.toggle('hidden', _classifActive === 0); }
@@ -428,7 +479,7 @@ export function debouncedRender() { clearTimeout(_S.debounceTimer); _S.debounceT
 
 export function resetFilters() {
   document.getElementById('searchInput').value = '';
-  ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR', 'filterMetier', 'filterRolePhysigamme', 'filterClassifSq'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   _S._filterHorsAgence = false;
   const btnHA = document.getElementById('btnHorsAgence');
   if (btnHA) { btnHA.classList.remove('bg-violet-500', 'text-white'); btnHA.classList.add('t-secondary'); }
