@@ -4794,7 +4794,4 @@ export function renderPlanRayon() {
   buildSqLookup();
 }
 
-// Exposer _prComputeRoles pour le filtre Rôle Physigamme
-window._prComputeRoles = _prComputeRoles;
-
 export const renderPlanStock = renderPlanRayon;
