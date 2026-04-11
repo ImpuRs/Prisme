@@ -2745,10 +2745,10 @@ window._prMetierDistChange = function(val) {
       b.style.borderColor = active ? 'var(--c-action,#8b5cf6)' : 'var(--b-light)';
     });
   }
-  // Re-render Pilotage Métier if active
+  // Re-render Pilotage Métier if active (full rerender to update distance buttons)
   if (_prTopView === 'metier' && _prSelectedMetier2) {
     _prComputeMetierIndex(_prSelectedMetier2);
-    _prRerenderMetier();
+    _prRerender();
     return;
   }
   const el = document.getElementById('prDetailContent');
