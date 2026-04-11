@@ -1156,8 +1156,8 @@ export function renderCockpitBriefing() {
       <div class="details-body"><div style="padding:8px 0">${narrativeHtml}</div></div>
     </details>`;
 
-  if (textEl) textEl.innerHTML = gridHtml;
-  el.classList.remove('hidden');
+  // cockpitBriefing supprimé de l'affichage — ne plus rendre visible
+  return;
 }
 
 function _buildCockpitBriefingNarrative(d) {
