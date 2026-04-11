@@ -270,6 +270,7 @@ _S._reseauMissedShowAll = false;    // mode "voir tout" missed
 _S.clientOmniScore = new Map();     // Map<cc, {segment, score, caPDV, caHors, nbBL, silenceDays}>
 _S.clientStore = new Map();          // Map<cc, ClientRecord> — store client unifié (client-store.js)
 _S.agenceStore = new Map();          // Map<storeCode, AgenceRecord> — store agence unifié (agence-store.js)
+_S.articleStore = null;              // Map<code, ArticleRecord> — store article unifié (article-store.js)
 _S.famillesHors = [];               // [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 _S._livraisonsDebug = {};           // debug info parsing livraisons
 _S._metierStrategiques = new Set(); // Set<metier> — métiers stratégiques détectés
@@ -291,7 +292,8 @@ _S._rfData = null;             // cache du dernier computeRadarFamille
 export function invalidateCache(...scopes) {
   const all = scopes.length === 0 || scopes.includes('all');
   if (all || scopes.includes('tab'))   { _S._tabRendered = {}; _S._prDeferred = false; if (typeof window !== 'undefined') window._invalidateKpiCache?.(); }
-  if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; }
+  if (all || scopes.includes('terr'))  { _S._terrCanalCache = new Map(); _S._squeletteScan = null; _S.articleZoneIndex = null; _S.articleStore = null; }
+  if (all || scopes.includes('art'))   { _S.articleStore = null; _S.articleZoneIndex = null; }
   if (all || scopes.includes('bench')) _S._benchCache = null;
 }
 
@@ -422,6 +424,8 @@ export function resetAppState() {
   _S._laboFamData = null;
   _S._squeletteScan = null;
   _S._squeletteFull = null;
+  _S.articleZoneIndex = null;
+  _S.articleStore = null;
   _S._clienteleMetier = null;
   _S._clienteleData = null;
 

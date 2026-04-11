@@ -11,6 +11,7 @@
 import { FAM_LETTER_UNIVERS, FAMILLE_LOOKUP } from './constants.js';
 import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
+import { articleLib } from './article-store.js';
 
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
@@ -757,6 +758,73 @@ const FAM_UNIVERS_TO_DIR = {
   'M': 'DV MAINTENANCE', 'O': 'DV MAINTENANCE', 'L': 'DV PLOMBERIE'
 };
 
+// ── Article Zone Index — source unique CA Zone / Cli Zone ──────────
+// Pré-calcule par article : caZone (tous canaux), caAgence (MAGASIN),
+// clis (Set<cc> dédupliqué), contribs [{cc, ca, mon}] pour re-filtrage distance.
+// Lazy-cached dans _S.articleZoneIndex.
+export function computeArticleZoneIndex() {
+  if (_S.articleZoneIndex) return _S.articleZoneIndex;
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+  const idx = new Map(); // code → {caZone, caAgence, clis: Set, contribs: Map<cc,{ca,mon}>}
+  if (!hasChal) { _S.articleZoneIndex = idx; return idx; }
+
+  const chalClients = new Set(_S.chalandiseData.keys());
+  const _ens = (code) => {
+    if (!idx.has(code)) idx.set(code, { caZone: 0, caAgence: 0, clis: new Set(), _cc: new Map() });
+    return idx.get(code);
+  };
+  const _addContrib = (o, cc, ca, mon) => {
+    o.clis.add(cc);
+    if (!o._cc.has(cc)) o._cc.set(cc, { cc, ca: 0, mon: 0 });
+    const c = o._cc.get(cc);
+    c.ca += ca; c.mon += mon;
+  };
+
+  // Source 1 : ventesClientArticle (MAGASIN = mon agence)
+  for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+    if (!chalClients.has(cc)) continue;
+    for (const [code, data] of artMap) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const ca = +(data.sumCA || 0);
+      const o = _ens(code);
+      o.caZone += ca;
+      o.caAgence += ca;
+      _addContrib(o, cc, ca, ca);
+    }
+  }
+  // Source 2 : ventesClientHorsMagasin (Internet, Représentant, DCS)
+  for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+    if (!chalClients.has(cc)) continue;
+    for (const [code, data] of artMap) {
+      if (!/^\d{6}$/.test(code)) continue;
+      const ca = +(data.sumCA || 0);
+      const o = _ens(code);
+      o.caZone += ca;
+      _addContrib(o, cc, ca, 0);
+    }
+  }
+  // Source 3 : territoireLines (livraisons réseau → clients zone)
+  if (_S.territoireReady && _S.territoireLines?.length) {
+    for (const l of _S.territoireLines) {
+      if (l.isSpecial || !l.clientCode || !chalClients.has(l.clientCode)) continue;
+      if (!/^\d{6}$/.test(l.code)) continue;
+      const ca = +(l.ca || 0);
+      const o = _ens(l.code);
+      o.caZone += ca;
+      _addContrib(o, l.clientCode, ca, 0);
+    }
+  }
+
+  // Finaliser contribs : convertir Map → Array pour itération rapide
+  for (const [, o] of idx) {
+    o.contribs = [...o._cc.values()];
+    delete o._cc;
+  }
+
+  _S.articleZoneIndex = idx;
+  return idx;
+}
+
 export function computeSquelette(directionFilter) {
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
@@ -777,7 +845,7 @@ export function computeSquelette(directionFilter) {
     if (!articleData.has(code)) {
       articleData.set(code, {
         code,
-        libelle: _S.libelleLookup?.[code] || code,
+        libelle: articleLib(code),
         famille: _S.articleFamille?.[code] || '',
         univers: _S.articleUnivers?.[code] || '',
         sources: new Set(),
@@ -806,34 +874,14 @@ export function computeSquelette(directionFilter) {
     }
   }
 
-  // ── Source 2 : Chalandise (clients zone) — TOUS CANAUX confondus ──
-  // clientsZoneByArt : dédup nbClientsZone entre Source 2a + 2b + 4
-  const _clientsZoneByArt = new Map(); // code → Set<cc>
+  // ── Source 2 : Chalandise (clients zone) — via articleZoneIndex centralisé ──
   if (hasChal) {
-    const chalClients = new Set(_S.chalandiseData.keys());
-    // Source 2a : ventes MAGASIN clients zone → CA Zone + Cli Zone
-    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
-      if (!chalClients.has(cc)) continue;
-      for (const [code, data] of artMap) {
-        if (!/^\d{6}$/.test(code)) continue;
-        const a = _ensure(code);
-        if (!_clientsZoneByArt.has(code)) _clientsZoneByArt.set(code, new Set());
-        _clientsZoneByArt.get(code).add(cc);
-        a.caClientsZone += +(data.sumCA || 0);
-        a.sources.add('chalandise');
-      }
-    }
-    // Source 2b : clients chalandise hors MAGASIN (Internet, Représentant, DCS)
-    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
-      if (!chalClients.has(cc)) continue;
-      for (const [code, data] of artMap) {
-        if (!/^\d{6}$/.test(code)) continue;
-        const a = _ensure(code);
-        if (!_clientsZoneByArt.has(code)) _clientsZoneByArt.set(code, new Set());
-        _clientsZoneByArt.get(code).add(cc);
-        a.caClientsZone += +(data.sumCA || 0);
-        a.sources.add('chalandise');
-      }
+    const zoneIdx = computeArticleZoneIndex();
+    for (const [code, zi] of zoneIdx) {
+      const a = _ensure(code);
+      a.caClientsZone = zi.caZone;
+      a.nbClientsZone = zi.clis.size;
+      if (zi.clis.size > 0) a.sources.add('chalandise');
     }
   }
 
@@ -852,9 +900,8 @@ export function computeSquelette(directionFilter) {
     }
   }
 
-  // ── Source 4 : Livraisons (réseau) ──
+  // ── Source 4 : Livraisons (réseau) — BL count + direction ──
   if (hasTerr) {
-    const chalClients = hasChal ? new Set(_S.chalandiseData.keys()) : null;
     const artBLCount = new Map();
     for (const l of _S.territoireLines) {
       if (l.isSpecial) continue;
@@ -864,23 +911,11 @@ export function computeSquelette(directionFilter) {
       a.caLivraisons += l.ca;
       a.direction = a.direction || l.direction;
       a.sources.add('livraisons');
-      // Livraisons réseau vers clients zone → CA Zone
-      if (chalClients && l.clientCode && chalClients.has(l.clientCode)) {
-        if (!_clientsZoneByArt.has(l.code)) _clientsZoneByArt.set(l.code, new Set());
-        _clientsZoneByArt.get(l.code).add(l.clientCode);
-        a.caClientsZone += +(l.ca || 0);
-      }
     }
     for (const [code, blSet] of artBLCount) {
       const a = articleData.get(code);
       if (a) a.nbBLLivraisons = blSet.size;
     }
-  }
-
-  // ── nbClientsZone depuis le Set dédupliqué (Source 2b + Source 4) ──
-  for (const [code, clients] of _clientsZoneByArt) {
-    const a = articleData.get(code);
-    if (a) a.nbClientsZone = clients.size;
   }
 
   // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
@@ -1119,7 +1154,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
       if (!f.articles.has(code)) {
         const stock = stockMap.get(code);
         f.articles.set(code, {
-          code, libelle: _S.libelleLookup?.[code] || code,
+          code, libelle: articleLib(code),
           ca: 0, countBL: 0,
           enStock: stock ? (stock.stockActuel || 0) > 0 : false,
           rupture: stock ? (stock.stockActuel || 0) === 0 && !!stock.emplacement : false,
@@ -1221,7 +1256,7 @@ export function computeAnimation(marque) {
     const normCode = code.replace(/^0+/, '').padStart(6, '0');
     const stock = stockMap.get(normCode);
     const famille = _S.articleFamille?.[normCode] || '';
-    const libelle = _S.catalogueDesignation?.get(normCode) || _S.libelleLookup?.[normCode] || normCode;
+    const libelle = articleLib(normCode);
     const catFam = _S.catalogueFamille?.get(normCode);
 
     // Status stock
@@ -1420,7 +1455,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
     if (!matchFam(r.code)) continue;
     monRayon.push({
       code: r.code,
-      libelle: _S.libelleLookup?.[r.code] || catDesig?.get(r.code) || r.code,
+      libelle: articleLib(r.code),
       marque: catMarq?.get(r.code) || '',
       sousFam: catFam?.get(r.code)?.sousFam || '',
       stockActuel: r.stockActuel || 0,
@@ -1466,7 +1501,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
       if (!implanter.has(code)) {
         implanter.set(code, {
           code,
-          libelle: _S.libelleLookup?.[code] || catDesig?.get(code) || code,
+          libelle: articleLib(code),
           marque: catMarq?.get(code) || '',
           sousFam: catFam?.get(code)?.sousFam || '',
           nbAgences: 0,

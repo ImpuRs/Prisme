@@ -1,7 +1,8 @@
 'use strict';
 import { _S } from './state.js';
 import { formatEuro, escapeHtml, _copyCodeBtn, famLib } from './utils.js';
-import { computeSquelette, computeMonRayon } from './engine.js';
+import { computeSquelette, computeMonRayon, computeArticleZoneIndex } from './engine.js';
+import { articleLib, articleZoneFiltered } from './article-store.js';
 import { FAMILLE_LOOKUP, metierToSegments, METIERS_STRATEGIQUES } from './constants.js';
 import { getFilteredData, buildSqLookup } from './ui.js';
 
@@ -341,7 +342,7 @@ function computePlanStock() {
   };
 
   // Lookup libellé robuste
-  const _libOf = (code) => _S.libelleLookup?.[code] || _S.finalData?.find(r => r.code === code)?.libelle || '';
+  const _libOf = (code) => articleLib(code);
 
   // Cache rôles Physigamme par famille pour enrichir les KPIs Scanner
   const _rolesByFam = new Map();
@@ -785,7 +786,7 @@ function _prRenderRayon(data) {
   // Filtre ref directe (depuis recherche code article)
   if (_prHighlightRef) {
     const refArt = (data.monRayon || []).filter(a => a.code === _prHighlightRef);
-    const lib = _S.libelleLookup?.[_prHighlightRef] || _prHighlightRef;
+    const lib = articleLib(_prHighlightRef);
     const pill = `<div class="flex items-center gap-2 mb-3">
       <span class="text-[11px] px-2 py-1 rounded border s-panel-inner font-bold" style="border-color:var(--c-action);background:rgba(139,92,246,0.15);color:var(--c-action,#8b5cf6)">
         🔍 ${_prHighlightRef} — ${escapeHtml(lib.slice(0, 40))}
@@ -862,7 +863,7 @@ function _prRenderRayon(data) {
     const sqBadge = cb
       ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:600;background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span>${isCleEntree ? ' <span title="Clé d\'entrée métier — dormant mais socle réseau" style="cursor:help">🔑</span>' : ''}`
       : '<span class="t-disabled text-[9px]">—</span>';
-    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
+    const lib = a.libelle || articleLib(a.code);
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer${isCleEntree ? ' bg-amber-950/20' : ''}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono" style="color:var(--t-primary)">${a.code}</td>
@@ -927,7 +928,7 @@ function _prBuildSqTable(arts) {
   // Filtre ref directe (depuis recherche code article)
   if (_prHighlightRef) {
     const refArt = arts.filter(a => a.code === _prHighlightRef);
-    const lib = _S.libelleLookup?.[_prHighlightRef] || _prHighlightRef;
+    const lib = articleLib(_prHighlightRef);
     const pill = `<div class="flex items-center gap-2 mb-3">
       <span class="text-[11px] px-2 py-1 rounded border s-panel-inner font-bold" style="border-color:var(--c-action);background:rgba(139,92,246,0.15);color:var(--c-action,#8b5cf6)">
         🔍 ${_prHighlightRef} — ${escapeHtml(lib.slice(0, 40))}
@@ -1534,7 +1535,7 @@ function _prRenderPhysigamme(fam) {
         if (sqClassif) break;
       }
     }
-    const a = { code, lib: _S.libelleLookup?.[code] || code, sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
+    const a = { code, lib: articleLib(code), sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
       role, sqClassif, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliMetierStrat,
       abc: fd?.abcClass || '', fmr: fd?.fmrClass || '' };
     artList.push(a);
@@ -1706,6 +1707,12 @@ function _prRenderPilotage(fam) {
   const fdMap = new Map();
   for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
 
+  // ── Filtre distance : via articleZoneFiltered (article-store.js) ──
+  const _hasDist = _prMetierDist && _S.chalandiseReady && _S.chalandiseData?.size;
+  const _distFn = _hasDist ? _prDistOk : null;
+  // Pré-calcul index zone si nécessaire
+  if (_hasDist) computeArticleZoneIndex();
+
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const arts = [];
@@ -1727,6 +1734,10 @@ function _prRenderPilotage(fam) {
         const sf = catFam?.get(a.code);
         const role = roles.get(a.code) || 'standard';
         const verdict = _prVerdict(g, role);
+        const _zf = _distFn ? articleZoneFiltered(a.code, _distFn) : null;
+        const _caZ = _zf ? _zf.caZone : (a.caClientsZone || 0);
+        const _clZ = _zf ? _zf.cliZone : (a.nbClientsZone || 0);
+        const _caAg = _zf ? _zf.caAgence : (a.caAgence || 0);
         arts.push({
           ...a, _g: g, role, verdict,
           W: fd?.W || 0,
@@ -1734,9 +1745,9 @@ function _prRenderPilotage(fam) {
           sf: sf?.sousFam || '',
           codeSF: sf?.codeSousFam || '',
           cliPDV: a.nbClientsPDV || 0,
-          caZone: a.caClientsZone || 0,
-          cliZone: a.nbClientsZone || 0,
-          pdm: a.caClientsZone > 0 ? Math.round((a.caAgence || 0) / a.caClientsZone * 100) : null,
+          caZone: _caZ,
+          cliZone: _clZ,
+          pdm: _caZ > 0 ? Math.round(_caAg / _caZ * 100) : null,
         });
       }
     }
@@ -1866,7 +1877,7 @@ function _prRenderPilotage(fam) {
     const stockCell = absent
       ? '<span style="color:#ef4444;font-weight:600">✕</span>'
       : `${a.stockActuel}`;
-    const lib = a.libelle || _S.libelleLookup?.[a.code] || a.code;
+    const lib = a.libelle || articleLib(a.code);
 
     return `${sep}<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
@@ -1982,7 +1993,7 @@ function _prBuildConqueteKit(codeFam) {
     }
     articles.push({
       code, role, inStock,
-      libelle: _S.libelleLookup?.[code] || fd?.libelle || '',
+      libelle: articleLib(code),
       marque: _S.catalogueMarques?.get(code) || '',
       sousFam: catFam?.get(code)?.sousFam || '',
       caReseau,
@@ -2704,7 +2715,7 @@ window._prExportPilotage = function() {
         const role = roles.get(a.code) || 'standard';
         const v = _prVerdict(g, role);
         const sf = catFam?.get(a.code)?.sousFam || '';
-        const lib = a.libelle || _S.libelleLookup?.[a.code] || '';
+        const lib = a.libelle || articleLib(a.code);
         const caZ = +(a.caClientsZone || 0);
         const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
         rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || (fdMap.get(a.code)?.W || 0),
@@ -2743,7 +2754,7 @@ window._prCopyConqueteLLM = function(codeFam) {
   const fam = _prFindFam(codeFam);
   if (!fam) return;
   const kit = _prBuildConqueteKit(codeFam);
-  const lib = (code) => _S.libelleLookup?.[code] || '';
+  const lib = (code) => articleLib(code);
 
   let pack = `Tu es un expert en gestion de rayon B2B spécialisé en distribution professionnelle.\n`;
   pack += `Un chef d'agence veut LANCER un nouveau rayon sur une famille qu'il ne commercialise pas encore.\n`;
@@ -2844,7 +2855,7 @@ window._prMetierDistChange = function(val) {
   const el = document.getElementById('prDetailContent');
   if (!el || !_S._prData || !_prOpenFam) return;
   const fam = _prFindFam(_prOpenFam);
-  if (fam) el.innerHTML = _prRenderMetiers(fam);
+  if (fam) el.innerHTML = _prGetTabContent(_prDetailTab, fam);
 };
 
 window._prMoreSq = function() {
@@ -3461,7 +3472,7 @@ function _prBuildDiagText(codeFam) {
             txt += `(Non détectées par le squelette réseau, mais signal commercial fort)\n`;
             for (const [code, d] of bonus) {
               if (d.totalCli < 2) break;
-              const libelle = _S.libelleLookup?.[code] || '';
+              const libelle = articleLib(code);
               const mq = _S.catalogueMarques?.get(code) || '';
               const mets = d.metiers.sort((x, y) => y.nbCli - x.nbCli).map(m => m.name).slice(0, 3).join(', ');
               txt += `      ☐ [${code}] ${libelle}${mq ? ' · ' + mq : ''} — ${d.totalCli} clients, ${Math.round(d.totalCA)}€ · métiers: ${mets}\n`;
@@ -3606,7 +3617,7 @@ function _prBuildDiagText(codeFam) {
           const capt = caLiv > 0 ? Math.round(caAg / caLiv * 100) : 0;
           txt += `**${met}** (captation ${capt}%) — ${arts.size} refs manquantes :\n`;
           for (const [code, d] of sorted) {
-            const libelle = _S.libelleLookup?.[code] || '';
+            const libelle = articleLib(code);
             const mq = _S.catalogueMarques?.get(code) || '';
             txt += `  ☐ [${code}] ${libelle}${mq ? ' · ' + mq : ''} — ${Math.round(d.ca)}€ · ${d.nbCli} client${d.nbCli > 1 ? 's' : ''}\n`;
           }
@@ -3709,7 +3720,7 @@ function _prBuildLLMPack(codeFam) {
   // Lookup libellé multi-source : consommé → territoire
   const _tLib = {};
   if (_S.territoireLines) for (const l of _S.territoireLines) { if (l.code && l.libelle && !_tLib[l.code]) _tLib[l.code] = l.libelle; }
-  const lib = (c) => _S.libelleLookup?.[c] || _tLib[c] || '';
+  const lib = (c) => articleLib(c) !== c ? articleLib(c) : (_tLib[c] || '');
   const mark = (c) => _S.catalogueMarques?.get(c) || _S.articleMarque?.[c] || '';
 
   const gd = _prGatherFamData(codeFam);
@@ -4054,7 +4065,7 @@ function _prComputeMetierFull(metier) {
         if (!rolesByFam.has(codeFam)) rolesByFam.set(codeFam, _prComputeRoles(codeFam));
         const role = rolesByFam.get(codeFam)?.get(code) || 'standard';
         enriched.set(code, {
-          code, libelle: _S.libelleLookup?.[code] || fd?.libelle || '',
+          code, libelle: articleLib(code),
           marque: _S.catalogueMarques?.get(code) || '',
           codeFam, libFam, sousFam: cf?.sousFam || '',
           inStock, stockActuel: fd?.stockActuel || 0, role,
@@ -4178,7 +4189,7 @@ function _prApplyMetierDist() {
         const inStock = fd && (fd.stockActuel || 0) > 0;
         return {
           code, ca: d.ca, bl: d.bl, nbCli: d.nbCli, inStock,
-          libelle: _S.libelleLookup?.[code] || fd?.libelle || '',
+          libelle: articleLib(code),
           abcClass: fd?.abcClass || '', fmrClass: fd?.fmrClass || '',
           stockActuel: fd?.stockActuel || 0,
         };
@@ -4626,7 +4637,7 @@ function _prRenderTouristePanier(cc) {
       const fd = fdMap.get(code);
       const classif = sqClassif.get(code) || null;
       const inStock = fd && (fd.stockActuel || 0) > 0;
-      return { code, ca: d.ca, monCA: d.monCA || 0, classif, inStock, libelle: _S.libelleLookup?.[code] || fd?.libelle || '' };
+      return { code, ca: d.ca, monCA: d.monCA || 0, classif, inStock, libelle: articleLib(code) };
     })
     .sort((a, b) => b.ca - a.ca)
     .slice(0, 15);

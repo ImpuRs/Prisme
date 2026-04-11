@@ -371,30 +371,18 @@ export function populateSelect(id, vals, labelFn) {
   [...vals].sort().forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o); });
 }
 
-// ── Lookup squelette : code article → { classif, direction } ──
-let _sqLookup = null;
+// ── Peupler le filtre Univers depuis articleUnivers ──
 export function buildSqLookup() {
-  _sqLookup = new Map();
-  const sqData = _S._prSqData;
-  if (!sqData?.directions) return;
-  const directions = new Set();
-  for (const d of sqData.directions) {
-    for (const g of ['socle', 'implanter', 'challenger', 'surveiller']) {
-      for (const a of (d[g] || [])) {
-        _sqLookup.set(a.code, { classif: g, direction: d.direction || '' });
-        if (d.direction) directions.add(d.direction);
-      }
-    }
-  }
-  // Peupler le filtre Direction
   const sel = document.getElementById('filterMetier');
-  if (sel) {
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">🏗️ Direction</option>';
-    [...directions].sort().forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
-    sel.value = cur;
-    sel.classList.remove('hidden');
-  }
+  if (!sel) return;
+  const univers = new Set();
+  for (const v of Object.values(_S.articleUnivers || {})) { if (v) univers.add(v); }
+  if (!univers.size) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">🏗️ Univers</option>';
+  [...univers].sort().forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
+  sel.value = cur;
+  sel.classList.remove('hidden');
 }
 
 // ── Filters ───────────────────────────────────────────────────
@@ -403,7 +391,7 @@ export function getFilteredData() {
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
   const searchQuery = document.getElementById('searchInput').value.trim();
-  const direction = document.getElementById('filterMetier')?.value || '';
+  const univers = document.getElementById('filterMetier')?.value || '';
   const filtered = DataStore.finalData.filter(r => {
     if(fam){
       const famCode = r.famille||'';
@@ -416,14 +404,14 @@ export function getFilteredData() {
     if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
-    if (direction && _sqLookup) { const sq = _sqLookup.get(r.code); if (!sq || sq.direction !== direction) return false; }
+    if (univers && (_S.articleUnivers?.[r.code] || '') !== univers) return false;
     if (searchQuery) { return matchQuery(searchQuery, r.code, r.libelle, famLib(r.famille || '')); }
     return true;
   });
-  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (direction) activeCount++;
+  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (univers) activeCount++;
   const el = document.getElementById('filterActiveCount'); if (el) el.textContent = activeCount > 0 ? `(${activeCount} actif${activeCount > 1 ? 's' : ''})` : '';
   // Badges groupes sidebar
-  const _classifActive = [abc, fmr, fam, stat, direction].filter(Boolean).length;
+  const _classifActive = [abc, fmr, fam, stat, univers].filter(Boolean).length;
   const _advancedActive = [sFam, emp, af].filter(Boolean).length;
   const _bgClassif = document.getElementById('fgBadgeClassif');
   if (_bgClassif) { _bgClassif.textContent = _classifActive; _bgClassif.classList.toggle('hidden', _classifActive === 0); }
