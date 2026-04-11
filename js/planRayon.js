@@ -52,6 +52,8 @@ let _prSelectedMetier2 = '';      // selected metier in Pilotage Métier
 let _prMetierIndex   = null;      // Map<code, {caZone, monCA, nbClientsZone, inStock, ...}>
 let _prMetierFamBreak = null;     // [{codeFam, libFam, caZone, monCA, ...}]
 let _prMetierNbClients = 0;       // nb clients after distance filter
+let _prMetierTouristes = [];      // [{cc, nom, cp, dist, caReseau, monCA, captation, nbArts}]
+let _prTouristeOpen  = '';        // cc du touriste ouvert (panier détail)
 let _prMFilterFam    = '';        // filter by family in metier view
 let _prMFilterStock  = '';        // '' | 'oui' | 'non'
 let _prMFilterRole   = '';        // '' | 'incontournable' | ...
@@ -3937,6 +3939,51 @@ function _prComputeMetierIndex(metier) {
   _prMetierFamBreak = [...famAgg.values()]
     .map(f => ({ ...f, pdm: f.caZone > 0 ? Math.round(f.monCA / f.caZone * 100) : null }))
     .sort((a, b) => b.caZone - a.caZone);
+
+  // ── Touristes à rapatrier ──
+  // Clients de ce métier dans la zone, qui achètent dans le réseau mais < 10% chez toi
+  const touristes = [];
+  for (const cc of clientSet) {
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    // CA chez moi (MAGASIN) pour ce métier
+    let monCA = 0, nbArtsMoi = 0;
+    const myArts = _S.ventesClientArticle?.get(cc);
+    if (myArts) { for (const [, d] of myArts) { monCA += +(d.sumCA || 0); nbArtsMoi++; } }
+    // CA total réseau (toutes sources)
+    let caReseau = monCA;
+    const hmArts = _S.ventesClientHorsMagasin?.get(cc);
+    if (hmArts) { for (const [, d] of hmArts) { caReseau += +(d.sumCA || 0); } }
+    // Livraisons réseau
+    if (_S.territoireLines?.length) {
+      for (const l of _S.territoireLines) {
+        if (l.clientCode !== cc) continue;
+        // Avoid double-counting with ventes sources
+        const inMyArts = myArts?.has(l.code);
+        const inHmArts = hmArts?.has(l.code);
+        if (!inMyArts && !inHmArts) caReseau += +(l.ca || 0);
+      }
+    }
+    if (caReseau < 100) continue; // seuil minimum
+    const captation = caReseau > 0 ? Math.round(monCA / caReseau * 100) : 0;
+    if (captation >= 10) continue; // on ne garde que les < 10%
+    touristes.push({
+      cc,
+      nom: info.nom || _S.clientNomLookup?.[cc] || cc,
+      cp: info.cp || '',
+      ville: info.ville || '',
+      dist: info.distanceKm ?? null,
+      classification: info.classification || '',
+      caReseau,
+      monCA,
+      captation,
+      nbArts: nbArtsMoi,
+    });
+  }
+  // Tri par distance croissante (null = fin)
+  touristes.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
+  _prMetierTouristes = touristes;
+  _prTouristeOpen = '';
 }
 
 function _renderPilotageMetierContent() {
@@ -4135,12 +4182,133 @@ function _renderMetierBody() {
       class="text-[11px] t-secondary hover:t-primary cursor-pointer">▼ Voir plus (${shown.length}/${sorted.length})</button></div>`;
   }
 
-  html += `<div class="flex gap-2 mt-3">
+  html += `<div class="flex gap-2 mt-3 mb-4">
     <button onclick="window._prExportMetierCSV()"
       class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
     <span class="text-[10px] t-disabled self-center">${filtered.length} articles${_prMFilterFam || _prMFilterStock || _prMFilterRole ? ' (filtré)' : ''}</span>
   </div>`;
 
+  // ── Touristes à rapatrier ──
+  if (_prMetierTouristes.length) {
+    html += `<div class="mt-4 pt-4 border-t b-light">
+      <h4 class="text-[13px] font-extrabold t-primary mb-1">🎯 Touristes à rapatrier — ${_prMetierTouristes.length} cibles</h4>
+      <p class="text-[10px] t-disabled mb-3">Clients de ce métier actifs dans le réseau mais &lt;10% captés par ton agence. Triés par distance.</p>
+      <div class="overflow-x-auto" style="max-height:400px;overflow-y:auto">
+        <table class="w-full text-[11px]">
+          <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
+            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">Client</th>
+            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">CP</th>
+            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Dist.</th>
+            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">Classif.</th>
+            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">CA Réseau</th>
+            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Mon CA</th>
+            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Captation</th>
+            <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary)">Panier</th>
+          </tr></thead><tbody>`;
+    for (const t of _prMetierTouristes.slice(0, 30)) {
+      const captColor = t.captation === 0 ? '#ef4444' : '#f59e0b';
+      const isOpen = _prTouristeOpen === t.cc;
+      html += `<tr class="border-b b-light hover:s-panel-inner transition-colors${isOpen ? ' s-panel-inner' : ''}" style="cursor:pointer" onclick="window._prToggleTouriste('${t.cc}')">
+        <td class="py-1 px-2 font-medium">${escapeHtml(t.nom)}<span class="text-[9px] t-disabled ml-1">${t.cc}</span></td>
+        <td class="py-1 px-2 text-[10px]">${t.cp}</td>
+        <td class="py-1 px-2 text-right">${t.dist != null ? t.dist + ' km' : '—'}</td>
+        <td class="py-1 px-2 text-[10px]">${escapeHtml(t.classification)}</td>
+        <td class="py-1 px-2 text-right font-bold">${formatEuro(t.caReseau)}</td>
+        <td class="py-1 px-2 text-right" style="color:#22c55e">${t.monCA ? formatEuro(t.monCA) : '—'}</td>
+        <td class="py-1 px-2 text-right font-bold" style="color:${captColor}">${t.captation}%</td>
+        <td class="py-1 px-2 text-center text-[10px]">${isOpen ? '▲' : '▼'}</td>
+      </tr>`;
+      // Panier détail du touriste
+      if (isOpen) {
+        html += _prRenderTouristePanier(t.cc);
+      }
+    }
+    html += `</tbody></table></div>`;
+    if (_prMetierTouristes.length > 30) {
+      html += `<div class="text-[10px] t-disabled mt-1">${_prMetierTouristes.length - 30} touristes supplémentaires non affichés.</div>`;
+    }
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+function _prRenderTouristePanier(cc) {
+  // Panier : articles achetés par ce client hors de mon agence
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  const sqClassif = new Map();
+  if (sqData) {
+    for (const d of sqData.directions) {
+      for (const g of ['socle','implanter','challenger','surveiller']) {
+        for (const a of (d[g] || [])) sqClassif.set(a.code, g);
+      }
+    }
+  }
+  const fdMap = new Map();
+  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+
+  // Collect articles from hors-magasin + livraisons
+  const arts = new Map(); // code → {ca, source}
+  const hmArts = _S.ventesClientHorsMagasin?.get(cc);
+  if (hmArts) {
+    for (const [code, d] of hmArts) {
+      if (!/^\d{6}$/.test(code)) continue;
+      arts.set(code, { ca: +(d.sumCA || 0), source: 'hors-mag' });
+    }
+  }
+  if (_S.territoireLines?.length) {
+    for (const l of _S.territoireLines) {
+      if (l.clientCode !== cc || !/^\d{6}$/.test(l.code)) continue;
+      if (!arts.has(l.code)) arts.set(l.code, { ca: 0, source: 'réseau' });
+      arts.get(l.code).ca += +(l.ca || 0);
+    }
+  }
+  // Also check what they buy at my store
+  const myArts = _S.ventesClientArticle?.get(cc);
+  if (myArts) {
+    for (const [code, d] of myArts) {
+      if (!/^\d{6}$/.test(code)) continue;
+      if (!arts.has(code)) arts.set(code, { ca: 0, source: 'mon-mag' });
+      const a = arts.get(code);
+      a.monCA = +(d.sumCA || 0);
+    }
+  }
+
+  const sorted = [...arts.entries()]
+    .map(([code, d]) => {
+      const fd = fdMap.get(code);
+      const classif = sqClassif.get(code) || null;
+      const inStock = fd && (fd.stockActuel || 0) > 0;
+      return { code, ca: d.ca, monCA: d.monCA || 0, classif, inStock, libelle: _S.libelleLookup?.[code] || fd?.libelle || '' };
+    })
+    .sort((a, b) => b.ca - a.ca)
+    .slice(0, 15);
+
+  if (!sorted.length) {
+    return `<tr><td colspan="8" class="py-2 px-4 text-[10px] t-disabled">Aucun article trouvé pour ce client.</td></tr>`;
+  }
+
+  let html = `<tr><td colspan="8" class="p-0"><div class="px-4 py-2" style="background:rgba(139,92,246,0.04)">
+    <div class="text-[10px] font-bold t-secondary mb-1">🛒 Top articles achetés ailleurs — diagnostic assortiment</div>
+    <table class="w-full text-[10px]"><tbody>`;
+  for (const a of sorted) {
+    const badge = a.classif === 'socle' ? '<span style="color:#22c55e">🟢 Socle</span>'
+      : a.classif === 'implanter' ? '<span style="color:#3b82f6">🔵 À implanter</span>'
+      : a.classif === 'challenger' ? '<span style="color:#ef4444">🔴 Challenger</span>'
+      : a.classif === 'surveiller' ? '<span style="color:#94a3b8">👁 Surveiller</span>'
+      : '<span class="t-disabled">—</span>';
+    const stockBadge = a.inStock ? '<span style="color:#22c55e">✓</span>' : '<span style="color:#ef4444">✕</span>';
+    html += `<tr class="border-b b-light">
+      <td class="py-0.5 px-1 font-mono">${a.code}</td>
+      <td class="py-0.5 px-1 truncate max-w-[180px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
+      <td class="py-0.5 px-1 text-right">${formatEuro(a.ca)}</td>
+      <td class="py-0.5 px-1 text-right" style="color:#22c55e">${a.monCA ? formatEuro(a.monCA) : '—'}</td>
+      <td class="py-0.5 px-1">${badge}</td>
+      <td class="py-0.5 px-1 text-center">${stockBadge}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div></td></tr>`;
   return html;
 }
 
@@ -4152,6 +4320,7 @@ window._prSelectMetier = function(metier) {
   _prMFilterFam = '';
   _prMFilterStock = '';
   _prMFilterRole = '';
+  _prTouristeOpen = '';
   _prMPage = 60;
   if (metier) _prComputeMetierIndex(metier);
   const el = document.getElementById('prMetierBody');
@@ -4164,6 +4333,11 @@ window._prMetierViewDist = function(val) {
   if (_prSelectedMetier2) _prComputeMetierIndex(_prSelectedMetier2);
   const el = document.getElementById('planRayonBlock');
   if (el) el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent();
+};
+
+window._prToggleTouriste = function(cc) {
+  _prTouristeOpen = _prTouristeOpen === cc ? '' : cc;
+  _prRerenderMetier();
 };
 
 window._prMFilterFamFn = function(codeFam) {
