@@ -248,7 +248,7 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'plan', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
+const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
 const _TAB_TO_SUPERTAB  = {
   plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
@@ -270,7 +270,7 @@ export function switchSuperTab(supertabId) {
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
   if (id === 'abc' || id === 'matrice') id = 'arbitrage'; // abc/matrice → arbitrage
-  if (id === 'stock') id = 'plan'; // ancien stock → plan
+  if (id === 'stock') id = 'arbitrage'; // ancien stock → arbitrage
   if (id === 'omni') { switchTab('commerce'); return; }
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
