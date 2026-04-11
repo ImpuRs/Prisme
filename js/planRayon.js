@@ -51,6 +51,7 @@ let _prTopView       = 'famille'; // 'famille' | 'metier'
 let _prSelectedMetier2 = '';      // selected metier in Pilotage Métier
 let _prMetierIndex   = null;      // Map<code, {caZone, monCA, nbClientsZone, inStock, ...}>
 let _prMetierFamBreak = null;     // [{codeFam, libFam, caZone, monCA, ...}]
+let _prMetierNbClients = 0;       // nb clients after distance filter
 let _prMFilterFam    = '';        // filter by family in metier view
 let _prMFilterStock  = '';        // '' | 'oui' | 'non'
 let _prMFilterRole   = '';        // '' | 'incontournable' | ...
@@ -2747,16 +2748,9 @@ window._prMetierDistChange = function(val) {
   }
   // Re-render Pilotage Métier if active
   if (_prTopView === 'metier' && _prSelectedMetier2) {
-    // Update distance button styles in-place
-    document.querySelectorAll('[data-prdist]').forEach(b => {
-      const v = parseInt(b.dataset.prdist);
-      const active = (!_prMetierDist && !v) || (_prMetierDist === v);
-      b.style.background = active ? 'var(--c-action,#8b5cf6)' : 'transparent';
-      b.style.color = active ? '#fff' : 'var(--t-secondary)';
-      b.style.borderColor = active ? 'var(--c-action,#8b5cf6)' : 'var(--b-light)';
-    });
     _prComputeMetierIndex(_prSelectedMetier2);
-    _prRerenderMetier();
+    const el = document.getElementById('planRayonBlock');
+    if (el) el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent();
     return;
   }
   const el = document.getElementById('prDetailContent');
@@ -3844,6 +3838,7 @@ function _prComputeMetierIndex(metier) {
 
   // Apply distance filter
   const clientSet = new Set([...clientSetRaw].filter(cc => _prDistOk(cc)));
+  _prMetierNbClients = clientSet.size;
   if (!clientSet.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
 
   const agg = new Map(); // code → {caZone, monCA, clients: Set<cc>}
@@ -4006,7 +4001,7 @@ function _renderMetierBody() {
   const totalMonCA = articles.reduce((s, a) => s + a.monCA, 0);
   const globalPdm = totalCaZone > 0 ? Math.round(totalMonCA / totalCaZone * 100) : 0;
   const nbEnStock = articles.filter(a => a.inStock).length;
-  const nbClients = _S.clientsByMetier?.get(_prSelectedMetier2)?.size || 0;
+  const nbClients = _prMetierNbClients || 0;
 
   let html = `<div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">CA Zone</div><div class="text-[14px] font-bold t-primary">${formatEuro(totalCaZone)}</div></div>
