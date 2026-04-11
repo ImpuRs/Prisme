@@ -3834,7 +3834,7 @@ window._prSetTopView = function(view) {
 
 function _prComputeMetierIndex(metier) {
   const clientSetRaw = _S.clientsByMetier?.get(metier);
-  if (!clientSetRaw?.size) { _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
+  if (!clientSetRaw?.size) { _prMetierNbClients = 0; _prMetierIndex = new Map(); _prMetierFamBreak = []; return; }
 
   // Apply distance filter
   const clientSet = new Set([...clientSetRaw].filter(cc => _prDistOk(cc)));
@@ -4008,7 +4008,7 @@ function _renderMetierBody() {
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Mon CA</div><div class="text-[14px] font-bold" style="color:#22c55e">${formatEuro(totalMonCA)}</div></div>
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">PdM globale</div><div class="text-[14px] font-bold" style="color:${globalPdm >= 40 ? '#22c55e' : globalPdm >= 15 ? '#f59e0b' : '#ef4444'}">${globalPdm}%</div></div>
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Articles</div><div class="text-[14px] font-bold t-primary">${nbEnStock}<span class="text-[10px] t-disabled">/${articles.length}</span></div><div class="text-[9px] t-disabled">en stock</div></div>
-    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Clients zone</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
+    <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Clients zone${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
   </div>`;
 
   // Family breakdown
