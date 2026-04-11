@@ -3961,7 +3961,7 @@ function _renderPilotageMetierContent() {
     <span class="text-[10px] t-disabled">📍 Distance :</span>
     ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:20,l:'20 km'}].map(d => {
       const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
-      return `<button onclick="window._prMetierDistChange(${d.v || 100})" data-prdist="${d.v}"
+      return `<button onclick="window._prMetierViewDist(${d.v})"
         class="text-[9px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors"
         style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'border-color:var(--b-light);color:var(--t-secondary);background:transparent'}">${d.l}</button>`;
     }).join('')}
@@ -4157,6 +4157,13 @@ window._prSelectMetier = function(metier) {
   const el = document.getElementById('prMetierBody');
   if (el) { el.innerHTML = _renderMetierBody(); return; }
   _prRerender();
+};
+
+window._prMetierViewDist = function(val) {
+  _prMetierDist = val || 0;
+  if (_prSelectedMetier2) _prComputeMetierIndex(_prSelectedMetier2);
+  const el = document.getElementById('planRayonBlock');
+  if (el) el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent();
 };
 
 window._prMFilterFamFn = function(codeFam) {
