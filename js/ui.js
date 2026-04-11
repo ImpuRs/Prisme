@@ -525,29 +525,8 @@ export function updatePeriodAlert() {
 }
 
 export function renderInsightsBanner() {
-  const el = document.getElementById('insightsBannerLeft');
   const banner = document.getElementById('insightsBanner');
-  if (!el || !banner) return;
-  const { ruptures, dormants, absentsTerr, extClients, hasTerr } = _S._insights;
-  if (!ruptures && !dormants && !absentsTerr && !extClients) {
-    el.innerHTML = '';
-    const right = document.getElementById('insightsBannerRight');
-    if (!right || !right.innerHTML.trim()) banner.classList.add('hidden');
-    return;
-  }
-  const mkLink = (num, txt, tab, col) => `<span style="cursor:pointer;color:rgba(255,255,255,0.55);white-space:nowrap;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.color='rgba(255,255,255,0.55)'" onclick="switchTab('${tab}')"><span style="color:${col};font-weight:600">${num}</span> ${txt}</span>`;
-  const mkAction = (num, txt, fn, col) => `<span style="cursor:pointer;color:rgba(255,255,255,0.55);white-space:nowrap;transition:color .15s" onmouseover="this.style.color='rgba(255,255,255,0.9)'" onmouseout="this.style.color='rgba(255,255,255,0.55)'" onclick="${fn}"><span style="color:${col};font-weight:600">${num}</span> ${txt}</span>`;
-  const sep = `<span style="color:rgba(255,255,255,0.18);margin:0 6px">·</span>`;
-  const parts = [];
-  parts.push(mkAction(ruptures, `rupture${ruptures !== 1 ? 's' : ''} critiques`, "showCockpitInTable('ruptures')", 'var(--i-error-dark-text)'));
-  if (hasTerr) {
-    parts.push(mkLink(absentsTerr, `article${absentsTerr !== 1 ? 's' : ''} absents du rayon`, `commerce`, 'var(--i-warn-dark-text)'));
-    parts.push(mkLink(extClients, `client${extClients !== 1 ? 's' : ''} hors agence`, `commerce`, 'var(--i-warn-dark-text)'));
-  } else {
-    parts.push(mkAction(dormants, `dormant${dormants !== 1 ? 's' : ''} à traiter`, "showCockpitInTable('dormants')", 'var(--i-warn-dark-text)'));
-  }
-  el.innerHTML = `<span style="color:rgba(255,255,255,0.25);margin-right:8px;font-size:var(--fs-xs);letter-spacing:.05em;text-transform:uppercase">Détecté</span>` + parts.join(sep);
-  banner.classList.remove('hidden');
+  if (banner) banner.classList.add('hidden');
 }
 
 // ── Reporting ────────────────────────────────────────────────
