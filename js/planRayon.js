@@ -1715,6 +1715,22 @@ function _prRenderPilotage(fam) {
 
   // ── Collecter articles squelette de cette famille ──
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
+  // Vérifier si le filtre SF a des matches dans le squelette (sinon l'ignorer)
+  let _sfFilterActive = _prSelectedSFs.size > 0;
+  if (_sfFilterActive) {
+    let hasMatch = false;
+    outer: for (const d of sqData.directions) {
+      for (const g of CLASSIFS) {
+        for (const a of (d[g] || [])) {
+          const cfCat = catFam?.get(a.code)?.codeFam;
+          const cfArt = _S.articleFamille?.[a.code] || '';
+          if (!(cfCat === codeFam || (!cfCat && cfArt.startsWith(codeFam)) || cfArt === codeFam)) continue;
+          if (_prSelectedSFs.has(catFam?.get(a.code)?.codeSousFam || '')) { hasMatch = true; break outer; }
+        }
+      }
+    }
+    if (!hasMatch) _sfFilterActive = false;
+  }
   const arts = [];
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
@@ -1723,7 +1739,7 @@ function _prRenderPilotage(fam) {
         const cfArt = _S.articleFamille?.[a.code] || '';
         const matches = cfCat === codeFam || (!cfCat && cfArt.startsWith(codeFam)) || cfArt === codeFam;
         if (!matches) continue;
-        if (_prSelectedSFs.size > 0) {
+        if (_sfFilterActive) {
           const csf = catFam?.get(a.code)?.codeSousFam || '';
           if (!_prSelectedSFs.has(csf)) continue;
         }
