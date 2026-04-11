@@ -2271,13 +2271,6 @@ _S.canalAgence=newCanalAgence;
     const _countBadge=document.getElementById('abcCountBadge');
     if(_countBadge){if(_nbClassified<_allFd.length)_countBadge.textContent=`${_nbClassified.toLocaleString('fr-FR')} / ${_allFd.length.toLocaleString('fr-FR')} articles classés`;else _countBadge.textContent='';}
     _renderGhostArticles();
-    // Différer Plan de Rayon — calcul lourd (computeSquelette ~3s), pas visible au démarrage
-    if (!_S._prDeferred) {
-      _S._prDeferred = true;
-      requestIdleCallback(() => { renderPlanRayon(); renderArbitrageRayonBlock(); }, { timeout: 2000 });
-    } else {
-      renderPlanRayon(); renderArbitrageRayonBlock();
-    }
     const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
     const LABELS={AF:'🌟 Pépites',AM:'👁️ Piliers',AR:'💰 Projets',BF:'⚙️ Moteur',BM:'➡️ Standard',BR:'❓ Poids Faible',CF:'🔁 Trafic',CM:'📉 Poussière',CR:'❌ Boulet'};
     const RECOS={
@@ -2331,14 +2324,28 @@ _S.canalAgence=newCanalAgence;
     const id=(activePill?.dataset.subtab)||(activeBtn?activeBtn.getAttribute('data-tab'):'table');
     switch(id){
       case 'table':
-        renderTable(true); // articles always re-renders; no cache flag
+        renderTable(true);
         return;
-      case 'stock':{
+      case 'plan':{
         const _ts0=performance.now();
-        renderDashboardAndCockpit();console.log('[PERF stock] dashboard:',(performance.now()-_ts0|0)+'ms');
-        renderABCTab();console.log('[PERF stock] +ABCTab:',(performance.now()-_ts0|0)+'ms');
+        renderPlanRayon();
+        console.log('[PERF plan]',(performance.now()-_ts0|0)+'ms');
+        break;}
+      case 'arbitrage':{
+        const _ts0=performance.now();
+        renderDashboardAndCockpit();
+        renderArbitrageRayonBlock();
         renderHealthScore();
-        renderTabBadges();console.log('[PERF stock] total:',(performance.now()-_ts0|0)+'ms');
+        renderTabBadges();
+        console.log('[PERF arbitrage]',(performance.now()-_ts0|0)+'ms');
+        break;}
+      case 'matrice':{
+        const _ts0=performance.now();
+        renderABCTab();
+        console.log('[PERF matrice]',(performance.now()-_ts0|0)+'ms');
+        break;}
+      case 'stock':{ // compat — redirige vers plan
+        renderPlanRayon();
         break;}
       case 'commerce':
         window.renderCommerceTab && window.renderCommerceTab();

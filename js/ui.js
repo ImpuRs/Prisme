@@ -248,9 +248,9 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'stock', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
+const _SUPERTAB_DEFAULT = { stock: 'plan', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
 const _TAB_TO_SUPERTAB  = {
-  stock: 'stock', table: 'stock',
+  plan: 'stock', arbitrage: 'stock', matrice: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
   reseau: 'reseau',
   labo: 'labo', animation: 'labo',
@@ -269,7 +269,8 @@ export function switchSuperTab(supertabId) {
 
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
-  if (id === 'abc') id = 'stock'; // abc fusionné dans stock
+  if (id === 'abc') id = 'matrice'; // abc → matrice
+  if (id === 'stock') id = 'plan'; // ancien stock → plan
   if (id === 'omni') { switchTab('commerce'); return; }
   window.scrollTo(0, 0);
   document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
@@ -698,11 +699,13 @@ const _CMD_ACTIONS = [
   { kw: ['silencieux','silent','clients silencieux'], icon: '🤫', label: 'Clients silencieux (Le Terrain)', fn: () => { switchTab('commerce'); } },
   { kw: ['reporting','report','rapport'], icon: '📊', label: 'Ouvrir le reporting', fn: () => { openReporting(); } },
   { kw: ['les clients','clients','reconquête','reconquete','opportunités'], icon: '👥', label: 'Onglet Les Clients', fn: () => { switchTab('clients'); } },
-  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Analyse du stock (ABC/FMR)', fn: () => { switchTab('stock'); } },
+  { kw: ['radar','abc','fmr','matrice','analyse'], icon: '📡', label: 'Matrice ABC/FMR', fn: () => { switchTab('matrice'); } },
+  { kw: ['plan','rayon','familles','squelette'], icon: '🦴', label: 'Plan de rayon', fn: () => { switchTab('plan'); } },
+  { kw: ['arbitrage','ruptures','dormants','calibrage'], icon: '⚖️', label: 'Arbitrage stock', fn: () => { switchTab('arbitrage'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('commerce'); } },
   { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('reseau'); } },
-  { kw: ['le labo','labo','croisement','commercial','silencieux','opportunités','prisme'], icon: '🧪', label: 'Onglet Le Labo', fn: () => { switchTab('labo'); } },
-  { kw: ['le stock','stock','dashboard'], icon: '📦', label: 'Onglet Le Stock', fn: () => { switchTab('stock'); } },
+  { kw: ['le labo','labo','prisme'], icon: '🧪', label: 'Onglet Le Labo', fn: () => { switchTab('labo'); } },
+  { kw: ['le stock','stock','pilotage'], icon: '📦', label: 'Pilotage Stock', fn: () => { switchTab('plan'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
   { kw: ['glossaire'], icon: '🧠', label: 'Afficher le glossaire', fn: () => { const g = document.getElementById('glossaire'); if (g) { g.classList.toggle('hidden'); g.scrollIntoView({ behavior: 'smooth' }); } } },
