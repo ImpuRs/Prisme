@@ -2320,7 +2320,22 @@ function _prPerfBanner() {
   const medianCA = spSorted.map(([, d]) => d.ca || 0).sort((a, b) => a - b)[Math.floor(spSorted.length / 2)];
   const ecartMed = Math.round((myPerf.ca || 0) - medianCA);
 
-  // Tableau classement agences
+  // Tableau classement agences — trouver le #1 par colonne
+  const best = { ca: '', tm: '', refs: '', cli: '', serv: '' };
+  let maxCA = -1, maxTM = -1, maxRefs = -1, maxCli = -1, maxServ = -1;
+  for (const [store, data] of spSorted) {
+    const ag = _S.agenceStore?.get(store);
+    const ca = ag?.ca || 0;
+    const refs = data.ref || 0;
+    const nbCli = data.nbClients || ag?.nbClients || 0;
+    if (ca > maxCA)            { maxCA = ca;            best.ca   = store; }
+    if ((data.txMarge||0) > maxTM) { maxTM = data.txMarge; best.tm   = store; }
+    if (refs > maxRefs)        { maxRefs = refs;        best.refs = store; }
+    if (nbCli > maxCli)        { maxCli = nbCli;       best.cli  = store; }
+    if ((data.serv||0) > maxServ) { maxServ = data.serv;  best.serv = store; }
+  }
+  const gold = 'background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:4px;padding:0 3px;font-weight:800';
+
   let rows = '';
   spSorted.forEach(([store, data], idx) => {
     const isMe = store === _S.selectedMyStore;
@@ -2332,13 +2347,14 @@ function _prPerfBanner() {
     const serv = data.serv || 0;
     const servColor = serv > 25 ? 'c-ok' : serv >= 10 ? 'c-caution' : 'c-danger';
     const nbCli = data.nbClients || ag?.nbClients || 0;
+    const g = (col) => store === best[col] ? ` style="${gold}"` : '';
     rows += `<tr class="border-b b-light ${isMe ? 'i-info-bg font-bold' : 'hover:s-card-alt'}">
       <td class="py-1.5 px-2 text-[11px]"><span class="${isMe ? 'font-extrabold' : ''}">${isMe ? '⭐ ' : ''}${store}</span></td>
-      <td class="py-1.5 px-2 text-right text-[11px] ${isMe ? 'c-action font-extrabold' : 'font-bold'}">${formatEuro(ca)}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] font-bold ${tmColor}">${tm}</td>
-      <td class="py-1.5 px-2 text-center text-[10px]">${refs.toLocaleString('fr')}</td>
-      <td class="py-1.5 px-2 text-center text-[10px]">${nbCli.toLocaleString('fr')}</td>
-      <td class="py-1.5 px-2 text-center text-[10px] ${servColor} font-bold">${serv}%</td>
+      <td class="py-1.5 px-2 text-right text-[11px] ${isMe ? 'c-action font-extrabold' : 'font-bold'}"><span${g('ca')}>${formatEuro(ca)}</span></td>
+      <td class="py-1.5 px-2 text-center text-[10px] font-bold ${tmColor}"><span${g('tm')}>${tm}</span></td>
+      <td class="py-1.5 px-2 text-center text-[10px]"><span${g('refs')}>${refs.toLocaleString('fr')}</span></td>
+      <td class="py-1.5 px-2 text-center text-[10px]"><span${g('cli')}>${nbCli.toLocaleString('fr')}</span></td>
+      <td class="py-1.5 px-2 text-center text-[10px] ${servColor} font-bold"><span${g('serv')}>${serv}%</span></td>
       <td class="py-1.5 px-2 text-center"><span class="text-[10px] font-bold ${isMe ? 'c-action' : ''}">#${idx + 1}</span></td>
     </tr>`;
   });
