@@ -1952,10 +1952,20 @@
       <span id="healthScoreInline" class="hidden"></span>
       <span id="valeurStockInline" class="hidden"></span>
 
-      <!-- Evidence Cards cockpit -->
-      <div id="cockpitBriefing" class="mb-3">
-        <div id="cockpitBriefingText"></div>
-      </div>
+      <!-- Compat: cockpitBriefing ID kept hidden for JS -->
+      <div id="cockpitBriefing" class="hidden"><div id="cockpitBriefingText"></div></div>
+
+      <!-- 1. Plan de rayon stratégique -->
+      <details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
+          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">🦴 Plan de rayon stratégique <span id="planRayonInline" style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.45)"></span></h3>
+          <span class="acc-arrow" style="color:#cbd5e1">▶</span>
+        </summary>
+        <div id="planRayonBlock" class="p-4"></div>
+      </details>
+
+      <!-- 2. Arbitrage rayon -->
+      <div id="arbitrageRayonBlock"></div>
 
       <!-- 3. Matrice ABC/FMR -->
       <details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
@@ -1969,7 +1979,6 @@
         </div>
       </details>
 
-
       <!-- Compat JS: anciens IDs supprimés, gardés masqués -->
       <div class="hidden" aria-hidden="true">
         <div id="ghostArticlesBlock"></div>
@@ -1980,17 +1989,6 @@
         <table><tbody id="dashStatusTable"></tbody></table>
         <table><tbody id="dashFamilyTable"></tbody></table>
       </div>
-
-      <!-- Plan de rayon stratégique -->
-      <details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">🦴 Plan de rayon stratégique <span id="planRayonInline" style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.45)"></span></h3>
-          <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-        </summary>
-        <div id="planRayonBlock" class="p-4"></div>
-      </details>
-
-      <div id="arbitrageRayonBlock"></div>
 
     </div>
 
