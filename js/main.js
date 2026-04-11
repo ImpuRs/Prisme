@@ -2236,8 +2236,18 @@ _S.canalAgence=newCanalAgence;
     renderPlanRayon();
     renderArbitrageRayonBlock();
     const CELL_BG={AF:'linear-gradient(135deg,#14532d,#166534)',AM:'linear-gradient(135deg,#166534,#15803d)',AR:'linear-gradient(135deg,#1a5c2a,#3d6b2c)',BF:'linear-gradient(135deg,#1e3a5f,#1e3a8a)',BM:'linear-gradient(135deg,#1e3a8a,#1d4ed8)',BR:'linear-gradient(135deg,#3b3000,#713f12)',CF:'linear-gradient(135deg,#3b0a0a,#7f1d1d)',CM:'linear-gradient(135deg,#7f1d1d,#991b1b)',CR:'linear-gradient(135deg,#78350f,#92400e)'};
-    const LABELS={AF:'🌟 Pépites',AM:'👁️ Surveiller',AR:'💰 Gros paniers',BF:'👍 Confort',BM:'➡️ Standard',BR:'❓ Questionner',CF:'🔁 Réguliers',CM:'📉 Réduire',CR:'❌ Déréférencer'};
-    const RECOS={AF:'Pépites — ne jamais rompre, chaque rupture = 2j de CA perdus',AM:'Surveiller — réassort manuel si rupture',AR:'Gros paniers ponctuels — stock sécurité OK',BF:'Confort — bien géré',BM:'Standard',BR:'Questionner le MIN',CF:'Consommable fréquent — indispensable comptoir, vérifier MIN',CM:'Fréquence moyenne, petit prix — ajuster le MIN',CR:'Candidat déréférencement ou passage colis'};
+    const LABELS={AF:'🌟 Pépites',AM:'👁️ Piliers',AR:'💰 Projets',BF:'⚙️ Moteur',BM:'➡️ Standard',BR:'❓ Poids Faible',CF:'🔁 Trafic',CM:'📉 Poussière',CR:'❌ Boulet'};
+    const RECOS={
+      AF:'🏆 Capitaines — Zéro rupture. Stock sécurité max, commande auto, emplacement premium. Si AF mais pas Capitaine → problème de classif.',
+      AM:'🏆 Capitaines à cycle long ou 🎯 Lien Fort — Stock tampon faible, supply chain parfaite. Gestion à flux tendu maîtrisé.',
+      AR:'🎯 Spécialistes forte valeur — Zéro stock physique, 100% commande spéciale. Ta force = ta relation fournisseur.',
+      BF:'🏆 Capitaines petit prix + 📦 Bons Soldats — Automatisation Kanban (2 bacs). Objectif : le moins de temps possible à gérer.',
+      BM:'📦 Bons Soldats + 🟡 À Surveiller — Réappro standard. Garder un œil pour ne pas glisser vers BR ou CM.',
+      BR:'🟡 Déclinant qui s\'ignore — Stock min 1 unité, pas de réappro auto. En revue pour sortie potentielle.',
+      CF:'🏆 Incontournable comptoir — Ça doit être là, toujours, en quantité. Son absence crée plus de frustration que son stock ne coûte.',
+      CM:'Zone de simplification — Peut-on remplacer 3 CM par 1 BM ? Vendre en plus grande quantité pour passer en CF ?',
+      CR:'🔴 Poids Mort — Tolérance zéro, on sort. SAUF Ancre Métier : appât pour le gros poisson, garder à 1 unité.'
+    };
     // Matrix table
     let html='<table class="w-full border-collapse" style="max-width:720px;margin:0 auto"><thead><tr>';
     html+='<th style="width:64px"></th>';

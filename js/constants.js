@@ -43,9 +43,9 @@ export const FAM_LETTER_UNIVERS = {
 
 // Labels des cases de la matrice ABC/FMR (utilisé dans _diagRenderV3 et ailleurs)
 export const RADAR_LABELS = {
-  AF: 'Pépites', AM: 'Surveiller', AR: 'Gros paniers',
-  BF: 'Confort',  BM: 'Standard',  BR: 'Questionner',
-  CF: 'Réguliers',CM: 'Réduire',   CR: 'Déréférencer'
+  AF: 'Pépites', AM: 'Piliers',    AR: 'Projets',
+  BF: 'Moteur',   BM: 'Standard',  BR: 'Poids Faible',
+  CF: 'Trafic',   CM: 'Poussière', CR: 'Boulet'
 };
 
 // ── Decision Queue — seuils de significativité ───────────────
