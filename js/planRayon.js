@@ -2205,7 +2205,7 @@ function _prRenderDetail(codeFam) {
       ];
 
   const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
-  return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
+  return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder};max-height:calc(100vh - 180px);overflow-y:auto">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
