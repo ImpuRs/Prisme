@@ -302,7 +302,7 @@ function _renderArbitrageRayon(rows) {
       <td class="py-1.5 px-2 font-semibold t-primary">${escapeHtml(r.emp)}${ruptBadge}${dormBadge}</td>
       <td class="py-1.5 px-2 text-center"><span class="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style="background:${sb.bg};color:${sb.color}" title="${sb.action}">${sb.icon} ${sb.label}</span></td>
       <td class="py-1.5 px-2 text-right">${r.caPeriode > 0 ? formatEuro(r.caPeriode) : '\u2014'}</td>
-      <td class="py-1.5 px-2 text-right" style="color:#8b5cf6">${r.vmb > 0 ? formatEuro(r.vmb) : '\u2014'}</td>
+      <td class="py-1.5 px-2 text-right" style="color:#8b5cf6">${r.caPeriode > 0 ? formatEuro(Math.round(r.caPeriode * r.txMarge / 100)) : '\u2014'}</td>
       <td class="py-1.5 px-2 text-center font-bold ${txMargeCol}">${r.txMarge}%</td>
       <td class="py-1.5 px-2 text-right t-secondary">${r.valStock > 0 ? formatEuro(r.valStock) : '\u2014'}</td>
       <td class="py-1.5 px-2 text-center">${r.nbRef}</td>
@@ -399,7 +399,7 @@ window._empExportCSV = function() {
   const sep = ';';
   const header = ['Emplacement','Statut','CA','Marge VMB','Tx marge %','Val stock','Refs','Clients','Rdt 3m','Tx service %','Cli/Ref','Delta','Ruptures','Dormants'].join(sep);
   const lines = rows.map(r =>
-    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.caPeriode.toFixed(0), r.vmb.toFixed(0), r.txMarge, r.valStock.toFixed(0), r.nbRef, r.nbClients, r.rendement3m.toFixed(2), r.txService, r.densiteClient, r.delta.toFixed(2), r.nbRupture, r.nbDormant].join(sep)
+    [r.emp, STATUT_BADGE[r.statut]?.label || '', r.caPeriode.toFixed(0), Math.round(r.caPeriode * r.txMarge / 100), r.txMarge, r.valStock.toFixed(0), r.nbRef, r.nbClients, r.rendement3m.toFixed(2), r.txService, r.densiteClient, r.delta.toFixed(2), r.nbRupture, r.nbDormant].join(sep)
   );
   const csv = '\uFEFF' + [header, ...lines].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
