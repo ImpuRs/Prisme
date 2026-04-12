@@ -314,7 +314,24 @@ function renderReseauFuites() {
 function renderNomadesMissedArts() {
   const el = document.getElementById('nomadesMissedArtsContainer');
   if (!el) return;
-  const list = _S.nomadesMissedArts || [];
+  const rawList = _S.nomadesMissedArts || [];
+
+  // ── Filtre Portefeuille — ne garder que les articles achetés par les clients du commercial ──
+  const _com = _S._selectedCommercial || '';
+  const _comSet = _com ? (_S.clientsByCommercial?.get(_com) || new Set()) : null;
+  let list;
+  if (_comSet) {
+    list = [];
+    for (const art of rawList) {
+      const matchedClients = (art.clientCodes || []).filter(cc => _comSet.has(cc));
+      if (!matchedClients.length) continue;
+      list.push({ ...art, nbClients: matchedClients.length, clientCodes: matchedClients });
+    }
+    list.sort((a, b) => b.totalCaOther - a.totalCaOther);
+  } else {
+    list = rawList;
+  }
+
   const badge = document.getElementById('nomadesMissedBadge');
   if (badge) {
     if (list.length) { badge.textContent = list.length; badge.classList.remove('hidden'); }
@@ -322,10 +339,10 @@ function renderNomadesMissedArts() {
   }
   if (!list.length) {
     const isMulti = _S.storesIntersection && _S.storesIntersection.size > 1;
-    el.innerHTML = `<p class="t-disabled text-sm p-4">${isMulti ? 'Aucune opportunité cross-agence significative détectée sur la période.' : 'Aucune donnée — nécessite un fichier multi-agences avec clients communs.'}</p>`;
+    el.innerHTML = `<p class="t-disabled text-sm p-4">${isMulti ? (_com ? 'Aucune opportunité cross-agence pour ce portefeuille.' : 'Aucune opportunité cross-agence significative détectée sur la période.') : 'Aucune donnée — nécessite un fichier multi-agences avec clients communs.'}</p>`;
     return;
   }
-  let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par <strong>≥ 2 de vos clients</strong> dans d'autres agences mais jamais chez vous — triés par CA autre agence.</p>`;
+  let html = `<p class="text-[11px] t-tertiary mb-3 px-1">Top ${list.length} articles achetés par <strong>≥ ${_comSet ? '1' : '2'} de vos clients${_com ? ' ('+_com.split(' - ')[1]+')' : ''}</strong> dans d'autres agences mais jamais chez vous — triés par CA autre agence.</p>`;
   html += '<div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold sticky top-0"><tr>';
   html += '<th class="py-2 px-3 text-left">Code</th>';
   html += '<th class="py-2 px-3 text-left">Libellé</th>';
@@ -333,9 +350,19 @@ function renderNomadesMissedArts() {
   html += '<th class="py-2 px-3 text-center">Clients</th>';
   html += '<th class="py-2 px-3 text-right">CA autre agence</th>';
   html += '<th class="py-2 px-3 text-right">BL autre agence</th>';
+  html += '<th class="py-2 px-3 text-center">Verdict</th>';
   html += '</tr></thead><tbody>';
   for (const art of list) {
     const lib = (_S.libelleLookup[art.code] || art.code).replace(/^\d{6} - /, '');
+    // Verdict Squelette
+    const _sqInfo = window._getArticleSqInfo?.(art.code);
+    let verdictBadge = '<span class="t-disabled">—</span>';
+    if (_sqInfo) {
+      const _vColors = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
+      const _vLabels = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
+      verdictBadge = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vColors[_sqInfo.classif]}20;color:${_vColors[_sqInfo.classif]}">${_vLabels[_sqInfo.classif]}</span>`;
+      if (_sqInfo.verdict?.name && _sqInfo.verdict.name !== '—') verdictBadge += `<br><span class="text-[8px] t-inverse-muted">${_sqInfo.verdict.icon} ${escapeHtml(_sqInfo.verdict.name)}</span>`;
+    }
     html += `<tr class="border-b hover:i-caution-bg/40 cursor-pointer" onclick="openNomadeArticleModal('${art.code}')" title="Voir le détail clients">`;
     html += `<td class="py-1.5 px-3 font-mono t-tertiary whitespace-nowrap">${art.code}</td>`;
     html += `<td class="py-1.5 px-3 font-semibold t-primary">${escapeHtml(lib)}</td>`;
@@ -343,6 +370,7 @@ function renderNomadesMissedArts() {
     html += `<td class="py-1.5 px-3 text-center font-extrabold c-danger">${art.nbClients}</td>`;
     html += `<td class="py-1.5 px-3 text-right font-bold c-caution">${art.totalCaOther > 0 ? formatEuro(art.totalCaOther) : '—'}</td>`;
     html += `<td class="py-1.5 px-3 text-right t-secondary">${art.totalBLOther || '—'}</td>`;
+    html += `<td class="py-1.5 px-3 text-center">${verdictBadge}</td>`;
     html += '</tr>';
   }
   html += '</tbody></table></div>';
@@ -806,7 +834,7 @@ function openNomadeArticleModal(code) {
     const caMe = _S.ventesClientArticle?.get(cc)?.get(code)?.sumCA || 0;
     clientRows += `<tr class="border-b b-light hover:i-caution-bg/30">
       <td class="py-1.5 px-3 font-mono text-[11px] whitespace-nowrap" style="color:var(--t-secondary,#94a3b8)">${cc}</td>
-      <td class="py-1.5 px-3 text-[12px] font-semibold max-w-[200px] truncate" style="color:var(--t-primary,#fff)" title="${nom.replace(/"/g,'&quot;')}">${nom}</td>
+      <td class="py-1.5 px-3 text-[12px] font-semibold max-w-[200px] truncate" style="color:var(--t-primary,#fff)" title="${nom.replace(/"/g,'&quot;')}">${nom}<button onclick="event.stopPropagation();closeNomadeArticleModal();openClient360('${cc}')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td>
       <td class="py-1.5 px-3 text-right font-bold c-caution whitespace-nowrap">${formatEuro(caParClient)}</td>
       <td class="py-1.5 px-3 text-right font-semibold whitespace-nowrap ${caMe > 0 ? 'c-ok' : ''}" style="${caMe <= 0 ? 'color:var(--t-secondary,#94a3b8)' : ''}">${caMe > 0 ? formatEuro(caMe) : '—'}</td>
       <td class="py-1.5 px-3 text-center"><button class="diag-btn text-[11px] py-0.5 px-2" onclick="closeNomadeArticleModal();openClient360('${cc}')" title="Fiche client 360°">📞</button></td>

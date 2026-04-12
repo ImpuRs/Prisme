@@ -40,14 +40,21 @@ document.addEventListener('click',function(e){
   if(dd&&!dd.contains(e.target)){const panel=document.getElementById('terrSecteurPanel');if(panel)panel.classList.add('hidden');}
 });
 
+// ── Datalist UX guards ───────────────────────────────────────────────────
+// <datalist> natif : la dropdown peut prendre toute la hauteur si on injecte
+// une liste énorme. On garde donc la liste vide par défaut, et on propose des
+// suggestions filtrées (max N) pendant la saisie.
+document.addEventListener('input', function(e) {
+  const t = e.target;
+  if (t && t.id === 'terrMetierFilter') _onMetierInput(t.value);
+});
+
 // ── Nav 4 sous-vues — helpers ────────────────────────────────────────────
 function _cmRenderNav(counts) {
   const tabs = [
-    { id: 'silencieux',   label: '🟡 Silencieux',   n: counts.silencieux },
-    { id: 'perdus',       label: '🔴 Perdus',        n: counts.perdus },
-    { id: 'potentiels',   label: '🎯 Potentiels',    n: counts.potentiels },
-    { id: 'canal',        label: '📡 Canal',          n: null },
-    { id: 'omni',         label: '🔗 Omnicanal',      n: null },
+    { id: 'silencieux',   label: '🟡 Silencieux (30-90j)',   n: counts.silencieux },
+    { id: 'perdus',       label: '🔴 En danger (3-12m)',     n: counts.perdus },
+    { id: 'potentiels',   label: '🎯 Potentiels',            n: counts.potentiels },
   ];
   return tabs.map(t => {
     const active = _cmTab === t.id;
@@ -66,23 +73,13 @@ function _cmInjectSlot(id, content) {
     case 'silencieux': content.innerHTML = `<div id="terrSilencieux"></div>`; break;
     case 'perdus':     content.innerHTML = `<div id="terrPerdus"></div>`; break;
     case 'potentiels': content.innerHTML = `<div id="terrACapter"></div>`; break;
-    case 'canal':
-      content.innerHTML = `<div id="terrCanalBlock" style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-        <div style="padding:14px 20px;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2)">
-          <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📡 Répartition par canal</h3>
-          <p id="canalAgenceSubtitle" style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:2px">CA tous canaux · Magasin = Prélevé + Enlevé · Source : consommé</p>
-        </div>
-        <div id="canalAgenceBlock" class="p-3"></div>
-      </div>`; break;
-    case 'omni':
-      content.innerHTML = `<div id="omniCaptationBlock"></div><div id="omniCaptationClients" class="hidden"></div>`; break;
+    case 'canal': content.innerHTML = ''; break;
   }
 }
 
 function _cmRenderContent(id) {
   if (id === 'silencieux' || id === 'perdus' || id === 'potentiels') _renderCockpitTables();
   if (id === 'canal') window.renderCanalAgence?.();
-  if (id === 'omni') window._renderCaptationBlock?.();
 }
 
 // Changement d'onglet complet (user click) — recalcule les données
@@ -138,42 +135,73 @@ function _buildChalDirBlock(blkEl) {
     blkEl.dataset.cdk = _key;
     return;
   }
-  const all = [...(_S.chalandiseData||new Map()).entries()]
-    .filter(([cc]) => _passesAllFilters(cc))
-    .map(([cc, info]) => ({ cc, ...info }));
+  // Single-pass: filter + group into direction → métier → clients,
+  // counting captés + total while building the structure (avoids later .filter().length passes).
+  const cmSet = _S.clientsMagasin;
+  const chalData = _S.chalandiseData || new Map();
+  const byDir = new Map();
+  let allLen = 0, allActifs = 0, allPDV = 0;
+  for (const [cc, info] of chalData) {
+    if (!_passesAllFilters(cc)) continue;
+    const c = { cc, ...info };
+    const d = c.direction || 'Autre';
+    let bm = byDir.get(d);
+    if (!bm) { bm = new Map(); byDir.set(d, bm); }
+    const m = c.metier || '—';
+    let arr = bm.get(m);
+    if (!arr) { arr = []; bm.set(m, arr); }
+    arr.push(c);
+    allLen++;
+    if (c.statut === 'Actif') allActifs++;
+    if (cmSet?.has(cc)) allPDV++;
+  }
   const _lbl = d => _DIR_LABELS[d] || d || 'Autre';
 
+  // Count statuses over a client array without allocating intermediates.
   const _grp = clients => {
     const g = {total:0,aL:0,aP:0,pro:0,per:0,ina:0};
     for (const c of clients) {
       g.total++;
-      if(c.statut==='Actif') g.aL++;
-      if(_S.clientsMagasin?.has(c.cc)) g.aP++;
-      if(c.statut==='Prospect') g.pro++;
-      if(c.statutDetaille==='Perdu 12-24 mois') g.per++;
-      if(c.statut==='Inactif') g.ina++;
+      const st = c.statut;
+      if (st === 'Actif') g.aL++;
+      else if (st === 'Prospect') g.pro++;
+      else if (st === 'Inactif') g.ina++;
+      if (cmSet?.has(c.cc)) g.aP++;
+      if (c.statutDetaille === 'Perdu 12-24 mois') g.per++;
     }
     return g;
   };
 
-  // Groupement direction → métier → clients
-  const byDir = new Map();
-  for (const c of all) {
-    const d = c.direction||'Autre';
-    if (!byDir.has(d)) byDir.set(d, new Map());
-    const bm = byDir.get(d);
-    const m = c.metier||'—';
-    if (!bm.has(m)) bm.set(m, []);
-    bm.get(m).push(c);
+  // Pre-aggregate: for each direction, compute total client count and the per-métier _grp once.
+  // Direction-level _grp is summed from métier-level _grp (avoids re-iterating clients).
+  // This replaces 2× flatten+spread per direction in the sort comparator and the subsequent _grp call.
+  const dirRows = [];
+  for (const [d, bm] of byDir) {
+    let dirTotal = 0;
+    const metierRows = [];
+    const dirG = {total:0,aL:0,aP:0,pro:0,per:0,ina:0};
+    for (const [m, mc] of bm) {
+      const gm = _grp(mc);
+      dirTotal += mc.length;
+      dirG.total += gm.total;
+      dirG.aL += gm.aL;
+      dirG.aP += gm.aP;
+      dirG.pro += gm.pro;
+      dirG.per += gm.per;
+      dirG.ina += gm.ina;
+      metierRows.push({ m, mc, gm });
+    }
+    metierRows.sort((a, b) => b.mc.length - a.mc.length);
+    dirRows.push({ d, dirTotal, g: dirG, metierRows });
   }
+  dirRows.sort((a, b) => b.dirTotal - a.dirTotal);
 
-  const pctCap = all.length>0 ? Math.round(all.filter(c=>c.statut==='Actif').length/all.length*100) : 0;
-  const totalPDV = all.filter(c=>_S.clientsMagasin?.has(c.cc)).length;
+  const pctCap = allLen > 0 ? Math.round(allActifs / allLen * 100) : 0;
+  const totalPDV = allPDV;
   let html='';
   let di=0;
 
-  for (const [d, bm] of [...byDir.entries()].sort((a,b)=>[...b[1].values()].flat().length-[...a[1].values()].flat().length)) {
-    const dc=[...bm.values()].flat(), g=_grp(dc);
+  for (const { d, metierRows, g } of dirRows) {
     const pL=g.total>0?Math.round(g.aL/g.total*100):0, pP=g.total>0?Math.round(g.aP/g.total*100):0;
     html+=`<tr onclick="window._ccd(${di})" style="cursor:pointer" class="border-b hover:s-card-alt font-semibold">
       <td class="py-1.5 px-2">${escapeHtml(_lbl(d))} <span id="cda${di}" class="t-disabled text-[8px]">▶</span></td>
@@ -187,8 +215,8 @@ function _buildChalDirBlock(blkEl) {
       <td class="py-1.5 px-2 text-right t-secondary text-[10px]">${pP}%</td>
     </tr>`;
     let mi=0;
-    for (const [m, mc] of [...bm.entries()].sort((a,b)=>b[1].length-a[1].length)) {
-      const gm=_grp(mc), star=_isMetierStrategique(m)?' ⭐':'';
+    for (const { m, mc, gm } of metierRows) {
+      const star=_isMetierStrategique(m)?' ⭐':'';
       const pLm=gm.total>0?Math.round(gm.aL/gm.total*100):0, pPm=gm.total>0?Math.round(gm.aP/gm.total*100):0;
       html+=`<tr id="ccm${di}_${mi}" onclick="window._ccm(${di},${mi})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.05)" class="border-b hover:s-card-alt" data-d="${di}">
         <td class="py-1.5 px-2 pl-6 text-[11px]">${escapeHtml(m)}${star} <span id="cma${di}_${mi}" class="t-disabled text-[8px]">▶</span></td>
@@ -203,9 +231,12 @@ function _buildChalDirBlock(blkEl) {
       </tr>`;
       // Niveau Commercial
       const byComm=new Map();
-      for(const c of mc){const com=c.commercial||'—';if(!byComm.has(com))byComm.set(com,[]);byComm.get(com).push(c);}
+      for(const c of mc){const com=c.commercial||'—';let a=byComm.get(com);if(!a){a=[];byComm.set(com,a);}a.push(c);}
+      const commRows=[];
+      for(const[com,cc_list] of byComm) commRows.push([com,cc_list]);
+      commRows.sort((a,b)=>b[1].length-a[1].length);
       let ci=0;
-      for(const[com,cc_list] of [...byComm.entries()].sort((a,b)=>b[1].length-a[1].length)){
+      for(const[com,cc_list] of commRows){
         const gc=_grp(cc_list);
         const pLc=gc.total>0?Math.round(gc.aL/gc.total*100):0,pPc=gc.total>0?Math.round(gc.aP/gc.total*100):0;
         html+=`<tr id="ccc${di}_${mi}_${ci}" onclick="window._ccc(${di},${mi},${ci})" style="display:none;cursor:pointer;background:rgba(139,92,246,0.08)" class="border-b hover:s-card-alt" data-m="${di}_${mi}">
@@ -222,7 +253,7 @@ function _buildChalDirBlock(blkEl) {
         for(const c of [...cc_list].sort((a,b)=>((b.ca2025||0)+(b.ca2026||0))-((a.ca2025||0)+(a.ca2026||0))).slice(0,20)){
           const ca=(c.ca2025||0)+(c.ca2026||0),star2=c.classification?.includes('Pot+')?'⭐ ':'';
           html+=`<tr style="display:none;cursor:pointer;background:rgba(139,92,246,0.02)" class="border-b hover:s-card-alt text-[10px]" data-c="${di}_${mi}_${ci}" onclick="openClient360('${escapeHtml(c.cc)}','territoire')">
-            <td class="py-1 px-2 pl-12">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span> <span class="t-disabled">${c.cc}</span></td>
+            <td class="py-1 px-2 pl-12">${_S.clientsMagasin?.has(c.cc)?'✅ ':'○ '}${star2}<span class="font-medium">${escapeHtml(c.nom||c.cc)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button> <span class="t-disabled">${c.cc}</span></td>
             <td class="py-1 px-2 text-right" colspan="3">${escapeHtml(c.statut||'—')}</td>
             <td class="py-1 px-2 text-right">${ca>0?formatEuro(ca):'—'}</td>
             <td class="py-1 px-2 t-secondary" colspan="4">${escapeHtml(c.classification||'—')}</td>
@@ -237,7 +268,7 @@ function _buildChalDirBlock(blkEl) {
 
   blkEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
     <span style="font-weight:800;font-size:12px;color:#a78bfa">🎯 Votre territoire en un coup d'œil</span>
-    <span class="text-[10px] t-disabled">${byDir.size} dir. · ${all.length} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
+    <span class="text-[10px] t-disabled">${byDir.size} dir. · ${allLen} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
   </div>
   <div class="overflow-x-auto"><table class="min-w-full text-xs">
     <thead class="s-panel-inner t-inverse"><tr class="text-[10px]">
@@ -330,9 +361,9 @@ window._ccc = (di,mi,ci) => {
       const silence=daysSince!==null?`${daysSince}j`:'—';
       const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
       const _dc=deltaColor(r.caHors,r.caPDV);
-      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+      return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'territoire')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','territoire')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
     }).join('');
-    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
+    el.innerHTML=`<div class="mb-5 s-card rounded-xl border overflow-hidden"><div class="flex items-center gap-2 px-4 py-3 s-card-alt border-b"><h3 class="font-extrabold text-sm c-caution">⚠️ Clients PDV hors zone <span class="text-[10px] font-normal t-disabled ml-1">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3></div><p class="text-[10px] t-tertiary px-4 py-2 border-b b-light">Clients livrés au PDV mais absents de la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${pagerHtml}</div>`;
   }
 
   function _passesAllFilters(cc){
@@ -399,15 +430,30 @@ window._ccc = (di,mi,ci) => {
 
   // ── computeClientsKPIs — pure data for renderMesClients ──────────────
   function computeClientsKPIs(){
-    const livSansPDV=_S.livraisonsSansPDV||[];
+    let livSansPDV=_S.livraisonsSansPDV||[];
     const _gCanal=_S._globalCanal||'';
     const topPDVRows=[];
     const nouveaux=[];
     const horsZone=[];
     const digitaux=[];
 
+    // ── Filtre Portefeuille (commercial) — se propage à TOUS les accordéons ──
+    const _com=_S._selectedCommercial||'';
+    const _comSet=_com?(_S.clientsByCommercial?.get(_com)||new Set()):null;
+    const _hasChal=_S.chalandiseReady;
+    // Filtre livSansPDV par commercial
+    if(_comSet)livSansPDV=livSansPDV.filter(r=>_comSet.has(r.cc));
+
     if(_S.clientStore?.size){
       for(const rec of _S.clientStore.values()){
+        // Filtre commercial (Portefeuille) — strict
+        if(_comSet&&!_comSet.has(rec.cc))continue;
+        // Filtres chalandise tactiques
+        if(_hasChal&&rec.inChalandise){
+          const info=_S.chalandiseData.get(rec.cc);
+          if(info&&!_clientPassesFilters(info,rec.cc))continue;
+          if(!_S._includePerdu24m&&info&&_isPerdu24plus(info))continue;
+        }
         // ── Top clients par canal ──
         let caPDV=0,caHors=0,caTotal=rec.caTotal||0;
         if(!_gCanal){
@@ -490,24 +536,6 @@ window._ccc = (di,mi,ci) => {
     if(chalFilBlk)chalFilBlk.classList.toggle('hidden',!hasChal);
     const sumBar=document.getElementById('terrSummaryBar');if(sumBar&&!hasChal){sumBar.classList.add('hidden');sumBar.style.display='none';}
 
-    // Blocs accordion analyse territoire — conditions précises hasTerr / hasChal
-    {const _tb=(id,show)=>document.getElementById(id)?.classList.toggle('hidden',!show);
-    // terrDirectionContainer : injecté dynamiquement si territoire OU chalandise chargé
-    // Territoire seul → vue CA/articles/couverture (terrDirectionTable rempli ligne 631)
-    // Chalandise chargée → _buildChalDirBlock remplace par vue drill client
-    {const _dc=document.getElementById('terrDirectionContainer');if(_dc){if(hasChal||hasTerr){
-      if(!_dc.querySelector('#terrDirectionTable')){_dc.innerHTML=`<div style="background:linear-gradient(135deg,rgba(139,92,246,0.13),rgba(109,40,217,0.06));border:1px solid rgba(139,92,246,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px"><details><summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px">🎯 Vue par Direction commerciale</h3></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse"><tr class="text-[10px]"><th class="py-1.5 px-3 text-left">Direction</th><th class="py-1.5 px-3 text-right">CA Le Terrain</th><th class="py-1.5 px-3 text-center">Nb articles</th><th class="py-1.5 px-3 text-center">✅</th><th class="py-1.5 px-3 text-center">⚠️</th><th class="py-1.5 px-3 text-center">❌</th><th class="py-1.5 px-3">Couverture</th></tr></thead><tbody id="terrDirectionTable"></tbody></table></div></details></div>`;}
-      // chalDirBlock différé : 6.7MB HTML → ne pas bloquer le rendu principal
-      if(hasChal) setTimeout(()=>{const dc2=document.getElementById('terrDirectionContainer');if(dc2)_buildChalDirBlock(dc2);},0);
-    }else{_dc.innerHTML='';}}}
-
-    _tb('terrKPIBlock',        hasTerr);   // BL Livraisons requis
-    _tb('terrCroisementBlock', hasTerr);
-    _tb('terrSpecialKPIBlock', hasTerr);
-    _tb('terrContribBlock',    hasTerr);
-    _tb('terrTop100Block',     hasTerr);
-    _tb('terrClientsBlock',    hasTerr);
-    _tb('terrNeedTerrBlock',   !hasTerr);} // message "BL requis" si !hasTerr
 
     if(!hasData&&!hasTerr&&!hasChal&&!hasConsomme)return;
     if(degraded){_buildDegradedCockpit();return;}
@@ -774,7 +802,7 @@ window._ccc = (di,mi,ci) => {
         const _horsCell=_gcRow==='MAGASIN'?`<td class="py-1.5 px-2 text-right text-[10px] ${hasHors?'c-ok':'t-disabled'}">${hasHors?'+'+formatEuro(r.caHors):'—'}</td>`:'';
         const _classifCls=r.classification?.startsWith('FID')?'c-ok':r.classification?.startsWith('OCC')?'c-caution':'t-disabled';
         const _caLegCls=r.caLeg>0?(r.caLeg>r.caPDV*3?'c-caution':'t-secondary'):'t-disabled';
-        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_classifCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_caLegCls}">${r.caLeg>0?formatEuro(r.caLeg):'—'}</td>${_horsCell}<td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
+        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_classifCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_caLegCls}">${r.caLeg>0?formatEuro(r.caLeg):'—'}</td>${_horsCell}<td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
       };
       const top20=rows.slice(0,20);
       const _gc=_S._globalCanal||'';
@@ -783,7 +811,7 @@ window._ccc = (di,mi,ci) => {
       const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">${_caLbl}</th><th class="py-2 px-2 text-right">CA Zone</th>${_horsLbl?`<th class="py-2 px-2 text-right">${_horsLbl}</th>`:''}<th class="py-2 px-2 text-center">Silence</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
       const moreHtml=rows.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${rows.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${rows.slice(20).map(_mkRow).join('')}</tbody></table></div></details>`:'';
       const thStr=`<thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead>`;
-      return`<details open style="background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${rows.length} clients · ${_caLbl}</span></h3><span class="acc-arrow" style="color:#fde047">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
+      return`<details style="background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${rows.length} clients · ${_caLbl}</span></h3><span class="acc-arrow" style="color:#fde047">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
     })();
     // ── S1b: Nouveaux clients (≤3 BL, <60j) ──────────────────────────────────
     const nouveauxHtml=(()=>{
@@ -797,7 +825,7 @@ window._ccc = (di,mi,ci) => {
         const silTxt=daysSince!==null?`${daysSince}j`:'—';
         const _clCls=r.classification?.startsWith('FID')?'c-ok':r.classification?.startsWith('OCC')?'c-caution':'t-disabled';
         const typeBadge=r.type==='reactive'?'<span class="text-[8px] px-1.5 py-0.5 rounded-full font-semibold" style="background:rgba(59,130,246,0.2);color:#60a5fa">🔄 Réactivé</span>':'<span class="text-[8px] px-1.5 py-0.5 rounded-full font-semibold" style="background:rgba(34,197,94,0.2);color:#4ade80">🆕 Nouveau</span>';
-        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)} ${typeBadge}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-center text-[10px] t-secondary">${r.nbBL} BL</td><td class="py-1.5 px-2 text-center text-[10px] c-ok">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
+        return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button> ${typeBadge}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-center text-[10px] t-secondary">${r.nbBL} BL</td><td class="py-1.5 px-2 text-center text-[10px] c-ok">${silTxt}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;
       };
       const _subLabel=[nbNouv?`${nbNouv} nouveaux`:'',(nbReact?`${nbReact} réactivés`:'')].filter(Boolean).join(' · ');
       const _thRow=`<tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-center">Fréq.</th><th class="py-2 px-2 text-center">Dernier</th><th class="py-2 px-2 text-left">Commercial</th></tr>`;
@@ -806,23 +834,41 @@ window._ccc = (di,mi,ci) => {
       return`<details style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.06));border:1px solid rgba(34,197,94,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(34,197,94,0.18),rgba(22,163,74,0.10));border-bottom:1px solid rgba(34,197,94,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#4ade80;display:flex;align-items:center;gap:6px">🆕 Nouveaux / Réactivés <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${nv.length} clients · ${_subLabel}</span></h3><span class="acc-arrow" style="color:#4ade80">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold">${_thRow}</thead><tbody>${top20.map(_mkRow).join('')}</tbody></table></div>${moreHtml}</details>`;
     })();
 
-    // ── S2b: Livrés sans PDV — accordéon, top 10 + "Voir tous" ────────────────
-    const _livAllB=(k.livSansPDV||[]).filter(r=>r.caLivraison>=500&&r.metier&&_isMetierStrategique(r.metier));
-    const livSPDVHtml=(()=>{
-      if(!_livAllB.length)return _S.livraisonsReady?`<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">0 clients</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>`:'';
-      const _mkRow=r=>{const _clCls=r.classification?.startsWith('FID')?'c-ok':r.classification?.startsWith('OCC')?'c-caution':'t-disabled';return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier||'—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial||'—')}</td></tr>`;};
-      const thStr=`<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">CA livraison</th><th class="py-2 px-2 text-right">Nb BL</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
-      const top10=_livAllB.slice(0,10).map(_mkRow).join('');
-      const moreHtml=_livAllB.length>10?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${_livAllB.length-10} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${_livAllB.slice(10).map(_mkRow).join('')}</tbody></table></div></details>`:'';
-      return`<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${_livAllB.length} clients</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
-    })();
+    // ── S2b: Livrés sans PDV — DÉPLACÉ dans Conquête Terrain (livSansPDVBlock) ──
 
     // ── S3: Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
     const oppsHtml = renderOppNetteTable();
 
+    // ── S3b: Ce que mes clients achètent ailleurs (nomadesMissedArts) ─────
+    const nomadesMissedHtml = (()=>{
+      const _rawNM = _S.nomadesMissedArts || [];
+      // Filtre Portefeuille sur le badge aussi
+      const _comNM = _S._selectedCommercial || '';
+      const _comSetNM = _comNM ? (_S.clientsByCommercial?.get(_comNM) || new Set()) : null;
+      const list = _comSetNM ? _rawNM.filter(a => (a.clientCodes || []).some(cc => _comSetNM.has(cc))) : _rawNM;
+      if (!list.length) return '';
+      return `<details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px">
+        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none">
+          <div>
+            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#fbbf24">
+              🎯 Ce que mes clients achètent ailleurs
+              <span style="background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700">${list.length}</span>
+            </h3>
+            <p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Articles achetés par vos clients dans d'autres agences · jamais vendus chez vous</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="event.preventDefault();copyNomadesMissedArts()" style="font-size:10px;color:#fbbf24;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button>
+            <span class="acc-arrow" style="color:#fbbf24">▶</span>
+          </div>
+        </summary>
+        <div id="nomadesMissedArtsContainer" class="p-3"><p class="t-disabled text-sm">Chargement…</p></div>
+      </details>`;
+    })();
+
     // ── Clients PDV hors zone (PDV mais absents chalandise) ───────────────
     let horsZoneHtml='';
     {const hors=k.horsZone;
+      _S._horsZoneExport=hors; // pour export CSV rattachement
       const nowMs=Date.now();
       if(hors.length){
         const rows=hors.slice(0,20).map(r=>{
@@ -830,9 +876,10 @@ window._ccc = (di,mi,ci) => {
           const silence=daysSince!==null?`${daysSince}j`:'—';
           const silColor=daysSince===null?'t-disabled':daysSince<30?'c-ok':daysSince<90?'c-caution':'c-danger';
           const _dc=deltaColor(r.caHors,r.caPDV);
-          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
+          return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${_dc}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${silColor}">${silence}</td></tr>`;
         }).join('');
-        horsZoneHtml=`<details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">⚠️ Clients PDV hors zone <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3><span class="acc-arrow" style="color:#fbbf24">▶</span></summary><p style="font-size:11px;color:rgba(255,255,255,0.45);padding:8px 20px;border-bottom:1px solid rgba(217,119,6,0.15)">Clients actifs au comptoir mais non référencés dans la zone de chalandise — vérifier s'ils doivent être ajoutés.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+        const moreHtml=hors.length>20?`<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${hors.length-20} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${hors.slice(20).map(r=>{const ds2=r.lastDate?Math.round((nowMs-r.lastDate)/86400000):null;const s2=ds2!==null?`${ds2}j`:'—';const sc2=ds2===null?'t-disabled':ds2<30?'c-ok':ds2<90?'c-caution':'c-danger';const dc2=deltaColor(r.caHors,r.caPDV);return`<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caPDV)}</td><td class="py-1.5 px-2 text-right text-[11px]">${formatEuro(r.caTotal)}</td><td class="py-1.5 px-2 text-right text-[10px] ${dc2}">${r.caHors>0?'+'+formatEuro(r.caHors):'—'}</td><td class="py-1.5 px-2 text-center text-[10px] ${sc2}">${s2}</td></tr>`;}).join('')}</tbody></table></div></details>`:'';
+        horsZoneHtml=`<details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#fbbf24;display:flex;align-items:center;gap:6px">⚠️ Clients PDV hors zone <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${hors.length} client${hors.length>1?'s':''} absents de la chalandise</span></h3><div class="flex items-center gap-2"><button onclick="event.preventDefault();event.stopPropagation();exportHorsZoneCSV()" style="font-size:10px;color:#fbbf24;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📥 CSV Rattachement</button><span class="acc-arrow" style="color:#fbbf24">▶</span></div></summary><p style="font-size:11px;color:rgba(255,255,255,0.45);padding:8px 20px;border-bottom:1px solid rgba(217,119,6,0.15)">Clients livrés au PDV mais absents de la zone de chalandise — remplissez la colonne "Commercial" et réimportez dans 🔗 Rattachement.</p><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-right">CA PDV</th><th class="py-2 px-2 text-right">CA Total</th><th class="py-2 px-2 text-right">Delta hors</th><th class="py-2 px-2 text-center">Silence</th></tr></thead><tbody>${rows}</tbody></table></div>${moreHtml}</details>`;
       }
     }
 
@@ -842,9 +889,9 @@ window._ccc = (di,mi,ci) => {
       const _digTop=digitaux.slice(0,8);
       if(_digTop.length){
         const cIcon=c=>c==='INTERNET'?'🌐':c==='REPRESENTANT'?'🤝':c==='DCS'?'📦':'📡';
-        const cards=_digTop.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${r.cc}','digitaux')">
+        const cards=_digTop.map(r=>`<div class="s-card rounded-xl border p-3 cursor-pointer hover:s-hover transition-all" onclick="openClient360('${escapeHtml(r.cc)}','digitaux')">
   <div class="flex items-start justify-between mb-1">
-    <div class="min-w-0"><div class="text-[11px] font-bold t-primary truncate">${r.nom}</div><div class="text-[9px] t-disabled">${r.metier||'—'}</div></div>
+    <div class="min-w-0"><div class="text-[11px] font-bold t-primary truncate">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','digitaux')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></div><div class="text-[9px] t-disabled">${r.metier||'—'}</div></div>
     <span class="text-[9px] shrink-0 ml-2" style="color:var(--c-caution)">${r.pdvSilence}j sans PDV</span>
   </div>
   <div class="flex gap-3 mt-1.5 text-[9px]">
@@ -860,7 +907,16 @@ window._ccc = (di,mi,ci) => {
       }
     }
 
-    el.innerHTML = topPDVHtml + nouveauxHtml + livSPDVHtml + oppsHtml + horsZoneHtml + digitauxHtml;
+    // Scorecard portefeuille au-dessus du contenu
+    const comScorecardHtml = _S.chalandiseReady && _S._selectedCommercial ? '<div id="comScorecardPDV"></div>' : '';
+    // Tabs Silencieux/Perdus/Potentiels (déplacés depuis Conquête Terrain)
+    const tabNavHtml = `<div class="flex gap-1 border-b b-default mb-0 overflow-x-auto mt-3" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div><div id="cm-tab-content" class="pt-3"></div>`;
+    el.innerHTML = comScorecardHtml + tabNavHtml + oppsHtml + nomadesMissedHtml + nouveauxHtml + topPDVHtml + horsZoneHtml + digitauxHtml;
+    // Peuple les tableaux cockpit dans les slots
+    _buildCockpitClient();
+    _cmSwitchTabRenderOnly(_cmTab);
+    if (nomadesMissedHtml && typeof renderNomadesMissedArts === 'function') renderNomadesMissedArts();
+    if(_S.chalandiseReady){ _populateCommercialSelect('terrCommercialSidebar','terrCommercialKPISidebar'); _renderCommercialScorecard('comScorecardPDV'); }
   }
 
 
@@ -870,17 +926,44 @@ let _terrClientSearchTimer = null;
 
 // ── Chalandise / Overview (fusionné depuis territoire.js) ──────────────────
 
-function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())all.add(_normalizeClassif(i.classification));if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
-function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())if(i.activitePDV)all.add(i.activitePDV);if(!_S._selectedActivitesPDV.size){_S._selectedActivitesPDV=new Set(all);_S._selectedActivitesPDV.delete(a);}else if(_S._selectedActivitesPDV.has(a)){_S._selectedActivitesPDV.delete(a);if(!_S._selectedActivitesPDV.size)_S._selectedActivitesPDV=new Set();}else{_S._selectedActivitesPDV.add(a);if(_S._selectedActivitesPDV.size>=all.size)_S._selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
-function _toggleOverviewStatut(s,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values())if(i.statut)all.add(_normalizeStatut(i.statut));if(!_S._selectedStatuts.size){_S._selectedStatuts=new Set(all);_S._selectedStatuts.delete(s);}else if(_S._selectedStatuts.has(s)){_S._selectedStatuts.delete(s);if(!_S._selectedStatuts.size)_S._selectedStatuts=new Set();}else{_S._selectedStatuts.add(s);if(_S._selectedStatuts.size>=all.size)_S._selectedStatuts=new Set();}_buildChalandiseOverview();}
-function _toggleOverviewDirection(d,event){if(event)event.preventDefault();const all=new Set();for(const i of _S.chalandiseData.values()){const _dir=i.secteur?getSecteurDirection(i.secteur)||'Autre':'Autre';all.add(_dir);}if(!_S._selectedDirections.size){_S._selectedDirections=new Set(all);_S._selectedDirections.delete(d);}else if(_S._selectedDirections.has(d)){_S._selectedDirections.delete(d);if(!_S._selectedDirections.size)_S._selectedDirections=new Set();}else{_S._selectedDirections.add(d);if(_S._selectedDirections.size>=all.size)_S._selectedDirections=new Set();}_buildChalandiseOverview();}
+// Memoized aggregates over chalandiseData: single pass builds all the unique-value
+// sets that toggles/filters need, instead of re-iterating on every click.
+// Cached by chalandiseData reference — invalidated automatically when data reloads.
+let _chalAggCache=null,_chalAggRef=null;
+function _getChalAgg(){
+  const data=_S.chalandiseData;
+  if(!data)return null;
+  if(_chalAggCache&&_chalAggRef===data)return _chalAggCache;
+  const classifs=new Set(),activitesPDV=new Set(),statutsDetaille=new Set();
+  const statutsNorm=new Set(),directions=new Set(),commercials=new Set(),metiers=new Set();
+  const deptCounts=Object.create(null);
+  for(const info of data.values()){
+    classifs.add(_normalizeClassif(info.classification));
+    if(info.activitePDV)activitesPDV.add(info.activitePDV);
+    if(info.statutDetaille)statutsDetaille.add(info.statutDetaille);
+    if(info.statut)statutsNorm.add(_normalizeStatut(info.statut));
+    directions.add(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
+    if(info.commercial)commercials.add(info.commercial);
+    if(info.metier)metiers.add(info.metier);
+    const d=(info.cp||'').toString().slice(0,2);
+    if(d&&d.trim())deptCounts[d]=(deptCounts[d]||0)+1;
+  }
+  _chalAggRef=data;
+  _chalAggCache={classifs,activitesPDV,statutsDetaille,statutsNorm,directions,commercials,metiers,deptCounts};
+  return _chalAggCache;
+}
+
+function _toggleOverviewClassif(c,event){if(event)event.preventDefault();const all=_getChalAgg()?.classifs||new Set();if(!_S._selectedClassifs.size){_S._selectedClassifs=new Set(all);_S._selectedClassifs.delete(c);}else if(_S._selectedClassifs.has(c)){_S._selectedClassifs.delete(c);if(!_S._selectedClassifs.size)_S._selectedClassifs=new Set();}else{_S._selectedClassifs.add(c);if(_S._selectedClassifs.size>=all.size)_S._selectedClassifs=new Set();}_buildChalandiseOverview();}
+function _toggleOverviewActPDV(a,event){if(event)event.preventDefault();const all=_getChalAgg()?.activitesPDV||new Set();if(!_S._selectedActivitesPDV.size){_S._selectedActivitesPDV=new Set(all);_S._selectedActivitesPDV.delete(a);}else if(_S._selectedActivitesPDV.has(a)){_S._selectedActivitesPDV.delete(a);if(!_S._selectedActivitesPDV.size)_S._selectedActivitesPDV=new Set();}else{_S._selectedActivitesPDV.add(a);if(_S._selectedActivitesPDV.size>=all.size)_S._selectedActivitesPDV=new Set();}_buildChalandiseOverview();}
+function _toggleOverviewStatut(s,event){if(event)event.preventDefault();const all=_getChalAgg()?.statutsNorm||new Set();if(!_S._selectedStatuts.size){_S._selectedStatuts=new Set(all);_S._selectedStatuts.delete(s);}else if(_S._selectedStatuts.has(s)){_S._selectedStatuts.delete(s);if(!_S._selectedStatuts.size)_S._selectedStatuts=new Set();}else{_S._selectedStatuts.add(s);if(_S._selectedStatuts.size>=all.size)_S._selectedStatuts=new Set();}_buildChalandiseOverview();}
+function _toggleOverviewDirection(d,event){if(event)event.preventDefault();const all=_getChalAgg()?.directions||new Set();if(!_S._selectedDirections.size){_S._selectedDirections=new Set(all);_S._selectedDirections.delete(d);}else if(_S._selectedDirections.has(d)){_S._selectedDirections.delete(d);if(!_S._selectedDirections.size)_S._selectedDirections=new Set();}else{_S._selectedDirections.add(d);if(_S._selectedDirections.size>=all.size)_S._selectedDirections=new Set();}_buildChalandiseOverview();}
 function _onActPDVSelect(v){_S._selectedActivitesPDV=v?new Set([v]):new Set();_buildChalandiseOverview();}
 function _onStatutDetailleSelect(v){_S._selectedStatutDetaille=v||'';_buildChalandiseOverview();}
 function _onStatutSelect(v){_S._selectedStatuts=v?new Set([v]):new Set();_buildChalandiseOverview();}
 function _onUniversSelect(v){_S._selectedUnivers=v?new Set([v]):new Set();_buildChalandiseOverview();}
 function _toggleOverviewUnivers(u,event){if(event)event.preventDefault();const all=new Set(_S._clientDominantUnivers.values());if(!_S._selectedUnivers.size){_S._selectedUnivers=new Set(all);_S._selectedUnivers.delete(u);}else if(_S._selectedUnivers.has(u)){_S._selectedUnivers.delete(u);if(!_S._selectedUnivers.size)_S._selectedUnivers=new Set();}else{_S._selectedUnivers.add(u);if(_S._selectedUnivers.size>=all.size)_S._selectedUnivers=new Set();}_buildChalandiseOverview();}
 function _activitePDVColor(v){const l=(v||'').toLowerCase();if(!l.includes('inactif'))return'bg-emerald-600 text-white border-green-600';if(l.includes('2025'))return'bg-red-600 text-white border-red-600';return'bg-orange-500 text-white border-orange-500';}
-function _getAllDepts(){const m={};for(const info of _S.chalandiseData.values()){const d=(info.cp||'').toString().slice(0,2);if(d&&d.trim())m[d]=(m[d]||0)+1;}return m;}
+function _getAllDepts(){return _getChalAgg()?.deptCounts||{};}
 function _buildDeptFilter(){
   const container=document.getElementById('terrDeptCheckboxes');
   const labelEl=document.getElementById('terrDeptLabel');
@@ -917,7 +1000,34 @@ function _toggleDept(dept,event){
   }
   _buildDeptFilter();_buildChalandiseOverview();
 }
-function _resetChalandiseFilters(){_S._selectedDepts=new Set();_S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._selectedDirections=new Set();_S._selectedUnivers=new Set();_S._selectedCommercial='';_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._includePerdu24m=false;_S._distanceMaxKm=0;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;const comSel=document.getElementById('terrCommercialFilter');if(comSel)comSel.value='';const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';const aSel=document.getElementById('terrActPDVSelect');if(aSel)aSel.value='';const sdSel=document.getElementById('terrStatutDetailleSelect');if(sdSel)sdSel.value='';const stSel=document.getElementById('terrStatutSelect');if(stSel)stSel.value='';const uSel=document.getElementById('terrUniversSelect');if(uSel)uSel.value='';const dSlider=document.getElementById('distKmSlider');if(dSlider){dSlider.value=0;}const dLabel=document.getElementById('distKmLabel');if(dLabel)dLabel.textContent='∞';_buildDeptFilter();_buildChalandiseOverview();}
+function _resetChalandiseFilters(){
+  // Reset TACTIQUE — ne touche JAMAIS au filtre Maître (Portefeuille = commercial)
+  // Reset tous les filtres tactiques visibles (Ciblage + Activité + Organisation)
+  // Ciblage
+  _S._selectedDepts=new Set();_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._distanceMaxKm=0;
+  const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}
+  const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';
+  const dSlider=document.getElementById('distKmSlider');if(dSlider)dSlider.value=0;
+  const dLabel=document.getElementById('distKmLabel');if(dLabel)dLabel.textContent='∞';
+  _buildDeptFilter();
+  // Activité
+  _S._selectedClassifs=new Set();_S._selectedStatuts=new Set();_S._selectedActivitesPDV=new Set();_S._selectedStatutDetaille='';_S._includePerdu24m=false;
+  const aSel=document.getElementById('terrActPDVSelect');if(aSel)aSel.value='';
+  const sdSel=document.getElementById('terrStatutDetailleSelect');if(sdSel)sdSel.value='';
+  const stSel=document.getElementById('terrStatutSelect');if(stSel)stSel.value='';
+  const cb=document.querySelector('#togglePerdu24m input');if(cb)cb.checked=false;
+  // Organisation
+  _S._selectedDirections=new Set();_S._selectedUnivers=new Set();
+  const uSel=document.getElementById('terrUniversSelect');if(uSel)uSel.value='';
+  // Persister l'état reset dans le slot de l'onglet courant
+  if(_S._activeCommerceTab&&_S._tabFilters[_S._activeCommerceTab]){
+    const slot=_S._tabFilters[_S._activeCommerceTab];
+    slot.distanceMaxKm=0;slot.selectedDepts=new Set();slot.selectedMetier='';slot.filterStrategiqueOnly=false;
+    slot.selectedClassifs=new Set();slot.selectedStatuts=new Set();slot.selectedActivitesPDV=new Set();slot.selectedStatutDetaille='';slot.includePerdu24m=false;
+    slot.selectedDirections=new Set();slot.selectedUnivers=new Set();
+  }
+  _buildChalandiseOverview();
+}
 // ── Territory overview: Direction → Métier → Secteur → Clients ──
 const _closeAllDropPanels=(...except)=>{['terrDeptPanel','terrClassifPanel','terrActPDVPanel','terrStatutPanel','terrDirectionPanel'].forEach(id=>{if(!except.includes(id))document.getElementById(id)?.classList.add('hidden');});};
 function _toggleDeptDropdown(){const p=document.getElementById('terrDeptPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDeptPanel');p.classList.toggle('hidden',closing);}
@@ -926,17 +1036,146 @@ function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPane
 function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrStatutPanel');p.classList.toggle('hidden',closing);}
 function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
 function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
-function _onCommercialFilter(val){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}_S._selectedCommercial=(!val||commercials.has(val))?val:'';if(_S._selectedCommercial===val)_buildChalandiseOverview();}
-function _onDistanceSlider(val){const v=parseInt(val)||0;_S._distanceMaxKm=v;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=v>0?v+'km':'∞';_updateDistQuickBtns(v);_buildChalandiseOverview();}
-function _setDistanceQuick(km){_S._distanceMaxKm=km;const sl=document.getElementById('distKmSlider');if(sl)sl.value=km;const lbl=document.getElementById('distKmLabel');if(lbl)lbl.textContent=km>0?km+'km':'∞';_updateDistQuickBtns(km);_buildChalandiseOverview();}
-function _updateDistQuickBtns(activeKm){document.querySelectorAll('.dist-quick-btn').forEach(b=>{const v=parseInt(b.textContent)||0;const isActive=(v===activeKm)||(activeKm===0&&b.textContent.includes('Off'));b.style.background=isActive?'var(--c-action)':'';b.style.color=isActive?'white':'';b.style.borderColor=isActive?'var(--c-action)':'';});}
+function _onCommercialFilter(val){
+  const commercials=_getChalAgg()?.commercials||new Set();
+  _S._selectedCommercial=(!val||commercials.has(val))?val:'';
+  // Sync all commercial selects across tabs
+  for(const id of ['terrCommercialSidebar']){
+    const el=document.getElementById(id);
+    if(el&&el.value!==_S._selectedCommercial)el.value=_S._selectedCommercial;
+    if(el)el.style.borderColor=_S._selectedCommercial?'rgba(99,102,241,0.8)':'rgba(99,102,241,0.4)';
+  }
+  // Update KPI spans + clear buttons
+  const comSect = _getCommercialSecteurs();
+  for(const id of ['terrCommercialKPISidebar']){
+    const el=document.getElementById(id);if(!el)continue;
+    if(_S._selectedCommercial){
+      const ccs=_S.clientsByCommercial?.get(_S._selectedCommercial);
+      const sect=comSect.get(_S._selectedCommercial);
+      el.textContent=(ccs?`${ccs.size} client${ccs.size>1?'s':''}`:'')+( sect?` · secteur ${sect}`:'');
+    }else{el.textContent='';}
+  }
+  _syncComClearBtns();
+  // Render scorecards + top articles + poches in both tabs
+  _renderCommercialScorecard('comScorecard');
+  _renderCommercialScorecard('comScorecardPDV');
+  _renderComTopArticles('comTopArticles');
+  _renderPochesTerrain('pochesTerrain');
+  _renderPochesTerrain('pochesTerrain2');
+  _buildChalandiseOverview();
+  // Re-render PDV tab if visible
+  if(document.getElementById('tabClients')&&!document.getElementById('tabClients').classList.contains('hidden'))renderMesClients();
+}
+// Input handler: resolve typed value to a commercial (exact name OR secteur code)
+// Also updates datalist with max 8 filtered suggestions
+let _comInputTimer = null;
+function _onCommercialInput(val) {
+  clearTimeout(_comInputTimer);
+  _comInputTimer = setTimeout(() => {
+    const v = (val || '').trim();
+    if (!v) { _onCommercialFilter(''); _updateComDatalist(''); _syncComClearBtns(); return; }
+    const commercials = _getChalAgg()?.commercials || new Set();
+    // Exact commercial name match → apply immediately
+    if (commercials.has(v)) { _onCommercialFilter(v); _updateComDatalist(''); _syncComClearBtns(); return; }
+    // Search by secteur code (case-insensitive)
+    const vLow = v.toLowerCase();
+    const comSect = _getCommercialSecteurs();
+    for (const [com, sect] of comSect) {
+      if (sect && sect.toLowerCase() === vLow) { _onCommercialFilter(com); _syncComInputs(com); _updateComDatalist(''); _syncComClearBtns(); return; }
+    }
+    // No exact match yet — update datalist with filtered suggestions (max 8)
+    _updateComDatalist(vLow);
+    // Don't apply filter while user is still typing (no exact match)
+  }, 200);
+}
+function _updateComDatalist(query) {
+  const MAX = 8;
+  const comSect = _getCommercialSecteurs();
+  const commercials = _getChalAgg()?.commercials || new Set();
+  const matches = [];
+  if (query) {
+    for (const c of commercials) {
+      const sect = comSect.get(c) || '';
+      if (c.toLowerCase().includes(query) || (sect && sect.toLowerCase().includes(query))) {
+        matches.push(c);
+        if (matches.length >= MAX) break;
+      }
+    }
+  }
+  // Update all datalists
+  const html = matches.map(c => {
+    const sect = comSect.get(c) || '';
+    return `<option value="${escapeHtml(c)}"${sect ? ' label="' + escapeHtml(c) + ' — ' + escapeHtml(sect) + '"' : ''}>`;
+  }).join('');
+  for (const id of ['terrCommercialSidebar_list']) {
+    const dl = document.getElementById(id);
+    if (dl) dl.innerHTML = html;
+  }
+}
+function _syncComInputs(resolved) {
+  const el = document.getElementById('terrCommercialSidebar');
+  if (el && el.value !== resolved) el.value = resolved;
+}
+function _syncComClearBtns() {
+  const active = !!_S._selectedCommercial;
+  const el = document.getElementById('terrCommercialClearSidebar');
+  if (el) el.classList.toggle('hidden', !active);
+}
+
+function _setDistanceQuick(km){_S._distanceMaxKm=km;_updateDistQuickBtns(km);_buildChalandiseOverview();}
+function _updateDistQuickBtns(activeKm){document.querySelectorAll('.dist-quick-btn').forEach(b=>{const v=parseInt(b.textContent)||0;const isActive=(v===activeKm)||(activeKm===0&&b.textContent.includes('Tous'));b.style.background=isActive?'var(--c-action)':'';b.style.color=isActive?'white':'';b.style.borderColor=isActive?'var(--c-action)':'';});}
 function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
   const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
   _S._terrClientSearch=raw;
   _terrClientSearchTimer=setTimeout(()=>{renderMesClients();window.renderTerritoireTab?.();},300);
 }
-function _onMetierFilter(val){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier)metiers.add(info.metier);}_S._selectedMetier=(!val||metiers.has(val))?val:'';if(_S._selectedMetier===val)_buildChalandiseOverview();}
+let _metInputTimer = null;
+let _metierSortedCacheRef = null;
+let _metierSortedAll = null;
+let _metierSortedStrategique = null;
+function _getMetiersSorted(strategiqueOnly) {
+  const ref = _S.chalandiseData;
+  if (_metierSortedCacheRef !== ref) { _metierSortedCacheRef = ref; _metierSortedAll = null; _metierSortedStrategique = null; }
+  if (!strategiqueOnly) {
+    if (!_metierSortedAll) _metierSortedAll = [...(_getChalAgg()?.metiers || new Set())].sort((a, b) => a.localeCompare(b, 'fr'));
+    return _metierSortedAll;
+  }
+  if (!_metierSortedStrategique) _metierSortedStrategique = [...(_getChalAgg()?.metiers || new Set())].filter(_isMetierStrategique).sort((a, b) => a.localeCompare(b, 'fr'));
+  return _metierSortedStrategique;
+}
+function _updateMetierDatalist(queryLower) {
+  const dl = document.getElementById('terrMetierList');
+  if (!dl) return;
+  const q = (queryLower || '').trim();
+  if (!q || q.length < 2 || _S._selectedMetier) { dl.innerHTML = ''; return; }
+  const MAX = 12;
+  const metiers = _getMetiersSorted(!!_S._filterStrategiqueOnly);
+  const matches = [];
+  for (const m of metiers) {
+    if (m.toLowerCase().includes(q)) { matches.push(m); if (matches.length >= MAX) break; }
+  }
+  dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m)}">`).join('');
+}
+function _onMetierInput(val) {
+  clearTimeout(_metInputTimer);
+  _metInputTimer = setTimeout(() => {
+    const v = (val || '').trim();
+    if (!v) { _updateMetierDatalist(''); _onMetierFilter(''); return; }
+    const metiers = _getChalAgg()?.metiers || new Set();
+    const ok = metiers.has(v) && (!_S._filterStrategiqueOnly || _isMetierStrategique(v));
+    if (ok) { _updateMetierDatalist(''); _onMetierFilter(v); return; }
+    _updateMetierDatalist(v.toLowerCase());
+  }, 180);
+}
+function _onMetierFilter(val){
+  const v = (val || '').trim();
+  const metiers=_getChalAgg()?.metiers||new Set();
+  const next=(!v||metiers.has(v))?v:'';
+  if (next === _S._selectedMetier) return;
+  _S._selectedMetier = next;
+  if (_S._selectedMetier === v) _buildChalandiseOverview();
+}
 function _navigateToOverviewMetier(metier){
   closeDiagnostic();
   _S._selectedMetier=metier;
@@ -967,18 +1206,565 @@ function _navigateToOverviewMetier(metier){
   },100);
 }
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
+// ── Shared helper: populate a commercial <select> + KPI span ───────────
+// Build commercial → dominant secteur mapping (cached)
+let _comSectCache = null, _comSectRef = null;
+function _getCommercialSecteurs() {
+  const data = _S.chalandiseData;
+  if (!data) return new Map();
+  if (_comSectCache && _comSectRef === data) return _comSectCache;
+  const counts = new Map(); // commercial → Map<secteur, count>
+  for (const info of data.values()) {
+    if (!info.commercial || !info.secteur) continue;
+    let sc = counts.get(info.commercial);
+    if (!sc) { sc = new Map(); counts.set(info.commercial, sc); }
+    sc.set(info.secteur, (sc.get(info.secteur) || 0) + 1);
+  }
+  const result = new Map();
+  for (const [com, sc] of counts) {
+    let best = '', bestN = 0;
+    for (const [s, n] of sc) { if (n > bestN) { best = s; bestN = n; } }
+    result.set(com, best);
+  }
+  _comSectRef = data;
+  _comSectCache = result;
+  return result;
+}
+
+function _populateCommercialSelect(inputId, kpiId) {
+  const comInput = document.getElementById(inputId);
+  if (!comInput) return;
+  const cur = _S._selectedCommercial || '';
+  // Ensure datalist element exists (empty until user types)
+  const listId = inputId + '_list';
+  let dl = document.getElementById(listId);
+  if (!dl) { dl = document.createElement('datalist'); dl.id = listId; comInput.parentNode.appendChild(dl); comInput.setAttribute('list', listId); }
+  // Only show suggestions when no commercial is selected (empty datalist otherwise)
+  if (!cur) dl.innerHTML = '';
+  comInput.value = cur;
+  comInput.style.borderColor = cur ? 'rgba(99,102,241,0.8)' : 'rgba(99,102,241,0.4)';
+  if (kpiId) {
+    const kpiEl = document.getElementById(kpiId);
+    if (kpiEl) {
+      if (cur) {
+        const ccs = _S.clientsByCommercial?.get(cur);
+        const sect = _getCommercialSecteurs().get(cur);
+        let nb = 0;
+        if (ccs) {
+          for (const cc of ccs) {
+            const info = _S.chalandiseData?.get(cc);
+            if (!info) continue;
+            if (!_clientPassesFilters(info, cc)) continue;
+            if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+            nb++;
+          }
+        }
+        kpiEl.textContent = (nb ? `${nb} client${nb > 1 ? 's' : ''}` : '') + (sect ? ` · secteur ${sect}` : '');
+      } else { kpiEl.textContent = ''; }
+    }
+  }
+}
+
+// ── Scorecard Portefeuille Commercial ───────────────────────────────────
+function _renderCommercialScorecard(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const com = _S._selectedCommercial;
+  const _hasForcage = !!_S.forcageCommercial?.size;
+  if (!com || (!_S.chalandiseReady && !_hasForcage)) { el.innerHTML = ''; return; }
+
+  const ccs = _S.clientsByCommercial?.get(com);
+  if (!ccs || !ccs.size) { el.innerHTML = ''; return; }
+
+  // ── Agrégats portefeuille (respecte filtres chalandise actifs) ──
+  let caPDVTotal = 0, ca2026 = 0, nbClients = 0, nbCaptes = 0;
+
+  for (const cc of ccs) {
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    if (!_clientPassesFilters(info, cc)) continue;
+    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    nbClients++;
+    ca2026 += info.ca2026 || 0;
+
+    const rec = _S.clientStore?.get(cc);
+    const _caPDV = rec?.caPDV || 0;
+    caPDVTotal += _caPDV;
+    if (_caPDV > 0) nbCaptes++;
+  }
+
+  const _partDenom = Math.max(caPDVTotal, ca2026);
+  const txPartPDV = _partDenom > 0 ? Math.round(caPDVTotal / _partDenom * 100) : 0;
+  const potentiel = Math.max(0, ca2026 - caPDVTotal);
+
+  // ── Ruptures impactant les clients du commercial ──
+  const comClientSet = new Set();
+  for (const cc of ccs) {
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    if (!_clientPassesFilters(info, cc)) continue;
+    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    if (_S.ventesClientArticle?.has(cc)) comClientSet.add(cc);
+  }
+  let nbRupturesImpact = 0, nbClientsImpactes = 0;
+  _ruptureClientSet = new Set();
+  const clientsImpactesSet = _ruptureClientSet;
+  if (DataStore.finalData?.length && _S.articleClients && comClientSet.size) {
+    for (const r of DataStore.finalData) {
+      if (r.stockActuel !== 0 || r.W < 1 || r.isParent) continue;
+      if (r.V === 0 && r.enleveTotal > 0) continue; // parent ref
+      const buyers = _S.articleClients.get(r.code);
+      if (!buyers) continue;
+      let touches = false;
+      for (const cc of buyers) {
+        if (comClientSet.has(cc)) { clientsImpactesSet.add(cc); touches = true; }
+      }
+      if (touches) nbRupturesImpact++;
+    }
+    nbClientsImpactes = clientsImpactesSet.size;
+  }
+
+  const comSect = _getCommercialSecteurs();
+  const sect = comSect.get(com) || '';
+
+  const _kpi = (label, value, sub, color) =>
+    `<div class="flex flex-col items-center p-2.5 rounded-xl border s-card min-w-[100px]">
+      <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">${label}</span>
+      <span class="text-[15px] font-extrabold" style="color:${color}">${value}</span>
+      ${sub ? `<span class="text-[9px] t-disabled mt-0.5">${sub}</span>` : ''}
+    </div>`;
+
+  el.innerHTML = `<div class="flex flex-wrap items-stretch gap-2 mb-3 p-3 rounded-xl border" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.03));border-color:rgba(99,102,241,0.25)">
+    <div class="flex flex-col justify-center mr-2">
+      <span class="text-[11px] font-extrabold t-primary">${escapeHtml(com)}</span>
+      ${sect ? `<span class="text-[9px] t-disabled">Secteur ${escapeHtml(sect)}</span>` : ''}
+      <span class="text-[9px] t-disabled">${nbClients} clients zone</span>
+      <button onclick="window._comToggleMixCanal()" class="text-[9px] c-action hover:underline cursor-pointer mt-1 text-left font-semibold">📡 Mix canal</button>
+    </div>
+    ${_kpi('CA PDV', formatEuro(caPDVTotal), nbCaptes + ' / ' + nbClients + ' captés', 'var(--c-action)')}
+    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients', '#c4b5fd')}
+    ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)')}
+    ${_kpi('Potentiel', formatEuro(potentiel), 'zone − PDV', potentiel > 0 ? 'var(--c-danger)' : 'var(--c-ok)')}
+    <div class="flex flex-col items-center p-2.5 rounded-xl border min-w-[100px] cursor-pointer transition-all hover:brightness-110 ${_pocheActive === 'E' ? 's-panel-inner' : 's-card'}" style="${_pocheActive === 'E' ? 'box-shadow:0 0 0 2px var(--c-danger)' : ''}" onclick="window._togglePoche('E')" title="${nbRupturesImpact} articles en rupture impactant ${nbClientsImpactes} clients">
+      <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">Ruptures / irritants</span>
+      <span class="text-[15px] font-extrabold" style="color:${nbRupturesImpact > 0 ? 'var(--c-danger)' : 'var(--c-ok)'}">${nbRupturesImpact}</span>
+      <span class="text-[9px] t-disabled mt-0.5">${nbClientsImpactes} client${nbClientsImpactes > 1 ? 's' : ''} impacté${nbClientsImpactes > 1 ? 's' : ''}</span>
+    </div>
+  </div>
+  <div id="comMixCanalInline" class="hidden" style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+    <div style="padding:10px 16px;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="font-weight:800;font-size:12px;color:#cbd5e1">📡 Répartition par canal</h3>
+      <button onclick="window._comToggleMixCanal()" class="text-[10px] t-disabled hover:text-white cursor-pointer font-bold">✕</button>
+    </div>
+    <div id="canalAgenceBlock" class="p-3"></div>
+  </div>`;
+}
+
+window._comToggleMixCanal = function() {
+  const el = document.getElementById('comMixCanalInline');
+  if (!el) return;
+  el.classList.toggle('hidden');
+  if (!el.classList.contains('hidden') && window.renderCanalAgence) window.renderCanalAgence();
+};
+
+// ── Top articles du commercial — contextuel 3 modes ─────────────────
+let _comTopArtLimit = 20;
+let _comTopArtMode = 'ici'; // 'ici' | 'ailleurs' | 'manquants'
+
+function _comTopHasContext() {
+  return !!(_S._selectedCommercial && (_S.chalandiseReady || _S.forcageCommercial?.size) &&
+    (_selectedTopClient || _pocheActive || _S._selectedMetier || (_S._distanceMaxKm > 0 && _S._agenceCoords)));
+}
+
+function _renderComTopArticles(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const com = _S._selectedCommercial;
+  const _hasForcage = !!_S.forcageCommercial?.size;
+  if (!com || (!_S.chalandiseReady && !_hasForcage)) { el.innerHTML = ''; return; }
+
+  // Top 20 clients toujours visible
+  let html = '';
+  const clientsDiv = document.createElement('div');
+  _renderComTopClients(clientsDiv);
+  html += clientsDiv.innerHTML;
+
+  // Top 20 articles : placeholder si aucun client sélectionné
+  if (!_selectedTopClient) {
+    el.innerHTML = html + `<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.04));border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:24px;text-align:center;margin-bottom:12px">
+      <span style="font-size:24px;opacity:0.3">📦</span>
+      <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:8px">Sélectionnez un client pour voir ses opportunités articles</p>
+    </div>`;
+    return;
+  }
+  if (!_comTopHasContext()) { el.innerHTML = html; return; }
+
+  // ── Agrégation pour le client sélectionné uniquement ──
+  const targetCcs = _selectedTopClient ? [_selectedTopClient] : [...(_S.clientsByCommercial?.get(com) || [])];
+  const iciMap = new Map();
+  const ailMap = new Map();
+  for (const cc of targetCcs) {
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    const pdv = _S.ventesClientArticle?.get(cc);
+    if (pdv) for (const [code, d] of pdv) {
+      if (!iciMap.has(code)) iciMap.set(code, { ca: 0, nbClients: 0, nbBL: 0 });
+      const a = iciMap.get(code); a.ca += d.sumCA || 0; a.nbClients++; a.nbBL += d.countBL || 0;
+    }
+    const hors = _S.ventesClientHorsMagasin?.get(cc);
+    if (hors) for (const [code, d] of hors) {
+      if (!ailMap.has(code)) ailMap.set(code, { ca: 0, nbClients: 0, nbBL: 0 });
+      const a = ailMap.get(code); a.ca += d.sumCA || 0; a.nbClients++; a.nbBL += d.countBL || 0;
+    }
+  }
+
+  // ── Build mode-specific list ──
+  let entries = []; // [[code, {ca, caIci, caAil, nbClients, nbBL}]]
+  // Auto-fallback : si le mode demandé est vide, basculer sur le premier mode non-vide
+  let mode = _comTopArtMode;
+  if (mode === 'ici' && !iciMap.size && ailMap.size) mode = 'ailleurs';
+  else if (mode === 'ailleurs' && !ailMap.size && iciMap.size) mode = 'ici';
+  if (mode === 'subies') {
+    // Articles en rupture que ce client achète (PDV ou hors)
+    const allCodes = new Set([...iciMap.keys(), ...ailMap.keys()]);
+    for (const code of allCodes) {
+      const r = DataStore.finalData?.find(f => f.code === code);
+      if (!r || r.stockActuel > 0) continue; // pas en rupture
+      if (r.W < 1 || r.isParent) continue;
+      const caIci = iciMap.get(code)?.ca || 0;
+      const caAil = ailMap.get(code)?.ca || 0;
+      const totalCA = caIci + caAil;
+      if (totalCA <= 0) continue;
+      entries.push([code, { ca: totalCA, caIci, caAil, nbClients: 1, nbBL: (iciMap.get(code)?.nbBL || 0) + (ailMap.get(code)?.nbBL || 0) }]);
+    }
+  } else if (mode === 'ici') {
+    entries = [...iciMap.entries()].map(([c,d]) => [c, { ...d, caIci: d.ca, caAil: ailMap.get(c)?.ca || 0 }]);
+  } else if (mode === 'ailleurs') {
+    entries = [...ailMap.entries()].map(([c,d]) => [c, { ...d, caIci: iciMap.get(c)?.ca || 0, caAil: d.ca }]);
+  } else { // manquants = ailleurs minus ici
+    for (const [code, ail] of ailMap) {
+      const ici = iciMap.get(code);
+      const caIci = ici?.ca || 0;
+      const gap = ail.ca - caIci;
+      if (gap > 0) entries.push([code, { ca: gap, caIci, caAil: ail.ca, nbClients: ail.nbClients, nbBL: ail.nbBL }]);
+    }
+  }
+  entries.sort((a, b) => b[1].ca - a[1].ca);
+
+  if (!entries.length) {
+    const _emptyMsg = { ici: 'acheté ici', ailleurs: 'acheté ailleurs', manquants: 'manquant', subies: 'en rupture pour ce client' };
+    el.innerHTML = html + `<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun article ${_emptyMsg[mode] || ''} pour ce client.</div>`;
+    return;
+  }
+
+  const allSorted = entries;
+  const sorted = allSorted.slice(0, _comTopArtLimit);
+
+  const _sqBadge = (code) => {
+    const sq = window._getArticleSqInfo?.(code);
+    if (!sq) return '<span class="t-disabled">—</span>';
+    const _cColors = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
+    const _cLabels = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
+    const cBadge = `<span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:${_cColors[sq.classif]}20;color:${_cColors[sq.classif]}">${_cLabels[sq.classif]}</span>`;
+    const vBadge = sq.verdict?.name && sq.verdict.name !== '—' ? `<br><span class="text-[8px] t-inverse-muted" title="${escapeHtml(sq.verdict.tip||'')}">${sq.verdict.icon} ${escapeHtml(sq.verdict.name)}</span>` : '';
+    return cBadge + vBadge;
+  };
+
+  const _mkRow = ([code, d]) => {
+    const lib = (_S.libelleLookup?.[code] || code).replace(/^\d{6} - /, '');
+    const r = DataStore.finalData?.find(f => f.code === code);
+    const stock = r ? (r.stockActuel > 0 ? `<span class="c-ok">${r.stockActuel}</span>` : '<span class="c-danger">0</span>') : '<span class="t-disabled">—</span>';
+    const caCol = mode === 'subies' ? 'c-danger' : mode === 'manquants' ? 'c-danger' : mode === 'ailleurs' ? 'c-caution' : 'c-action';
+    const caLabel = formatEuro(d.ca);
+    // Colonne comparaison
+    const vsCol = mode === 'subies' ? `<span class="c-ok">${formatEuro(d.caIci)}</span> / <span class="c-caution">${formatEuro(d.caAil)}</span>`
+                : mode === 'ici' ? (d.caAil > 0 ? `<span class="c-caution">${formatEuro(d.caAil)}</span>` : '<span class="t-disabled">—</span>')
+                : mode === 'ailleurs' ? (d.caIci > 0 ? `<span class="c-ok">${formatEuro(d.caIci)}</span>` : '<span class="t-disabled">—</span>')
+                : `<span class="t-disabled">${formatEuro(d.caIci)}</span> → <span class="c-caution">${formatEuro(d.caAil)}</span>`;
+    return `<tr class="border-b b-light hover:s-hover">
+      <td class="py-1.5 px-2 font-mono text-[10px] t-tertiary">${code}</td>
+      <td class="py-1.5 px-2 text-[11px] font-semibold t-primary truncate max-w-[180px]">${escapeHtml(lib)}</td>
+      <td class="py-1.5 px-2 text-right font-bold ${caCol}">${caLabel}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] whitespace-nowrap">${vsCol}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] t-secondary">${d.nbClients}</td>
+      <td class="py-1.5 px-2 text-center">${stock}</td>
+      <td class="py-1.5 px-2 text-center text-[10px]">${_sqBadge(code)}</td>
+    </tr>`;
+  };
+
+  const rows = sorted.map(_mkRow).join('');
+  const canExpand = allSorted.length > 20 && _comTopArtLimit <= 20;
+  const canCollapse = _comTopArtLimit > 20;
+  const toggleBtn = canExpand
+    ? `<button onclick="window._comTopArtToggle()" class="text-[10px] c-action hover:underline cursor-pointer font-semibold px-3 py-2 border-t b-default block w-full text-left">Voir le top 100 → (${Math.min(allSorted.length, 100) - 20} de plus)</button>`
+    : canCollapse
+    ? `<button onclick="window._comTopArtToggle()" class="text-[10px] c-action hover:underline cursor-pointer font-semibold px-3 py-2 border-t b-default block w-full text-left">← Revenir au top 20</button>`
+    : '';
+
+  const _modeLabels = { ici: '🏪 Ici', ailleurs: '📡 Ailleurs', manquants: '🎯 Manquants', subies: '💔 Subies' };
+  const _caHeaders = { ici: 'CA PDV', ailleurs: 'CA Ailleurs', manquants: 'Écart', subies: 'CA Total' };
+  const _vsHeaders = { ici: 'Ailleurs', ailleurs: 'PDV', manquants: 'PDV → Ailleurs', subies: 'PDV / Ailleurs' };
+  const _hasSubies = _ruptureClientSet.has(_selectedTopClient);
+  const tabModes = _hasSubies ? ['ici','ailleurs','manquants','subies'] : ['ici','ailleurs','manquants'];
+  const modeTabs = tabModes.map(m => {
+    const active = m === mode;
+    return `<button onclick="window._comTopArtMode('${m}')" class="text-[10px] px-2 py-1 rounded-full font-semibold cursor-pointer transition-colors ${active ? 'bg-indigo-500/30 text-indigo-300' : 't-disabled hover:text-white'}">${_modeLabels[m]}</button>`;
+  }).join('');
+
+  el.innerHTML = html + `<details open style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(79,70,229,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:14px;margin-bottom:12px">
+    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(79,70,229,0.10));border-bottom:1px solid rgba(99,102,241,0.2);list-style:none;position:sticky;top:0;z-index:2" class="select-none">
+      <h3 style="font-weight:800;font-size:13px;color:#a5b4fc;display:flex;align-items:center;gap:6px">📦 ${_selectedTopClient ? escapeHtml(_S.clientStore?.get(_selectedTopClient)?.nom || _selectedTopClient) + ' — ' : ''}Top ${_comTopArtLimit > 20 ? _comTopArtLimit : 20} articles <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${allSorted.length} réf.</span></h3>
+      <span class="acc-arrow" style="color:#a5b4fc">▶</span>
+    </summary>
+    <div class="flex gap-1 px-4 py-2 border-b b-default">${modeTabs}</div>
+    <div class="overflow-x-auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse font-bold"><tr>
+        <th class="py-2 px-2 text-left">Code</th>
+        <th class="py-2 px-2 text-left">Article</th>
+        <th class="py-2 px-2 text-right">${_caHeaders[mode]}</th>
+        <th class="py-2 px-2 text-center">${_vsHeaders[mode]}</th>
+        <th class="py-2 px-2 text-center">Clients</th>
+        <th class="py-2 px-2 text-center">Stock</th>
+        <th class="py-2 px-2 text-center">Statut Sq.</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    ${toggleBtn}
+  </details>`;
+}
+window._comTopArtMode = function(m) {
+  _comTopArtMode = m;
+  _comTopArtLimit = 20;
+  _renderComTopArticles('comTopArticles');
+};
+window._comTopArtToggle = function() {
+  _comTopArtLimit = _comTopArtLimit <= 20 ? 100 : 20;
+  _renderComTopArticles('comTopArticles');
+};
+
+// ── Top 20 clients à actionner — clic = sélection pour detail articles ──
+function _renderComTopClients(el) {
+  const com = _S._selectedCommercial;
+  const ccs = _S.clientsByCommercial?.get(com);
+  if (!ccs?.size) { el.innerHTML = ''; return; }
+
+  // Set de clients filtrés par poche active (E = ruptures, stocké dans _ruptureClientSet)
+  const pocheCcs = _pocheActive
+    ? (_pocheActive === 'E' ? (_ruptureClientSet.size ? _ruptureClientSet : null) : new Set((_pocheData[_pocheActive] || []).map(c => c.cc)))
+    : null;
+
+  const clients = [];
+  for (const cc of ccs) {
+    if (pocheCcs && !pocheCcs.has(cc)) continue; // filtre poche
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    if (!_clientPassesFilters(info, cc)) continue;
+    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    const rec = _S.clientStore?.get(cc);
+    const caPDV = rec?.caPDV || 0;
+    const caZone = info.ca2026 || rec?.caTotal || 0;
+    const gap = Math.max(0, caZone - caPDV);
+    const silence = rec?.silenceDaysPDV ?? 999;
+    const caAutres = rec?.caAutresAgences || 0;
+    let score = gap;
+    if (silence >= 30 && caPDV > 0) score += caPDV * 0.5;
+    if (caAutres > 0) score += caAutres * 0.3;
+    if (score <= 0 && caPDV <= 0) continue;
+    clients.push({ cc, nom: rec?.nom || info.nom || cc, metier: rec?.metier || info.metier || '', classification: info.classification || '', caPDV, caZone, gap, silence, caAutres, score });
+  }
+  clients.sort((a, b) => b.score - a.score);
+  const top = clients.slice(0, 20);
+  if (!top.length) { el.innerHTML = '<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun client avec signal pour ce filtre.</div>'; return; }
+
+  const pocheLabels = { A: 'Rapatriement PDV', B: 'Inter-agences', C: 'Livré → Proximité', D: 'Activation', E: 'Ruptures / Irritants' };
+  const pocheColors = { A: 'var(--c-danger)', B: '#f59e0b', C: '#8b5cf6', D: 'var(--c-ok)', E: '#f87171' };
+  const titleColor = _pocheActive ? pocheColors[_pocheActive] : '#fde047';
+  const titleLabel = _pocheActive ? pocheLabels[_pocheActive] + ' — ' : '';
+
+  const _mkRow = (c) => {
+    const isSelected = c.cc === _selectedTopClient;
+    const _clCls = c.classification?.startsWith('FID') ? 'c-ok' : c.classification?.startsWith('OCC') ? 'c-caution' : 't-disabled';
+    const silTxt = c.silence < 999 ? `${c.silence}j` : '—';
+    const silCls = c.silence >= 60 ? 'c-danger' : c.silence >= 30 ? 'c-caution' : 'c-ok';
+    const gapTxt = c.gap > 0 ? `<span class="c-danger">${formatEuro(c.gap)}</span>` : '<span class="t-disabled">—</span>';
+    let tag = '';
+    const isRuptureImpacted = _ruptureClientSet.has(c.cc);
+    if (c.silence >= 60 && c.caPDV > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-red-900/40 text-red-300 font-bold">Silence</span>';
+    else if (c.gap > c.caPDV && c.caZone > 500) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-blue-900/40 text-blue-300 font-bold">Potentiel</span>';
+    else if (c.caAutres > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-amber-900/40 text-amber-300 font-bold">Multi-PDV</span>';
+    else if (c.silence >= 30 && c.caPDV > 0) tag = '<span class="text-[8px] px-1 py-0.5 rounded bg-orange-900/40 text-orange-300 font-bold">À relancer</span>';
+    if (isRuptureImpacted) tag += ' <span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:rgba(239,68,68,0.25);color:#fca5a5" title="Client impacté par des ruptures">⚠️ Subies</span>';
+    const selStyle = isSelected ? 'background:rgba(234,179,8,0.15);box-shadow:inset 3px 0 0 #fde047' : '';
+    return `<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" style="${selStyle}" onclick="window._selectTopClient('${escapeHtml(c.cc)}')">
+      <td class="py-1.5 px-2 text-[11px] font-semibold t-primary">
+        <span class="inline-flex items-center gap-1">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(c.cc)}','terrain')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity" title="Ouvrir la fiche 360°">🔍</button>${tag}</span>
+      </td>
+      <td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier || '—')}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(c.classification || '—')}</td>
+      <td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(c.caPDV)}</td>
+      <td class="py-1.5 px-2 text-right text-[11px]">${gapTxt}</td>
+      <td class="py-1.5 px-2 text-center text-[10px] ${silCls}">${silTxt}</td>
+    </tr>`;
+  };
+
+  el.innerHTML = `<details open style="background:linear-gradient(135deg,rgba(234,179,8,0.10),rgba(202,138,4,0.05));border:1px solid rgba(234,179,8,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
+    <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.15),rgba(202,138,4,0.08));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none">
+      <h3 style="font-weight:800;font-size:13px;color:${titleColor};display:flex;align-items:center;gap:6px">⚡ ${titleLabel}Top 20 clients <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${clients.length} clients avec signal</span></h3>
+      <span class="acc-arrow" style="color:${titleColor}">▶</span>
+    </summary>
+    <div style="max-height:280px;overflow-y:auto"><table class="min-w-full text-xs">
+      <thead class="s-panel-inner t-inverse font-bold sticky top-0" style="z-index:1"><tr>
+        <th class="py-2 px-2 text-left">Client</th>
+        <th class="py-2 px-2 text-left">Métier</th>
+        <th class="py-2 px-2 text-center">Classif</th>
+        <th class="py-2 px-2 text-right">CA PDV</th>
+        <th class="py-2 px-2 text-right">Écart zone</th>
+        <th class="py-2 px-2 text-center">Silence</th>
+      </tr></thead>
+      <tbody>${top.map(_mkRow).join('')}</tbody>
+    </table></div>
+  </details>`;
+}
+
+// ── 4 Poches Terrain — leviers d'action portefeuille ─────────────────
+let _pocheActive = '';
+let _selectedTopClient = '';  // cc du client sélectionné pour le detail articles
+let _ruptureClientSet = new Set(); // clients impactés par des ruptures (poche E)
+function _renderPochesTerrain(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!_S.chalandiseReady && !_S.forcageCommercial?.size) { el.innerHTML = ''; return; }
+
+  const store = _S.clientStore;
+  if (!store?.size) { el.innerHTML = ''; return; }
+
+  // ── Population cible (filtres chalandise actifs) ──
+  const com = _S._selectedCommercial;
+  const pool = [];
+  const comCcs = com ? _S.clientsByCommercial?.get(com) : null;
+  for (const [cc, rec] of store) {
+    if (comCcs && !comCcs.has(cc)) continue;
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    if (!_clientPassesFilters(info, cc)) continue;
+    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    pool.push({ cc, rec, info });
+  }
+
+  // ── Poche A — Rapatriement PDV ──
+  const pocheA = [];
+  let potA = 0;
+  for (const { cc, rec, info } of pool) {
+    const caSoc = info.ca2026 || rec.caTotal || 0;
+    const caPDV = rec.caPDV || 0;
+    const gap = caSoc - caPDV;
+    if (gap <= 0 || caSoc <= 0) continue;
+    potA += gap;
+    pocheA.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caSoc, caPDV, gap, dist: rec.distanceKm, silence: rec.silenceDaysPDV });
+  }
+  // Sort: gap desc, distance asc, silence asc
+  pocheA.sort((a, b) => b.gap - a.gap || (a.dist ?? 999) - (b.dist ?? 999) || (a.silence ?? 999) - (b.silence ?? 999));
+
+  // ── Poche B — Rapatriement inter-PDV ──
+  const pocheB = [];
+  let potB = 0;
+  for (const { cc, rec } of pool) {
+    const caAutres = rec.caAutresAgences || 0;
+    if (caAutres <= 0) continue;
+    potB += caAutres;
+    pocheB.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caAutres, caPDV: rec.caPDV || 0, nbBL: rec.nbBLPDV || 0 });
+  }
+  pocheB.sort((a, b) => b.caAutres - a.caAutres);
+
+  // ── Poche C — Conversion livré → Proximité ──
+  const pocheC = [];
+  let potC = 0;
+  for (const { cc, rec } of pool) {
+    const hors = rec.artMapHors;
+    if (!hors) continue;
+    let caLivre = 0;
+    const canauxLivre = new Set();
+    for (const d of hors.values()) {
+      const c = (d.canal || '').toUpperCase();
+      if (c === 'DCS' || c === 'REPRESENTANT') {
+        caLivre += d.sumCA || 0;
+        canauxLivre.add(c);
+      }
+    }
+    if (caLivre <= 0) continue;
+    potC += caLivre;
+    pocheC.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caLivre, canaux: [...canauxLivre].join('+'), caPDV: rec.caPDV || 0 });
+  }
+  pocheC.sort((a, b) => b.caLivre - a.caLivre);
+
+  // ── Poche D — Activation commerciale ──
+  const pocheD = [];
+  for (const { cc, rec } of pool) {
+    if ((rec.caPDV || 0) <= 0) continue;
+    const nbBL = rec.nbBLPDV || 1;
+    const panier = rec.caPDV / nbBL;
+    // Nb familles achetées
+    const arts = rec.artMapPDV;
+    const fams = new Set();
+    if (arts) for (const code of arts.keys()) { const f = _S.articleFamille?.[code]; if (f) fams.add(f); }
+    pocheD.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caPDV: rec.caPDV, nbBL, panier, nbFam: fams.size, silence: rec.silenceDaysPDV });
+  }
+  // Sort: low frequency first (most room to grow), then low panier
+  pocheD.sort((a, b) => a.nbBL - b.nbBL || a.panier - b.panier);
+
+  // ── Render tiles ──
+  const poches = [
+    { key: 'A', icon: '🎯', label: 'Rapatriement PDV', value: formatEuro(potA), sub: `${pocheA.length} clients`, color: 'var(--c-danger)', tip: 'CA société − CA PDV' },
+    { key: 'B', icon: '🏪', label: 'Inter-agences', value: formatEuro(potB), sub: `${pocheB.length} clients`, color: '#f59e0b', tip: 'CA dans d\'autres agences Legallais' },
+    { key: 'C', icon: '🚚', label: 'Livré → Proximité', value: formatEuro(potC), sub: `${pocheC.length} clients`, color: '#8b5cf6', tip: 'CA DCS/Représentant convertible' },
+    { key: 'D', icon: '📈', label: 'Activation', value: pocheD.length.toString(), sub: 'clients actifs PDV', color: 'var(--c-ok)', tip: 'Montée en panier / fréquence' },
+  ];
+
+  const tilesHtml = poches.map(p => {
+    const isActive = _pocheActive === p.key;
+    return `<div class="flex flex-col items-center p-3 rounded-xl border cursor-pointer transition-all ${isActive ? 's-panel-inner' : 's-card'} hover:brightness-95" style="${isActive ? 'box-shadow:0 0 0 2px ' + p.color : ''}" title="${p.tip}" onclick="window._togglePoche('${p.key}')">
+      <span class="text-lg leading-none mb-1">${p.icon}</span>
+      <span class="text-[15px] font-extrabold" style="color:${p.color}">${p.value}</span>
+      <span class="text-[9px] ${isActive ? 't-inverse' : 't-disabled'} font-semibold mt-0.5">${p.label}</span>
+      <span class="text-[8px] ${isActive ? 't-inverse-muted' : 't-disabled'} mt-0.5">${p.sub}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="s-card rounded-xl border p-4 mb-3">
+    <h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-3">4 leviers d'action Terrain</h3>
+    <div class="grid grid-cols-4 gap-2 mb-1">${tilesHtml}</div>
+  </div>`;
+
+  // Stocker les données des poches pour filtrage dans Top 20 clients
+  _pocheData = { A: pocheA, B: pocheB, C: pocheC, D: pocheD };
+}
+let _pocheData = { A: [], B: [], C: [], D: [] };
+
+window._togglePoche = function(key) {
+  _pocheActive = (_pocheActive === key) ? '' : key;
+  _selectedTopClient = ''; // reset sélection client
+  _renderPochesTerrain('pochesTerrain');
+  _renderPochesTerrain('pochesTerrain2');
+  // Re-render KPI scorecard pour refléter l'état actif du badge Ruptures
+  if (key === 'E') { _renderCommercialScorecard('comScorecard'); _renderCommercialScorecard('comScorecardPDV'); }
+  _renderComTopArticles('comTopArticles');
+};
+window._selectTopClient = function(cc) {
+  _selectedTopClient = (_selectedTopClient === cc) ? '' : cc;
+  _renderComTopArticles('comTopArticles');
+  // Geste 2 : smooth scroll vers les articles pour rester sur un seul écran
+  if (_selectedTopClient) {
+    const artEl = document.getElementById('comTopArticles');
+    if (artEl) setTimeout(() => artEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+};
+
 function _buildOverviewFilterChips(){
   const CLASSIF_ORDER=['FID Pot+','OCC Pot+','FID Pot-','OCC Pot-','NC'];
   const CLASSIF_ON={'FID Pot+':'bg-emerald-600 text-white border-emerald-600','FID Pot-':'bg-gray-500 text-white border-gray-500','OCC Pot+':'bg-blue-600 text-white border-blue-600','OCC Pot-':'bg-blue-400 text-white border-blue-400','NC':'bg-slate-400 text-white border-slate-400'};
-  const availClassifs=new Set(),availActPDV=new Set(),availStatutDetaille=new Set(),availDirections=new Set();
-  const availStatutsNorm=new Set();
-  for(const info of _S.chalandiseData.values()){
-    availClassifs.add(_normalizeClassif(info.classification));
-    if(info.activitePDV)availActPDV.add(info.activitePDV);
-    if(info.statutDetaille)availStatutDetaille.add(info.statutDetaille);
-    if(info.statut)availStatutsNorm.add(_normalizeStatut(info.statut));
-    const _dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';availDirections.add(_dir);
-  }
+  const _agg=_getChalAgg()||{classifs:new Set(),activitesPDV:new Set(),statutsDetaille:new Set(),statutsNorm:new Set(),directions:new Set(),commercials:new Set(),metiers:new Set()};
+  const availClassifs=_agg.classifs,availActPDV=_agg.activitesPDV,availStatutDetaille=_agg.statutsDetaille,availDirections=_agg.directions;
+  const availStatutsNorm=_agg.statutsNorm;
   // Classif dropdown (unchanged)
   const allC=!_S._selectedClassifs.size;
   const cEl=document.getElementById('terrOverviewClassifChips');
@@ -1018,268 +1804,45 @@ function _buildOverviewFilterChips(){
   const curUnivers=[..._S._selectedUnivers][0]||'';
   const uSel=document.getElementById('terrUniversSelect');
   if(uSel){uSel.innerHTML=`<option value="">Univers: tous</option>`+sortedUnivers.map(v=>`<option value="${escapeHtml(v)}"${v===curUnivers?' selected':''}>${escapeHtml(v)}</option>`).join('');uSel.value=curUnivers;}
-  // Populate métier filter datalist (filtered by stratégique toggle)
+  // Métier <datalist> : ne pas injecter la liste complète (dropdown gigantesque).
+  // Les suggestions sont alimentées dynamiquement pendant la saisie via _onMetierInput().
   const metInput=document.getElementById('terrMetierFilter');
   const metList=document.getElementById('terrMetierList');
-  if(metInput&&metList){const metiers=new Set();for(const info of _S.chalandiseData.values()){if(info.metier&&(!_S._filterStrategiqueOnly||_isMetierStrategique(info.metier)))metiers.add(info.metier);}const sorted=[...metiers].sort();metList.innerHTML=sorted.map(m=>`<option value="${escapeHtml(m)}">`).join('');metInput.value=_S._selectedMetier||'';metInput.classList.toggle('border-rose-400',!!_S._selectedMetier);metInput.classList.toggle('ring-1',!!_S._selectedMetier);metInput.classList.toggle('ring-rose-300',!!_S._selectedMetier);}
-  // Populate commercial filter datalist
-  const comInput=document.getElementById('terrCommercialFilter');
-  const comList=document.getElementById('terrCommercialList');
-  if(comInput&&comList){const commercials=new Set();for(const info of _S.chalandiseData.values()){if(info.commercial)commercials.add(info.commercial);}const sorted=[...commercials].sort();comList.innerHTML=sorted.map(c=>`<option value="${escapeHtml(c)}">`).join('');if(_S._selectedCommercial)comInput.value=_S._selectedCommercial;}
-}
-// [Feature B / V3.2] Vue par commercial — CA agence, Nb clients
-// Réactif à tous les filtres : canal, segment omnicanal, géographie, métier, classif, etc.
-function _renderCommercialSummary(){
-  const el=document.getElementById('commercialSummaryBlock');if(!el)return;
-  if(!_S.chalandiseReady||!_S.clientsByCommercial.size){el.classList.add('hidden');return;}
-  const _ctx=DataStore.byContext();
-  const canal=_ctx.activeFilters.canal;
-  const isHors=canal&&canal!=='MAGASIN';
-  const comData={};
-  if(_S._omniSegmentFilter&&_S.clientOmniScore?.size){
-    // Segment filter active: iterate clientOmniScore, CA from ventesClientArticle (period-filtered)
-    const _vcaFull=_S.ventesClientArticle;
-    for(const[cc,o]of _S.clientOmniScore){
-      if(o.segment!==_S._omniSegmentFilter)continue;
-      const info=_S.chalandiseData?.get(cc);
-      if(info&&!_clientPassesFilters(info,cc))continue;
-      if(info&&!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-      const com=(info?.commercial)||'-';
-      if(!comData[com])comData[com]={ca:0,nb:0};
-      const d=comData[com];d.nb++;
-      const am=_vcaFull?.get(cc);
-      if(am)for(const v of am.values())d.ca+=v.sumCA||0;
-    }
-  }else{
-    const _tcsCom=(_S._terrClientSearch||'').toLowerCase();const _mCom=cc=>!_tcsCom||(cc||'').includes(_tcsCom)||(_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsCom);
-    for(const[cc,info] of _S.chalandiseData.entries()){
-      if(!_clientPassesFilters(info,cc))continue;
-      if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-      if(!_mCom(cc))continue;
-      const com=info.commercial||'-';
-      if(!comData[com])comData[com]={ca:0,nb:0};
-      const d=comData[com];d.nb++;
-      if(isHors){
-        const hm=_S.ventesClientHorsMagasin.get(cc);
-        if(hm)for(const v of hm.values()){if(v.canal===canal)d.ca+=v.sumCA||0;}
-      }else if(canal==='MAGASIN'||!canal){
-        const am=DataStore.ventesClientArticle.get(cc);
-        if(am)for(const v of am.values())d.ca+=v.sumCA||0;
-      }
-    }
+  if(metInput&&metList){
+    metList.innerHTML='';
+    metInput.value=_S._selectedMetier||'';
+    metInput.classList.toggle('border-rose-400',!!_S._selectedMetier);
+    metInput.classList.toggle('ring-1',!!_S._selectedMetier);
+    metInput.classList.toggle('ring-rose-300',!!_S._selectedMetier);
   }
-  const unassigned=comData['-'];
-  const mainList=Object.entries(comData).filter(([com,d])=>com!=='-'&&d.nb>0).sort((a,b)=>b[1].ca-a[1].ca);
-  const totalCount=mainList.length+(unassigned&&unassigned.nb>0?1:0);
-  const segClientCount=_S._omniSegmentFilter&&_S.clientOmniScore?[..._S.clientOmniScore.values()].filter(o=>o.segment===_S._omniSegmentFilter).length:null;
-  if(!totalCount){el.classList.add('hidden');return;}
-  el.classList.remove('hidden');
-  const sel=_ctx.activeFilters.commercial;
-  const canalLabel=canal?({MAGASIN:'Magasin',INTERNET:'Internet',REPRESENTANT:'Représentant',DCS:'DCS',AUTRE:'Autre'}[canal]||canal):'';
-  const SEG_LABELS=(window.SEG_LABELS||{});
-  const segLabel=_S._omniSegmentFilter?(SEG_LABELS[_S._omniSegmentFilter]||''):'';
-  const PAGE=15;
-  const isOpen=el.dataset.open==='1';
-  const showAll=el.dataset.showAll==='1';
-  const totalCA=mainList.reduce((s,[,d])=>s+d.ca,0)+(unassigned?unassigned.ca:0);
-  const summaryLine=`${totalCount} commercial${totalCount>1?'s':''} · ${totalCA>0?formatEuro(totalCA):'—'}`;
-  const visibleMain=showAll?mainList:mainList.slice(0,PAGE);
-  function rowHtml(com,d,labelOverride){
-    const isRowSel=sel===com;
-    const label=labelOverride||com;
-    return`<tr class="border-t b-light hover:s-card-alt cursor-pointer${isRowSel?' i-info-bg':''}" data-com="${escapeHtml(com)}" onclick="_onCommercialFilter(this.dataset.com)">
-      <td class="py-1.5 px-2 font-semibold${isRowSel?' c-action':' t-primary'}">${escapeHtml(label)}${isRowSel?' ✓':''}</td>
-      <td class="py-1.5 px-2 text-right font-bold">${d.ca>0?formatEuro(d.ca):'—'}</td>
-      <td class="py-1.5 px-2 text-center font-bold t-primary">${d.nb}</td>
-    </tr>`;
-  }
-  let rows='';
-  for(const[com,d] of visibleMain)rows+=rowHtml(com,d);
-  const remaining=mainList.length-PAGE;
-  if(!showAll&&remaining>0)rows+=`<tr><td colspan="3" class="py-2 px-3"><button class="text-[11px] font-bold c-action hover:underline" onclick="(function(){document.getElementById('commercialSummaryBlock').dataset.showAll='1';_renderCommercialSummary();})()">... et ${remaining} autres — Voir tous</button></td></tr>`;
-  if(unassigned&&unassigned.nb>0)rows+=rowHtml('-',unassigned,'Non assigné');
-  const filterTags=[canalLabel,segLabel].filter(Boolean).join(' · ');
-  let html=`<details ${isOpen?'open':''} style="background:linear-gradient(135deg,rgba(100,116,139,0.13),rgba(51,65,85,0.06));border:1px solid rgba(100,116,139,0.3);border-radius:14px;overflow:hidden;margin-bottom:12px" ontoggle="document.getElementById('commercialSummaryBlock').dataset.open=this.open?'1':'0'">
-    <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.2),rgba(51,65,85,0.12));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-      <h3 style="font-weight:800;font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px">
-        👤 Vue par commercial${filterTags?` — <span style="color:#67e8f9">${filterTags}</span>`:''}
-        <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">(${segClientCount!=null?segClientCount:totalCount})</span>
-      </h3>
-      <div class="flex items-center gap-2">
-        ${sel?`<button onclick="event.stopPropagation();event.preventDefault();_onCommercialFilter('')" class="text-[10px] c-danger font-semibold hover:underline">✕ ${escapeHtml(sel)}</button>`:''}
-        <span class="text-[10px] t-tertiary font-normal">${summaryLine}</span>
-        <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-      </div>
-    </summary>
-    <div class="overflow-x-auto"><table class="min-w-full text-xs">
-    <thead class="s-panel-inner t-inverse"><tr>
-      <th class="py-1.5 px-2 text-left">Commercial</th>
-      <th class="py-1.5 px-2 text-right">CA agence</th>
-      <th class="py-1.5 px-2 text-center">Nb clients</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>
-  </details>`;
-  el.innerHTML=html;
+  // Populate all commercial <select> elements in main content
+  _populateCommercialSelect('terrCommercialSidebar','terrCommercialKPISidebar');
 }
 
-// ── Captation agence — remplace les segments omnicanaux ──────────────
-function _renderCaptationBlock(){
-  const el=document.getElementById('omniCaptationBlock');if(!el)return;
-  if(!_S.crossingStats||!_S.chalandiseReady){el.innerHTML='<p class="text-xs t-disabled p-2">Chargez le fichier Zone de Chalandise pour activer la captation.</p>';return;}
-  // Compute captation stats with filters
-  const cats={captes:{n:0,caMag:0,caLeg:0,clients:[]},potentiels:{n:0,caMag:0,caLeg:0,clients:[]},fideles:{n:0,caMag:0,caLeg:0,clients:[]}};
-  // Captés : dans la zone + achetés en MAGASIN
-  for(const cc of _S.crossingStats.captes){
-    const info=_S.chalandiseData.get(cc);if(!info)continue;
-    if(!_clientPassesFilters(info,cc))continue;
-    const magMap=_S.ventesClientArticle?.get(cc);
-    const caMag=magMap?[...magMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-    const caLeg=info.ca2025||0;
-    const ratio=caLeg>0?Math.round(caMag/caLeg*100):0;
-    const ec=_enrichClientInfo(cc);
-    cats.captes.n++;cats.captes.caMag+=caMag;cats.captes.caLeg+=caLeg;
-    cats.captes.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag,caLeg,ratio,classification:info.classification||''});
-  }
-  // Potentiels : dans la zone, jamais venus
-  for(const cc of _S.crossingStats.potentiels){
-    const info=_S.chalandiseData.get(cc);if(!info)continue;
-    if(!_clientPassesFilters(info,cc))continue;
-    const caLeg=info.ca2025||0;
-    const ec=_enrichClientInfo(cc);
-    cats.potentiels.n++;cats.potentiels.caLeg+=caLeg;
-    cats.potentiels.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag:0,caLeg,ratio:0,classification:info.classification||''});
-  }
-  // Fidèles hors zone : pas dans la chalandise mais viennent en MAGASIN
-  for(const cc of _S.crossingStats.fideles){
-    const info=_S.chalandiseData.get(cc);
-    if(info&&!_clientPassesFilters(info,cc))continue;
-    const magMap=_S.ventesClientArticle?.get(cc);
-    const caMag=magMap?[...magMap.values()].reduce((s,d)=>s+(d.sumCA||0),0):0;
-    const caLeg=info?.ca2025||0;
-    const ec=_enrichClientInfo(cc);
-    cats.fideles.n++;cats.fideles.caMag+=caMag;cats.fideles.caLeg+=caLeg;
-    cats.fideles.clients.push({cc,nom:ec.nom,metier:ec.metier,commercial:ec.commercial,caMag,caLeg,ratio:caLeg>0?Math.round(caMag/caLeg*100):0,classification:info?.classification||''});
-  }
-  // Sort: captés by ratio ascending (less captured first = more actionable), potentiels by caLeg desc, fideles by caMag desc
-  cats.captes.clients.sort((a,b)=>a.ratio-b.ratio||(b.caLeg||0)-(a.caLeg||0));
-  cats.potentiels.clients.sort((a,b)=>(b.caLeg||0)-(a.caLeg||0));
-  cats.fideles.clients.sort((a,b)=>(b.caMag||0)-(a.caMag||0));
-  const total=cats.captes.n+cats.potentiels.n+cats.fideles.n||1;
-  const pctC=Math.round(cats.captes.n/total*100),pctP=Math.round(cats.potentiels.n/total*100),pctF=Math.max(0,100-pctC-pctP);
-  const txCaptation=cats.captes.caLeg>0?Math.round(cats.captes.caMag/cats.captes.caLeg*100):0;
-  const af=_S._captationFilter||'';
-  const filterLabel=af?`<div class="mt-2 text-[10px]"><span class="cursor-pointer hover:underline" style="color:var(--c-action)" onclick="window._toggleCaptationFilter('')">✕ Filtre actif : ${af==='captes'?'Captés':af==='potentiels'?'Potentiels':'Fidèles hors zone'}</span></div>`:'';
-  const tiles=[
-    ['captes',cats.captes,'Captés','🟢','var(--c-ok)',`${cats.captes.n} clients zone achetant en agence · taux captation ${txCaptation}%`],
-    ['potentiels',cats.potentiels,'Potentiels','🎯','var(--c-danger)',`${cats.potentiels.n} clients zone n'ayant jamais acheté en agence`],
-    ['fideles',cats.fideles,'Fidèles hors zone','🟣','#a78bfa',`${cats.fideles.n} clients hors zone venant en agence`]
-  ];
-  const tilesHtml=tiles.map(([key,cat,label,icon,color,tip])=>{
-    const isActive=af===key;
-    return`<div class="flex flex-col items-center p-2.5 rounded-xl border cursor-pointer hover:brightness-95 transition-all ${isActive?'s-panel-inner':'s-card'}" style="${isActive?'box-shadow:0 0 0 2px '+color:''}" title="${tip}" onclick="window._toggleCaptationFilter('${key}')"><span class="text-lg leading-none mb-1">${icon}</span><span class="text-[15px] font-extrabold ${isActive?'t-inverse':'t-primary'}">${cat.n}</span><span class="text-[9px] ${isActive?'t-inverse-muted':'t-disabled'}">${label}</span><span class="text-[10px] font-bold mt-0.5" style="color:${color}">${formatEuro(cat.caMag||cat.caLeg)}</span>${key==='captes'?`<span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">captation ${txCaptation}%</span>`:key==='potentiels'?`<span class="text-[8px] ${isActive?'t-inverse-muted':'t-disabled'} mt-0.5">CA Legallais</span>`:''}</div>`;
-  }).join('');
-  el.innerHTML=`<div class="s-card rounded-xl border p-4"><h3 class="text-[11px] font-bold t-secondary uppercase tracking-wider mb-2">🎯 Captation agence <span class="font-normal normal-case t-disabled">${cats.captes.n+cats.potentiels.n+cats.fideles.n} clients</span></h3><div class="grid grid-cols-3 gap-2 mb-2">${tilesHtml}</div><div class="flex h-1.5 rounded-full overflow-hidden"><div style="width:${pctC}%;background:var(--c-ok)"></div><div style="width:${pctP}%;background:var(--c-danger);opacity:0.6"></div><div style="width:${pctF}%;background:#a78bfa"></div></div>${filterLabel}</div>`;
-  // Render client list if filter active
-  _renderCaptationClients(af?cats[af]:null,af);
-}
-
-function _renderCaptationClients(cat,filterKey){
-  const el=document.getElementById('omniCaptationClients');if(!el)return;
-  if(!cat||!cat.clients.length){el.classList.add('hidden');el.innerHTML='';return;}
-  el.classList.remove('hidden');
-  const labels={captes:'Captés',potentiels:'Potentiels — jamais venus en agence',fideles:'Fidèles hors zone'};
-  const colors={captes:'var(--c-ok)',potentiels:'var(--c-danger)',fideles:'#a78bfa'};
-  const showRatio=(filterKey==='captes');
-  const PAGE=20;
-  if(!_S._cmPages)_S._cmPages={};
-  const listId='capt-'+filterKey;
-  const page=_S._cmPages[listId]||0;
-  const total=cat.clients.length;
-  const totalPages=Math.ceil(total/PAGE)||1;
-  const start=page*PAGE;
-  const slice=cat.clients.slice(start,start+PAGE);
-
-  let html=`<div class="mt-3"><div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px"><span style="font-size:12px;font-weight:800;color:${colors[filterKey]||'#22d3ee'}">👤 ${labels[filterKey]||filterKey}</span><span class="text-[10px] t-disabled">${total} clients</span></div>`;
-  html+=`<div class="overflow-x-auto"><table class="min-w-full text-[11px]">`;
-  html+=`<thead class="sticky top-0 s-card" style="z-index:1"><tr class="text-[10px] font-bold t-secondary">`;
-  html+=`<th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA MAG</th><th class="py-1.5 px-2 text-right">CA Leg</th>`;
-  if(showRatio)html+=`<th class="py-1.5 px-2 text-center">Captation</th>`;
-  html+=`</tr></thead><tbody>`;
-  for(const c of slice){
-    const ratioCell=showRatio?`<td class="py-1.5 px-2 text-center"><span class="text-[10px] font-bold ${c.ratio>60?'c-ok':c.ratio>30?'c-caution':'c-danger'}">${c.ratio}%</span></td>`:'';
-    html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier||'—')}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.commercial||'—')}</td><td class="py-1.5 px-2 text-right font-bold c-ok">${c.caMag>0?formatEuro(c.caMag):'—'}</td><td class="py-1.5 px-2 text-right font-bold c-caution">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>${ratioCell}</tr>`;
-  }
-  html+=`</tbody></table></div>`;
-  if(totalPages>1){
-    html+=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">`;
-    html+=`<button onclick="_cmPage('${listId}',-1);_renderCaptationBlock()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page<=0?' opacity-30 pointer-events-none':''}">&larr; Préc</button>`;
-    html+=`<span class="text-[10px] t-secondary">${start+1}–${Math.min(start+PAGE,total)} sur ${total}</span>`;
-    html+=`<button onclick="_cmPage('${listId}',1);_renderCaptationBlock()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page>=totalPages-1?' opacity-30 pointer-events-none':''}">Suiv &rarr;</button>`;
-    html+=`</div>`;
-  }
-  html+=`</div>`;
-  el.innerHTML=html;
-}
-
-function _renderOmniSegmentClients(){
-  const el=document.getElementById('omniSegmentClientsBlock');if(!el)return;
-  const seg=_S._omniSegmentFilter;
-  if(!seg||!_S.clientOmniScore?.size){el.classList.add('hidden');el.innerHTML='';return;}
-  const SEG_LABELS=(window.SEG_LABELS||{purComptoir:'Pur Comptoir',purHors:'Pur Hors-Magasin',hybride:'Hybride',full:'Full Omnicanal'});
-  const segLabel=SEG_LABELS[seg]||seg;
-  const _tcsOmni=(_S._terrClientSearch||'').toLowerCase();const _mOmni=cc=>!_tcsOmni||(cc||'').includes(_tcsOmni)||(_S.clientStore?.get(cc)?.nom||_S.chalandiseData?.get(cc)?.nom||'').toLowerCase().includes(_tcsOmni);
-  const clients=[];
-  for(const[cc,o]of _S.clientOmniScore){
-    if(o.segment!==seg)continue;
-    if(!_mOmni(cc))continue;
-    const ec=_enrichClientInfo(cc);
-    clients.push({cc,nom:ec.nom,com:ec.commercial||'—',metier:ec.metier||'—',caPDV:o.caPDV||0,caHors:o.caHors||0,nbCanaux:o.nbCanaux||0});
-  }
-  clients.sort((a,b)=>b.caPDV-a.caPDV);
-  if(!clients.length){el.classList.add('hidden');el.innerHTML='';return;}
-  el.classList.remove('hidden');
-  const PAGE=20;
-  if(!_S._cmPages)_S._cmPages={};
-  const listId='omni-seg';
-  const page=_S._cmPages[listId]||0;
-  const total=clients.length;
-  const totalPages=Math.ceil(total/PAGE)||1;
-  const start=page*PAGE;
-  const slice=clients.slice(start,start+PAGE);
-
-  let html=`<div class="mt-3"><div style="display:flex;align-items:center;gap:8px;padding:4px 0;margin-bottom:4px"><span style="font-size:12px;font-weight:800;color:#22d3ee">👤 Clients — ${escapeHtml(segLabel)}</span><span class="text-[10px] t-disabled">${total} clients</span></div>`;
-  html+=`<div class="overflow-x-auto"><table class="min-w-full text-[11px]">`;
-  html+=`<thead class="sticky top-0 s-card" style="z-index:1"><tr class="text-[10px] font-bold t-secondary">`;
-  html+=`<th class="py-1.5 px-2 text-left">Client</th><th class="py-1.5 px-2 text-left">Métier</th><th class="py-1.5 px-2 text-left">Commercial</th><th class="py-1.5 px-2 text-right">CA PDV</th><th class="py-1.5 px-2 text-right">CA hors agence</th><th class="py-1.5 px-2 text-center">Canaux</th>`;
-  html+=`</tr></thead><tbody>`;
-  for(const c of slice){
-    html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" onclick="openClient360('${escapeHtml(c.cc)}','omni')"><td class="py-1.5 px-2 font-semibold">${escapeHtml(c.nom)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.metier)}</td><td class="py-1.5 px-2 text-[10px] t-tertiary">${escapeHtml(c.com)}</td><td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDV>0?formatEuro(c.caPDV):'—'}</td><td class="py-1.5 px-2 text-right font-bold c-caution">${c.caHors>0?formatEuro(c.caHors):'—'}</td><td class="py-1.5 px-2 text-center t-secondary">${c.nbCanaux}</td></tr>`;
-  }
-  html+=`</tbody></table></div>`;
-  if(totalPages>1){
-    html+=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0">`;
-    html+=`<button onclick="_cmPage('${listId}',-1);_renderOmniSegmentClients()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page<=0?' opacity-30 pointer-events-none':''}">&larr; Préc</button>`;
-    html+=`<span class="text-[10px] t-secondary">${start+1}–${Math.min(start+PAGE,total)} sur ${total}</span>`;
-    html+=`<button onclick="_cmPage('${listId}',1);_renderOmniSegmentClients()" class="text-[11px] font-bold py-1 px-3 rounded border b-default s-hover t-primary${page>=totalPages-1?' opacity-30 pointer-events-none':''}">Suiv &rarr;</button>`;
-    html+=`</div>`;
-  }
-  html+=`</div>`;
-  el.innerHTML=html;
-}
 
 function _buildChalandiseOverviewData(){
   // Partie données pure de l'overview — sans re-trigger les sous-onglets
   _buildChalandiseOverviewInner();
 }
 function _buildChalandiseOverview(){
+  // Persister les filtres tactiques dans le slot de l'onglet courant
+  if(_S._activeCommerceTab&&_S._tabFilters[_S._activeCommerceTab]){
+    const slot=_S._tabFilters[_S._activeCommerceTab];
+    slot.distanceMaxKm=_S._distanceMaxKm;slot.selectedDepts=new Set(_S._selectedDepts);slot.selectedMetier=_S._selectedMetier;slot.filterStrategiqueOnly=_S._filterStrategiqueOnly;
+    slot.selectedClassifs=new Set(_S._selectedClassifs);slot.selectedStatuts=new Set(_S._selectedStatuts);slot.selectedActivitesPDV=new Set(_S._selectedActivitesPDV);slot.selectedStatutDetaille=_S._selectedStatutDetaille;slot.includePerdu24m=_S._includePerdu24m;
+    slot.selectedDirections=new Set(_S._selectedDirections);slot.selectedUnivers=new Set(_S._selectedUnivers);
+  }
   // Rafraîchir le sous-onglet actif + overview data
   _buildOverviewFilterChips();
-  if (document.getElementById('cm-tab-nav')) {
-    // Recalcul complet (filtres ont changé)
-    _buildCockpitClient();
-    _cmRenderContent(_cmTab);
-    const nav = document.getElementById('cm-tab-nav');
-    if(nav) nav.innerHTML = _cmRenderNav(_cmComputeCounts());
-  } else if (document.getElementById('tabClients')) {
+  // Scorecard + poches Conquête Terrain (si visible)
+  if (document.getElementById('comScorecard')) {
+    _renderCommercialScorecard('comScorecard');
+    _renderComTopArticles('comTopArticles');
+    _renderPochesTerrain('pochesTerrain');
+    _renderLivSansPDV('livSansPDVBlock');
+  }
+  // Fidélisation PDV : tabs cockpit + listes clients (renderMesClients gère tout)
+  if (document.getElementById('tabClients')) {
     renderMesClients();
   }
   _buildChalandiseOverviewInner();
@@ -1418,9 +1981,6 @@ function _buildChalandiseOverviewInner(force){
   });
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
-  // [Feature B] Vue par commercial
-  _renderCommercialSummary();
-  _renderOmniSegmentClients();
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
 }
@@ -1578,7 +2138,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
     const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
     html+=`<tr class="border-t border-blue-100 ${pdvBg} cursor-pointer hover:i-info-bg" onclick="openClient360('${c.code}','reseau')">
-      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}</td>
+      <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span><button onclick="event.stopPropagation();openClient360('${c.code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.commercial||'—'}</td>
       <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
       <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'c-caution':'t-disabled'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
@@ -1627,8 +2187,8 @@ function _toggleClientArticles(row,clientCode){
     panelHtml+=_ca25>0?`<p class="text-[10px] c-action font-semibold">Ce client achète chez Legallais (${formatEuro(_ca25)}) via d'autres canaux (Internet, DCS, Commercial) — opportunité de captation PDV</p>`:`<p class="t-disabled text-[10px]">Prospect — aucun historique d'achat.</p>`;
   }else{
     if(hasComptoir){
-      const nbInRayon=comptoirArts.filter(a=>a.rayonStatus==='green').length;
-      const nbAbsent=comptoirArts.filter(a=>a.rayonStatus==='red').length;
+      let nbInRayon=0,nbAbsent=0;
+      for(const a of comptoirArts){if(a.rayonStatus==='green')nbInRayon++;else if(a.rayonStatus==='red')nbAbsent++;}
       panelHtml+=`<p class="text-[10px] font-bold t-primary mb-1">🏪 Achats comptoir : ${comptoirArts.length} réf. dont ${nbInRayon} en rayon, ${nbAbsent} absentes${nbAbsent>0?' — référencez ces '+nbAbsent+' articles pour le capter':''}</p>`;
       panelHtml+=`<table class="min-w-full text-[10px]${hasTerrArts?' mb-3':''}"><thead class="s-hover t-primary"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-center">Qté</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">En rayon</th><th class="py-1 px-2 text-right">Stock</th></tr></thead><tbody>`;
       for(const a of comptoirArts){
@@ -1711,7 +2271,7 @@ function _buildDegradedCockpit(){
   const silencieux=[];
   if(!_isNonMagasin&&_S.clientStore?.size){
     for(const rec of _S.clientStore.values()){
-      const d=rec.silenceDaysPDV;if(d===null||d<=30||d>60)continue;
+      const d=rec.silenceDaysPDV;if(d===null||d<=30||d>90)continue;
       const artMap=_clientArtMap.get(rec.cc);if(!artMap)continue;
       let ca=0;for(const[artCode,v] of artMap.entries())if(!selFam||famMap.get(artCode)===selFam)ca+=(v.sumCAAll||v.sumCA||0);
       if(ca<=0)continue;
@@ -1793,11 +2353,11 @@ function _buildCockpitClient(force){
 
     const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,caZone,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
 
-    // 1. Silencieux : 30-60j sans commande
+    // 1. Silencieux : 30-90j sans commande (zone de frappe comptoir)
     const _caOk=_useMagOnly?caPDVN>0:(caPDVN>0||caLeg>0||caZone>0||_useByCanal);
-    if(daysSince!==null&&daysSince>30&&daysSince<=60&&_caOk){silencieux.push(c);continue;}
-    // 2. Perdus : 60-180j sans commande
-    if(daysSince!==null&&daysSince>60&&daysSince<=180&&_caOk){perdus.push(c);continue;}
+    if(daysSince!==null&&daysSince>30&&daysSince<=90&&_caOk){silencieux.push(c);continue;}
+    // 2. Perdus : 90-365j sans commande (urgences → tièdes)
+    if(daysSince!==null&&daysSince>90&&daysSince<=365&&_caOk){perdus.push(c);continue;}
     // 3. Potentiels : jamais venus au comptoir
     if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
@@ -1864,7 +2424,7 @@ function _directTable(clients,listId,dayThreshold){
   for(const c of slice){
     const rowBg=c._daysSince!=null&&c._daysSince>dayThreshold?'background:rgba(248,113,113,0.06)':'';
     html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" style="${rowBg}" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')">`;
-    html+=`<td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom)}</span>${c._strat?' <span class="c-caution text-[9px]" title="Métier stratégique">⭐</span>':''}</td>`;
+    html+=`<td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.code)}','cockpit')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${c._strat?' <span class="c-caution text-[9px]" title="Métier stratégique">⭐</span>':''}</td>`;
     html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td>`;
     html+=`<td class="py-1.5 px-2 text-center">${_classifBadge(c.classification)}</td>`;
     html+=`<td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>`;
@@ -1894,8 +2454,8 @@ function _renderCockpitTables(){
   const capEl=document.getElementById('terrACapter');
   const _canal=_S._globalCanal||'';
   const _useByCanal=_canal&&_canal!=='MAGASIN';
-  if(silEl)silEl.innerHTML=_directTable(d.silencieux||[],'cockpit-sil-full',45);
-  if(perduEl)perduEl.innerHTML=_directTable(d.perdus||[],'cockpit-perdu-full',120);
+  if(silEl)silEl.innerHTML=_directTable(d.silencieux||[],'cockpit-sil-full',60);
+  if(perduEl)perduEl.innerHTML=_directTable(d.perdus||[],'cockpit-perdu-full',180);
   if(capEl){if(_useByCanal){capEl.innerHTML='';}else{capEl.innerHTML=_directTable(d.jamaisVenus||[],'cockpit-cap-full',999);}}
 }
 function _setCrossFilter(status){
@@ -1957,6 +2517,25 @@ function exportCockpitCSVAll(){
   for(const[catKey,[catLabel,list]] of Object.entries(catMap)){for(const c of list)rows.push(_cockpitRowCSV(catLabel,c,'Non',''));for(const[cc,v] of _S.excludedClients.entries()){if(v.category===catKey&&v.clientData)rows.push(_cockpitRowCSV(catLabel,v.clientData,'Oui',v.reason));}}
   const date=new Date().toISOString().slice(0,10);
   _downloadCockpitCSV(rows,`PRISME_${_S.selectedMyStore||'AGENCE'}_Clients_${date}.csv`,'Toutes catégories');
+}
+
+// ── Export CSV Hors Zone → Table de Forçage prête à remplir ──
+function exportHorsZoneCSV(){
+  const hors=_S._horsZoneExport||[];
+  if(!hors.length){showToast('⚠️ Aucun client hors zone','warning');return;}
+  const sep=';';
+  const lines=['Code Client'+sep+'Nom'+sep+'CA PDV'+sep+'CA Total'+sep+'Commercial (à remplir)'];
+  for(const r of hors){
+    lines.push([r.cc,'"'+(r.nom||'').replace(/"/g,'""')+'"',Math.round(r.caPDV||0),Math.round(r.caTotal||0),''].join(sep));
+  }
+  const bom='\uFEFF';
+  const blob=new Blob([bom+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  const date=new Date().toISOString().slice(0,10);
+  a.download=`PRISME_${_S.selectedMyStore||'AGENCE'}_HorsZone_Rattachement_${date}.csv`;
+  a.click();URL.revokeObjectURL(url);
+  showToast(`📥 ${hors.length} clients exportés — remplissez la colonne "Commercial" et réimportez dans 🔗 Rattachement`,'success',5000);
 }
 
 // ── Client exclusion (hide from cockpit) ──
@@ -2110,14 +2689,12 @@ export {
   _toggleDirectionDropdown,
   _toggleStrategiqueFilter,
   _onCommercialFilter,
-  _onDistanceSlider,
+  _updateDistQuickBtns,
   _onTerrClientSearch,
   _onMetierFilter,
   _navigateToOverviewMetier,
   _togglePerdu24m,
   _buildOverviewFilterChips,
-  _renderCommercialSummary,
-  _renderOmniSegmentClients,
   _buildChalandiseOverview,
   _toggleOverviewL2,
   _renderOverviewL2,
@@ -2150,11 +2727,32 @@ export {
   renderCommerceTab,
 };
 
+// ── Livrés sans PDV — accordéon Conquête Terrain ─────────────────────────
+function _renderLivSansPDV(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const raw = _S.livraisonsSansPDV || [];
+  const _com = _S._selectedCommercial || '';
+  const _comSet = _com ? (_S.clientsByCommercial?.get(_com) || new Set()) : null;
+  const filtered = _comSet ? raw.filter(r => _comSet.has(r.cc)) : raw;
+  const list = filtered.filter(r => r.caLivraison >= 500 && r.metier && _isMetierStrategique(r.metier));
+  if (!list.length) {
+    el.innerHTML = _S.livraisonsReady ? `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">0 clients</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="p-4 text-[12px] t-secondary">Tous les clients livrés ont déjà acheté au comptoir.</div></details>` : '';
+    return;
+  }
+  const _mkRow = r => {
+    const _clCls = r.classification?.startsWith('FID') ? 'c-ok' : r.classification?.startsWith('OCC') ? 'c-caution' : 't-disabled';
+    return `<tr class="border-b b-light hover:s-hover cursor-pointer transition-colors" data-cc="${escapeHtml(r.cc)}" onclick="openClient360(this.dataset.cc,'clients')"><td class="py-1.5 px-2 font-bold text-[11px]">${escapeHtml(r.nom)}<button onclick="event.stopPropagation();openClient360('${escapeHtml(r.cc)}','clients')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td><td class="py-1.5 px-2 text-[11px] t-tertiary">${escapeHtml(r.metier || '—')}</td><td class="py-1.5 px-2 text-center text-[10px] ${_clCls}">${escapeHtml(r.classification || '—')}</td><td class="py-1.5 px-2 text-right font-bold c-action text-[11px]">${formatEuro(r.caLivraison)}</td><td class="py-1.5 px-2 text-right text-[11px] t-tertiary">${r.nbBL}</td><td class="py-1.5 px-2 text-[11px] c-action">${escapeHtml(r.commercial || '—')}</td></tr>`;
+  };
+  const thStr = `<thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-2 px-2 text-left">Client</th><th class="py-2 px-2 text-left">Métier</th><th class="py-2 px-2 text-center">Classif</th><th class="py-2 px-2 text-right">CA livraison</th><th class="py-2 px-2 text-right">Nb BL</th><th class="py-2 px-2 text-left">Commercial</th></tr></thead>`;
+  const top10 = list.slice(0, 10).map(_mkRow).join('');
+  const moreHtml = list.length > 10 ? `<details class="border-t b-default"><summary class="px-4 py-2 text-[11px] c-action cursor-pointer select-none hover:underline">Voir tous → (${list.length - 10} de plus)</summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${list.slice(10).map(_mkRow).join('')}</tbody></table></div></details>` : '';
+  el.innerHTML = `<details style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px"><summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none"><h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📦 Livrés sans PDV <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">${list.length} clients · Prospects à conquérir</span></h3><span class="acc-arrow" style="color:#cbd5e1">▶</span></summary><div class="overflow-x-auto"><table class="min-w-full text-xs">${thStr}<tbody>${top10}</tbody></table></div>${moreHtml}</details>`;
+}
+
 // ── Orchestrateur principal Commerce 5 sous-vues ─────────────────────────
 function renderCommerceTab() {
-  // Garder la sous-vue active si déjà dans Commerce, sinon démarrer sur silencieux
-  const keepTab = document.getElementById('cm-tab-nav') ? _cmTab : 'silencieux';
-  _cmTab = keepTab;
+  // Tabs cockpit maintenant dans Fidélisation PDV — garder l'état actif
   // Sidebar : chips canal toujours visibles sur Commerce, terrFamilleFilter masqué
   document.getElementById('globalCanalFilter')?.classList.remove('hidden');
   document.getElementById('terrFamilleFilter')?.classList.add('hidden');
@@ -2163,22 +2761,26 @@ function renderCommerceTab() {
   // 1. Layout squelette — rapide
   el.innerHTML = `
     <div id="terrSummaryBar" class="s-card rounded-xl border shadow-sm px-4 py-3 mb-3" style="position:sticky;top:0;z-index:10;background:var(--s-card,#fff);display:none"></div>
-    <div class="flex gap-1 border-b b-default mb-0 overflow-x-auto" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div>
-    <div id="cm-tab-content" class="pt-3"></div>
-    <div id="terrOmniBlock" class="mt-4">
-      <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
-    </div>`;
-  // 2. Calcul cockpit une seule fois → peuple _cockpitExportData
-  _buildCockpitClient();
-  // 3. Injecte le contenu de l'onglet actif (rendu seul, sans recalcul)
-  _cmSwitchTabRenderOnly(keepTab);
+    <div id="comScorecard"></div>
+    <div id="pochesTerrain"></div>
+    <div id="comTopArticles"></div>
+    <div id="livSansPDVBlock"></div>
+    <div id="terrOmniBlock" class="mt-4"></div>`;
+  // 2b. Scorecard portefeuille si commercial sélectionné
+  _renderCommercialScorecard('comScorecard');
+  // 2b2. Top 20 articles du commercial
+  _renderComTopArticles('comTopArticles');
+  // 2c. 4 poches Terrain
+  _renderPochesTerrain('pochesTerrain');
+  // 2d. Livrés sans PDV (conquête — déplacé depuis Fidélisation)
+  _renderLivSansPDV('livSansPDVBlock');
   // 4. KPI bar chalandise + territoire (différé pour ne pas bloquer)
   if (_commerceRafId) cancelAnimationFrame(_commerceRafId);
   _commerceRafId = requestAnimationFrame(() => {
     _commerceRafId = 0;
     _buildOverviewFilterChips();
-    _buildChalandiseOverviewData();
     window.renderOmniContent?.();
+    _buildChalandiseOverviewData();
     // renderTerritoireTab seulement si les blocs territoire sont visibles (fichier BL chargé)
     if(_S.territoireLines?.length) renderTerritoireTab();
   });
@@ -2215,8 +2817,9 @@ window._toggleStatutDropdown      = _toggleStatutDropdown;
 window._toggleDirectionDropdown   = _toggleDirectionDropdown;
 window._toggleStrategiqueFilter   = _toggleStrategiqueFilter;
 window._onCommercialFilter        = _onCommercialFilter;
-window._onDistanceSlider          = _onDistanceSlider;
+window._onCommercialInput         = _onCommercialInput;
 window._setDistanceQuick          = _setDistanceQuick;
+window._updateDistQuickBtns       = _updateDistQuickBtns;
 window._onTerrClientSearch        = _onTerrClientSearch;
 window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
@@ -2231,9 +2834,6 @@ window._toggleOverviewL4          = _toggleOverviewL4;
 window._toggleClientArticles      = _toggleClientArticles;
 window._cockpitToggleFullList     = _cockpitToggleFullList;
 window._cockpitToggleSection      = _cockpitToggleSection;
-window._renderCommercialSummary   = _renderCommercialSummary;
-window._renderOmniSegmentClients  = _renderOmniSegmentClients;
-window._renderCaptationBlock      = _renderCaptationBlock;
 window._buildChalDirBlock         = _buildChalDirBlock;
 window._buildChalandiseOverview   = _buildChalandiseOverview;
 window._buildDegradedCockpit      = _buildDegradedCockpit;
@@ -2241,6 +2841,7 @@ window._buildCockpitClient        = _buildCockpitClient;
 window._renderOverviewL4          = _renderOverviewL4;
 window.exportCockpitCSV           = exportCockpitCSV;
 window.exportCockpitCSVAll        = exportCockpitCSVAll;
+window.exportHorsZoneCSV          = exportHorsZoneCSV;
 window.exportExclusionsJSON       = exportExclusionsJSON;
 window.importExclusionsJSON       = importExclusionsJSON;
 window._showExcludePrompt         = _showExcludePrompt;

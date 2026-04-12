@@ -288,7 +288,7 @@ function _renderClientAccordion(icon, title, clients, type, openByDefault) {
         ? `<td class="py-1.5 px-2 text-center text-[9px]">${c.nbArticlesMarque || 0} art.</td>`
         : '<td class="py-1.5 px-2"></td>';
     return `<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openClient360)window.openClient360('${ccSafe}','animation')">
-      <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</td>
+      <td class="py-1.5 px-2 max-w-[180px] truncate font-bold" title="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${ccSafe}','animation')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td>
       <td class="py-1.5 px-2">${escapeHtml(c.metier)}</td>
       <td class="py-1.5 px-2">${escapeHtml(c.cp)}</td>
       <td class="py-1.5 px-2">${escapeHtml(c.commercial)}</td>

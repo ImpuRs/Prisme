@@ -127,8 +127,13 @@ function computePerfEmplacement() {
     if (cumCli >= totalCliNonMoteur * 0.8) break;
   }
 
+  // Seuil plancher : un rayon avec ≥3 clients n'est jamais Poids Mort, c'est du Trafic minimum
+  const SEUIL_CLIENTS_POIDS_MORT = 3;
   for (const r of rows) {
-    r.statut = moteurSet.has(r.emp) ? 'moteur' : traficSet.has(r.emp) ? 'trafic' : 'poids_mort';
+    if (moteurSet.has(r.emp)) { r.statut = 'moteur'; }
+    else if (traficSet.has(r.emp)) { r.statut = 'trafic'; }
+    else if (r.nbClients >= SEUIL_CLIENTS_POIDS_MORT) { r.statut = 'trafic'; }
+    else { r.statut = 'poids_mort'; }
   }
 
   return rows;
@@ -232,7 +237,7 @@ function _renderArbitrageRayon(rows) {
       <div class="text-[9px] t-disabled mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
         <div>&#128293; <strong>Moteur</strong> = Top 80% du CA. Centre de profit, optimiser la marge.</div>
         <div>&#128101; <strong>Trafic</strong> = Top 80% du trafic client (hors moteurs). Centre de service, fiabiliser.</div>
-        <div>&#128128; <strong>Poids mort</strong> = Ni CA ni trafic significatif. Plan de sortie.</div>
+        <div>&#128128; <strong>Poids mort</strong> = Ni CA ni trafic significatif (&lt;3 clients). Plan de sortie.</div>
         <div><strong>Rdt 3m</strong> = CA 3 mois \xf7 val. stock. <strong>\u0394</strong> = tendance vs p\xe9riode.</div>
         <div><strong>Tx service</strong> = % refs sans rupture. <strong>Cli/R\xe9f</strong> = densit\xe9 client par ref.</div>
         <div><strong>Tx marge</strong> = VMB \xf7 CA. (R) = ruptures. (D) = dormants.</div>

@@ -68,7 +68,60 @@ let _prSelectedSFs     = new Set(); // Set<codeSousFam> sélectionnées dans Ana
 let _prSelectedMarques = new Set(); // Set<marque> sélectionnées dans Analyse
 let _prSelectedEmps    = new Set(); // Set<emplacement> actifs dans Mon Rayon
 const PAGE_SIZE = 20;
-let _prRoleCache = null; // Map<code, role> — cache rôles Physigamme, invalidé au changement famille
+let _prRoleCache = null;
+let _prReseauIncontAll = [];  // tous les incontournables pour pagination
+let _prReseauIncontPage = 20; // Map<code, role> — cache rôles Physigamme, invalidé au changement famille
+let _prSqClassifCacheRef = null;
+let _prSqClassifCacheMap = null;
+
+// ── Cached fdMap getter — avoids rebuilding Map<code, finalDataRow> in 10+ functions ──
+let _prFdMapCache = null;
+let _prFdMapRef = null;
+function _prGetFdMap() {
+  const fd = _S.finalData;
+  if (_prFdMapCache && _prFdMapRef === fd) return _prFdMapCache;
+  const m = new Map();
+  if (fd) for (const r of fd) m.set(r.code, r);
+  _prFdMapCache = m;
+  _prFdMapRef = fd;
+  return m;
+}
+
+// ── Memoized: does chalandiseData contain any client with a distanceKm? ──
+// Replaces `[...chalandiseData.values()].some(i => i.distanceKm != null)` — 3 call sites.
+// Cached by chalandiseData reference; early-exit iteration avoids the full-Map spread.
+let _prHasChalDistCache = null;
+let _prHasChalDistRef = null;
+function _prHasChalDist() {
+  const data = _S.chalandiseData;
+  if (!data) return false;
+  if (_prHasChalDistRef === data) return _prHasChalDistCache;
+  let found = false;
+  for (const i of data.values()) { if (i.distanceKm != null) { found = true; break; } }
+  _prHasChalDistRef = data;
+  _prHasChalDistCache = found;
+  return found;
+}
+
+function _prGetSqDataCached() {
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  return sqData;
+}
+
+function _prGetSqClassifMapCached(sqData) {
+  if (!sqData) return new Map();
+  if (_prSqClassifCacheRef === sqData && _prSqClassifCacheMap) return _prSqClassifCacheMap;
+  const sqClassif = new Map();
+  for (const d of sqData.directions) {
+    for (const g of ['socle', 'implanter', 'challenger', 'surveiller']) {
+      for (const a of (d[g] || [])) sqClassif.set(a.code, g);
+    }
+  }
+  _prSqClassifCacheRef = sqData;
+  _prSqClassifCacheMap = sqClassif;
+  return sqClassif;
+}
 
 // ── Constantes visuelles ─────────────────────────────────────────────
 const ROLE_BADGE = {
@@ -83,6 +136,7 @@ const ACTION_BADGE = {
   challenger: { label: 'À retravailler', gradient: 'linear-gradient(135deg,#dc2626,#9f1239)', bg: '#fee2e2', color: '#991b1b', icon: '🔴', dot: '#f87171', cardBg: 'rgba(248,113,113,0.04)', cardBorder: 'rgba(248,113,113,0.22)' },
   surveiller: { label: 'À surveiller',   gradient: 'linear-gradient(135deg,#7c3aed,#6d28d9)', bg: '#f1f5f9', color: '#475569', icon: '👁️', dot: '#64748b', cardBg: 'rgba(100,116,139,0.04)', cardBorder: 'rgba(100,116,139,0.22)' },
   specialiser:   { label: 'À spécialiser',   gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
+  specialiste:   { label: 'Spécialiste',    gradient: 'linear-gradient(135deg,#0d9488,#0f766e)', bg: '#ccfbf1', color: '#115e59', icon: '🎯', dot: '#2dd4bf', cardBg: 'rgba(45,212,191,0.04)',  cardBorder: 'rgba(45,212,191,0.22)' },
   inactive:      { label: 'Inactive',        gradient: 'linear-gradient(135deg,#374151,#1f2937)', bg: '#1f2937', color: '#6b7280', icon: '💤', dot: '#4b5563', cardBg: 'rgba(75,85,99,0.04)',    cardBorder: 'rgba(75,85,99,0.15)' },
 };
 
@@ -96,28 +150,28 @@ const CLASSIF_BADGE = {
 // ── Matrice verdict Squelette × Physigamme ──────────────────────────
 const VERDICT_MATRIX = {
   socle: {
-    incontournable: { name: 'Le Capitaine',     icon: '🏆', color: '#22c55e', tip: 'Produit star — zéro rupture, on protège' },
-    nouveaute:      { name: 'La Bonne Pioche',  icon: '🆕', color: '#22c55e', tip: 'Nouveauté qui a trouvé son public — observer si futur Incontournable' },
-    specialiste:    { name: 'Le Lien Fort',      icon: '🎯', color: '#22c55e', tip: 'Niche qui soude les clients strat. — maintenir absolument' },
-    standard:       { name: 'Le Bon Soldat',     icon: '⚪', color: '#94a3b8', tip: 'Fond de rayon qui tourne — maintenir tant que ça performe' },
+    incontournable: { name: 'Le Capitaine',     icon: '🏆', color: '#22c55e', tip: 'Produit star. Il performe et le réseau dit qu\'il est vital. ACTION : Zéro rupture, on le protège.' },
+    nouveaute:      { name: 'La Bonne Pioche',  icon: '🆕', color: '#22c55e', tip: 'Nouveauté qui a immédiatement trouvé son public. ACTION : On valide et on observe si futur Incontournable.' },
+    specialiste:    { name: 'Le Lien Fort',      icon: '🎯', color: '#22c55e', tip: 'Produit de niche qui soude tes clients strat. Son CA est secondaire, sa présence primordiale. ACTION : On maintient.' },
+    standard:       { name: 'Le Bon Soldat',     icon: '⚪', color: '#94a3b8', tip: 'Fond de rayon qui tourne bien. Pas de statut particulier mais il fait son chiffre. ACTION : On maintient tant qu\'il performe.' },
   },
   surveiller: {
-    incontournable: { name: "L'Alerte Rouge",   icon: '🚨', color: '#f59e0b', tip: 'Incontournable qui ralentit — risque divorce client' },
-    nouveaute:      { name: 'Le Stagiaire',      icon: '🔰', color: '#f59e0b', tip: 'Normal pour une nouveauté — 90-120j pour faire ses preuves' },
-    specialiste:    { name: 'Le Point de Rupture', icon: '⚡', color: '#f59e0b', tip: 'Produit pro qui ralentit — le client part peut-être' },
-    standard:       { name: 'Le Déclinant',      icon: '📉', color: '#94a3b8', tip: 'Son heure est peut-être passée — réduire stock, observer' },
+    incontournable: { name: "L'Alerte Rouge",   icon: '🚨', color: '#f59e0b', tip: 'Incontournable qui ralentit — risque de divorce client maximal. ACTION : Vérifier prix de vente et dernière rupture. Ne pas laisser s\'endormir.' },
+    nouveaute:      { name: 'Le Stagiaire',      icon: '🔰', color: '#f59e0b', tip: 'Statut normal pour toute nouveauté. 90-120j pour faire ses preuves. ACTION : On observe avant de décider : Socle ou Challenger.' },
+    specialiste:    { name: 'Le Point de Rupture', icon: '⚡', color: '#f59e0b', tip: 'Si le produit de tes clients strat. ralentit, c\'est peut-être que le client s\'en va. ACTION : On contacte le client.' },
+    standard:       { name: 'Le Déclinant',      icon: '📉', color: '#94a3b8', tip: 'Il a bien marché mais son heure est peut-être passée. Se dirige vers Challenger. ACTION : Réduire stock et observer.' },
   },
   challenger: {
-    incontournable: { name: 'La Réf Schizo',    icon: '💀', color: '#ef4444', tip: 'Indispensable réseau, mort chez toi — divorce de confiance' },
-    nouveaute:      { name: "L'Erreur de Casting", icon: '🚫', color: '#ef4444', tip: "La nouveauté n'a pas pris — pas d'acharnement" },
-    specialiste:    { name: 'La Trahison',       icon: '🗡️', color: '#ef4444', tip: 'Produit pro dormant — client parti ou achète ailleurs' },
-    standard:       { name: 'Le Poids Mort',     icon: '🪨', color: '#ef4444', tip: 'Ne se vend plus — sortir, libérer cash et place' },
+    incontournable: { name: 'La Réf Schizo',    icon: '💀', color: '#ef4444', tip: 'Le pire des cas. Indispensable réseau, mort chez toi = divorce de confiance. ACTION : Gel commandes. Le commercial appelle 3 clients pour comprendre le boycott (prix ? rupture historique ? concurrence ?).' },
+    nouveaute:      { name: "L'Erreur de Casting", icon: '🚫', color: '#ef4444', tip: 'La nouveauté n\'a pas pris. Pas d\'acharnement thérapeutique. ACTION : On sort. Le marché a parlé.' },
+    specialiste:    { name: 'La Trahison',       icon: '🗡️', color: '#ef4444', tip: 'Produit de tes clients strat. dormant. Client parti ou achète ailleurs. ACTION : Alerte commerciale immédiate. Appeler le client cible. Si divorce confirmé → sortir. Dérogation : conserver (stock=1) si seule Ancre d\'un métier clé.' },
+    standard:       { name: 'Le Poids Mort',     icon: '🪨', color: '#ef4444', tip: 'Cas classique d\'un produit qui ne se vend plus. Pas d\'affect. ACTION : On sort. On libère le cash et la place.' },
   },
   implanter: {
-    incontournable: { name: 'Le Trou Critique',  icon: '🕳️', color: '#3b82f6', tip: 'Autoroute de CA ignorée — implanter sans discuter' },
-    nouveaute:      { name: 'Le Pari du Réseau', icon: '🎲', color: '#3b82f6', tip: 'Opportunité early adopters — implanter si clientèle cible' },
-    specialiste:    { name: 'La Conquête',       icon: '🧲', color: '#8b5cf6', tip: 'Aller chercher un client strat. — signal fort' },
-    standard:       { name: "L'Opportunité Locale", icon: '📡', color: '#94a3b8', tip: 'Demande locale prouvée — analyser couple produit/métier' },
+    incontournable: { name: 'Le Trou Critique',  icon: '🕳️', color: '#3b82f6', tip: 'Priorité absolue. C\'est une autoroute de CA que tu ignores. ACTION : On implante SANS DISCUTER.' },
+    nouveaute:      { name: 'Le Pari du Réseau', icon: '🎲', color: '#3b82f6', tip: 'Opportunité de capter les early adopters. ACTION : On implante si ça correspond à ta clientèle cible.' },
+    specialiste:    { name: 'La Conquête / Fidélisation', icon: '🧲', color: '#8b5cf6', tip: 'Produit pour aller chercher un client strat. ou compléter la gamme de ceux que tu as déjà. ACTION : On implante pour envoyer un signal fort.' },
+    standard:       { name: "L'Opportunité Locale", icon: '📡', color: '#94a3b8', tip: 'Produit standard avec forte demande prouvée sur ta zone (données livraison). ACTION : Analyser le couple produit/métier et implanter si potentiel validé.' },
   },
 };
 function _prVerdict(classif, role) {
@@ -131,8 +185,7 @@ function _prComputeRoles(codeFam) {
   const catFam = _S.catalogueFamille;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
   const nbStores = stores.length || 1;
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
 
   // Tous les codes de la famille
   const allCodes = new Set();
@@ -188,6 +241,13 @@ function _prComputeRoles(codeFam) {
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
+    // Fix Poids Mort : un challenger (W=0) avec de la demande externe
+    // n'est PAS un Poids Mort — c'est une Réf Schizo ou une Trahison
+    if (role === 'standard' && W === 0 && fd?.stockActuel > 0) {
+      if (nbSt >= 1) role = 'incontournable'; // vendu ailleurs dans le réseau → Réf Schizo
+      else if (nbCli >= 1) role = 'specialiste'; // clients zone l'achètent hors PDV → Trahison
+    }
+
     roles.set(code, role);
     const sfName = sf?.sousFam || '';
     const prix = fd?.prixUnitaire || 0;
@@ -212,6 +272,19 @@ function _prRoleBadge(role) {
   if (!r || !r.icon) return '';
   return `<span class="text-[8px] px-1 py-0.5 rounded" style="background:${r.color}20;color:${r.color}" title="${role}">${r.icon} ${r.label}</span>`;
 }
+
+/** Retourne {classif, role, verdict} pour un article donné — utilisé par commerce.js top articles */
+window._getArticleSqInfo = function(code) {
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  const sqMap = _prGetSqClassifMapCached(sqData);
+  const classif = sqMap.get(code);
+  if (!classif) return null;
+  const codeFam = _S.catalogueFamille?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+  const role = codeFam ? _prGetRole(code, codeFam) : 'standard';
+  const verdict = _prVerdict(classif, role);
+  return { classif, role, verdict };
+};
 
 // ── Vocation contexte agence ─────────────────────────────────────────
 // Calcule la distribution segments cible des clients de l'agence pondérée
@@ -303,16 +376,21 @@ function computePlanStock() {
     if (f.codeFam) catCount.set(f.codeFam, (catCount.get(f.codeFam) || 0) + 1);
   }
 
+  const _famInfoCache = new Map();
   const getFamInfo = (code) => {
+    if (_famInfoCache.has(code)) return _famInfoCache.get(code);
+    let result = null;
     const cf = catFam?.get(code);
-    if (cf?.codeFam) return { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
-    const fam = _S.articleFamille?.[code];
-    if (fam) {
-      // Normaliser : prendre les 3 premiers chars si articleFamille est plus long
-      const codeFam = fam.length > 3 ? fam.slice(0, 3) : fam;
-      return { codeFam, libFam: FAMILLE_LOOKUP[codeFam.slice(0, 2)] || codeFam };
+    if (cf?.codeFam) result = { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
+    else {
+      const fam = _S.articleFamille?.[code];
+      if (fam) {
+        const codeFam = fam.length > 3 ? fam.slice(0, 3) : fam;
+        result = { codeFam, libFam: FAMILLE_LOOKUP[codeFam.slice(0, 2)] || codeFam };
+      }
     }
-    return null;
+    _famInfoCache.set(code, result);
+    return result;
   };
 
   const famMap = new Map();
@@ -549,14 +627,18 @@ function computePlanStock() {
       const myIdx = sorted.findIndex(([s]) => s === myStore);
       f.rangReseau = myIdx >= 0 ? myIdx + 1 : null;
       f.rangReseauTotal = sorted.length;
+      // Médiane CA réseau calculée depuis ventesParMagasin
+      const cas = sorted.map(([, ca]) => ca);
+      const mid = Math.floor(cas.length / 2);
+      const medianCA = cas.length % 2 === 0 ? (cas[mid - 1] + cas[mid]) / 2 : cas[mid];
+      const myCA = storeMap.get(myStore) || 0;
+      f.ecartReseau = Math.round(myCA - medianCA);
+      f.ecartReseauPct = medianCA > 0 ? Math.round((myCA - medianCA) / medianCA * 100) : 0;
     }
   }
 
   for (const [, f] of famMap) {
-    const obs = obsIdx.get(f.libFam);
-    f.ecartReseau    = obs ? Math.round(obs.caMe - obs.caOther) : null;
-    f.ecartReseauPct = obs ? obs.ecartPct                       : null;
-    if (!f.rangReseau) { f.rangReseau = null; f.rangReseauTotal = null; }
+    if (!f.rangReseau) { f.rangReseau = null; f.rangReseauTotal = null; f.ecartReseau = null; f.ecartReseauPct = null; }
   }
 
   const allFamilies = [...famMap.values()]
@@ -569,17 +651,16 @@ function computePlanStock() {
   const inactiveFamilies = allFamilies
     .filter(f => f.classifGlobal === 'inactive')
     .sort((a, b) => (b.caAgence || 0) - (a.caAgence || 0));
+  // Single-pass counting (replaces 5 separate .filter() calls)
+  const _totals = { socle: 0, implanter: 0, challenger: 0, surveiller: 0, specialiste: 0 };
+  for (const f of families) {
+    if (f.classifGlobal in _totals) _totals[f.classifGlobal]++;
+    if (f.tagSpecialiste) _totals.specialiste++;
+  }
   const result = {
     families,
     inactiveFamilies,
-    totals: {
-      socle:      families.filter(f => f.classifGlobal === 'socle').length,
-      implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
-      challenger: families.filter(f => f.classifGlobal === 'challenger').length,
-      surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
-      specialiste: families.filter(f => f.tagSpecialiste).length,
-      inactive: nbInactive,
-    }
+    totals: { ..._totals, inactive: nbInactive }
   };
   _prPlanCache = result;
   _prPlanCacheKey = _cacheKey;
@@ -749,6 +830,40 @@ function _buildPrSearchIndex() {
   return index;
 }
 
+// ── Liste compacte familles (panneau gauche split-screen) ─────────────
+function _prBuildCompactList(data) {
+  let families = _prFilterClassif === 'inactive'
+    ? (data.inactiveFamilies || [])
+    : data.families;
+  if (_prFilterClassif && _prFilterClassif !== 'inactive') families = families.filter(f => f.classifGlobal === _prFilterClassif);
+  if (_prEmpFilter) {
+    const empList = _prEmpFilter.split(';').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const empFams = new Set();
+    const catFam = _S.catalogueFamille;
+    for (const r of (_S.finalData || [])) {
+      const emp = (r.emplacement || '').toLowerCase();
+      if (!empList.some(e => emp.includes(e))) continue;
+      const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+      if (cf) empFams.add(cf);
+    }
+    families = families.filter(f => empFams.has(f.codeFam));
+  }
+  let html = '';
+  for (const f of families) {
+    const b = ACTION_BADGE[f.classifGlobal] || ACTION_BADGE.surveiller;
+    const active = _prOpenFam === f.codeFam;
+    const safeCF = f.codeFam.replace(/'/g, "\\'");
+    html += `<div onclick="window._prOpenDetail('${safeCF}')"
+      class="px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-[11px] mb-0.5 ${active ? 'font-bold' : 'hover:s-panel-inner'}"
+      style="${active ? `background:${b.color}22;border-left:3px solid ${b.color}` : ''}">
+      <span style="color:${b.color}">${b.icon}</span>
+      <span class="t-primary">${escapeHtml(f.libFam)}</span>
+      <span class="text-[9px]" style="color:#64748b;margin-left:4px">${f.socle + f.implanter + f.challenger + f.surveiller}</span>
+    </div>`;
+  }
+  return html || '<div class="text-[10px] t-disabled p-2">Aucune famille.</div>';
+}
+
 // ── Render cartes famille ────────────────────────────────────────────
 function _prBuildCards(data, searchText = '') {
   // Si filtre emplacement actif → ne montrer que les familles
@@ -809,14 +924,14 @@ function _prBuildCards(data, searchText = '') {
       ${miniBar}
       <div class="flex items-center justify-between text-[10px]">
         <span class="t-secondary">${total} articles · ${f.nbClients} clients</span>
-        <span class="font-bold" style="color:${covColor}">${f.couverture}% couv.</span>
+        <span class="font-bold" style="color:${covColor}" title="${f.nbEnRayon} en rayon / ${f.nbCatalogue} au catalogue">${f.couverture}% du catalogue</span>
       </div>
       <div class="flex items-center justify-between mt-1.5 text-[10px]">
         ${f.potentielExterne >= 1000 ? `<span title="Potentiel externe (CA zone)" style="color:#3b82f6">💰 ${formatEuro(f.potentielExterne)}</span>` : '<span></span>'}
-        <span class="font-bold t-secondary">${formatEuro(f.caAgence)}</span>
+        <span class="font-bold t-secondary" title="CA agence sur cette famille">Mon CA : ${formatEuro(f.caAgence)}</span>
       </div>
       ${f.ecartReseau != null ? `<div class="flex items-center justify-between mt-1 text-[9px]">
-        <span style="color:${f.ecartReseau >= 0 ? '#22c55e' : '#ef4444'}" title="Écart CA vs médiane réseau">${f.ecartReseau >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(f.ecartReseau))} vs réseau (${f.ecartReseauPct > 0 ? '+' : ''}${f.ecartReseauPct}%)</span>
+        <span style="color:${f.ecartReseau >= 0 ? '#22c55e' : '#ef4444'}" title="Écart CA vs médiane réseau">${f.ecartReseau >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(f.ecartReseau))} vs médiane (${f.ecartReseauPct > 0 ? '+' : ''}${f.ecartReseauPct}%)</span>
         ${f.rangReseau ? `<span class="t-disabled" title="Rang dans le réseau">#${f.rangReseau}/${f.rangReseauTotal}</span>` : ''}
       </div>` : ''}
     </div>`;
@@ -841,21 +956,29 @@ function _prRenderRayon(data) {
     data = { ...data, monRayon: refArt };
   }
   const { monRayon, nbCatalogue } = data;
-  const displayedForHeader = _prSelectedEmps.size > 0
-    ? monRayon.filter(a => _prSelectedEmps.has(a.emplacement || ''))
-    : monRayon;
-  const valeurTotale = displayedForHeader.reduce((s, a) => s + (a.valeurStock || 0), 0);
+  const displayedForHeader = [];
+  const empsSet = new Set();
+  const filterByEmp = _prSelectedEmps.size > 0;
+  let valeurTotale = 0;
+  let pepites = 0, challeng = 0, dormants = 0, ruptures = 0;
+  for (const a of monRayon) {
+    const emp = a.emplacement || '';
+    if (emp) empsSet.add(emp);
+    if (filterByEmp && !_prSelectedEmps.has(emp)) continue;
+    displayedForHeader.push(a);
+    valeurTotale += a.valeurStock || 0;
+    if (a.status === 'pepite') pepites++;
+    else if (a.status === 'challenger') challeng++;
+    else if (a.status === 'dormant') dormants++;
+    else if (a.status === 'rupture') ruptures++;
+  }
   const couverture = nbCatalogue > 0
     ? Math.round(displayedForHeader.length / nbCatalogue * 100)
     : 0;
   const page = _S._prPageRayon || 99999;
-  const pepites  = displayedForHeader.filter(a => a.status === 'pepite').length;
-  const challeng = displayedForHeader.filter(a => a.status === 'challenger').length;
-  const dormants = displayedForHeader.filter(a => a.status === 'dormant').length;
-  const ruptures = displayedForHeader.filter(a => a.status === 'rupture').length;
   const standard = displayedForHeader.length - pepites - challeng - dormants - ruptures;
   // Pills emplacements
-  const empsInRayon = [...new Set(monRayon.map(a => a.emplacement).filter(Boolean))].sort();
+  const empsInRayon = Array.from(empsSet).sort();
   const empPills = empsInRayon.length > 1
     ? `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
         <span class="text-[10px] t-disabled">📍</span>
@@ -877,11 +1000,14 @@ function _prRenderRayon(data) {
         </span>`).join('')}
       </div>`
     : '';
-  // Filtre emplacement puis statut (réutilise displayedForHeader, déjà filtré)
-  const afterEmp = displayedForHeader;
-  let displayed = _prRayonFilter
-    ? afterEmp.filter(a => a.status === _prRayonFilter)
-    : afterEmp;
+  // Filtre statut (emplacement déjà appliqué)
+  let displayed = displayedForHeader;
+  if (_prRayonFilter) {
+    displayed = [];
+    for (const a of displayedForHeader) {
+      if (a.status === _prRayonFilter) displayed.push(a);
+    }
+  }
   if (_S._prMRSortByCode) {
     displayed = [...displayed].sort((a, b) => String(a.code).localeCompare(String(b.code)));
   }
@@ -1003,7 +1129,11 @@ function _prBuildSqTable(arts) {
 
   const _famCode = _prOpenFam || '';
   // Max agences pour barre détention proportionnelle
-  const maxAg = Math.max(1, ...filtered.map(a => a.nbAgencesReseau || 0));
+  let maxAg = 1;
+  for (const a of filtered) {
+    const n = a.nbAgencesReseau || 0;
+    if (n > maxAg) maxAg = n;
+  }
   const rows = shown.map(a => {
     const cb = CLASSIF_BADGE[a._g] || CLASSIF_BADGE.surveiller;
     const role = _famCode ? _prGetRole(a.code, _famCode) : 'standard';
@@ -1101,8 +1231,13 @@ function _prRenderSquelette(fam) {
         : _prOpenSousFam)
     : '';
 
-  const counts = {};
-  for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
+  // Single pass over arts: classif counts + enStock/absent tallies.
+  const counts = { socle: 0, implanter: 0, challenger: 0, surveiller: 0 };
+  let nbEnStock = 0, nbAbsent = 0;
+  for (const a of arts) {
+    if (a._g in counts) counts[a._g]++;
+    if (a.enStock) nbEnStock++; else nbAbsent++;
+  }
   const activeFilter = _S._prSqFilter || '';
 
   let pills = CLASSIFS.map(g => {
@@ -1112,7 +1247,6 @@ function _prRenderSquelette(fam) {
       class="text-[10px] px-2 py-1 rounded border cursor-pointer transition-all ${active ? 's-panel-inner t-inverse' : 's-card t-secondary hover:t-primary'}"
       style="${active ? 'box-shadow:0 0 0 2px ' + b.color : ''}">${b.icon} ${b.label} <strong>${counts[g]}</strong></button>`;
   }).join('');
-  const nbAbsent = arts.filter(a => !a.enStock).length;
   if (nbAbsent) {
     const active = activeFilter === 'absent';
     pills += `<button onclick="window._prSqFilterFn('absent')"
@@ -1128,7 +1262,6 @@ function _prRenderSquelette(fam) {
 
   // Résumé rapide
   const nbTotal = arts.length;
-  const nbEnStock = arts.filter(a => a.enStock).length;
   const pctStock = nbTotal ? Math.round(nbEnStock / nbTotal * 100) : 0;
   const pctColor = pctStock >= 80 ? '#22c55e' : pctStock >= 50 ? '#f59e0b' : '#ef4444';
   const summary = `<div class="flex items-center gap-4 mb-3 text-[10px]">
@@ -1172,16 +1305,15 @@ function _prRenderMetiers(fam) {
   const catFam = _S.catalogueFamille;
 
   // Slider distance
-  const hasDist = [..._S.chalandiseData.values()].some(i => i.distanceKm != null);
+  const hasDist = _prHasChalDist();
   const sliderHtml = hasDist ? `
-    <div class="flex items-center gap-3 mb-4">
-      <span class="text-[11px] font-bold" style="color:var(--t-primary)">📍 Rayon :</span>
-      <input type="range" min="5" max="100" step="5"
-        value="${_prMetierDist || 100}"
-        oninput="window._prMetierDistChange(this.value)"
-        style="flex:1;max-width:200px;accent-color:var(--c-action,#8b5cf6)">
-      <span class="text-[11px] font-bold" style="color:var(--c-action,#8b5cf6);min-width:40px"
-        id="prMetierDistLabel">${!_prMetierDist || _prMetierDist >= 100 ? 'Tous' : _prMetierDist + ' km'}</span>
+    <div class="flex items-center gap-1.5 mb-4">
+      <span class="text-[10px] t-disabled">📍 Distance :</span>
+      ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:15,l:'15 km'},{v:30,l:'30 km'}].map(d =>
+        `<button onclick="window._prMetierDistChange(${d.v||100})"
+          class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
+          style="${(!_prMetierDist&&!d.v)||(_prMetierDist===d.v)?'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)':''}">${d.l}</button>`
+      ).join('')}
     </div>` : '';
 
   const _distOk = _prDistOk;
@@ -1513,8 +1645,8 @@ function _prRenderPhysigamme(fam) {
   for (const arts of Object.values(vpm)) { for (const code of Object.keys(arts)) { if (matchFam(code)) allCodes.add(code); } }
   if (!allCodes.size) return '<div class="t-disabled text-sm text-center py-6">Aucun article dans cette famille.</div>';
 
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
+  const _sqClassifMap = _prGetSqClassifMapCached(_S._prSqData);
   const stores = Object.keys(vpm).filter(s => s !== myStore);
   const nbStores = stores.length || 1;
 
@@ -1569,16 +1701,8 @@ function _prRenderPhysigamme(fam) {
     else if (fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
     else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
 
-    // Classification squelette
-    let sqClassif = '';
-    if (_S._prSqData) {
-      for (const d of _S._prSqData.directions) {
-        for (const g of ['socle','implanter','challenger','surveiller']) {
-          if ((d[g] || []).some(x => x.code === code)) { sqClassif = g; break; }
-        }
-        if (sqClassif) break;
-      }
-    }
+    // Classification squelette (O(1) lookup via cached Map)
+    const sqClassif = _sqClassifMap.get(code) || '';
     const a = { code, lib: articleLib(code), sf: sf?.sousFam || '', codeSF: sf?.codeSousFam || '',
       role, sqClassif, detention, nbSt, caRes, blRes, myCa, myBL, myPrel, stock, enStock, prix, W, nbCli, nbCliMetierStrat,
       abc: fd?.abcClass || '', fmr: fd?.fmrClass || '' };
@@ -1747,9 +1871,7 @@ function _prRenderPilotage(fam) {
   _prRoleCache = roles;
   _prRoleCache._fam = codeFam;
 
-  // ── Lookup rapide finalData par code (évite .find() en O(n)) ──
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
 
   // ── Filtre distance : via articleZoneFiltered (article-store.js) ──
   const _hasDist = _prMetierDist && _S.chalandiseReady && _S.chalandiseData?.size;
@@ -1813,9 +1935,10 @@ function _prRenderPilotage(fam) {
     }
   }
 
-  // ── Counts par classif ──
+  // ── Counts par classif (single pass over arts, not CLASSIFS × N) ──
   const counts = {};
-  for (const g of CLASSIFS) counts[g] = arts.filter(a => a._g === g).length;
+  for (const g of CLASSIFS) counts[g] = 0;
+  for (const a of arts) { if (a._g in counts) counts[a._g]++; }
 
   // ── Filtre classif + verdict ──
   let filtered = _prPilotFilter
@@ -1852,10 +1975,12 @@ function _prRenderPilotage(fam) {
   const all = _prPilotFilter === 'implanter' ? implanter : [...inStock, ...implanter];
   const shown = all.slice(0, _prPilotPage);
 
-  // ── KPIs synthèse ──
+  // ── KPIs synthèse (single pass over arts) ──
   const nbTotal = arts.length;
-  const nbEnStock = arts.filter(a => a.enStock).length;
-  const valStock = arts.reduce((s, a) => s + (a.enStock ? (a.stockActuel || 0) * (a.prix || 0) : 0), 0);
+  let nbEnStock = 0, valStock = 0;
+  for (const a of arts) {
+    if (a.enStock) { nbEnStock++; valStock += (a.stockActuel || 0) * (a.prix || 0); }
+  }
   const nbImplanter = counts.implanter || 0;
 
   // ── Pills filtre classif ──
@@ -1923,7 +2048,7 @@ function _prRenderPilotage(fam) {
     // Séparateur implanter
     let sep = '';
     if (a._g === 'implanter' && lastGroup !== 'implanter' && !_prPilotFilter) {
-      sep = `<tr><td colspan="11" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
+      sep = `<tr><td colspan="7" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
         🔵 À implanter — ${implanter.length} réf${implanter.length > 1 ? 's' : ''} avec signal fort
       </td></tr>`;
     }
@@ -1942,20 +2067,14 @@ function _prRenderPilotage(fam) {
     return `${sep}<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono t-disabled">${a.code}</td>
-      <td class="py-1.5 px-2 t-primary" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
-      <td class="py-1.5 px-2 text-[10px] t-secondary" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(a.sf)}">${escapeHtml(a.sf)}</td>
+      <td class="py-1.5 px-2 t-primary" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-right">${stockCell}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.W || 0}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
-      <td class="py-1.5 px-2 text-right t-secondary">${a.cliZone || '—'}</td>
       <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
-      <td class="py-1.5 px-2 text-center"><span class="text-[8px] px-1.5 py-0.5 rounded-full font-bold" style="background:${cb.bg};color:${cb.color}">${cb.icon} ${cb.label}</span></td>
-      <td class="py-1.5 px-2 text-center">${rb?.icon ? `<span class="text-[8px] px-1 py-0.5 rounded" style="background:${rb.color}20;color:${rb.color}">${rb.icon} ${rb.label}</span>` : '<span class="t-disabled text-[9px]">—</span>'}</td>
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>
       </td>
-      <td class="py-1.5 px-2">${_prSourceBar(a.sources)}</td>
     </tr>`;
   }).join('');
 
@@ -1965,36 +2084,20 @@ function _prRenderPilotage(fam) {
     <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
   </div>`;
 
-  const srcLegend = `<div class="flex items-center gap-3 mb-2 text-[9px] t-disabled">
-    <span>Sources :</span>
-    <span style="color:#3b82f6">■ Réseau</span>
-    <span style="color:#22c55e">■ Chalandise</span>
-    <span style="color:#f59e0b">■ Hors-zone</span>
-    <span style="color:#8b5cf6">■ Livraisons</span>
-    <span style="color:#ec4899">■ Clients PDV</span>
-  </div>`;
-
   const html = `${_prSFPills()}${summary}
   <div class="flex flex-wrap gap-1.5 mb-2 items-center">${pills}</div>
   <div class="flex flex-wrap gap-1 mb-1 items-center">${verdictPills}</div>
   <div class="flex flex-wrap gap-1 mb-3 items-center">${rolePills}</div>
-  ${srcLegend}
   <div class="overflow-x-auto" id="prPilotTable" style="max-height:560px;overflow-y:auto">
     <table class="w-full text-[11px]">
       <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
         ${_thSort('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">SF</th>
         ${_thSort('stock', 'Stock', 'text-right')}
-        ${_thSort('w', 'Vte 90J', 'text-right', 'Fréquence BL 90 jours')}
         ${_thSort('cliPDV', 'Cli PDV', 'text-right', 'Clients distincts agence sur la période')}
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
-        ${_thSort('cliZone', 'Cli Zone', 'text-right', 'Clients distincts zone tous canaux')}
         ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
-        ${_thSort('classif', 'Classif', 'text-center')}
-        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500">Rôle</th>
         ${_thSort('verdict', 'Verdict', 'text-left')}
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Sources</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -2038,8 +2141,7 @@ function _prBuildConqueteKit(codeFam) {
     }
   }
 
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
 
   const articles = [];
   for (const code of allCodes) {
@@ -2189,46 +2291,42 @@ function _prGetTabContent(tab, fam) {
   if (tab === 'rayon') {
     const rayonData = computeMonRayon(fam.codeFam, _prOpenSousFam || '');
     // Index code → classification Squelette (sans écraser status Mon Rayon)
-    const sqData = _S._prSqData || computeSquelette();
-    _S._prSqData = sqData;
-    const sqClassif = new Map();
-    if (sqData) {
-      for (const d of sqData.directions) {
-        for (const g of ['socle', 'implanter', 'challenger', 'surveiller']) {
-          for (const a of (d[g] || [])) sqClassif.set(a.code, g);
-        }
-      }
-    }
+    const sqData = _prGetSqDataCached();
+    const sqClassif = _prGetSqClassifMapCached(sqData);
     // Filtres structurels uniquement — ruptures (stockActuel=0) incluses
     const abc  = document.getElementById('filterABC')?.value || '';
     const fmr  = document.getElementById('filterFMR')?.value || '';
     const stat = document.getElementById('filterStatut')?.value || '';
-    const filteredMonRayon = (rayonData?.monRayon || []).filter(a => {
-      if (_prEmpFilter) {
-        const empList = _prEmpFilter.split(';').map(e => e.trim().toLowerCase()).filter(Boolean);
-        if (!empList.some(e => (a.emplacement || '').toLowerCase().includes(e))) return false;
+    const empNeedles = _prEmpFilter
+      ? _prEmpFilter.split(';').map(e => e.trim().toLowerCase()).filter(Boolean)
+      : null;
+    const hasSF = _prSelectedSFs.size > 0;
+    const hasMarque = _prSelectedMarques.size > 0;
+    const catFam = _S.catalogueFamille;
+    const catMarques = _S.catalogueMarques;
+    const filteredMonRayonFinal = [];
+    for (const a of (rayonData?.monRayon || [])) {
+      if (empNeedles?.length) {
+        const emp = (a.emplacement || '').toLowerCase();
+        let empOk = false;
+        for (const needle of empNeedles) {
+          if (emp.includes(needle)) { empOk = true; break; }
+        }
+        if (!empOk) continue;
       }
-      if (abc  && a.abcClass !== abc) return false;
-      if (fmr  && a.fmrClass !== fmr) return false;
-      if (stat && (a.statut  || '') !== stat) return false;
-      return true;
-    });
-    // Filtres Analyse SF + Marque
-    let filteredMonRayon2 = filteredMonRayon;
-    if (_prSelectedSFs.size) {
-      filteredMonRayon2 = filteredMonRayon2.filter(a =>
-        _prSelectedSFs.has(_S.catalogueFamille?.get(a.code)?.codeSousFam || '')
-      );
-    }
-    if (_prSelectedMarques.size) {
-      filteredMonRayon2 = filteredMonRayon2.filter(a =>
-        _prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '')
-      );
-    }
-    const filteredMonRayonFinal = filteredMonRayon2;
-    // Annoter sqClassif sans toucher à status
-    for (const a of filteredMonRayonFinal) {
+      if (abc  && a.abcClass !== abc) continue;
+      if (fmr  && a.fmrClass !== fmr) continue;
+      if (stat && (a.statut || '') !== stat) continue;
+      if (hasSF) {
+        const csf = catFam?.get(a.code)?.codeSousFam || '';
+        if (!_prSelectedSFs.has(csf)) continue;
+      }
+      if (hasMarque) {
+        const mq = catMarques?.get(a.code) || '';
+        if (!_prSelectedMarques.has(mq)) continue;
+      }
       a.sqClassif = sqClassif.get(a.code) || null;
+      filteredMonRayonFinal.push(a);
     }
     const filtered = rayonData ? { ...rayonData, monRayon: filteredMonRayonFinal } : null;
     _S._prRayonData = filtered;
@@ -2240,7 +2338,148 @@ function _prGetTabContent(tab, fam) {
   if (tab === 'metiers')    return _prRenderMetiers(fam);
   if (tab === 'analyse')    return _prRenderAnalyse(fam);
   if (tab === 'physigamme') return _prRenderPhysigamme(fam);
+  if (tab === 'reseau')     return _prRenderReseau(fam);
   return '';
+}
+
+// ── Onglet Réseau (pépites / boulets / incontournables) ──────────────
+function _prRenderReseau(fam) {
+  const famLabel = fam.libFam;
+
+  // Filtre sous-famille / marque — même logique que Squelette et Mon Rayon
+  const _matchesSF = (code) => {
+    if (!_prOpenSousFam && !_prSelectedSFs.size) return true;
+    const csf = _S.catalogueFamille?.get(code)?.codeSousFam || '';
+    if (_prOpenSousFam && csf !== _prOpenSousFam) return false;
+    if (_prSelectedSFs.size > 0 && !_prSelectedSFs.has(csf)) return false;
+    return true;
+  };
+  const _matchesMarque = (code) => {
+    if (!_prSelectedMarques.size) return true;
+    return _prSelectedMarques.has(_S.catalogueMarques?.get(code) || '');
+  };
+  const _passFilters = (code) => _matchesSF(code) && _matchesMarque(code);
+
+  const pepites = (_S.benchLists?.pepites || []).filter(p => p.fam === famLabel && _passFilters(p.code));
+  const boulets = (_S.benchLists?.pepitesOther || []).filter(p => p.fam === famLabel && _passFilters(p.code));
+
+  // Incontournables : articles squelette socle/implanter de cette famille
+  const sqData = _S._prSqData || computeSquelette();
+  _S._prSqData = sqData;
+  const incontCodes = new Set();
+  if (sqData) {
+    for (const d of sqData.directions) {
+      for (const g of ['socle', 'implanter']) {
+        for (const a of (d[g] || [])) {
+          const cfCat = _S.catalogueFamille?.get(a.code)?.codeFam;
+          const cfArt = _S.articleFamille?.[a.code] || '';
+          if (cfCat === fam.codeFam || (!cfCat && cfArt.startsWith(fam.codeFam)) || cfArt === fam.codeFam) {
+            if (_passFilters(a.code)) incontCodes.add(a.code);
+          }
+        }
+      }
+    }
+  }
+  // Enrichir incontournables avec données réseau
+  const myStore = _S.selectedMyStore;
+  const myV = _S.ventesParMagasin?.[myStore] || {};
+  const incont = [];
+  for (const code of incontCodes) {
+    const myData = myV[code];
+    const myFreq = myData?.countBL || 0;
+    const myCA   = myData?.sumCA || 0;
+    // Médiane réseau
+    const csFreqs = [];
+    for (const [st, arts] of Object.entries(_S.ventesParMagasin || {})) {
+      if (st === myStore || !_S.storesIntersection?.has(st)) continue;
+      if (arts[code]) csFreqs.push(arts[code].countBL || 0);
+    }
+    csFreqs.sort((a, b) => a - b);
+    const medFreq = csFreqs.length ? csFreqs[Math.floor(csFreqs.length / 2)] : 0;
+    const lib = _S.libelleLookup?.[code] || code;
+    const shortLib = /^\d{6} - /.test(lib) ? lib.substring(9).trim() : lib;
+    incont.push({ code, lib: shortLib, myFreq, medFreq: Math.round(medFreq), myCA: Math.round(myCA) });
+  }
+  incont.sort((a, b) => b.myCA - a.myCA);
+  _prReseauIncontAll = incont;
+  _prReseauIncontPage = 20;
+
+  const _row = (items, cols) => {
+    if (!items.length) return `<tr><td colspan="${cols}" class="py-3 text-center t-disabled text-xs italic">Aucun article identifié dans cette famille.</td></tr>`;
+    return items.map(p => cols === 6
+      ? `<tr class="border-b border-white/5 hover:bg-white/5">
+          <td class="py-1.5 px-2 text-[11px] font-mono">${p.code}</td>
+          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${p.compFreq ?? p.medFreq}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right ${(p.ecartPct != null && p.ecartPct > 0) ? 'text-green-400' : (p.ecartPct != null && p.ecartPct < 0) ? 'text-red-400' : ''}">${p.ecartPct != null ? (p.ecartPct > 0 ? '+' : '') + p.ecartPct + '%' : '—'}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.caMe ?? p.caComp ?? p.myCA)}</td>
+        </tr>`
+      : `<tr class="border-b border-white/5 hover:bg-white/5">
+          <td class="py-1.5 px-2 text-[11px] font-mono">${p.code}</td>
+          <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${p.medFreq}</td>
+          <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.myCA)}</td>
+        </tr>`
+    ).join('');
+  };
+
+  // Marque pills (même pattern que les autres onglets)
+  const marquePillsReseau = _prSelectedMarques.size > 0
+    ? `<div class="flex gap-1.5 flex-wrap mb-3 items-center">
+        <span class="text-[10px] t-disabled">🏷️</span>
+        ${[..._prSelectedMarques].sort().map(m => `<span class="text-[10px] px-2 py-0.5 rounded border s-panel-inner t-inverse flex items-center gap-1" style="box-shadow:0 0 0 1.5px var(--c-action)">
+          ${escapeHtml(m)}
+          <button onclick="window._prToggleMarque('${escJs(m)}')" class="t-disabled hover:t-primary leading-none" style="font-size:10px">✕</button>
+        </span>`).join('')}
+      </div>`
+    : '';
+
+  return `
+  ${_prSFPills()}${marquePillsReseau}
+  <div class="space-y-5">
+    ${pepites.length ? `
+    <div>
+      <h4 class="text-sm font-semibold mb-2" style="color:#22c55e">💎 Mes Pépites <span class="text-xs font-normal t-disabled">(${pepites.length} articles où je surperforme le réseau)</span></h4>
+      <div class="overflow-x-auto"><table class="w-full text-left">
+        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+          <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
+          <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq réseau</th>
+          <th class="pb-1 px-2 text-right">Écart</th><th class="pb-1 px-2 text-right">CA moi</th>
+        </tr></thead>
+        <tbody>${_row(pepites, 6)}</tbody>
+      </table></div>
+    </div>` : ''}
+
+    ${boulets.length ? `
+    <div>
+      <h4 class="text-sm font-semibold mb-2" style="color:#ef4444">🔥 Boulets <span class="text-xs font-normal t-disabled">(${boulets.length} articles où le réseau me surpasse)</span></h4>
+      <div class="overflow-x-auto"><table class="w-full text-left">
+        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+          <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
+          <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq réseau</th>
+          <th class="pb-1 px-2 text-right">Écart</th><th class="pb-1 px-2 text-right">CA réseau</th>
+        </tr></thead>
+        <tbody>${_row(boulets, 6)}</tbody>
+      </table></div>
+    </div>` : ''}
+
+    <div>
+      <h4 class="text-sm font-semibold mb-2" style="color:#3b82f6">🏆 Incontournables réseau <span class="text-xs font-normal t-disabled">(${incont.length} articles socle/implanter de cette famille)</span></h4>
+      ${incont.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+        <thead><tr class="text-[10px] t-disabled uppercase tracking-wide">
+          <th class="pb-1 px-2">Code</th><th class="pb-1 px-2">Libellé</th>
+          <th class="pb-1 px-2 text-right">Fréq moi</th><th class="pb-1 px-2 text-right">Fréq méd. réseau</th>
+          <th class="pb-1 px-2 text-right">CA moi</th>
+        </tr></thead>
+        <tbody id="prReseauIncontBody">${_row(incont.slice(0, 20), 5)}</tbody>
+      </table></div>
+      ${incont.length > 20 ? `<button id="prReseauIncontMore" onclick="window._prReseauShowMoreIncont()" class="text-[11px] t-secondary border b-light rounded px-3 py-1 mt-2 hover:t-primary cursor-pointer s-card">Voir plus (${incont.length - 20} restants)</button>` : ''}` : `<div class="py-3 text-center t-disabled text-xs italic">Aucun article socle/implanter identifié — squelette indisponible.</div>`}
+    </div>
+
+    ${!pepites.length && !boulets.length ? '<div class="py-4 text-center t-disabled text-sm italic">Aucune pépite ni boulet identifié dans cette famille — données benchmark insuffisantes.</div>' : ''}
+  </div>`;
 }
 
 // ── Panel détail famille ─────────────────────────────────────────────
@@ -2256,16 +2495,18 @@ function _prRenderDetail(codeFam) {
             ?.sousFam || _prOpenSousFam
         : _prOpenSousFam)
     : '';
+  const _hasBenchPepites = (_S.benchLists?.pepites?.length || 0) + (_S.benchLists?.pepitesOther?.length || 0) > 0;
   const tabs = _prConqueteMode
     ? [{ key: 'conquete', label: '🚀 Kit de Démarrage' }]
     : [
         { key: 'pilotage',   label: '🧭 Pilotage'  },
         { key: 'metiers',    label: '🎯 Métiers'   },
         { key: 'analyse',    label: '📦 Analyse'   },
+        ...(_hasBenchPepites ? [{ key: 'reseau', label: '🏆 Réseau' }] : []),
       ];
 
   const cc = ACTION_BADGE[fam.classifGlobal] || ACTION_BADGE.surveiller;
-  return `<div id="prDetailPanel" class="mt-4 rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder};max-height:calc(100vh - 180px);overflow-y:auto">
+  return `<div id="prDetailPanel" class="rounded-xl p-3" style="background:${cc.cardBg};border:1px solid ${cc.cardBorder};box-shadow:0 2px 12px ${cc.cardBorder}">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-[14px] font-extrabold t-primary">${escapeHtml(fam.libFam)}</span>
@@ -2288,13 +2529,13 @@ function _prRenderDetail(codeFam) {
         <button onclick="window._prCloseDetail()" class="text-[11px] t-secondary hover:t-primary cursor-pointer border b-light px-2 py-0.5 rounded s-card shrink-0">✕</button>
       </div>
     </div>
-    ${_S.chalandiseReady && [...(_S.chalandiseData?.values()||[])].some(i=>i.distanceKm!=null) ? `
+    ${_S.chalandiseReady && _prHasChalDist() ? `
     <div class="flex items-center gap-1.5 mb-2 px-1">
       <span class="text-[10px] t-disabled">📍 Distance :</span>
-      ${[{v:0,l:'Off'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:20,l:'20 km'}].map(d=>
+      ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:15,l:'15 km'},{v:30,l:'30 km'}].map(d=>
         `<button onclick="window._prMetierDistChange(${d.v||100})" data-prdist="${d.v}"
-          class="text-[9px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors"
-          style="${(!_prMetierDist&&!d.v)||(_prMetierDist===d.v)?'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)':'border-color:var(--b-light);color:var(--t-secondary);background:transparent'}">${d.l}</button>`
+          class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
+          style="${(!_prMetierDist&&!d.v)||(_prMetierDist===d.v)?'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)':''}">${d.l}</button>`
       ).join('')}
     </div>` : ''}
     <div class="flex flex-wrap gap-0 mb-1 border-b b-light">
@@ -2321,18 +2562,19 @@ function _prPerfBanner() {
   const ecartMed = Math.round((myPerf.ca || 0) - medianCA);
 
   // Tableau classement agences — trouver le #1 par colonne
-  const best = { ca: '', tm: '', refs: '', cli: '', serv: '' };
-  let maxCA = -1, maxTM = -1, maxRefs = -1, maxCli = -1, maxServ = -1;
+  const best = { ca: '', tm: '', refs: '', cli: '', caCli: '' };
+  let maxCA = -1, maxTM = -1, maxRefs = -1, maxCli = -1, maxCaCli = -1;
   for (const [store, data] of spSorted) {
     const ag = _S.agenceStore?.get(store);
     const ca = ag?.ca || 0;
     const refs = data.ref || 0;
     const nbCli = data.nbClients || ag?.nbClients || 0;
-    if (ca > maxCA)            { maxCA = ca;            best.ca   = store; }
-    if ((data.txMarge||0) > maxTM) { maxTM = data.txMarge; best.tm   = store; }
-    if (refs > maxRefs)        { maxRefs = refs;        best.refs = store; }
-    if (nbCli > maxCli)        { maxCli = nbCli;       best.cli  = store; }
-    if ((data.serv||0) > maxServ) { maxServ = data.serv;  best.serv = store; }
+    const caCli = data.caClient || (nbCli > 0 ? Math.round(ca / nbCli) : 0);
+    if (ca > maxCA)            { maxCA = ca;            best.ca    = store; }
+    if ((data.txMarge||0) > maxTM) { maxTM = data.txMarge; best.tm    = store; }
+    if (refs > maxRefs)        { maxRefs = refs;        best.refs  = store; }
+    if (nbCli > maxCli)        { maxCli = nbCli;       best.cli   = store; }
+    if (caCli > maxCaCli)      { maxCaCli = caCli;     best.caCli = store; }
   }
   const gold = 'background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:4px;padding:0 3px;font-weight:800';
 
@@ -2344,9 +2586,8 @@ function _prPerfBanner() {
     const tm = data.txMarge > 0 ? data.txMarge.toFixed(1) + '%' : '—';
     const tmColor = data.txMarge > 0 ? (data.txMarge >= 35 ? 'c-ok' : data.txMarge >= 25 ? 'c-caution' : 'c-danger') : 't-disabled';
     const refs = data.ref || 0;
-    const serv = data.serv || 0;
-    const servColor = serv > 25 ? 'c-ok' : serv >= 10 ? 'c-caution' : 'c-danger';
     const nbCli = data.nbClients || ag?.nbClients || 0;
+    const caCli = data.caClient || (nbCli > 0 ? Math.round(ca / nbCli) : 0);
     const g = (col) => store === best[col] ? ` style="${gold}"` : '';
     rows += `<tr class="border-b b-light ${isMe ? 'i-info-bg font-bold' : 'hover:s-card-alt'}">
       <td class="py-1.5 px-2 text-[11px]"><span class="${isMe ? 'font-extrabold' : ''}">${isMe ? '⭐ ' : ''}${store}</span></td>
@@ -2354,7 +2595,7 @@ function _prPerfBanner() {
       <td class="py-1.5 px-2 text-center text-[10px] font-bold ${tmColor}"><span${g('tm')}>${tm}</span></td>
       <td class="py-1.5 px-2 text-center text-[10px]"><span${g('refs')}>${refs.toLocaleString('fr')}</span></td>
       <td class="py-1.5 px-2 text-center text-[10px]"><span${g('cli')}>${nbCli.toLocaleString('fr')}</span></td>
-      <td class="py-1.5 px-2 text-center text-[10px] ${servColor} font-bold"><span${g('serv')}>${serv}%</span></td>
+      <td class="py-1.5 px-1 text-right text-[10px] font-bold whitespace-nowrap"><span${g('caCli')}>${formatEuro(caCli)}</span></td>
       <td class="py-1.5 px-2 text-center"><span class="text-[10px] font-bold ${isMe ? 'c-action' : ''}">#${idx + 1}</span></td>
     </tr>`;
   });
@@ -2365,7 +2606,7 @@ function _prPerfBanner() {
       <span class="t-secondary">CA <b class="t-primary">${formatEuro(myPerf.ca || 0)}</b></span>
       <span class="t-secondary">Tx marge <b class="${(myPerf.txMarge || 0) >= 35 ? 'c-ok' : (myPerf.txMarge || 0) >= 25 ? 'c-caution' : 'c-danger'}">${(myPerf.txMarge || 0).toFixed(1)}%</b></span>
       <span class="t-secondary">Refs <b class="t-primary">${(myPerf.ref || 0).toLocaleString('fr')}</b></span>
-      <span class="t-secondary">Tx service <b class="${(myPerf.serv || 0) >= 25 ? 'c-ok' : 'c-caution'}">${myPerf.serv || 0}%</b></span>
+      <span class="t-secondary">CA/client <b class="t-primary">${formatEuro(myPerf.caClient || 0)}</b></span>
       <span style="color:${ecartMed >= 0 ? '#22c55e' : '#ef4444'}" title="Écart vs médiane réseau">${ecartMed >= 0 ? '▲' : '▼'} ${formatEuro(Math.abs(ecartMed))} vs médiane</span>
       <span class="t-disabled text-[9px] ml-auto">▶ classement</span>
     </summary>
@@ -2377,7 +2618,7 @@ function _prPerfBanner() {
           <th class="py-1 px-2 text-center">Marge</th>
           <th class="py-1 px-2 text-center">Refs</th>
           <th class="py-1 px-2 text-center">Clients</th>
-          <th class="py-1 px-2 text-center">Service</th>
+          <th class="py-1 px-1 text-right whitespace-nowrap">CA/cli.</th>
           <th class="py-1 px-2 text-center">Rang</th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -2413,15 +2654,15 @@ function _renderPlanRayonContent(data) {
   </div>`;
 
   return `<div class="mb-3">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-extrabold text-sm t-primary">🦴 Plan de rayon stratégique — ${data.families.length} familles analysées</h3>
+    <div class="flex items-center gap-3 mb-2">
+      <h3 class="font-extrabold text-sm t-primary">${data.families.length} familles analysées</h3>
+      ${totals.specialiste ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(13,148,136,0.2);color:#2dd4bf">🎯 ${totals.specialiste} spé.</span>` : ''}
     </div>
-    <div class="grid grid-cols-7 gap-2 mb-3">
+    <div class="grid grid-cols-5 gap-2 mb-3" ${_prOpenFam ? 'style="display:none"' : ''}>
       ${_badge('socle', totals.socle)}
       ${_badge('implanter', totals.implanter)}
       ${_badge('challenger', totals.challenger)}
       ${_badge('surveiller', totals.surveiller)}
-      <div class="text-center text-[10px] t-secondary" title="${totals.specialiste} familles avec >30% CA clients stratégiques">🎯 ${totals.specialiste} spé.</div>
       ${totals.inactive ? `<button onclick="window._prSetFilter('inactive')" data-prbadge="inactive"
         class="flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${_prFilterClassif === 'inactive' ? 's-panel-inner' : 's-card'}"
         style="${_prFilterClassif === 'inactive' ? 'box-shadow:0 0 0 2px #4b5563' : ''}"
@@ -2436,7 +2677,7 @@ function _renderPlanRayonContent(data) {
       <div id="prSearchResults" class="hidden fixed s-card border rounded-xl shadow-xl max-h-[640px] overflow-y-auto z-[9999]"></div>
     </div>
     ${_prEmpFilter ? `<div class="flex items-center gap-2 mb-2"><span class="text-[11px] t-secondary">📍 ${escapeHtml(_prEmpFilter)}</span><button onclick="window._prSelectEmp('')" class="text-[10px] t-disabled hover:t-primary">✕</button></div>` : ''}
-    <details class="mb-3">
+    <details class="mb-3" ${_prOpenFam ? 'style="display:none"' : ''}>
       <summary class="text-[10px] t-disabled cursor-pointer hover:t-primary select-none">📖 Glossaire — Matrice Physigamme × Squelette</summary>
       <div class="mt-2 s-card border rounded-xl p-4 text-[10px] t-secondary overflow-x-auto">
         <div class="mb-3 text-[11px] t-primary font-bold">Classification des familles</div>
@@ -2492,12 +2733,16 @@ function _renderPlanRayonContent(data) {
       </div>
     </details>
   </div>
-  <div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3" ${_prOpenFam ? 'style="display:none"' : ''}>
-    ${(_prFilterClassif || _prSearchText || _prOpenFam || _prEmpFilter)
+  ${_prOpenFam ? `<div class="grid grid-cols-[280px_1fr] gap-3" style="min-height:400px;overflow:hidden">
+    <div style="max-height:calc(100vh - 200px);overflow-y:auto;min-width:0" class="border-r b-light pr-2">
+      ${_prBuildCompactList(data)}
+    </div>
+    <div style="min-width:0">${_prRenderDetail(_prOpenFam)}</div>
+  </div>` : `<div id="prFamGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    ${(_prFilterClassif || _prSearchText || _prEmpFilter)
       ? _prBuildCards(data, _prSearchText)
       : '<div class="col-span-2 text-center py-8 t-disabled text-[12px]">Cliquez sur une catégorie ou recherchez une famille</div>'}
-  </div>
-  ${_prOpenFam ? _prRenderDetail(_prOpenFam) : ''}`;
+  </div>`}`;
 }
 
 // ── Rerender + search ─────────────────────────────────────────────────
@@ -2506,6 +2751,37 @@ function _prRerender() {
   if (!el || !_S._prData) return;
   el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(_S._prData));
   if (_prTopView === 'famille') _initPrSearch();
+  if (_prTopView === 'metier') _initPrMetierInput();
+}
+
+function _initPrMetierInput() {
+  const input = document.getElementById('prMetierInput');
+  const dl = document.getElementById('prMetierDatalist');
+  if (!input || !dl) return;
+  const metierOpts = [];
+  for (const [metier, clients] of (_S.clientsByMetier || new Map())) {
+    if (!metier || metier === '-' || metier.trim() === '') continue;
+    metierOpts.push({ metier, nb: clients.size });
+  }
+  metierOpts.sort((a, b) => b.nb - a.nb);
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = (input.value || '').trim().toLowerCase();
+      if (!q || q.length < 2) { dl.innerHTML = ''; return; }
+      const exact = metierOpts.find(m => m.metier.toLowerCase() === q);
+      if (exact) { dl.innerHTML = ''; window._prSelectMetier(exact.metier); return; }
+      const matches = metierOpts.filter(m => m.metier.toLowerCase().includes(q)).slice(0, 12);
+      dl.innerHTML = matches.map(m => `<option value="${escapeHtml(m.metier)}">`).join('');
+    }, 150);
+  });
+  input.addEventListener('change', () => {
+    const v = (input.value || '').trim();
+    const match = metierOpts.find(m => m.metier === v);
+    if (match) window._prSelectMetier(match.metier);
+    else if (!v) window._prSelectMetier('');
+  });
 }
 
 function _initPrSearch() {
@@ -2643,9 +2919,16 @@ window._prSetFilter = function(key) {
   document.querySelectorAll('[data-prbadge]').forEach(btn => {
     const k = btn.dataset.prbadge;
     const b = ACTION_BADGE[k];
+    if (!b) return;
     const active = _prFilterClassif === k;
-    btn.className = `flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}`;
-    btn.style.boxShadow = active ? `0 0 0 2px ${b.color}` : '';
+    const isGradient = btn.style.background?.includes('gradient');
+    if (isGradient) {
+      btn.style.opacity = active ? '1' : '0.78';
+      btn.style.boxShadow = active ? '0 0 0 3px rgba(255,255,255,0.45),0 4px 12px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.25)';
+    } else {
+      btn.className = `flex flex-col items-center p-2 rounded-lg border cursor-pointer transition-all ${active ? 's-panel-inner' : 's-card'}`;
+      btn.style.boxShadow = active ? `0 0 0 2px ${b.color}` : '';
+    }
   });
 };
 
@@ -2840,8 +3123,7 @@ window._prExportPilotage = function() {
   const codeFam = _prOpenFam;
   const catFam = _S.catalogueFamille;
   const roles = _prComputeRoles(codeFam);
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const rows = [];
   for (const d of sqData.directions) {
@@ -2987,7 +3269,7 @@ window._prMetierDistChange = function(val) {
     if (_prMetierFullCache) _prApplyMetierDist();
     else _prComputeMetierIndex(_prSelectedMetier2);
     const el = document.getElementById('planRayonBlock');
-    if (el) el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent();
+    if (el) { el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent(); _initPrMetierInput(); }
     return;
   }
   const el = document.getElementById('prDetailContent');
@@ -3070,6 +3352,26 @@ window._prMoreRayon = function() {
   if (el) el.innerHTML = _prRenderRayon(_S._prRayonData);
 };
 
+window._prReseauShowMoreIncont = function() {
+  _prReseauIncontPage += 20;
+  const tbody = document.getElementById('prReseauIncontBody');
+  const btn = document.getElementById('prReseauIncontMore');
+  if (!tbody) return;
+  const shown = _prReseauIncontAll.slice(0, _prReseauIncontPage);
+  tbody.innerHTML = shown.map(p => `<tr class="border-b border-white/5 hover:bg-white/5">
+    <td class="py-1.5 px-2 text-[11px] font-mono">${p.code}</td>
+    <td class="py-1.5 px-2 text-[11px] max-w-[200px] truncate">${escapeHtml(p.lib)}</td>
+    <td class="py-1.5 px-2 text-[11px] text-right">${p.myFreq}</td>
+    <td class="py-1.5 px-2 text-[11px] text-right">${p.medFreq}</td>
+    <td class="py-1.5 px-2 text-[11px] text-right">${formatEuro(p.myCA)}</td>
+  </tr>`).join('');
+  const remaining = _prReseauIncontAll.length - _prReseauIncontPage;
+  if (btn) {
+    if (remaining <= 0) btn.style.display = 'none';
+    else btn.textContent = `Voir plus (${remaining} restants)`;
+  }
+};
+
 window._prExportRayon = function() {
   if (!_S._prRayonData) return;
   const { monRayon, codeFam } = _S._prRayonData;
@@ -3089,8 +3391,7 @@ window._prExportRayon = function() {
 // Collecte items squelette, pathologies, métiers agence/livraisons, refs manquantes
 function _prGatherFamData(codeFam, matchFn) {
   const catFam = _S.catalogueFamille;
-  const sqData = _S._prSqData || computeSquelette();
-  _S._prSqData = sqData;
+  const sqData = _prGetSqDataCached();
 
   // Items squelette par classification
   const items = { socle: [], implanter: [], challenger: [], surveiller: [] };
@@ -3174,12 +3475,15 @@ function _prGatherFamData(codeFam, matchFn) {
   const metierLivCA = new Map();
   const metierLivCli = new Map();
   const metierArts = new Map(); // metier → Map<code, {ca, qty, nbCli}>
-  const codesEnRayon = new Set((_S.finalData || [])
-    .filter(r => {
-      const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
-      return cf === codeFam && r.stockActuel > 0;
-    })
-    .map(r => r.code));
+  const codesEnRayon = new Set();
+  const emplacementsSet = new Set();
+  for (const r of (_S.finalData || [])) {
+    const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+    if (cf !== codeFam) continue;
+    if (r.stockActuel > 0) codesEnRayon.add(r.code);
+    const emp = r.emplacement?.trim();
+    if (emp) emplacementsSet.add(emp);
+  }
 
   if (_S.livraisonsReady && _S.livraisonsData?.size && _S.chalandiseReady) {
     for (const [cc, livData] of _S.livraisonsData) {
@@ -3210,14 +3514,7 @@ function _prGatherFamData(codeFam, matchFn) {
   }
 
   // Emplacements connus
-  const emplacements = [...new Set(
-    (_S.finalData || [])
-      .filter(r => {
-        const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
-        return cf === codeFam && r.emplacement?.trim();
-      })
-      .map(r => r.emplacement.trim())
-  )].sort();
+  const emplacements = Array.from(emplacementsSet).sort();
 
   return { sqData, items, patho, metierCA, metierCli, metierLivCA, metierLivCli, metierArts, codesEnRayon, emplacements };
 }
@@ -3229,30 +3526,42 @@ function _prBuildDiagText(codeFam) {
 
   const agence = _S.selectedMyStore || 'agence';
   const catFam = _S.catalogueFamille;
-  const sqData = computeSquelette();
+  const catMarques = _S.catalogueMarques;
+  const finalData = _S.finalData || [];
+  const sqData = _prGetSqDataCached();
 
   // Calcul rayonData selon sélection sous-familles
   let rayonData;
   if (_prSelectedSFs.size === 0) {
     rayonData = _S._prRayonData || computeMonRayon(codeFam, _prOpenSousFam || '');
   } else if (_prSelectedSFs.size === 1) {
-    rayonData = computeMonRayon(codeFam, [..._prSelectedSFs][0]);
+    let singleSF = '';
+    for (const csf of _prSelectedSFs) { singleSF = csf; break; }
+    rayonData = computeMonRayon(codeFam, singleSF);
   } else {
     rayonData = computeMonRayon(codeFam, '');
   }
   // Clone monRayon pour mutation sûre, puis filtre SF et/ou Marque si sélection active
   if (rayonData) {
-    rayonData = { ...rayonData, monRayon: [...rayonData.monRayon] };
-    if (_prSelectedSFs.size > 1) {
-      rayonData.monRayon = rayonData.monRayon.filter(a => {
-        const csf = catFam?.get(a.code)?.codeSousFam || '';
-        return _prSelectedSFs.has(csf);
-      });
-    }
-    if (_prSelectedMarques.size > 0) {
-      rayonData.monRayon = rayonData.monRayon.filter(a =>
-        _prSelectedMarques.has(_S.catalogueMarques?.get(a.code) || '')
-      );
+    const needSfFilter = _prSelectedSFs.size > 1;
+    const needMarqueFilter = _prSelectedMarques.size > 0;
+    const src = rayonData.monRayon || [];
+    if (needSfFilter || needMarqueFilter) {
+      const filtered = [];
+      for (const a of src) {
+        if (needSfFilter) {
+          const csf = catFam?.get(a.code)?.codeSousFam || '';
+          if (!_prSelectedSFs.has(csf)) continue;
+        }
+        if (needMarqueFilter) {
+          const mq = catMarques?.get(a.code) || '';
+          if (!_prSelectedMarques.has(mq)) continue;
+        }
+        filtered.push(a);
+      }
+      rayonData = { ...rayonData, monRayon: filtered };
+    } else {
+      rayonData = { ...rayonData, monRayon: [...src] };
     }
   }
 
@@ -3272,28 +3581,35 @@ function _prBuildDiagText(codeFam) {
     : `${fam.libFam} (${codeFam})`;
 
   // Emplacements connus pour cette famille / sous-famille
-  const empsKnown = [...new Set(
-    (_S.finalData || [])
-      .filter(r => {
-        const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
-        if (cf !== codeFam) return false;
-        if (sousFamFilter) {
-          const csf = catFam?.get(r.code)?.codeSousFam || '';
-          if (csf !== sousFamFilter) return false;
-        }
-        return r.emplacement?.trim();
-      })
-      .map(r => r.emplacement.trim())
-  )].sort();
+  const empsKnownSet = new Set();
+  for (const r of finalData) {
+    const cf = catFam?.get(r.code)?.codeFam || _S.articleFamille?.[r.code];
+    if (cf !== codeFam) continue;
+    if (sousFamFilter) {
+      const csf = catFam?.get(r.code)?.codeSousFam || '';
+      if (csf !== sousFamFilter) continue;
+    }
+    const emp = r.emplacement?.trim();
+    if (emp) empsKnownSet.add(emp);
+  }
+  const empsKnown = Array.from(empsKnownSet).sort();
+
+  const sfLabelByCode = new Map();
+  if (catFam) {
+    for (const [, f] of catFam) {
+      if (f.codeFam !== codeFam) continue;
+      const csf = f.codeSousFam || '';
+      if (!sfLabelByCode.has(csf)) sfLabelByCode.set(csf, f.sousFam || csf);
+    }
+  }
 
   let txt = `╔══════════════════════════════════════════════╗\n`;
   txt += `  DIAGNOSTIC RAYON — ${fam.libFam.toUpperCase()}\n`;
   if (sousFamLib) txt += `  Sous-famille : ${sousFamLib}\n`;
   txt += `  Agence : ${agence}\n`;
   if (_prSelectedSFs.size > 0) {
-    const sfNames = [..._prSelectedSFs].map(csf =>
-      [...(catFam?.values() || [])].find(f => f.codeFam === codeFam && f.codeSousFam === csf)?.sousFam || csf
-    );
+    const sfNames = [];
+    for (const csf of _prSelectedSFs) sfNames.push(sfLabelByCode.get(csf) || csf);
     txt += `  Sous-familles sélectionnées : ${sfNames.join(', ')}\n`;
   }
   if (_prSelectedEmps.size > 0) {
@@ -3355,21 +3671,22 @@ function _prBuildDiagText(codeFam) {
     txt += `0 article en stock. Cette famille n'est pas encore référencée.\n`;
     txt += `Couverture catalogue : 0/${nbCat} références disponibles.\n\n`;
   } else {
-    // Dédup monRayon par code (sécurité)
-    {
-      const _seen = new Set();
-      rayonData.monRayon = rayonData.monRayon.filter(a => {
-        if (_seen.has(a.code)) return false;
-        _seen.add(a.code);
-        return true;
-      });
+    // Dédup monRayon par code (sécurité) + valeur filtrée en une passe
+    const _seen = new Set();
+    let valeurFiltree = 0;
+    const deduped = [];
+    for (const a of rayonData.monRayon) {
+      if (_seen.has(a.code)) continue;
+      _seen.add(a.code);
+      deduped.push(a);
+      valeurFiltree += a.valeurStock || 0;
     }
+    rayonData.monRayon = deduped;
     txt += `═══ MON RAYON AUJOURD'HUI ═══\n`;
     txt += `${rayonData.monRayon.length} articles en stock · `;
     txt += `${nbCat > 0 ? Math.round(rayonData.monRayon.length / nbCat * 100) : 0}% couverture`;
     txt += ` (${rayonData.monRayon.length}/${nbCat})`;
     if (_prSelectedSFs.size > 0) txt += ` sur les sous-familles sélectionnées`;
-    const valeurFiltree = rayonData.monRayon.reduce((s, a) => s + (a.valeurStock || 0), 0);
     txt += ` · ${Math.round(valeurFiltree)}€ valeur stock\n\n`;
 
       const _minMax = (a) => {
@@ -3422,23 +3739,36 @@ function _prBuildDiagText(codeFam) {
     const _isFin = (a) => _isFinSerie(a) || _isFinStock(a);
 
     // ÉTAPE 1 — SORTIR : dormants hors socle réseau + fins de série/stock
-    const aDormants = rayonData.monRayon
-      .filter(a => a.status === 'dormant' && a.sqClassif !== 'socle' && !_isFin(a))
-      .sort(_sortPhys);
-    const aFinSerie = rayonData.monRayon.filter(a => _isFinSerie(a)).sort(_sortPhys);
-    const aFinStock = rayonData.monRayon.filter(a => _isFinStock(a) && !_isFinSerie(a)).sort(_sortPhys);
+    const aDormants = [];
+    const aFinSerie = [];
+    const aFinStock = [];
+    const aMaintenir = [];
+    for (const a of rayonData.monRayon) {
+      const finSerie = _isFinSerie(a);
+      if (a.status === 'dormant' && a.sqClassif !== 'socle' && !finSerie && !_isFinStock(a)) {
+        aDormants.push(a);
+        continue;
+      }
+      if (finSerie) { aFinSerie.push(a); continue; }
+      if (_isFinStock(a)) { aFinStock.push(a); continue; }
+      aMaintenir.push(a);
+    }
+    aDormants.sort(_sortPhys);
+    aFinSerie.sort(_sortPhys);
+    aFinStock.sort(_sortPhys);
+    aMaintenir.sort(_sortPhys);
     const aSortir = [...aDormants, ...aFinSerie, ...aFinStock];
-
-    // ÉTAPE 4 — VÉRIFIER/MAINTENIR : tout le reste (socle actif + standards + ruptures)
-    const seen = new Set(aSortir.map(a => a.code));
-    const aMaintenir = rayonData.monRayon
-      .filter(a => !seen.has(a.code))
-      .sort(_sortPhys);
 
     // ── ÉTAPE 1 ─────────────────────────────────────────────
     if (aSortir.length) {
-      const valLib = aSortir.reduce((s, a) => s + (a.valeurStock || 0), 0);
-      const nbEmp = new Set(aSortir.map(a => (a.emplacement || '').trim()).filter(Boolean)).size;
+      let valLib = 0;
+      const empLib = new Set();
+      for (const a of aSortir) {
+        valLib += a.valeurStock || 0;
+        const emp = (a.emplacement || '').trim();
+        if (emp) empLib.add(emp);
+      }
+      const nbEmp = empLib.size;
       txt += `═══ ÉTAPE 1 — SORTIR DU RAYON (${aSortir.length} refs · ~${Math.round(valLib)}€ libérables · ${nbEmp} emplacements rendus) ═══\n`;
       txt += `⏱ Budget : ~20 min  ·  Geste : retire physiquement, met en retour fournisseur ou solde.\n`;
       txt += `⚠ **RÈGLE DE SÉCURITÉ** : même si dormant, ne jette JAMAIS un ⭐ (pépite) ni un 💤 (socle réseau). Ces marqueurs apparaissent à l'ÉTAPE 3.\n`;
@@ -3468,6 +3798,7 @@ function _prBuildDiagText(codeFam) {
     if (sqData) {
       const codesInRayon = new Set(rayonData.monRayon.map(a => a.code));
       const toImpl = [];
+      const toImplCodes = new Set();
       for (const d of sqData.directions) {
         for (const a of (d.implanter || [])) {
           if (codesInRayon.has(a.code)) continue;
@@ -3481,7 +3812,9 @@ function _prBuildDiagText(codeFam) {
             const csf = catFam?.get(a.code)?.codeSousFam || '';
             if (!_prSelectedSFs.has(csf)) continue;
           }
-          if (!toImpl.some(x => x.code === a.code)) toImpl.push(a);
+          if (toImplCodes.has(a.code)) continue;
+          toImplCodes.add(a.code);
+          toImpl.push(a);
         }
       }
       const _sfOfImpl = (a) => catFam?.get(a.code)?.sousFam || 'Divers / non catalogué';
@@ -3494,11 +3827,13 @@ function _prBuildDiagText(codeFam) {
         return String(a.code).localeCompare(String(b.code));
       });
       if (toImpl.length) {
-        const fdByCode = new Map();
-        for (const r of (_S.finalData || [])) fdByCode.set(r.code, r);
+        const fdByCode = _prGetFdMap();
         // Médiane helper
         const _median = (arr) => { const s = [...arr].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
-        const _otherStores = [...(_S.storesIntersection || [])].filter(s => s !== _S.selectedMyStore);
+        const _otherStores = [];
+        for (const s of (_S.storesIntersection || [])) {
+          if (s !== _S.selectedMyStore) _otherStores.push(s);
+        }
         // Estimation MIN/MAX via formule PRISME appliquée aux ventes réseau
         const _joursOuvres = _S.globalJoursOuvres || 250;
         const _estimMinMax = (code) => {
@@ -3559,8 +3894,12 @@ function _prBuildDiagText(codeFam) {
           return `MIN/MAX à paramétrer`;
         };
         // Signal cumulé pour l'en-tête
-        const totBL = toImpl.reduce((s, a) => s + (a.nbBLLivraisons || 0), 0);
-        const totAg = toImpl.reduce((s, a) => s + (a.nbAgencesReseau || 0), 0);
+        let totBL = 0;
+        let totAg = 0;
+        for (const a of toImpl) {
+          totBL += a.nbBLLivraisons || 0;
+          totAg += a.nbAgencesReseau || 0;
+        }
         txt += `═══ ÉTAPE 2 — IMPLANTER (${toImpl.length} refs à créer · ${totBL} BL réseau cumulés · ${totAg} présences agences) ═══\n`;
         txt += `⏱ Budget : ~45 min  ·  Geste : crée un nouvel emplacement, paramètre MIN/MAX dans l'ERP, note la commande initiale.\n`;
         // TOP 3 prioritaires par score composite (réseau + demande métier zone)
@@ -3698,7 +4037,7 @@ function _prBuildDiagText(codeFam) {
   if (_prSelectedSFs.size > 0) {
     txt += `${nbCat} références dans les sous-familles sélectionnées\n`;
     for (const csf of _prSelectedSFs) {
-      const sfName = [...(catFam?.values() || [])].find(f => f.codeFam === codeFam && f.codeSousFam === csf)?.sousFam || csf;
+      const sfName = sfLabelByCode.get(csf) || csf;
       let cnt = 0;
       for (const [, f] of (catFam || new Map()))
         if (f.codeFam === codeFam && f.codeSousFam === csf) cnt++;
@@ -3915,8 +4254,7 @@ function _prBuildLLMPack(codeFam) {
   const _myS = _S.selectedMyStore;
   const _stores = Object.keys(_vpm).filter(s => s !== _myS);
   const _nbSt = _stores.length || 1;
-  const _fdMap2 = new Map();
-  for (const r of (_S.finalData || [])) _fdMap2.set(r.code, r);
+  const _fdMap2 = _prGetFdMap();
 
   // Compteurs par rôle
   const _rc = {}, _ri = {};
@@ -4185,8 +4523,7 @@ function _prComputeMetierFull(metier) {
 
   // Enrich articles metadata (once, shared across distance filters)
   const catFam = _S.catalogueFamille;
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const fdMap = _prGetFdMap();
   const rolesByFam = new Map();
 
   // Build enriched per-article map with per-client contribution tracking
@@ -4288,8 +4625,7 @@ function _prApplyMetierDist() {
   const { clientCanal } = _prMetierFullCache;
   _prMetierLivres = null;
   if (clientCanal?.size) {
-    const fdMap2 = new Map();
-    for (const r of (_S.finalData || [])) fdMap2.set(r.code, r);
+    const fdMap2 = _prGetFdMap();
     const livresClients = [];
     const artAgg = new Map(); // code → {ca, bl, nbCli}
 
@@ -4332,11 +4668,17 @@ function _prApplyMetierDist() {
           stockActuel: fd?.stockActuel || 0,
         };
       });
-      const topValeur = [...allArts].sort((a, b) => b.ca - a.ca).slice(0, 20);
-      const topFreq   = [...allArts].sort((a, b) => b.bl - a.bl || b.nbCli - a.nbCli).slice(0, 20);
+      // Single sort by CA (reused for topValeur + kitValeur) and single sort by BL (reused for topFreq + kitConsommables)
+      // Replaces 4× full array sorts (was spread+sort each time).
+      const byCa = allArts.slice().sort((a, b) => b.ca - a.ca);
+      const byBl = allArts.slice().sort((a, b) => b.bl - a.bl || b.nbCli - a.nbCli);
+      const topValeur = byCa.slice(0, 20);
+      const topFreq   = byBl.slice(0, 20);
       // Kit Dépannage: consommables fréquents PAS en stock + valeur ABC-A PAS en stock
-      const kitConsommables = [...allArts].sort((a, b) => b.bl - a.bl).filter(a => !a.inStock).slice(0, 10);
-      const kitValeur = [...allArts].sort((a, b) => b.ca - a.ca).filter(a => !a.inStock).slice(0, 5);
+      const kitConsommables = [];
+      for (const a of byBl) { if (!a.inStock) { kitConsommables.push(a); if (kitConsommables.length === 10) break; } }
+      const kitValeur = [];
+      for (const a of byCa) { if (!a.inStock) { kitValeur.push(a); if (kitValeur.length === 5) break; } }
 
       _prMetierLivres = {
         clients: livresClients.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999)),
@@ -4370,25 +4712,25 @@ function _renderPilotageMetierContent() {
     `<option value="${escapeHtml(m.metier)}" ${m.metier === _prSelectedMetier2 ? 'selected' : ''}>${m.metier} (${m.nb} clients)</option>`
   ).join('');
 
-  const hasDist = _S.chalandiseReady && [...(_S.chalandiseData?.values() || [])].some(i => i.distanceKm != null);
+  const hasDist = _S.chalandiseReady && _prHasChalDist();
   const distBtns = hasDist ? `<div class="flex items-center gap-1.5 mt-2">
     <span class="text-[10px] t-disabled">📍 Distance :</span>
-    ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:20,l:'20 km'}].map(d => {
+    ${[{v:0,l:'Tous'},{v:2,l:'2 km'},{v:5,l:'5 km'},{v:10,l:'10 km'},{v:15,l:'15 km'},{v:30,l:'30 km'}].map(d => {
       const active = (!_prMetierDist && !d.v) || (_prMetierDist === d.v);
       return `<button onclick="window._prMetierViewDist(${d.v})"
-        class="text-[9px] px-2 py-0.5 rounded-full border cursor-pointer transition-colors"
-        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : 'border-color:var(--b-light);color:var(--t-secondary);background:transparent'}">${d.l}</button>`;
+        class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold cursor-pointer"
+        style="${active ? 'background:var(--c-action,#8b5cf6);color:#fff;border-color:var(--c-action,#8b5cf6)' : ''}">${d.l}</button>`;
     }).join('')}
   </div>` : '';
 
   let html = `<div class="mb-4">
     <h3 class="font-extrabold text-sm t-primary mb-3">🎯 Pilotage Métier — Vue cross-famille</h3>
-    <div class="flex flex-wrap items-end gap-3">
-      <select onchange="window._prSelectMetier(this.value)"
-        class="flex-1 max-w-md px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none">
-        <option value="">— Choisir un métier —</option>
-        ${options}
-      </select>
+    <div class="flex flex-wrap items-center gap-2">
+      <input type="text" id="prMetierInput" list="prMetierDatalist" placeholder="Tapez un métier…"
+        value="${_prSelectedMetier2 ? escapeHtml(_prSelectedMetier2) : ''}"
+        class="px-3 py-1.5 text-[12px] rounded-lg border b-default s-card t-primary focus:outline-none" style="width:260px;${_prSelectedMetier2 ? 'border-color:var(--c-action,#8b5cf6)' : ''}">
+      <datalist id="prMetierDatalist"></datalist>
+      ${_prSelectedMetier2 ? `<button onclick="window._prSelectMetier('')" class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary cursor-pointer">✕ Reset</button>` : ''}
     </div>
     ${distBtns}
   </div>`;
@@ -4425,51 +4767,107 @@ function _renderMetierBody() {
     <div class="s-card rounded-lg p-2 text-center"><div class="text-[10px] t-disabled">Clients zone${_prMetierDist ? ' ≤' + _prMetierDist + 'km' : ''}</div><div class="text-[14px] font-bold t-primary">${nbClients}</div></div>
   </div>`;
 
-  // Family breakdown
-  if (famBreak.length) {
-    html += `<details id="prMetierFamDetails" class="mb-4" open><summary class="text-[11px] font-bold t-primary cursor-pointer mb-2">📊 Répartition par famille — ${famBreak.length} familles${_prMFilterFam ? ` · filtre: ${_prMFilterFam}` : ''}</summary>
-    <div class="overflow-x-auto"><table class="w-full text-[11px]">
-      <thead><tr class="border-b b-light text-[10px]">
-        <th class="py-1 px-2 text-left" style="color:var(--t-secondary)">Famille</th>
-        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">CA Zone</th>
-        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Mon CA</th>
-        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">PdM%</th>
-        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">Articles</th>
-        <th class="py-1 px-2 text-right" style="color:var(--t-secondary)">En stock</th>
-      </tr></thead><tbody>`;
-    for (const f of famBreak.slice(0, 30)) {
-      const pdmColor = f.pdm == null ? 'var(--t-disabled)' : f.pdm >= 40 ? '#22c55e' : f.pdm >= 15 ? '#f59e0b' : '#ef4444';
-      const active = _prMFilterFam === f.codeFam;
-      html += `<tr class="border-b b-light cursor-pointer hover:s-panel-inner transition-colors${active ? ' s-panel-inner' : ''}"
-        style="${active ? 'background:rgba(139,92,246,0.15);border-left:3px solid var(--c-action,#8b5cf6)' : ''}"
-        onclick="window._prMFilterFamFn('${f.codeFam}')">
-        <td class="py-1 px-2 font-medium${active ? ' font-bold' : ''}" style="${active ? 'color:var(--c-action,#8b5cf6)' : ''}">${active ? '▸ ' : ''}${escapeHtml(f.libFam)}<span class="text-[9px] t-disabled ml-1">${f.codeFam}</span></td>
-        <td class="py-1 px-2 text-right font-bold">${formatEuro(f.caZone)}</td>
-        <td class="py-1 px-2 text-right" style="color:#22c55e">${formatEuro(f.monCA)}</td>
-        <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${f.pdm != null ? f.pdm + '%' : '—'}</td>
-        <td class="py-1 px-2 text-right">${f.nbArts}</td>
-        <td class="py-1 px-2 text-right">${f.nbEnStock}</td>
-      </tr>`;
+  // ── Geste 2 : Kit Dépannage remonté en tête ──
+  const _kit = _prMetierLivres?.kit;
+  if (_kit && (_kit.consommables.length || _kit.valeur.length)) {
+    html += `<div class="mb-4 p-3 rounded-xl border" style="background:linear-gradient(135deg,rgba(59,130,246,0.08),rgba(245,158,11,0.06));border-color:rgba(59,130,246,0.25)">
+      <h4 class="text-[13px] font-extrabold t-primary mb-2">🔧 Kit Dépannage — Roue de Secours Premium</h4>
+      <p class="text-[10px] t-disabled mb-2">Articles commandés par les clients du métier que tu n'as PAS en stock. Deviens leur plan B d'urgence.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
+    if (_kit.consommables.length) {
+      html += `<div class="s-card rounded-lg p-2" style="border-left:3px solid #3b82f6">
+        <div class="text-[10px] font-bold mb-1" style="color:#3b82f6">JE REMPLIS — Consommables Fréquents</div>
+        <table class="w-full text-[10px]"><tbody>`;
+      for (const a of _kit.consommables) {
+        html += `<tr class="border-b b-light">
+          <td class="py-0.5 px-1 font-mono text-[9px]">${a.code}</td>
+          <td class="py-0.5 px-1 truncate max-w-[150px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle.slice(0, 30))}</td>
+          <td class="py-0.5 px-1 text-right">${a.bl} BL</td>
+          <td class="py-0.5 px-1 text-right">${a.nbCli} cli</td>
+        </tr>`;
+      }
+      html += `</tbody></table></div>`;
     }
-    html += `</tbody></table></div></details>`;
+    if (_kit.valeur.length) {
+      html += `<div class="s-card rounded-lg p-2" style="border-left:3px solid #f59e0b">
+        <div class="text-[10px] font-bold mb-1" style="color:#f59e0b">JE REMPLIS — Jamais en Panne</div>
+        <table class="w-full text-[10px]"><tbody>`;
+      for (const a of _kit.valeur) {
+        html += `<tr class="border-b b-light">
+          <td class="py-0.5 px-1 font-mono text-[9px]">${a.code}</td>
+          <td class="py-0.5 px-1 truncate max-w-[150px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle.slice(0, 30))}</td>
+          <td class="py-0.5 px-1 text-right font-bold">${formatEuro(a.ca)}</td>
+          <td class="py-0.5 px-1 text-right">${a.nbCli} cli</td>
+        </tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+    html += `</div></div>`;
   }
 
-  // Filters
-  // Action famille counts (depuis le squelette)
+  // ── Squelette classif map (needed by both family list and article pills) ──
   const _sqFamClassifPills = new Map();
   const _sqDP = _S._prSqData;
   if (_sqDP) {
     for (const f of (_sqDP.families || [])) _sqFamClassifPills.set(f.codeFam, f.classifGlobal);
     for (const f of (_sqDP.inactiveFamilies || [])) _sqFamClassifPills.set(f.codeFam, f.classifGlobal);
   }
+
+  // ── Geste 3 : Split-screen Familles | Articles ──
+  html += `<div class="grid grid-cols-[280px_1fr] gap-3 mb-4" style="overflow:hidden">`;
+
+  // LEFT: Family breakdown — compact list style
+  html += `<div style="max-height:480px;overflow-y:auto">`;
+  if (famBreak.length) {
+    html += `<div class="text-[11px] font-bold t-primary mb-2">📊 Familles — ${famBreak.length}</div>`;
+    for (const f of famBreak.slice(0, 30)) {
+      const active = _prMFilterFam === f.codeFam;
+      const pdmColor = f.pdm == null ? '#64748b' : f.pdm >= 40 ? '#22c55e' : f.pdm >= 15 ? '#f59e0b' : '#ef4444';
+      // Use ACTION_BADGE color based on family classif from squelette
+      const famClassif = _sqFamClassifPills.get(f.codeFam) || 'surveiller';
+      const b = ACTION_BADGE[famClassif] || ACTION_BADGE.surveiller;
+      html += `<div onclick="window._prMFilterFamFn('${f.codeFam}')"
+        class="px-2 py-1.5 rounded-lg cursor-pointer transition-colors text-[11px] mb-0.5 flex items-center gap-1 ${active ? 'font-bold' : 'hover:s-panel-inner'}"
+        style="${active ? `background:${b.color}22;border-left:3px solid ${b.color}` : ''}">
+        <span style="color:${b.color}">${b.icon}</span>
+        <span class="t-primary">${escapeHtml(f.libFam)}</span>
+        <span class="text-[9px]" style="color:#64748b;margin-left:4px">${f.nbEnStock}/${f.nbArts}</span>
+      </div>`;
+    }
+  }
+  html += `</div>`;
+
+  // RIGHT: Articles (will be built below and injected)
+  html += `<div style="min-width:0">`;
+
+  // ── Bandeau KPI famille sélectionnée ──
+  if (_prMFilterFam) {
+    const selFam = famBreak.find(f => f.codeFam === _prMFilterFam);
+    if (selFam) {
+      const famClassif = _sqFamClassifPills.get(selFam.codeFam) || 'surveiller';
+      const fb = ACTION_BADGE[famClassif] || ACTION_BADGE.surveiller;
+      const pdmC = selFam.pdm == null ? '#64748b' : selFam.pdm >= 40 ? '#22c55e' : selFam.pdm >= 15 ? '#f59e0b' : '#ef4444';
+      const monCA = articles.filter(a => a.codeFam === _prMFilterFam).reduce((s, a) => s + (a.monCA || 0), 0);
+      html += `<div class="flex flex-wrap gap-2 mb-3 items-center p-2 rounded-lg" style="background:${fb.color}10;border:1px solid ${fb.color}30">
+        <span class="text-[12px] font-extrabold t-primary">${fb.icon} ${escapeHtml(selFam.libFam)}</span>
+        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">CA Zone</span> <strong class="t-primary">${formatEuro(selFam.caZone)}</strong></span>
+        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">Mon CA</span> <strong style="color:#22c55e">${formatEuro(monCA)}</strong></span>
+        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">PdM</span> <strong style="color:${pdmC}">${selFam.pdm != null ? selFam.pdm + '%' : '—'}</strong></span>
+        <span class="text-[10px] s-card rounded px-2 py-0.5"><span class="t-disabled">Stock</span> <strong class="t-primary">${selFam.nbEnStock}/${selFam.nbArts}</strong></span>
+      </div>`;
+    }
+  }
+
+  // Filters — compteurs basés sur les articles filtrés par famille si sélectionnée
+  const pillSource = _prMFilterFam ? articles.filter(a => a.codeFam === _prMFilterFam) : articles;
   const ACTION_LIST = ['socle', 'implanter', 'challenger', 'surveiller'];
   const actionCounts = {};
-  for (const a of articles) {
+  for (const a of pillSource) {
     const ac = _sqFamClassifPills.get(a.codeFam) || 'surveiller';
     actionCounts[ac] = (actionCounts[ac] || 0) + 1;
   }
-  const stockOui = articles.filter(a => a.inStock).length;
-  const stockNon = articles.length - stockOui;
+  const stockOui = pillSource.filter(a => a.inStock).length;
+  const stockNon = pillSource.length - stockOui;
 
   html += `<div class="flex flex-wrap gap-1.5 mb-3 items-center">`;
   // Stock filter pills
@@ -4478,21 +4876,17 @@ function _renderMetierBody() {
     html += `<button onclick="window._prMFilterStockFn('${val}')"
       class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold s-panel-inner' : 'hover:t-primary s-card'}">${label} <strong>${cnt}</strong></button>`;
   }
-  html += `<span class="mx-1 text-[10px] t-disabled">|</span>`;
-  // Action famille filter pills
-  for (const ac of ACTION_LIST) {
-    if (!actionCounts[ac]) continue;
-    const b = ACTION_BADGE[ac];
-    const active = _prMFilterRole === ac;
-    html += `<button onclick="window._prMFilterRoleFn('${ac}')"
-      class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
-      style="border-color:${b.dot}40;${active ? `background:${b.bg};color:${b.color};box-shadow:0 0 0 1px ${b.dot}` : `color:${b.color}`}">${b.icon} ${b.label} <strong>${actionCounts[ac]}</strong></button>`;
-  }
-  if (_prMFilterFam) {
-    const famLib = FAMILLE_LOOKUP[_prMFilterFam] || _prMFilterFam;
-    html += `<span class="mx-1 text-[10px] t-disabled">|</span>
-      <button onclick="window._prMFilterFamFn('${_prMFilterFam}')"
-        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer s-panel-inner font-bold" style="border-color:var(--c-action)">📂 ${escapeHtml(famLib)} ✕</button>`;
+  if (!_prMFilterFam) {
+    html += `<span class="mx-1 text-[10px] t-disabled">|</span>`;
+    // Action famille filter pills — only when no family selected
+    for (const ac of ACTION_LIST) {
+      if (!actionCounts[ac]) continue;
+      const b = ACTION_BADGE[ac];
+      const active = _prMFilterRole === ac;
+      html += `<button onclick="window._prMFilterRoleFn('${ac}')"
+        class="text-[10px] px-2 py-0.5 rounded border cursor-pointer transition-all ${active ? 'font-bold' : 'hover:t-primary'}"
+        style="border-color:${b.dot}40;${active ? `background:${b.bg};color:${b.color};box-shadow:0 0 0 1px ${b.dot}` : `color:${b.color}`}">${b.icon} ${b.label} <strong>${actionCounts[ac]}</strong></button>`;
+    }
   }
   html += `</div>`;
 
@@ -4528,30 +4922,33 @@ function _renderMetierBody() {
       <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
         ${th('code', 'Code', 'text-left')}
         <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Libellé</th>
-        <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Famille</th>
-        ${th('caZone', 'CA Zone')}
-        ${th('cliZone', 'Cli Zone')}
-        ${th('monCA', 'Mon CA')}
-        ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
         ${th('stock', 'Stock')}
-        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Action famille (Scanner de Rayon)">Action</th>
+        ${!_prMFilterFam ? `<th class="py-1.5 px-2 text-left" style="color:var(--t-secondary);font-weight:500">Famille</th>` : ''}
+        ${th('caZone', 'CA Zone')}
+        ${th('pdm', 'PdM%', 'text-right', 'Part de marché = Mon CA ÷ CA Zone')}
+        <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary);font-weight:500" title="Verdict Squelette">Verdict</th>
       </tr></thead><tbody>`;
 
   for (const a of shown) {
-    const famClassif = _sqFamClassifPills.get(a.codeFam) || 'surveiller';
-    const ab = ACTION_BADGE[famClassif] || ACTION_BADGE.surveiller;
     const pdmColor = a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 40 ? '#22c55e' : a.pdm >= 15 ? '#f59e0b' : '#ef4444';
     const stockColor = a.inStock ? '#22c55e' : '#ef4444';
+    // Geste 4 : verdict au lieu de Action
+    const _sqA = window._getArticleSqInfo?.(a.code);
+    let verdictCell = '<span class="t-disabled text-[9px]">—</span>';
+    if (_sqA) {
+      const _vc = { socle:'#22c55e', implanter:'#3b82f6', challenger:'#ef4444', surveiller:'#94a3b8' };
+      const _vl = { socle:'Socle', implanter:'Implanter', challenger:'Challenger', surveiller:'Surveiller' };
+      verdictCell = `<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc[_sqA.classif]}20;color:${_vc[_sqA.classif]}">${_vl[_sqA.classif]}</span>`;
+      if (_sqA.verdict?.name && _sqA.verdict.name !== '—') verdictCell += `<br><span class="text-[8px]" style="color:${_sqA.verdict.color}" title="${escapeHtml(_sqA.verdict.tip||'')}">${_sqA.verdict.icon} ${escapeHtml(_sqA.verdict.name)}</span>`;
+    }
     html += `<tr class="border-b b-light hover:s-panel-inner transition-colors">
       <td class="py-1 px-2 font-mono text-[10px]">${a.code}</td>
-      <td class="py-1 px-2 truncate max-w-[200px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
-      <td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>
-      <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caZone)}</td>
-      <td class="py-1 px-2 text-right">${a.nbClientsZone}</td>
-      <td class="py-1 px-2 text-right" style="color:#22c55e">${a.monCA ? formatEuro(a.monCA) : '—'}</td>
-      <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
+      <td class="py-1 px-2 truncate max-w-[260px]" title="${escapeHtml(a.libelle)}">${escapeHtml(a.libelle)}</td>
       <td class="py-1 px-2 text-right" style="color:${stockColor}">${a.inStock ? a.stockActuel : '✕'}</td>
-      <td class="py-1 px-2 text-center"><span style="color:${ab.color}">${ab.icon} ${ab.label}</span></td>
+      ${!_prMFilterFam ? `<td class="py-1 px-2 text-[10px] t-secondary truncate max-w-[120px]" title="${escapeHtml(a.libFam)}">${escapeHtml(a.libFam)}</td>` : ''}
+      <td class="py-1 px-2 text-right font-bold">${formatEuro(a.caZone)}</td>
+      <td class="py-1 px-2 text-right font-bold" style="color:${pdmColor}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
+      <td class="py-1 px-2 text-center">${verdictCell}</td>
     </tr>`;
   }
   html += `</tbody></table></div>`;
@@ -4561,57 +4958,38 @@ function _renderMetierBody() {
       class="text-[11px] t-secondary hover:t-primary cursor-pointer">▼ Voir plus (${shown.length}/${sorted.length})</button></div>`;
   }
 
-  html += `<div class="flex gap-2 mt-3 mb-4">
+  html += `<div class="flex gap-2 mt-2">
     <button onclick="window._prExportMetierCSV()"
       class="text-[11px] t-secondary border b-light rounded px-3 py-1 hover:t-primary cursor-pointer s-card">⬇ CSV</button>
     <span class="text-[10px] t-disabled self-center">${filtered.length} articles${_prMFilterFam || _prMFilterStock || _prMFilterRole ? ' (filtré)' : ''}</span>
   </div>`;
 
-  // ── Touristes à rapatrier ──
-  if (_prMetierTouristes.length) {
-    html += `<div class="mt-4 pt-4 border-t b-light">
-      <h4 class="text-[13px] font-extrabold t-primary mb-1">🎯 Touristes à rapatrier — ${_prMetierTouristes.length} cibles</h4>
-      <p class="text-[10px] t-disabled mb-3">Clients de ce métier actifs dans le réseau mais &lt;10% captés par ton agence. Triés par distance.</p>
-      <div class="overflow-x-auto" style="max-height:400px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;z-index:2;background:var(--color-bg-primary,#0f172a)"><tr class="border-b b-light text-[10px]">
-            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">Client</th>
-            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">CP</th>
-            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Dist.</th>
-            <th class="py-1.5 px-2 text-left" style="color:var(--t-secondary)">Classif.</th>
-            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">CA Réseau</th>
-            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Mon CA</th>
-            <th class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">Captation</th>
-            <th class="py-1.5 px-2 text-center" style="color:var(--t-secondary)">Panier</th>
-          </tr></thead><tbody>`;
-    for (const t of _prMetierTouristes.slice(0, 30)) {
-      const captColor = t.captation === 0 ? '#ef4444' : '#f59e0b';
-      const isOpen = _prTouristeOpen === t.cc;
-      html += `<tr class="border-b b-light hover:s-panel-inner transition-colors${isOpen ? ' s-panel-inner' : ''}" style="cursor:pointer" onclick="window._prToggleTouriste('${t.cc}')">
-        <td class="py-1 px-2 font-medium">${escapeHtml(t.nom)}<span class="text-[9px] t-disabled ml-1">${t.cc}</span></td>
-        <td class="py-1 px-2 text-[10px]">${t.cp}</td>
-        <td class="py-1 px-2 text-right">${t.dist != null ? t.dist + ' km' : '—'}</td>
-        <td class="py-1 px-2 text-[10px]">${escapeHtml(t.classification)}</td>
-        <td class="py-1 px-2 text-right font-bold">${formatEuro(t.caReseau)}</td>
-        <td class="py-1 px-2 text-right" style="color:#22c55e">${t.monCA ? formatEuro(t.monCA) : '—'}</td>
-        <td class="py-1 px-2 text-right font-bold" style="color:${captColor}">${t.captation}%</td>
-        <td class="py-1 px-2 text-center text-[10px]">${isOpen ? '▲' : '▼'}</td>
-      </tr>`;
-      // Panier détail du touriste
-      if (isOpen) {
-        html += _prRenderTouristePanier(t.cc);
-      }
-    }
-    html += `</tbody></table></div>`;
-    if (_prMetierTouristes.length > 30) {
-      html += `<div class="text-[10px] t-disabled mt-1">${_prMetierTouristes.length - 30} touristes supplémentaires non affichés.</div>`;
-    }
-    html += `</div>`;
-  }
+  // Fermer le right panel et le grid split-screen
+  html += `</div></div>`;
 
-  // ── Canal de Proximité ──
-  if (_prMetierLivres && _prMetierLivres.clients.length) {
-    html += _prRenderCanalProximite();
+  // ── Geste 5 : Portrait-Robot en accordéon fermé ──
+  const _topV = _prMetierLivres?.topValeur;
+  const _topF = _prMetierLivres?.topFreq;
+  if (_topV?.length || _topF?.length) {
+    html += `<details class="mt-4 border-t b-light pt-3"><summary class="text-[11px] font-bold t-primary cursor-pointer mb-2">📊 Portrait-Robot — Top 20 Valeur & Fréquence</summary>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
+    if (_topV?.length) {
+      html += `<div class="s-card rounded-lg p-2"><div class="text-[10px] font-bold t-secondary mb-1">💰 TOP 20 — Valeur (CA)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-[10px]"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">CA</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
+      for (const a of _topV) {
+        const sb = a.inStock ? '<span style="color:#22c55e">✓</span>' : '<span style="color:#ef4444">✕</span>';
+        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-[9px]">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${formatEuro(a.ca)}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
+      }
+      html += `</tbody></table></div></div>`;
+    }
+    if (_topF?.length) {
+      html += `<div class="s-card rounded-lg p-2"><div class="text-[10px] font-bold t-secondary mb-1">🔄 TOP 20 — Fréquence (BL)</div><div style="max-height:320px;overflow-y:auto"><table class="w-full text-[10px]"><thead><tr class="border-b b-light"><th class="py-1 px-1 text-left" style="color:var(--t-secondary)">Article</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">BL</th><th class="py-1 px-1 text-right" style="color:var(--t-secondary)">Cli</th><th class="py-1 px-1 text-center" style="color:var(--t-secondary)">Stock</th></tr></thead><tbody>`;
+      for (const a of _topF) {
+        const sb = a.inStock ? '<span style="color:#22c55e">✓</span>' : '<span style="color:#ef4444">✕</span>';
+        html += `<tr class="border-b b-light"><td class="py-0.5 px-1"><span class="font-mono text-[9px]">${a.code}</span> ${escapeHtml(a.libelle.slice(0, 35))}</td><td class="py-0.5 px-1 text-right font-bold">${a.bl}</td><td class="py-0.5 px-1 text-right">${a.nbCli}</td><td class="py-0.5 px-1 text-center">${sb}</td></tr>`;
+      }
+      html += `</tbody></table></div></div>`;
+    }
+    html += `</div></details>`;
   }
 
   return html;
@@ -4730,18 +5108,9 @@ function _prRenderCanalProximite() {
 
 function _prRenderTouristePanier(cc) {
   // Panier : articles achetés par ce client hors de mon agence
-  const sqData = _S._prSqData || computeSquelette();
-  _S._prSqData = sqData;
-  const sqClassif = new Map();
-  if (sqData) {
-    for (const d of sqData.directions) {
-      for (const g of ['socle','implanter','challenger','surveiller']) {
-        for (const a of (d[g] || [])) sqClassif.set(a.code, g);
-      }
-    }
-  }
-  const fdMap = new Map();
-  for (const r of (_S.finalData || [])) fdMap.set(r.code, r);
+  const sqData = _prGetSqDataCached();
+  const sqClassif = _prGetSqClassifMapCached(sqData);
+  const fdMap = _prGetFdMap();
 
   // Collect articles from hors-magasin + livraisons
   const arts = new Map(); // code → {ca, source}
@@ -4817,9 +5186,11 @@ window._prSelectMetier = function(metier) {
   _prMFilterRole = '';
   _prTouristeOpen = '';
   _prMPage = 60;
-  if (metier) _prComputeMetierIndex(metier);
-  const el = document.getElementById('prMetierBody');
-  if (el) { el.innerHTML = _renderMetierBody(); return; }
+  if (metier) {
+    _prComputeMetierIndex(metier);
+    const el = document.getElementById('prMetierBody');
+    if (el) { el.innerHTML = _renderMetierBody(); return; }
+  }
   _prRerender();
 };
 
@@ -4832,7 +5203,7 @@ window._prMetierViewDist = function(val) {
     _prComputeMetierIndex(_prSelectedMetier2);
   }
   const el = document.getElementById('planRayonBlock');
-  if (el) el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent();
+  if (el) { el.innerHTML = _prTopTabBar() + _renderPilotageMetierContent(); _initPrMetierInput(); }
 };
 
 window._prToggleTouriste = function(cc) {
@@ -4905,13 +5276,16 @@ export function renderPlanRayon() {
   _prMetierFullCache = null;
   _prMetierAllTouristes = null;
   _prMetierLivres = null;
+  _prFdMapCache = null;
 
   if (!_S.ventesParMagasin || !Object.keys(_S.ventesParMagasin).length || !_S.finalData?.length) {
     el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Chargez un Consommé + Stock pour activer le Plan de rayon.</div>';
     return;
   }
 
+  const _t0 = performance.now();
   const data = computePlanStock();
+  console.log('[PERF plan] computePlanStock', (performance.now() - _t0 | 0) + 'ms');
   if (!data || !data.families.length) {
     el.innerHTML = '<div class="text-[11px] t-disabled py-3 text-center">Aucune famille détectée.</div>';
     return;
@@ -4939,6 +5313,7 @@ export function renderPlanRayon() {
 
   el.innerHTML = _prPerfBanner() + _prTopTabBar() + (_prTopView === 'metier' ? _renderPilotageMetierContent() : _renderPlanRayonContent(data));
   if (_prTopView === 'famille') _initPrSearch();
+  if (_prTopView === 'metier') _initPrMetierInput();
   // Exposer les lookups squelette pour les filtres sidebar
   buildSqLookup();
 }

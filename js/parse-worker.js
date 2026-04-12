@@ -527,6 +527,7 @@ self.onmessage = async function(ev) {
     var articleClients = new Map();
     var passagesUniques = new Set();
     var commandesPDV = new Set();
+    var ventesClientAutresAgences = new Map();
     var minDateVente = Infinity, maxDateVente = 0;
     var _tempCAAll = new Map();
     var _tempCAAllFull = new Map();
@@ -769,6 +770,11 @@ self.onmessage = async function(ev) {
             if (!commandesPerStoreCanal[skHors][canal]) commandesPerStoreCanal[skHors][canal] = new Set();
             commandesPerStoreCanal[skHors][canal].add(_rncb);
           }
+          // ventesClientAutresAgences — CA client dans autres agences (hors-MAGASIN)
+          if (cc_h && codeArt_h && selectedStore && skHors !== 'INCONNU' && skHors !== selectedStore) {
+            var _caAutH = _rcp + _rce;
+            if (_caAutH > 0) ventesClientAutresAgences.set(cc_h, (ventesClientAutresAgences.get(cc_h) || 0) + _caAutH);
+          }
         }
         continue;
       }
@@ -936,6 +942,12 @@ self.onmessage = async function(ev) {
         if (qteP > 0) { e_vca.sumPrelevee += qteP; e_vca.sumCAPrelevee += caP; }
         e_vca.sumCA += caP + caE;
         if (qteP > 0 || qteE > 0) e_vca.countBL++;
+      }
+
+      // ventesClientAutresAgences — CA client dans autres agences (MAGASIN)
+      if (cc2 && code && selectedStore && sk !== 'INCONNU' && sk !== selectedStore) {
+        var _caAutM = caP + caE;
+        if (_caAutM > 0) ventesClientAutresAgences.set(cc2, (ventesClientAutresAgences.get(cc2) || 0) + _caAutM);
       }
 
       // commandesPDV + passagesUniques
@@ -1339,6 +1351,7 @@ self.onmessage = async function(ev) {
         byMonthCanal: byMonthCanal,
         byMonthStoreArtCanal: byMonthStoreArtCanal,
         byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),
+        ventesClientAutresAgences: Array.from(ventesClientAutresAgences),
         byMonthClientsByCanal: Object.fromEntries(Object.entries(byMonthClientsByCanal).map(function(kv) {
           var _cm = {};
           for (var _k in kv[1]) _cm[_k] = Array.from(kv[1][_k]);

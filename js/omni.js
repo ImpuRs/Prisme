@@ -374,8 +374,6 @@ function _passesAllFilters(cc){
     });
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
-    const comBlock=document.getElementById('commercialSummaryBlock');
-    if(comBlock)comBlock.classList.toggle('hidden',!hasTerr&&!hasChal);
   }
 
   // ── Couche de dérivation canal — Étape 3 ────────────────────────────────
@@ -459,133 +457,11 @@ function _passesAllFilters(cc){
     if (!el) return;
     el.innerHTML = `<div>
     <div id="terrSummaryBar" style="display:none"></div>
-    <div id="commercialSummaryBlock" class="hidden"></div>
-    <details id="terrAnalyseAccordion" open style="background:linear-gradient(135deg,rgba(100,116,139,0.12),rgba(71,85,105,0.06));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:12px">
-      <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.18),rgba(71,85,105,0.10));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-        <h3 style="font-weight:800;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:6px">📋 Analyse territoire <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">Vue Direction · Top 100 · Contributeurs · nécessite le BL Territoire</span></h3>
-        <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-      </summary>
-      <div id="terrNeedTerrBlock" class="hidden mb-2 mt-2 mx-2 p-2.5 i-info-bg border-2 border-dashed border-violet-300 rounded-xl flex items-center gap-2">
-        <span class="text-lg flex-shrink-0">📊</span>
-        <div><p class="text-violet-700 font-semibold text-xs">Analyse avancée Le Terrain — fichier BL requis</p><p class="text-violet-500 text-[10px] mt-0.5">Ajoutez le fichier BL Qlik pour activer : KPI CA Le Terrain · Vue par Direction · Top 100 articles · Contributeurs agence</p></div>
-      </div>
-      <div id="terrCroisementBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
-        <div id="terrCroisementSummary" class="exec-summary rounded-xl p-3 t-inverse">
-          <div class="flex items-center gap-2 mb-1"><span class="text-sm">🔗</span><h3 class="font-extrabold text-xs uppercase tracking-wide text-violet-300">Analyse du croisement territoire × agence</h3></div>
-          <div id="terrCroisementText" class="text-xs leading-snug space-y-0.5"></div>
-        </div>
-      </div>
-      <div id="terrKPIBlock" style="display:none" class="hidden mb-2 mt-2 mx-2">
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
-          <div class="bg-gradient-to-br from-violet-500 to-violet-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-violet-100 text-[10px] font-bold uppercase mb-0.5">📋 Lignes analysées</h4><p id="terrKpiLignes" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiLignesSub" class="text-violet-200 text-[10px] mt-0.5"></p></div>
-          <div class="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-indigo-100 text-[10px] font-bold uppercase mb-0.5">💰 CA Legallais (zone)</h4><p id="terrKpiCATotal" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCATotalSub" class="text-indigo-200 text-[10px] mt-0.5 font-bold"></p></div>
-          <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-emerald-100 text-[10px] font-bold uppercase mb-0.5">📊 Couverture rayon</h4><p id="terrKpiCouverture" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiCouvertureSub" class="text-emerald-200 text-[10px] mt-0.5">du Top 100 en stock</p><p id="terrKpiCouvertureInfo" class="hidden text-emerald-200 text-[9px] mt-0.5">ℹ️ stock physique indépendant du canal</p></div>
-          <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-amber-100 text-[10px] font-bold uppercase mb-0.5">📌 Spécial</h4><p id="terrKpiSpecialPct" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiSpecialSub" class="text-amber-200 text-[10px] mt-0.5">du CA = non stockable</p></div>
-          <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl p-2.5 text-white shadow-lg"><h4 class="text-rose-100 text-[10px] font-bold uppercase mb-0.5">👥 Clients</h4><p id="terrKpiClients" class="text-base font-extrabold leading-tight">—</p><p id="terrKpiClientsSub" class="text-rose-200 text-[10px] mt-0.5"></p></div>
-        </div>
-      </div>
-      <div id="terrSpecialKPIBlock" style="display:none" class="hidden mb-1.5 mx-2 px-2 py-1.5 i-caution-bg border b-light rounded-xl flex items-center gap-2">
-        <span class="text-base flex-shrink-0">📌</span>
-        <div><p id="terrSpecialKPIText" class="text-xs font-bold c-caution inline"></p><span class="text-[10px] c-caution ml-1">Exclus de Direction, Top 100, croisement rayon.</span></div>
-      </div>
-      <div id="terrDirectionContainer"></div>
-      <div id="terrContribBlock" style="display:none;background:linear-gradient(135deg,rgba(100,116,139,0.13),rgba(51,65,85,0.06));border:1px solid rgba(100,116,139,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
-        <details>
-          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.2),rgba(51,65,85,0.12));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-            <h3 id="terrContribTitle" style="font-weight:800;font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px">🔗 Contributeurs agence</h3>
-            <div class="flex items-center gap-2">
-              <button onclick="event.stopPropagation();exportContribCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <span class="acc-arrow" style="color:#cbd5e1">▶</span>
-            </div>
-          </summary>
-          <div id="terrContribSummary" class="px-3 py-1.5 text-xs t-tertiary border-b s-card-alt"></div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
-              <thead class="s-panel-inner t-inverse font-bold">
-                <tr>
-                  <th class="py-1.5 px-2 text-left">Secteur</th>
-                  <th class="py-1.5 px-2 text-right">BL Terrain</th>
-                  <th class="py-1.5 px-2 text-right">BL Agence</th>
-                  <th class="py-1.5 px-2 text-right">CA Terrain</th>
-                  <th class="py-1.5 px-2 text-center">Clients</th>
-                  <th class="py-1.5 px-2 text-center min-w-[100px]">% BL capté</th>
-                </tr>
-              </thead>
-              <tbody id="terrContribTable"></tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-      <div id="terrTop100Block" style="display:none;background:linear-gradient(135deg,rgba(234,179,8,0.13),rgba(202,138,4,0.06));border:1px solid rgba(234,179,8,0.3);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
-        <details>
-          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(234,179,8,0.2),rgba(202,138,4,0.12));border-bottom:1px solid rgba(234,179,8,0.2);list-style:none" class="select-none">
-            <h3 style="font-weight:800;font-size:12px;color:#fde047;display:flex;align-items:center;gap:6px">🏆 Top 100 articles <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— par CA Le Terrain · cliquez pour détailler</span></h3>
-            <div class="flex items-center gap-2">
-              <button onclick="event.stopPropagation();exportTerritoireCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded-lg text-xs">📥 CSV</button>
-              <span class="acc-arrow" style="color:#fde047">▶</span>
-            </div>
-          </summary>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
-              <thead class="s-panel-inner t-inverse font-bold">
-                <tr>
-                  <th class="py-1.5 px-2 text-left">Code</th>
-                  <th class="py-1.5 px-2 text-left">Libellé</th>
-                  <th class="py-1.5 px-2 text-left">Direction</th>
-                  <th class="py-1.5 px-2 text-center">Nb BL</th>
-                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-                  <th class="py-1.5 px-2 text-center">En rayon</th>
-                  <th class="py-1.5 px-2 text-right">Stock actuel</th>
-                </tr>
-              </thead>
-              <tbody id="terrTop100Table"></tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-      <div id="terrClientsBlock" style="display:none;background:linear-gradient(135deg,rgba(20,184,166,0.12),rgba(13,148,136,0.06));border:1px solid rgba(20,184,166,0.28);border-radius:14px;overflow:hidden;margin-bottom:6px;margin-left:8px;margin-right:8px" class="hidden">
-        <details>
-          <summary style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(20,184,166,0.18),rgba(13,148,136,0.10));border-bottom:1px solid rgba(20,184,166,0.2);list-style:none" class="select-none">
-            <h3 style="font-weight:800;font-size:12px;color:#2dd4bf;display:flex;align-items:center;gap:6px">👥 Clients Le Terrain <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.45)">— mixtes vs extérieurs purs</span></h3>
-            <span class="acc-arrow" style="color:#2dd4bf">▶</span>
-          </summary>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
-              <thead class="s-panel-inner t-inverse font-bold">
-                <tr>
-                  <th class="py-1.5 px-2 text-left">Code client</th>
-                  <th class="py-1.5 px-2 text-left">Nom</th>
-                  <th class="py-1.5 px-2 text-right">CA Le Terrain</th>
-                  <th class="py-1.5 px-2 text-center">Nb réf.</th>
-                  <th class="py-1.5 px-2 text-center">Type</th>
-                </tr>
-              </thead>
-              <tbody id="terrClientsTable"></tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-    </details>
+    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
   </div>`;
     window._buildChalandiseOverview?.();
-    window._renderCommercialSummary?.();
-    const terrNeedBlock = document.getElementById('terrNeedTerrBlock');
-    if (terrNeedBlock) terrNeedBlock.classList.toggle('hidden', hasTerr);
-    ['terrCroisementBlock','terrSpecialKPIBlock','terrKPIBlock','terrContribBlock','terrTop100Block','terrClientsBlock'].forEach(id => {
-      const blk = document.getElementById(id);
-      if (blk) { blk.style.display = hasTerr ? '' : 'none'; blk.classList.toggle('hidden', !hasTerr); }
-    });
-    // Ouvrir l'accordéon territoire (terrKPIBlock visible sans clic)
-    document.getElementById('terrAnalyseAccordion')?.setAttribute('open', '');
-    // Peupler les KPIs territoire — attendre que terrKpiLignes soit dans le DOM
-    const _waitAndRender = () => {
-      if (document.getElementById('terrKpiLignes')) {
-        window.renderTerritoireTab?.();
-      } else {
-        setTimeout(_waitAndRender, 50);
-      }
-    };
-    setTimeout(_waitAndRender, 0);
+    const terrOverview=document.getElementById('terrChalandiseOverview');
+    if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
   }
 
 // ── Window expositions for onclick handlers ──

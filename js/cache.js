@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { _S } from './state.js';
+import { buildChalandiseStore } from './chalandise-store.js';
 
 
 const CACHE_KEY       = 'PRISME_PREFS';
@@ -297,6 +298,7 @@ export async function _saveSessionToIDB() {
           }))
         : null,
       ventesClientHorsMagasin:  _serializeNestedMap(_S.ventesClientHorsMagasin),
+      ventesClientAutresAgences: [...(_S.ventesClientAutresAgences || [])],
       cannauxHorsMagasin:       [...(_S.cannauxHorsMagasin || [])],
       clientLastOrder:       [..._S.clientLastOrder].map(([k, v]) => [k, v instanceof Date ? v.getTime() : v]),
       clientLastOrderAll:   [..._S.clientLastOrderAll].map(([k, v]) => [k, { date: v.date instanceof Date ? v.date.getTime() : v.date, canal: v.canal }]),
@@ -316,6 +318,8 @@ export async function _saveSessionToIDB() {
       chalandiseData:        [..._S.chalandiseData],
       chalandiseReady:       _S.chalandiseReady,
       chalandiseMetiers:     _S.chalandiseMetiers,
+      // ── Table de forçage commercial ──
+      forcageCommercial:     [..._S.forcageCommercial],
       // ── Périodes ──
       consommePeriodMin:     _S.consommePeriodMin     ? _S.consommePeriodMin.getTime()     : null,
       consommePeriodMax:     _S.consommePeriodMax     ? _S.consommePeriodMax.getTime()     : null,
@@ -367,7 +371,14 @@ export async function _saveSessionToIDB() {
     db.close();
     localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
     console.log('[PRISME] IDB save - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
-    console.log('[PRISME] session sauvegardée dans IndexedDB (' + Math.round(JSON.stringify(payload).length / 1024) + ' Ko)');
+    // NB: JSON.stringify(payload) est extrêmement coûteux quand territoireLines est volumineux.
+    // On logge des compteurs utiles sans bloquer le thread principal.
+    console.log('[PRISME] session sauvegardée dans IndexedDB', {
+      finalData: _S.finalData?.length || 0,
+      territoireLines: _S.territoireLines?.length || 0,
+      chalandise: _S.chalandiseData?.size || 0,
+      livraisons: _S.livraisonsData?.size || 0,
+    });
   } catch (e) {
     console.error('[PRISME] IDB save error:', e);
   } finally {
@@ -435,6 +446,7 @@ export async function _restoreSessionFromIDB() {
       );
     }
     _S.ventesClientHorsMagasin  = _deserializeNestedMap(data.ventesClientHorsMagasin  || []);
+    _S.ventesClientAutresAgences = new Map(data.ventesClientAutresAgences || []);
     _S.cannauxHorsMagasin       = new Set(data.cannauxHorsMagasin || []);
     _S.clientLastOrder       = new Map((data.clientLastOrder || []).map(([k, v]) => [k, v ? new Date(v) : null]));
     _S.clientLastOrderAll    = new Map((data.clientLastOrderAll || []).map(([k, v]) => [k, v ? { date: new Date(v.date), canal: v.canal || 'MAGASIN' } : { date: null, canal: 'MAGASIN' }]));
@@ -452,6 +464,7 @@ export async function _restoreSessionFromIDB() {
     _S.chalandiseData    = new Map(data.chalandiseData || []);
     _S.chalandiseReady   = data.chalandiseReady   || false;
     _S.chalandiseMetiers = data.chalandiseMetiers || [];
+    _S.forcageCommercial = new Map(data.forcageCommercial || []);
 
     _S.consommePeriodMin     = data.consommePeriodMin     ? new Date(data.consommePeriodMin)     : null;
     _S.consommePeriodMax     = data.consommePeriodMax     ? new Date(data.consommePeriodMax)     : null;
@@ -487,6 +500,8 @@ export async function _restoreSessionFromIDB() {
     if (data._selectedCommercial !== undefined) _S._selectedCommercial = data._selectedCommercial;
     if (data._selectedMetier     !== undefined) _S._selectedMetier     = data._selectedMetier;
     console.log('[PRISME] IDB restore - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
+    // Normaliser clés chalandise + appliquer forçage (compat caches anciens)
+    buildChalandiseStore();
     // ── Navigation sous-onglets ──
     if (data._clientsActiveTab)  _S._clientsActiveTab  = data._clientsActiveTab;
 

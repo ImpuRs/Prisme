@@ -113,12 +113,18 @@ _S._selectedActivitesPDV = new Set();
 _S._selectedStatutDetaille = '';
 _S._selectedDirections = new Set();
 _S._selectedUnivers = new Set();
-_S._selectedCommercial = '';
+_S._selectedCommercial = '';       // FILTRE MAÎTRE — global, pas par onglet
 _S._selectedMetier = '';
 _S._filterStrategiqueOnly = false;
 _S._filterHorsAgence = false;    // filtre Articles : uniquement articles avec CA hors agence
 _S._terrClientSearch = '';       // filtre clients Commerce : recherche nom/code
 _S._distanceMaxKm = 0; // 0 = pas de filtre distance
+// ── Filtres tactiques PAR ONGLET (état indépendant Conquête / Fidélisation) ──
+export function _defaultTacticalFilters() {
+  return { distanceMaxKm:0, selectedDepts:new Set(), selectedMetier:'', filterStrategiqueOnly:false, selectedClassifs:new Set(), selectedStatuts:new Set(), selectedActivitesPDV:new Set(), selectedStatutDetaille:'', includePerdu24m:false, selectedDirections:new Set(), selectedUnivers:new Set() };
+}
+_S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() };
+_S._activeCommerceTab = '';  // 'commerce' | 'clients' — onglet tactique courant
 _S._cpCoords = null; // table CP → [lat, lon], chargée au démarrage
 _S._agenceCoords = null; // [lat, lon] de l'agence sélectionnée
 
@@ -166,6 +172,10 @@ _S._selectedCrossStatus = '';
 _S._cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
 _S.excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
 _S._includePerdu24m = false;
+
+// ── Table de Forçage Commercial (Shadow CRM) ──
+// Map<clientCode, commercialCode> — override ERP pour rattacher les hors-zone au bon commercial
+_S.forcageCommercial = new Map();
 
 // ── KPI history ──
 _S.kpiHistory = [];
@@ -353,9 +363,11 @@ export function resetAppState() {
   // Croisement / cockpit export / exclusions
   _S.crossingStats = null; _S._cockpitExportData = null;
   _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
+  // NB: forcageCommercial n'est PAS reset ici — il persiste entre les rechargements de fichiers
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
   _S._selectedActivitesPDV = new Set(); _S._selectedStatutDetaille = ''; _S._selectedDirections = new Set(); _S._selectedUnivers = new Set(); _S._selectedCommercial = ''; _S._selectedMetier = ''; _S._filterStrategiqueOnly = false; _S._filterHorsAgence = false; _S._terrClientSearch = ''; _S._distanceMaxKm = 0; _S._agenceCoords = null;
+  _S._tabFilters = { commerce: _defaultTacticalFilters(), clients: _defaultTacticalFilters() }; _S._activeCommerceTab = '';
   _S._clientDominantUnivers = new Map();
   _S._clientsActiveTab = 'priorites';
   _S._hasStock = false;

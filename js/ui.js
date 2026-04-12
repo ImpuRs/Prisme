@@ -142,6 +142,7 @@ const _statusBadgeMap = {
   dropChalandise: 'statusChalandise',
   dropLivraisons: 'statusLivraisons',
   dropConsommeReseau: 'statusConsommeReseau',
+  dropForcage: 'statusForcage',
 };
 
 export function _updateAnalyserBtn() {
@@ -267,6 +268,50 @@ export function switchSuperTab(supertabId) {
   switchTab(_SUPERTAB_DEFAULT[supertabId] || supertabId);
 }
 
+// ── Filtres tactiques par onglet — save / restore ────────────
+const _TACTICAL_KEYS = ['distanceMaxKm','selectedDepts','selectedMetier','filterStrategiqueOnly',
+  'selectedClassifs','selectedStatuts','selectedActivitesPDV','selectedStatutDetaille',
+  'includePerdu24m','selectedDirections','selectedUnivers'];
+const _STATE_MAP = {distanceMaxKm:'_distanceMaxKm',selectedDepts:'_selectedDepts',selectedMetier:'_selectedMetier',
+  filterStrategiqueOnly:'_filterStrategiqueOnly',selectedClassifs:'_selectedClassifs',selectedStatuts:'_selectedStatuts',
+  selectedActivitesPDV:'_selectedActivitesPDV',selectedStatutDetaille:'_selectedStatutDetaille',
+  includePerdu24m:'_includePerdu24m',selectedDirections:'_selectedDirections',selectedUnivers:'_selectedUnivers'};
+
+function _saveTacticalFilters(tabId) {
+  if (!tabId || !_S._tabFilters[tabId]) return;
+  const slot = _S._tabFilters[tabId];
+  for (const k of _TACTICAL_KEYS) {
+    const v = _S[_STATE_MAP[k]];
+    slot[k] = v instanceof Set ? new Set(v) : v;
+  }
+}
+function _restoreTacticalFilters(tabId) {
+  if (!tabId || !_S._tabFilters[tabId]) return;
+  const slot = _S._tabFilters[tabId];
+  for (const k of _TACTICAL_KEYS) {
+    const v = slot[k];
+    _S[_STATE_MAP[k]] = v instanceof Set ? new Set(v) : v;
+  }
+}
+function _syncTacticalUI() {
+  // Sync visuals immédiats — le reste sera recalé par _buildOverviewFilterChips
+  if (window._updateDistQuickBtns) window._updateDistQuickBtns(_S._distanceMaxKm || 0);
+  const metSel = document.getElementById('terrMetierFilter'); if (metSel) metSel.value = _S._selectedMetier || '';
+  const btn = document.getElementById('btnStrategiqueOnly');
+  if (btn) { btn.classList.toggle('bg-amber-500', _S._filterStrategiqueOnly); btn.classList.toggle('text-white', _S._filterStrategiqueOnly); btn.classList.toggle('s-hover', !_S._filterStrategiqueOnly); btn.classList.toggle('t-secondary', !_S._filterStrategiqueOnly); }
+  const cb = document.querySelector('#togglePerdu24m input'); if (cb) cb.checked = !!_S._includePerdu24m;
+  const sdSel = document.getElementById('terrStatutDetailleSelect'); if (sdSel) sdSel.value = _S._selectedStatutDetaille || '';
+}
+function _swapTacticalFilters(newTabId) {
+  const prev = _S._activeCommerceTab;
+  if (prev && prev !== newTabId) {
+    _saveTacticalFilters(prev);
+    _restoreTacticalFilters(newTabId);
+    _syncTacticalUI();
+  }
+  _S._activeCommerceTab = newTabId;
+}
+
 // ── Tab navigation ────────────────────────────────────────────
 export function switchTab(id) {
   if (id === 'abc' || id === 'matrice') id = 'arbitrage'; // abc/matrice → arbitrage
@@ -321,14 +366,19 @@ export function switchTab(id) {
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
   if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
-  // Filtre canal global — visible sur Commerce
+  // Recherche client — tout en haut, visible sur Commerce/Fidélisation
   const _CANAL_TABS = new Set(['commerce', 'clients']);
+  const tsb = document.getElementById('terrSearchBlock');
+  if (tsb) tsb.classList.toggle('hidden', !_CANAL_TABS.has(id));
+  // Filtre canal global — visible sur Commerce
   const gcf = document.getElementById('globalCanalFilter');
   if (gcf) gcf.classList.toggle('hidden', !_CANAL_TABS.has(id));
   // Chalandise filters — visible sur Commerce si chalandise chargée
   if (id === 'commerce' || id === 'clients') {
     const chalFilBlk = document.getElementById('terrChalandiseFiltersBlock');
     if (chalFilBlk && _S.chalandiseReady) chalFilBlk.classList.remove('hidden');
+    // Filtres tactiques PAR ONGLET — save ancien, restore nouveau
+    _swapTacticalFilters(id);
   }
   // Titre sidebar par onglet
   const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Le Labo' };
@@ -1029,7 +1079,7 @@ export function showSilencieux60() {
     const cls = c.days > 90 ? 'c-danger' : 'c-caution';
     return `<tr class="border-t b-light cursor-pointer hover:s-hover" onclick="openClient360('${c.cc}','silencieux60')">
       <td class="py-1 px-2 font-mono text-[10px] t-disabled">${c.cc}</td>
-      <td class="py-1 px-2 text-[11px] font-semibold">${c.nom}</td>
+      <td class="py-1 px-2 text-[11px] font-semibold">${c.nom}<button onclick="event.stopPropagation();openClient360('${c.cc}','silencieux60')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td>
       <td class="py-1 px-2 text-right font-bold text-[11px] ${c.ca > 0 ? 'c-ok' : 't-disabled'}">${c.ca > 0 ? formatEuro(c.ca) : '—'}</td>
       <td class="py-1 px-2 text-center font-bold text-[11px] ${cls}">${c.days}j</td>
     </tr>`;

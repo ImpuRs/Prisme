@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, _wsToHR, yieldToMain, parseCSVText, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
+import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, _wsToHR, yieldToMain, parseCSVText, parseCSVTextToHR, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
 import { buildAgenceStore } from './agence-store.js';
 
@@ -30,88 +30,116 @@ export async function parseChalandise(file) {
     const f = files[fi];
     const isEnrich = fi > 0; // fichiers suivants = enrichissement
     const isCSV = f.name.toLowerCase().endsWith('.csv');
-    let data;
+    let hr;
     if (isCSV) {
       const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(f, 'UTF-8'); });
       const first = text.split('\n')[0] || '';
       const sep = first.includes(';') ? ';' : ',';
-      data = parseCSVText(text, sep);
-      if (!data.length) {
+      hr = parseCSVTextToHR(text, sep);
+      if (!hr.rows.length) {
         const text2 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(f, 'windows-1252'); });
-        data = parseCSVText(text2, sep);
+        hr = parseCSVTextToHR(text2, sep);
       }
     } else {
-      data = readExcelAsObjects(await readExcel(f));
+      hr = await readExcel(f);
     }
-    if (!data || !data.length) { showToast(`⚠️ Fichier Chalandise ${isEnrich ? '(enrichissement) ' : ''}vide ou illisible`, 'error'); continue; }
-    const sample = data[0];
-    const findCol = s => Object.keys(sample).find(k => k.toLowerCase().includes(s.toLowerCase()));
-    const cCode = findCol('code client') || findCol('code et nom');
-    const cNom = findCol('nom client') || findCol('nom');
-    const cMetier = findCol('libellé court métier') || findCol('libelle court metier') || findCol('métier') || findCol('metier');
-    const cStatut = findCol('statut actuel général') || findCol('statut actuel general') || findCol('statut');
-    const cStatutDetaille = findCol('statut actuel détaillé') || findCol('statut actuel detaille');
-    const cClassif = findCol('classification') || findCol('classif');
-    const cActiviteLeg = findCol('activité client n/n-1') || findCol('activite client n/n-1') || findCol('activité client n') || findCol('activite client n');
-    const cActivite = findCol('activité pdv zone client n/n-1') || findCol('activite pdv zone client n/n-1') || findCol('activité pdv zone') || findCol('activite pdv zone');
-    const cActiviteGlobale = findCol('activité globale') || findCol('activite globale');
-    const findColExact = s => Object.keys(sample).find(k => k.toLowerCase() === s.toLowerCase());
-    const cDirection = findColExact('direction') || findCol('direction commerciale') || findCol('libellé direction') || findCol('libelle direction') || findCol('direction');
-    const cSecteur = findCol('secteur') || findCol('code secteur');
-    const cCommercial = findCol('commercial') || findCol('nom commercial');
-    const cCP = findCol('code postal') || findCol('cp');
-    const cVille = findCol('ville') || findCol('commune');
-    const cCA2025 = findCol('ca 2025') || findCol('ca n-1') || findCol('ca n');
-    const cCA2026 = findCol('ca 2026') || findCol('ca n');
-    const cCaPDVN = findCol('ca pdv zone n') || findCol('ca pdv n') || findCol('ca pdv');
-    const cCaEnleveN = findCol('ca enlevé n pdv') || findCol('ca enleve n pdv');
-    const cCaPreleveN = findCol('ca prélevé n pdv') || findCol('ca preleve n pdv');
-    const cTournee = findCol('libellé tournée') || findCol('libelle tournee') || findCol('tournée') || findCol('tournee');
-    const cSolvabilite = findCol('libellé solvabilité') || findCol('libelle solvabilite') || findCol('solvabilité') || findCol('solvabilite');
-    const cCodeAPE = findCol('code ape');
-    const cLibelleAPE = findCol('libellé ape') || findCol('libelle ape');
-    const cEffectifs = findCol('effectifs client') || findCol('effectif');
-    if (!cCode) { showToast(`⚠️ Colonne "Code client" introuvable dans ${f.name}`, 'error'); continue; }
+    if (!hr || !hr.rows.length) { showToast(`⚠️ Fichier Chalandise ${isEnrich ? '(enrichissement) ' : ''}vide ou illisible`, 'error'); continue; }
+    const headers = hr.headers || [];
+    const rows = hr.rows || [];
+    const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const nHeaders = headers.map(h => _norm(h));
+    const findCol = s => {
+      const ns = _norm(s);
+      let idx = nHeaders.findIndex(h => h === ns);
+      if (idx >= 0) return idx;
+      idx = nHeaders.findIndex(h => h.includes(ns));
+      return idx >= 0 ? idx : null;
+    };
+    const findColExact = s => {
+      const ns = _norm(s);
+      const idx = nHeaders.findIndex(h => h === ns);
+      return idx >= 0 ? idx : null;
+    };
+    const pick = (...idxs) => { for (const i of idxs) { if (i !== null && i !== undefined) return i; } return null; };
+
+    const cCode = pick(findCol('code client'), findCol('code et nom'));
+    const cNom = pick(findCol('nom client'), findCol('nom'));
+    const cMetier = pick(findCol('libellé court métier'), findCol('libelle court metier'), findCol('métier'), findCol('metier'));
+    const cStatut = pick(findCol('statut actuel général'), findCol('statut actuel general'), findCol('statut'));
+    const cStatutDetaille = pick(findCol('statut actuel détaillé'), findCol('statut actuel detaille'));
+    const cClassif = pick(findCol('classification'), findCol('classif'));
+    const cActiviteLeg = pick(findCol('activité client n/n-1'), findCol('activite client n/n-1'), findCol('activité client n'), findCol('activite client n'));
+    const cActivite = pick(findCol('activité pdv zone client n/n-1'), findCol('activite pdv zone client n/n-1'), findCol('activité pdv zone'), findCol('activite pdv zone'));
+    const cActiviteGlobale = pick(findCol('activité globale'), findCol('activite globale'));
+    const cDirection = pick(findColExact('direction'), findCol('direction commerciale'), findCol('libellé direction'), findCol('libelle direction'), findCol('direction'));
+    const cSecteur = pick(findCol('secteur'), findCol('code secteur'));
+    const cCommercial = pick(findCol('commercial'), findCol('nom commercial'));
+    const cCP = pick(findCol('code postal'), findCol('cp'));
+    const cVille = pick(findCol('ville'), findCol('commune'));
+    const cCA2025 = pick(findCol('ca 2025'), findCol('ca n-1'), findCol('ca n'));
+    const cCA2026 = pick(findCol('ca 2026'), findCol('ca n'));
+    const cCaPDVN = pick(findCol('ca pdv zone n'), findCol('ca pdv n'), findCol('ca pdv'));
+    const cCaEnleveN = pick(findCol('ca enlevé n pdv'), findCol('ca enleve n pdv'));
+    const cCaPreleveN = pick(findCol('ca prélevé n pdv'), findCol('ca preleve n pdv'));
+    const cTournee = pick(findCol('libellé tournée'), findCol('libelle tournee'), findCol('tournée'), findCol('tournee'));
+    const cSolvabilite = pick(findCol('libellé solvabilité'), findCol('libelle solvabilite'), findCol('solvabilité'), findCol('solvabilite'));
+    const cCodeAPE = pick(findCol('code ape'));
+    const cLibelleAPE = pick(findCol('libellé ape'), findCol('libelle ape'));
+    const cEffectifs = pick(findCol('effectifs client'), findCol('effectif'));
+    if (cCode === null) { showToast(`⚠️ Colonne "Code client" introuvable dans ${f.name}`, 'error'); continue; }
 
     // Extraire un label agence court du nom de fichier (ex: "Chalandise_AG93.xlsx" → "AG93")
     const _agLabel = isEnrich ? (f.name.replace(/\.(xlsx?|csv)$/i, '').replace(/^.*?_/, '').substring(0, 20)) : '';
 
-    const _p = s => parseFloat((s||'').toString().replace(/\s/g,'').replace(',','.')) || 0;
-    for (const row of data) {
-      const rawCode = (cCode ? row[cCode] || '' : '').toString().trim();
+    const _p = v => {
+      if (!v) return 0;
+      if (typeof v === 'number') return v;
+      return parseFloat(String(v).replace(/\s/g, '').replace(',', '.')) || 0;
+    };
+    const _s = v => (v === null || v === undefined) ? '' : String(v).trim();
+
+    let _lastYield = performance.now();
+    for (let ri = 0; ri < rows.length; ri++) {
+      const row = rows[ri];
+      if ((ri & 4095) === 0) {
+        const _now = performance.now();
+        if (_now - _lastYield > 60) { await yieldToMain(); _lastYield = performance.now(); }
+      }
+
+      const rawCode = _s(row?.[cCode]);
       const cc = extractClientCode(rawCode);
-      if (!cc) continue;
+      if (!cc || cc === '000000') continue;
 
       // Enrichissement : ne prendre que les clients ABSENTS de la chalandise principale
       if (isEnrich && _S.chalandiseData.has(cc)) continue;
 
-      const metier = (cMetier ? row[cMetier] || '' : '').toString().trim();
+      const metier = cMetier !== null ? _s(row?.[cMetier]) : '';
       if (metier) metiersSet.add(metier);
       const info = {
-        nom: (cNom ? row[cNom] || '' : '').toString().trim(),
+        nom: cNom !== null ? _s(row?.[cNom]) : '',
         metier,
-        statut: (cStatut ? row[cStatut] || '' : '').toString().trim(),
-        statutDetaille: (cStatutDetaille ? row[cStatutDetaille] || '' : '').toString().trim(),
-        classification: (cClassif ? row[cClassif] || '' : '').toString().trim(),
-        activiteLeg: (cActiviteLeg ? row[cActiviteLeg] || '' : '').toString().trim(),
-        activitePDV: (cActivite ? row[cActivite] || '' : '').toString().trim(),
-        activiteGlobale: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
-        activite: (cActiviteGlobale ? row[cActiviteGlobale] || '' : '').toString().trim(),
-        direction: (cDirection ? row[cDirection] || '' : '').toString().trim(),
-        secteur: (cSecteur ? row[cSecteur] || '' : '').toString().trim(),
-        commercial: (cCommercial ? row[cCommercial] || '' : '').toString().trim(),
-        cp: (cCP ? row[cCP] || '' : '').toString().trim(),
-        ville: (cVille ? row[cVille] || '' : '').toString().trim(),
-        tournee: (cTournee ? row[cTournee] || '' : '').toString().trim(),
-        solvabilite: (cSolvabilite ? row[cSolvabilite] || '' : '').toString().trim(),
-        codeAPE: (cCodeAPE ? row[cCodeAPE] || '' : '').toString().trim(),
-        libelleAPE: (cLibelleAPE ? row[cLibelleAPE] || '' : '').toString().trim(),
-        effectifs: (cEffectifs ? row[cEffectifs] || '' : '').toString().trim(),
-        ca2025: _p(cCA2025 ? row[cCA2025] : ''),
-        ca2026: _p(cCA2026 ? row[cCA2026] : ''),
-        caPDVN: _p(cCaPDVN ? row[cCaPDVN] : ''),
-        caEnleveN: _p(cCaEnleveN ? row[cCaEnleveN] : ''),
-        caPreleveN: _p(cCaPreleveN ? row[cCaPreleveN] : ''),
+        statut: cStatut !== null ? _s(row?.[cStatut]) : '',
+        statutDetaille: cStatutDetaille !== null ? _s(row?.[cStatutDetaille]) : '',
+        classification: cClassif !== null ? _s(row?.[cClassif]) : '',
+        activiteLeg: cActiviteLeg !== null ? _s(row?.[cActiviteLeg]) : '',
+        activitePDV: cActivite !== null ? _s(row?.[cActivite]) : '',
+        activiteGlobale: cActiviteGlobale !== null ? _s(row?.[cActiviteGlobale]) : '',
+        activite: cActiviteGlobale !== null ? _s(row?.[cActiviteGlobale]) : '',
+        direction: cDirection !== null ? _s(row?.[cDirection]) : '',
+        secteur: cSecteur !== null ? _s(row?.[cSecteur]) : '',
+        commercial: cCommercial !== null ? _s(row?.[cCommercial]) : '',
+        cp: cCP !== null ? _s(row?.[cCP]) : '',
+        ville: cVille !== null ? _s(row?.[cVille]) : '',
+        tournee: cTournee !== null ? _s(row?.[cTournee]) : '',
+        solvabilite: cSolvabilite !== null ? _s(row?.[cSolvabilite]) : '',
+        codeAPE: cCodeAPE !== null ? _s(row?.[cCodeAPE]) : '',
+        libelleAPE: cLibelleAPE !== null ? _s(row?.[cLibelleAPE]) : '',
+        effectifs: cEffectifs !== null ? _s(row?.[cEffectifs]) : '',
+        ca2025: _p(cCA2025 !== null ? row?.[cCA2025] : ''),
+        ca2026: _p(cCA2026 !== null ? row?.[cCA2026] : ''),
+        caPDVN: _p(cCaPDVN !== null ? row?.[cCaPDVN] : ''),
+        caEnleveN: _p(cCaEnleveN !== null ? row?.[cCaEnleveN] : ''),
+        caPreleveN: _p(cCaPreleveN !== null ? row?.[cCaPreleveN] : ''),
       };
       if (isEnrich) { info._enrichSource = _agLabel; enrichedCount++; }
       _S.chalandiseData.set(cc, info);
@@ -122,8 +150,10 @@ export async function parseChalandise(file) {
   // ── Distance km — calcul Haversine CP client vs CP agence ──
   _computeChalandiseDistances();
   // Build metier and commercial indexes
-  _S.clientsByMetier.clear();
-  _S.clientsByCommercial.clear();
+  if (!_S.clientsByMetier) _S.clientsByMetier = new Map();
+  else _S.clientsByMetier.clear();
+  if (!_S.clientsByCommercial) _S.clientsByCommercial = new Map();
+  else _S.clientsByCommercial.clear();
   for (const [cc, info] of _S.chalandiseData.entries()) {
     if (info.metier) {
       if (!_S.clientsByMetier.has(info.metier)) _S.clientsByMetier.set(info.metier, new Set());
@@ -135,8 +165,12 @@ export async function parseChalandise(file) {
     }
   }
   _S.chalandiseReady = true;
-  const nbActifs = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('actif') && !s.includes('inactif'); }).length;
-  const nbPerdus = [..._S.chalandiseData.values()].filter(i => { const s = (i.statut || '').toLowerCase(); return s.includes('perdu') || s.includes('inactif'); }).length;
+  let nbActifs = 0, nbPerdus = 0;
+  for (const i of _S.chalandiseData.values()) {
+    const s = (i.statut || '').toLowerCase();
+    if (s.includes('actif') && !s.includes('inactif')) nbActifs++;
+    else if (s.includes('perdu') || s.includes('inactif')) nbPerdus++;
+  }
   const enrichMsg = enrichedCount > 0 ? ` · ${enrichedCount} enrichis via autres agences` : '';
   showToast(`📋 Chalandise : ${_S.chalandiseData.size} clients · ${metiersSet.size} métiers · ${nbActifs} actifs · ${nbPerdus} perdus${enrichMsg}`, 'success');
   // Show commerce tab if chalandise loaded (even without territoire file)
@@ -198,11 +232,11 @@ export async function parseLivraisons(file) {
   _S._livraisonsDebug = { step: 'init', file: file?.name, size: file?.size };
   try {
     const isCSV = file.name.toLowerCase().endsWith('.csv');
-    let data;
+    let hr;
     if (isCSV) {
       const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'windows-1252'); });
       const sep = (text.split('\n')[0] || '').includes(';') ? ';' : ',';
-      data = parseCSVText(text, sep);
+      hr = parseCSVTextToHR(text, sep);
       _lmk('CSV parse');
     } else {
       const buf = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture XLSX impossible')); r.readAsArrayBuffer(file); });
@@ -211,40 +245,51 @@ export async function parseLivraisons(file) {
       _lmk('XLSX.read');
       _S._livraisonsDebug.sheets = wb.SheetNames;
       const _ws = wb.Sheets[wb.SheetNames[0]];
-      data = readExcelAsObjects(_wsToHR(_ws));
-      _lmk('readExcelAsObjects');
+      hr = _wsToHR(_ws);
+      _lmk('wsToHR');
     }
-    const headersFound = Object.keys(data[0] || {});
+    const headersFound = hr?.headers || [];
+    const rows = hr?.rows || [];
     _S._livraisonsDebug.step = 'parsed';
-    _S._livraisonsDebug.rowCount = data.length;
+    _S._livraisonsDebug.rowCount = rows.length;
     _S._livraisonsDebug.headersFound = headersFound;
-    _S._livraisonsDebug.row0 = data[0];
+    if (headersFound.length && rows.length) {
+      const o = {};
+      const r0 = rows[0] || [];
+      for (let i = 0; i < headersFound.length; i++) o[headersFound[i]] = r0[i];
+      _S._livraisonsDebug.row0 = o;
+    } else {
+      _S._livraisonsDebug.row0 = rows[0] || null;
+    }
 
     // Passe unique : livraisonsData + territoireLines
     const _norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    const sample = data[0] || {};
+    const nHeaders = headersFound.map(h => _norm(h));
     // exact-match en priorité, puis includes (évite faux positifs sur 'ca' / 'bl')
     const findCol = s => {
       const ns = _norm(s);
-      return Object.keys(sample).find(k => _norm(k) === ns)
-          || Object.keys(sample).find(k => _norm(k).includes(ns));
+      let idx = nHeaders.findIndex(h => h === ns);
+      if (idx >= 0) return idx;
+      idx = nHeaders.findIndex(h => h.includes(ns));
+      return idx >= 0 ? idx : null;
     };
-    const cCC      = findCol('code client');
-    const cNomC    = findCol('nom client');
-    const cSect    = findCol('secteur');
-    const cDir     = findCol('direction');
-    const cBL      = findCol('numero de bl') || findCol('n° bl') || findCol('numero bl');
-    const cArt     = findCol('article');
-    const cQty     = findCol('quantite livree') || findCol('qte livree') || findCol('quantite');
-    const cCA      = findCol('ca');
-    const cVMB     = findCol('vmb');
-    const cDate    = findCol("date d'expedition") || findCol('date expedition') || findCol('expedition');
+    const pick = (...idxs) => { for (const i of idxs) { if (i !== null && i !== undefined) return i; } return null; };
+    const cCC      = pick(findCol('code client'));
+    const cNomC    = pick(findCol('nom client'));
+    const cSect    = pick(findCol('secteur'));
+    const cDir     = pick(findCol('direction'));
+    const cBL      = pick(findCol('numero de bl'), findCol('n° bl'), findCol('numero bl'));
+    const cArt     = pick(findCol('article'));
+    const cQty     = pick(findCol('quantite livree'), findCol('qte livree'), findCol('quantite'));
+    const cCA      = pick(findCol('ca'));
+    const cVMB     = pick(findCol('vmb'));
+    const cDate    = pick(findCol("date d'expedition"), findCol('date expedition'), findCol('expedition'));
     const colsFound = { cCC, cNomC, cSect, cDir, cBL, cArt, cQty, cCA, cVMB, cDate };
     _S._livraisonsDebug.step = 'cols';
     _S._livraisonsDebug.colsFound = colsFound;
-    if (!cCC || !cBL || !cArt) {
+    if (cCC === null || cBL === null || cArt === null) {
       _S._livraisonsDebug.step = 'guard_failed';
-      _S._livraisonsDebug.guardReason = `manquant: ${!cCC?'cCC ':''} ${!cBL?'cBL ':''} ${!cArt?'cArt':''}`.trim();
+      _S._livraisonsDebug.guardReason = `manquant: ${cCC===null?'cCC ':''}${cBL===null?'cBL ':''}${cArt===null?'cArt':''}`.trim();
       showToast(`❌ Livraisons : colonnes introuvables — inspectez _S._livraisonsDebug dans la console`, 'error');
       return;
     }
@@ -252,22 +297,58 @@ export async function parseLivraisons(file) {
     const terrDirData = {};
     const secteurSet = new Set();
     let livDateMin = null, livDateMax = null;
+
+    const _isCode6 = (code) => {
+      if (!code || code.length !== 6) return false;
+      for (let i = 0; i < 6; i++) {
+        const c = code.charCodeAt(i);
+        if (c < 48 || c > 57) return false;
+      }
+      return true;
+    };
     // Map stock O(1) — évite _S.finalData.find() O(n) × 282k lignes
     const _stockMap = new Map();
     if (_S.finalData) for (const r of _S.finalData) _stockMap.set(r.code, r);
-    for (const row of data) {
-      const cc = String(row[cCC] || '').trim().padStart(6, '0');
+
+    const clientsMagasin = _S.clientsMagasin || new Set();
+    const blCanalMap = _S.blCanalMap || new Map();
+    const blConsommeSet = _S.blConsommeSet || new Set();
+    const articleFamille = _S.articleFamille || {};
+    const libelleLookup = _S.libelleLookup || {};
+
+    let _lastYield = performance.now();
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      // Yield périodiquement (évite freeze UI sur gros fichiers)
+      if ((i & 4095) === 0) {
+        const _now = performance.now();
+        if (_now - _lastYield > 60) { await yieldToMain(); _lastYield = performance.now(); }
+      }
+
+      const cc = extractClientCode(row?.[cCC] || '');
       if (!cc || cc === '000000') continue;
-      const ca = parseFloat(String(row[cCA] || '0').replace(',', '.')) || 0;
-      const vmb = parseFloat(String(row[cVMB] || '0').replace(',', '.')) || 0;
-      const blNum = String(row[cBL] || '').trim();
-      const articleStr = String(row[cArt] || '').trim();
-      const codeArticle = articleStr.split(' - ')[0]?.trim() || '';
+
+      const caRaw = cCA !== null ? row?.[cCA] : 0;
+      const vmbRaw = cVMB !== null ? row?.[cVMB] : 0;
+      const ca = typeof caRaw === 'number' ? caRaw : cleanOmniPrice(caRaw);
+      const vmb = typeof vmbRaw === 'number' ? vmbRaw : cleanOmniPrice(vmbRaw);
+
+      const blNum = (row?.[cBL] ?? '').toString().trim();
+      const articleRaw = row?.[cArt];
+      if (articleRaw === undefined || articleRaw === null) continue;
+      const articleStr = articleRaw.toString().trim();
+      if (!articleStr) continue;
+      const dashIdx = articleStr.indexOf(' - ');
+      const codeArticle = dashIdx >= 0 ? articleStr.slice(0, dashIdx).trim() : articleStr;
       if (!codeArticle) continue;
-      const isSpecial = !/^\d{6}$/.test(codeArticle);
-      const qty = parseInt(row[cQty]) || 0;
+      const isSpecial = !_isCode6(codeArticle);
+
+      const qtyRaw = cQty !== null ? row?.[cQty] : 0;
+      const qty = typeof qtyRaw === 'number' ? qtyRaw : (parseInt(String(qtyRaw || '0'), 10) || 0);
       if (qty < 0) continue; // avoirs : exclure comme dans le Worker territoire
-      const rawDate = cDate ? row[cDate] : null;
+
+      const rawDate = cDate !== null ? row?.[cDate] : null;
       // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
       const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
 
@@ -291,16 +372,16 @@ export async function parseLivraisons(file) {
       }
 
       // — territoireLines — tous codes y compris spéciaux (isSpecial = true pour non-stockables)
-      const direction = String(row[cDir] || '').trim() || 'Non défini';
-      const secteur = String(row[cSect] || '').trim();
-      const clientNom = String(row[cNomC] || '').trim();
+      const direction = (cDir !== null ? String(row?.[cDir] || '').trim() : '') || 'Non défini';
+      const secteur = cSect !== null ? String(row?.[cSect] || '').trim() : '';
+      const clientNom = cNomC !== null ? String(row?.[cNomC] || '').trim() : '';
       const stockItem = _stockMap.get(codeArticle);
       const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
-      const clientType = _S.clientsMagasin?.has(cc) ? 'mixte' : 'exterieur';
-      const famille = _S.articleFamille?.[codeArticle] || stockItem?.famille || 'Non classé';
-      const libelle = articleStr.includes(' - ') ? articleStr.split(' - ').slice(1).join(' - ').trim() : (_S.libelleLookup?.[codeArticle] || codeArticle);
+      const clientType = clientsMagasin.has(cc) ? 'mixte' : 'exterieur';
+      const famille = articleFamille[codeArticle] || stockItem?.famille || 'Non classé';
+      const libelle = dashIdx >= 0 ? articleStr.slice(dashIdx + 3).trim() : (libelleLookup[codeArticle] || codeArticle);
       if (secteur) secteurSet.add(secteur);
-      const canal = blNum ? (_S.blCanalMap?.get(blNum) || (_S.blConsommeSet?.has(blNum) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
+      const canal = blNum ? (blCanalMap.get(blNum) || (blConsommeSet.has(blNum) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
       terrLines.push({ code: codeArticle, libelle, famille, direction, secteur, bl: blNum, ca, canal,
         clientCode: cc, clientNom, clientType, rayonStatus, isSpecial, commercial: '',
         dateExp: dateObj ? dateObj.getTime() : null });
@@ -330,14 +411,14 @@ export async function parseLivraisons(file) {
     _S._livraisonsDebug.step = 'done';
     _S._livraisonsDebug.livraisonsSize = _S.livraisonsData.size;
     _S._livraisonsDebug.terrLinesCount = terrLines.length;
-    _S._livraisonsDebug.skippedZero = data.length - _S.livraisonsData.size - terrLines.length; // indicatif
+    _S._livraisonsDebug.skippedZero = rows.length - terrLines.length; // indicatif
 
     // Secteurs — met à jour les checkboxes dans le filtre Terrain
     buildSecteurCheckboxes([...secteurSet].sort());
 
     _lmk('Fin');console.table(_lm);
     if (!_S.livraisonsReady) {
-      showToast(`⚠️ Livraisons : 0 client chargé sur ${data.length} lignes — inspectez _S._livraisonsDebug`, 'error');
+      showToast(`⚠️ Livraisons : 0 client chargé sur ${rows.length} lignes — inspectez _S._livraisonsDebug`, 'error');
       return;
     }
     showToast(`📦 Livraisons : ${_S.livraisonsClientCount} clients · ${terrLines.length} lignes terrain chargés`, 'success');

@@ -149,8 +149,16 @@ function _renderClient360(clientCode,source){
     actionBg='bg-orange-900/40 border-orange-700';
   }else if(horsMag&&horsMag.size>0){
     const nbOpp=[...horsMag.keys()].filter(c=>!artMap?.has(c)).length;
-    actionText=nbOpp>0?`Client actif · ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence que vous ne lui vendez pas — voir onglet Ailleurs.`:'Client actif — aucune action urgente.';
-    actionBg=nbOpp>0?'bg-blue-900/40 border-blue-700':'bg-emerald-900/40 border-emerald-700';
+    if(nbOpp>10){
+      actionText=`Client actif · ⚠️ ${nbOpp} articles achetés hors agence que vous ne lui vendez pas — action prioritaire.`;
+      actionBg='bg-red-900/40 border-red-700';
+    }else if(nbOpp>0){
+      actionText=`Client actif · ${nbOpp} article${nbOpp>1?'s':''} achetés hors agence que vous ne lui vendez pas — voir onglet Ailleurs.`;
+      actionBg='bg-orange-900/40 border-orange-700';
+    }else{
+      actionText='Client actif — aucune action urgente.';
+      actionBg='bg-emerald-900/40 border-emerald-700';
+    }
   }else{
     actionText='Client actif — aucune action urgente.';
     actionBg='bg-emerald-900/40 border-emerald-700';
@@ -161,7 +169,10 @@ function _renderClient360(clientCode,source){
   const cards=[];
   if(caPDV>0||artMap){
     const mois=_S.consommeMoisCouverts||3;
-    const periode=_S.consommePeriodMin&&_S.consommePeriodMax?`${fmtDate(_S.consommePeriodMin)} → ${fmtDate(_S.consommePeriodMax)}`:`${mois} mois`;
+    const _pStart=_S.periodFilterStart||_S.consommePeriodMin;
+    const _pEnd=_S.periodFilterEnd||_S.consommePeriodMax;
+    const _fS=_pStart?fmtDate(_pStart):'',_fE=_pEnd?fmtDate(_pEnd):'';
+    const periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
   }
   if(hasChal&&ca2025>0){
@@ -186,13 +197,50 @@ function _renderClient360(clientCode,source){
     const spcCol=spc>=70?'c-ok':spc>=40?'c-caution':'c-danger';
     const spcLabel=spc>=70?'Potentiel élevé':spc>=40?'Potentiel moyen':'Potentiel faible';
     const spcFactor=spc>=70?'CA élevé, achat régulier':spc>=40?'CA correct, silence récent':'Fréquence faible, CA modeste';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-lg font-extrabold ${spcCol}">${spcLabel}</p><p class="text-[10px] t-inverse-muted">${spcFactor}</p></div>`);
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-sm font-extrabold ${spcCol}">${spcLabel}</p><p class="text-[10px] t-inverse-muted">${spcFactor}</p></div>`);
   }
-  const summaryBar=cards.length?`<div class="flex gap-3 mb-4">${cards.join('')}</div>`:'';
+
+  // ── Part PDV (%) — thermomètre captation ──────────────────────
+  const ca2026=info.ca2026||0;
+  const caSociete=ca2026>0?ca2026:ca2025;
+  if(caSociete>0){
+    const _partDenom=Math.max(caPDV,caSociete);
+    const partPDV=Math.round(caPDV/_partDenom*100);
+    const partCol=partPDV>=40?'c-ok':partPDV>=15?'c-caution':'c-danger';
+    const partLabel=partPDV>=40?'Captation forte':partPDV>=15?'Captation moyenne':'Captation faible';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-extrabold ${partCol}">${partPDV}%</p><p class="text-[10px] t-inverse-muted">${partLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
+  }
+
+  // ── Indice PDV-compatible — % du CA société gagnable au comptoir ──
+  // Articles F/M (fréquents) + volume moyen faible = typiquement dépannage/proximité
+  if(caSociete>0){
+    let caCompat=0,caTotal=0;
+    // Sources : artMapFull (PDV pleine période) + ventesClientHorsMagasin
+    const _allArts=new Map();
+    if(artMapFull)for(const[code,d]of artMapFull){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
+    if(horsMag)for(const[code,d]of horsMag){_allArts.set(code,(_allArts.get(code)||0)+(d.sumCA||0));}
+    for(const[code,ca]of _allArts){
+      caTotal+=ca;
+      const r=DataStore.finalData?.find(f=>f.code===code);
+      if(!r)continue;
+      // FMR F ou M = rotation fréquente, compatible dépannage comptoir
+      const fmr=(r.fmrClass||'').toUpperCase();
+      if(fmr==='F'||fmr==='M')caCompat+=ca;
+    }
+    if(caTotal>0){
+      const pctCompat=Math.min(100,Math.round(caCompat/caTotal*100));
+      const compatCol=pctCompat>=50?'c-ok':pctCompat>=25?'c-caution':'c-danger';
+      const compatLabel=pctCompat>=50?'Fort potentiel PDV':pctCompat>=25?'Potentiel modéré':'Peu compatible PDV';
+      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">PDV-compatible</p><p class="text-2xl font-extrabold ${compatCol}">${pctCompat}%</p><p class="text-[10px] t-inverse-muted">${compatLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">CA articles F/M rotatifs</p></div>`);
+    }
+  }
+
+  const summaryBar=cards.length?`<div class="flex flex-wrap gap-3 mb-4">${cards.join('')}</div>`:'';
 
   // ── ONGLETS Ici / Ailleurs / Opportunités ────────────────────────
   // Groupe 1 : période filtrée (artMapPeriod, CA > 0)
-  const iciArtsPeriod=artMapPeriod?[...artMapPeriod.entries()].filter(([,d])=>(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,20):[];
+  const _stockUrgency=([code])=>{const r=DataStore.finalData?.find(f=>f.code===code);if(!r)return 2;const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;if(r.stockActuel<=0&&isSkel)return 0;if(r.stockActuel<=0)return 1;return 2;};
+  const iciArtsPeriod=artMapPeriod?[...artMapPeriod.entries()].filter(([,d])=>(d.sumCA||0)>0).sort((a,b)=>{const ua=_stockUrgency(a),ub=_stockUrgency(b);if(ua!==ub)return ua-ub;return b[1].sumCA-a[1].sumCA;}).slice(0,20):[];
   // Groupe 2 : historique hors période (artMapFull, codes absents du période)
   const _periodeSet=new Set(iciArtsPeriod.map(([c])=>c));
   const iciArtsHisto=artMapFull?[...artMapFull.entries()].filter(([code,d])=>!_periodeSet.has(code)&&(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,30):[];
@@ -268,13 +316,28 @@ function _renderClient360(clientCode,source){
     const _iciRow=([code,d],grayed=false)=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const r=DataStore.finalData?.find(f=>f.code===code);
-      const stock=r?(r.stockActuel>0?`✅ ${r.stockActuel}`:'⚠️ 0'):'❌';
+      const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;
+      // Geste 4 — Stock: gray dash if non-PDV, red only for Socle at 0
+      let stock;
+      if(!r){stock='<span class="t-disabled">—</span>';}
+      else if(r.stockActuel<=0&&isSkel){stock='<span class="c-danger font-bold">⚠️ 0</span>';}
+      else if(r.stockActuel<=0){stock='<span class="t-disabled">0</span>';}
+      else{stock=`<span class="c-ok">${r.stockActuel}</span>`;}
       const cls=grayed?'opacity-50':'';
       const caCell=grayed?`<td class="py-1 px-2 text-right text-[10px] t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${stock}</td></tr>`;
+      // Geste 2 — Verdict names instead of SQ jargon
+      let roleBadge='';
+      if(r){
+        const abc=(r.abcClass||'').toUpperCase(),fmr=(r.fmrClass||'').toUpperCase();
+        if(isSkel&&r.stockActuel<=0){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🟢 Trou Critique</span>';}
+        else if(isSkel&&abc==='C'&&fmr==='R'){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-orange-900/60 text-orange-300 font-bold">🔴 Poids Mort</span>';}
+        else if(isSkel){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-bold">🔵 Socle</span>';}
+      }
+      const roleCell=`<td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${roleBadge}</td>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td>${roleCell}</tr>`;
     };
     const iciRowsPeriod=iciArtsPeriod.map(e=>_iciRow(e,false)).join('');
-    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
+    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="6" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
     const iciRowsHisto=iciArtsHisto.map(e=>_iciRow(e,true)).join('');
     const iciRows=iciRowsPeriod+iciSeparator+iciRowsHisto;
 
@@ -290,7 +353,7 @@ function _renderClient360(clientCode,source){
 
 
     const tabContents={
-      ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${iciRows}</tbody></table>`,
+      ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Rôle</th></tr></thead><tbody>${iciRows}</tbody></table>`,
       ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };

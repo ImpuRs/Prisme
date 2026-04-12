@@ -39,7 +39,9 @@ export function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''
 export function extractClientCode(val) {
   const s = (val || '').toString().trim();
   const idx = s.indexOf(' - ');
-  return idx >= 0 ? s.slice(0, idx).trim() : s;
+  const code = idx >= 0 ? s.slice(0, idx).trim() : s;
+  // Normaliser les codes numériques à 6 chiffres (1853 → 001853) pour matcher le Worker parse.
+  return /^\d+$/.test(code) ? code.padStart(6, '0') : code;
 }
 
 export function cleanPrice(v) {
@@ -337,9 +339,10 @@ export function readExcelAsObjects({ headers, rows }) {
 
 export function yieldToMain() { return new Promise(r => setTimeout(r, 0)); }
 
-export function parseCSVText(text, sep) {
+export function parseCSVTextToHR(text, sep) {
   // Parser RFC 4180 — gère : champs quotés, séparateur dans un champ,
   // guillemets échappés (""), sauts de ligne dans un champ quoté.
+  // Retourne {headers: string[], rows: string[][]} — pas d'objet par ligne.
   const rows = [];
   let cur = [];
   let field = '';
@@ -393,17 +396,24 @@ export function parseCSVText(text, sep) {
     }
   }
 
-  if (!rows.length) return [];
+  if (!rows.length) return { headers: [], rows: [] };
 
-  // Première ligne = headers
   const headers = rows[0];
-  const data = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = {};
+  return { headers, rows: rows.slice(1) };
+}
+
+export function parseCSVText(text, sep) {
+  const hr = parseCSVTextToHR(text, sep);
+  if (!hr.headers.length) return [];
+  const { headers, rows } = hr;
+  const data = new Array(rows.length);
+  for (let r = 0; r < rows.length; r++) {
+    const rowObj = {};
+    const cells = rows[r];
     for (let c = 0; c < headers.length; c++) {
-      row[headers[c]] = rows[r][c] ?? '';
+      rowObj[headers[c]] = cells?.[c] ?? '';
     }
-    data.push(row);
+    data[r] = rowObj;
   }
   return data;
 }

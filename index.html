@@ -585,7 +585,7 @@
     html,body{height:100%}
     body{display:flex;flex-direction:column;overflow:hidden}
     #appLayout{display:flex;flex:1;min-height:0}
-    #filterPanel{width:256px;flex-shrink:0;display:none;flex-direction:column;background:var(--s-page);border-right:1px solid var(--b-default);overflow:hidden}
+    #filterPanel{width:282px;flex-shrink:0;display:none;flex-direction:column;background:var(--s-page);border-right:1px solid var(--b-default);overflow:hidden}
     [data-theme="dark"] #filterPanel{background:var(--s-sidebar,#0b0e16) !important;border-right-color:var(--b-light)}
     [data-theme="dark"] #filterPanel #sidebarDesktopTitle,[data-theme="dark"] #filterPanel #sidebarGroupTitle{color:var(--t-disabled);letter-spacing:var(--ls-wider)}
     [data-theme="dark"] #filterPanel .filter-group>summary{background:rgba(255,255,255,0.03)}
@@ -1428,8 +1428,8 @@
       <div class="supertab-group" id="stg-clients">
         <button data-tab="clients" onclick="switchSuperTab('clients')" class="tab-btn supertab-btn" id="stbtn-clients" style="--tab-color:#378ADD;--tab-bg:#85B7EB1F;--tab-text:#0C447C"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.5-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M21 20c0-2.5-1.8-4.5-4-4.5"/></svg><span>Pilotage Commercial</span></button>
         <div class="supertab-pills" id="stpills-clients">
-          <button class="supertab-pill active" data-subtab="clients" onclick="switchTab('clients')">Clients PDV</button>
-          <button class="supertab-pill" data-subtab="commerce" onclick="switchTab('commerce')">Portefeuille</button>
+          <button class="supertab-pill active" data-subtab="clients" onclick="switchTab('clients')">Fidélisation PDV</button>
+          <button class="supertab-pill" data-subtab="commerce" onclick="switchTab('commerce')">Conquête Terrain</button>
         </div>
       </div>
 
@@ -1464,6 +1464,11 @@
       </div>
       <div id="filterPanelContent" class="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
         <p id="sidebarDesktopTitle" class="hidden lg:block text-[10px] font-extrabold t-tertiary uppercase tracking-widest px-1 pt-1 pb-0.5"></p>
+
+        <!-- RECHERCHE — tout en haut, au-dessus de tout (Le Téléporteur) -->
+        <div id="terrSearchBlock" class="hidden mb-1.5">
+          <input type="text" id="terrSearch" oninput="_onTerrClientSearch()" class="w-full py-1.5 px-2.5 text-xs border rounded-lg font-semibold" placeholder="🔍 Code, libellé, client, direction…" style="border-color:rgba(148,163,184,0.4)">
+        </div>
 
         <!-- CANAL GLOBAL — visible sur action/territoire/promo -->
         <div id="globalCanalFilter" class="hidden pb-1 mb-1 border-b b-default">
@@ -1550,39 +1555,76 @@
         <!-- GROUP Terrain: Le Terrain -->
         <div id="filterGroupTerritoire" class="hidden">
           <div id="terrFiltersBlock" class="flex flex-col gap-1.5">
-            <input type="text" id="terrSearch" oninput="_onTerrClientSearch()" class="w-full py-1 px-2 text-xs border rounded-lg" placeholder="🔍 Code, libellé, client, direction…">
             <select id="terrFamilleFilter" onchange="renderTerritoireTab()" class="hidden w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><option value="">Toutes familles</option></select>
-            <button onclick="resetTerrFilters()" class="text-xs s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
 
           <!-- Chalandise filters — shown when chalandise loaded -->
           <div id="terrChalandiseFiltersBlock" class="hidden flex flex-col gap-1.5 mt-1.5">
 
+            <!-- ═══ BLOC 1 : LE PÉRIMÈTRE — Global & Figé ═══ -->
+            <div class="flex flex-col gap-1" style="border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:8px 10px;background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(79,70,229,0.04))">
+              <label class="text-[10px] font-extrabold t-secondary uppercase tracking-wider flex items-center gap-1">👤 Portefeuille</label>
+              <div class="relative flex items-center">
+                <input type="text" id="terrCommercialSidebar" placeholder="Nom ou code secteur…"
+                  oninput="window._onCommercialInput(this.value)"
+                  onchange="window._onCommercialInput(this.value)"
+                  class="w-full text-xs py-1.5 px-2 border rounded-lg font-bold s-card"
+                  style="border-color:rgba(99,102,241,0.4)" autocomplete="off">
+                <button id="terrCommercialClearSidebar" onclick="window._onCommercialInput('');this.previousElementSibling.value=''" class="absolute right-1.5 text-[11px] c-danger font-bold hover:underline hidden" style="line-height:1">✕</button>
+              </div>
+              <span id="terrCommercialKPISidebar" class="text-[9px] t-disabled font-semibold"></span>
+            </div>
 
-            <!-- GROUPE 1 : GÉOGRAPHIE (first per UX) -->
-            <details class="filter-group" open>
+            <!-- ── SÉPARATEUR : Périmètre ↔ Tactique ── -->
+            <div id="filterScopeBar" class="flex items-center gap-2 mt-1 mb-0.5 px-1">
+              <div class="flex-1" style="border-top:2px solid rgba(99,102,241,0.2)"></div>
+              <span class="text-[7px] font-extrabold tracking-widest uppercase" style="color:rgba(99,102,241,0.4);white-space:nowrap">Filtres tactiques</span>
+              <div class="flex-1" style="border-top:2px solid rgba(99,102,241,0.2)"></div>
+            </div>
+
+            <!-- Reset tactique — juste sous la ligne, n'efface que le bas -->
+            <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full" style="margin-bottom:2px">↺ Reset filtres tactiques</button>
+
+            <!-- ═══ BLOC 2 : ORGANISATION — L'Offre ═══ -->
+            <details id="filterGroupOrga" class="filter-group" open>
               <summary class="filter-group-header">
-                <span>Géographie</span>
+                <span>Organisation</span>
+                <span id="fgBadgeOrga" class="chip chip-xs chip-info hidden">0</span>
+                <span class="filter-group-arrow">▶</span>
+              </summary>
+              <div class="filter-group-body">
+                <div id="terrDirectionDropdownWrap">
+                  <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
+                    <div id="terrDirectionChips" class="space-y-0.5"></div>
+                  </div>
+                </div>
+                <select id="terrUniversSelect" onchange="window._onUniversSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
+                  <option value="">Univers: tous</option>
+                </select>
+              </div>
+            </details>
+
+            <!-- ═══ BLOC 3 : CIBLAGE — L'Acheteur ═══ -->
+            <details id="filterGroupGeo" class="filter-group" open>
+              <summary class="filter-group-header">
+                <span>Ciblage</span>
                 <span id="fgBadgeGeo" class="chip chip-xs chip-info hidden">0</span>
                 <span class="filter-group-arrow">▶</span>
               </summary>
               <div class="filter-group-body">
                 <div id="distKmWrap" class="flex flex-col gap-0.5">
-                  <label class="text-[10px] font-semibold t-secondary flex items-center justify-between">
-                    <span>📍 Distance max</span>
-                    <span id="distKmLabel" class="font-bold t-primary">∞</span>
-                  </label>
-                  <div class="flex gap-1 mb-1">
-                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Off</button>
+                  <label class="text-[10px] font-semibold t-secondary">📍 Distance max</label>
+                  <div class="flex flex-wrap gap-1" id="distChips">
+                    <button onclick="window._setDistanceQuick(0)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">Tous</button>
                     <button onclick="window._setDistanceQuick(2)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">2 km</button>
                     <button onclick="window._setDistanceQuick(5)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">5 km</button>
                     <button onclick="window._setDistanceQuick(10)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">10 km</button>
-                    <button onclick="window._setDistanceQuick(20)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">20 km</button>
+                    <button onclick="window._setDistanceQuick(15)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">15 km</button>
+                    <button onclick="window._setDistanceQuick(30)" class="dist-quick-btn text-[9px] py-0.5 px-2 rounded-full border b-default s-hover t-secondary font-bold">30 km</button>
                   </div>
-                  <input id="distKmSlider" type="range" min="0" max="100" step="2" value="0"
-                    oninput="window._onDistanceSlider(this.value)"
-                    class="w-full h-1.5 rounded-full accent-violet-500 cursor-pointer">
-                  <div class="flex justify-between text-[8px] t-disabled"><span>Off</span><span>20</span><span>50</span><span>100 km</span></div>
                 </div>
                 <div id="terrDeptDropdownWrap">
                   <button type="button" onclick="_toggleDeptDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
@@ -1592,15 +1634,13 @@
                     <div id="terrDeptCheckboxes" class="space-y-0.5"></div>
                   </div>
                 </div>
-                <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
-                  <span class="t-secondary font-semibold">Inclure perdus &gt;24m</span>
-                </label>
+                <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
+                <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
               </div>
             </details>
 
-            <!-- GROUPE 2 : ACTIVITÉ (ouvert par défaut) -->
-            <details class="filter-group" open>
+            <!-- ═══ BLOC 4 : COMPORTEMENT — La Performance ═══ -->
+            <details id="filterGroupActivite" class="filter-group" open>
               <summary class="filter-group-header">
                 <span>Activité</span>
                 <span id="fgBadgeTerritoire" class="chip chip-xs chip-info hidden">0</span>
@@ -1624,36 +1664,12 @@
                     <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
                   </div>
                 </div>
+                <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
+                  <span class="t-secondary font-semibold">Inclure inactifs &gt;12m</span>
+                </label>
               </div>
             </details>
-
-            <!-- GROUPE 3 : ORGANISATION (fermé) -->
-            <details class="filter-group">
-              <summary class="filter-group-header">
-                <span>Organisation</span>
-                <span id="fgBadgeOrga" class="chip chip-xs chip-info hidden">0</span>
-                <span class="filter-group-arrow">▶</span>
-              </summary>
-              <div class="filter-group-body">
-                <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" oninput="_onMetierFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
-                <input type="text" id="terrCommercialFilter" list="terrCommercialList" placeholder="👤 Commercial" oninput="_onCommercialFilter(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrCommercialList"></datalist>
-                <div id="terrDirectionDropdownWrap">
-                  <button type="button" onclick="window._toggleDirectionDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrDirectionLabel">Direction: toutes</span><span class="t-disabled text-[9px]">▼</span>
-                  </button>
-                  <div id="terrDirectionPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card max-h-36 overflow-y-auto">
-                    <div id="terrDirectionChips" class="space-y-0.5"></div>
-                  </div>
-                </div>
-                <select id="terrUniversSelect" onchange="window._onUniversSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
-                  <option value="">Univers: tous</option>
-                </select>
-                <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
-              </div>
-            </details>
-
-            <!-- Reset global -->
-            <button onclick="_resetChalandiseFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold w-full">↺ Reset filtres</button>
           </div>
         </div>
 
@@ -1849,6 +1865,14 @@
               </div>
               <p class="text-[10px] t-secondary mb-2">BL livrés domicile — export Qlik</p>
               <input type="file" id="fileLivraisons" accept=".xlsx,.xls,.csv" onchange="onLivraisonsSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
+            </div>
+            <div id="dropForcage" class="onboarding-dropzone onboarding-dropzone--optional">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-sm c-caution">🔗 Rattachement Commercial</span>
+                <span id="statusForcage" class="text-lg">⭕</span>
+              </div>
+              <p class="text-[10px] t-secondary mb-2">Table de forçage locale — Code Client | Commercial</p>
+              <input type="file" id="fileForcage" accept=".xlsx,.xls,.csv" onchange="onForcageSelected(this)" class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:font-semibold file:bg-amber-600 file:text-white cursor-pointer"/>
             </div>
           </div>
         </div>
@@ -2109,26 +2133,6 @@
         </details>
       </div>
 
-      <!-- 🎯 NOMADES × ARTICLES — ce que mes clients achètent ailleurs -->
-      <details style="background:linear-gradient(135deg,rgba(217,119,6,0.15),rgba(180,83,9,0.08));border:1px solid rgba(217,119,6,0.3);border-radius:14px;overflow:hidden;margin-bottom:24px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(217,119,6,0.2),rgba(180,83,9,0.12));border-bottom:1px solid rgba(217,119,6,0.2);list-style:none" class="select-none">
-          <div>
-            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#fbbf24">
-              🎯 Ce que mes clients achètent ailleurs
-              <span id="nomadesMissedBadge" class="hidden" style="background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span>
-              <em class="info-tip" data-tip="Articles achetés par vos clients dans d'autres agences du réseau, absents de vos ventes. Nécessite un fichier multi-agences. Trié par nombre de clients concernés.">ℹ</em>
-            </h3>
-            <p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Clients communs réseau · Articles jamais vendus chez moi · Opportunité directe</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="event.preventDefault();copyNomadesMissedArts()" style="font-size:10px;color:#fbbf24;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button>
-            <span class="acc-arrow" style="color:#fbbf24">▶</span>
-          </div>
-        </summary>
-        <div id="nomadesMissedArtsContainer" class="p-3">
-          <p class="t-disabled text-sm">Chargement après analyse réseau…</p>
-        </div>
-      </details>
       <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
       <details style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:24px">
         <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none">

@@ -33,8 +33,10 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     if (_S.clientLastOrder) for (const cc of _S.clientLastOrder.keys()) allCc.add(cc);
     if (_S.clientLastOrderAll) for (const cc of _S.clientLastOrderAll.keys()) allCc.add(cc);
     if (_S.clientsMagasin) for (const cc of _S.clientsMagasin) allCc.add(cc);
+    if (_S.forcageCommercial?.size) for (const cc of _S.forcageCommercial.keys()) allCc.add(cc);
 
     for (const cc of allCc) {
+      const forcedCom = _S.forcageCommercial?.get(cc) || '';
       const chalInfo = _S.chalandiseData?.get(cc);
       const allOrder = _S.clientLastOrderAll?.get(cc);
       const lastPDV = _S.clientLastOrder?.get(cc) || null;
@@ -64,9 +66,9 @@ export function buildClientStore({ pdvOnly = false } = {}) {
         cc,
         nom: chalInfo?.nom || _S.clientNomLookup?.[cc] || cc,
         // Chalandise
-        inChalandise: !!chalInfo,
+        inChalandise: !!chalInfo || !!forcedCom,
         metier: chalInfo?.metier || '',
-        commercial: chalInfo?.commercial || '',
+        commercial: forcedCom || chalInfo?.commercial || '',
         classification: chalInfo?.classification || '',
         statut: chalInfo?.statut || '',
         activite: chalInfo?.activite || '',

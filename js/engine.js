@@ -13,12 +13,24 @@ import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 import { articleLib } from './article-store.js';
 
+function _isSixDigitCode(code) {
+  if (code == null) return false;
+  const s = typeof code === 'string' ? code : String(code);
+  if (s.length !== 6) return false;
+  for (let i = 0; i < 6; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  return true;
+}
+
 
 // ── Prix Unitaire avec fallback consommé ──────────────────────
 // Quand un article est en rupture (stock=0), la valeur PRMP = 0.
 // On enrichit le PU depuis le CA consommé (sumCA / sumPrelevee).
 export function enrichPrixUnitaire() {
   const mySk = _S.selectedMyStore || Object.keys(_S.ventesParMagasin)[0] || '';
+  const otherStoreKeys = Object.keys(_S.ventesParMagasin).filter(sk => sk !== mySk);
   for (const r of _S.finalData) {
     if (r.prixUnitaire > 0) continue;
     // Fallback 1: PU from own store's consommé
@@ -28,8 +40,7 @@ export function enrichPrixUnitaire() {
       continue;
     }
     // Fallback 2: PU from any other store (multi-agence)
-    for (const sk of Object.keys(_S.ventesParMagasin)) {
-      if (sk === mySk) continue;
+    for (const sk of otherStoreKeys) {
       const sv = _S.ventesParMagasin[sk]?.[r.code];
       if (sv && sv.sumPrelevee > 0 && sv.sumCA > 0) {
         r.prixUnitaire = Math.round(sv.sumCA / sv.sumPrelevee * 100) / 100;
@@ -84,13 +95,17 @@ export function isParentRef(row) {
 
 // ── ABC/FMR classification ────────────────────────────────────
 export function computeABCFMR(data) {
-  const active = data.filter(r => r.W >= 1);
-  active.sort((a, b) => (b.V * b.prixUnitaire) - (a.V * a.prixUnitaire));
-  const totalRot = active.reduce((s, r) => s + r.V * r.prixUnitaire, 0);
+  const active = [];
+  for (const r of data) if (r.W >= 1) active.push(r);
+  for (const r of active) r._rot = r.V * r.prixUnitaire;
+  active.sort((a, b) => b._rot - a._rot);
+  let totalRot = 0;
+  for (const r of active) totalRot += r._rot;
   let cumul = 0;
   const abcMap = {};
   for (const r of active) {
-    cumul += r.V * r.prixUnitaire;
+    cumul += r._rot;
+    delete r._rot;
     const p = totalRot > 0 ? cumul / totalRot : 1;
     abcMap[r.code] = p <= 0.8 ? 'A' : p <= 0.95 ? 'B' : 'C';
   }
@@ -102,25 +117,48 @@ export function computeABCFMR(data) {
       r.abcClass = ''; r.fmrClass = '';
     }
   }
-  const totalStockVal = data.reduce((s, r) => r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s, 0);
-  const mx = {};
-  for (const abc of ['A', 'B', 'C']) for (const fmr of ['F', 'M', 'R']) {
-    const key = abc + fmr, items = data.filter(r => r.abcClass === abc && r.fmrClass === fmr);
-    const sv = items.reduce((s, r) => r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s, 0);
-    mx[key] = { count: items.length, stockVal: sv, pctTotal: totalStockVal > 0 ? sv / totalStockVal * 100 : 0 };
+  let totalStockVal = 0;
+  const mx = {
+    AF: { count: 0, stockVal: 0, pctTotal: 0 }, AM: { count: 0, stockVal: 0, pctTotal: 0 }, AR: { count: 0, stockVal: 0, pctTotal: 0 },
+    BF: { count: 0, stockVal: 0, pctTotal: 0 }, BM: { count: 0, stockVal: 0, pctTotal: 0 }, BR: { count: 0, stockVal: 0, pctTotal: 0 },
+    CF: { count: 0, stockVal: 0, pctTotal: 0 }, CM: { count: 0, stockVal: 0, pctTotal: 0 }, CR: { count: 0, stockVal: 0, pctTotal: 0 }
+  };
+  for (const r of data) {
+    const sv = r.stockActuel > 0 ? r.stockActuel * r.prixUnitaire : 0;
+    totalStockVal += sv;
+    if (!r.abcClass || !r.fmrClass) continue;
+    const key = r.abcClass + r.fmrClass;
+    const cell = mx[key];
+    if (!cell) continue;
+    cell.count++;
+    cell.stockVal += sv;
+  }
+  if (totalStockVal > 0) {
+    for (const key of Object.keys(mx)) mx[key].pctTotal = mx[key].stockVal / totalStockVal * 100;
   }
   _S.abcMatrixData = mx;
 }
 
 // ── Radar: recalcul matrice sur données filtrées ──────────────
 export function _radarComputeMatrix(data) {
-  const totalStock = data.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0) || 1;
-  const mx = {};
-  for (const abc of ['A', 'B', 'C']) for (const fmr of ['F', 'M', 'R']) {
-    const key = abc + fmr, items = data.filter(r => r.abcClass === abc && r.fmrClass === fmr);
-    const stockVal = items.reduce((s, r) => s + r.stockActuel * r.prixUnitaire, 0);
-    mx[key] = { count: items.length, stockVal, pctTotal: (stockVal / totalStock) * 100 };
+  let totalStock = 0;
+  const mx = {
+    AF: { count: 0, stockVal: 0, pctTotal: 0 }, AM: { count: 0, stockVal: 0, pctTotal: 0 }, AR: { count: 0, stockVal: 0, pctTotal: 0 },
+    BF: { count: 0, stockVal: 0, pctTotal: 0 }, BM: { count: 0, stockVal: 0, pctTotal: 0 }, BR: { count: 0, stockVal: 0, pctTotal: 0 },
+    CF: { count: 0, stockVal: 0, pctTotal: 0 }, CM: { count: 0, stockVal: 0, pctTotal: 0 }, CR: { count: 0, stockVal: 0, pctTotal: 0 }
+  };
+  for (const r of data) {
+    const sv = (r.stockActuel || 0) * (r.prixUnitaire || 0);
+    totalStock += sv;
+    if (!r.abcClass || !r.fmrClass) continue;
+    const key = r.abcClass + r.fmrClass;
+    const cell = mx[key];
+    if (!cell) continue;
+    cell.count++;
+    cell.stockVal += sv;
   }
+  const denom = totalStock || 1;
+  for (const key of Object.keys(mx)) mx[key].pctTotal = (mx[key].stockVal / denom) * 100;
   return mx;
 }
 
@@ -169,9 +207,10 @@ export function _isPerdu(info) {
 export function _isProspect(info) { return _normalizeStatut(info.statut) === 'Prospect'; }
 
 export function _isPerdu24plus(info) {
+  // Guillotine 12 mois : au-delà, le client bascule en Conquête (prospect froid)
   const sd = (info.statutDetaille || '').toLowerCase();
-  if (sd) return sd.includes('>24') || sd.includes('> 24');
-  // Fallback sans statutDetaille
+  if (sd) return sd.includes('>24') || sd.includes('> 24') || sd.includes('12-24') || sd.includes('12 - 24');
+  // Fallback sans statutDetaille : ni CA N-1 ni CA N → inactif >12m
   return _isPerdu(info) && !(info.ca2025 || 0) && !(info.ca2026 || 0);
 }
 
@@ -233,7 +272,7 @@ export function _clientStatusText(cc, info) {
 }
 
 export function _unikLink(code) {
-  if (!code || !/^\d{6}$/.test(String(code))) return '';
+  if (!code || !_isSixDigitCode(code)) return '';
   return `<a data-unik-client="${code}" href="https://unik.legallais.com/app/customer/${code}/orders" target="_blank" rel="noopener" title="Voir commandes Unik" style="text-decoration:none;font-size:var(--fs-xs);line-height:1;vertical-align:middle" class="ml-0.5 text-blue-400 hover:text-blue-300">🔗</a>`;
 }
 
@@ -358,13 +397,21 @@ export function _diagClassifBadge(c) {
 // Retourne les codes clients actifs pour le canal donné.
 // '' ou 'MAGASIN' → ventesClientArticle ; autre canal → ventesClientHorsMagasin filtré.
 function _getClientsActifs(canal = '') {
+  const vca = _S.ventesClientArticle;
+  const vh = _S.ventesClientHorsMagasin;
   if (!canal || canal === 'MAGASIN') {
-    return [..._S.ventesClientArticle.keys()];
-  } else {
-    return [..._S.ventesClientHorsMagasin.entries()]
-      .filter(([, arts]) => [...arts.values()].some(a => a.canal === canal))
-      .map(([cc]) => cc);
+    return vca ? Array.from(vca.keys()) : [];
   }
+  if (!vh?.size) return [];
+  const out = [];
+  for (const [cc, arts] of vh.entries()) {
+    let ok = false;
+    for (const a of arts.values()) {
+      if (a.canal === canal) { ok = true; break; }
+    }
+    if (ok) out.push(cc);
+  }
+  return out;
 }
 
 // ── Health Score agence 0-100 ──────────────────────────────────
@@ -386,8 +433,14 @@ export function computeHealthScore() {
   if (!d.length) return null;
 
   // Composante 1 : ruptures articles A (poids 30%)
-  const articlesA = d.filter(r => r.abcClass === 'A' && r.W >= 1 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0));
-  const scoreStock = articlesA.length > 0 ? Math.max(0, 1 - articlesA.filter(r => r.stockActuel <= 0).length / articlesA.length) : 1;
+  let articlesACount = 0;
+  let articlesARupture = 0;
+  for (const r of d) {
+    if (r.abcClass !== 'A' || r.W < 1 || r.isParent || (r.V === 0 && r.enleveTotal > 0)) continue;
+    articlesACount++;
+    if (r.stockActuel <= 0) articlesARupture++;
+  }
+  const scoreStock = articlesACount > 0 ? Math.max(0, 1 - articlesARupture / articlesACount) : 1;
 
   // Composante 2 : clients actifs PDV 90j vs zone chalandise (poids 30%)
   let scoreClients = 0.5; // défaut sans chalandise
@@ -399,7 +452,10 @@ export function computeHealthScore() {
       }
     } else {
       const nowTs = Date.now();
-      actifs = [..._S.clientLastOrder.entries()].filter(([, dt]) => nowTs - dt < 90 * 86400000).length;
+      actifs = 0;
+      for (const dt of _S.clientLastOrder.values()) {
+        if (nowTs - dt < 90 * 86400000) actifs++;
+      }
     }
     scoreClients = Math.min(1, actifs / _S.chalandiseData.size);
   }
@@ -423,20 +479,48 @@ export function computeHealthScore() {
 }
 
 // ── Helper : enrichissement client (chalandise + fallback territoire) ──
-let _terrFBCache=null;
-function _buildTerrFB(){
-  if(_terrFBCache)return _terrFBCache;
-  _terrFBCache=new Map();
-  if(_S.territoireLines?.length){for(const ln of _S.territoireLines){if(!ln.clientCode)continue;const cc=ln.clientCode;if(!_terrFBCache.has(cc))_terrFBCache.set(cc,{commercial:ln.commercial||''});else if(!_terrFBCache.get(cc).commercial&&ln.commercial)_terrFBCache.get(cc).commercial=ln.commercial;}}
+let _terrFBCache = null;
+function _buildTerrFB() {
+  if (_terrFBCache) return _terrFBCache;
+  _terrFBCache = new Map();
+  if (_S.territoireLines?.length) {
+    for (const ln of _S.territoireLines) {
+      if (!ln.clientCode) continue;
+      const cc = ln.clientCode;
+      if (!_terrFBCache.has(cc)) {
+        _terrFBCache.set(cc, { commercial: ln.commercial || '' });
+      } else if (!_terrFBCache.get(cc).commercial && ln.commercial) {
+        _terrFBCache.get(cc).commercial = ln.commercial;
+      }
+    }
+  }
   return _terrFBCache;
 }
-export function _enrichClientInfo(cc){
-  const rec=_S.clientStore?.get(cc);
-  if(rec) return{nom:rec.nom,metier:rec.metier,commercial:rec.commercial};
-  const info=_S.chalandiseData?.get(cc);const fb=_buildTerrFB().get(cc);
-  return{nom:info?.nom||cc,metier:info?.metier||'',commercial:info?.commercial||(fb?.commercial)||''};
+export function _enrichClientInfo(cc) {
+  const rec = _S.clientStore?.get(cc);
+  if (rec) return { nom: rec.nom, metier: rec.metier, commercial: rec.commercial };
+  const info = _S.chalandiseData?.get(cc);
+  const fb = _buildTerrFB().get(cc);
+  return { nom: info?.nom || cc, metier: info?.metier || '', commercial: info?.commercial || fb?.commercial || '' };
 }
-export function _invalidateTerrFBCache(){_terrFBCache=null;}
+export function _invalidateTerrFBCache() { _terrFBCache = null; }
+
+// ── Helper interne : construit une entrée de cohorte reconquête ──────────
+// Retourne null si le CA total est nul ou négatif.
+function _buildCohortItem(cc, artMap, daysAgo) {
+  let totalCA = 0;
+  const famSet = new Set();
+  for (const [code, d] of artMap) {
+    totalCA += d.sumCAAll || d.sumCA || 0;
+    const fam = _S.articleFamille?.[code];
+    if (fam) famSet.add(fam);
+  }
+  if (totalCA <= 0) return null;
+  const nbFamilles = famSet.size;
+  const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
+  const ec = _enrichClientInfo(cc);
+  return { cc, nom: ec.nom, metier: ec.metier, commercial: ec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' };
+}
 
 // ── A5: Cohorte reconquête (P3.5+P4.6) ────────────────────────
 // Clients perdus (>6 mois sans commande) avec historique CA significatif
@@ -444,7 +528,7 @@ export function computeReconquestCohort() {
   _S.reconquestCohort = [];
   _S.livraisonsSansPDV = [];
   _invalidateTerrFBCache(); // rebuild on data change
-  const now = new Date();
+  const nowTs = Date.now();
 
   // ── Section 1 : anciens fidèles silencieux (> 60j, CA > 0 dans consommé) ──
   // Source : clientStore (préféré) ou fallback crossingStats × clientLastOrder
@@ -459,35 +543,39 @@ export function computeReconquestCohort() {
       const lastDate = rec.lastOrderPDV;
       if (!lastDate) continue;
       if (_minCR && lastDate < _minCR) continue;
-      const daysAgo = Math.round((now - lastDate) / 86400000);
+      const daysAgo = Math.round((nowTs - lastDate.getTime()) / 86400000);
       if (daysAgo < 60) continue;
       if (!rec.artMapPDV || rec.artMapPDV.size === 0) continue;
-      const totalCA = [...rec.artMapPDV.values()].reduce((s, d) => s + (d.sumCAAll || d.sumCA || 0), 0);
-      if (totalCA <= 0) continue;
-      const nbFamilles = new Set([...rec.artMapPDV.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
-      const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
-      cohort.push({ cc: rec.cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
+      const item = _buildCohortItem(rec.cc, rec.artMapPDV, daysAgo);
+      if (item) cohort.push(item);
     }
   } else {
     // Fallback sans clientStore
     const fidelesSet = _S.crossingStats?.fideles;
-    const candidates = fidelesSet?.size
-      ? [...fidelesSet]
-      : (_S.clientLastOrder.size ? [..._S.clientLastOrder.keys()] : []);
-    for (const cc of candidates) {
-      const lastDate = _S.clientLastOrder.get(cc);
-      if (!lastDate) continue;
-      if (_minCR && lastDate < _minCR) continue;
-      const daysAgo = Math.round((now - lastDate) / 86400000);
-      if (daysAgo < 60) continue;
-      const artMap = _S.ventesClientArticle.get(cc);
-      if (!artMap || artMap.size === 0) continue;
-      const totalCA = [...artMap.values()].reduce((s, d) => s + (d.sumCAAll || d.sumCA || 0), 0);
-      if (totalCA <= 0) continue;
-      const nbFamilles = new Set([...artMap.keys()].map(code => _S.articleFamille[code]).filter(Boolean)).size;
-      const score = Math.round(totalCA * (nbFamilles / 5) * (180 / daysAgo));
-      const _ec=_enrichClientInfo(cc);
-      cohort.push({ cc, nom: _ec.nom, metier: _ec.metier, commercial: _ec.commercial, totalCA, nbFamilles, daysAgo, score, source: 'fidele' });
+    if (fidelesSet?.size) {
+      for (const cc of fidelesSet) {
+        const lastDate = _S.clientLastOrder.get(cc);
+        if (!lastDate) continue;
+        if (_minCR && lastDate < _minCR) continue;
+        const daysAgo = Math.round((nowTs - lastDate.getTime()) / 86400000);
+        if (daysAgo < 60) continue;
+        const artMap = _S.ventesClientArticle.get(cc);
+        if (!artMap || artMap.size === 0) continue;
+        const item = _buildCohortItem(cc, artMap, daysAgo);
+        if (item) cohort.push(item);
+      }
+    } else {
+      for (const cc of _S.clientLastOrder.keys()) {
+        const lastDate = _S.clientLastOrder.get(cc);
+        if (!lastDate) continue;
+        if (_minCR && lastDate < _minCR) continue;
+        const daysAgo = Math.round((nowTs - lastDate.getTime()) / 86400000);
+        if (daysAgo < 60) continue;
+        const artMap = _S.ventesClientArticle.get(cc);
+        if (!artMap || artMap.size === 0) continue;
+        const item = _buildCohortItem(cc, artMap, daysAgo);
+        if (item) cohort.push(item);
+      }
     }
   }
   cohort.sort((a, b) => b.score - a.score);
@@ -579,7 +667,8 @@ export function computeOpportuniteNette() {
     }
     if (!missingFams.length) continue;
     missingFams.sort((a, b) => b.ca - a.ca);
-    const totalPotentiel = missingFams.reduce((s, f) => s + f.ca, 0);
+    let totalPotentiel = 0;
+    for (const f of missingFams) totalPotentiel += f.ca;
     const _ec3=_enrichClientInfo(cc);
     results.push({
       cc,
@@ -620,8 +709,13 @@ export function computeSPC(cc, info) {
   if (_S.metierFamBench && info.metier && _S.metierFamBench[info.metier]) {
     const metierFams = _S.metierFamBench[info.metier];
     const clientFams = _S.clientFamCA ? _S.clientFamCA[cc] || {} : {};
-    const totalMetierFams = Object.keys(metierFams).length;
-    const missingFams = Object.keys(metierFams).filter(f => !clientFams[f]).length;
+    let totalMetierFams = 0;
+    let missingFams = 0;
+    for (const f in metierFams) {
+      if (!Object.prototype.hasOwnProperty.call(metierFams, f)) continue;
+      totalMetierFams++;
+      if (!clientFams[f]) missingFams++;
+    }
     const missingRatio = totalMetierFams > 0 ? missingFams / totalMetierFams : 0;
     score += Math.round(missingRatio * 20);
   }
@@ -635,6 +729,17 @@ export function computeSPC(cc, info) {
 }
 
 
+// ── Helper interne : suivi famille × canal pour le score omnicanal ───────
+function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
+  if (!fam) return;
+  const prev = famCanalState.get(fam);
+  if (!prev) { famCanalState.set(fam, canal); return; }
+  if (prev !== '*' && prev !== canal) {
+    famCanalState.set(fam, '*');
+    nbFamsCrossRef[0]++;
+  }
+}
+
 // ── Score omnicanalité par client ─────────────────────────────────────────
 // Segmente chaque client en : mono / hybride / digital / dormant
 // Segmentation par nombre de canaux distincts :
@@ -646,11 +751,10 @@ export function computeSPC(cc, info) {
 // Résultat : _S.clientOmniScore = Map<cc, {segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays}>
 export function computeOmniScores() {
   const scores = new Map();
-  const now = new Date();
-  const allCc = new Set([
-    ...(_S.ventesClientArticle?.keys() || []),
-    ...(_S.ventesClientHorsMagasin?.keys() || [])
-  ]);
+  const nowTs = Date.now();
+  const allCc = new Set();
+  if (_S.ventesClientArticle) for (const cc of _S.ventesClientArticle.keys()) allCc.add(cc);
+  if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) allCc.add(cc);
   for (const cc of allCc) {
     const pdvArts = _S.ventesClientArticle?.get(cc);
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
@@ -671,7 +775,7 @@ export function computeOmniScores() {
     const nbBL = _S.clientsMagasinFreq?.get(cc) || (pdvArts ? pdvArts.size : 0);
     const _csRec = _S.clientStore?.get(cc);
     const lastPDV = _csRec?.lastOrderPDV || _S.clientLastOrder?.get(cc);
-    const silenceDays = _csRec?.silenceDaysPDV ?? (lastPDV ? Math.round((now - lastPDV) / 86400000) : 999);
+    const silenceDays = _csRec?.silenceDaysPDV ?? (lastPDV ? Math.round((nowTs - lastPDV) / 86400000) : 999);
     // Segment par nombre de canaux
     let segment;
     if (nbCanaux >= 4) segment = 'full';
@@ -686,11 +790,11 @@ export function computeOmniScores() {
     // 3. Récence PDV (20pts)
     const _sRecence = silenceDays <= 30 ? 20 : silenceDays <= 90 ? 15 : silenceDays <= 180 ? 10 : 0;
     // 4. Profondeur familles cross-canal (20pts) : familles achetées sur 2+ canaux distincts
-    const _famCanaux = new Map();
-    if (pdvArts) for (const [code] of pdvArts) { const f = _S.articleFamille?.[code]; if (f) { if (!_famCanaux.has(f)) _famCanaux.set(f, new Set()); _famCanaux.get(f).add('MAGASIN'); } }
-    if (horArts) for (const [code, v] of horArts) { const f = _S.articleFamille?.[code]; if (f) { if (!_famCanaux.has(f)) _famCanaux.set(f, new Set()); _famCanaux.get(f).add(v.canal || 'HORS'); } }
-    const _nbFamsCross = [..._famCanaux.values()].filter(s => s.size >= 2).length;
-    const _sFams = _nbFamsCross >= 5 ? 20 : _nbFamsCross >= 3 ? 13 : _nbFamsCross >= 1 ? 6 : 0;
+    const _famCanalState = new Map(); // fam -> first canal, or '*'
+    const _nbFamsCrossRef = [0];
+    if (pdvArts) for (const [code] of pdvArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'MAGASIN');
+    if (horArts) for (const [code, v] of horArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], v.canal || 'HORS');
+    const _sFams = _nbFamsCrossRef[0] >= 5 ? 20 : _nbFamsCrossRef[0] >= 3 ? 13 : _nbFamsCrossRef[0] >= 1 ? 6 : 0;
     const score = Math.min(100, _sCanaux + _sEquilibre + _sRecence + _sFams);
     scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });
   }
@@ -706,7 +810,7 @@ export function computeFamillesHors() {
     _S.famillesHors = [];
     return;
   }
-  const famData = {}; // rawFam → {nbClients, caHors, canalCount, clients}
+  const famData = new Map(); // rawFam → {nbClients, caHors, canalCount:Map, clients}
   for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
     const pdvArts = _S.ventesClientArticle.get(cc);
     if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
@@ -717,34 +821,47 @@ export function computeFamillesHors() {
       if (fam) famsPDV.add(fam);
     }
     // CA hors agence par famille non présente en PDV
-    const famHors = {};
+    const famHors = new Map();
     for (const [code, v] of horArts) {
       const rawFam = _S.articleFamille?.[code];
       if (!rawFam || famsPDV.has(rawFam)) continue;
-      if (!famHors[rawFam]) famHors[rawFam] = { ca: 0, canal: v.canal || '' };
-      famHors[rawFam].ca += v.sumCA || 0;
+      if (!famHors.has(rawFam)) famHors.set(rawFam, { ca: 0, canal: v.canal || '' });
+      famHors.get(rawFam).ca += v.sumCA || 0;
     }
-    for (const [rawFam, { ca, canal }] of Object.entries(famHors)) {
+    const _ecF = _enrichClientInfo(cc);
+    for (const [rawFam, d] of famHors) {
+      const ca = d.ca;
+      const canal = d.canal;
       if (ca < 100) continue;
-      if (!famData[rawFam]) famData[rawFam] = { nbClients: 0, caHors: 0, canalCount: {}, clients: [] };
-      famData[rawFam].nbClients++;
-      famData[rawFam].caHors += ca;
-      famData[rawFam].canalCount[canal] = (famData[rawFam].canalCount[canal] || 0) + 1;
-      const _ecF=_enrichClientInfo(cc);
-      famData[rawFam].clients.push({ cc, nom: _ecF.nom, ca, canal });
+      if (!famData.has(rawFam)) famData.set(rawFam, { nbClients: 0, caHors: 0, canalCount: new Map(), clients: [] });
+      const entry = famData.get(rawFam);
+      entry.nbClients++;
+      entry.caHors += ca;
+      entry.canalCount.set(canal, (entry.canalCount.get(canal) || 0) + 1);
+      entry.clients.push({ cc, nom: _ecF.nom, ca, canal });
     }
   }
-  _S.famillesHors = Object.entries(famData)
-    .map(([rawFam, d]) => ({
+  const out = [];
+  for (const [rawFam, d] of famData) {
+    const caHors = Math.round(d.caHors);
+    if (caHors < 200) continue;
+    let mainCanal = '';
+    let maxCount = -1;
+    for (const [canal, n] of d.canalCount) {
+      if (n > maxCount) { maxCount = n; mainCanal = canal; }
+    }
+    d.clients.sort((a, b) => b.ca - a.ca);
+    out.push({
       fam: famLib(rawFam) || rawFam,
       rawFam,
       nbClients: d.nbClients,
-      caHors: Math.round(d.caHors),
-      mainCanal: Object.entries(d.canalCount).sort((a, b) => b[1] - a[1])[0]?.[0] || '',
-      clients: d.clients.sort((a, b) => b.ca - a.ca).slice(0, 5),
-    }))
-    .filter(r => r.caHors >= 200)
-    .sort((a, b) => b.caHors - a.caHors);
+      caHors,
+      mainCanal,
+      clients: d.clients.slice(0, 5),
+    });
+  }
+  out.sort((a, b) => b.caHors - a.caHors);
+  _S.famillesHors = out;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -784,7 +901,7 @@ export function computeArticleZoneIndex() {
   for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
-      if (!/^\d{6}$/.test(code)) continue;
+      if (!_isSixDigitCode(code)) continue;
       const ca = +(data.sumCA || 0);
       const o = _ens(code);
       o.caZone += ca;
@@ -796,7 +913,7 @@ export function computeArticleZoneIndex() {
   for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
-      if (!/^\d{6}$/.test(code)) continue;
+      if (!_isSixDigitCode(code)) continue;
       const ca = +(data.sumCA || 0);
       const o = _ens(code);
       o.caZone += ca;
@@ -807,7 +924,7 @@ export function computeArticleZoneIndex() {
   if (_S.territoireReady && _S.territoireLines?.length) {
     for (const l of _S.territoireLines) {
       if (l.isSpecial || !l.clientCode || !chalClients.has(l.clientCode)) continue;
-      if (!/^\d{6}$/.test(l.code)) continue;
+      if (!_isSixDigitCode(l.code)) continue;
       const ca = +(l.ca || 0);
       const o = _ens(l.code);
       o.caZone += ca;
@@ -817,7 +934,7 @@ export function computeArticleZoneIndex() {
 
   // Finaliser contribs : convertir Map → Array pour itération rapide
   for (const [, o] of idx) {
-    o.contribs = [...o._cc.values()];
+    o.contribs = Array.from(o._cc.values());
     delete o._cc;
   }
 
@@ -825,9 +942,24 @@ export function computeArticleZoneIndex() {
   return idx;
 }
 
+let _sqCacheKey = '';
+let _sqCacheResult = null;
+export function invalidateSqueletteCache() { _sqCacheKey = ''; _sqCacheResult = null; }
+
 export function computeSquelette(directionFilter) {
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
+  const finalData = _S.finalData || [];
+  let storesCount = 0;
+  let storesExclMy = 0;
+  for (const store of Object.keys(vpm)) {
+    storesCount++;
+    if (store !== myStore) storesExclMy++;
+  }
+  const nbStoresExclMy = Math.max(1, storesExclMy);
+  // Cache rapide — même données source = même résultat
+  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.territoireLines?.length||0}|${_S.chalandiseData?.size||0}|${directionFilter||''}`;
+  if (_sk === _sqCacheKey && _sqCacheResult) return _sqCacheResult;
   const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
   // Durée du fichier terrain en mois (pour seuil récurrence BL/mois)
@@ -866,7 +998,7 @@ export function computeSquelette(directionFilter) {
   for (const [store, arts] of Object.entries(vpm)) {
     if (store === myStore) continue;
     for (const [code, data] of Object.entries(arts)) {
-      if (!/^\d{6}$/.test(code) || data.countBL <= 0) continue;
+      if (!_isSixDigitCode(code) || data.countBL <= 0) continue;
       const a = _ensure(code);
       a.nbAgencesReseau++;
       a.caReseau += data.sumCA || 0;
@@ -891,7 +1023,7 @@ export function computeSquelette(directionFilter) {
     for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
       if (chalClients.has(cc)) continue;
       for (const [code, data] of artMap) {
-        if (!/^\d{6}$/.test(code)) continue;
+        if (!_isSixDigitCode(code)) continue;
         const a = _ensure(code);
         a.nbClientsHorsZone++;
         a.caClientsHorsZone += data.sumCA || 0;
@@ -921,7 +1053,7 @@ export function computeSquelette(directionFilter) {
   // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
   if (_S.articleClients?.size && _S.clientsMagasin?.size) {
     for (const [code, clients] of _S.articleClients) {
-      if (!/^\d{6}$/.test(code)) continue;
+      if (!_isSixDigitCode(code)) continue;
       let n = 0;
       for (const cc of clients) {
         if (_S.clientsMagasin.has(cc)) n++;
@@ -935,7 +1067,9 @@ export function computeSquelette(directionFilter) {
   }
 
   // ── Enrichir stock + CA agence ──
-  for (const r of (_S.finalData || [])) {
+  const finalByCode = new Map();
+  for (const r of finalData) {
+    finalByCode.set(r.code, r);
     const a = _ensure(r.code);
     a.enStock = (r.stockActuel || 0) > 0;
     a.stockActuel = r.stockActuel || 0;
@@ -953,7 +1087,7 @@ export function computeSquelette(directionFilter) {
   // Direction fallback via famille
   for (const [, a] of articleData) {
     if (!a.direction && a.famille) {
-      const letter = (a.famille.match(/^[A-Z]/)?.[0]) || '';
+      const letter = a.famille[0] || '';
       a.direction = FAM_UNIVERS_TO_DIR[letter] || 'NON CLASSÉ';
     }
   }
@@ -983,7 +1117,7 @@ export function computeSquelette(directionFilter) {
 
     // ── Classification squelette ──────────────────────────────────
     // W = fréquence BL agence, nbClientsPDV = clients distincts PDV
-    const fd = (_S.finalData || []).find(r => r.code === a.code);
+    const fd = finalByCode.get(a.code);
     const W = fd?.W || 0;
 
     if (a.enStock) {
@@ -998,8 +1132,7 @@ export function computeSquelette(directionFilter) {
         a.classification = 'surveiller';
     } else {
       // À IMPLANTER : pas en stock ET signal fort
-      const nbStores = Object.keys(vpm).filter(s => s !== myStore).length || 1;
-      const detention = a.nbAgencesReseau / nbStores;
+      const detention = a.nbAgencesReseau / nbStoresExclMy;
       const isIncontournable = detention >= 0.6 || (fd?.abcClass === 'A');
       const isNouveaute = fd?.isNouveaute || (fd?.ageJours != null && fd.ageJours < 90 && a.nbAgencesReseau >= 2);
       if (isIncontournable || isNouveaute || a.nbClientsZone >= 5 || a.caClientsZone >= 1000)
@@ -1011,9 +1144,14 @@ export function computeSquelette(directionFilter) {
 
   // ── Grouper par direction ──
   const results = [];
+  const totals = { socle: 0, implanter: 0, challenger: 0, surveiller: 0 };
   for (const [, a] of articleData) {
     if (a.classification === 'bruit') continue;
     if (directionFilter && a.direction !== directionFilter) continue;
+    if (a.classification === 'socle') totals.socle++;
+    else if (a.classification === 'implanter') totals.implanter++;
+    else if (a.classification === 'challenger') totals.challenger++;
+    else if (a.classification === 'surveiller') totals.surveiller++;
     results.push(a);
   }
   const byDir = new Map();
@@ -1029,17 +1167,13 @@ export function computeSquelette(directionFilter) {
     d.surveiller.sort((a, b) => b.score - a.score);
   }
 
-  return {
-    directions: [...byDir.values()].sort((a, b) =>
-      (b.implanter.length + b.challenger.length) - (a.implanter.length + a.challenger.length)
-    ),
-    totals: {
-      socle: results.filter(a => a.classification === 'socle').length,
-      implanter: results.filter(a => a.classification === 'implanter').length,
-      challenger: results.filter(a => a.classification === 'challenger').length,
-      surveiller: results.filter(a => a.classification === 'surveiller').length,
-    }
-  };
+  const directions = Array.from(byDir.values());
+  directions.sort((a, b) =>
+    (b.implanter.length + b.challenger.length) - (a.implanter.length + a.challenger.length)
+  );
+  const _result = { directions, totals };
+  _sqCacheKey = _sk; _sqCacheResult = _result;
+  return _result;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1061,6 +1195,9 @@ export function computeMaClientele(metierFilter, distanceKm) {
   // ═══ NIVEAU 1 : Cartographie par métier ═══
   if (!metierFilter) {
     const metiers = [];
+    let totalClients = 0;
+    let totalActifs = 0;
+    let totalCA = 0;
     for (const [metier, clientSet] of _S.clientsByMetier) {
       if (!metier) continue;
 
@@ -1093,6 +1230,9 @@ export function computeMaClientele(metierFilter, distanceKm) {
 
       if (nbFiltered === 0) continue;
 
+      totalClients += nbFiltered;
+      totalActifs += nbActifs;
+      totalCA += caTotal;
       metiers.push({
         metier, nbClients: nbFiltered, nbActifs, nbProspects,
         caTotal, nbArticles: articlesTotaux, couverture,
@@ -1104,9 +1244,9 @@ export function computeMaClientele(metierFilter, distanceKm) {
     return {
       level: 1,
       metiers,
-      totalClients: metiers.reduce((s, m) => s + m.nbClients, 0),
-      totalActifs: metiers.reduce((s, m) => s + m.nbActifs, 0),
-      totalCA: metiers.reduce((s, m) => s + m.caTotal, 0),
+      totalClients,
+      totalActifs,
+      totalCA,
       nbMetiers: metiers.length
     };
   }
@@ -1117,6 +1257,9 @@ export function computeMaClientele(metierFilter, distanceKm) {
 
   const univers = new Map();
   const clientDetails = [];
+  let nbActifs = 0;
+  let nbProspects = 0;
+  let caTotalClients = 0;
 
   for (const cc of clientSet) {
     if (!_distOk(cc)) continue;
@@ -1131,6 +1274,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
         classification: chal?.classification || '', statut: chal?.statut || '',
         ca: 0, nbFamilles: 0, isActif: false,
       });
+      nbProspects++;
       continue;
     }
 
@@ -1183,33 +1327,42 @@ export function computeMaClientele(metierFilter, distanceKm) {
       }
     }
 
+    const isActif = !!(vca && vca.size > 0);
     clientDetails.push({
       cc, nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
       cp: chal?.cp || '', commercial: chal?.commercial || '',
       classification: chal?.classification || '', statut: chal?.statut || '',
-      ca: clientCA, nbFamilles: clientFamilles.size, isActif: !!(vca && vca.size > 0),
+      ca: clientCA, nbFamilles: clientFamilles.size, isActif,
     });
+    caTotalClients += clientCA;
+    if (isActif) nbActifs++;
+    else nbProspects++;
   }
 
   clientDetails.sort((a, b) => b.ca - a.ca);
 
   // Sort hierarchy
-  const univSorted = [...univers.entries()]
-    .map(([name, u]) => ({
-      name, ca: u.ca,
-      familles: [...u.familles.values()]
-        .map(f => ({
-          ...f,
-          articles: [...f.articles.values()].sort((a, b) => b.ca - a.ca),
-          nbEnStock: [...f.articles.values()].filter(a => a.enStock).length,
-          nbTotal: f.articles.size,
-          couverture: f.articles.size > 0
-            ? Math.round([...f.articles.values()].filter(a => a.enStock).length / f.articles.size * 100)
-            : 0
-        }))
-        .sort((a, b) => b.ca - a.ca)
-    }))
-    .sort((a, b) => b.ca - a.ca);
+  const univSorted = [];
+  for (const [name, u] of univers.entries()) {
+    const familles = [];
+    for (const f of u.familles.values()) {
+      const articles = Array.from(f.articles.values());
+      articles.sort((a, b) => b.ca - a.ca);
+      let nbEnStock = 0;
+      for (const a of articles) if (a.enStock) nbEnStock++;
+      const nbTotal = articles.length;
+      familles.push({
+        ...f,
+        articles,
+        nbEnStock,
+        nbTotal,
+        couverture: nbTotal > 0 ? Math.round(nbEnStock / nbTotal * 100) : 0
+      });
+    }
+    familles.sort((a, b) => b.ca - a.ca);
+    univSorted.push({ name, ca: u.ca, familles });
+  }
+  univSorted.sort((a, b) => b.ca - a.ca);
 
   const totalArticles = new Set();
   const totalEnStock = new Set();
@@ -1226,9 +1379,9 @@ export function computeMaClientele(metierFilter, distanceKm) {
     level: 2,
     metier: metierFilter,
     nbClients: clientDetails.length,
-    nbActifs: clientDetails.filter(c => c.isActif).length,
-    nbProspects: clientDetails.filter(c => !c.isActif).length,
-    caTotal: clientDetails.reduce((s, c) => s + c.ca, 0),
+    nbActifs,
+    nbProspects,
+    caTotal: caTotalClients,
     couvertureGlobale: totalArticles.size > 0 ? Math.round(totalEnStock.size / totalArticles.size * 100) : 0,
     univers: univSorted,
     clients: clientDetails,
@@ -1245,15 +1398,45 @@ export function computeAnimation(marque) {
   if (!marque || !_S.marqueArticles?.has(marque)) return null;
 
   const marqueArticles = _S.marqueArticles.get(marque); // Set<code>
+  const marqueCodes = new Set();
+  for (const code of marqueArticles) marqueCodes.add(code.replace(/^0+/, '').padStart(6, '0'));
   const stockMap = new Map((_S.finalData || []).map(r => [r.code, r]));
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
 
+  const reseauByCode = new Map(); // code -> {nbAgencesReseau, caReseau}
+  for (const [store, arts] of Object.entries(vpm)) {
+    if (store === myStore) continue;
+    for (const [code, d] of Object.entries(arts)) {
+      if (!marqueCodes.has(code) || !(d?.countBL > 0)) continue;
+      if (!reseauByCode.has(code)) reseauByCode.set(code, { nbAgencesReseau: 0, caReseau: 0 });
+      const e = reseauByCode.get(code);
+      e.nbAgencesReseau++;
+      e.caReseau += d.sumCA || 0;
+    }
+  }
+
+  const buyersByCode = new Map(); // code -> cc[]
+  const brandAggByClient = new Map(); // cc -> {caMarque, nbArticlesMarque}
+  if (_S.ventesClientArticle) {
+    for (const [cc, artMap] of _S.ventesClientArticle) {
+      let caMarque = 0;
+      let nbArticlesMarque = 0;
+      for (const [code, d] of artMap) {
+        if (!marqueCodes.has(code)) continue;
+        caMarque += d.sumCA || 0;
+        nbArticlesMarque++;
+        if (!buyersByCode.has(code)) buyersByCode.set(code, []);
+        buyersByCode.get(code).push(cc);
+      }
+      if (nbArticlesMarque > 0) brandAggByClient.set(cc, { caMarque, nbArticlesMarque });
+    }
+  }
+
   // ═══ 1. ARTICLES — classifier chaque article de la marque ═══
   const articles = [];
-  for (const code of marqueArticles) {
-    const normCode = code.replace(/^0+/, '').padStart(6, '0');
+  for (const normCode of marqueCodes) {
     const stock = stockMap.get(normCode);
     const famille = _S.articleFamille?.[normCode] || '';
     const libelle = articleLib(normCode);
@@ -1274,23 +1457,11 @@ export function computeAnimation(marque) {
     const blAgence = myData?.countBL || 0;
 
     // Vendu dans le réseau ?
-    let nbAgencesReseau = 0, caReseau = 0;
-    for (const [store, arts] of Object.entries(vpm)) {
-      if (store === myStore) continue;
-      if (arts[normCode]?.countBL > 0) { nbAgencesReseau++; caReseau += arts[normCode].sumCA || 0; }
-    }
-
-    // Nb clients qui achètent cet article chez moi
-    let nbClients = 0;
-    const clientsAcheteurs = [];
-    if (_S.ventesClientArticle) {
-      for (const [cc, artMap] of _S.ventesClientArticle) {
-        if (artMap.has(normCode)) {
-          nbClients++;
-          clientsAcheteurs.push(cc);
-        }
-      }
-    }
+    const reseau = reseauByCode.get(normCode);
+    const nbAgencesReseau = reseau?.nbAgencesReseau || 0;
+    const caReseau = reseau?.caReseau || 0;
+    const clientsAcheteurs = buyersByCode.get(normCode) || [];
+    const nbClients = clientsAcheteurs.length;
 
     articles.push({
       code: normCode, libelle, famille,
@@ -1308,10 +1479,13 @@ export function computeAnimation(marque) {
   articles.sort((a, b) => stockOrder[a.stockStatus] - stockOrder[b.stockStatus] || b.caAgence - a.caAgence);
 
   // Stats articles
-  const nbEnStock = articles.filter(a => a.stockStatus === 'enStock').length;
-  const nbRupture = articles.filter(a => a.stockStatus === 'rupture').length;
-  const nbAbsent = articles.filter(a => a.stockStatus === 'absent').length;
-  const nbVendusReseau = articles.filter(a => a.nbAgencesReseau > 0).length;
+  let nbEnStock = 0, nbRupture = 0, nbAbsent = 0, nbVendusReseau = 0;
+  for (const a of articles) {
+    if (a.stockStatus === 'enStock') nbEnStock++;
+    else if (a.stockStatus === 'rupture') nbRupture++;
+    else nbAbsent++;
+    if (a.nbAgencesReseau > 0) nbVendusReseau++;
+  }
 
   // Par famille
   const famMap = new Map();
@@ -1324,37 +1498,29 @@ export function computeAnimation(marque) {
     else if (a.stockStatus === 'rupture') f.rupture++;
     else f.absent++;
   }
-  const familles = [...famMap.entries()]
-    .map(([name, d]) => ({ name, ...d }))
-    .sort((a, b) => b.articles.length - a.articles.length);
+  const familles = [];
+  for (const [name, d] of famMap.entries()) familles.push({ name, ...d });
+  familles.sort((a, b) => b.articles.length - a.articles.length);
 
   // ═══ 2. CLIENTS — qui achète cette marque + qui devrait ═══
 
   // Clients acheteurs (ont acheté au moins 1 article de la marque)
-  const clientSet = new Set();
-  for (const a of articles) {
-    for (const cc of a.clientsAcheteurs) clientSet.add(cc);
-  }
+  const clientSet = new Set(brandAggByClient.keys());
 
   const clientsActifs = [];
+  let caMarqueAgence = 0;
   for (const cc of clientSet) {
     const chal = _S.chalandiseData?.get(cc);
-    const vca = _S.ventesClientArticle?.get(cc);
-    let caMarque = 0, nbArticlesMarque = 0;
-    if (vca) {
-      for (const a of articles) {
-        const d = vca.get(a.code);
-        if (d) { caMarque += d.sumCA || 0; nbArticlesMarque++; }
-      }
-    }
+    const agg = brandAggByClient.get(cc) || { caMarque: 0, nbArticlesMarque: 0 };
+    caMarqueAgence += agg.caMarque;
     clientsActifs.push({
       cc,
       nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
       metier: chal?.metier || '',
       commercial: chal?.commercial || '',
       cp: chal?.cp || '',
-      caMarque,
-      nbArticlesMarque,
+      caMarque: agg.caMarque,
+      nbArticlesMarque: agg.nbArticlesMarque,
       type: 'acheteur'
     });
   }
@@ -1375,7 +1541,8 @@ export function computeAnimation(marque) {
         if (clientSet.has(cc)) continue; // déjà acheteur
         const chal = _S.chalandiseData.get(cc);
         const vca = _S.ventesClientArticle?.get(cc);
-        const caTotalPDV = vca ? [...vca.values()].reduce((s, v) => s + (v.sumCA || 0), 0) : 0;
+        let caTotalPDV = 0;
+        if (vca) for (const v of vca.values()) caTotalPDV += v.sumCA || 0;
 
         clientsProspects.push({
           cc,
@@ -1418,7 +1585,7 @@ export function computeAnimation(marque) {
     totalClientsActifs: clientsActifs.length,
     totalProspects: clientsProspects.length,
     totalReconquete: clientsReconquete.length,
-    caMarqueAgence: clientsActifs.reduce((s, c) => s + c.caMarque, 0),
+    caMarqueAgence,
   };
 }
 
@@ -1432,21 +1599,24 @@ export function computeMonRayon(codeFam, codeSousFam) {
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
-  const catDesig = _S.catalogueDesignation;
   const catMarq = _S.catalogueMarques;
   const vca = _S.ventesClientArticle;
+  const matchCache = new Map();
 
   // Helper : article matche la famille/sous-famille ?
   const matchFam = (code) => {
+    if (matchCache.has(code)) return matchCache.get(code);
     const cf = catFam?.get(code);
+    let ok = false;
     if (cf) {
-      if (cf.codeFam !== codeFam) return false;
-      if (codeSousFam && cf.codeSousFam !== codeSousFam) return false;
-      return true;
+      ok = cf.codeFam === codeFam && (!codeSousFam || cf.codeSousFam === codeSousFam);
+      matchCache.set(code, ok);
+      return ok;
     }
     const fam = _S.articleFamille?.[code];
-    if (fam && fam.startsWith(codeFam)) return !codeSousFam;
-    return false;
+    ok = !!(fam && fam.startsWith(codeFam) && !codeSousFam);
+    matchCache.set(code, ok);
+    return ok;
   };
 
   // ═══ 1. MON RAYON — articles en stock dans cette famille ═══
@@ -1482,13 +1652,22 @@ export function computeMonRayon(codeFam, codeSousFam) {
   }
   monRayon.sort((a, b) => b.caAgence - a.caAgence);
 
-  const nbEnStock = monRayon.filter(a => a.stockActuel > 0).length;
-  const nbPepites = monRayon.filter(a => a.status === 'pepite').length;
-  const nbChallenger = monRayon.filter(a => a.status === 'challenger').length;
-  const nbDormants = monRayon.filter(a => a.status === 'dormant').length;
-  const nbRuptures = monRayon.filter(a => a.status === 'rupture').length;
-  const valeurTotale = monRayon.reduce((s, a) => s + a.valeurStock, 0);
-  const mesCodes = new Set(monRayon.map(a => a.code));
+  let nbEnStock = 0;
+  let nbPepites = 0;
+  let nbChallenger = 0;
+  let nbDormants = 0;
+  let nbRuptures = 0;
+  let valeurTotale = 0;
+  const mesCodes = new Set();
+  for (const a of monRayon) {
+    mesCodes.add(a.code);
+    if (a.stockActuel > 0) nbEnStock++;
+    if (a.status === 'pepite') nbPepites++;
+    else if (a.status === 'challenger') nbChallenger++;
+    else if (a.status === 'dormant') nbDormants++;
+    else if (a.status === 'rupture') nbRuptures++;
+    valeurTotale += a.valeurStock;
+  }
 
   // ═══ 2. À IMPLANTER — vendus par le réseau, absents chez moi ═══
   const implanter = new Map();
@@ -1513,10 +1692,11 @@ export function computeMonRayon(codeFam, codeSousFam) {
       a.caReseau += data.sumCA || 0;
     }
   }
-  const aImplanter = [...implanter.values()].sort((a, b) => b.nbAgences - a.nbAgences || b.caReseau - a.caReseau);
+  const aImplanter = Array.from(implanter.values());
+  aImplanter.sort((a, b) => b.nbAgences - a.nbAgences || b.caReseau - a.caReseau);
 
   // ═══ 3. CLIENTS — qui achète cette famille chez moi ═══
-  const clientsMap = new Map();
+  const clients = [];
   if (vca) {
     for (const [cc, artMap] of vca) {
       let caFam = 0, nbArt = 0;
@@ -1525,7 +1705,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
       }
       if (nbArt > 0) {
         const chal = _S.chalandiseData?.get(cc);
-        clientsMap.set(cc, {
+        clients.push({
           cc,
           nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
           metier: chal?.metier || '',
@@ -1536,21 +1716,27 @@ export function computeMonRayon(codeFam, codeSousFam) {
       }
     }
   }
-  const clients = [...clientsMap.values()].sort((a, b) => b.ca - a.ca);
+  clients.sort((a, b) => b.ca - a.ca);
 
   const metiersCount = {};
   for (const c of clients) {
     if (c.metier) metiersCount[c.metier] = (metiersCount[c.metier] || 0) + 1;
   }
-  const topMetiers = Object.entries(metiersCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const topMetiers = Object.entries(metiersCount);
+  topMetiers.sort((a, b) => b[1] - a[1]);
+  if (topMetiers.length > 10) topMetiers.length = 10;
 
   // ═══ 4. CATALOGUE — tout ce qui existe dans cette famille ═══
   let nbCatalogue = 0;
   const catSousFams = {};
   const catMarques = {};
+  let displayLibFam = FAMILLE_LOOKUP?.[codeFam] || codeFam;
+  let displaySousFam = '';
   if (catFam) {
     for (const [code, f] of catFam) {
       if (f.codeFam !== codeFam) continue;
+      if (!displayLibFam || displayLibFam === codeFam) displayLibFam = f.libFam || displayLibFam;
+      if (codeSousFam && !displaySousFam && f.codeSousFam === codeSousFam) displaySousFam = f.sousFam || codeSousFam;
       if (codeSousFam && f.codeSousFam !== codeSousFam) continue;
       nbCatalogue++;
       const sf = f.sousFam || 'Non classé';
@@ -1561,19 +1747,12 @@ export function computeMonRayon(codeFam, codeSousFam) {
   }
   const couverture = nbCatalogue > 0 ? Math.round(mesCodes.size / nbCatalogue * 100) : 0;
 
-  // Libellés famille / sous-famille pour l'affichage
-  let displayLibFam = FAMILLE_LOOKUP?.[codeFam] || codeFam;
-  let displaySousFam = '';
-  if (catFam) {
-    for (const [, f] of catFam) {
-      if (f.codeFam === codeFam) { displayLibFam = f.libFam || displayLibFam; break; }
-    }
-    if (codeSousFam) {
-      for (const [, f] of catFam) {
-        if (f.codeFam === codeFam && f.codeSousFam === codeSousFam) { displaySousFam = f.sousFam || codeSousFam; break; }
-      }
-    }
-  }
+  const sousFamilles = Object.entries(catSousFams);
+  sousFamilles.sort((a, b) => b[1] - a[1]);
+
+  const marques = Object.entries(catMarques);
+  marques.sort((a, b) => b[1] - a[1]);
+  if (marques.length > 15) marques.length = 15;
 
   return {
     codeFam,
@@ -1592,8 +1771,8 @@ export function computeMonRayon(codeFam, codeSousFam) {
     topMetiers,
     nbCatalogue,
     couverture,
-    sousFamilles: Object.entries(catSousFams).sort((a, b) => b[1] - a[1]),
-    marques: Object.entries(catMarques).sort((a, b) => b[1] - a[1]).slice(0, 15),
+    sousFamilles,
+    marques,
   };
 }
 
@@ -1604,6 +1783,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
 export function computeRadarFamille() {
   const sqData = computeSquelette();
   const catFam = _S.catalogueFamille;
+  const famInfoCache = new Map();
 
   // ── Compter nb articles dans le catalogue par famille ──
   const catCount = new Map();
@@ -1616,11 +1796,16 @@ export function computeRadarFamille() {
 
   // ── Helper : retrouver codeFam + libFam d'un article ──
   const getFamInfo = (code) => {
+    if (famInfoCache.has(code)) return famInfoCache.get(code);
     const cf = catFam?.get(code);
-    if (cf?.codeFam) return { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
-    const fam = _S.articleFamille?.[code];
-    if (fam) return { codeFam: fam, libFam: FAMILLE_LOOKUP[fam.slice(0, 2)] || fam };
-    return null;
+    let fi = null;
+    if (cf?.codeFam) fi = { codeFam: cf.codeFam, libFam: cf.libFam || cf.codeFam };
+    else {
+      const fam = _S.articleFamille?.[code];
+      if (fam) fi = { codeFam: fam, libFam: FAMILLE_LOOKUP[fam.slice(0, 2)] || fam };
+    }
+    famInfoCache.set(code, fi);
+    return fi;
   };
 
   const famMap = new Map();
@@ -1702,10 +1887,10 @@ export function computeRadarFamille() {
   // ── Enrichissement réseau : écart médiane, rang ──
   const obsLose = _S.benchLists?.obsFamiliesLose || [];
   const obsWin  = _S.benchLists?.obsFamiliesWin  || [];
-  const obsAll  = [...obsLose, ...obsWin];
   // Index par libellé de famille
   const obsIdx = new Map();
-  for (const o of obsAll) obsIdx.set(o.fam, o);
+  for (const o of obsLose) obsIdx.set(o.fam, o);
+  for (const o of obsWin) obsIdx.set(o.fam, o);
   // Rang réseau : familyPerf trié par priorityScore (déjà trié dans parser)
   const fpArr = _S.benchLists?.familyPerf || [];
   const fpIdx = new Map();
@@ -1723,18 +1908,77 @@ export function computeRadarFamille() {
     f.rangReseauTotal = fpArr.length || null;
   }
 
-  const families = [...famMap.values()]
-    .filter(f => f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller > 0)
-    .sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
+  const totals = { socle: 0, implanter: 0, challenger: 0, potentiel: 0, surveiller: 0 };
+  const families = [];
+  for (const f of famMap.values()) {
+    if (f.socle + f.implanter + f.challenger + f.potentiel + f.surveiller <= 0) continue;
+    if (totals[f.classifGlobal] != null) totals[f.classifGlobal]++;
+    families.push(f);
+  }
+  families.sort((a, b) => (b.implanter + b.challenger) - (a.implanter + a.challenger));
 
   return {
     families,
-    totals: {
-      socle:      families.filter(f => f.classifGlobal === 'socle').length,
-      implanter:  families.filter(f => f.classifGlobal === 'implanter').length,
-      challenger: families.filter(f => f.classifGlobal === 'challenger').length,
-      potentiel:  families.filter(f => f.classifGlobal === 'potentiel').length,
-      surveiller: families.filter(f => f.classifGlobal === 'surveiller').length,
+    totals
+  };
+}
+
+// ── Benchmark local des hotspots moteur ───────────────────────────────
+// Usage: benchmarkEngineHotspots({ iterations: 5, marque: 'XYZ', codeFam: 'A1', codeSousFam: '' })
+export function benchmarkEngineHotspots(opts = {}) {
+  const iterations = Math.max(1, Number(opts.iterations) || 3);
+  const invalidateBetweenRuns = !!opts.invalidateBetweenRuns;
+  const now = () => (globalThis.performance?.now ? globalThis.performance.now() : Date.now());
+  const runs = [];
+  const invalidate = () => {
+    if (typeof invalidateSqueletteCache === 'function') invalidateSqueletteCache();
+    _S.articleZoneIndex = null;
+    if (typeof _invalidateTerrFBCache === 'function') _invalidateTerrFBCache();
+  };
+
+  const jobs = [
+    { name: 'computeSquelette', enabled: true, fn: () => computeSquelette(opts.directionFilter) },
+    { name: 'computeRadarFamille', enabled: true, fn: () => computeRadarFamille() },
+    { name: 'computeMaClientele(level1)', enabled: true, fn: () => computeMaClientele('', opts.distanceKm) },
+    { name: 'computeMaClientele(level2)', enabled: !!opts.metierFilter, fn: () => computeMaClientele(opts.metierFilter, opts.distanceKm) },
+    { name: 'computeAnimation', enabled: !!opts.marque, fn: () => computeAnimation(opts.marque) },
+    { name: 'computeMonRayon', enabled: !!opts.codeFam, fn: () => computeMonRayon(opts.codeFam, opts.codeSousFam) },
+  ];
+
+  for (const job of jobs) {
+    if (!job.enabled) {
+      runs.push({ name: job.name, skipped: true, reason: 'missing-params' });
+      continue;
     }
+    let totalMs = 0;
+    let ok = true;
+    let error = '';
+    for (let i = 0; i < iterations; i++) {
+      if (invalidateBetweenRuns) invalidate();
+      const t0 = now();
+      try {
+        job.fn();
+      } catch (e) {
+        ok = false;
+        error = e?.message || String(e);
+        break;
+      }
+      totalMs += (now() - t0);
+    }
+    runs.push({
+      name: job.name,
+      iterations: ok ? iterations : 0,
+      totalMs: ok ? Math.round(totalMs * 100) / 100 : null,
+      avgMs: ok ? Math.round((totalMs / iterations) * 100) / 100 : null,
+      ok,
+      error
+    });
+  }
+
+  return {
+    iterations,
+    mode: invalidateBetweenRuns ? 'cold-ish' : 'warm',
+    timestamp: new Date().toISOString(),
+    runs
   };
 }

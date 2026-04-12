@@ -539,7 +539,7 @@ function _renderAssocCard(assoc) {
             <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
           </tr></thead>
           <tbody>${targets.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${c.cc}','associations')">
-            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)}</td>
+            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${c.cc}','associations')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td>
             <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.metier)}</td>
             <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.classification)}</td>
             <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.commercial)}</td>
