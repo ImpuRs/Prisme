@@ -419,6 +419,26 @@ function importScanFile(fileInput) {
 }
 window.importScanFile = importScanFile;
 
+// ── Purge cache ───────────────────────────────────────────────────────
+async function purgeCache() {
+  if (!confirm('Supprimer toutes les données scan en cache ?')) return;
+  try {
+    const db = await _openDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete('scan-import');
+    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+  } catch (_) {}
+  _articles = null;
+  _eanMap = null;
+  _actionQueue = [];
+  _scanCount = 0;
+  document.getElementById('refCount').textContent = '—';
+  document.getElementById('scanCount').textContent = '';
+  _updateActionBadge();
+  _showImportFallback();
+}
+window.purgeCache = purgeCache;
+
 // ── Service Worker ─────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
