@@ -1825,8 +1825,94 @@ export function computeAnimation(marque) {
   }
   clientsActifs.sort((a, b) => b.caMarque - a.caMarque);
 
+  // ═══ Conquête : clients qui achètent la CONCURRENCE dans les mêmes familles ═══
+  // Identifier les familles de la marque
+  const marqueFams = new Set();
+  for (const a of articles) if (a.famille) marqueFams.add(a.famille);
+
+  // Identifier les marques concurrentes dans ces familles
+  const concurrentCodes = new Map(); // code -> marque concurrente
+  if (_S.catalogueMarques?.size) {
+    for (const [code, m] of _S.catalogueMarques) {
+      if (m === marque) continue; // même marque
+      const fam = _S.articleFamille?.[code];
+      if (!fam || !marqueFams.has(fam)) continue; // pas dans les mêmes familles
+      concurrentCodes.set(code, m);
+    }
+  }
+
+  const clientsConquete = [];
+  if (hasChal && concurrentCodes.size > 0 && _S.ventesClientArticle) {
+    for (const [cc, artMap] of _S.ventesClientArticle) {
+      if (clientSet.has(cc)) continue; // déjà acheteur de la marque
+      let caConcurrence = 0;
+      const marquesConcurrentes = new Set();
+      for (const [code, d] of artMap) {
+        const mc = concurrentCodes.get(code);
+        if (mc) { caConcurrence += d.sumCA || 0; marquesConcurrentes.add(mc); }
+      }
+      if (caConcurrence <= 0) continue;
+      const chal = _S.chalandiseData?.get(cc);
+      clientsConquete.push({
+        cc,
+        nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
+        metier: chal?.metier || '',
+        commercial: chal?.commercial || '',
+        cp: chal?.cp || '',
+        caConcurrence,
+        marquesConcurrentes: [...marquesConcurrentes].slice(0, 3).join(', '),
+        type: 'conquete'
+      });
+    }
+    clientsConquete.sort((a, b) => b.caConcurrence - a.caConcurrence);
+  }
+
+  // ═══ Labo : clients qui achètent du consommable de la marque mais pas les machines ═══
+  // Heuristique : consommable = sous-famille contenant foret/disque/lame/embout/insert/mèche
+  // Machine = articles avec PU > 50€ et pas consommable
+  const consoPattern = /foret|disque|lame|embout|insert|m[eè]che|abrasif|pointe|clou|agrafe|accessoire/i;
+  const consoCodesMarque = new Set();
+  const machineCodesMarque = new Set();
+  for (const a of articles) {
+    const sf = (a.sousFam || a.famLabel || '').toLowerCase();
+    const lib = (a.libelle || '').toLowerCase();
+    if (consoPattern.test(sf) || consoPattern.test(lib)) {
+      consoCodesMarque.add(a.code);
+    } else {
+      const fd = stockMap.get(a.code);
+      if (fd && (fd.prixUnitaire || 0) > 50) machineCodesMarque.add(a.code);
+    }
+  }
+
+  const clientsLabo = [];
+  if (consoCodesMarque.size > 0 && machineCodesMarque.size > 0 && _S.ventesClientArticle) {
+    for (const [cc, artMap] of _S.ventesClientArticle) {
+      let acheteConsoMarque = false, acheteMachineMarque = false;
+      let caConso = 0;
+      for (const [code, d] of artMap) {
+        if (consoCodesMarque.has(code)) { acheteConsoMarque = true; caConso += d.sumCA || 0; }
+        if (machineCodesMarque.has(code)) acheteMachineMarque = true;
+      }
+      if (acheteConsoMarque && !acheteMachineMarque) {
+        const chal = _S.chalandiseData?.get(cc);
+        clientsLabo.push({
+          cc,
+          nom: _S.clientStore?.get(cc)?.nom || chal?.nom || cc,
+          metier: chal?.metier || '',
+          commercial: chal?.commercial || '',
+          cp: chal?.cp || '',
+          caConso,
+          type: 'labo'
+        });
+      }
+    }
+    clientsLabo.sort((a, b) => b.caConso - a.caConso);
+  }
+
   // Clients prospects : même métier que les acheteurs, mais n'achètent pas la marque
   const clientsProspects = [];
+  const conqueteSet = new Set(clientsConquete.map(c => c.cc));
+  const laboSet = new Set(clientsLabo.map(c => c.cc));
   if (hasChal) {
     const metiersAcheteurs = new Set();
     for (const c of clientsActifs) {
@@ -1837,7 +1923,7 @@ export function computeAnimation(marque) {
       const metierClients = _S.clientsByMetier?.get(metier);
       if (!metierClients) continue;
       for (const cc of metierClients) {
-        if (clientSet.has(cc)) continue; // déjà acheteur
+        if (clientSet.has(cc) || conqueteSet.has(cc) || laboSet.has(cc)) continue;
         const chal = _S.chalandiseData.get(cc);
         const vca = _S.ventesClientArticle?.get(cc);
         let caTotalPDV = 0;
@@ -1856,6 +1942,12 @@ export function computeAnimation(marque) {
     }
     clientsProspects.sort((a, b) => b.caTotalPDV - a.caTotalPDV);
   }
+
+  // ═══ Trous critiques : articles vendus par le réseau et NON RÉFÉRENCÉS (absent) chez moi ═══
+  // Les ruptures (référencés mais stock=0) restent dans le bloc ruptures, pas ici
+  const trousCritiques = articles
+    .filter(a => a.stockStatus === 'absent' && a.nbAgencesReseau >= 2)
+    .sort((a, b) => b.caReseau - a.caReseau);
 
   // Clients reconquête : acheteurs avec lastOrder > 60j
   const clientsReconquete = [];
@@ -1876,12 +1968,17 @@ export function computeAnimation(marque) {
     nbEnStock, nbRupture, nbAbsent, nbVendusReseau,
     articles,
     familles,
+    trousCritiques,
     clients: {
       acheteurs: clientsActifs,
+      conquete: clientsConquete.slice(0, 80),
+      labo: clientsLabo.slice(0, 50),
       prospects: clientsProspects.slice(0, 100),
       reconquete: clientsReconquete,
     },
     totalClientsActifs: clientsActifs.length,
+    totalConquete: clientsConquete.length,
+    totalLabo: clientsLabo.length,
     totalProspects: clientsProspects.length,
     totalReconquete: clientsReconquete.length,
     caMarqueAgence,

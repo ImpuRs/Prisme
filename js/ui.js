@@ -248,11 +248,11 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', animation: 'animation', associations: 'associations' };
+const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
-  animation: 'animation', associations: 'associations',
+  animation: 'animation', associations: 'animation',
 };
 
 export function switchSuperTab(supertabId) {

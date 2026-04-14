@@ -2603,6 +2603,12 @@ function _prRenderDetail(codeFam) {
         <span class="text-[9px] px-2 py-0.5 rounded-full font-bold" style="background:${b.bg};color:${b.color}">${b.icon} ${b.label}</span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button onclick="window._animFromFamily('${fam.codeFam}')"
+          class="text-[10px] px-2 py-1 rounded font-bold flex-shrink-0"
+          style="background:#f59e0b;color:#000;border:1px solid #d97706"
+          title="Préparer une animation commerciale sur cette famille">
+          ⚡ Animation
+        </button>
         <button onclick="window._prExportDiag('${fam.codeFam}')"
           class="text-[10px] px-2 py-1 rounded border b-light t-secondary hover:t-primary flex-shrink-0"
           title="Copier le diagnostic terrain">
@@ -3222,7 +3228,7 @@ window._prExportPilotage = function() {
   const roles = _prComputeRoles(codeFam);
   const fdMap = _prGetFdMap();
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
-  const rows = [];
+  const arts = [];
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
@@ -3231,20 +3237,29 @@ window._prExportPilotage = function() {
         if (cfCat !== codeFam && !((!cfCat && cfArt.startsWith(codeFam)) || cfArt === codeFam)) continue;
         const role = roles.get(a.code) || 'standard';
         const v = _prVerdict(g, role, a.code);
-        const sf = catFam?.get(a.code)?.sousFam || '';
-        const lib = a.libelle || articleLib(a.code);
-        const caZ = +(a.caClientsZone || 0);
-        const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
-        rows.push([a.code, lib, sf, a.stockActuel || 0, a.W || (fdMap.get(a.code)?.W || 0),
-          a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, g, role, v.name].join(';'));
+        arts.push({ ...a, _g: g, role, verdict: v, W: a.W || (fdMap.get(a.code)?.W || 0) });
       }
     }
   }
-  const csv = ['Code;Libellé;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict', ...rows].join('\n');
+  // Appliquer les mêmes filtres que l'affichage
+  let filtered = arts;
+  if (_prPilotFilter) filtered = filtered.filter(a => a._g === _prPilotFilter);
+  if (_prPilotVerdict) filtered = filtered.filter(a => a.verdict.name === _prPilotVerdict);
+  if (_prPilotRole) filtered = filtered.filter(a => a.role === _prPilotRole);
+  const rows = filtered.map(a => {
+    const sf = catFam?.get(a.code)?.sousFam || '';
+    const lib = a.libelle || articleLib(a.code);
+    const caZ = +(a.caClientsZone || 0);
+    const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
+    return [a.code, lib, a.emplacement || '', sf, a.stockActuel || 0, a.W,
+      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name].join(';');
+  });
+  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `pilotage_${codeFam}.csv`; a.click();
+  const suffix = _prPilotVerdict ? `_${_prPilotVerdict.replace(/[^a-zA-Z0-9]/g, '_')}` : (_prPilotFilter || '');
+  a.href = url; a.download = `pilotage_${codeFam}${suffix ? '_' + suffix : ''}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
@@ -3473,15 +3488,20 @@ window._prReseauShowMoreIncont = function() {
 window._prExportRayon = function() {
   if (!_S._prRayonData) return;
   const { monRayon, codeFam } = _S._prRayonData;
-  const headers = ['Code', 'Libellé', 'Sous-famille', 'Stock', 'W', 'ABC', 'FMR', 'CA agence', 'Statut'];
-  const rows = monRayon.map(a =>
-    [a.code, a.libelle, a.sousFam, a.stockActuel, a.W, a.abcClass, a.fmrClass, (a.caAgence || 0).toFixed(2), a.status].join(';')
+  // Appliquer les mêmes filtres que l'affichage
+  let list = monRayon;
+  if (_prSelectedEmps.size > 0) list = list.filter(a => _prSelectedEmps.has(a.emplacement || ''));
+  if (_prRayonFilter) list = list.filter(a => a.status === _prRayonFilter);
+  const headers = ['Code', 'Libellé', 'Emplacement', 'Sous-famille', 'Stock', 'W', 'ABC', 'FMR', 'CA agence', 'Statut'];
+  const rows = list.map(a =>
+    [a.code, a.libelle, a.emplacement || '', a.sousFam, a.stockActuel, a.W, a.abcClass, a.fmrClass, (a.caAgence || 0).toFixed(2), a.status].join(';')
   );
   const csv = [headers.join(';'), ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `plan_rayon_${codeFam}.csv`; a.click();
+  const suffix = _prRayonFilter ? `_${_prRayonFilter}` : '';
+  a.href = url; a.download = `plan_rayon_${codeFam}${suffix}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
