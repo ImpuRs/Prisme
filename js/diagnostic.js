@@ -669,9 +669,11 @@ function openArticlePanel(code,source){
   if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){_medMinReseau=_rMins.length?Math.round(_median(_rMins)):null;_medMaxReseau=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="t-tertiary" style="font-size:10px">ERP Réseau <span class="text-[9px]">(déclaratif)</span></span><span class="t-tertiary" style="font-size:10px">${_medMinReseau??'—'} / ${_medMaxReseau??'—'} <span class="text-[9px]">(méd. ${_nbAg} ag.)</span></span>`;}}
   // ── Affichage MIN/MAX — source automatique (local ou Vitesse Réseau via flag _vitesseReseau) ──
   const _isVitesse=!!r._vitesseReseau;
-  const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-[9px] text-violet-400 ml-1">(Vitesse)</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
-  const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-[9px] text-violet-400 ml-1">(Vitesse)</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
-  const _prismeLabel=_isVitesse?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
+  const _isFallbackERP=!!r._fallbackERP;
+  const _srcTag=_isFallbackERP?'Méd. ERP':_isVitesse?'Vitesse':'';
+  const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-[9px] text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
+  const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-[9px] text-violet-400 ml-1">(${_srcTag})</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
+  const _prismeLabel=_isFallbackERP?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Méd. ERP Réseau)</span>':_isVitesse?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
   const _statutRaw=r.statut||'';
   const _statutLow=_statutRaw.toLowerCase();
   const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';

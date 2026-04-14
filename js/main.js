@@ -1761,16 +1761,19 @@ _S.canalAgence=newCanalAgence;
       //           Ventes locales = 0, réseau > 0 → Vitesse Réseau
       //           Ventes locales = 0, réseau = 0 → 0/0
       if(useMulti&&DataStore.finalData.length){
-        const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
-        if(_otherS.length>=2){
+        const _myS=_S.selectedMyStore;
+        const _vpm=_S.ventesParMagasin||{};
+        // Collecter TOUTES les agences avec des ventes (pas seulement storesIntersection)
+        const _allStores=Object.keys(_vpm).filter(s=>s!==_myS);
+        if(_allStores.length>=2){
           for(const r of DataStore.finalData){
             if(r.nouveauMin>0||r.nouveauMax>0)continue; // calcul local OK → souveraineté agence
             if(r.isParent)continue;
             const _sl=(r.statut||'').toLowerCase();
             if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-            // Top 3 agences par CA sur cet article (ventes = faits)
+            // Top 3 agences par CA sur cet article (ventes = faits, toutes agences)
             const _agV=[];
-            for(const s of _otherS){const v=_S.ventesParMagasin[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
+            for(const s of _allStores){const v=_vpm[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
             if(!_agV.length)continue;
             _agV.sort((a,b)=>b.ca-a.ca);
             const _t3=_agV.slice(0,3);
@@ -1782,6 +1785,19 @@ _S.canalAgence=newCanalAgence;
             r.nouveauMin=Math.max(Math.ceil(_vit),1);
             r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
             r._vitesseReseau=true; // flag pour UI
+          }
+          // ── Fallback 3 : pas de ventes réseau, mais stocké réseau → médiane ERP ──
+          for(const r of DataStore.finalData){
+            if(r.nouveauMin>0||r.nouveauMax>0)continue; // déjà calculé (local ou Vitesse)
+            if(r.isParent)continue;
+            const _sl=(r.statut||'').toLowerCase();
+            if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
+            if(r.medMinReseau>0||r.medMaxReseau>0){
+              r.nouveauMin=Math.max(Math.round(r.medMinReseau),1);
+              r.nouveauMax=Math.max(Math.round(r.medMaxReseau),r.nouveauMin+1);
+              r._vitesseReseau=true; // flag pour UI (même affichage Vitesse)
+              r._fallbackERP=true;   // flag spécifique : source = ERP réseau, pas ventes
+            }
           }
         }
       }
