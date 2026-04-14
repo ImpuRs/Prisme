@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>PRISME Scan</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--t1:#f1f5f9;--t2:#94a3b8;--t3:#64748b;--act:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--violet:#8b5cf6}
+body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--t1);min-height:100dvh;display:flex;flex-direction:column}
+.header{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.header h1{font-size:16px;font-weight:800;flex:1}
+.header .badge{font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(59,130,246,.2);color:var(--act)}
+.search-wrap{padding:12px 16px;position:sticky;top:0;z-index:10;background:var(--bg)}
+.search-wrap input{width:100%;padding:14px 44px 14px 16px;font-size:18px;font-weight:600;border-radius:12px;border:2px solid var(--border);background:var(--card);color:var(--t1);outline:none;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.search-wrap input:focus{border-color:var(--act)}
+.search-wrap input::placeholder{color:var(--t3);font-weight:400;font-size:14px;letter-spacing:0}
+.clear-btn{position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--t3);cursor:pointer;display:none;background:none;border:none;padding:4px}
+.content{flex:1;padding:0 16px 24px;overflow-y:auto}
+.empty{text-align:center;padding:60px 20px;color:var(--t3)}
+.empty .icon{font-size:48px;margin-bottom:16px}
+.empty p{font-size:13px;line-height:1.6}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;animation:slideUp .2s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card-head{padding:16px;border-bottom:1px solid var(--border)}
+.card-head .code{font-size:13px;color:var(--t3);font-weight:600;letter-spacing:1px}
+.card-head .lib{font-size:15px;font-weight:700;margin-top:4px;line-height:1.3}
+.card-head .fam{font-size:11px;color:var(--t2);margin-top:4px}
+.verdict{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-top:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.grid .cell{padding:14px 16px;background:var(--card)}
+.cell .label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.cell .val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.cell .sub{font-size:10px;color:var(--t2);margin-top:2px}
+.reseau{padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--t2)}
+.reseau strong{color:var(--t1)}
+.scan-count{font-size:11px;color:var(--t3);text-align:center;padding:8px}
+.notfound{text-align:center;padding:40px 20px}
+.notfound .icon{font-size:36px;margin-bottom:12px}
+.notfound p{font-size:13px;color:var(--t2)}
+.flash{animation:flash .15s}
+@keyframes flash{0%,100%{opacity:1}50%{opacity:.5}}
+.vitesse-tag{font-size:9px;color:var(--violet);font-weight:600;margin-left:4px}
+.btn-back{padding:8px 16px;font-size:12px;color:var(--act);background:none;border:none;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PRISME Scan</h1>
+  <span class="badge" id="refCount">—</span>
+  <a href="index.html" class="btn-back">PRISME</a>
+</div>
+
+<div class="search-wrap">
+  <input type="text" id="scanInput" placeholder="Scanner ou taper un code article…" inputmode="numeric" autofocus autocomplete="off">
+  <button class="clear-btn" id="clearBtn" onclick="clearScan()">✕</button>
+</div>
+
+<div class="content" id="content">
+  <div class="empty">
+    <div class="icon">📦</div>
+    <p>Scannez un code article<br>ou tapez-le au clavier</p>
+    <p style="margin-top:16px;font-size:11px">Les données viennent du cache PRISME.<br>Chargez vos fichiers dans PRISME d'abord.</p>
+  </div>
+</div>
+
+<div class="scan-count" id="scanCount"></div>
+
+<script src="js/scan.js"></script>
+</body>
+</html>
