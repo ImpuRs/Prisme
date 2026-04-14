@@ -1756,22 +1756,19 @@ _S.canalAgence=newCanalAgence;
       enrichPrixUnitaire();
       _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
 
-      // ★ Règle d'Implantation — Vitesse Réseau (post-patch MIN/MAX 0/0)
-      // Si PRISME local donne 0/0 ET le réseau vend cet article ET pas fin de série
-      // → MIN = vitesse (qté/BL Top 3), MAX = vitesse × 2
+      // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
+      // Cascade : Ventes locales > 0 → calcul local (déjà fait ci-dessus)
+      //           Ventes locales = 0, réseau > 0 → Vitesse Réseau
+      //           Ventes locales = 0, réseau = 0 → 0/0
       if(useMulti&&DataStore.finalData.length){
         const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
         if(_otherS.length>=2){
           for(const r of DataStore.finalData){
-            if(r.nouveauMin>0||r.nouveauMax>0)continue; // PRISME local OK → skip
+            if(r.nouveauMin>0||r.nouveauMax>0)continue; // calcul local OK → souveraineté agence
             if(r.isParent)continue;
             const _sl=(r.statut||'').toLowerCase();
             if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-            // Vérifier qu'au moins 1 agence a MIN/MAX>0 (Filtre de la Mort)
-            let _anyMM=false;
-            for(const s of _otherS){const stk=_S.stockParMagasin[s]?.[r.code];if(stk&&((stk.qteMin||0)>0||(stk.qteMax||0)>0)){_anyMM=true;break;}}
-            if(!_anyMM)continue;
-            // Top 3 agences par CA sur cet article
+            // Top 3 agences par CA sur cet article (ventes = faits)
             const _agV=[];
             for(const s of _otherS){const v=_S.ventesParMagasin[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
             if(!_agV.length)continue;
