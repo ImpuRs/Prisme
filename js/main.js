@@ -3077,6 +3077,7 @@ window.exportScanData = function() {
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
       matriceVerdict: _mLabels[mKey] || '',
+      _sqClassif: r._sqClassif || '', _sqRole: r._sqRole || '', _sqVerdict: r._sqVerdict || '',
       medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
       _reseauAgences: reseauAgences, isParent: r.isParent
