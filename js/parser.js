@@ -12,7 +12,7 @@
 'use strict';
 import { CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
 import { cleanOmniPrice, readExcel, _wsToHR, yieldToMain, parseCSVTextToHR, _median, _isMetierStrategique, extractClientCode, escapeHtml, famLib, haversineKm } from './utils.js';
-import { _S, resetAppState, invalidateCache } from './state.js';
+import { _S, invalidateCache } from './state.js';
 import { buildAgenceStore } from './agence-store.js';
 
 
