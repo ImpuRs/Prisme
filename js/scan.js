@@ -294,18 +294,22 @@ function _liveSearch(q) {
     const v = _verdict(r);
     const stock = r.stockActuel ?? 0;
     const mm = (r.nouveauMin > 0 || r.nouveauMax > 0) ? r.nouveauMin + '/' + r.nouveauMax : '—';
-    return `<div onclick="selectArticle('${r.code}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:12px"
+    // Geste 4 — Infiltration Squelette : pastille squelette + état stock
+    const _sqC = r._sqClassif || '';
+    const sqDot = { socle: '🔵', implanter: '🟢', challenger: '🔴', surveiller: '🟠' }[_sqC] || '';
+    const vLabel = sqDot ? sqDot + ' ' + v.label.replace(/^[^\s]+\s/, '') : v.label;
+    return `<div onclick="selectArticle('${r.code}')" style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px"
       class="hover-row">
       <div style="flex:1;min-width:0">
-        <div style="font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.5px">${_esc(r.code)}</div>
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(r.libelle || '—')}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">${_esc(r.emplacement || '')} ${r.famille ? '· ' + _esc(r.famille) : ''}</div>
+        <div style="font-size:10px;color:var(--border);letter-spacing:.5px">${_esc(r.code)}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(r.libelle || '—')}</div>
+        <div style="font-size:11px;color:#7dd3fc;font-weight:600;margin-top:1px">${_esc(r.emplacement || '—')}<span style="color:var(--border);font-weight:400;margin-left:6px">${r.famille ? _esc(r.famille) : ''}</span></div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:14px;font-weight:800;color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
-        <div style="font-size:10px;color:var(--t3)">MIN/MAX ${mm}</div>
+      <div style="text-align:right;flex-shrink:0;min-width:44px">
+        <div style="font-size:18px;font-weight:900;color:${stock > 0 ? 'var(--green)' : 'var(--red)'}; line-height:1">${stock}</div>
+        <div style="font-size:9px;color:var(--border);margin-top:2px">${mm}</div>
       </div>
-      <div class="verdict" style="background:${v.bg};color:${v.color};font-size:9px;padding:2px 6px;white-space:nowrap">${v.label}</div>
+      <div class="verdict" style="background:${v.bg};color:${v.color};font-size:9px;padding:2px 6px;white-space:nowrap;min-width:52px;text-align:center">${vLabel}</div>
     </div>`;
   }).join('');
 }

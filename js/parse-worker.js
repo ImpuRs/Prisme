@@ -1520,6 +1520,7 @@ self.onmessage = async function(ev) {
       self.postMessage({ type: 'progress', pct: 10 + Math.round(8 * idx / Math.max(total, 1)), msg: 'Parsing consommé' + label + '…' });
       var parsed = isCsv ? _parseCsvBuffer(data.buf) : _parseXlsxBuffer(data.buf);
       _stream.dataC = _mergeConsomme(_stream.dataC, parsed);
+      self.postMessage({ type: 'consomme_ack', index: idx });
     } catch (e) {
       self.postMessage({ type: 'error', msg: e.message || 'Erreur parsing consommé (stream)' });
     }
@@ -1535,6 +1536,7 @@ self.onmessage = async function(ev) {
       });
       var rawS = _wsToHR(wbS.Sheets[wbS.SheetNames[0]]);
       _stream.dataS = readExcelAsObjects(rawS);
+      self.postMessage({ type: 'stock_ack' });
     } catch (e2) {
       self.postMessage({ type: 'error', msg: e2.message || 'Erreur parsing stock (stream)' });
     }
