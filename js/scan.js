@@ -80,11 +80,34 @@ async function loadData() {
       console.log('[Scan] ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
       return;
     }
+    // Fallback : fetch data/scan.json depuis le dossier du code
+    if (await _tryFetchScanJson()) return;
     _showImportFallback();
   } catch (e) {
     console.error('[Scan] Erreur chargement IDB:', e);
+    if (await _tryFetchScanJson()) return;
     _showImportFallback();
   }
+}
+
+async function _tryFetchScanJson() {
+  try {
+    const resp = await fetch('data/scan.json');
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    if (!data.articles?.length) return false;
+    _articles = new Map();
+    for (const r of data.articles) _articles.set(r.code, r);
+    if (data.ean) {
+      _eanMap = new Map();
+      for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
+    }
+    document.getElementById('refCount').textContent = _articles.size + ' refs';
+    document.getElementById('importZone').style.display = 'none';
+    console.log('[Scan] ' + _articles.size + ' articles chargés depuis data/scan.json');
+    _saveScanToIDB(data);
+    return true;
+  } catch (_) { return false; }
 }
 
 // Persister les données scan importées en IDB
