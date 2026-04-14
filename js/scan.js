@@ -444,6 +444,7 @@ async function purgeCache() {
   _articles = null;
   _eanMap = null;
   _actionQueue = [];
+  _saveActions();
   _scanCount = 0;
   document.getElementById('refCount').textContent = '—';
   document.getElementById('scanCount').textContent = '';
@@ -459,8 +460,13 @@ if ('serviceWorker' in navigator) {
 
 // ── Init ───────────────────────────────────────────────────────────────
 loadData();
+_loadActions();
 
 // ── File d'actions terrain ─────────────────────────────────────────
+const _AQ_KEY = 'prisme_scan_actions';
+function _saveActions() { try { localStorage.setItem(_AQ_KEY, JSON.stringify(_actionQueue)); } catch(_){} }
+function _loadActions() { try { const s = localStorage.getItem(_AQ_KEY); if (s) { _actionQueue = JSON.parse(s); _updateActionBadge(); } } catch(_){} }
+
 function addAction(code, type, detail) {
   const r = _articles?.get(code);
   if (!r) return;
@@ -468,6 +474,7 @@ function addAction(code, type, detail) {
     _vibrate(); return;
   }
   _actionQueue.push({ code, libelle: r.libelle || '', famille: r.famille || '', emplacement: r.emplacement || '', type, detail, ts: new Date().toISOString() });
+  _saveActions();
   _updateActionBadge();
   _vibrate();
   const btn = document.querySelector('.action-btn');
@@ -504,6 +511,7 @@ window.showActions = showActions;
 
 function removeAction(idx) {
   _actionQueue.splice(idx, 1);
+  _saveActions();
   _updateActionBadge();
   showActions();
 }
