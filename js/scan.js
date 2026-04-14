@@ -200,20 +200,86 @@ function _euro(n) { return n.toLocaleString('fr-FR', { style: 'currency', curren
 const input = document.getElementById('scanInput');
 const clearBtn = document.getElementById('clearBtn');
 
+let _debounce;
 input.addEventListener('input', () => {
   clearBtn.style.display = input.value ? 'block' : 'none';
+  // Recherche live — suggestions au fil de la saisie
+  clearTimeout(_debounce);
+  _debounce = setTimeout(() => _liveSearch(input.value.trim()), 150);
 });
 
-// Enter = DataWedge suffix → lookup immédiat
+// Enter = DataWedge suffix → lookup immédiat (Zebra)
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const code = input.value.trim();
-    if (code) lookup(code);
-    // Auto-select tout pour le prochain scan
+    if (code) { _clearSuggestions(); lookup(code); }
     setTimeout(() => input.select(), 50);
   }
 });
+
+function _liveSearch(q) {
+  if (!_articles || q.length < 3) { _clearSuggestions(); return; }
+  const el = document.getElementById('content');
+  const clean = q.replace(/\D/g, '');
+  // Code exact → lookup direct
+  if (clean.length === 6 && _articles.has(clean)) {
+    _clearSuggestions();
+    lookup(clean);
+    return;
+  }
+  // Recherche par code partiel ou libellé
+  const qLow = q.toLowerCase();
+  const matches = [];
+  for (const [code, r] of _articles) {
+    if (matches.length >= 8) break;
+    if (code.includes(q)) { matches.push(r); continue; }
+    if ((r.libelle || '').toLowerCase().includes(qLow)) { matches.push(r); continue; }
+    if ((r.emplacement || '').toLowerCase().includes(qLow)) { matches.push(r); continue; }
+  }
+  if (!matches.length) {
+    el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Aucun résultat pour "${_esc(q)}"</p></div>`;
+    return;
+  }
+  // Si 1 seul résultat exact par code → afficher direct
+  if (matches.length === 1 && matches[0].code === clean) {
+    lookup(matches[0].code);
+    return;
+  }
+  // Afficher la liste cliquable
+  el.innerHTML = matches.map(r => {
+    const v = _verdict(r);
+    const stock = r.stockActuel ?? 0;
+    const mm = (r.nouveauMin > 0 || r.nouveauMax > 0) ? r.nouveauMin + '/' + r.nouveauMax : '—';
+    return `<div onclick="selectArticle('${r.code}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:12px"
+      class="hover-row">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.5px">${_esc(r.code)}</div>
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(r.libelle || '—')}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">${_esc(r.emplacement || '')} ${r.famille ? '· ' + _esc(r.famille) : ''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:800;color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
+        <div style="font-size:10px;color:var(--t3)">MIN/MAX ${mm}</div>
+      </div>
+      <div class="verdict" style="background:${v.bg};color:${v.color};font-size:9px;padding:2px 6px;white-space:nowrap">${v.label}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectArticle(code) {
+  input.value = code;
+  _clearSuggestions();
+  lookup(code);
+  setTimeout(() => input.select(), 50);
+}
+window.selectArticle = selectArticle;
+
+function _clearSuggestions() {
+  // Ne rien faire si le contenu est une fiche article (card)
+  const el = document.getElementById('content');
+  if (el.querySelector('.card')) return;
+}
 
 function clearScan() {
   input.value = '';
