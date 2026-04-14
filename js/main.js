@@ -1133,12 +1133,25 @@ _S.canalAgence=newCanalAgence;
     const _filesC = Array.from(filesC || []);
     const filenamesC = _filesC.map(f => f.name);
     const worker = new Worker('js/parse-worker.js');
+    const serialStream = !!opts?.lowMem || (function(){
+      try{
+        const dm = navigator.deviceMemory;
+        return typeof dm === 'number' && dm > 0 && dm <= 4;
+      }catch(_){ return false; }
+    })();
+    let _pendingAck = null;
 
     const resultP = new Promise((resolve, reject) => {
       worker.onmessage = async function(ev) {
         const msg = ev.data;
         if (msg.type === 'progress') {
           updateProgress(msg.pct, 100, msg.msg);
+        } else if (msg.type === 'consomme_ack' || msg.type === 'stock_ack') {
+          if (_pendingAck && _pendingAck.type === msg.type && (_pendingAck.index === undefined || _pendingAck.index === msg.index)) {
+            const r = _pendingAck.resolve;
+            _pendingAck = null;
+            r();
+          }
         } else if (msg.type === 'stores') {
           // Le Worker a détecté les agences — sélectionner et répondre
           const storesI = new Set(msg.storesIntersection || []);
@@ -1165,6 +1178,11 @@ _S.canalAgence=newCanalAgence;
           worker.terminate();
           resolve(msg.payload);
         } else if (msg.type === 'error') {
+          if (_pendingAck) {
+            const rj = _pendingAck.reject;
+            _pendingAck = null;
+            rj(new Error(msg.msg));
+          }
           worker.terminate();
           reject(new Error(msg.msg));
         }
@@ -1182,12 +1200,18 @@ _S.canalAgence=newCanalAgence;
         updateProgress(10 + Math.round(6 * (i / Math.max(_filesC.length, 1))), 100, 'Lecture ' + f.name + '…');
         const buf = await f.arrayBuffer();
         worker.postMessage({ type: 'consomme', buf, filename: f.name, index: i, total: _filesC.length }, [buf]);
+        if (serialStream) {
+          await new Promise((resolve, reject) => { _pendingAck = { type: 'consomme_ack', index: i, resolve, reject }; });
+        }
         await yieldToMain();
       }
       if (fileS) {
         updateProgress(16, 100, 'Lecture ' + fileS.name + '…');
         const bufS = await fileS.arrayBuffer();
         worker.postMessage({ type: 'stock', buf: bufS, filename: fileS.name }, [bufS]);
+        if (serialStream) {
+          await new Promise((resolve, reject) => { _pendingAck = { type: 'stock_ack', resolve, reject }; });
+        }
         await yieldToMain();
       }
       updateProgress(20, 100, 'Parsing en cours (Worker)…');
