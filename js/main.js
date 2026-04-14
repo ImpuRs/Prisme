@@ -13,7 +13,7 @@ import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, S
 import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors, applyVerdictOverrides } from './engine.js';
-import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
@@ -1255,12 +1255,11 @@ _S.canalAgence=newCanalAgence;
       if(r.isParent)continue;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-      const _agV=[];
-      for(const s of _allStores){const v=_vpm[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
-      if(!_agV.length)continue;
-      _agV.sort((a,b)=>b.ca-a.ca);
-      const _t3=_agV.slice(0,3);
-      let _tCA=0,_tBL=0;for(const a of _t3){_tCA+=a.ca;_tBL+=a.bl;}
+      // Top 3 agences par CA — sélection en un passage (pas de sort/slice)
+      let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false;
+      for(const s of _allStores){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
+      if(!_any)continue;
+      let _tCA=_t1ca+_t2ca+_t3ca,_tBL=_t1bl+_t2bl+_t3bl;
       const _pu=r.prixUnitaire||0;
       if(_pu<=0||_tBL<=0)continue;
       const _vit=(_tCA/_pu)/_tBL;
@@ -1527,6 +1526,7 @@ _S.canalAgence=newCanalAgence;
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
   async function processDataFromRaw(dataC,dataS,opts={}){
     const{isRefilter=false,storeOverride='',_f1=null,_f2=null}=opts;
+    if(!isRefilter)console.warn('[PRISME] processDataFromRaw called with isRefilter:false — legacy path?',new Error().stack);
     const _savedStoreBeforeReset=isRefilter?(_S.selectedMyStore||localStorage.getItem('prisme_selectedStore')||''):'';
     if(isRefilter&&_savedStoreBeforeReset)_S.selectedMyStore=_savedStoreBeforeReset;
     const t0=performance.now();const _perf=[];const _mark=(label)=>{_perf.push({etape:label,ms:Math.round(performance.now()-t0)});};
