@@ -27,14 +27,17 @@ function _openDB() {
 }
 
 async function loadData() {
+  console.log('[Scan] loadData — début');
   try {
     const db = await _openDB();
+    console.log('[Scan] IDB ouverte, stores:', [...db.objectStoreNames]);
     const tx = db.transaction(IDB_STORE, 'readonly');
     const data = await new Promise((resolve, reject) => {
       const r = tx.objectStore(IDB_STORE).get('current');
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
+    console.log('[Scan] IDB current:', data ? 'finalData=' + (data.finalData?.length || 0) : 'vide');
     if (data?.finalData?.length) {
       _articles = new Map();
       for (const r of data.finalData) _articles.set(r.code, r);
@@ -69,9 +72,10 @@ async function loadData() {
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
+    console.log('[Scan] IDB scan-import:', scanData ? 'articles=' + (scanData.articles?.length || 0) : 'vide');
     if (scanData?.articles?.length) {
       _loadFromScanPayload(scanData);
-      console.log('[Scan] ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
+      console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
       return;
     }
     // Fallback : fetch data/scan.json depuis le dossier du code
@@ -114,10 +118,25 @@ async function _saveScanToIDB(data) {
     const db = await _openDB();
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).put(data, 'scan-import');
-    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
-    console.log('[Scan] Données sauvegardées en IDB');
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(new Error('Transaction IDB annulée: ' + (tx.error?.message || 'quota?')));
+    });
+    // Vérification : relire immédiatement
+    const tx2 = db.transaction(IDB_STORE, 'readonly');
+    const check = await new Promise((resolve, reject) => {
+      const r = tx2.objectStore(IDB_STORE).get('scan-import');
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    if (check?.articles?.length) {
+      console.log('[Scan] ✅ IDB vérifié : ' + check.articles.length + ' articles persistés');
+    } else {
+      console.error('[Scan] ❌ IDB write OK mais relecture vide !');
+    }
   } catch (e) {
-    console.warn('[Scan] Échec sauvegarde IDB:', e);
+    console.error('[Scan] ❌ Échec sauvegarde IDB:', e);
   }
 }
 
