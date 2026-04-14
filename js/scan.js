@@ -117,6 +117,11 @@ function lookup(code) {
   const emp = r.emplacement || '—';
   const abc = r.abcClass || '—';
   const fmr = r.fmrClass || '—';
+  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+  const _mColors = {AF:'#fbbf24',AM:'#fb923c',AR:'#f87171',BF:'#86efac',BM:'#94a3b8',BR:'#c4b5fd',CF:'#67e8f9',CM:'#fdba74',CR:'#f87171'};
+  const mKey = (r.abcClass || '') + (r.fmrClass || '');
+  const matriceLabel = r.matriceVerdict || _mLabels[mKey] || '';
+  const matriceColor = _mColors[mKey] || 'var(--t2)';
   const reseauInfo = r._reseauAgences > 0
     ? '<strong>' + r._reseauAgences + '</strong> agence' + (r._reseauAgences > 1 ? 's' : '') + ' réseau'
     : 'Pas de données réseau';
@@ -146,7 +151,7 @@ function lookup(code) {
       <div class="cell">
         <div class="label">PU</div>
         <div class="val" style="font-size:16px">${pu}</div>
-        <div class="sub">ABC-${abc} FMR-${fmr}</div>
+        <div class="sub">ABC-${abc} FMR-${fmr}${matriceLabel ? ' · <strong style="color:' + matriceColor + '">' + matriceLabel + '</strong>' : ''}</div>
       </div>
       <div class="cell">
         <div class="label">Fréquence (W)</div>

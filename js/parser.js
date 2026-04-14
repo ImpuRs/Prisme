@@ -18,6 +18,10 @@ import { buildAgenceStore } from './agence-store.js';
 
 // ── Zone de Chalandise (4ème fichier optionnel) ───────────────
 export async function parseChalandise(file) {
+  if (_S.lowMemMode) {
+    showToast('📱 Mode mobile: Chalandise désactivée (mémoire). Chargez-la sur PC/Zebra.', 'info', 6000);
+    return;
+  }
   // Support multi-fichier : file peut être un File ou un FileList/Array
   const files = (file instanceof FileList || Array.isArray(file)) ? [...file] : [file];
   if (!files.length) return;
@@ -227,6 +231,10 @@ export function _computeChalandiseDistances() {
 
 // ── Livraisons (4ème fichier optionnel) — alimente livraisonsData + territoireLines ──
 export async function parseLivraisons(file) {
+  if (_S.lowMemMode) {
+    showToast('📱 Mode mobile: Livraisons/Terrain désactivés (mémoire). Chargez-les sur PC.', 'info', 6000);
+    return;
+  }
   const _lt0=performance.now();const _lm=[];const _lmk=(l)=>{_lm.push({etape:l,ms:Math.round(performance.now()-_lt0)});};
   _S.livraisonsData = new Map();
   _S.livraisonsReady = false;

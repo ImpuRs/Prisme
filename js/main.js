@@ -36,6 +36,18 @@ import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDr
 import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
 import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitRupClients, renderMesClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './commerce.js';
 
+// ── Mobile / Low-memory mode (iPhone Safari, petites RAM) ──────────────────
+function _detectLowMemMode() {
+  try {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iP(hone|ad|od)/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS) return true; // tous les navigateurs iOS = WebKit (limites mémoire similaires)
+  } catch (_) {}
+  return false;
+}
+if (!_S.lowMemMode) _S.lowMemMode = _detectLowMemMode();
+if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) — pipeline allege');
+
   // ── Filtre période global ──
   function togglePeriodDropdown(){ toggleTabPeriodDropdown(); }
   function toggleTabPeriodDropdown(){
@@ -92,6 +104,7 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
             periodStart:_S.periodFilterStart?_S.periodFilterStart.getTime():null,
             periodEnd:_S.periodFilterEnd?_S.periodFilterEnd.getTime():null,
             isRefilter:true,
+            lowMem: !!_S.lowMemMode,
           });
           // Sauvegarder les données période-invariantes avant hydratation
           const _savedFull=_S.ventesClientArticleFull.size?_S.ventesClientArticleFull:new Map([..._S.ventesClientArticle].map(([cc,arts])=>[cc,new Map(arts)]));
@@ -1019,6 +1032,8 @@ _S.canalAgence=newCanalAgence;
     }
     // H4: reset complet de tous les globals session avant chaque re-upload
     resetAppState();
+    // Le reset conserve _S.lowMemMode (flag environnement). Re-détecter au cas où.
+    if (!_S.lowMemMode) _S.lowMemMode = _detectLowMemMode();
     const _selStore=document.getElementById('selectMyStore');
     if(_selStore){if(_storeOverride){_selStore.value=_storeOverride;}else{_selStore.innerHTML='<option value="">—</option>';_selStore.value='';}}
     _restoreExclusions();
@@ -1029,37 +1044,20 @@ _S.canalAgence=newCanalAgence;
 
     showLoading('Lecture…','');await yieldToMain();
 
-    // ── Lecture parallèle des ArrayBuffers (multi-consommé) ──
-    let bufCArray, bufS;
-    const filenamesC = [];
-    try{
-      updatePipeline('consomme','active');updatePipeline('stock','active');
-      updateProgress(10,100,'Lecture fichiers…');
-      const bufPromises = [];
-      for (let i = 0; i < filesC.length; i++) {
-        bufPromises.push(filesC[i].arrayBuffer());
-        filenamesC.push(filesC[i].name);
-      }
-      bufPromises.push(f2 ? f2.arrayBuffer() : Promise.resolve(null));
-      const allBufs = await Promise.all(bufPromises);
-      bufS = allBufs.pop();
-      bufCArray = allBufs;
-      updateProgress(18,100,'Buffers prêts…');await yieldToMain();
-    }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
-
     // Stocker les File pour refilter période ultérieur (léger, pas de copie buffer)
     _S._fileC = filesC[0];
     _S._filesC = filesC;
     _S._fileS = f2 || null;
     _S._rawDataC = null; _S._rawDataS = [];
 
-    // ── Lancement du worker de parsing ──
-    updateProgress(20,100,'Parsing en cours (Worker)…');
+    // ── Lancement du worker de parsing (stream ArrayBuffers) ──
+    updatePipeline('consomme','active');updatePipeline('stock','active');
+    updateProgress(10,100,'Lecture fichiers…');
     let parseResult;
     try{
-      parseResult = await launchParseWorker(bufCArray, bufS, {
+      parseResult = await launchParseWorkerFromFiles(filesC, f2 || null, {
         selectedStore: selectedStore || '',
-        filenamesC: filenamesC,
+        lowMem: !!_S.lowMemMode,
       });
     }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
@@ -1126,6 +1124,80 @@ _S.canalAgence=newCanalAgence;
       if (bufS) transferables.push(bufS);
       worker.postMessage(Object.assign({ bufCArray: bufCArray, bufS: bufS || null }, opts), transferables);
     });
+  }
+
+  // ── launchParseWorkerFromFiles — stream File → Worker (faible pic mémoire) ──
+  // Sur certaines configs (PC 4Go / iOS), accumuler plusieurs gros ArrayBuffer avant transfert
+  // peut faire planter le navigateur. Ici, on envoie les buffers un par un (transferable).
+  async function launchParseWorkerFromFiles(filesC, fileS, opts) {
+    const _filesC = Array.from(filesC || []);
+    const filenamesC = _filesC.map(f => f.name);
+    const worker = new Worker('js/parse-worker.js');
+
+    const resultP = new Promise((resolve, reject) => {
+      worker.onmessage = async function(ev) {
+        const msg = ev.data;
+        if (msg.type === 'progress') {
+          updateProgress(msg.pct, 100, msg.msg);
+        } else if (msg.type === 'stores') {
+          // Le Worker a détecté les agences — sélectionner et répondre
+          const storesI = new Set(msg.storesIntersection || []);
+          _S.storesIntersection = storesI;
+          _S.storeCountConsomme = (msg.storesFoundC || []).length;
+          _S.storeCountStock = (msg.storesFoundS || []).length;
+          let store = (opts.selectedStore || '').toUpperCase();
+          if (storesI.size === 1) {
+            store = [...storesI][0];
+          } else if (storesI.size > 1 && (!store || !storesI.has(store))) {
+            store = await _showStoreSelector(storesI) || '';
+          }
+          if (store) localStorage.setItem('prisme_selectedStore', store);
+          // Mettre à jour le dropdown agence
+          const _selStore = document.getElementById('selectMyStore');
+          if (_selStore && storesI.size) {
+            _selStore.innerHTML = '<option value="">—</option>' + [...storesI].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+            if (store) _selStore.value = store;
+          }
+          document.getElementById('storeSelector')?.classList.add('hidden');
+          // Confirmer au Worker — il peut continuer le parse complet
+          worker.postMessage({ type: 'continue', selectedStore: store });
+        } else if (msg.type === 'done') {
+          worker.terminate();
+          resolve(msg.payload);
+        } else if (msg.type === 'error') {
+          worker.terminate();
+          reject(new Error(msg.msg));
+        }
+      };
+      worker.onerror = function(err) { worker.terminate(); reject(new Error('ParseWorker: ' + (err.message||'erreur'))); };
+    });
+
+    // Init (sans buffers)
+    worker.postMessage(Object.assign({ type: 'init', filenamesC: filenamesC }, opts));
+
+    // Envoyer consommé (1 par 1) pour réduire le pic mémoire
+    try {
+      for (let i = 0; i < _filesC.length; i++) {
+        const f = _filesC[i];
+        updateProgress(10 + Math.round(6 * (i / Math.max(_filesC.length, 1))), 100, 'Lecture ' + f.name + '…');
+        const buf = await f.arrayBuffer();
+        worker.postMessage({ type: 'consomme', buf, filename: f.name, index: i, total: _filesC.length }, [buf]);
+        await yieldToMain();
+      }
+      if (fileS) {
+        updateProgress(16, 100, 'Lecture ' + fileS.name + '…');
+        const bufS = await fileS.arrayBuffer();
+        worker.postMessage({ type: 'stock', buf: bufS, filename: fileS.name }, [bufS]);
+        await yieldToMain();
+      }
+      updateProgress(20, 100, 'Parsing en cours (Worker)…');
+      worker.postMessage({ type: 'start' });
+    } catch (e) {
+      worker.terminate();
+      throw e;
+    }
+
+    return await resultP;
   }
 
   // ── _hydrateStateFromParseResult — reconstruit _S depuis le payload worker ──
@@ -1295,6 +1367,7 @@ _S.canalAgence=newCanalAgence;
     const btn = document.getElementById('btnCalculer'); btn.disabled = true;
     try {
       const useMulti = _S.storesIntersection.size > 1 && _S.selectedMyStore;
+      const lowMem = !!_S.lowMemMode;
 
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
@@ -1343,16 +1416,26 @@ _S.canalAgence=newCanalAgence;
       // Chalandise + livraisons (si fichiers chargés)
       _mark('Avant chalandise');
       console.log('[PERF] chalandiseReady=',_S.chalandiseReady,'livraisonsReady=',_S.livraisonsReady,'chalFiles=',document.getElementById('fileChalandise').files?.length,'livFile=',!!document.getElementById('fileLivraisons').files[0]);
-      {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
+      if (!lowMem) {
+        {const _chalFiles=document.getElementById('fileChalandise').files;if(_chalFiles?.length&&!_S.chalandiseReady&&!_S._chalandiseLoading){_S._chalandiseLoading=true;try{await parseChalandise(_chalFiles);}finally{_S._chalandiseLoading=false;}}}
+      } else {
+        const _chalFiles=document.getElementById('fileChalandise').files;
+        if (_chalFiles?.length) showToast('📱 Mode mobile: Chalandise ignorée (risque crash mémoire). Faites-le sur PC/Zebra.', 'info', 6000);
+      }
       _mark('Après chalandise');
-      {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
+      if (!lowMem) {
+        {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
+      } else {
+        const fL=document.getElementById('fileLivraisons').files[0];
+        if (fL) showToast('📱 Mode mobile: Livraisons/Terrain ignorés (risque crash mémoire). Faites-le sur PC.', 'info', 6000);
+      }
       _mark('Après livraisons');
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
+      if(!lowMem && useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
 
       // ABC/FMR + selects
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();
-      assertPostParseInvariants();
+      if (!lowMem) assertPostParseInvariants();
       if(useMulti){updateProgress(94,100,'Verdicts Squelette…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
       updateProgress(95,100,'Affichage…');await yieldToMain();
 
@@ -1378,15 +1461,28 @@ _S.canalAgence=newCanalAgence;
       const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
-      computeClientCrossing();computeReconquestCohort();
-      buildClientStore();_applyForcageCommercial();_mark('ClientStore + crossing');
-      if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
-      // launchClientWorker — toujours lancé (gère chalandise vide en interne)
-      // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
-      launchClientWorker().then(async()=>{
-        if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
-        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
-      }).catch(err=>console.warn('Client worker error:',err));
+      if (!lowMem) {
+        computeClientCrossing();computeReconquestCohort();
+        buildClientStore();_applyForcageCommercial();_mark('ClientStore + crossing');
+        if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
+        // launchClientWorker — toujours lancé (gère chalandise vide en interne)
+        // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
+        launchClientWorker().then(async()=>{
+          if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
+          if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
+        }).catch(err=>console.warn('Client worker error:',err));
+      } else {
+        // Mode mobile: on évite les agrégats clients (gros Map/Set) et on sauvegarde directement pour Scan.
+        if(_S.selectedMyStore){
+          localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);
+          _saveToCache();
+          await _saveSessionToIDB();
+          const _fc=document.getElementById('fileConsomme').files;
+          const f2h=document.getElementById('fileStock').files[0]||null;
+          if(_fc&&_fc.length) await _saveFileHashes(_fc,f2h,null,null);
+        }
+        showToast('📱 Mode mobile: cache Scan prêt (IndexedDB) — ouvrez scan.html', 'success', 5000);
+      }
       _S.currentPage=0;
       renderAll();_mark('renderAll');
       initDetailsAnimations();
@@ -1455,6 +1551,16 @@ _S.canalAgence=newCanalAgence;
   function _enrichFinalDataWithCA() {
     // Injecte caAnnuel sur chaque article de DataStore.finalData depuis DataStore.ventesClientArticle
     // (canal MAGASIN, myStore uniquement — invariant dualité PDV/hors-agence)
+
+    // Fallback low-memory : si ventesClientArticle est vide, dériver depuis ventesParMagasin.
+    // (permet Scan/mobile sans les gros Maps clients)
+    const _myStore=_S.selectedMyStore;
+    const _vpmStore=_myStore?(_S.ventesParMagasin?.[_myStore]||null):null;
+    if((!DataStore.ventesClientArticle||DataStore.ventesClientArticle.size===0)&&_vpmStore){
+      for(const r of DataStore.finalData){r.caAnnuel=Math.round(_vpmStore?.[r.code]?.sumCA||0);}
+      return;
+    }
+
     const _caByCode=new Map();
     for(const[,artMap] of DataStore.ventesClientArticle.entries()){
       for(const[code,data] of artMap.entries()){
@@ -2485,7 +2591,9 @@ _S.canalAgence=newCanalAgence;
   // Charger la table CP → coordonnées GPS en arrière-plan (non bloquant)
   loadCpCoords();
   // Chargement catalogue en arrière-plan (marques, familles, désignations)
-  loadCatalogueMarques().catch(e => console.warn('[PRISME] Catalogue non chargé:', e));
+  if (!_S.lowMemMode) {
+    loadCatalogueMarques().catch(e => console.warn('[PRISME] Catalogue non chargé:', e));
+  }
 
   // Baseline saisonnalité 2025 — embarquée dans le repo, aucune donnée client
   fetch('./data/seasonal_index_2025.json')
@@ -2956,9 +3064,11 @@ window.exportScanData = function() {
   const myStore = _S.selectedMyStore || '';
   const vpm = _S.ventesParMagasin || {};
   const otherStores = Object.keys(vpm).filter(s => s !== myStore);
+  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
   const articles = DataStore.finalData.map(r => {
     let reseauAgences = 0;
     for (const s of otherStores) { if (vpm[s]?.[r.code]?.countBL > 0) reseauAgences++; }
+    const mKey = (r.abcClass || '') + (r.fmrClass || '');
     return {
       code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
       emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
@@ -2966,6 +3076,7 @@ window.exportScanData = function() {
       ancienMin: r.ancienMin, ancienMax: r.ancienMax,
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
+      matriceVerdict: _mLabels[mKey] || '',
       medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
       _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
       _reseauAgences: reseauAgences, isParent: r.isParent

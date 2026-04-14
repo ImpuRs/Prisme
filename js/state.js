@@ -19,6 +19,11 @@ _S.sortAsc = false;
 _S.currentPage = 0;
 _S.debounceTimer = null; // timer UI — intentionnellement absent de resetAppState() (pas de données métier)
 
+// ── Environnement / garde-fous perf ──
+// Active sur devices à faible RAM (ex: iPhone Safari) pour éviter les crashes mémoire.
+// Ce flag n'est pas une donnée métier; il doit survivre à resetAppState().
+_S.lowMemMode = false;
+
 // ── Store / ventes ──
 _S.ventesParMagasin = {};
 _S.ventesParMagasinByCanal = {}; // structure séparée multi-canal pour Spectre Réseau
@@ -314,6 +319,9 @@ export function invalidateCache(...scopes) {
 // CONVENTION : toute nouvelle variable _S.xxx DOIT être déclarée ICI (init)
 // ET dans resetAppState() ci-dessous. Oublier le reset = bug silencieux au re-chargement.
 export function resetAppState() {
+  // Conserver les flags "environnement" (pas lié à la session courante).
+  const _keepLowMemMode = !!_S.lowMemMode;
+
   // Annuler les workers en cours si présents
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
@@ -455,6 +463,8 @@ export function resetAppState() {
 
   // Radar Famille
   _S._rfData = null;
+
+  _S.lowMemMode = _keepLowMemMode;
 }
 
 // ── Invariants post-parsing — appeler après computeABCFMR() ────────────────
