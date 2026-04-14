@@ -2770,9 +2770,6 @@ function _renderPlanRayonContent(data) {
       </button>` : ''}
     </div>
     <div class="relative mb-3">
-      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
-        autocomplete="off"
-        class="w-full px-3 py-2 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
       <div id="prSearchResults" class="hidden fixed s-card border rounded-xl shadow-xl max-h-[640px] overflow-y-auto z-[9999]"></div>
     </div>
     ${_prEmpFilter ? `<div class="flex items-center gap-2 mb-2"><span class="text-[11px] t-secondary">📍 ${escapeHtml(_prEmpFilter)}</span><button onclick="window._prSelectEmp('')" class="text-[10px] t-disabled hover:t-primary">✕</button></div>` : ''}
@@ -2907,6 +2904,8 @@ function _initPrSearch() {
 
   let debounce;
   input.addEventListener('input', () => {
+    const _clr = document.getElementById('prSearchClear');
+    if (_clr) _clr.classList.toggle('hidden', !input.value);
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       const q = input.value.trim().toLowerCase();
@@ -4730,10 +4729,19 @@ function _prTopTabBar() {
       class="text-[12px] px-5 py-2.5 cursor-pointer border-b-2 transition-colors font-semibold ${active ? 'font-bold' : 'hover:t-primary'}"
       style="${active ? 'border-color:var(--c-action);color:var(--t-primary)' : 'border-color:transparent;color:var(--t-secondary)'}">${icon} ${label}</button>`;
   };
-  return `<div class="flex gap-0 mb-3 border-b b-light" style="position:sticky;top:0;z-index:20;background:var(--color-bg-primary,#0f172a);padding-top:4px">
-    ${tab('famille', '📦', 'Pilotage Famille')}
-    ${tab('metier', '🎯', 'Pilotage Métier')}
-    ${_S.storesIntersection?.size > 1 ? tab('palmares', '🏆', 'Palmarès Réseau') : ''}
+  return `<div style="position:sticky;top:0;z-index:20;background:var(--color-bg-primary,#0f172a);padding-top:4px">
+    <div class="flex gap-0 border-b b-light">
+      ${tab('famille', '📦', 'Pilotage Famille')}
+      ${tab('metier', '🎯', 'Pilotage Métier')}
+      ${_S.storesIntersection?.size > 1 ? tab('palmares', '🏆', 'Palmarès Réseau') : ''}
+    </div>
+    <div class="relative py-2">
+      <input type="text" id="prSearchInput" placeholder="🔍 Famille, sous-famille, marque, code ou emplacement…"
+        autocomplete="off"
+        class="w-full px-3 py-2 pr-8 text-[12px] rounded-lg border b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none">
+      <button id="prSearchClear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[14px] t-disabled hover:t-primary cursor-pointer select-none" style="line-height:1"
+        onclick="const i=document.getElementById('prSearchInput');i.value='';i.focus();i.dispatchEvent(new Event('input'));this.classList.add('hidden')">✕</button>
+    </div>
   </div>`;
 }
 
