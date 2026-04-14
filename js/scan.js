@@ -27,48 +27,83 @@ function _openDB() {
 }
 
 async function loadData() {
-  // Priorité 1 : data/scan.json (toujours fiable, pas de cache navigateur)
-  if (await _tryFetchScanJson()) return;
-  // Priorité 2 : IDB session PRISME (même appareil)
+  console.log('[Scan] loadData — début');
   try {
     const db = await _openDB();
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const data = await new Promise((resolve, reject) => {
-      const r = tx.objectStore(IDB_STORE).get('current');
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    if (data?.finalData?.length) {
-      _articles = new Map();
-      for (const r of data.finalData) _articles.set(r.code, r);
-      if (data.ventesParMagasin) {
-        const myStore = data.selectedMyStore || '';
-        const vpm = data.ventesParMagasin;
-        const allStores = Object.keys(vpm);
-        for (const [code, r] of _articles) {
-          let reseauCount = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
-          for (const s of allStores) {
-            const v = vpm[s]?.[code];
-            if (!v || v.countBL <= 0) continue;
-            if (s !== myStore) reseauCount++;
-            totalCA += v.sumCA || 0;
-            totalPrel += v.sumPrelevee || 0;
-            totalVMB += v.sumVMB || 0;
-          }
-          r._reseauAgences = reseauCount;
-          r.prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
-          r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
-        }
+    try {
+      console.log('[Scan] IDB ouverte, stores:', [...db.objectStoreNames]);
+      // Priorité 1 : clé 'scan' (payload minimal, fiable sur Safari iOS)
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const data = await new Promise((resolve, reject) => {
+        const r = tx.objectStore(IDB_STORE).get('scan');
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      console.log('[Scan] IDB scan:', data ? 'finalData=' + (data.finalData?.length || 0) : 'vide');
+
+      // Fallback rétrocompat : anciennes sessions sans clé 'scan'
+      let dataEffective = data;
+      if (!dataEffective?.finalData?.length) {
+        const tx0 = db.transaction(IDB_STORE, 'readonly');
+        dataEffective = await new Promise((resolve, reject) => {
+          const r = tx0.objectStore(IDB_STORE).get('current');
+          r.onsuccess = () => resolve(r.result);
+          r.onerror = () => reject(r.error);
+        });
+        console.log('[Scan] IDB current:', dataEffective ? 'finalData=' + (dataEffective.finalData?.length || 0) : 'vide');
       }
-      document.getElementById('refCount').textContent = _articles.size + ' refs';
-      console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (session)');
-      return;
+
+      if (dataEffective?.finalData?.length) {
+        _articles = new Map();
+        for (const r of dataEffective.finalData) _articles.set(r.code, r);
+        if (dataEffective.ventesParMagasin) {
+          const myStore = dataEffective.selectedMyStore || '';
+          const vpm = dataEffective.ventesParMagasin;
+          const allStores = Object.keys(vpm);
+          for (const [code, r] of _articles) {
+            let reseauCount = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
+            for (const s of allStores) {
+              const v = vpm[s]?.[code];
+              if (!v || v.countBL <= 0) continue;
+              if (s !== myStore) reseauCount++;
+              totalCA += v.sumCA || 0;
+              totalPrel += v.sumPrelevee || 0;
+              totalVMB += v.sumVMB || 0;
+            }
+            r._reseauAgences = reseauCount;
+            r.prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
+            r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
+          }
+        }
+        document.getElementById('refCount').textContent = _articles.size + ' refs';
+        console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (scan/session)');
+        return;
+      }
+      // Fallback : données scan importées via JSON, persistées en IDB
+      const tx2 = db.transaction(IDB_STORE, 'readonly');
+      const scanData = await new Promise((resolve, reject) => {
+        const r = tx2.objectStore(IDB_STORE).get('scan-import');
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      console.log('[Scan] IDB scan-import:', scanData ? 'articles=' + (scanData.articles?.length || 0) : 'vide');
+      if (scanData?.articles?.length) {
+        _loadFromScanPayload(scanData);
+        console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
+        return;
+      }
+      // Fallback : fetch data/scan.json
+      if (await _tryFetchScanJson()) return;
+      _showImportFallback();
+    } finally {
+      try { db.close(); } catch (_) {}
     }
   } catch (e) {
-    console.warn('[Scan] IDB indisponible:', e);
+    console.error('[Scan] Erreur chargement IDB:', e);
+    const reason = (e && (e.name || e.message)) ? ((e.name || 'Erreur') + (e.message ? ' — ' + e.message : '')) : 'Erreur inconnue';
+    if (await _tryFetchScanJson()) return;
+    _showImportFallback(reason);
   }
-  // Priorité 3 : import manuel
-  _showImportFallback();
 }
 
 async function _tryFetchScanJson() {
@@ -97,39 +132,46 @@ function _loadFromScanPayload(data) {
 
 // Persister les données scan importées en IDB
 async function _saveScanToIDB(data) {
+  let db = null;
   try {
-    const db = await _openDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(data, 'scan-import');
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(new Error('Transaction IDB annulée: ' + (tx.error?.message || 'quota?')));
-    });
-    // Vérification : relire immédiatement
-    const tx2 = db.transaction(IDB_STORE, 'readonly');
-    const check = await new Promise((resolve, reject) => {
-      const r = tx2.objectStore(IDB_STORE).get('scan-import');
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    if (check?.articles?.length) {
-      console.log('[Scan] ✅ IDB vérifié : ' + check.articles.length + ' articles persistés');
-    } else {
-      console.error('[Scan] ❌ IDB write OK mais relecture vide !');
+    db = await _openDB();
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(data, 'scan-import');
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(new Error('Transaction IDB annulée: ' + (tx.error?.message || 'quota?')));
+      });
+      // Vérification : relire immédiatement
+      const tx2 = db.transaction(IDB_STORE, 'readonly');
+      const check = await new Promise((resolve, reject) => {
+        const r = tx2.objectStore(IDB_STORE).get('scan-import');
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      if (check?.articles?.length) {
+        console.log('[Scan] ✅ IDB vérifié : ' + check.articles.length + ' articles persistés');
+      } else {
+        console.error('[Scan] ❌ IDB write OK mais relecture vide !');
+      }
+    } finally {
+      try { db.close(); } catch (_) {}
     }
   } catch (e) {
     console.error('[Scan] ❌ Échec sauvegarde IDB:', e);
+    if (db) { try { db.close(); } catch (_) {} }
   }
 }
 
-function _showImportFallback() {
+function _showImportFallback(reason) {
   document.getElementById('importZone').style.display = 'block';
   document.getElementById('content').innerHTML = `
     <div class="empty">
       <div class="icon">📱</div>
       <p>Pas de cache PRISME sur cet appareil.</p>
       <p style="margin-top:12px;font-size:12px;color:var(--t2)">Chargez le fichier <strong>prisme-scan-XXX.json</strong><br>exporté depuis PRISME sur PC.</p>
+      ${reason ? `<p style="margin-top:10px;font-size:11px;color:var(--t3)">IndexedDB indisponible : ${_esc(reason)}</p>` : ''}
     </div>`;
 }
 
@@ -437,9 +479,14 @@ async function purgeCache() {
   if (!confirm('Supprimer toutes les données scan en cache ?')) return;
   try {
     const db = await _openDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).delete('scan-import');
-    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete('scan-import');
+      tx.objectStore(IDB_STORE).delete('scan');
+      await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    } finally {
+      try { db.close(); } catch (_) {}
+    }
   } catch (_) {}
   _articles = null;
   _eanMap = null;

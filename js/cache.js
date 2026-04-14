@@ -340,8 +340,26 @@ async function _saveSessionToIDBNow() {
   // Guard également ici : l'état peut changer entre le scheduling et l'exécution.
   if (!_S.finalData?.length) return;
   _S._idbSaving = true;
+  let db = null;
   try {
-    const db = await _openDB();
+    db = await _openDB();
+    // Payload minimal pour scan.html — survit même si la session complète échoue (quota Safari iOS)
+    try {
+      const txScan = db.transaction([IDB_STORE], 'readwrite');
+      const stScan = txScan.objectStore(IDB_STORE);
+      const scanPayload = {
+        version: CACHE_VERSION,
+        timestamp: Date.now(),
+        selectedMyStore: _S.selectedMyStore || '',
+        storesIntersection: [..._S.storesIntersection],
+        finalData: _S.finalData,
+        ventesParMagasin: _S.ventesParMagasin,
+      };
+      stScan.put(scanPayload, 'scan');
+      await new Promise((res, rej) => { txScan.oncomplete = res; txScan.onerror = () => rej(txScan.error); });
+    } catch (eScan) {
+      console.warn('[PRISME] IDB save scan payload failed:', eScan);
+    }
     const tx = db.transaction([IDB_STORE, IDB_TERR], 'readwrite');
     const st = tx.objectStore(IDB_STORE);
     const payload = {
@@ -457,7 +475,7 @@ async function _saveSessionToIDBNow() {
     const terrPayload = _serializeTerritoire(_S.territoireLines);
     terrStore.put(terrPayload, 'lines');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-    db.close();
+    try { db.close(); } catch (_) {}
     localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
     console.log('[PRISME] session sauvegardée dans IndexedDB', {
       finalData: _S.finalData?.length || 0,
@@ -467,6 +485,7 @@ async function _saveSessionToIDBNow() {
     });
   } catch (e) {
     console.error('[PRISME] IDB save error:', e);
+    if (db) { try { db.close(); } catch (_) {} }
   } finally {
     _S._idbSaving = false;
   }
