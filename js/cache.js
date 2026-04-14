@@ -323,6 +323,9 @@ function _deserializeTerritoire(cols) {
 // Sauvegarde complète — déférée via requestIdleCallback pour ne pas perturber l'UI
 let _idbSaveScheduled = false;
 export function _saveSessionToIDB() {
+  // Ne pas écraser une session valide avec un état partiel (ex: rattachement commercial chargé
+  // avant que le consommé/stock ne soient parsés). Une session "vide" n'a pas d'intérêt à restaurer.
+  if (!_S.finalData?.length) return Promise.resolve();
   if (_idbSaveScheduled) return Promise.resolve();
   _idbSaveScheduled = true;
   return new Promise(resolve => {
@@ -334,6 +337,8 @@ export function _saveSessionToIDB() {
 
 async function _saveSessionToIDBNow() {
   if (_S._idbSaving) return; // guard anti-boucle
+  // Guard également ici : l'état peut changer entre le scheduling et l'exécution.
+  if (!_S.finalData?.length) return;
   _S._idbSaving = true;
   try {
     const db = await _openDB();

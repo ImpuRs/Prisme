@@ -36,7 +36,7 @@ let _ftlCacheKey = '';
 function _cachedFilteredTerrLines() {
   const lines = _S.territoireLines;
   if (!lines?.length) return lines || [];
-  const key = `${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${lines.length}`;
+  const key = `${_S._terrVersion||0}|${_S.periodFilterStart?.getTime()||0}|${_S.periodFilterEnd?.getTime()||0}|${lines.length}`;
   if (_ftlCacheKey === key && _ftlCache) return _ftlCache;
   _ftlCache = _filterByPeriode(lines);
   _ftlCacheKey = key;

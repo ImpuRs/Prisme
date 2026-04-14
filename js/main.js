@@ -1239,6 +1239,54 @@ _S.canalAgence=newCanalAgence;
 
   window._applyForcageCommercial = _applyForcageCommercial;
 
+  // ── Juge de Paix — Vitesse Réseau (fonction partagée) ──────────────────
+  // Cascade : Ventes locales > 0 → calcul local (déjà fait en amont)
+  //           Ventes locales = 0, réseau > 0 → Vitesse Réseau (Top 3)
+  //           Ventes locales = 0, réseau = 0, stocké réseau → médiane ERP
+  function _applyVitesseReseau(){
+    if(!DataStore.finalData.length)return;
+    const _myS=_S.selectedMyStore;
+    const _vpm=_S.ventesParMagasin||{};
+    const _allStores=Object.keys(_vpm).filter(s=>s!==_myS);
+    if(_allStores.length<2)return;
+    let _applied=0;
+    for(const r of DataStore.finalData){
+      if(r.nouveauMin>0||r.nouveauMax>0)continue;
+      if(r.isParent)continue;
+      const _sl=(r.statut||'').toLowerCase();
+      if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
+      const _agV=[];
+      for(const s of _allStores){const v=_vpm[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
+      if(!_agV.length)continue;
+      _agV.sort((a,b)=>b.ca-a.ca);
+      const _t3=_agV.slice(0,3);
+      let _tCA=0,_tBL=0;for(const a of _t3){_tCA+=a.ca;_tBL+=a.bl;}
+      const _pu=r.prixUnitaire||0;
+      if(_pu<=0||_tBL<=0)continue;
+      const _vit=(_tCA/_pu)/_tBL;
+      if(_vit<=0)continue;
+      r.nouveauMin=Math.max(Math.ceil(_vit),1);
+      r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
+      r._vitesseReseau=true;
+      _applied++;
+    }
+    // Fallback 3 : pas de ventes réseau, mais stocké réseau → médiane ERP
+    for(const r of DataStore.finalData){
+      if(r.nouveauMin>0||r.nouveauMax>0)continue;
+      if(r.isParent)continue;
+      const _sl=(r.statut||'').toLowerCase();
+      if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
+      if(r.medMinReseau>0||r.medMaxReseau>0){
+        r.nouveauMin=Math.max(Math.round(r.medMinReseau),1);
+        r.nouveauMax=Math.max(Math.round(r.medMaxReseau),r.nouveauMin+1);
+        r._vitesseReseau=true;
+        r._fallbackERP=true;
+        _applied++;
+      }
+    }
+    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStores.length);
+  }
+
   // ── _postParseMain — étapes post-hydratation côté main thread ────────────
   // Equivalent à la fin de processDataFromRaw() mais sans re-parser les fichiers.
   async function _postParseMain(opts) {
@@ -1252,6 +1300,7 @@ _S.canalAgence=newCanalAgence;
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
+      if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 
       // Positionner sur le mois le plus récent par défaut (INIT ONLY — pas de render ici)
@@ -1757,50 +1806,7 @@ _S.canalAgence=newCanalAgence;
       _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
 
       // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
-      // Cascade : Ventes locales > 0 → calcul local (déjà fait ci-dessus)
-      //           Ventes locales = 0, réseau > 0 → Vitesse Réseau
-      //           Ventes locales = 0, réseau = 0 → 0/0
-      if(useMulti&&DataStore.finalData.length){
-        const _myS=_S.selectedMyStore;
-        const _vpm=_S.ventesParMagasin||{};
-        // Collecter TOUTES les agences avec des ventes (pas seulement storesIntersection)
-        const _allStores=Object.keys(_vpm).filter(s=>s!==_myS);
-        if(_allStores.length>=2){
-          for(const r of DataStore.finalData){
-            if(r.nouveauMin>0||r.nouveauMax>0)continue; // calcul local OK → souveraineté agence
-            if(r.isParent)continue;
-            const _sl=(r.statut||'').toLowerCase();
-            if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-            // Top 3 agences par CA sur cet article (ventes = faits, toutes agences)
-            const _agV=[];
-            for(const s of _allStores){const v=_vpm[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
-            if(!_agV.length)continue;
-            _agV.sort((a,b)=>b.ca-a.ca);
-            const _t3=_agV.slice(0,3);
-            let _tCA=0,_tBL=0;for(const a of _t3){_tCA+=a.ca;_tBL+=a.bl;}
-            const _pu=r.prixUnitaire||0;
-            if(_pu<=0||_tBL<=0)continue;
-            const _vit=(_tCA/_pu)/_tBL;
-            if(_vit<=0)continue;
-            r.nouveauMin=Math.max(Math.ceil(_vit),1);
-            r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
-            r._vitesseReseau=true; // flag pour UI
-          }
-          // ── Fallback 3 : pas de ventes réseau, mais stocké réseau → médiane ERP ──
-          for(const r of DataStore.finalData){
-            if(r.nouveauMin>0||r.nouveauMax>0)continue; // déjà calculé (local ou Vitesse)
-            if(r.isParent)continue;
-            const _sl=(r.statut||'').toLowerCase();
-            if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
-            if(r.medMinReseau>0||r.medMaxReseau>0){
-              r.nouveauMin=Math.max(Math.round(r.medMinReseau),1);
-              r.nouveauMax=Math.max(Math.round(r.medMaxReseau),r.nouveauMin+1);
-              r._vitesseReseau=true; // flag pour UI (même affichage Vitesse)
-              r._fallbackERP=true;   // flag spécifique : source = ERP réseau, pas ventes
-            }
-          }
-        }
-      }
+      if(useMulti) _applyVitesseReseau();
 
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
