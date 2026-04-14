@@ -252,7 +252,6 @@ _S._byMonthClientsByCanal = null;  // accumulation mensuelle monthIdx→canal→
 _S._clientsTousCanaux = null; // Set<cc> — clients ayant au moins 1 BL dans la période sélectionnée (tous canaux)
 
 // ── Active workers (pour annulation au re-upload) ──
-_S._activeTerrWorker = null;
 _S._activeClientWorker = null;
 
 // ── Réseau worker (Sprint 2) ──────────────────────────────────
@@ -269,7 +268,8 @@ _S._missedSortDir = 'desc';         // direction tri missed
 _S._rawDataC = null;                 // données brutes consommé COMPLET — {headers, rows} (pour benchmark réseau)
 _S._rawDataCFiltered = null;        // données brutes consommé filtrées agence — {headers, rows} (pour refilter période)
 _S._rawDataS = [];                  // données brutes stock (pour refilter période)
-_S._fileC = null;                   // File consommé — conservé pour refilter période via parse-worker
+_S._fileC = null;                   // File consommé (premier) — conservé pour refilter période via parse-worker
+_S._filesC = null;                  // FileList consommé (multi-fichiers) — conservé pour refilter
 _S._fileS = null;                   // File stock — conservé pour refilter période via parse-worker
 _S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
 _S._livraisonsLoading = false;      // guard anti-appels concurrents parseLivraisons
@@ -313,7 +313,6 @@ export function invalidateCache(...scopes) {
 // ET dans resetAppState() ci-dessous. Oublier le reset = bug silencieux au re-chargement.
 export function resetAppState() {
   // Annuler les workers en cours si présents
-  if (_S._activeTerrWorker) { try { _S._activeTerrWorker.terminate(); } catch (_) {} _S._activeTerrWorker = null; }
   if (_S._activeClientWorker) { try { _S._activeClientWorker.terminate(); } catch (_) {} _S._activeClientWorker = null; }
 
   // Core data
@@ -421,7 +420,7 @@ export function resetAppState() {
   // Propriétés anciennement non déclarées (Sprint 0)
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
-  _S._fileC = null; _S._fileS = null;
+  _S._fileC = null; _S._filesC = null; _S._fileS = null;
   _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthStoreClients = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S.clientOmniScore = new Map();

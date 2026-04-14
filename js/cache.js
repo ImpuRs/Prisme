@@ -24,13 +24,23 @@ export async function _getFileHash(file) {
   try {
     const buf = await file.slice(0, 64 * 1024).arrayBuffer();
     const hBuf = await crypto.subtle.digest('SHA-1', buf);
-    return Array.from(new Uint8Array(hBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const hash = Array.from(new Uint8Array(hBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    // Inclure taille + lastModified pour fiabilité (changement après 64Ko détecté)
+    return hash + ':' + (file.size || 0) + ':' + (file.lastModified || 0);
   } catch (_) { return ''; }
+}
+// f1 peut être un File unique ou un FileList/Array (multi-consommé)
+async function _hashConsommeFiles(f1) {
+  if (!f1) return [];
+  // FileList ou Array
+  const files = f1.length !== undefined ? Array.from(f1) : [f1];
+  const hashes = await Promise.all(files.map(f => _getFileHash(f)));
+  return hashes.sort(); // tri pour comparaison stable quel que soit l'ordre de sélection
 }
 export async function _checkFilesUnchanged(f1, f2, f3 = null, f4 = null) {
   try {
-    const [h1, h2, h3, h4] = await Promise.all([
-      _getFileHash(f1),
+    const [hC, h2, h3, h4] = await Promise.all([
+      _hashConsommeFiles(f1),
       f2 ? _getFileHash(f2) : Promise.resolve(null),
       f3 ? _getFileHash(f3) : Promise.resolve(null),
       f4 ? _getFileHash(f4) : Promise.resolve(null),
@@ -38,20 +48,22 @@ export async function _checkFilesUnchanged(f1, f2, f3 = null, f4 = null) {
     const saved = JSON.parse(localStorage.getItem(FILE_HASHES_KEY) || 'null');
     if (!saved) return false;
     const currentStore = localStorage.getItem('prisme_selectedStore') || '';
-    // h4 (livraisons) : si présent d'un côté ou de l'autre → doit correspondre
     const h4Match = (!h4 && !saved.h4) || h4 === saved.h4;
-    return !!h1 && saved.h1 === h1 && saved.h2 === h2 && saved.h3 === h3 && saved.store === currentStore && h4Match;
+    // Comparer les hashes consommé (tableau trié)
+    const savedHC = saved.hC || (saved.h1 ? [saved.h1] : []);
+    const hcMatch = hC.length === savedHC.length && hC.every((h, i) => h === savedHC[i]);
+    return hC.length > 0 && hcMatch && saved.h2 === h2 && saved.h3 === h3 && saved.store === currentStore && h4Match;
   } catch (_) { return false; }
 }
 export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
   try {
-    const [h1, h2, h3, h4] = await Promise.all([
-      _getFileHash(f1),
+    const [hC, h2, h3, h4] = await Promise.all([
+      _hashConsommeFiles(f1),
       f2 ? _getFileHash(f2) : Promise.resolve(null),
       f3 ? _getFileHash(f3) : Promise.resolve(null),
       f4 ? _getFileHash(f4) : Promise.resolve(null),
     ]);
-    if (h1) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({ h1, h2, h3, h4, store: _S.selectedMyStore || '' }));
+    if (hC.length) localStorage.setItem(FILE_HASHES_KEY, JSON.stringify({ hC, h2, h3, h4, store: _S.selectedMyStore || '' }));
   } catch (_) {}
 }
 

@@ -77,10 +77,18 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
       (async()=>{
         showLoading('Recalcul période…','');
         try{
-          const [bufC,bufS]=await Promise.all([_S._fileC.arrayBuffer(),_S._fileS?_S._fileS.arrayBuffer():Promise.resolve(null)]);
-          const parseResult=await launchParseWorker(bufC,bufS,{
+          // Multi-consommé : relire tous les fichiers si disponibles
+          const _allFilesC = _S._filesC || [_S._fileC];
+          const bufPromises = [];
+          const fnames = [];
+          for (let i = 0; i < _allFilesC.length; i++) { bufPromises.push(_allFilesC[i].arrayBuffer()); fnames.push(_allFilesC[i].name); }
+          bufPromises.push(_S._fileS?_S._fileS.arrayBuffer():Promise.resolve(null));
+          const allBufs = await Promise.all(bufPromises);
+          const bufS_r = allBufs.pop();
+          const bufCArray_r = allBufs;
+          const parseResult=await launchParseWorker(bufCArray_r,bufS_r,{
             selectedStore:_S.selectedMyStore||'',
-            storesIntersection:[..._S.storesIntersection],
+            filenamesC: fnames,
             periodStart:_S.periodFilterStart?_S.periodFilterStart.getTime():null,
             periodEnd:_S.periodFilterEnd?_S.periodFilterEnd.getTime():null,
             isRefilter:true,
@@ -977,8 +985,9 @@ _S.canalAgence=newCanalAgence;
   }
 
   async function processData(_storeOverride){
-    const f1=document.getElementById('fileConsomme').files[0],f2=document.getElementById('fileStock').files[0];
-    if(!f1){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
+    const filesC=document.getElementById('fileConsomme').files,f2=document.getElementById('fileStock').files[0];
+    if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
+    if(filesC.length>1){showToast('📊 '+filesC.length+' fichiers consommé — fusion automatique','info',3000);}
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
     const btn=document.getElementById('btnCalculer');btn.disabled=true;
     // ── OPT1 : Hash-check IDB — même fichier → skip parse complet ──
@@ -993,7 +1002,7 @@ _S.canalAgence=newCanalAgence;
         const _storeChanged = _newStore && _newStore !== _S.selectedMyStore;
         if (_idbOk && DataStore.finalData.length > 0 && !_storeChanged) {
           const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
-          const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
+          const _unchanged = await _checkFilesUnchanged(filesC, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
           if (_unchanged) {
             showToast('⚡ Fichiers inchangés — session restaurée depuis le cache', 'success', 3000);
             btn.disabled = false;
@@ -1020,20 +1029,27 @@ _S.canalAgence=newCanalAgence;
 
     showLoading('Lecture…','');await yieldToMain();
 
-    // ── Lecture parallèle des ArrayBuffers ──
-    let bufC, bufS;
+    // ── Lecture parallèle des ArrayBuffers (multi-consommé) ──
+    let bufCArray, bufS;
+    const filenamesC = [];
     try{
       updatePipeline('consomme','active');updatePipeline('stock','active');
       updateProgress(10,100,'Lecture fichiers…');
-      [bufC, bufS] = await Promise.all([
-        f1.arrayBuffer(),
-        f2 ? f2.arrayBuffer() : Promise.resolve(null)
-      ]);
+      const bufPromises = [];
+      for (let i = 0; i < filesC.length; i++) {
+        bufPromises.push(filesC[i].arrayBuffer());
+        filenamesC.push(filesC[i].name);
+      }
+      bufPromises.push(f2 ? f2.arrayBuffer() : Promise.resolve(null));
+      const allBufs = await Promise.all(bufPromises);
+      bufS = allBufs.pop();
+      bufCArray = allBufs;
       updateProgress(18,100,'Buffers prêts…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
     // Stocker les File pour refilter période ultérieur (léger, pas de copie buffer)
-    _S._fileC = f1;
+    _S._fileC = filesC[0];
+    _S._filesC = filesC;
     _S._fileS = f2 || null;
     _S._rawDataC = null; _S._rawDataS = [];
 
@@ -1041,10 +1057,9 @@ _S.canalAgence=newCanalAgence;
     updateProgress(20,100,'Parsing en cours (Worker)…');
     let parseResult;
     try{
-      parseResult = await launchParseWorker(bufC, bufS, {
+      parseResult = await launchParseWorker(bufCArray, bufS, {
         selectedStore: selectedStore || '',
-        storesIntersection: [],  // worker va détecter lui-même
-        filenameC: f1 ? f1.name : '',
+        filenamesC: filenamesC,
       });
     }catch(error){showToast('❌ Parsing: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
@@ -1061,12 +1076,14 @@ _S.canalAgence=newCanalAgence;
 
     // ── Suite du pipeline (enrichissement, chalandise, benchmark, render) ──
     // Étapes post-hydratation côté main thread : enrichPrixUnitaire, chalandise, benchmark, render
-    await _postParseMain({storeOverride: selectedStore||'', _f1: f1, _f2: f2||null});
+    await _postParseMain({storeOverride: selectedStore||'', _f1: filesC, _f2: f2||null});
     buildPeriodFilter();
   }
 
   // ── launchParseWorker — lance parse-worker.js et retourne le payload ──
-  function launchParseWorker(bufC, bufS, opts) {
+  // bufCInput : ArrayBuffer (single, rétrocompat) ou ArrayBuffer[] (multi-consommé)
+  function launchParseWorker(bufCInput, bufS, opts) {
+    const bufCArray = Array.isArray(bufCInput) ? bufCInput : [bufCInput];
     return new Promise(function(resolve, reject) {
       const worker = new Worker('js/parse-worker.js');
       worker.onmessage = async function(ev) {
@@ -1105,9 +1122,9 @@ _S.canalAgence=newCanalAgence;
         }
       };
       worker.onerror = function(err) { worker.terminate(); reject(new Error('ParseWorker: ' + (err.message||'erreur'))); };
-      const transferables = [bufC];
+      const transferables = bufCArray.slice(); // clone pour transfert
       if (bufS) transferables.push(bufS);
-      worker.postMessage(Object.assign({ bufC: bufC, bufS: bufS || null }, opts), transferables);
+      worker.postMessage(Object.assign({ bufCArray: bufCArray, bufS: bufS || null }, opts), transferables);
     });
   }
 
@@ -1320,7 +1337,7 @@ _S.canalAgence=newCanalAgence;
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
       launchClientWorker().then(async()=>{
         if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');}
-        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;const f4=document.getElementById('fileLivraisons').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3,f4);}
+        if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const _fc=document.getElementById('fileConsomme').files;const f2h=document.getElementById('fileStock').files[0]||null;const f3h=document.getElementById('fileChalandise').files[0]||null;const f4h=document.getElementById('fileLivraisons').files[0]||null;if(_fc&&_fc.length)await _saveFileHashes(_fc,f2h,f3h,f4h);}
       }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
       renderAll();_mark('renderAll');
@@ -1337,7 +1354,8 @@ _S.canalAgence=newCanalAgence;
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       switchTab('omni');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
-      const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
+      const _nbFC=document.getElementById('fileConsomme')?.files?.length||1;
+      const _nbF=_nbFC+1+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
       const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');
 

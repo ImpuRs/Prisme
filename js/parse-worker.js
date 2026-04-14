@@ -315,62 +315,93 @@ function waitForContinue() {
   });
 }
 
+// ── Helpers de parsing consommé (CSV / XLSX) ──────────────────────────
+function _parseCsvBuffer(buf) {
+  var text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch(e) { text = new TextDecoder('windows-1252').decode(buf); }
+  var rawLines = text.split('\n');
+  var firstLine = rawLines[0] || '';
+  var sep = firstLine.indexOf(';') > firstLine.indexOf('\t') ? ';'
+          : firstLine.indexOf('\t') >= 0 ? '\t' : ';';
+  var headers = firstLine.split(sep).map(function(h) { return h.trim().replace(/\r/g,'').replace(/^"|"$/g,''); });
+  var nbCols = headers.length;
+  var rows = [];
+  var pending = '';
+  for (var cri = 1; cri < rawLines.length; cri++) {
+    var ln = rawLines[cri].replace(/\r/g, '');
+    if (pending) { ln = pending + '\n' + ln; pending = ''; }
+    var nq = 0; for (var qi = 0; qi < ln.length; qi++) if (ln.charAt(qi) === '"') nq++;
+    if (nq % 2 === 1) { pending = ln; continue; }
+    if (!ln) continue;
+    var cells = ln.split(sep);
+    for (var ci = 0; ci < cells.length; ci++) {
+      var c = cells[ci];
+      if (c.length >= 2 && c.charAt(0) === '"' && c.charAt(c.length - 1) === '"')
+        cells[ci] = c.substring(1, c.length - 1).replace(/""/g, '"');
+    }
+    while (cells.length < nbCols) cells.push('');
+    rows.push(cells);
+  }
+  return { headers: headers, rows: rows };
+}
+
+function _parseXlsxBuffer(buf) {
+  var wb = XLSX.read(new Uint8Array(buf), {
+    type: 'array', dense: true, cellDates: false,
+    cellFormula: false, cellHTML: false, cellStyles: false
+  });
+  return _wsToHR(wb.Sheets[wb.SheetNames[0]]);
+}
+
 self.onmessage = async function(ev) {
   var data = ev.data;
   if (data.type === 'continue') return; // message tardif, ignorer
-  var bufC = data.bufC;
+  // Multi-consommé : accepte bufCArray (tableau) OU bufC (unique, rétrocompat)
+  var bufCArray = data.bufCArray || (data.bufC ? [data.bufC] : []);
+  var filenamesC = data.filenamesC || (data.filenameC ? [data.filenameC] : ['']);
   var bufS = data.bufS;
   var periodStart = data.periodStart ? new Date(data.periodStart) : null;
   var periodEnd = data.periodEnd ? new Date(data.periodEnd) : null;
   var isRefilter = !!data.isRefilter;
-  var filenameC = (data.filenameC || '').toLowerCase();
-  var isCsvC = filenameC.endsWith('.csv');
 
   try {
-    // ── 1. Parse consommé ────────────────────────────────────────────────
-    var dataC;
-    if (isCsvC) {
-      self.postMessage({ type: 'progress', pct: 15, msg: 'Parsing consommé CSV…' });
-      // Détecter l'encodage : essayer UTF-8, fallback CP1252
-      var text;
-      try { text = new TextDecoder('utf-8', { fatal: true }).decode(bufC); }
-      catch(e) { text = new TextDecoder('windows-1252').decode(bufC); }
-      var rawLines = text.split('\n');
-      // Détecter le séparateur sur la première ligne
-      var firstLine = rawLines[0] || '';
-      var sep = firstLine.indexOf(';') > firstLine.indexOf('\t') ? ';'
-              : firstLine.indexOf('\t') >= 0 ? '\t' : ';';
-      var headersC_csv = firstLine.split(sep).map(function(h) { return h.trim().replace(/\r/g,'').replace(/^"|"$/g,''); });
-      var nbCols = headersC_csv.length;
-      // Reconstruire les lignes logiques (champs entre guillemets avec retours à la ligne)
-      var csvRows = [];
-      var pending = '';
-      for (var cri = 1; cri < rawLines.length; cri++) {
-        var ln = rawLines[cri].replace(/\r/g, '');
-        if (pending) { ln = pending + '\n' + ln; pending = ''; }
-        // Compter les guillemets : si impair, la ligne est coupée dans un champ quoted
-        var nq = 0; for (var qi = 0; qi < ln.length; qi++) if (ln.charAt(qi) === '"') nq++;
-        if (nq % 2 === 1) { pending = ln; continue; }
-        if (!ln) continue;
-        // Supprimer les guillemets de champ et splitter correctement
-        var cells = ln.split(sep);
-        for (var ci = 0; ci < cells.length; ci++) {
-          var c = cells[ci];
-          if (c.length >= 2 && c.charAt(0) === '"' && c.charAt(c.length - 1) === '"')
-            cells[ci] = c.substring(1, c.length - 1).replace(/""/g, '"');
+    // ── 1. Parse consommé (un ou plusieurs fichiers) ──────────────────
+    var dataC = null;
+    for (var fi = 0; fi < bufCArray.length; fi++) {
+      var fname = (filenamesC[fi] || '').toLowerCase();
+      var isCsv = fname.endsWith('.csv');
+      var label = bufCArray.length > 1 ? ' (' + (fi + 1) + '/' + bufCArray.length + ')' : '';
+      self.postMessage({ type: 'progress', pct: 10 + Math.round(8 * fi / bufCArray.length), msg: 'Parsing consommé' + label + '…' });
+      var parsed = isCsv ? _parseCsvBuffer(bufCArray[fi]) : _parseXlsxBuffer(bufCArray[fi]);
+      if (!dataC) {
+        dataC = parsed;
+      } else {
+        // Fusion : concaténer les rows, réaligner colonnes si headers diffèrent
+        if (parsed.headers.join('|') === dataC.headers.join('|')) {
+          for (var ri = 0; ri < parsed.rows.length; ri++) dataC.rows.push(parsed.rows[ri]);
+        } else {
+          // Match fuzzy : normaliser casse/accents/espaces pour mapper les colonnes
+          var _norm = function(s) { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); };
+          var normIdx = {};
+          for (var ni = 0; ni < parsed.headers.length; ni++) normIdx[_norm(parsed.headers[ni])] = ni;
+          var colMap = [];
+          for (var hi = 0; hi < dataC.headers.length; hi++) {
+            var exact = parsed.headers.indexOf(dataC.headers[hi]);
+            colMap.push(exact >= 0 ? exact : (normIdx[_norm(dataC.headers[hi])] ?? -1));
+          }
+          for (var ri2 = 0; ri2 < parsed.rows.length; ri2++) {
+            var srcRow = parsed.rows[ri2];
+            var mappedRow = [];
+            for (var mi = 0; mi < colMap.length; mi++) {
+              mappedRow.push(colMap[mi] >= 0 ? srcRow[colMap[mi]] : '');
+            }
+            dataC.rows.push(mappedRow);
+          }
         }
-        while (cells.length < nbCols) cells.push('');
-        csvRows.push(cells);
       }
-      dataC = { headers: headersC_csv, rows: csvRows };
-    } else {
-      self.postMessage({ type: 'progress', pct: 15, msg: 'Parsing consommé XLSX…' });
-      var wbC = XLSX.read(new Uint8Array(bufC), {
-        type: 'array', dense: true, cellDates: false,
-        cellFormula: false, cellHTML: false, cellStyles: false
-      });
-      dataC = _wsToHR(wbC.Sheets[wbC.SheetNames[0]]);
     }
+    if (!dataC) dataC = { headers: [], rows: [] };
 
     // ── 2. Parse XLSX stock ──────────────────────────────────────────────
     var dataS = [];
@@ -451,7 +482,7 @@ self.onmessage = async function(ev) {
       mois: _fc('mois'),
       bl: _fc('n° bl', 'numéro de bl', 'numero bl'),
       commande: _fc('numéro de commande', 'n° commande'),
-      typeCmde: _fc('type cmde pdv', 'type cmde', 'type commande'),  // non utilisé pour l'instant — conservé pour référence
+      // typeCmde retiré — jamais lu dans le pipeline
       caE: _fc('ca enlevé', 'ca enleve'),
       caP: _fc('ca prélevé', 'ca preleve'),
       vmbE: _fc('vmb enlevé', 'vmb enleve'),
@@ -555,16 +586,16 @@ self.onmessage = async function(ev) {
       var _rs = (CI.store !== null ? (row[CI.store] != null ? row[CI.store] : '') : '').toString().trim().toUpperCase() || 'INCONNU';
       var _ra = (CI.article !== null ? (row[CI.article] != null ? row[CI.article] : '') : '').toString();
       var _rc = (CI.client !== null ? (row[CI.client] != null ? row[CI.client] : '') : '').toString().trim();
-      var _rcp = CI.caP !== null ? (isCsvC ? cleanPrice(row[CI.caP]) : (+row[CI.caP] || 0)) : 0;
-      var _rce = CI.caE !== null ? (isCsvC ? cleanPrice(row[CI.caE]) : (+row[CI.caE] || 0)) : 0;
-      var _rqp = CI.qteP !== null ? (isCsvC ? cleanPrice(row[CI.qteP]) : (+row[CI.qteP] || 0)) : 0;
-      var _rqe = CI.qteE !== null ? (isCsvC ? cleanPrice(row[CI.qteE]) : (+row[CI.qteE] || 0)) : 0;
-      var _rvp = CI.vmbP !== null ? (isCsvC ? cleanPrice(row[CI.vmbP]) : (+row[CI.vmbP] || 0)) : 0;
-      var _rve = CI.vmbE !== null ? (isCsvC ? cleanPrice(row[CI.vmbE]) : (+row[CI.vmbE] || 0)) : 0;
+      var _rcp = CI.caP !== null ? cleanPrice(row[CI.caP]) : 0;
+      var _rce = CI.caE !== null ? cleanPrice(row[CI.caE]) : 0;
+      var _rqp = CI.qteP !== null ? cleanPrice(row[CI.qteP]) : 0;
+      var _rqe = CI.qteE !== null ? cleanPrice(row[CI.qteE]) : 0;
+      var _rvp = CI.vmbP !== null ? cleanPrice(row[CI.vmbP]) : 0;
+      var _rve = CI.vmbE !== null ? cleanPrice(row[CI.vmbE]) : 0;
       var _rnc = (CI.commande !== null ? (row[CI.commande] != null ? row[CI.commande] : '').toString() : '').trim();
       var _rbl2 = (CI.bl !== null ? (row[CI.bl] != null ? row[CI.bl] : '').toString() : '').trim();
       var _rncb = _rnc || _rbl2;
-      var _rj = isCsvC ? _parseDateRow(row) : (CI.jour !== null ? row[CI.jour] : null);
+      var _rj = _parseDateRow(row);
       var canal = (CI.canal !== null ? (row[CI.canal] != null ? row[CI.canal] : '') : '').toString().trim().toUpperCase();
 
       // Period-independent blocks (always on first parse — isRefilter=false in worker)
