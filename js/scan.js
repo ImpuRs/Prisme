@@ -248,14 +248,17 @@ function _liveSearch(q) {
       return;
     }
   }
-  // Recherche par code partiel, libellé ou emplacement
-  const qLow = q.toLowerCase();
+  // Recherche multi-mots : chaque mot doit matcher quelque part (code/libellé/emplacement/famille)
+  // "make agen blanc" → matche "MAKEMO AGENCEMENT BLANC"
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+  if (!words.length) { _clearSuggestions(); return; }
   const matches = [];
   for (const [code, r] of _articles) {
-    if (matches.length >= 8) break;
-    if (code.includes(q)) { matches.push(r); continue; }
-    if ((r.libelle || '').toLowerCase().includes(qLow)) { matches.push(r); continue; }
-    if ((r.emplacement || '').toLowerCase().includes(qLow)) { matches.push(r); continue; }
+    if (matches.length >= 12) break;
+    const hay = (code + ' ' + (r.libelle || '') + ' ' + (r.emplacement || '') + ' ' + (r.famille || '')).toLowerCase();
+    let ok = true;
+    for (let i = 0; i < words.length; i++) { if (!hay.includes(words[i])) { ok = false; break; } }
+    if (ok) matches.push(r);
   }
   if (!matches.length) {
     el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Aucun résultat pour "${_esc(q)}"</p></div>`;
