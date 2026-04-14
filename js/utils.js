@@ -34,6 +34,37 @@ export function matchQuery(query, ...fields) {
   return terms.every(t => haystack.includes(t));
 }
 
+/** Pre-compile query terms once — call per filter change, not per row */
+export function compileQuery(query) {
+  const terms = normalizeStr(query).split(/\s+/).filter(Boolean);
+  return terms.length ? terms : null;
+}
+
+/** Fast match against pre-compiled terms and pre-normalized haystack */
+export function matchCompiled(terms, normalizedHaystack) {
+  if (!terms) return true;
+  for (let i = 0; i < terms.length; i++) {
+    if (!normalizedHaystack.includes(terms[i])) return false;
+  }
+  return true;
+}
+
+// Sort helper used by large tables (avoids repeated toLowerCase() calls inside comparator).
+// Mutates the input array (in-place).
+export function sortRowsInPlace(rows, col, asc) {
+  if (!Array.isArray(rows) || rows.length < 2) return rows;
+  const cache = new WeakMap(); // row(object) -> normalized sort value
+  const norm = (v) => (typeof v === 'string' ? v.toLowerCase() : v);
+  rows.sort((a, b) => {
+    const vA = cache.has(a) ? cache.get(a) : (cache.set(a, norm(a[col])), cache.get(a));
+    const vB = cache.has(b) ? cache.get(b) : (cache.set(b, norm(b[col])), cache.get(b));
+    if (vA < vB) return asc ? -1 : 1;
+    if (vA > vB) return asc ? 1 : -1;
+    return 0;
+  });
+  return rows;
+}
+
 export function cleanCode(s) { return s ? s.toString().split('-')[0].trim() : ''; }
 
 export function extractClientCode(val) {
@@ -41,7 +72,10 @@ export function extractClientCode(val) {
   const idx = s.indexOf(' - ');
   const code = idx >= 0 ? s.slice(0, idx).trim() : s;
   // Normaliser les codes numériques à 6 chiffres (1853 → 001853) pour matcher le Worker parse.
-  return /^\d+$/.test(code) ? code.padStart(6, '0') : code;
+  // P1: charCode check au lieu de regex (hot path ~281k appels)
+  let allDigit = code.length > 0;
+  for (let i = 0; i < code.length; i++) { const c = code.charCodeAt(i); if (c < 48 || c > 57) { allDigit = false; break; } }
+  return allDigit ? code.padStart(6, '0') : code;
 }
 
 export function cleanPrice(v) {
@@ -57,8 +91,9 @@ export function cleanOmniPrice(v) {
   return parseFloat(s) || 0;
 }
 
+const _FMT_EUR = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 export function formatEuro(n) {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  return _FMT_EUR.format(n);
 }
 
 export function buildPctBar(pct, {
@@ -303,7 +338,8 @@ export function readExcel(f, onProgress) {
         else if (msg.type === 'error') { worker.terminate(); rej(new Error(msg.msg)); }
       };
       worker.onerror = err => { worker.terminate(); rej(new Error('Worker: ' + err.message)); };
-      worker.postMessage({buffer: e.target.result});
+      const buf = e.target.result;
+      worker.postMessage({buffer: buf}, [buf]);
     };
     r.readAsArrayBuffer(f);
   });
@@ -343,14 +379,54 @@ export function parseCSVTextToHR(text, sep) {
   // Parser RFC 4180 — gère : champs quotés, séparateur dans un champ,
   // guillemets échappés (""), sauts de ligne dans un champ quoté.
   // Retourne {headers: string[], rows: string[][]} — pas d'objet par ligne.
+  if (!text) return { headers: [], rows: [] };
+
+  // Normaliser les fins de ligne (une seule fois).
+  let src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // BOM UTF-8 éventuel
+  if (src.charCodeAt(0) === 0xfeff) src = src.slice(1);
+
+  // Fast-path sans guillemets : cas majoritaire des exports Qlik.
+  if (src.indexOf('"') === -1) {
+    const len = src.length;
+    let pos = 0;
+    const nextLine = () => {
+      if (pos > len) return null;
+      const nl = src.indexOf('\n', pos);
+      if (nl === -1) { const line = src.slice(pos); pos = len + 1; return line; }
+      const line = src.slice(pos, nl);
+      pos = nl + 1;
+      return line;
+    };
+    let headerLine = '';
+    while (true) {
+      const ln0 = nextLine();
+      if (ln0 === null) return { headers: [], rows: [] };
+      if (ln0.trim()) { headerLine = ln0; break; }
+    }
+    const headers = headerLine.split(sep).map(s => s.trim());
+    const rows = [];
+    let line;
+    while ((line = nextLine()) !== null) {
+      if (!line) continue;
+      const cells = line.split(sep);
+      let hasData = false;
+      for (let c = 0; c < cells.length; c++) {
+        const v = cells[c].trim();
+        cells[c] = v;
+        if (v) hasData = true;
+      }
+      if (hasData) rows.push(cells);
+    }
+    return { headers, rows };
+  }
+
+  // Slow-path RFC 4180 complet (guillemets présents)
   const rows = [];
   let cur = [];
   let field = '';
   let inQuotes = false;
   let i = 0;
-
-  // Normaliser les fins de ligne
-  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const len = src.length;
 
   while (i <= len) {

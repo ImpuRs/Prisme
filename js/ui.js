@@ -9,10 +9,10 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 import { PAGE_SIZE, AGE_BRACKETS, DORMANT_DAYS } from './constants.js';
-import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
+import { fmtDate, formatEuro, _isMetierStrategique, famLib, famLabel, normalizeStr, matchQuery, compileQuery, matchCompiled, sortRowsInPlace, buildSkeletonTable, buildSkeletonCards, getAgeBracket } from './utils.js';
 import { _S, invalidateCache } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { calcPriorityScore, computeHealthScore } from './engine.js';
+import { calcPriorityScore, computeHealthScore, computeSquelette } from './engine.js';
 import { _nlInterpret, _nlRenderResults } from './nl.js';
 
 
@@ -141,7 +141,6 @@ const _statusBadgeMap = {
   dropStock: 'statusStock',
   dropChalandise: 'statusChalandise',
   dropLivraisons: 'statusLivraisons',
-  dropConsommeReseau: 'statusConsommeReseau',
   dropForcage: 'statusForcage',
 };
 
@@ -249,12 +248,11 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', reseau: 'reseau', labo: 'labo' };
+const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', animation: 'animation', associations: 'associations' };
 const _TAB_TO_SUPERTAB  = {
   plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
-  reseau: 'reseau',
-  labo: 'labo', animation: 'labo',
+  animation: 'animation', associations: 'associations',
 };
 
 export function switchSuperTab(supertabId) {
@@ -357,15 +355,15 @@ export function switchTab(id) {
     }
   }
   // Update filter panel groups based on active tab
-  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', reseau: 'filterGroupBench' };
-  const activeGroup = id === 'reseau' ? 'reseau' : (id === 'commerce' || id === 'clients' || id === 'labo') ? 'commerce' : 'stock';
+  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
+  const activeGroup = id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'labo' || id === 'animation' || id === 'action');
+  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action');
   // Recherche client — tout en haut, visible sur Commerce/Fidélisation
   const _CANAL_TABS = new Set(['commerce', 'clients']);
   const tsb = document.getElementById('terrSearchBlock');
@@ -381,7 +379,7 @@ export function switchTab(id) {
     _swapTacticalFilters(id);
   }
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', reseau: 'Filtres Réseau', animation: 'Animation', labo: 'Le Labo' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', plan: 'Filtres Plan', animation: 'Animation', associations: 'Associations' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;
@@ -441,28 +439,48 @@ export function getFilteredData() {
   const fam = (document.getElementById('filterFamille').value || '').trim(), sFam = (document.getElementById('filterSousFamille').value || '').trim(), emp = (document.getElementById('filterEmplacement').value || '').trim(), stat = document.getElementById('filterStatut').value, af = document.getElementById('filterAge').value;
   const cockpitType = document.getElementById('filterCockpit').value;
   const abc = document.getElementById('filterABC').value, fmr = document.getElementById('filterFMR').value;
+  const verdict = document.getElementById('filterVerdict')?.value || '';
   const searchQuery = document.getElementById('searchInput').value.trim();
   const univers = document.getElementById('filterMetier')?.value || '';
-  const filtered = DataStore.finalData.filter(r => {
-    if(fam){
-      const famCode = r.famille||'';
-      if(!matchQuery(fam, famLib(famCode), famCode, famLabel(famCode))) return false;
+  // Verdict Squelette — build map lazily
+  let verdictMap = null;
+  if (verdict) {
+    const sqData = _S._prSqData || computeSquelette();
+    _S._prSqData = sqData;
+    verdictMap = new Map();
+    if (sqData?.directions) {
+      for (const dir of sqData.directions) {
+        for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
+          if (dir[cat]) for (const a of dir[cat]) verdictMap.set(a.code, cat);
+        }
+      }
     }
-    if (sFam && !matchQuery(sFam, r.sousFamille || '')) return false;
-    if (emp && !matchQuery(emp, r.emplacement || '')) return false;
+  }
+  const _cFam = fam ? compileQuery(fam) : null;
+  const _cSFam = sFam ? compileQuery(sFam) : null;
+  const _cEmp = emp ? compileQuery(emp) : null;
+  const _cSearch = searchQuery ? compileQuery(searchQuery) : null;
+  const filtered = DataStore.finalData.filter(r => {
+    if(_cFam){
+      const famCode = r.famille||'';
+      if(!matchCompiled(_cFam, normalizeStr(famLib(famCode)+' '+famCode+' '+famLabel(famCode)))) return false;
+    }
+    if (_cSFam && !matchCompiled(_cSFam, normalizeStr(r.sousFamille || ''))) return false;
+    if (_cEmp && !matchCompiled(_cEmp, normalizeStr(r.emplacement || ''))) return false;
     if (stat && r.statut !== stat) return false;
     if (af) { const b = AGE_BRACKETS[af]; if (b && (r.ageJours < b.min || r.ageJours >= b.max)) return false; }
     if (cockpitType && _S.cockpitLists[cockpitType] && !_S.cockpitLists[cockpitType].has(r.code)) return false;
     if (abc && r.abcClass !== abc) return false;
     if (fmr && r.fmrClass !== fmr) return false;
     if (univers && (_S.articleUnivers?.[r.code] || '') !== univers) return false;
-    if (searchQuery) { return matchQuery(searchQuery, r.code, r.libelle, famLib(r.famille || '')); }
+    if (verdict && verdictMap) { const v = verdictMap.get(r.code); if (v !== verdict) return false; }
+    if (_cSearch) { return matchCompiled(_cSearch, normalizeStr(r.code+' '+r.libelle+' '+famLib(r.famille || ''))); }
     return true;
   });
-  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (univers) activeCount++;
+  let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (univers) activeCount++; if (verdict) activeCount++;
   const el = document.getElementById('filterActiveCount'); if (el) el.textContent = activeCount > 0 ? `(${activeCount} actif${activeCount > 1 ? 's' : ''})` : '';
   // Badges groupes sidebar
-  const _classifActive = [abc, fmr, fam, stat, univers].filter(Boolean).length;
+  const _classifActive = [abc, fmr, fam, stat, univers, verdict].filter(Boolean).length;
   const _advancedActive = [sFam, emp, af].filter(Boolean).length;
   const _bgClassif = document.getElementById('fgBadgeClassif');
   if (_bgClassif) { _bgClassif.textContent = _classifActive; _bgClassif.classList.toggle('hidden', _classifActive === 0); }
@@ -472,14 +490,13 @@ export function getFilteredData() {
   return filtered;
 }
 
-let _renderAllTimer = 0;
 let _renderAllRunning = false;
 export function renderAll() {
   if (_renderAllRunning || _S._parsingInProgress) return; // guard anti-réentrance + parsing
   _renderAllRunning = true;
   document.body.classList.add('filtering');
   _S.filteredData = getFilteredData();
-  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
+  sortRowsInPlace(_S.filteredData, _S.sortCol, _S.sortAsc);
   updateActiveAgeIndicator();
   renderTable(true); // articles always re-renders (exception: not behind lazy flag)
   invalidateCache('tab'); // invalidate all tab caches (filter or data changed)
@@ -495,11 +512,106 @@ export function debouncedRender() { clearTimeout(_S.debounceTimer); _S.debounceT
 
 export function resetFilters() {
   document.getElementById('searchInput').value = '';
-  ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR', 'filterMetier'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['filterFamille', 'filterSousFamille', 'filterEmplacement', 'filterStatut', 'filterAge', 'filterABC', 'filterFMR', 'filterMetier', 'filterVerdict'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   _S._filterHorsAgence = false;
   const btnHA = document.getElementById('btnHorsAgence');
   if (btnHA) { btnHA.classList.remove('bg-violet-500', 'text-white'); btnHA.classList.add('t-secondary'); }
   clearCockpitFilter(true); updateActiveAgeIndicator(); _S.currentPage = 0; renderAll();
+}
+
+// ── Sélecteur de colonnes (tableau Articles) ──
+const _COL_DEFS = [
+  { key: 'famille', label: 'Famille', default: true },
+  { key: 'V', label: 'Prélevé', default: true },
+  { key: 'caAnnuel', label: 'CA', default: true },
+  { key: 'enleveTotal', label: 'Enlevé', default: true },
+  { key: 'W', label: 'Fréquence', default: true },
+  { key: 'stockActuel', label: 'Stock', default: true },
+  { key: 'couvertureJours', label: 'Couverture', default: true },
+  { key: 'ageJours', label: 'Âge', default: true },
+  { key: 'ancien', label: 'Ancien MIN/MAX', default: true },
+  { key: 'nouveauMin', label: 'MIN PRISME', default: true },
+  { key: 'nouveauMax', label: 'MAX PRISME', default: true },
+  { key: 'medMin', label: 'Méd. MIN réseau', default: true },
+  { key: 'medMax', label: 'Méd. MAX réseau', default: true },
+  { key: 'abcClass', label: 'ABC', default: true },
+  { key: 'fmrClass', label: 'FMR', default: true },
+  { key: 'canalWeb', label: '🌐 Canal Web', default: true },
+];
+let _colVisibility = null;
+
+function _loadColVisibility() {
+  if (_colVisibility) return _colVisibility;
+  try {
+    const saved = localStorage.getItem('prisme_colVis');
+    if (saved) { _colVisibility = JSON.parse(saved); return _colVisibility; }
+  } catch {}
+  _colVisibility = {};
+  for (const c of _COL_DEFS) _colVisibility[c.key] = c.default;
+  return _colVisibility;
+}
+
+function _saveColVisibility() {
+  try { localStorage.setItem('prisme_colVis', JSON.stringify(_colVisibility)); } catch {}
+}
+
+export function initColSelector() {
+  const panel = document.getElementById('colSelectorPanel');
+  if (!panel) return;
+  const vis = _loadColVisibility();
+  panel.innerHTML = _COL_DEFS.map(c =>
+    `<label class="flex items-center gap-2 py-1 cursor-pointer hover:bg-gray-700 px-1 rounded">
+      <input type="checkbox" data-colkey="${c.key}" ${vis[c.key] !== false ? 'checked' : ''} class="accent-emerald-500">
+      <span class="text-gray-200">${c.label}</span>
+    </label>`
+  ).join('') + `<div class="border-t border-gray-600 mt-2 pt-2"><button onclick="window._colResetAll()" class="text-[10px] text-cyan-400 hover:text-cyan-300">Tout afficher</button></div>`;
+  panel.addEventListener('change', e => {
+    const key = e.target.dataset?.colkey;
+    if (!key) return;
+    vis[key] = e.target.checked;
+    _saveColVisibility();
+    _applyColVisibility();
+  });
+  // Fermer au clic extérieur
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('colSelectorWrap');
+    if (wrap && !wrap.contains(e.target)) panel.classList.add('hidden');
+  });
+  window._colResetAll = function() {
+    for (const c of _COL_DEFS) vis[c.key] = true;
+    _saveColVisibility();
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+    _applyColVisibility();
+  };
+  _applyColVisibility();
+}
+
+export function _applyColVisibility() {
+  const vis = _loadColVisibility();
+  const table = document.querySelector('#tabTable table');
+  if (!table) return;
+  const ths = table.querySelectorAll('thead th[data-col]');
+  const colIndices = {};
+  ths.forEach((th, _) => {
+    // Get actual column index in the row
+    const row = th.parentElement;
+    let idx = 0;
+    for (const child of row.children) { if (child === th) break; idx++; }
+    const key = th.dataset.col;
+    colIndices[key] = idx;
+    // Special: medMin/medMax and canalWeb have their own visibility logic
+    if (key === 'medMin' || key === 'medMax' || key === 'canalWeb') return;
+    th.style.display = vis[key] === false ? 'none' : '';
+  });
+  // Apply to body cells
+  const rows = table.querySelectorAll('tbody tr');
+  for (const row of rows) {
+    const cells = row.children;
+    for (const [key, idx] of Object.entries(colIndices)) {
+      if (key === 'medMin' || key === 'medMax' || key === 'canalWeb') continue;
+      if (cells[idx]) cells[idx].style.display = vis[key] === false ? 'none' : '';
+    }
+  }
 }
 
 export function filterByAge(b) { document.getElementById('filterAge').value = b; updateActiveAgeIndicator(); _S.currentPage = 0; switchTab('table'); renderAll(); }
@@ -527,7 +639,7 @@ export function showCockpitInTable(type) {
   document.getElementById('activeCockpitFilter').classList.remove('hidden');
   _S.currentPage = 0; switchTab('table');
   _S.filteredData = getFilteredData();
-  _S.filteredData.sort((a, b) => { let vA = a[_S.sortCol], vB = b[_S.sortCol]; if (typeof vA === 'string') vA = vA.toLowerCase(); if (typeof vB === 'string') vB = vB.toLowerCase(); if (vA < vB) return _S.sortAsc ? -1 : 1; if (vA > vB) return _S.sortAsc ? 1 : -1; return 0; });
+  sortRowsInPlace(_S.filteredData, _S.sortCol, _S.sortAsc);
   updateActiveAgeIndicator(); renderTable(true);
 }
 
@@ -697,7 +809,14 @@ export function initDetailsAnimations() {
 }
 
 // ── Table sort / pagination ───────────────────────────────────
-export function sortBy(c) { if (_S.sortCol === c) _S.sortAsc = !_S.sortAsc; else { _S.sortCol = c; _S.sortAsc = false; } _S.currentPage = 0; renderTable(); }
+export function sortBy(c) {
+  if (_S.sortCol === c) _S.sortAsc = !_S.sortAsc;
+  else { _S.sortCol = c; _S.sortAsc = false; }
+  _S.currentPage = 0;
+  // Sorting does not require refiltering — keep the existing filtered set and resort in place.
+  sortRowsInPlace(DataStore.filteredData, _S.sortCol, _S.sortAsc);
+  renderTable(true);
+}
 export function changePage(d) { const m = Math.ceil(DataStore.filteredData.length / PAGE_SIZE) - 1; _S.currentPage = Math.max(0, Math.min(_S.currentPage + d, m)); renderTable(true); }
 
 // ── KPI history ───────────────────────────────────────────────
@@ -752,8 +871,7 @@ const _CMD_ACTIONS = [
   { kw: ['radar','abc','fmr','matrice','analyse','arbitrage','ruptures','dormants','calibrage'], icon: '⚖️', label: 'Arbitrage stock', fn: () => { switchTab('arbitrage'); } },
   { kw: ['plan','rayon','familles','squelette'], icon: '🦴', label: 'Plan de rayon', fn: () => { switchTab('plan'); } },
   { kw: ['terrain','territoire'], icon: '🔗', label: 'Onglet Le Terrain', fn: () => { switchTab('commerce'); } },
-  { kw: ['réseau','reseau','benchmark','bench'], icon: '🔭', label: 'Onglet Le Réseau', fn: () => { switchTab('reseau'); } },
-  { kw: ['le labo','labo','prisme'], icon: '🧪', label: 'Onglet Le Labo', fn: () => { switchTab('labo'); } },
+  { kw: ['associations','association','ventes croisées'], icon: '🔗', label: 'Associations de ventes', fn: () => { switchTab('associations'); } },
   { kw: ['le stock','stock','pilotage'], icon: '📦', label: 'Pilotage Stock', fn: () => { switchTab('plan'); } },
   { kw: ['articles','table','liste'], icon: '📋', label: 'Onglet Articles', fn: () => { switchTab('table'); } },
   { kw: ['export','csv','télécharger'], icon: '📥', label: 'Exporter CSV', fn: () => { downloadCSV(); } },
@@ -941,27 +1059,6 @@ export function _cmdBuildResults(q) {
     if (famResults.length) groups.push({ header: '🏷️ Familles', items: famResults });
   }
 
-  // 5. Agences (_S.storesIntersection)
-  if (typeof _S.storesIntersection !== 'undefined' && _S.storesIntersection.size > 1) {
-    const agResults = [];
-    for (const s of _S.storesIntersection) {
-      if (agResults.length >= 3) break;
-      if (s !== _S.selectedMyStore && matchQuery(q, s)) {
-        agResults.push({
-          icon: '🏪',
-          main: s,
-          sub: 'Comparer dans Le Réseau',
-          badge: s === _S.selectedMyStore ? 'Mon agence' : '',
-          fn: () => {
-            switchTab('reseau');
-            const sel = document.getElementById('obsCompareSelect');
-            if (sel) { sel.value = s; sel.dispatchEvent(new Event('change')); }
-          }
-        });
-      }
-    }
-    if (agResults.length) groups.push({ header: '🏪 Agences', items: agResults });
-  }
 
   // 6. NL Search — si la requête matche l'interpréteur
   const nlPreview = _nlInterpret(q);
@@ -972,7 +1069,7 @@ export function _cmdBuildResults(q) {
       sub: nlPreview.title,
       badge: 'Ce matin',
       badgeCls: 'bg-amber-100 text-amber-700',
-      fn: () => { switchTab('labo'); setTimeout(() => _cematinSearch(q), 80); }
+      fn: () => { switchTab('animation'); setTimeout(() => _cematinSearch(q), 80); }
     }]});
   }
 
@@ -1121,7 +1218,7 @@ export function updateAmbientSignal() {
   // Ruptures critiques : W≥3, stock≤0, priorityScore≥5000
   const critRupt = DataStore.finalData.filter(r =>
     r.W >= 3 && r.stockActuel <= 0 && !r.isParent && !(r.V === 0 && r.enleveTotal > 0) &&
-    calcPriorityScore(r.W, r.prixUnitaire, r.ageJours) >= 5000
+    calcPriorityScore(r.W, r.prixUnitaire, r.ageJours, r.code) >= 5000
   ).length;
 
   el.classList.remove('signal--ok', 'signal--caution', 'signal--danger', 'signal--critical');
@@ -1613,7 +1710,7 @@ document.addEventListener('keydown', function(e) {
 
   // 1–7 : switcher d'onglet (uniquement sans modificateur)
   if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'stock', '4': 'clients', '5': 'commerce', '6': 'reseau', '7': 'animation' };
+    const TAB_MAP = { '1': 'prisme', '2': 'table', '3': 'stock', '4': 'clients', '5': 'commerce', '6': 'plan', '7': 'animation', '8': 'associations' };
     const tab = TAB_MAP[e.key];
     if (tab) {
       const btn = document.querySelector(`[data-tab="${tab}"]`);
@@ -1675,9 +1772,6 @@ export function renderTabBadges() {
   });
 }
 
-// ═══ D2 — THEME SWITCH (supprimé — dark permanent via data-theme="dark" sur <html>) ═══
-export function initTheme() {}
-export function cycleTheme() {}
 
 // ── P6: Export résumé Cockpit vers le presse-papier ──────────
 export function exportCockpitResume() {

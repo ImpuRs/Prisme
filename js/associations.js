@@ -6,6 +6,7 @@
 
 import { _S } from './state.js';
 import { formatEuro, escapeHtml } from './utils.js';
+import { computeSquelette } from './engine.js';
 import { _saveSessionToIDB } from './cache.js';
 
 // ═══════════════════════════════════════════════════════════════
@@ -72,19 +73,52 @@ function _computeAssocForStore(store, famA, famB) {
 }
 
 /**
- * Calcul complet pour mon agence — utilise ventesClientArticle (plus fiable)
+ * Vue omnicanale unifiée par client : merge ventesClientArticle + ventesClientHorsMagasin.
+ * Retourne un itérateur de [cc, Map<code, {sumCA}>] — tous canaux confondus.
+ * Le BL du co-achat se mesure au niveau client (a-t-il acheté A ET B ?), pas au niveau BL,
+ * donc on agrège le CA tous canaux pour chaque couple (client, article).
+ */
+function _omniClientArticles() {
+  const merged = new Map(); // cc → Map<code, {sumCA}>
+  // Source 1 : MAGASIN (ventesClientArticle)
+  if (_S.ventesClientArticle?.size) {
+    for (const [cc, artMap] of _S.ventesClientArticle) {
+      if (!merged.has(cc)) merged.set(cc, new Map());
+      const m = merged.get(cc);
+      for (const [code, v] of artMap) {
+        const prev = m.get(code);
+        m.set(code, { sumCA: (prev?.sumCA || 0) + (v.sumCA || 0) });
+      }
+    }
+  }
+  // Source 2 : hors-MAGASIN (Web, Représentant, DCS)
+  if (_S.ventesClientHorsMagasin?.size) {
+    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+      if (!merged.has(cc)) merged.set(cc, new Map());
+      const m = merged.get(cc);
+      for (const [code, v] of artMap) {
+        const prev = m.get(code);
+        m.set(code, { sumCA: (prev?.sumCA || 0) + (v.sumCA || 0) });
+      }
+    }
+  }
+  return merged;
+}
+
+/**
+ * Calcul complet pour mon agence — omnicanal (MAGASIN + Web + Représentant + DCS)
  */
 function _computeAssocMyStore(famA, famB) {
   const catFam = _S.catalogueFamille;
-  const vca = _S.ventesClientArticle;
-  if (!vca?.size) return { clientsA: new Set(), clientsAB: new Set(), taux: 0, caA: 0, caB: 0, caBdetail: new Map() };
+  const omni = _omniClientArticles();
+  if (!omni.size) return { clientsA: new Set(), clientsAB: new Set(), taux: 0, caA: 0, caB: 0, caBdetail: new Map() };
 
   const clientsA = new Set();
   const clientsAB = new Set();
   let caA = 0, caB = 0;
   const caBdetail = new Map(); // code → {ca, clients: Set}
 
-  for (const [cc, artMap] of vca) {
+  for (const [cc, artMap] of omni) {
     let hasA = false, hasB = false;
     for (const [code, v] of artMap) {
       const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
@@ -143,6 +177,7 @@ function _benchmarkAssoc(famA, famB) {
   for (const r of raw) {
     if (r.store === myStore) continue;
     r.indice = medRatio > 0 ? Math.round(r.ratioRaw / medRatio * 100) : 0;
+    r.ratio = Math.round(r.ratioRaw * 100);
     results.push(r);
   }
 
@@ -165,6 +200,17 @@ function _findMissingRefs(famB, bestStore) {
   const myData = _vpmForStore(myStore);
   const bestData = _vpmForStore(bestStore);
 
+  // Lookup squelette code → classification
+  const sqResult = _S._prSqData || computeSquelette();
+  const sqMap = new Map();
+  if (sqResult?.directions) {
+    for (const dir of sqResult.directions) {
+      for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
+        if (dir[cat]) for (const a of dir[cat]) sqMap.set(a.code, a.classification || cat);
+      }
+    }
+  }
+
   const refs = [];
   for (const [code, data] of Object.entries(bestData)) {
     const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
@@ -182,6 +228,7 @@ function _findMissingRefs(famB, bestStore) {
         myBL: myData[code]?.countBL || 0,
         enStock: (fd?.stockActuel || 0) > 0,
         stock: fd?.stockActuel || 0,
+        sqClassif: sqMap.get(code) || null,
         ecart: bestCa > 0 ? Math.round((bestCa - myCa) / bestCa * 100) : 0
       });
     }
@@ -196,11 +243,11 @@ function _findMissingRefs(famB, bestStore) {
  */
 function _findClientTargets(famA, famB) {
   const catFam = _S.catalogueFamille;
-  const vca = _S.ventesClientArticle;
-  if (!vca?.size) return [];
+  const omni = _omniClientArticles();
+  if (!omni.size) return [];
 
   const targets = [];
-  for (const [cc, artMap] of vca) {
+  for (const [cc, artMap] of omni) {
     let hasA = false, caA = 0, hasB = false;
     for (const [code, v] of artMap) {
       const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
@@ -251,7 +298,7 @@ function _renderAssociations() {
       <h3 class="font-extrabold text-lg t-primary">🔗 Associations de ventes</h3>
       <button onclick="window._assocNew()" class="text-[11px] px-3 py-1.5 rounded-lg border-2 cursor-pointer font-bold transition-all hover:shadow-md" style="border-color:var(--c-action);color:var(--c-action)">+ Nouvelle association</button>
     </div>
-    <p class="text-[10px] t-disabled mb-4">Sélectionnez des familles à associer, mesurez votre taux d'association vs le réseau, et identifiez les actions concrètes pour progresser.</p>
+    <p class="text-[10px] t-disabled mb-4">Analyse omnicanale — Magasin, Web, Terrain : mesurez votre taux d'association vs le réseau et identifiez les actions concrètes.</p>
   </div>`;
 
   if (_S._assocEditMode) {
@@ -287,10 +334,12 @@ function _famStats() {
   const stats = new Map();
 
   const _ensure = (cf) => {
-    if (!stats.has(cf)) stats.set(cf, { codeFam: cf, lib: _famLabel(cf), ca: 0, clients: new Set(), refs: new Set() });
+    if (!stats.has(cf)) stats.set(cf, { codeFam: cf, lib: _famLabel(cf), ca: 0, caReseau: 0, clients: new Set(), refs: new Set() });
     return stats.get(cf);
   };
 
+  // Source 1 : ventesClientArticle (MAGASIN) + ventesClientHorsMagasin (Web, Rep, DCS)
+  // Omnicanal : tous les canaux comptent pour les associations
   if (vca?.size) {
     for (const [cc, artMap] of vca) {
       for (const [code, v] of artMap) {
@@ -299,6 +348,35 @@ function _famStats() {
         const s = _ensure(cf);
         s.ca += v.sumCA || 0;
         s.clients.add(cc);
+        s.refs.add(code);
+      }
+    }
+  }
+
+  // Source 1b : ventesClientHorsMagasin (Web, Représentant, DCS) — même structure
+  const vhm = _S.ventesClientHorsMagasin;
+  if (vhm?.size) {
+    for (const [cc, artMap] of vhm) {
+      for (const [code, v] of artMap) {
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+        if (!cf) continue;
+        const s = _ensure(cf);
+        s.ca += v.sumCA || 0;
+        s.clients.add(cc);
+        s.refs.add(code);
+      }
+    }
+  }
+
+  // Source 2 : ventesParMagasin (tout le réseau) — familles absentes localement mais actives réseau
+  if (_S.ventesParMagasin) {
+    for (const [store, arts] of Object.entries(_S.ventesParMagasin)) {
+      for (const [code, data] of Object.entries(arts)) {
+        if ((data.countBL || 0) <= 0) continue;
+        const cf = catFam?.get(code)?.codeFam || _S.articleFamille?.[code] || '';
+        if (!cf) continue;
+        const s = _ensure(cf);
+        s.caReseau += data.sumCA || 0;
         s.refs.add(code);
       }
     }
@@ -324,16 +402,16 @@ let _famStatsCache = null;
  */
 function _suggestAssociatedFams(famA) {
   const catFam = _S.catalogueFamille;
-  const vca = _S.ventesClientArticle;
-  if (!vca?.size) return [];
+  const omni = _omniClientArticles();
+  if (!omni.size) return [];
 
   const fStats = _famStats();
   const statsA = fStats.get(famA);
   if (!statsA || statsA.nbClients < 3) return [];
 
-  // Pour chaque client qui achète A, quelles autres familles achète-t-il ?
+  // Pour chaque client qui achète A (tous canaux), quelles autres familles achète-t-il ?
   const coCount = new Map(); // codeFam → Set<cc>
-  for (const [cc, artMap] of vca) {
+  for (const [cc, artMap] of omni) {
     let hasA = false;
     const otherFams = new Set();
     for (const [code] of artMap) {
@@ -375,12 +453,14 @@ function _renderAssocEditor() {
   const fStats = _famStats();
   // Familles éligibles comme A : ≥5 clients actifs, triées par CA décroissant
   const eligible = [...fStats.values()]
-    .filter(f => f.nbClients >= 5 && /^[A-Z]\d{2}$/.test(f.codeFam))
-    .sort((a, b) => b.ca - a.ca);
+    .filter(f => (f.nbClients >= 5 || f.caReseau >= 1000) && /^[A-Z]\d{2}$/.test(f.codeFam))
+    .sort((a, b) => (b.ca || b.caReseau) - (a.ca || a.caReseau));
 
-  const optsA = eligible.map(f =>
-    `<option value="${f.codeFam}">${escapeHtml(f.lib)} · ${f.nbClients} cl. · ${formatEuro(f.ca)}</option>`
-  ).join('');
+  const optsA = eligible.map(f => {
+    const caLabel = f.ca > 0 ? formatEuro(f.ca) : `réseau ${formatEuro(f.caReseau)}`;
+    const clLabel = f.nbClients > 0 ? `${f.nbClients} cl.` : 'réseau';
+    return `<option value="${f.codeFam}">${escapeHtml(f.lib)} · ${clLabel} · ${caLabel}</option>`;
+  }).join('');
 
   const famA = _S._assocEditing?.famA || '';
   const famB = _S._assocEditing?.famB || '';
@@ -428,7 +508,8 @@ function _renderAssocEditor() {
     <h4 class="font-bold text-sm t-primary mb-3">Nouvelle association</h4>
     <div>
       <label class="text-[10px] font-bold t-secondary mb-1 block">① Famille principale <span class="font-normal t-disabled">— le moteur d'achat</span></label>
-      <select id="assocSelA" class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary" onchange="window._assocSelectA(this.value)" style="max-width:400px">
+      <input id="assocSearchA" type="text" placeholder="🔍 Rechercher une famille…" class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary mb-1" style="max-width:400px" oninput="window._assocFilterA(this.value)">
+      <select id="assocSelA" class="w-full text-[11px] px-2 py-1.5 rounded border b-default s-card t-primary" onchange="window._assocSelectA(this.value)" style="max-width:400px;overflow:hidden" size="6">
         <option value="">— Choisir une famille —</option>${optsA}
       </select>
     </div>
@@ -454,6 +535,9 @@ function _renderAssocCard(assoc) {
   const myIndice = bench._myIndice || 0;
   const targets = _findClientTargets(famA, famB);
   const missingRefs = best ? _findMissingRefs(famB, best.store) : [];
+  // Stocker pour export
+  if (!_S._assocMissingRefs) _S._assocMissingRefs = {};
+  _S._assocMissingRefs[id] = { refs: missingRefs, famA: labelA, famB: labelB, bestStore: best?.store || '?' };
 
   // Taux couleur
   const tauxColor = my.taux >= 50 ? '#22c55e' : my.taux >= 25 ? '#f59e0b' : '#ef4444';
@@ -478,80 +562,32 @@ function _renderAssocCard(assoc) {
     </div>
     ${isOpen ? `<div class="border-t b-light px-4 py-3">
       <!-- KPIs -->
-      <div class="grid grid-cols-4 gap-3 mb-4">
+      <div class="grid grid-cols-4 gap-3 mb-3">
         <div class="text-center p-3 rounded-lg" style="background:rgba(139,92,246,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Mon taux</div>
+          <div class="text-[10px] font-semibold t-secondary mb-1">Mon taux</div>
           <div class="text-2xl font-black" style="color:${tauxColor}">${my.taux}%</div>
-          <div class="text-[11px] t-secondary mt-0.5">${my.clientsAB.size} / ${my.clientsA.size} clients</div>
+          <div class="text-[10px] t-secondary mt-0.5">${my.clientsAB.size} / ${my.clientsA.size} clients</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(59,130,246,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Mon indice réseau</div>
+          <div class="text-[10px] font-semibold t-secondary mb-1">Mon indice réseau</div>
           <div class="text-2xl font-black" style="color:${ecartColor}">${myIndice}</div>
-          <div class="text-[11px] t-secondary mt-0.5">${bench.length} agences · méd. = 100</div>
+          <div class="text-[10px] t-secondary mt-0.5">${bench.length} agences · méd. = 100</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(34,197,94,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Meilleure agence</div>
+          <div class="text-[10px] font-semibold t-secondary mb-1">Meilleure agence</div>
           <div class="text-2xl font-black" style="color:#22c55e">${best ? 'indice ' + best.indice : '—'}</div>
-          <div class="text-[11px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) + ' CA B' : '—'}</div>
+          <div class="text-[10px] t-secondary mt-0.5">${best ? best.store + ' · ' + formatEuro(best.caB) + ' CA B' : '—'}</div>
         </div>
         <div class="text-center p-3 rounded-lg" style="background:rgba(245,158,11,0.12)">
-          <div class="text-[11px] font-semibold t-secondary mb-1">Clients cibles</div>
+          <div class="text-[10px] font-semibold t-secondary mb-1">Clients cibles</div>
           <div class="text-2xl font-black" style="color:#f59e0b">${targets.length}</div>
-          <div class="text-[11px] t-secondary mt-0.5">achètent A pas B</div>
+          <div class="text-[10px] t-secondary mt-0.5">achètent A pas B</div>
         </div>
       </div>
 
-      <!-- Refs manquantes -->
-      ${missingRefs.length ? `<div class="mb-4">
-        <h4 class="text-[11px] font-bold t-primary mb-2">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vendues par ${best?.store || '?'} (taux ${best?.taux || 0}%), pas/peu par moi</span></h4>
-        <div style="max-height:300px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Code</th>
-            <th class="py-1 px-2 text-left">Libellé</th>
-            <th class="py-1 px-2 text-right">CA ${best?.store || '?'}</th>
-            <th class="py-1 px-2 text-right">CA moi</th>
-            <th class="py-1 px-2 text-right">Écart</th>
-            <th class="py-1 px-2 text-center">Stock</th>
-          </tr></thead>
-          <tbody>${missingRefs.map(r => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}','associations')">
-            <td class="py-1 px-2 font-mono t-disabled">${r.code}</td>
-            <td class="py-1 px-2 t-primary truncate max-w-[180px]">${escapeHtml(r.libelle)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:#22c55e">${formatEuro(r.bestCa)}</td>
-            <td class="py-1 px-2 text-right t-secondary">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:#ef4444">${r.ecart}%</td>
-            <td class="py-1 px-2 text-center">${r.enStock ? '<span style="color:#22c55e">●</span>' : '<span style="color:#ef4444">✕</span>'}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
-
-      <!-- Clients cibles -->
-      ${targets.length ? `<div class="mb-3">
-        <h4 class="text-[11px] font-bold t-primary mb-2">🎯 Clients cibles <span class="text-[9px] t-disabled font-normal">— achètent ${escapeHtml(labelA)} mais pas ${escapeHtml(labelB)}</span></h4>
-        <div style="max-height:250px;overflow-y:auto">
-        <table class="w-full text-[11px]">
-          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
-            <th class="py-1 px-2 text-left">Client</th>
-            <th class="py-1 px-2 text-left">Métier</th>
-            <th class="py-1 px-2 text-left">Classif.</th>
-            <th class="py-1 px-2 text-left">Commercial</th>
-            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
-          </tr></thead>
-          <tbody>${targets.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${c.cc}','associations')">
-            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)}<button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${c.cc}','associations')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button></td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.metier)}</td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.classification)}</td>
-            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.commercial)}</td>
-            <td class="py-1 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(c.caA)}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-        </div>
-      </div>` : ''}
-
-      <!-- Benchmark réseau -->
-      ${bench.length ? `<details class="mb-2">
-        <summary class="text-[11px] font-bold t-primary cursor-pointer py-1">📊 Benchmark réseau — ${bench.length} agences · ratio mix CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)}</summary>
+      <!-- Geste 1 — Benchmark remonté sous les KPIs, accordéon fermé -->
+      ${bench.length ? `<details class="mb-3">
+        <summary class="text-[11px] font-bold t-primary cursor-pointer py-1.5">📊 Classement ${bench.length} agences · ratio mix CA ${escapeHtml(labelB)} / CA ${escapeHtml(labelA)}</summary>
         <table class="w-full text-[11px] mt-1">
           <thead><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
             <th class="py-1 px-2 text-left">Agence</th>
@@ -572,9 +608,93 @@ function _renderAssocCard(assoc) {
           }).join('')}</tbody>
         </table>
       </details>` : ''}
+
+      <!-- Geste 2 — Split-Screen : Refs (gauche) + Clients (droite) -->
+      <div class="grid grid-cols-1 ${missingRefs.length && targets.length ? 'lg:grid-cols-2' : ''} gap-4">
+      <!-- Refs manquantes (Geste 3 — triées par verdict) -->
+      ${missingRefs.length ? `<div>
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-[11px] font-bold t-primary">📦 Refs à développer <span class="text-[9px] t-disabled font-normal">— vs ${best?.store || '?'} (ratio ${best?.ratio || 0}%)</span></h4>
+          <button onclick="window._assocExportTrous('${id}')" class="text-[10px] px-3 py-1 rounded-lg font-bold cursor-pointer" style="background:var(--c-action);color:#fff" title="Exporter Trous + Socles en CSV">📥 Export Action</button>
+        </div>
+        <div style="max-height:350px;overflow-y:auto">
+        <table class="w-full text-[11px]">
+          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+            <th class="py-1 px-2 text-left">Code</th>
+            <th class="py-1 px-2 text-left">Libellé</th>
+            <th class="py-1 px-2 text-right">CA ${best?.store || '?'}</th>
+            <th class="py-1 px-2 text-right">CA moi</th>
+            <th class="py-1 px-2 text-center">Verdict</th>
+          </tr></thead>
+          <tbody>${[...missingRefs].sort((a,b) => {
+            const _vo = {implanter:0,socle:1,challenger:2,surveiller:3};
+            const va = a.sqClassif ? (_vo[a.sqClassif] ?? 4) : (a.enStock ? 4 : 5);
+            const vb = b.sqClassif ? (_vo[b.sqClassif] ?? 4) : (b.enStock ? 4 : 5);
+            return va - vb || b.bestCa - a.bestCa;
+          }).map(r => {
+            const _sqI = window._getArticleSqInfo?.(r.code);
+            const isBruit = !_sqI && !r.enStock;
+            const verdict = _sqI ? `<span title="${_sqI.verdict.tip}" style="color:${_sqI.verdict.color}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
+              : r.enStock ? '<span title="En stock — hors squelette" style="color:#22c55e">● Stock</span>' : '<span title="Hors squelette" style="color:var(--t-disabled)">⚪ Bruit</span>';
+            return `<tr class="border-b b-light${isBruit ? ' opacity-40' : ''}">
+            <td class="py-1 px-2 font-mono t-disabled">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','associations')" title="Voir détail article">🔍</span></td>
+            <td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(r.libelle)}</td>
+            <td class="py-1 px-2 text-right font-bold" style="color:#22c55e">${formatEuro(r.bestCa)}</td>
+            <td class="py-1 px-2 text-right t-secondary">${r.myCa > 0 ? formatEuro(r.myCa) : '—'}</td>
+            <td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td>
+          </tr>`;}).join('')}</tbody>
+        </table>
+        </div>
+      </div>` : ''}
+
+      <!-- Clients cibles -->
+      ${targets.length ? `<div>
+        <h4 class="text-[11px] font-bold t-primary mb-2">🎯 Clients cibles <span class="text-[9px] t-disabled font-normal">— achètent ${escapeHtml(labelA)} pas ${escapeHtml(labelB)}</span></h4>
+        <div style="max-height:350px;overflow-y:auto">
+        <table class="w-full text-[11px]">
+          <thead style="position:sticky;top:0;background:var(--color-bg-primary)"><tr class="border-b b-light text-[10px]" style="color:var(--t-secondary)">
+            <th class="py-1 px-2 text-left">Client</th>
+            <th class="py-1 px-2 text-left">Métier</th>
+            <th class="py-1 px-2 text-left">Classif.</th>
+            <th class="py-1 px-2 text-right">CA ${escapeHtml(labelA)}</th>
+          </tr></thead>
+          <tbody>${targets.map(c => `<tr class="border-b b-light hover:s-hover cursor-pointer" onclick="if(window.openClient360)window.openClient360('${c.cc}','associations')">
+            <td class="py-1 px-2 t-primary">${escapeHtml(c.nom)} <button onclick="event.stopPropagation();if(window.openClient360)window.openClient360('${c.cc}','associations')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 ml-0.5" title="Fiche 360°">🔍</button></td>
+            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.metier)}</td>
+            <td class="py-1 px-2 t-secondary text-[10px]">${escapeHtml(c.classification)}</td>
+            <td class="py-1 px-2 text-right font-bold" style="color:var(--c-action)">${formatEuro(c.caA)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        </div>
+      </div>` : ''}
+      </div>
     </div>` : ''}
   </div>`;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Export CSV des 🔴 Trous
+// ═══════════════════════════════════════════════════════════════
+
+function _exportTrous(assocId) {
+  const data = _S._assocMissingRefs?.[assocId];
+  if (!data) return;
+  const trous = data.refs.filter(r => r.sqClassif === 'implanter');
+  if (!trous.length) { if (window.showToast) window.showToast('Aucun 🔴 Trou dans cette association', 'warning'); return; }
+  const sep = ';';
+  const header = ['Code', 'Libelle', 'CA ' + data.bestStore, 'CA moi', 'Ecart %', 'Verdict'].join(sep);
+  const rows = trous.map(r => [r.code, `"${(r.libelle || '').replace(/"/g, '""')}"`, Math.round(r.bestCa), Math.round(r.myCa), r.ecart + '%', 'Trou critique'].join(sep));
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trous_${data.famA.replace(/\s+/g, '_')}_x_${data.famB.replace(/\s+/g, '_')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  if (window.showToast) window.showToast(`📥 ${trous.length} ref(s) 🔴 Trou exportées`, 'success');
+}
+window._assocExportTrous = _exportTrous;
 
 // ═══════════════════════════════════════════════════════════════
 // Rendu onglet complet
@@ -605,6 +725,16 @@ window._assocNew = function() {
 window._assocSelectA = function(famA) {
   _S._assocEditing = { famA, famB: '' };
   renderAssociationsTab();
+};
+
+window._assocFilterA = function(query) {
+  const sel = document.getElementById('assocSelA');
+  if (!sel) return;
+  const q = query.toLowerCase().trim();
+  for (const opt of sel.options) {
+    if (!opt.value) { opt.hidden = false; continue; }
+    opt.hidden = q ? !opt.textContent.toLowerCase().includes(q) : false;
+  }
 };
 
 window._assocPickB = function(famB) {

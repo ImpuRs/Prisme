@@ -9,6 +9,7 @@
 
 import { RADAR_LABELS } from './constants.js';
 import { formatEuro, daysBetween, _median, _copyCodeBtn, _isMetierStrategique, fmtDate, escapeHtml, famLib } from './utils.js';
+import { computeSquelette } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
@@ -46,6 +47,118 @@ function closeDiagnostic(){
 function executeDiagAction(idx){if(_S._diagActions[idx]&&_S._diagActions[idx].fn)_S._diagActions[idx].fn();}
 
 function closeArticlePanel(){const o=document.getElementById('articlePanelOverlay');if(o){o._cleanupFocusTrap?.();o.classList.remove('active');}}
+
+// ── Smart Co-achats — filtre anti-bruit (5 gestes Coach) ──────────
+// Geste 1 : Exclure les top 50 articles les + fréquents (CF/chewing-gums)
+// Geste 2 : Boost ×2 si même univers que l'article source
+// Geste 3 : Exclure Poids Mort (CR) — ⚪ Bruit conservé (accessoires niche vitaux en co-achat)
+// Geste 4 : Ne lire que les BL < 10 lignes (vrais achats projet)
+// Geste 5 : Afficher le % (déjà géré dans le rendu)
+const _CO_BL_MAX_LINES = 15;
+const _CO_TOP_FREQ_EXCLUDE = 50;
+let _coFreqExcludeSet = null;
+
+function _buildFreqExcludeSet() {
+  if (_coFreqExcludeSet) return _coFreqExcludeSet;
+  // Top 50 articles les + fréquents (par nb de BL dans blData)
+  const freq = new Map();
+  for (const [, info] of Object.entries(_S.blData || {})) {
+    for (const c of info.codes) freq.set(c, (freq.get(c) || 0) + 1);
+  }
+  // Enrichir avec territoire
+  if (_S.territoireLines?.length) {
+    const terrBL = {};
+    for (const l of _S.territoireLines) {
+      if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
+      const k = l.bl + '|' + l.code;
+      if (!terrBL[k]) { terrBL[k] = true; freq.set(l.code, (freq.get(l.code) || 0) + 1); }
+    }
+  }
+  const sorted = [...freq.entries()].sort((a, b) => b[1] - a[1]);
+  _coFreqExcludeSet = new Set(sorted.slice(0, _CO_TOP_FREQ_EXCLUDE).map(e => e[0]));
+  return _coFreqExcludeSet;
+}
+
+function _computeSmartCoAchats(code, sqMap) {
+  const excludeSet = _buildFreqExcludeSet();
+  const srcUnivers = _S.articleUnivers?.[code] || '';
+
+  // ── Construire l'index BL (local + réseau) avec taille ──
+  const blIndex = {};
+  for (const [bl, info] of Object.entries(_S.blData || {})) {
+    const codes = new Set();
+    for (const c of info.codes) if (/^\d{6}$/.test(c)) codes.add(c);
+    blIndex[bl] = codes;
+  }
+  if (_S.territoireReady && _S.territoireLines?.length) {
+    for (const l of _S.territoireLines) {
+      if (!l.bl || !l.code || !/^\d{6}$/.test(l.code)) continue;
+      if (!blIndex[l.bl]) blIndex[l.bl] = new Set();
+      blIndex[l.bl].add(l.code);
+    }
+  }
+
+  // ── Compter co-achats (Geste 4 : BL < 10 lignes seulement) ──
+  const coCount = new Map();
+  let totalBL = 0;
+  let skippedBigBL = 0;
+  for (const [, codes] of Object.entries(blIndex)) {
+    if (!codes.has(code)) continue;
+    // Geste 4 : ignorer les gros BL (réassort camion)
+    if (codes.size > _CO_BL_MAX_LINES) { skippedBigBL++; continue; }
+    totalBL++;
+    for (const oc of codes) {
+      if (oc === code) continue;
+      // Geste 1 : exclure les moteurs de fond
+      if (excludeSet.has(oc)) continue;
+      coCount.set(oc, (coCount.get(oc) || 0) + 1);
+    }
+  }
+
+  // ── Enrichir par client (tous canaux) — même filtres ──
+  const clientsOfArt = _S.articleClients?.get(code);
+  if (clientsOfArt?.size) {
+    for (const cc of clientsOfArt) {
+      const artSet = _S.clientArticles?.get(cc);
+      if (!artSet) continue;
+      for (const oc of artSet) {
+        if (oc === code || !/^\d{6}$/.test(oc)) continue;
+        if (excludeSet.has(oc)) continue;
+        coCount.set(oc, (coCount.get(oc) || 0) + 0.5);
+      }
+    }
+  }
+
+  // ── Geste 2 : Boost même univers ──
+  if (srcUnivers) {
+    for (const [oc, score] of coCount) {
+      const u = _S.articleUnivers?.[oc] || '';
+      if (u && u === srcUnivers) coCount.set(oc, score * 2);
+    }
+  }
+
+  // ── Construire top co-achats (Geste 3 : exclure Bruit/Poids Mort) ──
+  const results = [...coCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20) // pré-filtre large
+    .map(([c, score]) => {
+      const fd = DataStore.finalData.find(x => x.code === c);
+      const sqClassif = sqMap?.get(c) || null;
+      const abcfmr = fd ? (fd.abcClass || '') + (fd.fmrClass || '') : '';
+      return { code: c, lib: (_S.libelleLookup?.[c] || c).replace(/^\d{6} - /, ''),
+        score, pct: totalBL > 0 ? Math.round(score / totalBL * 100) : 0,
+        inStock: (fd?.stockActuel || 0) > 0, sqClassif, abcfmr, fd };
+    })
+    // Geste 3 : exclure uniquement Poids Mort (CR = Boulet)
+    // ⚪ Bruit conservé : accessoire de niche vital en co-achat (ex: détergent K4 pour Karcher)
+    .filter(c => {
+      if (c.abcfmr === 'CR') return false; // Boulet = Poids Mort
+      return true;
+    })
+    .slice(0, 8);
+
+  return { items: results, totalBL, skippedBigBL };
+}
 
 function openClient360(clientCode, source) {
   const artOverlay = document.getElementById('articlePanelOverlay');
@@ -325,16 +438,15 @@ function _renderClient360(clientCode,source){
       else{stock=`<span class="c-ok">${r.stockActuel}</span>`;}
       const cls=grayed?'opacity-50':'';
       const caCell=grayed?`<td class="py-1 px-2 text-right text-[10px] t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
-      // Geste 2 — Verdict names instead of SQ jargon
+      // Verdict Squelette × Physigamme (source unique de vérité)
       let roleBadge='';
-      if(r){
-        const abc=(r.abcClass||'').toUpperCase(),fmr=(r.fmrClass||'').toUpperCase();
-        if(isSkel&&r.stockActuel<=0){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🟢 Trou Critique</span>';}
-        else if(isSkel&&abc==='C'&&fmr==='R'){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-orange-900/60 text-orange-300 font-bold">🔴 Poids Mort</span>';}
-        else if(isSkel){roleBadge='<span class="text-[8px] px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-bold">🔵 Socle</span>';}
+      const _sqI=window._getArticleSqInfo?.(code);
+      if(_sqI&&_sqI.verdict?.name&&_sqI.verdict.name!=='—'){
+        const _vc=_sqI.verdict.color||'#94a3b8';
+        roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.name)}</span>`;
       }
       const roleCell=`<td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${roleBadge}</td>`;
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td>${roleCell}</tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td>${roleCell}</tr>`;
     };
     const iciRowsPeriod=iciArtsPeriod.map(e=>_iciRow(e,false)).join('');
     const iciSeparator=iciArtsHisto.length?`<tr><td colspan="6" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
@@ -346,15 +458,56 @@ function _renderClient360(clientCode,source){
       const canalLabel=CANAL_LABELS[d.canal]||d.canal||'—';
       const alreadyHere=artMap?.has(code);
       const r=DataStore.finalData?.find(f=>f.code===code);
-      const statut=alreadyHere?'✅ Ici aussi':!r?'❌ Non référencé':r.stockActuel>0?`📦 Stock ${r.stockActuel}`:(r.ancienMin||0)===0?'⚪ MIN=0':'⚠️ Rupture';
+      const isSpecial=!/^\d{6}$/.test(code);
+      const statut=alreadyHere?'✅ Ici aussi':isSpecial&&!r?'📦 Non stockable':!r?'❌ Non référencé':r.stockActuel>0?`📦 Stock ${r.stockActuel}`:(r.ancienMin||0)===0?'⚪ MIN=0':'⚠️ Rupture';
       const cls=alreadyHere?'opacity-50':'';
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}</td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${statut}</td></tr>`;
+      // Rôle ABC/FMR ou Rôle Physigamme (si non référencé localement)
+      let roleBadge='';
+      if(isSpecial&&!r){
+        // Code spécial / contremarque — pas de rôle logistique
+        roleBadge='<span class="text-[8px] px-1 py-0.5 t-disabled">Spécial</span>';
+      } else if(r){
+        const abc=(r.abcClass||'').toUpperCase(),fmr=(r.fmrClass||'').toUpperCase();
+        const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;
+        if(isSkel){roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-bold">🔵 Socle</span>`;}
+        else if(abc==='C'&&fmr==='R'){roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">CR</span>`;}
+        else{roleBadge=`<span class="text-[8px] px-1 py-0.5 t-disabled">${abc}${fmr}</span>`;}
+      } else {
+        // Article non référencé (code 6 chiffres) : chercher le rôle Physigamme via Squelette
+        const _sq2=window._getArticleSqInfo?.(code);
+        if(_sq2?.role){
+          const _roleLabels={incontournable:'🏆 Incontournable',nouveaute:'🆕 Nouveauté',specialiste:'🎯 Spécialiste',standard:'📦'};
+          const _rl=_roleLabels[_sq2.role]||'';
+          if(_rl&&_sq2.role!=='standard') roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-violet-900/60 text-violet-300 font-bold">${_rl}</span>`;
+        }
+      }
+      // Verdict actionnable — enrichi par le Squelette si disponible
+      let verdict='';
+      if(alreadyHere){verdict='<span class="text-[8px] t-disabled">—</span>';}
+      else if(isSpecial&&!r){
+        // Code spécial / contremarque — jamais "À référencer"
+        verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold" title="Code alphanumérique — contremarque ou sur-mesure, non stockable">⛔ Spécial</span>';
+      }
+      else if(!r){
+        // Article absent du stock local (code 6 chiffres) — chercher le verdict Squelette
+        const _sq=window._getArticleSqInfo?.(code);
+        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){
+          const _vc=_sq.verdict.color||'#94a3b8';
+          verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;
+        }else{
+          verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';
+        }
+      }
+      else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture captable</span>';}
+      else if(r.stockActuel>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-green-900/60 text-green-300 font-bold">✅ Prêt</span>';}
+      else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">⚪ MIN=0</span>';}
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${statut}</td><td class="py-1 px-2 text-center">${roleBadge}</td><td class="py-1 px-2 text-center">${verdict}</td></tr>`;
     }).join('');
 
 
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Rôle</th></tr></thead><tbody>${iciRows}</tbody></table>`,
-      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Rôle</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 
@@ -447,9 +600,57 @@ function openArticlePanel(code,source){
     const lib=_S.libelleLookup?.[code]||code;
     const fam=_S.articleFamille?.[code]||'';
     let nbAg=0,nbBL=0;
-    for(const arts of Object.values(_S.ventesParMagasin||{})) if(arts[code]) nbAg++;
+    const agRows=[];
+    for(const [ag,arts] of Object.entries(_S.ventesParMagasin||{})){
+      if(arts[code]){nbAg++;const d=arts[code];const stk=_S.stockParMagasin?.[ag]?.[code];agRows.push({ag,ca:d.sumCA||0,bl:d.countBL||0,min:stk?.qteMin??'—',max:stk?.qteMax??'—',stock:stk?.stockActuel??'—'});}
+    }
     for(const l of (_S.territoireLines||[])) if(l.code===code) nbBL++;
-    panel.innerHTML=`<div class="p-4"><h2 class="text-base font-bold t-primary mb-2">[${escapeHtml(code)}] ${escapeHtml(lib)}</h2>${fam?`<p class="text-xs t-secondary mb-3">Famille ${escapeHtml(fam)}</p>`:''}<p class="text-sm t-secondary mb-3">⚠ Pas dans le fichier stock de l'agence (article à implanter ou non référencé localement).</p><div class="text-xs t-secondary space-y-1"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div></div>`;
+    agRows.sort((a,b)=>b.ca-a.ca);
+    const reseauTable=agRows.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🏪 Réseau</h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">MIN/MAX</th></tr></thead><tbody>${agRows.map(a=>`<tr class="border-t b-light"><td class="py-1 px-2 font-bold text-[10px] t-secondary">${a.ag}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${formatEuro(a.ca)}</td><td class="py-1 px-2 text-center t-secondary">${a.bl}</td><td class="py-1 px-2 text-center t-secondary">${a.stock}</td><td class="py-1 px-2 text-center t-secondary">${a.min} / ${a.max}</td></tr>`).join('')}</tbody></table></div>`:'';
+    // ── Kit de démarrage — Algorithme Vitesse Réseau ──
+    // Formule : (CA total Top 3 / PU) / nb BL Top 3 = vitesse (qté/BL)
+    // MIN = vitesse arrondie, MAX = vitesse × 2
+    let kitHtml='';
+    if(agRows.length){
+      const top3=agRows.slice(0,3);
+      let totCA=0,totBL=0;
+      for(const a of top3){
+        const v=_S.ventesParMagasin?.[a.ag]?.[code];
+        if(v&&v.countBL>0){totCA+=v.sumCA||0;totBL+=v.countBL;}
+      }
+      // PU : chercher dans finalData ou déduire du CA/qté réseau
+      let pu=0;
+      const _fdPu=DataStore.finalData?.find(f=>f.code===code);
+      if(_fdPu?.prixUnitaire>0)pu=_fdPu.prixUnitaire;
+      else{let _tQ=0,_tC=0;for(const a of top3){const v=_S.ventesParMagasin?.[a.ag]?.[code];if(v&&v.sumPrelevee>0){_tQ+=v.sumPrelevee;_tC+=v.sumCA||0;}}if(_tQ>0)pu=_tC/_tQ;}
+      const vitesse=pu>0&&totBL>0?(totCA/pu)/totBL:0;
+      const sugMin=Math.max(Math.ceil(vitesse),1);
+      const sugMax=Math.max(Math.ceil(vitesse*2),sugMin+1);
+      // Indice de confiance
+      const confidence=nbAg>=8?'haute':nbAg>=4?'moyenne':'faible';
+      const confColor=nbAg>=8?'#22c55e':nbAg>=4?'#f59e0b':'#ef4444';
+      const confIcon=nbAg>=8?'🏆':nbAg>=4?'📊':'⚡';
+      // Médiane réseau MIN/MAX (info seulement, pas source de vérité)
+      const mins=agRows.map(a=>a.min).filter(v=>typeof v==='number'&&v>0);
+      const maxs=agRows.map(a=>a.max).filter(v=>typeof v==='number'&&v>0);
+      const medMin=mins.length?mins.sort((a,b)=>a-b)[Math.floor(mins.length/2)]:null;
+      const medMax=maxs.length?maxs.sort((a,b)=>a-b)[Math.floor(maxs.length/2)]:null;
+      const medLine=medMin!=null&&medMax!=null?`<div class="text-[10px] t-disabled mt-1">Méd. réseau MIN/MAX : ${medMin} / ${medMax} <span class="text-[9px]">(info ERP)</span></div>`:'';
+      const vitLine=vitesse>0?`<div class="text-[10px] t-disabled">Vitesse réseau : ${vitesse.toFixed(1)} pièces/BL (Top ${top3.length} agences, ${totBL} BL, ${formatEuro(totCA)})</div>`:'';
+      kitHtml=`<div class="mt-3 p-3 rounded-xl border" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)">
+        <div class="flex items-center gap-2 mb-2"><span class="text-sm font-bold">🚀 Kit de démarrage</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confColor}20;color:${confColor}">${confIcon} Confiance ${confidence} (${nbAg} agences)</span></div>
+        <div class="text-center my-2"><span class="text-lg font-extrabold" style="color:#22c55e">MIN ${sugMin} / MAX ${sugMax}</span><span class="text-[10px] t-secondary ml-2">(Vitesse Réseau)</span></div>
+        ${vitLine}${medLine}
+        <button onclick="navigator.clipboard.writeText('${code} — Implantation MIN ${sugMin} / MAX ${sugMax} (Vitesse Réseau)').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='Implanter (MIN calculé : ${sugMin})',1500)" class="w-full mt-2 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors" style="background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid rgba(139,92,246,0.4)">Implanter (MIN calculé : ${sugMin})</button>
+      </div>`;
+    }
+    // Co-achats (Smart — 5 gestes Coach)
+    const _sqR2=_S._prSqData||computeSquelette();const _sqM2=new Map();
+    if(_sqR2?.directions)for(const dir of _sqR2.directions)for(const cat of['socle','implanter','challenger','surveiller'])if(dir[cat])for(const a of dir[cat])_sqM2.set(a.code,a.classification||cat);
+    const coResult2=_computeSmartCoAchats(code,_sqM2);
+    const topCo2=coResult2.items;const totBL2=coResult2.totalBL;
+    const coTable2=topCo2.length?`<div class="mt-3"><h4 class="text-xs font-bold t-primary mb-1">🔀 Co-achats <span class="text-[10px] t-disabled font-normal">${totBL2} BL projet (${coResult2.skippedBigBL} gros BL ignorés)</span></h4><table class="w-full text-[11px]"><thead class="text-[10px] t-disabled"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${topCo2.map(c=>{const _sqI=window._getArticleSqInfo?.(c.code);const verdict=_sqI?`<span style="color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`:c.inStock?'<span style="color:#22c55e">● Stock</span>':'<span class="t-disabled">⚪</span>';return`<tr class="border-t b-light"><td class="py-1 px-2 font-mono t-disabled">${c.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 t-primary truncate max-w-[160px]">${escapeHtml(c.lib)}</td><td class="py-1 px-2 text-right font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+    panel.innerHTML=`<div class="p-4"><div class="flex items-center justify-between mb-3"><h2 class="text-base font-bold t-primary">[${escapeHtml(code)}] ${escapeHtml(lib)}</h2><button onclick="closeArticlePanel()" class="t-disabled hover:t-primary text-xl leading-none font-bold">✕</button></div>${fam?`<p class="text-xs t-secondary mb-2">Famille ${escapeHtml(fam)}</p>`:''}<p class="text-[11px] t-secondary mb-3" style="background:rgba(245,158,11,0.12);padding:6px 10px;border-radius:8px">⚠ Pas dans le fichier stock de l'agence — article à implanter ou non référencé.</p><div class="text-xs t-secondary space-y-1 mb-2"><div>📊 Présent dans <b>${nbAg}</b> agence(s) du réseau</div><div>🚚 <b>${nbBL}</b> ligne(s) de livraison territoire</div></div>${kitHtml}${reseauTable}${coTable2}</div>`;
     overlay.classList.add('active');return;
   }
   const _today=new Date();
@@ -462,22 +663,35 @@ function openArticlePanel(code,source){
   const joursRup=r.stockActuel<=0?Math.min(r.ageJours>=999?90:r.ageJours,90):0;
   const caEst=Math.round((r.V||0)*(r.prixUnitaire||0));
   const puFmt=r.prixUnitaire>0?formatEuro(r.prixUnitaire):'—';
-  const newMinFmt=r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
-  const newMaxFmt=r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
   // MIN/MAX Réseau (multi-agences uniquement)
   let _reseauMinMaxRow='';
-  if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){const _mMin=_rMins.length?Math.round(_median(_rMins)):null;const _mMax=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="t-disabled">MIN / MAX Réseau</span><span class="t-disabled">${_mMin??'—'} / ${_mMax??'—'}<span class="text-[10px] t-tertiary ml-1">(méd. ${_nbAg} agence${_nbAg>1?'s':''})</span></span>`;}else{_reseauMinMaxRow=`<span class="t-disabled">MIN / MAX Réseau</span><span class="t-secondary text-[10px]">Pas de données réseau</span>`;}}
-  const stockHtml=`<div class="diag-level mt-3"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs"><span class="t-disabled">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="t-disabled">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="t-disabled">MIN / MAX PRISME</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="t-disabled">Prix unitaire</span><span>${puFmt}</span><span class="t-disabled">CA perdu estimé</span><span class="c-danger font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div>${r.nouveauMin>0?`<button onclick="navigator.clipboard.writeText('${code}').catch(()=>{});this.textContent='✅ Copié';setTimeout(()=>this.textContent='→ Commander (MIN : ${r.nouveauMin})',1500)" class="mt-3 w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2 px-3 rounded-lg transition-colors">→ Commander (MIN recalculé : ${r.nouveauMin})</button>`:''}</div>`;
+  let _medMinReseau=null,_medMaxReseau=null;
+  if(_S.storesIntersection.size>1&&_S.selectedMyStore){const _otherS2=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);const _rMins=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMin).filter(v=>v>0);const _rMaxs=_otherS2.map(s=>_S.stockParMagasin[s]?.[code]?.qteMax).filter(v=>v>0);const _nbAg=Math.max(_rMins.length,_rMaxs.length);if(_nbAg>0){_medMinReseau=_rMins.length?Math.round(_median(_rMins)):null;_medMaxReseau=_rMaxs.length?Math.round(_median(_rMaxs)):null;_reseauMinMaxRow=`<span class="t-disabled">MIN / MAX Réseau</span><span class="t-disabled">${_medMinReseau??'—'} / ${_medMaxReseau??'—'}<span class="text-[10px] t-tertiary ml-1">(méd. ${_nbAg} agence${_nbAg>1?'s':''})</span></span>`;}else{_reseauMinMaxRow=`<span class="t-disabled">MIN / MAX Réseau</span><span class="t-secondary text-[10px]">Pas de données réseau</span>`;}}
+  // ── Affichage MIN/MAX — source automatique (local ou Vitesse Réseau via flag _vitesseReseau) ──
+  const _isVitesse=!!r._vitesseReseau;
+  const newMinFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span><span class="text-[9px] text-violet-400 ml-1">(Vitesse)</span>`:r.nouveauMin!=null&&r.nouveauMin!==r.ancienMin?`<span class="text-violet-300 font-bold">${r.nouveauMin}</span>`:'—';
+  const newMaxFmt=_isVitesse?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span><span class="text-[9px] text-violet-400 ml-1">(Vitesse)</span>`:r.nouveauMax!=null&&r.nouveauMax!==r.ancienMax?`<span class="text-violet-300 font-bold">${r.nouveauMax}</span>`:'—';
+  const _prismeLabel=_isVitesse?'MIN / MAX Calculé <span class="text-[9px] text-violet-400">(Vitesse Réseau)</span>':'MIN / MAX PRISME';
+  const _statutRaw=r.statut||'';
+  const _statutLow=_statutRaw.toLowerCase();
+  const _statutColor=_statutLow.includes('fin de s')||_statutLow.includes('fin de stock')?'c-danger':_statutLow.includes('bloqu')?'c-caution':_statutLow==='actif'||_statutLow===''?'t-disabled':'t-secondary';
+  const _statutRow=_statutRaw?`<span class="t-disabled">Statut ERP</span><span class="${_statutColor} font-semibold">${escapeHtml(_statutRaw)}</span>`:'';
+  const stockHtml=`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">${_statutRow}<span class="t-disabled">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span><span class="t-disabled">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="t-disabled">${_prismeLabel}</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="t-disabled">CA perdu estimé</span><span class="c-danger font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div></div>`;
+  // Bouton Commander — violet, label adapté si Vitesse Réseau
+  const _cmdLabel=_isVitesse?'Implanter':'Commander';
+  const commanderHtml=r.nouveauMin>0?`<div class="mt-3"><button onclick="navigator.clipboard.writeText('${code} — ${_cmdLabel} MIN ${r.nouveauMin} / MAX ${r.nouveauMax}${_isVitesse?' (Vitesse Réseau)':''}').catch(()=>{});this.textContent='Copié !';setTimeout(()=>this.textContent='${_cmdLabel} (MIN calculé : ${r.nouveauMin})',1500)" class="w-full text-left text-xs bg-violet-900 hover:bg-violet-800 border border-violet-500 text-violet-200 font-bold py-2.5 px-4 rounded-lg transition-colors">${_cmdLabel} (MIN calculé : ${r.nouveauMin})</button></div>`:'';
   // Buyers section — compute once, reuse for plan
   const buyers=_S.articleClients.get(code);
   let buyerList=[];
   if(buyers&&buyers.size){
     for(const cc of buyers){
-      const caArt=((DataStore.ventesClientArticle.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _magCA=((DataStore.ventesClientArticle.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const _hmCA=((_S.ventesClientHorsMagasin?.get(cc)||new Map()).get(code)||{}).sumCA||0;
+      const caArt=_magCA+_hmCA;
       const rec=_S.clientStore?.get(cc);
       const lastDate=rec?.lastOrderPDV||null;
       const daysSince=rec?.silenceDaysPDV??null;
-      const nom=rec?.nom||cc;
+      const nom=rec?.nom||_S.chalandiseData?.get(cc)?.nom||_S.clientNomLookup?.[cc]||cc;
       let statusBadge='';
       if(_S.chalandiseReady&&rec?.inChalandise){const info=_S.chalandiseData.get(cc);if(info){if(_isPDVActif(cc))statusBadge='<span class="diag-badge diag-ok">Actif PDV</span>';else if(_isGlobalActif(info))statusBadge='<span class="diag-badge diag-warn">Actif Leg</span>';else statusBadge='<span class="diag-badge diag-error">Perdu</span>';}}
       buyerList.push({cc,nom,caArt,daysSince,lastDate,statusBadge});
@@ -540,78 +754,74 @@ function openArticlePanel(code,source){
       ${noteWeb}
     </div>`;
   }
-  // ── Co-achats : même BL (consommé + livraisons territoire) + même client (tous canaux) ──
-  const blIndex={};
-  for(const [bl,info] of Object.entries(_S.blData||{})){
-    blIndex[bl]={codes:new Set(info.codes)};
-  }
-  if(_S.territoireReady&&_S.territoireLines?.length){
-    for(const l of _S.territoireLines){
-      if(!l.bl||!l.code||!/^\d{6}$/.test(l.code))continue;
-      if(!blIndex[l.bl])blIndex[l.bl]={codes:new Set()};
-      blIndex[l.bl].codes.add(l.code);
-    }
-  }
-  const coCount=new Map();
-  let totalBLWithArticle=0;
-  for(const [,blInfo] of Object.entries(blIndex)){
-    if(!blInfo.codes?.has(code))continue;
-    totalBLWithArticle++;
-    for(const otherCode of blInfo.codes){
-      if(otherCode===code||!/^\d{6}$/.test(otherCode))continue;
-      coCount.set(otherCode,(coCount.get(otherCode)||0)+1);
-    }
-  }
-  // ── Enrichir avec co-achats par client (tous canaux) ──
-  const clientsOfArticle=_S.articleClients?.get(code);
-  if(clientsOfArticle?.size){
-    for(const cc of clientsOfArticle){
-      const artSet=_S.clientArticles?.get(cc);
-      if(!artSet)continue;
-      for(const otherCode of artSet){
-        if(otherCode===code)continue;
-        if(!/^\d{6}$/.test(otherCode))continue;
-        coCount.set(otherCode,(coCount.get(otherCode)||0)+0.5);
+  // ── Squelette lookup pour verdicts co-achats ──
+  const _sqResult = _S._prSqData || computeSquelette();
+  const _sqMapForArticle = new Map();
+  if (_sqResult?.directions) {
+    for (const dir of _sqResult.directions) {
+      for (const cat of ['socle', 'implanter', 'challenger', 'surveiller']) {
+        if (dir[cat]) for (const a of dir[cat]) _sqMapForArticle.set(a.code, a.classification || cat);
       }
     }
   }
-  const topCo=[...coCount.entries()]
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,8)
-    .map(([c,score])=>({
-      code:c,
-      libelle:(_S.libelleLookup?.[c]||c).replace(/^\d{6} - /,''),
-      nb:Math.round(score),
-      pct:totalBLWithArticle>0?Math.round(score/totalBLWithArticle*100):0,
-      inStock:(DataStore.finalData.find(r=>r.code===c)?.stockActuel||0)>0,
-    }));
+  // ── Co-achats Smart (5 gestes Coach — filtre anti-bruit) ──
+  const coResult=_computeSmartCoAchats(code,_sqMapForArticle);
+  const topCo=coResult.items.map(c=>({...c,libelle:c.lib,nb:Math.round(c.score)}));
+  const totalBLWithArticle=coResult.totalBL;
   const periodeLabel=_S._globalPeriodePreset||'Historique complet';
   let coAchatHtml='';
   if(topCo.length&&totalBLWithArticle>0){
     const rows=topCo.map(c=>{
-      const stockBadge=c.inStock
-        ?'<span class="chip chip-xs chip-ok">En stock</span>'
-        :'<span class="chip chip-xs chip-danger">Absent</span>';
-      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}</td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center">${stockBadge}</td></tr>`;
+      const _sqI=window._getArticleSqInfo?.(c.code);
+      const verdict=_sqI?`<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:${_sqI.verdict.color}" title="${_sqI.verdict.tip}">${_sqI.verdict.icon} ${_sqI.verdict.name}</span>`
+        :c.inStock?'<span class="chip chip-xs chip-ok" title="En stock">● Stock</span>':'<span class="chip chip-xs" style="background:rgba(255,255,255,0.1);color:var(--t-disabled)" title="Hors squelette">⚪ Bruit</span>';
+      return `<tr class="border-t b-dark"><td class="py-1 px-2 font-mono text-[10px]" style="color:var(--t-inverse);opacity:0.5">${escapeHtml(c.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${c.code}','coachats')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-xs" style="color:var(--t-inverse)">${escapeHtml(c.libelle)}</td><td class="py-1 px-2 text-right text-xs font-bold c-ok">${c.pct}%</td><td class="py-1 px-2 text-center text-[10px] font-bold whitespace-nowrap">${verdict}</td></tr>`;
     }).join('');
     const lowBLNote=totalBLWithArticle<5?`<p class="text-[10px] mt-1" style="color:rgba(255,255,255,0.4)">⚠️ Peu de BL sur cette période — élargis la période pour plus de données</p>`:'';
-    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
+    coAchatHtml=`<div class="diag-level mt-2" style="color:var(--t-inverse)"><div class="diag-level-hdr"><span class="font-bold text-sm">🔀 Co-achats</span><span class="text-xs" style="color:var(--t-inverse);opacity:0.5">${totalBLWithArticle} BL projet${coResult.skippedBigBL?` (${coResult.skippedBigBL} réassorts ignorés)`:''} · ${escapeHtml(periodeLabel)}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-inverse);opacity:0.6"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Libellé</th><th class="py-1 px-2 text-right">% BL</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div><p class="text-[10px] mt-1.5" style="color:var(--t-inverse);opacity:0.5">% = part des BL contenant cet article où l'autre article était aussi présent</p>${lowBLNote}</div>`;
   }
-  // Tab switcher
+  // Verdict Squelette pour onglet Perf
+  const _sqInfo = window._getArticleSqInfo?.(code);
+  const _sqLabel = _sqInfo ? `${_sqInfo.verdict.icon} ${_sqInfo.verdict.name}` : '⚪ Hors squelette';
+  const _sqBadge = `<span class="text-[10px] font-bold ml-1" style="color:${_sqInfo?.verdict?.color||'var(--t-disabled)'}" title="${_sqInfo?.verdict?.tip||''}">${_sqLabel}</span>`;
+  // Sparklines
+  const _artSpk = _articleSparkline(code);
+  const _famSpk = _familySparkline(r.famille);
+  const _seasonR = _seasonRibbon(r.famille);
+  // Marge
+  const vpm = _S.ventesParMagasin?.[_S.selectedMyStore]?.[code];
+  const artCA = vpm?.sumCA || r.caAnnuel || 0;
+  const artVMB = vpm?.sumVMB || 0;
+  const txMarge = artCA > 0 ? (artVMB / artCA * 100).toFixed(1) : '—';
+  // Performance HTML (colonne gauche du split)
+  const perfHtml = `<div class="diag-level" style="overflow:hidden;min-width:0"><div class="diag-level-hdr"><span class="font-bold text-sm">📊 Performance</span>${_sqBadge}</div>
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+      <span class="t-disabled">CA période</span><span class="font-bold c-ok">${artCA > 0 ? formatEuro(artCA) : '—'}</span>
+      <span class="t-disabled">VMB</span><span class="font-bold">${artVMB > 0 ? formatEuro(artVMB) : '—'}</span>
+      <span class="t-disabled">Tx marge</span><span class="font-bold ${typeof txMarge === 'string' && txMarge !== '—' && parseFloat(txMarge) < 25 ? 'c-danger' : ''}">${txMarge}${txMarge !== '—' ? '%' : ''}</span>
+      <span class="t-disabled">Prélevé (V)</span><span>${r.V || 0}</span>
+      <span class="t-disabled">Fréquence (W)</span><span>${r.W || 0} BL</span>
+      <span class="t-disabled">PU</span><span>${r.prixUnitaire > 0 ? formatEuro(r.prixUnitaire) : '—'}</span>
+    </div>
+    ${_artSpk ? `<div class="mt-2"><span class="text-[10px] t-disabled">Historique ventes</span>${_artSpk}</div>` : ''}
+    ${_famSpk ? `<div class="mt-1"><span class="text-[10px] t-disabled">Saisonnalité famille</span>${_famSpk}</div>` : ''}
+    ${_seasonR ? `<div class="mt-1">${_seasonR}</div>` : ''}
+  </div>`;
+  // Tab switcher — 3 onglets (séparés = lisibilité pleine largeur)
+  const _artTabs = ['perf', 'clients', 'coachats'];
   window._artPanelTab=function(tab){
-    document.getElementById('artPanelStock')?.classList.toggle('hidden',tab!=='stock');
-    document.getElementById('artPanelClients')?.classList.toggle('hidden',tab!=='clients');
-    ['stock','clients'].forEach(t=>{
+    for (const t of _artTabs) {
+      document.getElementById('artPanel-'+t)?.classList.toggle('hidden',t!==tab);
       const btn=document.getElementById('artTab-'+t);
-      if(!btn)return;
+      if(!btn)continue;
       btn.classList.toggle('c-action',t===tab);
       btn.classList.toggle('t-disabled',t!==tab);
       btn.style.borderColor=t===tab?'var(--c-action)':'transparent';
-    });
+    }
   };
-  const tabNav=`<div class="flex gap-1 border-b b-dark mb-0"><button onclick="_artPanelTab('stock')" id="artTab-stock" class="px-3 py-2 text-xs font-semibold border-b-2 c-action" style="border-color:var(--c-action)">📦 Stock &amp; Réseau</button><button onclick="_artPanelTab('clients')" id="artTab-clients" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">🔀 Clients &amp; Co-achats</button></div>`;
+  const tabNav=`<div class="flex gap-1 border-b b-dark mb-0"><button onclick="_artPanelTab('perf')" id="artTab-perf" class="px-3 py-2 text-xs font-semibold border-b-2 c-action" style="border-color:var(--c-action)">📊 Performance</button><button onclick="_artPanelTab('clients')" id="artTab-clients" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">👥 Acheteurs</button><button onclick="_artPanelTab('coachats')" id="artTab-coachats" class="px-3 py-2 text-xs font-semibold t-disabled hover:t-primary border-b-2" style="border-color:transparent">🔗 Co-achats</button></div>`;
   // Render
-  panel.innerHTML=`<div class="flex items-center gap-2 mb-3"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${tabNav}<div id="artPanelStock">${stockHtml}${reseauHtml}${canalHtml}</div><div id="artPanelClients" class="hidden">${buyersHtml}${coAchatHtml}</div>`;
+  panel.innerHTML=`<div class="flex items-center gap-2 mb-3"><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-sm font-semibold flex items-center gap-1">← Retour</button><div class="flex-1 mx-3"><div class="flex flex-wrap items-center gap-1.5 mb-0.5"><span class="font-mono t-disabled text-xs">${escapeHtml(r.code)}</span>${_copyCodeBtn(r.code)}${badges}</div><h2 class="font-extrabold text-base leading-tight">${escapeHtml(r.libelle)}</h2></div><button onclick="closeArticlePanel()" class="t-disabled hover:text-white text-xl leading-none font-bold">✕</button></div>${tabNav}<div id="artPanel-perf"><div class="grid grid-cols-2 gap-3 mt-3">${perfHtml}${stockHtml}</div>${commanderHtml}${reseauHtml}${canalHtml}</div><div id="artPanel-clients" class="hidden">${buyersHtml}</div><div id="artPanel-coachats" class="hidden">${coAchatHtml}</div>`;
   const _apTrigger=document.activeElement;
   overlay.classList.add('active');
   overlay._cleanupFocusTrap=window.focusTrap?.(panel,_apTrigger);
@@ -646,8 +856,8 @@ function _familySparkline(famille){
 function _seasonRibbon(famille){
   const idx=_S.seasonalIndex[famille];if(!idx)return'';
   const MONTHS=['J','F','M','A','M','J','J','A','S','O','N','D'];
-  const cells=idx.map((coeff,i)=>{const bg=coeff>=1.5?'bg-emerald-500':coeff>=1.0?'bg-emerald-300':coeff>=0.5?'bg-amber-300':'bg-red-300';return`<div class="text-center" title="${MONTHS[i]}: ×${coeff}"><div class="text-[8px] t-disabled">${MONTHS[i]}</div><div class="w-5 h-3 rounded-sm ${bg}" style="opacity:${Math.max(0.3,Math.min(1,coeff))}"></div></div>`;}).join('');
-  return`<div class="flex gap-0.5 items-end mt-1" title="Saisonnalité famille">${cells}</div>`;
+  const cells=idx.map((coeff,i)=>{const bg=coeff>=1.5?'bg-emerald-500':coeff>=1.0?'bg-emerald-300':coeff>=0.5?'bg-amber-300':'bg-red-300';return`<div class="text-center min-w-0" title="${MONTHS[i]}: ×${coeff}"><div class="text-[7px] t-disabled">${MONTHS[i]}</div><div class="h-3 rounded-sm ${bg}" style="opacity:${Math.max(0.3,Math.min(1,coeff))}"></div></div>`;}).join('');
+  return`<div class="flex gap-px items-end mt-1 overflow-hidden" style="max-width:100%" title="Saisonnalité famille">${cells}</div>`;
 }
 
 // ── BANDEAU SYNTHÈSE "3 CHIFFRES" (Action 1 — Codex P1) ──
@@ -745,7 +955,7 @@ window._diagAFSwitchTab = function(tab) {
   const v1=_S._diagLevels?.v1, v2=_S._diagLevels?.v2;
   if(tab==='stock')         content.innerHTML=_diagAFRenderStock(famille,v1||{});
   else if(tab==='clientele')content.innerHTML=_diagAFRenderClientele(famille,v2);
-  else if(tab==='coachats') content.innerHTML=_diagAFRenderCoachats(famille);
+  else if(tab==='reseau')   content.innerHTML=_diagAFRenderReseau(famille);
 };
 
 // ── TAB 1 — Stock ─────────────────────────────────────────────────
@@ -783,45 +993,49 @@ function _diagAFRenderClientele(famille,v2) {
   return _diagRenderV2(v,_S.chalandiseReady);
 }
 
-// ── TAB 3 — Co-achats ─────────────────────────────────────────────
-function _diagAFRenderCoachats(famille) {
-  const famArts=new Set(DataStore.finalData.filter(r=>famLib(r.famille)===famille).map(r=>r.code));
-  if(!famArts.size)return'<div class="t-disabled text-sm text-center py-4">Aucun article connu dans cette famille.</div>';
-  const coCount=new Map();
-  let source='none';
-  const isMono=(_S.storesIntersection?.size||1)<=1;
-  const agLabel=_S.selectedMyStore||'votre agence';
-  if(_S.territoireReady&&DataStore.territoireLines?.length>0){
-    source='territoire';
-    const blsWithFam=new Set();
-    for(const l of DataStore.territoireLines){if(l.code&&famArts.has(l.code))blsWithFam.add(l.bl);}
-    for(const l of DataStore.territoireLines){
-      if(!l.bl||!blsWithFam.has(l.bl)||famArts.has(l.code))continue;
-      coCount.set(l.code,(coCount.get(l.code)||0)+1);
-    }
-  } else if(DataStore.ventesClientArticle?.size){
-    source='client';
-    for(const[,artMap]of DataStore.ventesClientArticle){
-      const buysFam=[...artMap.keys()].some(c=>famArts.has(c));
-      if(!buysFam)continue;
-      for(const code of artMap.keys()){if(!famArts.has(code))coCount.set(code,(coCount.get(code)||0)+1);}
-    }
+// ── TAB 3 — Opportunités Réseau ───────────────────────────────────
+function _diagAFRenderReseau(famille) {
+  const v3=_S._diagLevels?.v3;
+  if(!v3||v3.status==='lock')return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="t-disabled text-sm">🔒 Chargez un Consommé multi-agences pour comparer votre gamme au réseau.</p></div>`;
+  return _renderReseauTab(v3);
+}
+
+// ── Shared Opportunités Réseau renderer ──────────────────────────────
+function _renderReseauTab(v3) {
+  const missing=v3.missing||[];
+  const inStockNotSold=v3.inStockNotSold||[];
+  if(!missing.length&&!inStockNotSold.length)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-sm">✅ Votre gamme est bien alignée avec le réseau — aucun trou détecté.</p></div>`;
+  // Squelette verdicts — source unique via _getArticleSqInfo
+  const _verdictBadge=(code)=>{const _sq=window._getArticleSqInfo?.(code);if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return'<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700/50 text-slate-400">—</span>';const vc=_sq.verdict.color||'#94a3b8';return`<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${vc}22;color:${vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;};
+  const strong=missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;
+  // KPI cards
+  const cards=[
+    {label:'Trous gamme',val:String(missing.length),sub:strong>0?`dont ${strong} en forte rotation (F/M)`:'Faible rotation uniquement',col:missing.length===0?'c-ok':strong>2?'c-danger':'c-caution'},
+    {label:'En stock non vendus',val:String(inStockNotSold.length),sub:inStockNotSold.length>0?'Articles référencés mais dormants':'Tous vos articles tournent',col:inStockNotSold.length===0?'c-ok':inStockNotSold.length>5?'c-caution':'c-ok'},
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+  // Missing table
+  let missingHtml='';
+  if(missing.length){
+    const rows=missing.map(a=>{
+      const rawLib=a.lib||a.code;
+      const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
+      const fmrCol=a.networkFmr==='F'?'c-ok':a.networkFmr==='M'?'c-caution':'t-disabled';
+      return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-center"><span class="font-bold ${fmrCol}">${a.networkFmr}</span></td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
+    }).join('');
+    missingHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">🚨 Articles absents — vendus par le réseau</p><div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-center">FMR rés.</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }
-  if(!coCount.size)return'<div class="t-disabled text-sm text-center py-4">Pas assez de données pour calculer les co-achats.</div>';
-  const top10=[...coCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const srcLabel=isMono||source==='client'?escapeHtml(agLabel):'réseau';
-  const monoNote=(isMono||source==='client')?`<p class="text-[10px] t-disabled italic mt-3">*(données ${escapeHtml(agLabel)} uniquement — chargez un consommé multi-agences pour le réseau complet)</p>`:'';
-  const rows=top10.map(([code,count])=>{
-    const r=DataStore.finalData?.find(f=>f.code===code);
-    const rawLib=_S.libelleLookup?.[code]||code;
-    const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
-    const inStock=r&&(r.stockActuel||0)>0;
-    const badge=inStock
-      ?`<span class="chip chip-xs chip-ok">✓ En stock</span>`
-      :`<span class="chip chip-xs chip-danger">⚠ Absent</span>`;
-    return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono">${_copyCodeBtn(code)}</td><td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${count} BL ${srcLabel}</td><td class="py-1.5 px-2 text-center">${badge}</td></tr>`;
-  }).join('');
-  return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
+  // In-stock-not-sold table
+  let dormantHtml='';
+  if(inStockNotSold.length){
+    const rows2=inStockNotSold.map(a=>{
+      const rawLib=a.lib||a.code;
+      const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
+      return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(a.code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${a.code}','diag-reseau')" title="Voir détail article">🔍</span></td><td class="py-1.5 px-2 max-w-[160px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${a.nbStores} ag.</td><td class="py-1.5 px-2 text-right">${a.stockActuel}</td><td class="py-1.5 px-2 text-center">${_verdictBadge(a.code)}</td></tr>`;
+    }).join('');
+    dormantHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">💤 En stock mais non vendus chez vous</p><div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Agences</th><th class="py-1.5 px-2 text-right">Stock</th><th class="py-1.5 px-2 text-center">Verdict</th></tr></thead><tbody>${rows2}</tbody></table></div></div>`;
+  }
+  const nbOther=v3.nbOtherStores||0;
+  return`<div class="flex gap-3 mb-4">${cards}</div><p class="text-[10px] t-inverse-muted mb-1">Comparaison avec ${nbOther} autre${nbOther>1?'s':''} agence${nbOther>1?'s':''} du réseau</p>${missingHtml}${dormantHtml}`;
 }
 
 // ── Cell diag — tab switcher & renderers (cases ABC×FMR) ──────────────
@@ -835,7 +1049,7 @@ window._diagCellSwitchTab = function(tab) {
   const v1=_S._diagLevels?.v1, v2=_S._diagLevels?.v2;
   if(tab==='stock')         content.innerHTML=_diagCellRenderStock(key,v1||{});
   else if(tab==='clientele')content.innerHTML=_diagCellRenderClientele(key,v2);
-  else if(tab==='coachats') content.innerHTML=_diagCellRenderCoachats(key);
+  else if(tab==='reseau')   content.innerHTML=_diagCellRenderReseau(key);
 };
 
 function _diagCellRenderStock(key,v1) {
@@ -870,66 +1084,78 @@ function _diagCellRenderClientele(key,v2) {
   if(!_S.chalandiseReady)return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="t-disabled text-sm">🔒 Chargez la Zone de Chalandise pour activer cette analyse.</p></div>`;
   const cellArts=_S._diagCellArts||[];
   const artSet=new Set(cellArts.map(r=>r.code));
-  const acheteurs=new Set();
+  const LABELS={AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+  const caseLabel=LABELS[key]||key;
+
+  // ── Cross-Sell Inversé : gros clients qui boudent cette case ──
+  // 1. Calculer CA total PDV + CA sur cette case pour chaque client
+  const clientStats=[];
   if(DataStore.ventesClientArticle?.size){
     for(const[cc,artMap]of DataStore.ventesClientArticle){
-      for(const code of artMap.keys()){if(artSet.has(code)){acheteurs.add(cc);break;}}
+      const info=_S.chalandiseData?.get(cc);
+      if(!info)continue;
+      let caTotal=0, caCase=0, nbArtCase=0;
+      for(const[code,d]of artMap){
+        caTotal+=(d.sumCA||0);
+        if(artSet.has(code)){caCase+=(d.sumCA||0);nbArtCase++;}
+      }
+      if(caTotal>0)clientStats.push({cc,nom:info.nom||cc,metier:info.metier||'',classification:info.classification||'',commercial:info.commercial||'',caTotal,caCase,nbArtCase,pctCase:caCase/caTotal*100});
     }
   }
-  const nbActifs=acheteurs.size;
-  const domMetier=v2?.metiers?.[0]?.metier||null;
-  let nbZone=0;
-  if(domMetier&&_S.chalandiseData?.size){for(const[,info]of _S.chalandiseData){if(info.metier===domMetier)nbZone++;}}
-  const txPen=(nbActifs>0&&nbZone>0)?Math.round(nbActifs/nbZone*100):null;
-  const penCol=txPen===null?'t-disabled':txPen>40?'c-ok':txPen>=20?'c-caution':'c-danger';
-  const barBg=txPen===null?'rgba(148,163,184,0.3)':txPen>40?'#22c55e':txPen>=20?'#f59e0b':'#ef4444';
-  const barRow=txPen!==null?`<div class="flex items-center gap-2 mt-2"><span class="text-[10px] t-disabled w-28 shrink-0">Taux pénétration</span><div class="flex-1 h-2 rounded-full overflow-hidden" style="background:rgba(148,163,184,0.2)"><div class="h-full rounded-full" style="width:${Math.min(txPen,100)}%;background:${barBg}"></div></div><span class="text-[11px] font-bold ${penCol} w-8 text-right">${txPen}%</span></div>`:'';
-  const penBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl mb-3"><p class="text-[11px] mb-1" style="color:var(--t-primary)"><strong>${nbActifs}</strong> acheteurs actifs sur cette case</p>${domMetier&&nbZone>0?`<p class="text-[11px] mb-0" style="color:var(--t-primary)"><strong>${nbZone}</strong> clients <em>${escapeHtml(domMetier)}</em> dans ta zone chalandise</p>`:''}${barRow}${txPen===null&&nbZone===0?'<p class="text-[10px] t-disabled mt-1">Métier dominant non identifié dans la chalandise.</p>':''}</div>`;
-  const nbPerdus=v2?.perdus||0;
-  const potentiel=v2?.potentiel||0;
-  const reconBlock=`<div class="p-3 s-panel-inner border b-dark rounded-xl">${nbPerdus>0?`<p class="text-[11px] font-bold c-caution mb-2">⚠ ${nbPerdus} client${nbPerdus>1?'s':''} perdu${nbPerdus>1?'s':''}${potentiel>0?' · '+formatEuro(potentiel)+' récupérable':''}</p><button class="text-[11px] text-cyan-400 hover:text-cyan-300" onclick="closeDiagnostic();switchTab('commerce')">→ Voir dans Le Terrain</button>`:'<p class="text-[11px] c-ok">✅ Aucun client perdu identifié pour cette case.</p>'}</div>`;
-  return penBlock+reconBlock;
+
+  // 2. Trier par CA total décroissant, garder le Top 50
+  clientStats.sort((a,b)=>b.caTotal-a.caTotal);
+  const top50=clientStats.slice(0,50);
+
+  // 3. Parmi le Top 50, trouver ceux dont la part sur cette case est < 5%
+  const boudeurs=top50.filter(c=>c.pctCase<5).sort((a,b)=>a.pctCase-b.pctCase);
+  const topBoudeurs=boudeurs.slice(0,10);
+
+  // KPI cards
+  const nbAcheteurs=clientStats.filter(c=>c.caCase>0).length;
+  const caTotal50=top50.reduce((s,c)=>s+c.caTotal,0);
+  const caCase50=top50.reduce((s,c)=>s+c.caCase,0);
+  const pctMoyen50=caTotal50>0?caCase50/caTotal50*100:0;
+  const potentielEstime=boudeurs.reduce((s,c)=>s+c.caTotal*0.05-c.caCase,0);
+
+  const cards=[
+    {label:`Acheteurs ${caseLabel}`,val:String(nbAcheteurs),sub:`sur ${clientStats.length} clients PDV`,col:nbAcheteurs>0?'c-ok':'c-danger'},
+    {label:'Boudeurs Top 50',val:String(boudeurs.length),sub:boudeurs.length>0?`${formatEuro(Math.round(potentielEstime))} potentiel si 5%`:'Tous tes gros clients achètent ici',col:boudeurs.length===0?'c-ok':boudeurs.length>5?'c-danger':'c-caution'},
+    {label:'Pénétration Top 50',val:pctMoyen50.toFixed(1)+'%',sub:`${formatEuro(Math.round(caCase50))} / ${formatEuro(Math.round(caTotal50))}`,col:pctMoyen50>15?'c-ok':pctMoyen50>=5?'c-caution':'c-danger'},
+  ].map(k=>`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide truncate">${k.label}</p><p class="text-lg font-extrabold ${k.col}">${k.val}</p><p class="text-[10px] t-inverse-muted">${k.sub}</p></div>`).join('');
+
+  // Tableau boudeurs
+  let tableHtml='';
+  if(topBoudeurs.length){
+    const rows=topBoudeurs.map(c=>{
+      const pctCol=c.pctCase<1?'c-danger':c.pctCase<3?'c-caution':'t-disabled';
+      const metierBadge=c.metier?`<span class="text-[9px] px-1 py-0.5 rounded bg-slate-700/50 t-disabled ml-1">${escapeHtml(c.metier)}</span>`:'';
+      return`<tr class="border-b b-dark hover:s-panel-inner">
+        <td class="py-1.5 px-2 text-[11px] font-semibold" style="color:var(--t-primary)">${escapeHtml(c.nom)}${metierBadge}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openClient360)openClient360('${c.cc}','diag-cell')" title="Ouvrir fiche 360°">🔍</span></td>
+        <td class="py-1.5 px-2 text-right font-bold c-ok text-[11px]">${formatEuro(Math.round(c.caTotal))}</td>
+        <td class="py-1.5 px-2 text-right text-[11px] ${pctCol} font-bold">${c.caCase>0?formatEuro(Math.round(c.caCase)):'0 €'}</td>
+        <td class="py-1.5 px-2 text-right text-[11px] ${pctCol}">${c.pctCase.toFixed(1)}%</td>
+      </tr>`;
+    }).join('');
+    tableHtml=`<div class="mt-4"><p class="text-[11px] font-bold text-white mb-2">🎯 Chasse aux ${caseLabel} — Gros clients qui boudent cette case</p>
+      <p class="text-[10px] t-inverse-muted mb-2">Tes meilleurs clients par CA total, mais qui achètent moins de 5% de leur volume sur ces ${cellArts.length} articles. Clique sur 🔍 pour voir ce qu'ils achètent ailleurs.</p>
+      <div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)">
+        <th class="py-1.5 px-2 text-left">Client</th>
+        <th class="py-1.5 px-2 text-right">CA total PDV</th>
+        <th class="py-1.5 px-2 text-right">CA ${caseLabel}</th>
+        <th class="py-1.5 px-2 text-right">Part</th>
+      </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  } else {
+    tableHtml=`<div class="mt-4 p-3 s-panel-inner border b-dark rounded-xl text-center"><p class="c-ok text-[11px]">✅ Tous tes Top 50 achètent déjà plus de 5% sur cette case — bonne pénétration.</p></div>`;
+  }
+
+  return`<div class="flex gap-3 mb-3">${cards}</div>${tableHtml}`;
 }
 
-function _diagCellRenderCoachats(key) {
-  const cellArts=_S._diagCellArts||[];
-  const artSet=new Set(cellArts.map(r=>r.code));
-  if(!artSet.size)return'<div class="t-disabled text-sm text-center py-4">Aucun article dans cette case.</div>';
-  const coCount=new Map();
-  let source='none';
-  const isMono=(_S.storesIntersection?.size||1)<=1;
-  const agLabel=_S.selectedMyStore||'votre agence';
-  if(_S.territoireReady&&DataStore.territoireLines?.length>0){
-    source='territoire';
-    const blsWithFam=new Set();
-    for(const l of DataStore.territoireLines){if(l.code&&artSet.has(l.code))blsWithFam.add(l.bl);}
-    for(const l of DataStore.territoireLines){
-      if(!l.bl||!blsWithFam.has(l.bl)||artSet.has(l.code))continue;
-      coCount.set(l.code,(coCount.get(l.code)||0)+1);
-    }
-  }else if(DataStore.ventesClientArticle?.size){
-    source='client';
-    for(const[,artMap]of DataStore.ventesClientArticle){
-      const buysFam=[...artMap.keys()].some(c=>artSet.has(c));
-      if(!buysFam)continue;
-      for(const code of artMap.keys()){if(!artSet.has(code))coCount.set(code,(coCount.get(code)||0)+1);}
-    }
-  }
-  if(!coCount.size)return'<div class="t-disabled text-sm text-center py-4">Pas assez de données pour calculer les co-achats.</div>';
-  const top10=[...coCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const srcLabel=isMono||source==='client'?escapeHtml(agLabel):'réseau';
-  const monoNote=(isMono||source==='client')?`<p class="text-[10px] t-disabled italic mt-3">*(données ${escapeHtml(agLabel)} uniquement — chargez un consommé multi-agences pour le réseau complet)</p>`:'';
-  const rows=top10.map(([code,count])=>{
-    const r=DataStore.finalData?.find(f=>f.code===code);
-    const rawLib=_S.libelleLookup?.[code]||code;
-    const lib=/^\d{6} - /.test(rawLib)?rawLib.substring(9).trim():rawLib;
-    const inStock=r&&(r.stockActuel||0)>0;
-    const badge=inStock
-      ?`<span class="chip chip-xs chip-ok">✓ En stock</span>`
-      :`<span class="chip chip-xs chip-danger">⚠ Absent</span>`;
-    return`<tr class="border-b b-light text-[11px]"><td class="py-1.5 px-2 font-mono">${_copyCodeBtn(code)}</td><td class="py-1.5 px-2 max-w-[180px] truncate" style="color:var(--t-primary)" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td><td class="py-1.5 px-2 text-right" style="color:var(--t-secondary)">${count} BL ${srcLabel}</td><td class="py-1.5 px-2 text-center">${badge}</td></tr>`;
-  }).join('');
-  return`<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead><tr class="border-b b-light text-[10px]" style="color:var(--t-disabled)"><th class="py-1.5 px-2 text-left">Code</th><th class="py-1.5 px-2 text-left">Libellé</th><th class="py-1.5 px-2 text-right">Fréquence</th><th class="py-1.5 px-2 text-center">Stock</th></tr></thead><tbody>${rows}</tbody></table></div>${monoNote}`;
+function _diagCellRenderReseau(key) {
+  const v3=_S._diagLevels?.v3;
+  if(!v3||v3.status==='lock')return`<div class="p-4 s-panel-inner border b-dark rounded-xl text-center"><p class="t-disabled text-sm">🔒 Chargez un Consommé multi-agences pour comparer votre gamme au réseau.</p></div>`;
+  return _renderReseauTab(v3);
 }
 
 function renderDiagnosticPanel(famille,source){
@@ -980,9 +1206,10 @@ function renderDiagnosticPanel(famille,source){
   // ── Diagnostic AF — 3 onglets ──
   v1=_diagVoyant1(famille);
   v2=_diagVoyant2(famille,hasChal,_S._diagMetierFilter);
-  _S._diagLevels={v1,v2};
+  v3=_diagVoyant3(famille,hasMulti);
+  _S._diagLevels={v1,v2,v3};
   titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${famille}</span>`;
-  const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'coachats',label:'🔗 Co-achats'}];
+  const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'reseau',label:'📡 Opportunités Réseau'}];
   const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagAFSwitchTab('${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
   panel.innerHTML=`
     <div class="flex items-start justify-between mb-5">
@@ -1080,12 +1307,12 @@ function _renderDiagnosticCellPanel(key,cellArts){
   if(ruptures.length>0){const caLabel=caPerduTotal>0?formatEuro(caPerduTotal):formatEuro(ruptures.reduce((s,r)=>s+Math.round(r.W*(r.ca||0)),0))+' potentiel';acts.push({priority:1,src:'📦',codes:ruptures.map(r=>r.code),label:`Réassort ${ruptures.length} rupture${ruptures.length>1?'s':''} — CA récupérable : ${caLabel}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];document.getElementById('filterCockpit').value='ruptures';document.getElementById('activeCockpitLabel').textContent='🚨 Ruptures';document.getElementById('activeCockpitFilter').classList.remove('hidden');_S.currentPage=0;switchTab('table');renderAll();}});}
   if(nbMM>0&&statusMM!=='ok'){const top5=mmDetail.slice(0,5);acts.push({priority:2,src:'📦',label:`Recalibrer MIN/MAX — ${nbMM} articles : ${top5.map(r=>r.code+' '+r.ancienMin+'→'+r.nouveauMin).join(' · ')}`,fn:()=>{closeDiagnostic();document.getElementById('filterABC').value=key[0];document.getElementById('filterFMR').value=key[1];clearCockpitFilter(true);_S.currentPage=0;switchTab('table');renderAll();}});}
   if(v2.status!=='lock'&&(v2.perdus>0||(v2.prospects||0)>0)){const cliLabel=v2.perdus>0?`${v2.perdus} perdu${v2.perdus>1?'s':''} avec historique`:`${v2.prospects} prospect${v2.prospects>1?'s':''} métier`;const potLabel=v2.potentiel>0?' — potentiel '+formatEuro(v2.potentiel):'';acts.push({priority:3,src:'👥',label:`Démarcher ${cliLabel}${potLabel}`,fn:()=>{closeDiagnostic();window.scrollTo(0,0);const _mc366=document.getElementById('mainContent');if(_mc366){_mc366.style.overflow='';_mc366.scrollTop=0;}switchTab('commerce');let _lt366=-1,_tr366=0;const _pv366=setInterval(()=>{const mc=document.getElementById('mainContent');const el=document.getElementById('terrCockpitClient');if(!mc||!el){if(++_tr366>40)clearInterval(_pv366);return;}let e=el,t=0;while(e&&e!==mc){t+=e.offsetTop;e=e.offsetParent;}if((t===_lt366&&t>0)||_tr366++>40){clearInterval(_pv366);window.scrollTo(0,0);mc.scrollTo({top:t-16,behavior:'smooth'});if(!el.classList.contains('hidden')){const b=document.createElement('div');b.className='mb-3 px-3 py-2 bg-cyan-950 border border-cyan-700 rounded-lg text-[11px] text-cyan-200 font-semibold flex items-center gap-2';b.innerHTML=`<span class="flex-1">🔍 Diagnostic <strong>${key}</strong> — ${cliLabel}${potLabel} · Voir <strong>🟠 À Développer</strong> ci-dessous</span><button onclick="this.parentElement.remove()" class="text-cyan-400 hover:text-white shrink-0 text-sm font-bold">✕</button>`;el.insertBefore(b,el.firstChild);}}else _lt366=t;},100);}});}
-  if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{document.querySelector('#diagnosticOverlay .diag-v3')?.scrollIntoView({behavior:'smooth',block:'start'});}});}
+  if(v3.status!=='lock'&&v3.missing&&v3.missing.length>0){const displayedStrong=v3.missing.filter(a=>a.networkFmr==='F'||a.networkFmr==='M').length;const strongLabel=displayedStrong>0?` — dont ${displayedStrong} en forte rotation réseau (F/M)`:'';acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} vendus par le réseau — Stock préco. disponible${strongLabel}`,fn:()=>{window._diagCellSwitchTab('reseau');}});}
   _S._diagActions=acts.sort((a,b)=>a.priority-b.priority).slice(0,4);
   _S._diagCellKey=key;
   _S._diagCellArts=cellArts;
   const titleHtml=`🔍 Diagnostic : <span class="text-cyan-400">${key}</span> — <span class="c-caution">${LABELS[key]||key}</span> <span class="t-inverse-muted font-normal text-sm">(${cellArts.length} articles)</span>`;
-  const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'coachats',label:'🔗 Co-achats'}];
+  const _tabDefs=[{id:'stock',label:'🏪 Stock'},{id:'clientele',label:'👥 Clientèle'},{id:'reseau',label:'📡 Opportunités Réseau'}];
   const _tabBtns=_tabDefs.map((t,i)=>`<button data-tab="${t.id}" onclick="window._diagCellSwitchTab('${t.id}')" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${i===0?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
   panel.innerHTML=`
     <div class="flex items-start justify-between mb-5">
@@ -1785,7 +2012,7 @@ function _diagGenActions(famille,v1,v2,v3){
   // 🔭 LE RÉSEAU actions
   if(v3&&v3.status!=='lock'){
     if(v3.missing?.length>0){
-      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{closeDiagnostic();switchTab('reseau');}});
+      acts.push({priority:4,src:'🔭',codes:v3.missing.map(a=>a.code),label:`Référencer ${v3.missing.length} article${v3.missing.length>1?'s':''} absents de votre rayon${v3.strongMissing>0?' — dont '+v3.strongMissing+' en forte rotation (A/B)':''}`,fn:()=>{window._diagAFSwitchTab('reseau');}});
     }
     // Famille marginale — CA médiane < 1000€ dans le réseau : pas d'action réseau exploitable
     if(v3.medCA>0&&v3.medCA<1000){

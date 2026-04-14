@@ -10,11 +10,11 @@
 'use strict';
 
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
-import { cleanCode, extractClientCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, yieldToMain, parseCSVText, getAgeBracket, getAgeLabel, _median, _isMetierStrategique, _normalizeClassif, _classifShort, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, _normalizeStatut, fmtDate, getSecteurDirection, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, matchQuery, buildSparklineSVG } from './utils.js';
+import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, _clientWorker, launchClientWorker, _reseauWorker, launchReseauWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
-import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, initTheme, cycleTheme, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup } from './ui.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors, applyVerdictOverrides } from './engine.js';
+import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
@@ -31,7 +31,7 @@ import { renderArbitrageRayonBlock } from './emplacement.js';
 import { renderAnimationTab, loadCatalogueMarques } from './animation.js';
 import { renderAssociationsTab } from './associations.js';
 // ── P3 Modules — extracted from main.js ──
-import { onBenchParamChange, buildBenchCheckboxes, getBenchCompareStores, recalcBenchmarkInstant, renderBenchmark, buildBenchBassinSelect, renderReseauNomades, renderReseauFuites, renderNomadesMissedArts, renderHeatmapFamilleCommercial, _obsNav, renderObservatoire, buildObsCompareSelect, _buildObsUniversDropdown, onObsCompareChange, onObsFilterChange, resetObsFilters, _setBenchPeriode, renderObsArticleSearch, copyObsActionPlan, copyObsArticleList, toggleObsFamily, copyObsSection, copyPepitesList, copyPepitesOtherList, openNomadeArticleModal, closeNomadeArticleModal, _copyNomadeClientsClipboard, copyNomadesMissedArts, exportBenchList } from './bench.js';
+// bench.js démantelé — fonctions réseau supprimées
 import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDrill, exportCanalDrillCSV, getKPIsByCanal, computePhantomArticles, _setTerrClientsCanalFilter, renderOmniTab, SEG_LABELS } from './omni.js';
 import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
 import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitRupClients, renderMesClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './commerce.js';
@@ -72,12 +72,13 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
     if(_refilterDataC?.rows?.length){
       // Données brutes disponibles (ancienne session) — re-parser via processDataFromRaw
       processDataFromRaw(_refilterDataC,_S._rawDataS||[],{isRefilter:true});
-    }else if(_S._bufC){
-      // Fallback — buffers disponibles mais byMonth absent (edge case IDB ancien cache)
+    }else if(_S._fileC){
+      // Fallback — fichiers disponibles mais byMonth absent (edge case IDB ancien cache)
       (async()=>{
         showLoading('Recalcul période…','');
         try{
-          const parseResult=await launchParseWorker(_S._bufC.slice(0),_S._bufS?_S._bufS.slice(0):null,{
+          const [bufC,bufS]=await Promise.all([_S._fileC.arrayBuffer(),_S._fileS?_S._fileS.arrayBuffer():Promise.resolve(null)]);
+          const parseResult=await launchParseWorker(bufC,bufS,{
             selectedStore:_S.selectedMyStore||'',
             storesIntersection:[..._S.storesIntersection],
             periodStart:_S.periodFilterStart?_S.periodFilterStart.getTime():null,
@@ -96,10 +97,10 @@ import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClien
           if(!_S.clientLastOrderAll.size&&_savedLastOrderAll.size)_S.clientLastOrderAll=_savedLastOrderAll;
           if(!_S.clientLastOrderByCanal.size&&_savedLastOrderByCanal.size)_S.clientLastOrderByCanal=_savedLastOrderByCanal;
           enrichPrixUnitaire();_enrichFinalDataWithCA();
-          if(_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}
+          if(_S.storesIntersection.size>1&&_S.selectedMyStore){invalidateCache('bench');computeBenchmark();}
           computeClientCrossing();_computeClientDominantUnivers();
           renderCanalAgence();renderCurrentTab();
-          if(_S.storesIntersection.size>1)launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('[refilter] Réseau worker:',err));
+
         }catch(err){showToast('⚠️ Erreur refilter: '+err.message,'warning');renderCanalAgence();renderCurrentTab();}
         finally{hideLoading();}
       })();
@@ -282,8 +283,7 @@ _S.canalAgence=newCanalAgence;
       _S._benchCache=null;
       if(_S.storesIntersection.size>1&&_S.selectedMyStore){
         try{
-          const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;
-          computeBenchmark(_rcp);
+          computeBenchmark();
         }catch(err){console.warn('[refilter] computeBenchmark error:',err);}
       }
     }
@@ -945,14 +945,6 @@ _S.canalAgence=newCanalAgence;
 
   // ★★★ MOTEUR PRINCIPAL ★★★
 
-  // Helper : détecte la colonne code agence dans une ligne
-  function _detectStoreColumn(row){
-    if(!row)return null;
-    return Object.keys(row).find(k=>{
-      const kl=k.toLowerCase().replace(/[\r\n]/g,' ').trim();
-      return kl==='code pdv'||kl==='pdv'||kl==='code agence'||kl==='agence'||kl==='code depot'||kl==='dépôt'||kl==='depot';
-    })||null;
-  }
   function _detectStoreColumnIdx(headers){
     if(!headers||!headers.length)return -1;
     return headers.findIndex(k=>{
@@ -996,7 +988,10 @@ _S.canalAgence=newCanalAgence;
         const _storeBeforeRestore = _S.selectedMyStore;
         const _idbOk = DataStore.finalData.length > 0 || await _restoreSessionFromIDB();
         if (_storeBeforeRestore) _S.selectedMyStore = _storeBeforeRestore;
-        if (_idbOk && DataStore.finalData.length > 0) {
+        // Vérifier si l'agence a changé dans le dropdown
+        const _newStore = (document.getElementById('selectMyStore')?.value || '').toUpperCase();
+        const _storeChanged = _newStore && _newStore !== _S.selectedMyStore;
+        if (_idbOk && DataStore.finalData.length > 0 && !_storeChanged) {
           const _fLiv = document.getElementById('fileLivraisons').files[0] || null;
           const _unchanged = await _checkFilesUnchanged(f1, f2 || null, document.getElementById('fileChalandise').files[0] || null, _fLiv);
           if (_unchanged) {
@@ -1037,10 +1032,9 @@ _S.canalAgence=newCanalAgence;
       updateProgress(18,100,'Buffers prêts…');await yieldToMain();
     }catch(error){showToast('❌ Lecture fichiers: '+error.message,'error');console.error(error);btn.disabled=false;hideLoading();return;}
 
-    // Stocker les buffers pour refilter période ultérieur
-    // Note: slice() pour ne pas transférer l'original (il sera transféré au worker)
-    _S._bufC = bufC.slice(0);
-    _S._bufS = bufS ? bufS.slice(0) : null;
+    // Stocker les File pour refilter période ultérieur (léger, pas de copie buffer)
+    _S._fileC = f1;
+    _S._fileS = f2 || null;
     _S._rawDataC = null; _S._rawDataS = [];
 
     // ── Lancement du worker de parsing ──
@@ -1134,9 +1128,17 @@ _S.canalAgence=newCanalAgence;
     _S._byMonthFull       = r.byMonthFull  || null;
     _S._byMonthCanal      = r.byMonthCanal || null;
     _S._byMonthStoreArtCanal = r.byMonthStoreArtCanal || null;
-    _S._byMonthClients    = r.byMonthClients
-      ? Object.fromEntries(Object.entries(r.byMonthClients).map(([k, arr]) => [k, new Set(arr)]))
-      : null;
+    // Hydrater byMonthStoreClients (Arrays → Sets)
+    if (r.byMonthStoreClients) {
+      const _bmsc = {};
+      for (const sk in r.byMonthStoreClients) { _bmsc[sk] = {}; for (const mi in r.byMonthStoreClients[sk]) _bmsc[sk][mi] = new Set(r.byMonthStoreClients[sk][mi]); }
+      _S._byMonthStoreClients = _bmsc;
+    } else { _S._byMonthStoreClients = null; }
+    if (r.byMonthClients) {
+      const _bmc = {};
+      for (const k in r.byMonthClients) _bmc[k] = new Set(r.byMonthClients[k]);
+      _S._byMonthClients = _bmc;
+    } else { _S._byMonthClients = null; }
     _S._byMonthClientsByCanal = r.byMonthClientsByCanal
       ? Object.fromEntries(Object.entries(r.byMonthClientsByCanal).map(([k, cm]) => {
           const _out = {};
@@ -1280,12 +1282,13 @@ _S.canalAgence=newCanalAgence;
       _mark('Après chalandise');
       {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
       _mark('Après livraisons');
-      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal||null);_mark('Benchmark');}
+      if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
 
       // ABC/FMR + selects
       if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
       updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();
       assertPostParseInvariants();
+      if(useMulti){updateProgress(94,100,'Verdicts Squelette…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
       updateProgress(95,100,'Affichage…');await yieldToMain();
 
       // Repeupler les selects depuis finalData
@@ -1306,14 +1309,12 @@ _S.canalAgence=newCanalAgence;
       document.getElementById('navReportingBtn').classList.remove('hidden');
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
-      if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabReseau').classList.add('hidden');
       const _terrBtn=document.getElementById('btnTabCommerce');_terrBtn.classList.remove('hidden');
       const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
       const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
 
       computeClientCrossing();computeReconquestCohort();
       buildClientStore();_applyForcageCommercial();_mark('ClientStore + crossing');
-      // agenceStore rebuilt par computeBenchmark (ligne 1038 + renderBenchmark ci-dessous)
       if(!_S.chalandiseReady)_rebuildCaByArticleCanal();
       // launchClientWorker — toujours lancé (gère chalandise vide en interne)
       // IDB sauvegardée uniquement ici — évite double save avec chalandise partielle
@@ -1322,9 +1323,9 @@ _S.canalAgence=newCanalAgence;
         if(_S.selectedMyStore){localStorage.setItem('prisme_selectedStore',_S.selectedMyStore);_saveToCache();await _saveSessionToIDB();const f1=document.getElementById('fileConsomme').files[0];const f2=document.getElementById('fileStock').files[0]||null;const f3=document.getElementById('fileChalandise').files[0]||null;const f4=document.getElementById('fileLivraisons').files[0]||null;if(f1)await _saveFileHashes(f1,f2,f3,f4);}
       }).catch(err=>console.warn('Client worker error:',err));
       _S.currentPage=0;
-      if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
       renderAll();_mark('renderAll');
       initDetailsAnimations();
+      initColSelector();
       _syncTabAccess();
 
       // Auto-YTD si consommé court
@@ -1406,20 +1407,23 @@ _S.canalAgence=newCanalAgence;
       if(!hasStock){pill.style.opacity='0.45';pill.title="Nécessite le fichier stock";pill.style.pointerEvents='none';}
       else{pill.style.opacity='';pill.title='';pill.style.pointerEvents='';}
     });
-    // Le Réseau — visible uniquement si multi-agences
-    const reseauGroup=document.getElementById('stg-reseau');
-    if(reseauGroup){reseauGroup.style.display=(_S.storesIntersection?.size>1)?'':'none';}
     // Labo pill — pas de verrouillage (espace réservé)
   }
 
   // Univers dominant par client — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
   function _computeClientDominantUnivers(){
     const m=new Map();
+    const au=_S.articleUnivers||{};
     for(const[cc,artMap] of _S.ventesClientArticle.entries()){
-      const univCA={};
-      for(const[code,v] of artMap.entries()){const u=_S.articleUnivers[code];if(u)univCA[u]=(univCA[u]||0)+(v.sumCA||0);}
+      const sums=Object.create(null);
       let maxU='',maxCA=0;
-      for(const[u,ca] of Object.entries(univCA)){if(ca>maxCA){maxCA=ca;maxU=u;}}
+      for(const[code,v] of artMap.entries()){
+        const u=au[code];if(!u)continue;
+        const ca=v?.sumCA||0;if(!ca)continue;
+        const next=(sums[u]||0)+ca;
+        sums[u]=next;
+        if(next>maxCA){maxCA=next;maxU=u;}
+      }
       if(maxU)m.set(cc,maxU);
     }
     _S._clientDominantUnivers=m;
@@ -1428,20 +1432,29 @@ _S.canalAgence=newCanalAgence;
 
   // caByArticleCanal — séparé pour être appelable depuis processDataFromRaw ET _initFromCache
   function _rebuildCaByArticleCanal(){
-    if(!_S.ventesClientHorsMagasin.size||!DataStore.finalData.length)return;
-    _S.caByArticleCanal=new Map();
-    for(const[,artMap] of _S.ventesClientHorsMagasin.entries()){
+    const vh=_S.ventesClientHorsMagasin;
+    const fd=DataStore.finalData;
+    if(!vh?.size||!fd?.length)return;
+
+    // O(total edges) au lieu de O(articles × clients)
+    const caByCode=new Map();
+    const nbClientsByCode=new Map();
+    for(const[,artMap] of vh.entries()){
       for(const[code,data] of artMap.entries()){
-        if(!_S.caByArticleCanal.has(code))_S.caByArticleCanal.set(code,{});
-        const entry=_S.caByArticleCanal.get(code);
-        entry[data.canal]=(entry[data.canal]||0)+data.sumCA;
+        let entry=caByCode.get(code);
+        if(!entry){entry=Object.create(null);caByCode.set(code,entry);}
+        const canal=data?.canal||'';
+        if(canal) entry[canal]=(entry[canal]||0)+(data?.sumCA||0);
+        nbClientsByCode.set(code,(nbClientsByCode.get(code)||0)+1);
       }
     }
-    for(const r of DataStore.finalData){
-      const c=_S.caByArticleCanal.get(r.code)||{};
-      r.caWeb=c.INTERNET||0;r.caRep=c.REPRESENTANT||0;r.caDcs=c.DCS||0;
-      r.caHorsMagasin=r.caWeb+r.caRep+r.caDcs;
-      r.nbClientsWeb=[..._S.ventesClientHorsMagasin.entries()].filter(([,m])=>m.has(r.code)).length;
+    _S.caByArticleCanal=caByCode;
+    for(const r of fd){
+      const c=caByCode.get(r.code);
+      const web=c?.INTERNET||0,rep=c?.REPRESENTANT||0,dcs=c?.DCS||0;
+      r.caWeb=web;r.caRep=rep;r.caDcs=dcs;
+      r.caHorsMagasin=web+rep+dcs;
+      r.nbClientsWeb=nbClientsByCode.get(r.code)||0;
     }
   }
   // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
@@ -1709,7 +1722,7 @@ _S.canalAgence=newCanalAgence;
       else if(W===2&&V>0){nouveauMin=1;nouveauMax=2;}
       else if(V===0){nouveauMin=0;nouveauMax=0;}
       else if(Wp===0){nouveauMin=0;nouveauMax=0;} // H1: guard — Wp=0 ne doit jamais atteindre l'écretage
-      else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);const secDays=Wp>=12?4:Wp>=4?3:(prixUnitaire>HIGH_PRICE?1:2);nouveauMin=Math.max(Math.min(Math.round(dl+(X*secDays)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?0:(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
+      else{const dlR=(T>3*U)?3*U:T;const dl=Math.min(dlR,U*5);const secDays=Wp>=12?4:Wp>=4?3:(prixUnitaire>HIGH_PRICE?1:2);nouveauMin=Math.max(Math.min(Math.round(dl+(X*secDays)),Math.ceil(V/6)),1);if(nouveauMin<0)nouveauMin=0;if(nouveauMin===0)nouveauMax=0;else{const df=Wp>12?21:10;const me=prixUnitaire>HIGH_PRICE?(Wp>12?1:0):(Wp>12?3:1);nouveauMax=Math.max(Math.round(nouveauMin+(X*df)),nouveauMin+me);}}
       const couvertureJours=calcCouverture(stockActuel,V);
       if(_S._pushedCodes.has(code))continue; _S._pushedCodes.add(code);
       DataStore.finalData.push({code,libelle,statut,famille,sousFamille,emplacement,W,V,stockActuel,prixUnitaire,valeurStock,ancienMin,ancienMax,nouveauMin,nouveauMax,ageJours,isNouveaute,enleveTotal,couvertureJours,isParent});
@@ -1725,6 +1738,39 @@ _S.canalAgence=newCanalAgence;
       enrichPrixUnitaire();
       _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
 
+      // ★ Règle d'Implantation — Vitesse Réseau (post-patch MIN/MAX 0/0)
+      // Si PRISME local donne 0/0 ET le réseau vend cet article ET pas fin de série
+      // → MIN = vitesse (qté/BL Top 3), MAX = vitesse × 2
+      if(useMulti&&DataStore.finalData.length){
+        const _otherS=[..._S.storesIntersection].filter(s=>s!==_S.selectedMyStore);
+        if(_otherS.length>=2){
+          for(const r of DataStore.finalData){
+            if(r.nouveauMin>0||r.nouveauMax>0)continue; // PRISME local OK → skip
+            if(r.isParent)continue;
+            const _sl=(r.statut||'').toLowerCase();
+            if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
+            // Vérifier qu'au moins 1 agence a MIN/MAX>0 (Filtre de la Mort)
+            let _anyMM=false;
+            for(const s of _otherS){const stk=_S.stockParMagasin[s]?.[r.code];if(stk&&((stk.qteMin||0)>0||(stk.qteMax||0)>0)){_anyMM=true;break;}}
+            if(!_anyMM)continue;
+            // Top 3 agences par CA sur cet article
+            const _agV=[];
+            for(const s of _otherS){const v=_S.ventesParMagasin[s]?.[r.code];if(v&&v.countBL>0)_agV.push({ca:v.sumCA||0,bl:v.countBL});}
+            if(!_agV.length)continue;
+            _agV.sort((a,b)=>b.ca-a.ca);
+            const _t3=_agV.slice(0,3);
+            let _tCA=0,_tBL=0;for(const a of _t3){_tCA+=a.ca;_tBL+=a.bl;}
+            const _pu=r.prixUnitaire||0;
+            if(_pu<=0||_tBL<=0)continue;
+            const _vit=(_tCA/_pu)/_tBL;
+            if(_vit<=0)continue;
+            r.nouveauMin=Math.max(Math.ceil(_vit),1);
+            r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
+            r._vitesseReseau=true; // flag pour UI
+          }
+        }
+      }
+
       // Fix: align _S.articleFamille with stock famille (stock is master)
       for (const r of DataStore.finalData) { if (r.famille && r.famille !== 'Non Classé') _S.articleFamille[r.code] = r.famille; }
       // B3b: Recalcul moteur saisonnier après enrichissement articleFamille (stock est master des familles)
@@ -1736,12 +1782,13 @@ _S.canalAgence=newCanalAgence;
       // Chalandise : géré dans _postParseMain (point d'entrée principal)
       if(!isRefilter){
         {const fL=document.getElementById('fileLivraisons').files[0];if(fL&&!_S.livraisonsReady&&!_S._livraisonsLoading){_S._livraisonsLoading=true;try{await parseLivraisons(fL);}finally{_S._livraisonsLoading=false;}}}
-        if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark(_S._globalCanal || null);_mark('Benchmark');}
+        if(useMulti){updateProgress(92,100,'Benchmark…');await yieldToMain();computeBenchmark();_mark('Benchmark');}
       }
       // ABC/FMR, selects — skipped for isRefilter (finalData unchanged)
       if(!isRefilter){
         if(DataStore.finalData.length>0&&DataStore.finalData.every(r=>r.stockActuel===0)){showToast('⚠️ Attention : toutes les valeurs de stock sont à 0 dans le fichier. Vérifiez votre export.','warning');}
         updateProgress(93,100,'Radar ABC/FMR…');await yieldToMain();computeABCFMR(DataStore.finalData);_mark('ABC/FMR');assertPostParseInvariants();
+        if(useMulti){updateProgress(94,100,'Verdicts Squelette…');await yieldToMain();try{const _vr=applyVerdictOverrides();console.log('[PRISME] Bouclier Squelette:',_vr);}catch(e){console.error('[PRISME] Bouclier Squelette ERREUR:',e);}_mark('Verdicts');}
         updateProgress(95,100,'Affichage…');await yieldToMain();
         populateSelect('filterFamille',familles,famLabel);populateSelect('filterSousFamille',sousFamilles);populateSelect('filterEmplacement',emplacements);populateSelect('filterStatut',statuts);
         buildSqLookup();
@@ -1754,7 +1801,6 @@ _S.canalAgence=newCanalAgence;
       document.getElementById('globalFilters').classList.remove('hidden');
       document.body.classList.add('pilot-loaded');
       if(!isRefilter){
-        if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}else document.getElementById('btnTabReseau').classList.add('hidden');
         const _terrBtn=document.getElementById('btnTabCommerce');_terrBtn.classList.remove('hidden');
         const _clientsBtn=document.getElementById('btnTabClients');if(_clientsBtn)_clientsBtn.classList.remove('hidden');
         const terrNoC=document.getElementById('terrNoChalandise');if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
@@ -1762,13 +1808,12 @@ _S.canalAgence=newCanalAgence;
       // Render main UI immediately — don't wait for territoire
       computeClientCrossing();computeReconquestCohort();
       buildClientStore();_applyForcageCommercial();_mark('ClientStore + crossing');
-      // agenceStore rebuilt par computeBenchmark (ligne 1514 + renderBenchmark)
       if(!isRefilter&&_S.chalandiseReady)_computeChalandiseDistances();
       // caByArticleCanal — skipped for isRefilter (ventesClientHorsMagasin unchanged)
       if (!isRefilter && _S.chalandiseReady) _rebuildCaByArticleCanal();
       if(_S.chalandiseReady&&DataStore.ventesClientArticle.size>0){launchClientWorker().then(()=>{computeOpportuniteNette();computeOmniScores();computeFamillesHors();buildClientStore();_applyForcageCommercial();renderTabBadges();updateLaboTiles();showToast('📊 Agrégats clients calculés','success');if(!isRefilter&&_S.selectedMyStore)_saveSessionToIDB();}).catch(err=>console.warn('Client worker error:',err));}
       _S.currentPage=0;_S._parsingInProgress=false; // libère les renders
-      if(isRefilter&&useMulti){invalidateCache('bench');const _rcp=(_S._reseauCanaux||new Set()).size===1?[...(_S._reseauCanaux||new Set())][0]:null;computeBenchmark(_rcp);}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');if(useMulti){_buildObsUniversDropdown();buildBenchBassinSelect();renderBenchmark();launchReseauWorker().then(()=>{renderNomadesMissedArts();}).catch(err=>console.warn('Réseau worker error:',err));}
+      if(isRefilter&&useMulti){invalidateCache('bench');computeBenchmark();}if(isRefilter){renderCanalAgence();renderCurrentTab();}else{renderAll();}_mark('renderAll');
       if(!isRefilter){_syncTabAccess();}
       if(_autoYTD){setPeriodePreset('YTD');}
       _mark('Prêt');console.table(_perf);
@@ -1954,7 +1999,7 @@ _S.canalAgence=newCanalAgence;
     if(r.W>=3&&r.stockActuel<=0){
       if(!r.isParent&&!(r.V===0&&r.enleveTotal>0)){ // skip parent refs & colis-only
         const caPotentiel=Math.round(r.W*r.prixUnitaire);
-        const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours);
+        const prioScore=calcPriorityScore(r.W,r.prixUnitaire,r.ageJours,r.code);
         // CA perdu : médiane réseau par article (multi) ou CA historique période (mono)
         const joursRupture=Math.min(r.ageJours>=999?90:r.ageJours,90);
         const caPerdu=hasMulti?Math.round(medianCAByCode[r.code]||0):Math.round(r.V*r.prixUnitaire);
@@ -2159,28 +2204,34 @@ _S.canalAgence=newCanalAgence;
   function _renderActiveFilterBadges(){
     const container=document.getElementById('activeFilterBadges');
     if(!container)return;
-    const badges=[];
     const search=(document.getElementById('searchInput')?.value||'').trim();
-    if(search)badges.push({label:`"${search}"`,clear:()=>{document.getElementById('searchInput').value='';onFilterChange();}});
     const fam=document.getElementById('filterFamille')?.value||'';
-    if(fam)badges.push({label:`Famille : ${famLabel?famLabel(fam):fam}`,clear:()=>{document.getElementById('filterFamille').value='';const sf=document.getElementById('filterSousFamille');if(sf)sf.value='';onFilterChange();}});
     const sFam=document.getElementById('filterSousFamille')?.value||'';
-    if(sFam)badges.push({label:`S/Fam : ${sFam}`,clear:()=>{document.getElementById('filterSousFamille').value='';onFilterChange();}});
     const stat=document.getElementById('filterStatut')?.value||'';
-    if(stat)badges.push({label:`Statut : ${stat}`,clear:()=>{document.getElementById('filterStatut').value='';onFilterChange();}});
     const abc=document.getElementById('filterABC')?.value||'';
-    if(abc)badges.push({label:`ABC : ${abc}`,clear:()=>{document.getElementById('filterABC').value='';onFilterChange();}});
     const fmr=document.getElementById('filterFMR')?.value||'';
-    if(fmr)badges.push({label:`FMR : ${fmr}`,clear:()=>{document.getElementById('filterFMR').value='';onFilterChange();}});
     const age=document.getElementById('filterAge')?.value||'';
-    if(age&&AGE_BRACKETS[age])badges.push({label:`Âge : ${AGE_BRACKETS[age].label}`,clear:()=>{document.getElementById('filterAge').value='';updateActiveAgeIndicator();onFilterChange();}});
     const cockpit=document.getElementById('filterCockpit')?.value||'';
-    if(cockpit)badges.push({label:document.getElementById('activeCockpitLabel')?.textContent||cockpit,clear:()=>clearCockpitFilter()});
+    const cockpitLabel=document.getElementById('activeCockpitLabel')?.textContent||'';
     const emp=document.getElementById('filterEmplacement')?.value||'';
-    if(emp)badges.push({label:`Empl : ${emp}`,clear:()=>{document.getElementById('filterEmplacement').value='';onFilterChange();}});
     const univers=document.getElementById('filterMetier')?.value||'';
+    const verdict=document.getElementById('filterVerdict')?.value||'';
+    const key=[search,fam,sFam,stat,abc,fmr,age,cockpit,cockpitLabel,emp,univers,verdict].join('\x1f');
+    if(container._lastKey===key)return;
+    container._lastKey=key;
+    const badges=[];
+    if(search)badges.push({label:`"${search}"`,clear:()=>{document.getElementById('searchInput').value='';onFilterChange();}});
+    if(fam)badges.push({label:`Famille : ${famLabel?famLabel(fam):fam}`,clear:()=>{document.getElementById('filterFamille').value='';const sf=document.getElementById('filterSousFamille');if(sf)sf.value='';onFilterChange();}});
+    if(sFam)badges.push({label:`S/Fam : ${sFam}`,clear:()=>{document.getElementById('filterSousFamille').value='';onFilterChange();}});
+    if(stat)badges.push({label:`Statut : ${stat}`,clear:()=>{document.getElementById('filterStatut').value='';onFilterChange();}});
+    if(abc)badges.push({label:`ABC : ${abc}`,clear:()=>{document.getElementById('filterABC').value='';onFilterChange();}});
+    if(fmr)badges.push({label:`FMR : ${fmr}`,clear:()=>{document.getElementById('filterFMR').value='';onFilterChange();}});
+    if(age&&AGE_BRACKETS[age])badges.push({label:`Âge : ${AGE_BRACKETS[age].label}`,clear:()=>{document.getElementById('filterAge').value='';updateActiveAgeIndicator();onFilterChange();}});
+    if(cockpit)badges.push({label:cockpitLabel||cockpit,clear:()=>clearCockpitFilter()});
+    if(emp)badges.push({label:`Empl : ${emp}`,clear:()=>{document.getElementById('filterEmplacement').value='';onFilterChange();}});
     if(univers)badges.push({label:`Univers : ${univers}`,clear:()=>{document.getElementById('filterMetier').value='';onFilterChange();}});
-    if(!badges.length){container.innerHTML='';container.style.display='none';return;}
+    if(verdict){const vLabels={socle:'🟢 Socle',implanter:'🔴 Trou critique',challenger:'🟡 Challenger',surveiller:'🔵 Surveiller'};badges.push({label:`Verdict : ${vLabels[verdict]||verdict}`,clear:()=>{document.getElementById('filterVerdict').value='';onFilterChange();}});}
+    if(!badges.length){container.innerHTML='';container.style.display='none';container._clearFns=[];return;}
     container.style.display='flex';
     container.innerHTML=badges.map((b,i)=>
       `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--i-info-bg);color:var(--c-action);border:1px solid var(--p-blue-300)">${escapeHtml(b.label)}<button onclick="_clearBadge(${i})" style="background:none;border:none;cursor:pointer;color:var(--c-action);font-size:12px;line-height:1;padding:0">×</button></span>`
@@ -2189,18 +2240,31 @@ _S.canalAgence=newCanalAgence;
   }
   window._clearBadge=function(i){const container=document.getElementById('activeFilterBadges');if(container?._clearFns?.[i])container._clearFns[i]();};
 
+  // Cache filtered CA total — recalcul uniquement quand la liste filtree change
+  let _lastFilteredCARef=null;
+  let _lastFilteredCALen=-1;
+  let _lastFilteredCATotal=0;
+  function _getFilteredCATotal(){
+    const arr=DataStore.filteredData||[];
+    if(arr===_lastFilteredCARef&&arr.length===_lastFilteredCALen)return _lastFilteredCATotal;
+    let sum=0;
+    for(let i=0;i<arr.length;i++)sum+=(arr[i].caAnnuel||0);
+    _lastFilteredCARef=arr;_lastFilteredCALen=arr.length;_lastFilteredCATotal=sum;
+    return sum;
+  }
+
   // ★ TABLEAU
   function renderTable(pageOnly){
     if(!_S._hasStock){const el=document.getElementById('tabTable');if(el&&!pageOnly)el.innerHTML=_renderNoStockPlaceholder('Articles');return;}
     if(!pageOnly){
       _S.filteredData=getFilteredData(); // producteur — _S direct
-      DataStore.filteredData.sort((a,b)=>{let vA=a[_S.sortCol],vB=b[_S.sortCol];if(typeof vA==='string')vA=vA.toLowerCase();if(typeof vB==='string')vB=vB.toLowerCase();if(vA<vB)return _S.sortAsc?-1:1;if(vA>vB)return _S.sortAsc?1:-1;return 0;});
+      sortRowsInPlace(DataStore.filteredData,_S.sortCol,_S.sortAsc);
       updateActiveAgeIndicator();
     }
     const tp=Math.max(1,Math.ceil(DataStore.filteredData.length/PAGE_SIZE));if(_S.currentPage>=tp)_S.currentPage=tp-1;const start=_S.currentPage*PAGE_SIZE,pd=DataStore.filteredData.slice(start,start+PAGE_SIZE);
     document.getElementById('resultCount').textContent=DataStore.filteredData.length.toLocaleString('fr')+' article'+(DataStore.filteredData.length>1?'s':'');const _rStart=start+1,_rEnd=Math.min(start+PAGE_SIZE,DataStore.filteredData.length);const _pageInfoEl=document.getElementById('pageInfo');if(_pageInfoEl){_pageInfoEl.innerHTML=`Articles ${_rStart}–${_rEnd} sur ${DataStore.filteredData.length.toLocaleString('fr')}&nbsp;·&nbsp; Page <input type="number" min="1" max="${tp}" value="${_S.currentPage+1}" style="width:36px;text-align:center;font-size:11px;padding:1px 4px;border:1px solid var(--b-default);border-radius:4px;background:var(--s-card);color:var(--t-primary)" onchange="_jumpToPage(this.value)" onclick="event.stopPropagation()"> / ${tp}`;}document.getElementById('btnPrev').disabled=_S.currentPage<=0;document.getElementById('btnNext').disabled=_S.currentPage>=tp-1;
     _renderActiveFilterBadges();
-    const _totalCA=DataStore.filteredData.reduce((s,r)=>s+(r.caAnnuel||0),0);const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
+    const _totalCA=_getFilteredCATotal();const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
     const p=[];
     const showMed=_S.storesIntersection.size>1;
     {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
@@ -2236,6 +2300,7 @@ _S.canalAgence=newCanalAgence;
     </tr>`);}
     document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${14+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
     if(document.getElementById('thCanalWeb')?.classList.contains('hidden')){document.querySelectorAll('#tableBody tr td:nth-last-child(1)').forEach(td=>td.classList.add('hidden'));}
+    _applyColVisibility();
   }
 
   function _jumpToPage(val){
@@ -2269,7 +2334,7 @@ _S.canalAgence=newCanalAgence;
     if(!DataStore.finalData.length||!Object.keys(DataStore.abcMatrixData).length)return;
     const radarData=_radarFilteredData();
     const mx=_radarComputeMatrix(radarData);
-    const globalFilters=[document.getElementById('filterFamille')?.value,document.getElementById('filterSousFamille')?.value,document.getElementById('filterEmplacement')?.value,document.getElementById('filterStatut')?.value,document.getElementById('filterABC')?.value,document.getElementById('filterFMR')?.value].filter(Boolean);
+    const globalFilters=[document.getElementById('filterFamille')?.value,document.getElementById('filterSousFamille')?.value,document.getElementById('filterEmplacement')?.value,document.getElementById('filterStatut')?.value,document.getElementById('filterABC')?.value,document.getElementById('filterFMR')?.value,document.getElementById('filterVerdict')?.value].filter(Boolean);
     const isFiltered=globalFilters.length>0;
     const badge=document.getElementById('radarFilterBadge');
     if(badge){if(isFiltered){badge.classList.remove('hidden');badge.textContent=`Périmètre filtré : ${globalFilters.join(' + ')} — ${radarData.length} articles`;}else badge.classList.add('hidden');}
@@ -2356,18 +2421,14 @@ _S.canalAgence=newCanalAgence;
       case 'omni':
         renderOmniTab();
         break;
-      case 'reseau':
-        renderBenchmark();
-        break;
       case 'clients':
         window._renderPDVTab?.();
         break;
       case 'animation':
         await renderAnimationTab();
-        renderAssociationsTab();
         break;
-      case 'labo':
-        renderLaboTab();
+      case 'associations':
+        renderAssociationsTab();
         break;
     }
     _S._tabRendered[id]=true;
@@ -2485,8 +2546,6 @@ _S.canalAgence=newCanalAgence;
       document.body.classList.add('pilot-loaded');
       document.getElementById('storeSelector').classList.add('hidden');
       const useMulti = _S.storesIntersection.size > 1;
-      if(useMulti){document.getElementById('btnTabReseau').classList.remove('hidden');buildBenchCheckboxes();}
-      else{document.getElementById('btnTabReseau').classList.add('hidden');}
       document.getElementById('btnTabCommerce').classList.remove('hidden');
       const terrNoC=document.getElementById('terrNoChalandise');
       if(terrNoC)terrNoC.classList.toggle('hidden',_S.chalandiseReady);
@@ -2519,12 +2578,6 @@ _S.canalAgence=newCanalAgence;
       _mc('filteredData + sync');
       if(useMulti){
         buildAgenceStore();
-        _buildObsUniversDropdown();
-        buildBenchBassinSelect();
-        renderBenchmark();_mc('renderBenchmark');
-        launchReseauWorker().then(()=>{
-          renderNomadesMissedArts();
-        }).catch(err=>console.warn('Réseau worker error (IDB restore):',err));
       }
 
       _S._parsingInProgress=false;
@@ -2540,6 +2593,7 @@ _S.canalAgence=newCanalAgence;
       renderCanalAgence();renderCurrentTab();
       _mc('renderCurrentTab');
 
+      initColSelector();
       _mc('Prêt');console.table(_pc);
       // 6. Bandeau cache par-dessus l'insightsBanner
       _showCacheBanner();
@@ -2691,11 +2745,6 @@ window.onForcageSelected = async function(input) {
     _buildChalandiseOverview();
   } catch (e) { showToast('❌ Erreur lecture fichier : ' + e.message, 'error'); }
 };
-window.onConsommeReseauSelected = function(input) {
-  onFileSelected(input, 'dropConsommeReseau');
-  // Parsing réseau — sera implémenté dans une prochaine version
-  if (input.files?.[0]) showToast('📂 Fichier réseau chargé — traitement disponible dans la prochaine version', 'info', 4000);
-};
 window.onChalandiseSelected = async function(input) {
   onFileSelected(input, 'dropChalandise');
   if (!input.files || !input.files[0]) return;
@@ -2721,7 +2770,7 @@ window.onChalandiseSelected = async function(input) {
       if (_S.selectedMyStore) _saveSessionToIDB();
     }).catch(err => console.warn('Client worker error:', err));
   }
-  if (_S.storesIntersection.size > 1) { computeBenchmark(_S._globalCanal || null); renderBenchmark(); }
+  if (_S.storesIntersection.size > 1) { computeBenchmark(); }
   _saveSessionToIDB();
 };
 window.exportSaisonCSV = exportSaisonCSV;
@@ -2738,26 +2787,12 @@ window.computeOmniScores = computeOmniScores;
 window.buildClientStore = buildClientStore;
 window.buildAgenceStore = buildAgenceStore;
 window.computeFamillesHors = computeFamillesHors;
-window.renderHeatmapFamilleCommercial = renderHeatmapFamilleCommercial;
 window.exportTourneeCSV = exportTourneeCSV;
 window._togglePromoClientRow = _togglePromoClientRow;
 window._switchPromoTab = _switchPromoTab;
 window._exportCommercialCSV = _exportCommercialCSV;
 window._renderSearchResults = _renderSearchResults;
-window.renderBenchmark = renderBenchmark;
 window.computeBenchmark = computeBenchmark;
-
-window._setReseauCanalFilter = function(val){
-  if(!val){_S._reseauCanaux=new Set();}
-  else{
-    if(!_S._reseauCanaux)_S._reseauCanaux=new Set();
-    if(_S._reseauCanaux.has(val))_S._reseauCanaux.delete(val);
-    else _S._reseauCanaux.add(val);
-  }
-  invalidateCache('bench');
-  computeBenchmark(_S._reseauCanaux);
-  renderBenchmark();
-};
 // (moved to ACTION_REGISTRY: _topPDVExpand, _topPDVCollapse, _topPDVPage, _oppNettePage)
 window._toggleHorsAgence = function() {
   _S._filterHorsAgence = !_S._filterHorsAgence;
@@ -2773,47 +2808,9 @@ window._toggleHorsZone   = function(){window._setClientView(_S._clientView==='ho
 window._toggleDormants   = function(){window._setClientView(_S._clientView==='dormants'?'tous':'dormants');};
 window._toggleOmniSegment = function(seg){_S._omniSegmentFilter=(_S._omniSegmentFilter===seg)?'':seg;window._renderSegmentsOmnicanaux?.();};
 // (moved to ACTION_REGISTRY: _horsZoneExpand, _horsZoneCollapse, _horsZonePage)
-window._toggleReseauCanal = function(canal) {
-  if (!canal) { _S._reseauCanaux = new Set(); }
-  else {
-    if (!_S._reseauCanaux) _S._reseauCanaux = new Set();
-    if (_S._reseauCanaux.has(canal)) _S._reseauCanaux.delete(canal);
-    else _S._reseauCanaux.add(canal);
-  }
-  // Afficher #reseauMagasinModeBar uniquement si MAGASIN est le seul canal sélectionné
-  const _rmb = document.getElementById('reseauMagasinModeBar');
-  if (_rmb) _rmb.classList.toggle('hidden', !(_S._reseauCanaux.size === 1 && _S._reseauCanaux.has('MAGASIN')));
-  invalidateCache('bench');
-  computeBenchmark(_S._reseauCanaux);
-  renderBenchmark();
-  window._refreshBenchEquation?.();
-};
-window._setReseauMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('bench');[['resMagModeAll','all'],['resMagModePrel','preleve'],['resMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});computeBenchmark(_S._reseauCanaux||new Set());renderBenchmark();window._refreshBenchEquation?.();};
 window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalidateCache('all');[['globalMagModeAll','all'],['globalMagModePrel','preleve'],['globalMagModeEnl','enleve']].forEach(([id,m])=>{const el=document.getElementById(id);if(el)el.classList.toggle('active',(mode||'all')===m);});window._refilterFromByMonth?.();if(typeof window.renderCurrentTab==='function')window.renderCurrentTab();};
-window._setReseauFamFilter = function(fam){_S._reseauMissedFamFilter=fam;_S._reseauMissedPage=0;_S._reseauMissedShowAll=false;renderBenchmark();};
-// (moved to ACTION_REGISTRY: _reseauShowAll, _reseauPage)
-window.benchMissedSort = function(col){const cur=_S._missedSortCol||'freq';_S._missedSortDir=cur===col&&_S._missedSortDir!=='asc'?'asc':'desc';_S._missedSortCol=col;_S._reseauMissedPage=0;_S._reseauMissedShowAll=false;renderBenchmark();};
-window.setRankSortKey = function(val){_S._rankSortKey=val;renderBenchmark();};
-window.buildBenchBassinSelect = buildBenchBassinSelect;
-window.renderReseauNomades = renderReseauNomades;
 
-// Sous-onglets Animation (Marques / Associations)
-window._animSwitchSub = function(sub) {
-  const marques = document.getElementById('animSubMarques');
-  const assocs  = document.getElementById('animSubAssociations');
-  if (marques) marques.style.display = sub === 'marques' ? '' : 'none';
-  if (assocs)  assocs.style.display  = sub === 'associations' ? '' : 'none';
-  document.querySelectorAll('[data-animsub]').forEach(btn => {
-    const active = btn.dataset.animsub === sub;
-    btn.className = `text-[11px] px-4 py-2 cursor-pointer border-b-2 ${active ? 'font-bold' : 'hover:t-primary'}`;
-    btn.style.borderColor = active ? 'var(--c-action)' : 'transparent';
-    btn.style.color       = active ? 'var(--t-primary)' : 'var(--t-secondary)';
-  });
-  if (sub === 'associations') renderAssociationsTab();
-};
 
-window.renderReseauFuites = renderReseauFuites;
-window.renderNomadesMissedArts = renderNomadesMissedArts;
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
 window.renderABCTab = renderABCTab;
@@ -2838,9 +2835,6 @@ window._diagV3FilterCategory = _diagV3FilterCategory;
 window.toggleReconquestFilter = toggleReconquestFilter;
 window.openArticlePanel = openArticlePanel;
 window.closeArticlePanel = closeArticlePanel;
-window.openNomadeArticleModal = openNomadeArticleModal;
-window.closeNomadeArticleModal = closeNomadeArticleModal;
-window._copyNomadeClientsClipboard = _copyNomadeClientsClipboard;
 window.openCmdPalette = openCmdPalette;
 window._cmdExec = _cmdExec;
 window._cmdMoveSelection = _cmdMoveSelection;
@@ -2901,10 +2895,6 @@ window._resetChalandiseFilters = _resetChalandiseFilters;
 window.onFileSelected = onFileSelected;
 window._updateAnalyserBtn = _updateAnalyserBtn;
 window._saveSessionToIDB = _saveSessionToIDB;
-window.onObsCompareChange = onObsCompareChange;
-window.onObsFilterChange = onObsFilterChange;
-window.resetObsFilters = resetObsFilters;
-window._setBenchPeriode = _setBenchPeriode;
 window._onPromoFamilleChange = _onPromoFamilleChange;
 window._applyPromoFilters = _applyPromoFilters;
 window.buildTerrContrib = buildTerrContrib;
@@ -2936,7 +2926,7 @@ function renderSidebarAgenceSelector() {
 }
 window.updateNavStore = renderSidebarAgenceSelector;
 window.renderSidebarAgenceSelector = renderSidebarAgenceSelector;
-// Promo / Obs / Bench — fonctions HTML onclick non encore exposées
+// Promo — fonctions HTML onclick non encore exposées
 window._clearPromoImport = _clearPromoImport;
 window._closePromoSuggest = _closePromoSuggest;
 window._onPromoImportFileChange = _onPromoImportFileChange;
@@ -2946,13 +2936,8 @@ window._selectPromoSuggestion = _selectPromoSuggestion;
 window._resetPromoFilters = _resetPromoFilters;
 window._togglePromoImportSection = _togglePromoImportSection;
 window._togglePromoSection = _togglePromoSection;
-window._obsNav = _obsNav;
-window.copyObsActionPlan = copyObsActionPlan;
-window.copyObsSection = copyObsSection;
-window.copyPepitesList = copyPepitesList;
 window.copyPromoClipboard = copyPromoClipboard;
 window.exportPromoCSV = exportPromoCSV;
-window.getBenchCompareStores = getBenchCompareStores;
 window.runPromoImport = runPromoImport;
 window.runPromoSearch = runPromoSearch;
 // ui.js — fonctions HTML onclick non encore exposées
@@ -2961,9 +2946,6 @@ window.collapseImportZone = collapseImportZone;
 window.downloadCSV = downloadCSV;
 window.exportKPIhistory = exportKPIhistory;
 window.importKPIhistory = importKPIhistory;
-window.renderObsArticleSearch = renderObsArticleSearch;
-window.copyPepitesOtherList = copyPepitesOtherList;
-window.copyNomadesMissedArts = copyNomadesMissedArts;
 window.exportPromoImportCSV = exportPromoImportCSV;
 window.wrapGlossaryTerms = wrapGlossaryTerms;
 // Cockpit Client territoire — toggle sections & exports (appelés via onclick dans le HTML généré)
@@ -2989,14 +2971,10 @@ window.toggleContribDirection   = toggleContribDirection;
 // Cockpit Client — exclusions & liste masquée
 window._toggleExcludedList      = _toggleExcludedList;
 window._unexcludeAll            = _unexcludeAll;
-// Benchmark Obs — expand famille
-window.toggleObsFamily          = toggleObsFamily;
 // Promo — accordion inline (also wired at processData)
 
 // Wrap glossary terms on static headers at load time (before any file is loaded)
 wrapGlossaryTerms(document);
-// D2 — Theme Switch (no-op, dark permanent)
-initTheme();
 
 // ── P0 — Event delegation pour les liens Unik (data-unik-client) ──────────
 // Remplace les onclick inline générés par _unikLink() qui cassaient
@@ -3021,9 +2999,6 @@ const ACTION_REGISTRY = {
   _horsZonePage:     (el)=>{_S._horsZonePage=Math.max(1,(_S._horsZonePage||1)+parseInt(el.dataset.dir));_renderHorsZone();},
   // Pagination — Opportunités nettes
   _oppNettePage: (el)=>{_S._oppNettePage=Math.max(1,(_S._oppNettePage||1)+parseInt(el.dataset.dir));renderTerritoireTab();},
-  // Pagination — Réseau (missed = incontournables unifiés)
-  _reseauShowAll: (el)=>{_S._reseauMissedShowAll=true;_S._reseauMissedPage=0;renderBenchmark();},
-  _reseauPage: (el)=>{const dir=parseInt(el.dataset.dir);const t=Math.max(1,Math.ceil((DataStore.benchLists.missed?.length||0)/10));_S._reseauMissedPage=Math.max(0,Math.min((_S._reseauMissedPage||0)+dir,t-1));renderBenchmark();},
 };
 
 document.addEventListener('click', (e)=>{

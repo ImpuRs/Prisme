@@ -152,12 +152,30 @@ export function buildAgenceStore(opts = {}) {
     rec.ca          = totalCA;
     rec.caPrelevee  = totalPrel;
     rec.vmb         = totalVMB;
-    rec.txMarge     = totalCA > 0 ? Math.round(totalVMB / totalCA * 1000) / 10 : null;
+    rec.txMarge     = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
     rec.refs        = activeRefs;
     rec.freq        = totalBL;
 
-    // ── Clients ──
-    const clients = _S.ventesClientsPerStore?.[agCode];
+    // ── Clients (period-aware via byMonthStoreClients) ──
+    const bmsc = _S._byMonthStoreClients?.[agCode];
+    let clients;
+    if (bmsc && hasPeriod) {
+      // Collecter les clients uniques sur les mois de la période
+      const periodClients = new Set();
+      for (const midxStr in bmsc) {
+        const midx = +midxStr;
+        if (midx < startIdx || midx > endIdx) continue;
+        for (const cc of bmsc[midxStr]) periodClients.add(cc);
+      }
+      clients = periodClients;
+    } else if (bmsc) {
+      // Pas de filtre période — tous les mois
+      const allClients = new Set();
+      for (const midxStr in bmsc) for (const cc of bmsc[midxStr]) allClients.add(cc);
+      clients = allClients;
+    } else {
+      clients = _S.ventesClientsPerStore?.[agCode];
+    }
     if (clients) {
       rec.nbClients = clients instanceof Set ? clients.size : (Array.isArray(clients) ? clients.length : 0);
       if (_S.chalandiseData?.size) {

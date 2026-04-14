@@ -191,38 +191,45 @@ function calcCouverture(stock, V, joursOuvres) {
 
 // ── computeABCFMR inline (depuis engine.js, sans _S) ────────────────────
 function computeABCFMR(data) {
-  var active = data.filter(function(r) { return r.W >= 1; });
+  // Single-pass: collect active items + total rotation + total stock value
+  var active = [];
+  var totalStockVal = 0;
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (r.W >= 1) active.push(r);
+    if (r.stockActuel > 0) totalStockVal += r.stockActuel * r.prixUnitaire;
+  }
   active.sort(function(a, b) { return (b.V * b.prixUnitaire) - (a.V * a.prixUnitaire); });
-  var totalRot = active.reduce(function(s, r) { return s + r.V * r.prixUnitaire; }, 0);
+  var totalRot = 0;
+  for (var j = 0; j < active.length; j++) totalRot += active[j].V * active[j].prixUnitaire;
+  // ABC classification
   var cumul = 0;
-  var abcMap = {};
-  for (var i = 0; i < active.length; i++) {
-    var r = active[i];
-    cumul += r.V * r.prixUnitaire;
+  for (var k = 0; k < active.length; k++) {
+    var ra = active[k];
+    cumul += ra.V * ra.prixUnitaire;
     var p = totalRot > 0 ? cumul / totalRot : 1;
-    abcMap[r.code] = p <= 0.8 ? 'A' : p <= 0.95 ? 'B' : 'C';
+    ra.abcClass = p <= 0.8 ? 'A' : p <= 0.95 ? 'B' : 'C';
+    ra.fmrClass = ra.W >= 12 ? 'F' : ra.W >= 4 ? 'M' : 'R';
   }
-  for (var j = 0; j < data.length; j++) {
-    var rd = data[j];
-    if (rd.W >= 1) {
-      rd.abcClass = abcMap[rd.code] || 'C';
-      rd.fmrClass = rd.W >= 12 ? 'F' : rd.W >= 4 ? 'M' : 'R';
-    } else {
-      rd.abcClass = ''; rd.fmrClass = '';
-    }
-  }
-  var totalStockVal = data.reduce(function(s, r) { return r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s; }, 0);
+  // Matrix accumulation — single pass over data
   var mx = {};
   var abcCls = ['A', 'B', 'C'], fmrCls = ['F', 'M', 'R'];
-  for (var ai = 0; ai < abcCls.length; ai++) {
-    for (var fi = 0; fi < fmrCls.length; fi++) {
-      var key = abcCls[ai] + fmrCls[fi];
-      var items = data.filter(function(r) { return r.abcClass === abcCls[ai] && r.fmrClass === fmrCls[fi]; });
-      var sv = items.reduce(function(s, r) { return r.stockActuel > 0 ? s + r.stockActuel * r.prixUnitaire : s; }, 0);
-      mx[key] = { count: items.length, stockVal: sv, pctTotal: totalStockVal > 0 ? sv / totalStockVal * 100 : 0 };
+  for (var ai = 0; ai < abcCls.length; ai++)
+    for (var fi = 0; fi < fmrCls.length; fi++)
+      mx[abcCls[ai] + fmrCls[fi]] = { count: 0, stockVal: 0, pctTotal: 0 };
+  for (var m = 0; m < data.length; m++) {
+    var rd = data[m];
+    if (rd.W < 1) { rd.abcClass = ''; rd.fmrClass = ''; continue; }
+    var key = rd.abcClass + rd.fmrClass;
+    if (mx[key]) {
+      mx[key].count++;
+      if (rd.stockActuel > 0) mx[key].stockVal += rd.stockActuel * rd.prixUnitaire;
     }
   }
-  return mx; // retourne abcMatrixData (dans le worker, pas de _S)
+  for (var mk in mx) {
+    if (totalStockVal > 0) mx[mk].pctTotal = mx[mk].stockVal / totalStockVal * 100;
+  }
+  return mx;
 }
 
 // ── Sérialisation Maps/Sets pour postMessage ─────────────────────────────
@@ -506,6 +513,7 @@ self.onmessage = async function(ev) {
     var ventesClientArticleFull = new Map();
     var ventesClientHorsMagasin = new Map();
     var ventesClientsPerStore = {};
+    var byMonthStoreClients = {}; // {store → {monthIdx → Set<cc>}} — pour rebuild période
     var commandesPerStoreCanal = {};
     var clientsMagasin = new Set();
     var clientsMagasinFreq = new Map(); // built post-loop from _clientMagasinBLsTemp
@@ -716,13 +724,37 @@ self.onmessage = async function(ev) {
       // Canaux hors MAGASIN
       if (storesIntersection.size > 0 ? canal !== 'MAGASIN' : canal !== '' && canal !== 'MAGASIN') {
         if (canal) {
+          var codeArt_h = cleanCode(_ra);
+          var caLigne_h = _rcp + _rce;
+          var skHors = _rs;
+          // byMonthStoreArtCanal + byMonthStoreClients — AVANT filtre période : toutes les lignes, tous les mois
+          var _cc_bm_h = extractClientCode(_rc);
+          if (codeArt_h && dateV && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
+            var _storeKey_bm = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
+            var _midx_h = dateV.getFullYear() * 12 + dateV.getMonth();
+            // byMonthStoreClients
+            if (_cc_bm_h) {
+              if (!byMonthStoreClients[_storeKey_bm]) byMonthStoreClients[_storeKey_bm] = {};
+              if (!byMonthStoreClients[_storeKey_bm][_midx_h]) byMonthStoreClients[_storeKey_bm][_midx_h] = new Set();
+              byMonthStoreClients[_storeKey_bm][_midx_h].add(_cc_bm_h);
+            }
+            if (!byMonthStoreArtCanal[_storeKey_bm]) byMonthStoreArtCanal[_storeKey_bm] = {};
+            if (!byMonthStoreArtCanal[_storeKey_bm][canal]) byMonthStoreArtCanal[_storeKey_bm][canal] = {};
+            if (!byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h]) byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h] = {};
+            var _bmsac_h = byMonthStoreArtCanal[_storeKey_bm][canal][codeArt_h];
+            if (!_bmsac_h[_midx_h]) _bmsac_h[_midx_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
+            var _bme_h = _bmsac_h[_midx_h];
+            _bme_h.sumCA += caLigne_h;
+            _bme_h.sumPrelevee += _rcp;
+            _bme_h.countBL++;
+            _bme_h.sumVMB += _rvp + _rve;
+            _bme_h.sumVMBPrel += _rvp;
+          }
+          // Filtre période — le reste est period-sensitive
           if (periodFilterStart && dateV && dateV < periodFilterStart) continue;
           if (periodFilterEnd && dateV && dateV > periodFilterEnd) continue;
           var cc_h = extractClientCode(_rc);
-          var codeArt_h = cleanCode(_ra);
-          var caLigne_h = _rcp + _rce;
           var qteLigne_h = _rqp + _rqe;
-          var skHors = _rs;
           if (cc_h && codeArt_h && (!selectedStore || skHors === 'INCONNU' || skHors === selectedStore)) {
             cannauxHorsMagasin.add(canal);
             var hm = ventesClientHorsMagasin.get(cc_h) || new Map();
@@ -736,6 +768,12 @@ self.onmessage = async function(ev) {
             hm.set(codeArt_h, ex_h);
             ventesClientHorsMagasin.set(cc_h, hm);
           }
+          // ventesClientsPerStore — hors-MAGASIN (même logique que MAGASIN, pour benchmark tous canaux)
+          if (cc_h && codeArt_h) {
+            var _skCli_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
+            if (!ventesClientsPerStore[_skCli_h]) ventesClientsPerStore[_skCli_h] = new Set();
+            ventesClientsPerStore[_skCli_h].add(cc_h);
+          }
           // ventesParMagasinByCanal
           if (codeArt_h && (skHors === 'INCONNU' || storesIntersection.has(skHors) || !storesIntersection.size)) {
             var _storeKey_h = skHors === 'INCONNU' ? (selectedStore || skHors) : skHors;
@@ -748,21 +786,6 @@ self.onmessage = async function(ev) {
             _vpmc_h.countBL++;
             _vpmc_h.sumVMB += _rvp + _rve;
             _vpmc_h.sumVMBPrel += _rvp;
-            // byMonthStoreArtCanal — accumulation mensuelle pour rebuild période
-            if (dateV) {
-              var _midx_h = dateV.getFullYear() * 12 + dateV.getMonth();
-              if (!byMonthStoreArtCanal[_storeKey_h]) byMonthStoreArtCanal[_storeKey_h] = {};
-              if (!byMonthStoreArtCanal[_storeKey_h][canal]) byMonthStoreArtCanal[_storeKey_h][canal] = {};
-              if (!byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h]) byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h] = {};
-              var _bmsac_h = byMonthStoreArtCanal[_storeKey_h][canal][codeArt_h];
-              if (!_bmsac_h[_midx_h]) _bmsac_h[_midx_h] = { sumCA: 0, sumPrelevee: 0, countBL: 0, sumVMB: 0, sumVMBPrel: 0 };
-              var _bme_h = _bmsac_h[_midx_h];
-              _bme_h.sumCA += caLigne_h;
-              _bme_h.sumPrelevee += _rcp;
-              _bme_h.countBL++;
-              _bme_h.sumVMB += _rvp + _rve;
-              _bme_h.sumVMBPrel += _rvp;
-            }
           }
           // commandesPerStoreCanal — hors-MAGASIN
           if (_rncb) {
@@ -907,6 +930,13 @@ self.onmessage = async function(ev) {
             _bme_m.sumVMB += _rvp + _rve;
             _bme_m.sumVMBPrel += _rvp;
           }
+        }
+        // byMonthStoreClients MAGASIN
+        if (cc2 && dateV) {
+          var _midx_cl = dateV.getFullYear() * 12 + dateV.getMonth();
+          if (!byMonthStoreClients[sk]) byMonthStoreClients[sk] = {};
+          if (!byMonthStoreClients[sk][_midx_cl]) byMonthStoreClients[sk][_midx_cl] = new Set();
+          byMonthStoreClients[sk][_midx_cl].add(cc2);
         }
       }
 
@@ -1350,6 +1380,7 @@ self.onmessage = async function(ev) {
         byMonthFull: byMonthFull,
         byMonthCanal: byMonthCanal,
         byMonthStoreArtCanal: byMonthStoreArtCanal,
+        byMonthStoreClients: (function() { var o = {}; for (var sk in byMonthStoreClients) { o[sk] = {}; for (var mi in byMonthStoreClients[sk]) o[sk][mi] = Array.from(byMonthStoreClients[sk][mi]); } return o; })(),
         byMonthClients: Object.fromEntries(Object.entries(byMonthClients).map(function(kv) { return [kv[0], Array.from(kv[1])]; })),
         ventesClientAutresAgences: Array.from(ventesClientAutresAgences),
         byMonthClientsByCanal: Object.fromEntries(Object.entries(byMonthClientsByCanal).map(function(kv) {

@@ -491,7 +491,7 @@ function _nlQ_PrevisionRupture() {
     if (vmj <= 0) continue;
     const joursRestants = r.stockActuel / vmj;
     if (joursRestants > HORIZON) continue;
-    const score = calcPriorityScore(r.W, r.prixUnitaire, r.ageJours);
+    const score = calcPriorityScore(r.W, r.prixUnitaire, r.ageJours, r.code);
     rows.push({ r, joursRestants: Math.round(joursRestants), vmj, score });
   }
   rows.sort((a, b) => a.joursRestants - b.joursRestants);
@@ -644,7 +644,7 @@ function _nlQ_RupturesRepetees() {
       if ((months[i] === 0) !== (months[i - 1] === 0)) transitions++;
     }
     if (transitions < 4) continue; // ruptures chroniques = transitions fréquentes
-    const score = calcPriorityScore(r.W, r.prixUnitaire, r.ageJours);
+    const score = calcPriorityScore(r.W, r.prixUnitaire, r.ageJours, r.code);
     rows.push({ r, nbZero, nbPos, transitions, score, months });
   }
   rows.sort((a, b) => b.score - a.score || b.transitions - a.transitions);
@@ -1074,7 +1074,7 @@ function _nlQ_FicheArticle(raw) {
   const nbCliPDV = _S.articleClients?.get(art.code)?.size || 0;
   const canalData = _S.articleCanalCA?.get(art.code);
 
-  const score = calcPriorityScore(art.W, art.prixUnitaire, art.ageJours);
+  const score = calcPriorityScore(art.W, art.prixUnitaire, art.ageJours, art.code);
   const abcFmr = `${art.abcClass || '?'}/${art.fmrClass || '?'}`;
 
   const infoRows = [

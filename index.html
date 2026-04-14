@@ -1434,20 +1434,21 @@
       </div>
 
       <!-- SUPER-TAB 3 : Le Réseau -->
-      <div class="supertab-group" id="stg-reseau">
-        <button data-tab="reseau" onclick="switchSuperTab('reseau')" class="tab-btn supertab-btn" id="stbtn-reseau" style="--tab-color:#534AB7;--tab-bg:#AFA9EC1F;--tab-text:#3C3489"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="9" y1="11" x2="15" y2="7"/><line x1="9" y1="13" x2="15" y2="17"/></svg><span>Le Réseau</span></button>
-      </div>
-
       <!-- SUPER-TAB 4 : Labo -->
-      <div class="supertab-group" id="stg-labo">
-        <button data-tab="labo" onclick="switchSuperTab('labo')" class="tab-btn supertab-btn" id="stbtn-labo" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><line x1="9" y1="3" x2="15" y2="3"/></svg><span>Le Labo</span></button>
-        <div class="supertab-pills" id="stpills-labo">
-          <button class="supertab-pill active" data-subtab="labo" onclick="switchTab('labo')">Labo</button>
+      <div class="supertab-group" id="stg-animation">
+        <button data-tab="animation" onclick="switchSuperTab('animation')" class="tab-btn supertab-btn" id="stbtn-animation" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span>Animation</span></button>
+        <div class="supertab-pills" id="stpills-animation">
+          <button class="supertab-pill active" data-subtab="animation" onclick="switchTab('animation')">Animation</button>
+        </div>
+      </div>
+      <div class="supertab-group" id="stg-associations">
+        <button data-tab="associations" onclick="switchSuperTab('associations')" class="tab-btn supertab-btn" id="stbtn-associations" style="--tab-color:#8b5cf6;--tab-bg:#8b5cf61F;--tab-text:#5b21b6"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Associations</span></button>
+        <div class="supertab-pills" id="stpills-associations">
+          <button class="supertab-pill active" data-subtab="associations" onclick="switchTab('associations')">Associations</button>
         </div>
       </div>
 
       <!-- Aliases rétrocompat JS — les anciens IDs absorbent les classList.add/remove('hidden') sans effet visuel -->
-      <span id="btnTabReseau" class="hidden"></span>
       <span id="btnTabCommerce" class="hidden"></span>
       <span id="btnTabClients" class="hidden"></span>
     </div>
@@ -1511,6 +1512,7 @@
                   <select id="filterABC" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-indigo-300 bg-indigo-50"><option value="">ABC</option><option value="A">A — 80%</option><option value="B">B — 15%</option><option value="C">C — 5%</option></select>
                   <select id="filterFMR" onchange="onFilterChange()" class="flex-1 py-1 px-2 border rounded-lg text-[11px] font-semibold border-violet-300 i-info-bg"><option value="">FMR</option><option value="F">F ≥12</option><option value="M">M 4-11</option><option value="R">R ≤3</option></select>
                 </div>
+                <select id="filterVerdict" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full border-emerald-300 bg-emerald-50"><option value="">Verdict Squelette</option><option value="socle">🟢 Socle</option><option value="implanter">🔴 Trou critique</option><option value="challenger">🟡 Challenger</option><option value="surveiller">🔵 Surveiller</option></select>
                 <input type="text" id="filterFamille" list="listFamille" oninput="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full" placeholder="🔎 Famille…"><datalist id="listFamille"></datalist>
                 <select id="filterStatut" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full"><option value="">Statut ERP</option></select>
                 <select id="filterMetier" onchange="onFilterChange()" class="py-1 px-2 border rounded-lg text-[11px] font-semibold w-full hidden"><option value="">🏗️ Univers</option></select>
@@ -1636,6 +1638,14 @@
                 </div>
                 <input type="text" id="terrMetierFilter" list="terrMetierList" placeholder="🏷️ Métier" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card"><datalist id="terrMetierList"></datalist>
                 <button id="btnStrategiqueOnly" onclick="_toggleStrategiqueFilter()" class="w-full text-left text-[10px] s-hover t-secondary hover:bg-amber-400 hover:text-white py-1 px-2 rounded-lg font-semibold transition-colors">⭐ Stratégique uniquement</button>
+                <div id="terrClassifDropdownWrap">
+                  <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
+                    <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
+                  </button>
+                  <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
+                    <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
+                  </div>
+                </div>
               </div>
             </details>
 
@@ -1656,14 +1666,6 @@
                 <select id="terrStatutSelect" onchange="window._onStatutSelect(this.value)" class="w-full text-xs py-1 px-2 border rounded-lg font-semibold s-card">
                   <option value="">Statut actuel: tous</option>
                 </select>
-                <div id="terrClassifDropdownWrap">
-                  <button type="button" onclick="_toggleClassifDropdown()" class="w-full py-1 px-2 border rounded-lg text-[10px] font-semibold s-card text-left flex items-center justify-between gap-1">
-                    <span id="terrClassifLabel">Classification: toutes</span><span class="t-disabled text-[9px]">▼</span>
-                  </button>
-                  <div id="terrClassifPanel" class="hidden mt-0.5 border rounded-lg p-1.5 s-card">
-                    <div id="terrOverviewClassifChips" class="space-y-0.5"></div>
-                  </div>
-                </div>
                 <label id="togglePerdu24m" class="text-[10px] flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" onchange="_togglePerdu24m(this.checked)" class="rounded accent-rose-500">
                   <span class="t-secondary font-semibold">Inclure inactifs &gt;12m</span>
@@ -1674,42 +1676,17 @@
         </div>
 
         <!-- GROUP Réseau: Le Réseau -->
-        <div id="filterGroupBench" class="hidden">
-          <div class="flex flex-col gap-1.5">
-            <!-- Pills canal multi-sélection Réseau -->
-            <div id="reseauCanalBar" class="flex flex-wrap gap-1 pb-1 border-b b-default">
-              <button class="terr-canal-chip reseau-tous-btn active" style="--chip-color:#6366f1" onclick="window._toggleReseauCanal('')">Tous</button>
-              <button class="terr-canal-chip" style="--chip-color:#7c3aed" data-reseau-canal="MAGASIN" onclick="window._toggleReseauCanal('MAGASIN')">🏪 Magasin</button>
-              <button class="terr-canal-chip" style="--chip-color:#0891b2" data-reseau-canal="INTERNET" onclick="window._toggleReseauCanal('INTERNET')">🌐 Internet</button>
-              <button class="terr-canal-chip" style="--chip-color:#059669" data-reseau-canal="REPRESENTANT" onclick="window._toggleReseauCanal('REPRESENTANT')">👔 Repré.</button>
-              <button class="terr-canal-chip" style="--chip-color:#d97706" data-reseau-canal="DCS" onclick="window._toggleReseauCanal('DCS')">📦 DCS</button>
-              <button class="terr-canal-chip" style="--chip-color:#6b7280" data-reseau-canal="AUTRE" onclick="window._toggleReseauCanal('AUTRE')">Autre</button>
-            </div>
-            <!-- Sous-pills Prélevé/Enlevé — visibles quand MAGASIN sélectionné dans Réseau -->
-            <div id="reseauMagasinModeBar" class="hidden flex gap-1 mb-1 pl-0">
-              <button id="resMagModeAll"  class="terr-canal-chip active" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('all')">Pré. + Enl.</button>
-              <button id="resMagModePrel" class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('preleve')">✅ Prélevé</button>
-              <button id="resMagModeEnl"  class="terr-canal-chip" style="--chip-color:#3b82f6" onclick="window._setReseauMagasinMode('enleve')">✅ Enlevé</button>
-            </div>
-            <hr class="b-default my-0.5">
-            <p class="text-[10px] font-bold t-secondary uppercase tracking-wide mb-0.5">🔭 Comparer avec</p>
-            <select id="obsCompareSelect" onchange="onObsCompareChange()" class="py-1 px-2 border b-dark rounded-lg text-xs font-bold s-card w-full"><option value="median">📊 Médiane réseau</option></select>
-            <!-- Checkboxes multi-agences -->
-            <div id="benchPickDiv" class="flex flex-col gap-0.5">
-              <p class="text-[10px] font-semibold t-secondary">📋 Agences dans la médiane :</p>
-              <div id="benchPickCheckboxes" class="flex flex-col gap-0.5 max-h-40 overflow-y-auto"></div>
-            </div>
-            <hr class="b-default my-0.5">
-            <select id="obsFilterUnivers" onchange="onObsFilterChange()" class="text-[10px] py-1 px-2 border b-dark rounded-lg font-semibold s-card w-full"><option value="">🌐 Univers…</option></select>
-            <div class="flex items-center gap-1">
-              <span class="text-[10px] font-semibold t-secondary whitespace-nowrap">Écart CA min :</span>
-              <input type="number" id="obsMinCAInput" value="0" min="0" step="100" onchange="onObsFilterChange();closeFilterDrawer()" class="text-[10px] py-1 px-2 border b-dark rounded-lg font-semibold s-card flex-1">
-              <span class="text-[10px] t-tertiary">€</span>
-            </div>
-            <button onclick="resetObsFilters()" class="text-[10px] s-hover hover:s-hover py-1 px-2 rounded-lg font-semibold self-start">↺ Reset</button>
-          </div>
-        </div>
 
+        <div id="filterGroupPlan" class="hidden">
+          <details class="filter-group" open>
+            <summary>🔭 Comparer avec<span class="filter-group-arrow">›</span></summary>
+            <div class="filter-group-body">
+              <p class="text-[10px] t-disabled mb-1">Cocher les agences à inclure dans la médiane</p>
+              <div id="planBenchCheckboxes" class="flex flex-col gap-0.5 max-h-48 overflow-y-auto"></div>
+              <div id="planBenchStatus" class="text-[10px] mt-1.5 hidden"></div>
+            </div>
+          </details>
+        </div>
 
       </div><!-- /filterPanelContent -->
     </aside>
@@ -1908,7 +1885,13 @@
     <div id="tabTable" class="tab-content hidden">
       <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
         <p id="resultCount" class="text-sm t-tertiary font-semibold"></p>
-        <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
+        <div class="flex items-center gap-2">
+          <div class="relative" id="colSelectorWrap">
+            <button onclick="document.getElementById('colSelectorPanel').classList.toggle('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg text-sm" title="Choisir les colonnes visibles">👁️</button>
+            <div id="colSelectorPanel" class="hidden absolute right-0 top-full mt-1 z-50 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl p-3 min-w-[180px] text-xs" style="max-height:320px;overflow-y:auto"></div>
+          </div>
+          <button onclick="downloadCSV()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">📥 CSV</button>
+        </div>
       </div>
       <div id="activeFilterBadges"
         style="display:none;flex-wrap:wrap;gap:6px;padding:6px 12px 8px;
@@ -1919,24 +1902,24 @@
         <table class="min-w-full table-auto text-left">
           <thead class="s-panel-inner t-inverse">
             <tr>
-              <th class="px-2 py-3 text-xs uppercase sticky left-0 s-panel-inner z-30" onclick="sortBy('code')">Code ↕</th>
-              <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30" onclick="sortBy('libelle')">Libellé ↕</th>
-              <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')">Famille ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center" onclick="sortBy('V')" data-tooltip="Prélevé comptoir 12 mois">Prél ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-ok" onclick="sortBy('caAnnuel')" data-tooltip="CA comptoir sur la période chargée (source : consommé MAGASIN)">CA ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center text-cyan-300" onclick="sortBy('enleveTotal')" data-tooltip="Enlevé (colis) 12 mois">Enl ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-action" onclick="sortBy('W')">Fréq ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-caution" onclick="sortBy('stockActuel')">Stock ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center text-teal-300" onclick="sortBy('couvertureJours')" data-tooltip="Jours de stock restant">Couv ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center c-caution" onclick="sortBy('ageJours')">Âge ↕</th>
-              <th class="px-2 py-3 text-xs uppercase text-center t-disabled">Anc.</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')">MIN ↕</th>
-              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')">MAX ↕</th>
-              <th id="thMedMin" class="px-2 py-3 text-xs font-bold uppercase text-center c-caution s-panel" style="display:none" title="Médiane réseau MIN (autres agences)">MÉD.↓</th>
-              <th id="thMedMax" class="px-2 py-3 text-xs font-bold uppercase text-center c-caution s-panel" style="display:none" title="Médiane réseau MAX (autres agences)">MÉD.↑</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 s-panel" onclick="sortBy('abcClass')">ABC ↕</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 s-panel" onclick="sortBy('fmrClass')">FMR ↕</th>
-              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-tooltip="Clients de la zone ayant acheté cet article hors agence (Web/Représentant/DCS). Source : chalandise.">🌐 ↕</th>
+              <th class="px-2 py-3 text-xs uppercase sticky left-0 s-panel-inner z-30" onclick="sortBy('code')" data-col="code" data-tooltip="Code article 6 chiffres">Code ↕</th>
+              <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30 font-bold" onclick="sortBy('libelle')" data-col="libelle" data-tooltip="Désignation article">Libellé ↕</th>
+              <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')" data-col="famille" data-tooltip="Famille article (code + libellé)">Famille ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Prélevé comptoir sur la période — dimensionne le MIN/MAX">Prél ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA comptoir sur la période (source : consommé MAGASIN)">CA ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('enleveTotal')" data-col="enleveTotal" data-tooltip="Enlevé (colis) — NE dimensionne PAS le MIN/MAX">Enl ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-action font-bold" onclick="sortBy('W')" data-col="W" data-tooltip="Fréquence = nb de BL distincts (F≥12, M=4-11, R≤3)">Fréq ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center c-caution font-bold" onclick="sortBy('stockActuel')" data-col="stockActuel" data-tooltip="Stock actuel (source : état du stock)">Stock ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('couvertureJours')" data-col="couvertureJours" data-tooltip="Couverture = jours de stock restant au rythme actuel">Couv ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('ageJours')" data-col="ageJours" data-tooltip="Âge = jours depuis la dernière vente (rupture si stock = 0)">Âge ↕</th>
+              <th class="px-2 py-3 text-xs uppercase text-center t-disabled" data-col="ancien" data-tooltip="MIN/MAX actuels dans l'ERP (avant recalcul PRISME)">Anc.</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')" data-col="nouveauMin" data-tooltip="MIN recalculé par PRISME (sécurité + consommation)">MIN ↕</th>
+              <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')" data-col="nouveauMax" data-tooltip="MAX recalculé par PRISME (capacité réappro optimale)">MAX ↕</th>
+              <th id="thMedMin" class="px-2 py-3 text-xs uppercase text-center t-disabled s-panel" style="display:none" data-col="medMin" data-tooltip="Médiane MIN des autres agences du réseau">Méd.↓</th>
+              <th id="thMedMax" class="px-2 py-3 text-xs uppercase text-center t-disabled s-panel" style="display:none" data-col="medMax" data-tooltip="Médiane MAX des autres agences du réseau">Méd.↑</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 s-panel" onclick="sortBy('abcClass')" data-col="abcClass" data-tooltip="ABC = classification par CA (A=80%, B=15%, C=5%)">ABC ↕</th>
+              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 s-panel" onclick="sortBy('fmrClass')" data-col="fmrClass" data-tooltip="FMR = classification par fréquence (F≥12, M=4-11, R≤3)">FMR ↕</th>
+              <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-col="canalWeb" data-tooltip="Clients zone achetant cet article hors agence (Web/Rep/DCS)">🌐 ↕</th>
               <th class="px-2 py-3 w-8"></th>
             </tr>
           </thead>
@@ -2015,184 +1998,24 @@
     <!-- TAB : TERRITOIRE (V24.4) — Commerce -->
     <div id="tabCommerce" class="tab-content hidden"></div>
 
-    <!-- TAB 6 : OBSERVATOIRE -->
-    <div id="tabReseau" class="tab-content hidden">
-      <!-- 1. HEADER -->
-      <div class="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-xl p-6 text-white shadow-lg mb-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 class="text-2xl font-extrabold">🔭 Le Réseau — <span id="obsMyStore">—</span> vs <span id="obsCompareLabel">—</span><span id="obsMyRankInline" class="hidden ml-3 text-sm font-bold bg-white/20 px-3 py-1 rounded-full"></span></h2>
-            <p class="text-cyan-200 text-sm mt-0.5">Comparaison directe agence vs agence · Analyse réseau</p>
-          </div>
-          <span id="benchRecalcTime" class="text-xs c-ok font-mono"></span>
-        </div>
-        <div id="benchEquationBar" class="hidden flex items-center gap-4 mt-3 pt-3 border-t border-white/20 flex-wrap"></div>
-        <!-- Hidden compat elements -->
-      </div>
-      <!-- [V3] Bandeau biais canal — affiché quand canal actif + sections soft -->
-      <div id="benchCanalBias" class="hidden mb-4 px-4 py-2 i-caution-bg border b-dark rounded-lg text-xs font-semibold c-caution">
-        ⚠️ Filtrage partiel — Mon agence : canal <span id="benchCanalBiasLabel">—</span>. Médiane réseau : tous canaux.
-        Ne pas interpréter les écarts comme des benchmarks comparatifs stricts.
-      </div>
-      <!-- BARRE DE RECHERCHE ARTICLE -->
-      <div class="s-card rounded-xl shadow-sm border b-default mb-6 p-4">
-        <input type="text" id="obsArtSearch" oninput="renderObsArticleSearch()" class="w-full p-3 text-sm border-2 border-cyan-200 rounded-lg font-semibold focus:ring-2 focus:ring-cyan-400 outline-none" placeholder="🔍 Rechercher parmi les articles comparés au réseau (Manqué · Sur-perf)">
-        <div id="obsArtSearchResult" class="mt-2"></div>
-      </div>
-      <!-- 2. KPI COMPARATIFS — ligne de cartes -->
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-extrabold t-primary text-sm">📊 Performance Vente <em id="kpiDiagTip" class="info-tip" data-tip="">ℹ</em> <span class="t-disabled font-normal text-xs ml-1">Source : données consommé</span> <span id="benchKpiCanalLabel" class="t-disabled font-normal text-[10px] ml-2">📡 Tous canaux</span></h3>
-          <span id="obsKpiCompHeader" class="text-xs font-bold t-tertiary s-card px-2 py-1 rounded border">vs <span id="obsKpiCompLabel">—</span></span>
-        </div>
-        <div id="obsKpiCards" class="grid grid-cols-3 md:grid-cols-6 gap-2"></div>
-        <div id="obsNetworkDiag" class="mt-3"></div>
-        <!-- Legacy ids for renderObservatoire compat -->
-        <span id="obsKpiMyLabel" class="hidden"></span>
-      </div>
-      <!-- RÉPARTITION PAR CANAL — toutes agences -->
-      <!-- CLASSEMENT AGENCES — remonté, ouvert par défaut -->
-      <details open style="background:linear-gradient(135deg,rgba(100,116,139,0.15),rgba(51,65,85,0.08));border:1px solid rgba(100,116,139,0.25);border-radius:14px;overflow:hidden;margin-bottom:24px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(100,116,139,0.22),rgba(51,65,85,0.14));border-bottom:1px solid rgba(100,116,139,0.2);list-style:none" class="select-none">
-          <div class="flex items-center gap-2"><h3 id="benchRankingTitle" style="font-weight:800;font-size:13px;color:#cbd5e1">🏆 Classement agences</h3><span id="benchMyRank" class="hidden" style="font-size:11px;font-weight:700;color:#cbd5e1;background:rgba(203,213,225,0.15);padding:2px 10px;border-radius:999px"></span></div>
-        </summary>
-        <div class="flex items-center gap-2 mb-2 px-1">
-          <select id="rankSortKey" onchange="setRankSortKey(this.value)" class="text-xs s-card border b-default rounded px-2 py-1">
-            <option value="ca">Trier par : CA</option>
-            <option value="txMarge">Trier par : Tx marge</option>
-            <option value="nbCommandes">Trier par : Commandes</option>
-            <option value="caClient">Trier par : CA/client</option>
-            <option value="ref">Trier par : Réf vendues</option>
-            <option value="serv">Trier par : Taux de service</option>
-          </select>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-              <tr>
-                <th class="py-2 px-3 text-left whitespace-nowrap">Agence</th>
-                <th class="py-2 px-3 text-right whitespace-nowrap">CA<em class="info-tip" data-tip="CA tous canaux sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Marge<em class="info-tip" data-tip="Taux de marge brute = VMB ÷ CA.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Commandes<em class="info-tip" data-tip="Nombre de commandes uniques (N° commande distincts) sur la période. Une commande peut contenir plusieurs lignes BL.">ℹ</em></th>
-                <th class="py-2 px-3 text-right whitespace-nowrap">CA/client<em class="info-tip" data-tip="CA total ÷ nombre de clients actifs.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Réf vendues<em class="info-tip" data-tip="Nombre d'articles distincts vendus avec CA > 0 sur la période.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Serv.<em class="info-tip" data-tip="Taux de service : réf vendues ÷ total réf réseau × 100.">ℹ</em></th>
-                <th class="py-2 px-3 text-center whitespace-nowrap">Rang<em class="info-tip" data-tip="Classement selon le critère de tri sélectionné.">ℹ</em></th>
-              </tr>
-            </thead>
-            <tbody id="benchStoreTable"></tbody>
-          </table>
-        </div>
-      </details>
-      <!-- ARTICLES RÉSEAU SOUS-EXPLOITÉS — ouvert par défaut [V3] -->
-      <details open style="background:linear-gradient(135deg,rgba(190,24,93,0.14),rgba(124,58,237,0.07));border:1px solid rgba(190,24,93,0.3);border-radius:14px;overflow:hidden;margin-bottom:24px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(190,24,93,0.22),rgba(124,58,237,0.13));border-bottom:1px solid rgba(190,24,93,0.2);list-style:none" class="select-none">
-          <div><h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#f472b6">🎯 Incontournables réseau <span id="badgeMissed" style="background:rgba(244,114,182,0.15);color:#f472b6;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Articles récurrents dans les commandes de 50%+ des agences, que vous ne vendez pas ou sous-vendez (< 80% de la moyenne réseau). Triés : absents d'abord, puis sous-exploités.">ℹ</em></h3><p style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">Consensus réseau · Potentiel de vente</p></div>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();exportBenchList('missed')" style="font-size:10px;color:#f472b6;background:rgba(244,114,182,0.12);border:1px solid rgba(244,114,182,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📥 CSV</button><span class="acc-arrow" style="color:#f472b6">▶</span></div>
-        </summary>
-        <div class="p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <select id="benchMissedFamFilter" onchange="window._setReseauFamFilter(this.value)" class="text-xs s-card border b-default rounded px-2 py-1 t-secondary"><option value="">Toutes familles</option></select>
-            <span id="benchMissedCountLabel" class="text-[10px] t-disabled"></span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-xs">
-              <thead class="s-panel-inner t-inverse font-bold sticky top-0">
-                <tr>
-                  <th class="py-2 px-2 text-left">Article</th>
-                  <th class="py-2 px-2 text-center cursor-pointer hover:t-primary" onclick="benchMissedSort('agences')">Agences<span id="missedSortAgences" class="text-[10px]"></span></th>
-                  <th class="py-2 px-2 text-center cursor-pointer hover:t-primary" onclick="benchMissedSort('freq')">Nb BL<span id="missedSortFreq" class="text-[10px]"></span></th>
-                  <th class="py-2 px-2 text-right cursor-pointer hover:t-primary" onclick="benchMissedSort('myCA')">Mon CA<span id="missedSortMyCA" class="text-[10px]"></span></th>
-                  <th class="py-2 px-2 text-center cursor-pointer hover:t-primary" onclick="benchMissedSort('stock')">Stock<span id="missedSortStock" class="text-[10px]"></span></th>
-                  <th class="py-2 px-2 text-center">Ecart</th>
-                </tr>
-              </thead>
-              <tbody id="benchMissedTable"></tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-      <!-- 4+5. POSITION VS BASSIN — double colonne, fermé par défaut [V3] -->
-      <p class="text-[10px] font-bold t-disabled uppercase tracking-wide mb-2">Position vs bassin — familles gagnantes et perdantes</p>
-      <div class="grid md:grid-cols-2 gap-4 mb-6">
-        <!-- Colonne gauche : Le réseau fait mieux -->
-        <details style="background:linear-gradient(135deg,rgba(220,38,38,0.15),rgba(153,27,27,0.08));border:1px solid rgba(220,38,38,0.3);border-radius:14px;overflow:hidden">
-          <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(220,38,38,0.2),rgba(153,27,27,0.12));border-bottom:1px solid rgba(220,38,38,0.2);list-style:none" class="select-none">
-            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#f87171"><span id="obsLoseTitle">📉 Le réseau fait mieux que toi</span> <span id="obsLoseBadge" style="background:rgba(248,113,113,0.15);color:#f87171;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Familles où votre CA est inférieur à l'agence comparée. Cliquer sur une ligne pour voir les articles manquants.">ℹ</em></h3>
-            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('lose')" style="font-size:10px;color:#f87171;background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#f87171">▶</span></div>
-          </summary>
-          <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-danger-bg c-danger sticky top-0 font-bold"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">Mon CA</th><th id="obsLoseTh1" class="py-1.5 px-2 text-right">CA méd.</th><th class="py-1.5 px-2 text-right">Ecart</th><th class="py-1.5 px-2 text-center">%</th><th class="py-1.5 px-2 text-center whitespace-nowrap">PDM</th><th class="py-1.5 px-2 text-center">Réf manq.</th></tr></thead><tbody id="obsLoseTable"></tbody></table></div>
-        </details>
-        <!-- Colonne droite : Tu fais mieux -->
-        <details style="background:linear-gradient(135deg,rgba(5,150,105,0.15),rgba(4,120,87,0.08));border:1px solid rgba(5,150,105,0.3);border-radius:14px;overflow:hidden">
-          <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(5,150,105,0.2),rgba(4,120,87,0.12));border-bottom:1px solid rgba(5,150,105,0.2);list-style:none" class="select-none">
-            <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#4ade80"><span id="obsWinTitle">💪 Tu fais mieux que le réseau</span> <span id="obsWinBadge" style="background:rgba(74,222,128,0.15);color:#4ade80;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span></h3>
-            <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyObsSection('win')" style="font-size:10px;color:#4ade80;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#4ade80">▶</span></div>
-          </summary>
-          <div class="obs-family-scroll"><table class="min-w-full text-xs"><thead class="i-ok-bg c-ok sticky top-0 font-bold"><tr><th class="py-1.5 px-2 text-left">Famille</th><th class="py-1.5 px-2 text-right">Mon CA</th><th id="obsWinTh1" class="py-1.5 px-2 text-right">CA méd.</th><th class="py-1.5 px-2 text-right">Avance</th><th class="py-1.5 px-2 text-center">%</th><th class="py-1.5 px-2 text-center whitespace-nowrap">PDM</th><th class="py-1.5 px-2 text-center">Réf +</th></tr></thead><tbody id="obsWinTable"></tbody></table></div>
-        </details>
-      </div>
-
-      <!-- 💎 MES PÉPITES — articles où je surperforme — fermé par défaut -->
-      <details style="background:linear-gradient(135deg,rgba(6,182,212,0.12),rgba(8,145,178,0.06));border:1px solid rgba(6,182,212,0.25);border-radius:14px;overflow:hidden;margin-bottom:24px">
-        <summary style="padding:14px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(6,182,212,0.18),rgba(8,145,178,0.10));border-bottom:1px solid rgba(6,182,212,0.2);list-style:none" class="select-none">
-          <h3 style="font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px;color:#22d3ee">💎 Mes pépites — articles où je surperforme le réseau <span id="pepitesBadge" class="hidden" style="background:rgba(34,211,238,0.15);color:#22d3ee;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700"></span><em class="info-tip" data-tip="Articles que vous vendez 30% plus souvent que la comparaison (fréquence ≥ 2). À capitaliser : mise en avant, partage bonnes pratiques.">ℹ</em></h3>
-          <div class="flex items-center gap-2"><button onclick="event.preventDefault();copyPepitesList()" style="font-size:10px;color:#22d3ee;background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.3);padding:3px 8px;border-radius:6px;font-weight:700;cursor:pointer">📋 Copier</button><span class="acc-arrow" style="color:#22d3ee">▶</span></div>
-        </summary>
-          <div id="pepitesAgTabs" class="hidden px-3 pt-2 pb-1 flex flex-wrap gap-1 border-b b-dark"></div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-xs">
-            <thead class="i-caution-bg c-caution sticky top-0 font-bold">
-              <tr>
-                <th class="py-2 px-3 text-left whitespace-nowrap cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('code')" id="pepTh_code">Code</th>
-                <th class="py-2 px-3 text-left cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('lib')" id="pepTh_lib">Libellé</th>
-                <th class="py-2 px-3 text-left whitespace-nowrap cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('fam')" id="pepTh_fam">Famille</th>
-                <th id="pepitesMeLabel" class="py-2 px-3 text-center whitespace-nowrap cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('myQte')">Qté vendue</th>
-                <th id="pepitesCompLabel" class="py-2 px-3 text-center whitespace-nowrap cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('compQte')">Qté médiane réseau</th>
-                <th id="pepitesCaLabel" class="py-2 px-3 text-right whitespace-nowrap cursor-pointer hover:text-cyan-300" onclick="_pepSortBy('caMe')">CA</th>
-              </tr>
-            </thead>
-            <tbody id="pepitesTable"></tbody>
-          </table>
-        </div>
-      </details>
-
-
-    </div>
 
 
     <div id="tabAnimation" class="tab-content hidden">
-      <!-- Sous-onglets Animation -->
-      <div class="flex gap-0 mb-4 border-b b-light" id="animSubTabs">
-        <button onclick="window._animSwitchSub('marques')" data-animsub="marques"
-          class="text-[11px] px-4 py-2 cursor-pointer border-b-2 font-bold"
-          style="border-color:var(--c-action);color:var(--t-primary)">🏷️ Marques</button>
-        <button onclick="window._animSwitchSub('associations')" data-animsub="associations"
-          class="text-[11px] px-4 py-2 cursor-pointer border-b-2 hover:t-primary"
-          style="border-color:transparent;color:var(--t-secondary)">🔗 Associations</button>
-      </div>
-      <!-- Marques -->
-      <div id="animSubMarques">
-        <div class="mb-4">
-          <div class="relative max-w-lg mx-auto">
-            <input type="text" id="animSearchInput"
-              placeholder="Rechercher une marque... (ex: Bosch, Makita, Dewalt)"
-              class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
-              autocomplete="off">
-            <div id="animSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
-          </div>
-          <p class="text-center text-[10px] t-disabled mt-2">787 marques disponibles · Tapez au moins 2 caracteres</p>
+      <div class="mb-4">
+        <div class="relative max-w-lg mx-auto">
+          <input type="text" id="animSearchInput"
+            placeholder="Rechercher une marque... (ex: Bosch, Makita, Dewalt)"
+            class="w-full px-4 py-3 text-sm rounded-xl border-2 b-default s-card t-primary focus:border-[var(--c-action)] focus:outline-none"
+            autocomplete="off">
+          <div id="animSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 s-card border rounded-xl shadow-xl max-h-64 overflow-y-auto z-50"></div>
         </div>
-        <div id="animContent"></div>
+        <p class="text-center text-[10px] t-disabled mt-2">787 marques disponibles · Tapez au moins 2 caracteres</p>
       </div>
-      <!-- Associations -->
-      <div id="animSubAssociations" style="display:none">
-        <div id="assocContent"></div>
-      </div>
+      <div id="animContent"></div>
     </div>
 
-    <div id="tabLabo" class="tab-content hidden">
-      <!-- Rendu dynamique par renderLaboTab() -->
+    <div id="tabAssociations" class="tab-content hidden">
+      <div id="assocContent"></div>
     </div>
 
   </div><!-- /container -->
@@ -2203,7 +2026,7 @@
   <!-- Mobile filter drawer button -->
   <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
 
-  <script type="module" src="js/clients.js"></script>
+  <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

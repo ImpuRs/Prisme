@@ -289,6 +289,10 @@ export async function _saveSessionToIDB() {
       byMonthFull:              _S._byMonthFull || null,
       byMonthCanal:             _S._byMonthCanal || null,
       byMonthStoreArtCanal:     _S._byMonthStoreArtCanal || null,
+      byMonthStoreClients:      _S._byMonthStoreClients
+        ? Object.fromEntries(Object.entries(_S._byMonthStoreClients).map(([sk, months]) =>
+            [sk, Object.fromEntries(Object.entries(months).map(([mi, s]) => [mi, [...s]]))]))
+        : null,
       byMonthClients:           _S._byMonthClients
         ? Object.fromEntries(Object.entries(_S._byMonthClients).map(([k, v]) => [k, [...v]]))
         : null,
@@ -432,6 +436,10 @@ export async function _restoreSessionFromIDB() {
     if (data.byMonthFull)  _S._byMonthFull  = data.byMonthFull;
     if (data.byMonthCanal) _S._byMonthCanal = data.byMonthCanal;
     if (data.byMonthStoreArtCanal) _S._byMonthStoreArtCanal = data.byMonthStoreArtCanal;
+    if (data.byMonthStoreClients) {
+      _S._byMonthStoreClients = {};
+      for (const sk in data.byMonthStoreClients) { _S._byMonthStoreClients[sk] = {}; for (const mi in data.byMonthStoreClients[sk]) _S._byMonthStoreClients[sk][mi] = new Set(data.byMonthStoreClients[sk][mi]); }
+    }
     if (data.byMonthClients) {
       _S._byMonthClients = Object.fromEntries(
         Object.entries(data.byMonthClients).map(([k, arr]) => [k, new Set(arr)])

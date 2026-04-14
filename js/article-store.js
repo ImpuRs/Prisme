@@ -28,7 +28,9 @@ import { _S } from './state.js';
  * Lazy-cached dans _S.articleStore. Invalidé par invalidateCache('art').
  * @returns {Map<string, Object>}
  */
-export function buildArticleStore() {
+// buildArticleStore — infrastructure préparée, pas encore intégrée.
+// Conservée en interne (non exportée) pour usage futur.
+function buildArticleStore() {
   if (_S.articleStore?.size) return _S.articleStore;
   const t0 = performance.now();
   const store = new Map();
@@ -136,7 +138,7 @@ export function buildArticleStore() {
       // Zone (depuis articleZoneIndex)
       caZone: zi?.caZone || 0,
       caAgence: zi?.caAgence || 0,
-      cliZone: zi?.clis?.size || 0,
+      cliZone: zi?.cliZone || 0,
       zoneContribs: zi?.contribs || null, // [{cc, ca, mon}] pour filtre distance
     });
   }
@@ -157,38 +159,8 @@ export function articleLib(code) {
   return _S.libelleLookup?.[code] || _S.catalogueDesignation?.get(code) || code;
 }
 
-/** Code famille article */
-export function articleFam(code) {
-  if (_S.articleStore?.size) {
-    const r = _S.articleStore.get(code);
-    if (r) return r.codeFam;
-  }
-  return _S.articleFamille?.[code] || _S.catalogueFamille?.get(code)?.codeFam || '';
-}
-
-/** Code sous-famille article */
-export function articleSousFam(code) {
-  if (_S.articleStore?.size) {
-    const r = _S.articleStore.get(code);
-    if (r) return r.codeSousFam;
-  }
-  return _S.catalogueFamille?.get(code)?.codeSousFam || '';
-}
-
-/** Marque article */
-export function articleMarque(code) {
-  if (_S.articleStore?.size) {
-    const r = _S.articleStore.get(code);
-    if (r) return r.marque;
-  }
-  return _S.catalogueMarques?.get(code) || '';
-}
-
-/** Record complet (retourne undefined si pas trouvé) */
-export function articleGet(code) {
-  if (_S.articleStore?.size) return _S.articleStore.get(code);
-  return undefined;
-}
+// articleFam, articleSousFam, articleMarque, articleGet — dead code supprimé.
+// Le code accède directement _S.articleFamille, _S.catalogueFamille, _S.catalogueMarques.
 
 /**
  * CA Zone / Cli Zone filtré par distance.
@@ -200,7 +172,7 @@ export function articleGet(code) {
 export function articleZoneFiltered(code, distOkFn) {
   const zi = _S.articleZoneIndex?.get(code);
   if (!zi?.contribs) return { caZone: 0, caAgence: 0, cliZone: 0 };
-  if (!distOkFn) return { caZone: zi.caZone, caAgence: zi.caAgence, cliZone: zi.clis.size };
+  if (!distOkFn) return { caZone: zi.caZone, caAgence: zi.caAgence, cliZone: zi.cliZone };
   let caZone = 0, caAgence = 0;
   const clis = new Set();
   for (const c of zi.contribs) {

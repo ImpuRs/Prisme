@@ -246,6 +246,7 @@ _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg
 _S._byMonthFull = null;     // accumulation mensuelle cc→code→monthIdx→{sumCA} (TOUS canaux, myStore)
 _S._byMonthCanal = null;    // accumulation mensuelle store→canal→monthIdx→agg
 _S._byMonthStoreArtCanal = null; // accumulation mensuelle store→canal→code→monthIdx→agg (rebuild ventesParMagasinByCanal période)
+_S._byMonthStoreClients = null;  // accumulation mensuelle store→monthIdx→Set<cc> (rebuild nbClients période)
 _S._byMonthClients = null;  // accumulation mensuelle monthIdx→Set<cc> — tous canaux, pleine période
 _S._byMonthClientsByCanal = null;  // accumulation mensuelle monthIdx→canal→Set<cc> — clients par canal+période
 _S._clientsTousCanaux = null; // Set<cc> — clients ayant au moins 1 BL dans la période sélectionnée (tous canaux)
@@ -268,8 +269,8 @@ _S._missedSortDir = 'desc';         // direction tri missed
 _S._rawDataC = null;                 // données brutes consommé COMPLET — {headers, rows} (pour benchmark réseau)
 _S._rawDataCFiltered = null;        // données brutes consommé filtrées agence — {headers, rows} (pour refilter période)
 _S._rawDataS = [];                  // données brutes stock (pour refilter période)
-_S._bufC = null;                    // ArrayBuffer consommé — conservé pour refilter période via parse-worker
-_S._bufS = null;                    // ArrayBuffer stock — conservé pour refilter période via parse-worker
+_S._fileC = null;                   // File consommé — conservé pour refilter période via parse-worker
+_S._fileS = null;                   // File stock — conservé pour refilter période via parse-worker
 _S._idbSaving = false;              // guard anti-sauvegardes concurrentes (_saveSessionToIDB)
 _S._livraisonsLoading = false;      // guard anti-appels concurrents parseLivraisons
 _S._chalandiseLoading = false;      // guard anti-appels concurrents parseChalandise
@@ -420,8 +421,8 @@ export function resetAppState() {
   // Propriétés anciennement non déclarées (Sprint 0)
   _S._commerceView = 'clients'; _S._missedSortCol = 'freq'; _S._missedSortDir = 'desc';
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
-  _S._bufC = null; _S._bufS = null;
-  _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
+  _S._fileC = null; _S._fileS = null;
+  _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthStoreClients = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S.clientOmniScore = new Map();
   _S.clientStore = new Map();

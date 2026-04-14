@@ -10,8 +10,8 @@
 //        qui restent dans index.html/ui.js — fonctionne car scope global
 // ═══════════════════════════════════════════════════════════════
 'use strict';
-import { CHUNK_SIZE, TERR_CHUNK_SIZE, NOUVEAUTE_DAYS, DORMANT_DAYS, SECURITY_DAYS, HIGH_PRICE, CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAM_LETTER_UNIVERS, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
-import { cleanCode, cleanPrice, cleanOmniPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, getQuantityColumn, getCaColumn, getVmbColumn, extractStoreCode, readExcel, readExcelAsObjects, _wsToHR, yieldToMain, parseCSVText, parseCSVTextToHR, getAgeBracket, _median, _isMetierStrategique, _normalizeStatut, extractClientCode, _resetColCache, escapeHtml, extractFamCode, famLib, haversineKm } from './utils.js';
+import { CROSS_AGENCE_MIN_CA, CROSS_AGENCE_MIN_BL, FAMILLE_LOOKUP, AGENCE_CP } from './constants.js';
+import { cleanOmniPrice, readExcel, _wsToHR, yieldToMain, parseCSVTextToHR, _median, _isMetierStrategique, extractClientCode, escapeHtml, famLib, haversineKm } from './utils.js';
 import { _S, resetAppState, invalidateCache } from './state.js';
 import { buildAgenceStore } from './agence-store.js';
 
@@ -33,7 +33,9 @@ export async function parseChalandise(file) {
     let hr;
     if (isCSV) {
       const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(f, 'UTF-8'); });
-      const first = text.split('\n')[0] || '';
+      const _nl1 = text.indexOf('\n'), _cr1 = text.indexOf('\r');
+      const _cut1 = (_nl1 === -1) ? (_cr1 === -1 ? text.length : _cr1) : (_cr1 === -1 ? _nl1 : Math.min(_nl1, _cr1));
+      const first = _cut1 > 0 ? text.slice(0, _cut1) : '';
       const sep = first.includes(';') ? ';' : ',';
       hr = parseCSVTextToHR(text, sep);
       if (!hr.rows.length) {
@@ -235,7 +237,9 @@ export async function parseLivraisons(file) {
     let hr;
     if (isCSV) {
       const text = await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(new Error('Lecture CSV impossible')); r.readAsText(file, 'windows-1252'); });
-      const sep = (text.split('\n')[0] || '').includes(';') ? ';' : ',';
+      const _nl2 = text.indexOf('\n'), _cr2 = text.indexOf('\r');
+      const _cut2 = (_nl2 === -1) ? (_cr2 === -1 ? text.length : _cr2) : (_cr2 === -1 ? _nl2 : Math.min(_nl2, _cr2));
+      const sep = (_cut2 > 0 ? text.slice(0, _cut2) : '').includes(';') ? ';' : ',';
       hr = parseCSVTextToHR(text, sep);
       _lmk('CSV parse');
     } else {
@@ -296,7 +300,7 @@ export async function parseLivraisons(file) {
     const terrLines = [];
     const terrDirData = {};
     const secteurSet = new Set();
-    let livDateMin = null, livDateMax = null;
+    let livDateMinMs = null, livDateMaxMs = null;
 
     const _isCode6 = (code) => {
       if (!code || code.length !== 6) return false;
@@ -305,6 +309,61 @@ export async function parseLivraisons(file) {
         if (c < 48 || c > 57) return false;
       }
       return true;
+    };
+    const _fastTrim = (v) => {
+      if (v === undefined || v === null) return '';
+      const s = typeof v === 'string' ? v : String(v);
+      const len = s.length;
+      if (!len) return '';
+      const c0 = s.charCodeAt(0), c1 = s.charCodeAt(len - 1);
+      return (c0 <= 32 || c1 <= 32) ? s.trim() : s;
+    };
+    const _trimCacheDir = new Map();
+    const _trimCacheSect = new Map();
+    const _cachedTrim = (cache, v) => {
+      if (v === undefined || v === null) return '';
+      const key = typeof v === 'string' ? v : String(v);
+      let out = cache.get(key);
+      if (out !== undefined) return out;
+      out = _fastTrim(key);
+      cache.set(key, out);
+      return out;
+    };
+    // Dates: millisecondes dans la boucle (moins d'alloc), convertir en Date à la fin
+    const _dateMsCache = new Map();
+    const _parseDateMs = (v) => {
+      if (!v && v !== 0) return null;
+      if (v instanceof Date) { const ms = v.getTime(); return isNaN(ms) ? null : ms; }
+      if (typeof v === 'number') {
+        if (v > 39000 && v < 60000) return Math.round((v - 25569) * 864e5);
+        return null;
+      }
+      const key = typeof v === 'string' ? v : String(v);
+      const cached = _dateMsCache.get(key);
+      if (cached !== undefined) return cached;
+      let ms = null;
+      const s = key.split(' ')[0];
+      const p = s.split(/[-/]/);
+      if (p.length === 3) {
+        const n0 = parseInt(p[0], 10), n1 = parseInt(p[1], 10), n2 = parseInt(p[2], 10);
+        if (!(isNaN(n0) || isNaN(n1) || isNaN(n2))) {
+          if (n0 > 31) ms = new Date(n0, n1 - 1, n2).getTime();
+          else if (n2 > 31) ms = new Date(n2, n1 - 1, n0).getTime();
+          else {
+            let a = n0, b = n1, d = n2;
+            if (d < 100) d += 2000;
+            if (a > 12) ms = new Date(d, b - 1, a).getTime();
+            else if (b > 12) ms = new Date(d, a - 1, b).getTime();
+            else ms = new Date(d, b - 1, a).getTime();
+          }
+          if (isNaN(ms)) ms = null;
+        }
+      } else {
+        const x = new Date(key); const t = x.getTime();
+        ms = isNaN(t) ? null : t;
+      }
+      _dateMsCache.set(key, ms);
+      return ms;
     };
     // Map stock O(1) — évite _S.finalData.find() O(n) × 282k lignes
     const _stockMap = new Map();
@@ -315,6 +374,9 @@ export async function parseLivraisons(file) {
     const blConsommeSet = _S.blConsommeSet || new Set();
     const articleFamille = _S.articleFamille || {};
     const libelleLookup = _S.libelleLookup || {};
+    // Caches par article/client pour éviter de refaire les mêmes trims/lookups ~281k fois
+    const _articleMeta = new Map(); // code → {libelle, famille, rayonStatus, isSpecial}
+    const _clientNomByCc = new Map(); // cc → nom (trimmed)
 
     let _lastYield = performance.now();
     for (let i = 0; i < rows.length; i++) {
@@ -334,75 +396,94 @@ export async function parseLivraisons(file) {
       const ca = typeof caRaw === 'number' ? caRaw : cleanOmniPrice(caRaw);
       const vmb = typeof vmbRaw === 'number' ? vmbRaw : cleanOmniPrice(vmbRaw);
 
-      const blNum = (row?.[cBL] ?? '').toString().trim();
+      const blNum = _fastTrim(row?.[cBL] ?? '');
       const articleRaw = row?.[cArt];
       if (articleRaw === undefined || articleRaw === null) continue;
-      const articleStr = articleRaw.toString().trim();
+      const articleStr = _fastTrim(articleRaw);
       if (!articleStr) continue;
       const dashIdx = articleStr.indexOf(' - ');
-      const codeArticle = dashIdx >= 0 ? articleStr.slice(0, dashIdx).trim() : articleStr;
+      const codeArticle = dashIdx >= 0 ? articleStr.slice(0, dashIdx) : articleStr;
       if (!codeArticle) continue;
-      const isSpecial = !_isCode6(codeArticle);
 
       const qtyRaw = cQty !== null ? row?.[cQty] : 0;
       const qty = typeof qtyRaw === 'number' ? qtyRaw : (parseInt(String(qtyRaw || '0'), 10) || 0);
       if (qty < 0) continue; // avoirs : exclure comme dans le Worker territoire
 
       const rawDate = cDate !== null ? row?.[cDate] : null;
-      // cellDates:true convertit les vraies cellules date → Date ; les colonnes non-formatées restent number
-      const dateObj = !rawDate ? null : rawDate instanceof Date ? rawDate : parseExcelDate(rawDate);
+      const dateMs = _parseDateMs(rawDate);
 
       // Plage de dates Livraisons (pour alignement captation)
-      if (dateObj) {
-        if (!livDateMin || dateObj < livDateMin) livDateMin = dateObj;
-        if (!livDateMax || dateObj > livDateMax) livDateMax = dateObj;
+      if (dateMs != null) {
+        if (livDateMinMs == null || dateMs < livDateMinMs) livDateMinMs = dateMs;
+        if (livDateMaxMs == null || dateMs > livDateMaxMs) livDateMaxMs = dateMs;
       }
 
       // — livraisonsData — codes 6 chiffres uniquement
-      if (!isSpecial) {
-        if (!_S.livraisonsData.has(cc)) {
-          _S.livraisonsData.set(cc, { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null });
+      let meta = _articleMeta.get(codeArticle);
+      if (!meta) {
+        const isSpecial = !_isCode6(codeArticle);
+        const stockItem = _stockMap.get(codeArticle);
+        const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
+        const famille = articleFamille[codeArticle] || stockItem?.famille || 'Non classé';
+        const libelle = dashIdx >= 0 ? articleStr.slice(dashIdx + 3) : (libelleLookup[codeArticle] || codeArticle);
+        meta = { libelle, famille, rayonStatus, isSpecial };
+        _articleMeta.set(codeArticle, meta);
+      }
+
+      if (!meta.isSpecial) {
+        let d = _S.livraisonsData.get(cc);
+        if (!d) {
+          d = { ca: 0, vmb: 0, bl: new Set(), articles: new Map(), lastDate: null, lastDateMs: null };
+          _S.livraisonsData.set(cc, d);
         }
-        const d = _S.livraisonsData.get(cc);
         d.ca += ca; d.vmb += vmb;
         if (blNum) d.bl.add(blNum);
-        if (!d.articles.has(codeArticle)) d.articles.set(codeArticle, { ca: 0, qty: 0 });
-        const a = d.articles.get(codeArticle); a.ca += ca; a.qty += qty;
-        if (dateObj && (!d.lastDate || dateObj > d.lastDate)) d.lastDate = dateObj;
+        let a = d.articles.get(codeArticle);
+        if (!a) { a = { ca: 0, qty: 0 }; d.articles.set(codeArticle, a); }
+        a.ca += ca; a.qty += qty;
+        if (dateMs != null && (d.lastDateMs == null || dateMs > d.lastDateMs)) d.lastDateMs = dateMs;
       }
 
       // — territoireLines — tous codes y compris spéciaux (isSpecial = true pour non-stockables)
-      const direction = (cDir !== null ? String(row?.[cDir] || '').trim() : '') || 'Non défini';
-      const secteur = cSect !== null ? String(row?.[cSect] || '').trim() : '';
-      const clientNom = cNomC !== null ? String(row?.[cNomC] || '').trim() : '';
-      const stockItem = _stockMap.get(codeArticle);
-      const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
+      const direction = (cDir !== null ? (_cachedTrim(_trimCacheDir, row?.[cDir]) || 'Non défini') : 'Non défini');
+      const secteur = cSect !== null ? _cachedTrim(_trimCacheSect, row?.[cSect]) : '';
+      let clientNom = '';
+      if (cNomC !== null) {
+        clientNom = _clientNomByCc.get(cc);
+        if (clientNom === undefined) {
+          clientNom = _fastTrim(row?.[cNomC] ?? '');
+          _clientNomByCc.set(cc, clientNom);
+        }
+      }
       const clientType = clientsMagasin.has(cc) ? 'mixte' : 'exterieur';
-      const famille = articleFamille[codeArticle] || stockItem?.famille || 'Non classé';
-      const libelle = dashIdx >= 0 ? articleStr.slice(dashIdx + 3).trim() : (libelleLookup[codeArticle] || codeArticle);
       if (secteur) secteurSet.add(secteur);
       const canal = blNum ? (blCanalMap.get(blNum) || (blConsommeSet.has(blNum) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
-      terrLines.push({ code: codeArticle, libelle, famille, direction, secteur, bl: blNum, ca, canal,
-        clientCode: cc, clientNom, clientType, rayonStatus, isSpecial, commercial: '',
-        dateExp: dateObj ? dateObj.getTime() : null });
+      terrLines.push({ code: codeArticle, libelle: meta.libelle, famille: meta.famille, direction, secteur, bl: blNum, ca, canal,
+        clientCode: cc, clientNom, clientType, rayonStatus: meta.rayonStatus, isSpecial: meta.isSpecial, commercial: '',
+        dateExp: dateMs });
 
       // — terrDirData (pour le tableau Directions dans l'onglet Terrain) —
-      if (!isSpecial) {
+      if (!meta.isSpecial) {
         if (!terrDirData[direction]) terrDirData[direction] = { dir: direction, caTotal: 0, caMag: 0, caExt: 0, refSet: new Set(), absentSet: new Set(), familles: {} };
         const td = terrDirData[direction];
         td.caTotal += ca; if (canal === 'MAGASIN') td.caMag += ca; else td.caExt += ca;
-        td.refSet.add(codeArticle); if (rayonStatus === 'red') td.absentSet.add(codeArticle);
-        if (!td.familles[famille]) td.familles[famille] = { caTotal: 0, caMag: 0, caExt: 0 };
-        td.familles[famille].caTotal += ca;
-        if (canal === 'MAGASIN') td.familles[famille].caMag += ca; else td.familles[famille].caExt += ca;
+        td.refSet.add(codeArticle); if (meta.rayonStatus === 'red') td.absentSet.add(codeArticle);
+        if (!td.familles[meta.famille]) td.familles[meta.famille] = { caTotal: 0, caMag: 0, caExt: 0 };
+        td.familles[meta.famille].caTotal += ca;
+        if (canal === 'MAGASIN') td.familles[meta.famille].caMag += ca; else td.familles[meta.famille].caExt += ca;
       }
     }
 
     _lmk('Boucle lignes');
     _S.livraisonsReady = _S.livraisonsData.size > 0;
     _S.livraisonsClientCount = _S.livraisonsData.size;
-    _S.livraisonsDateMin = livDateMin;
-    _S.livraisonsDateMax = livDateMax;
+    _S.livraisonsDateMin = livDateMinMs != null ? new Date(livDateMinMs) : null;
+    _S.livraisonsDateMax = livDateMaxMs != null ? new Date(livDateMaxMs) : null;
+    // Convertir lastDateMs → Date (une fois par client, pas par ligne)
+    for (const d of _S.livraisonsData.values()) {
+      d.lastDate = d.lastDateMs != null ? new Date(d.lastDateMs) : null;
+      delete d.lastDateMs;
+    }
     _S.territoireLines = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;
@@ -440,147 +521,6 @@ export function onLivraisonsSelected(input) {
   // parsing différé au pipeline principal (processDataFromRaw / _postParseMain)
 }
 
-// ── Territoire file parsing (3ème fichier) ────────────────────
-export async function parseTerritoireFile(f) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onerror = () => rej(new Error('Lecture impossible'));
-    const ext = f.name.toLowerCase();
-    if (ext.endsWith('.csv')) {
-      reader.onload = e => {
-        try {
-          let text = e.target.result;
-          const firstLine = text.split('\n')[0] || '';
-          const sep = firstLine.includes(';') ? ';' : ',';
-          const rows = parseCSVText(text, sep);
-          res(rows);
-        } catch (err) { rej(err); }
-      };
-      reader.readAsText(f, 'UTF-8');
-    } else {
-      reader.onload = e => {
-        try {
-          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: false, cellFormula: false, cellHTML: false, cellStyles: false, dense: true });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const csv = XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n' });
-          const lines = csv.split('\n');
-          const headers = lines[0].split('\t').map(h => h.trim());
-          const rows = [];
-          for (let i = 1; i < lines.length; i++) {
-            const cells = lines[i].split('\t');
-            if (!cells.length || (cells.length === 1 && !cells[0])) continue;
-            const obj = {};
-            headers.forEach((h, j) => { obj[h] = cells[j] !== undefined ? cells[j] : ''; });
-            rows.push(obj);
-          }
-          res(rows);
-        } catch (err) { rej(err); }
-      };
-      reader.readAsArrayBuffer(f);
-    }
-  });
-}
-
-// ── Web Worker code for territoire processing ─────────────────
-export function _terrWorker() {
-  'use strict';
-  function cleanOmniPrice(v) { if (!v) return 0; const s = v.toString().replace(/\s/g, '').replace(/€/g, '').replace(/,/g, '.'); return parseFloat(s) || 0; }
-  function extractClientCode(val) { const s = (val || '').toString().trim(); const idx = s.indexOf(' - '); return idx >= 0 ? s.slice(0, idx).trim() : s; }
-  self.onmessage = function (ev) {
-    const { rows, blConsommeArr, blCanalArr, clientsMagasinArr, stockArr, libelleLookupObj, articleFamilleObj } = ev.data;
-    const blConsommeSet = new Set(blConsommeArr);
-    const blCanalMapLocal = blCanalArr ? new Map(blCanalArr) : new Map();
-    const clientsMagasin = new Set(clientsMagasinArr);
-    const stockMap = new Map(stockArr.map(r => [r.code, r]));
-    const sample = rows[0] || {};
-    const _norm = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    const findCol = s => Object.keys(sample).find(k => _norm(k).includes(_norm(s)));
-    const cClient = findCol('code client') || findCol('code et nom');
-    const cNom = findCol('nom client') || findCol('nom');
-    const cDir = findCol('direction');
-    const cSecteur = findCol('secteur') || findCol('code secteur') || findCol('commercial');
-    const cBL = findCol('numero de bl') || findCol('n° bl') || findCol('num bl') || findCol('bl');
-    const cArticle = findCol('article');
-    const cQty = findCol('quantite livree') || findCol('qte livree') || findCol('qte') || findCol('quantite');
-    const cCA = findCol('ca');
-    const cDate = findCol("date d'expedition") || findCol('date expedition') || findCol('date exp') || findCol('expedition');
-    if (!cArticle) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Article introuvable' }); return; }
-    if (!cBL) { self.postMessage({ type: 'error', msg: 'Territoire: colonne Numéro de BL introuvable' }); return; }
-    const lines = []; const dirSet = new Set(); const secteurSet = new Set(); const CHUNK = 2000; const total = rows.length;
-    for (let ci = 0; ci < Math.ceil(total / CHUNK); ci++) {
-      const start = ci * CHUNK, end = Math.min(start + CHUNK, total);
-      for (let j = start; j < end; j++) {
-        const row = rows[j];
-        const qty = cQty ? cleanOmniPrice(row[cQty]) : 0; if (qty < 0) continue;
-        const articleRaw = (cArticle ? row[cArticle] || '' : '').toString().trim();
-        const code = articleRaw.split(' - ')[0].trim(); if (!code) continue;
-        const isSpecial = !/^\d{6}$/.test(code);
-        const bl = (cBL ? row[cBL] || '' : '').toString().trim();
-        const ca = cCA ? cleanOmniPrice(row[cCA]) : 0;
-        const direction = (cDir ? row[cDir] || '' : '').toString().trim() || 'Non défini';
-        const secteur = (cSecteur ? row[cSecteur] || '' : '').toString().trim();
-        const clientCodeRaw = (cClient ? row[cClient] || '' : '').toString().trim();
-        const clientNom = (cNom ? row[cNom] || '' : '').toString().trim();
-        const rawDate = cDate ? row[cDate] : null;
-        const dateExp = rawDate instanceof Date ? rawDate : (rawDate ? new Date(rawDate) : null);
-        const canal = bl ? (blCanalMapLocal.get(bl) || (blConsommeSet.has(bl) ? 'MAGASIN' : 'EXTÉRIEUR')) : 'EXTÉRIEUR';
-        const stockItem = stockMap.get(code);
-        const rayonStatus = stockItem ? (stockItem.stockActuel > 0 ? 'green' : 'yellow') : 'red';
-        const ccRaw = extractClientCode(clientCodeRaw);
-        // Pad numeric codes to 6 digits (livraisons format exports integers)
-        const ccNum = /^\d+$/.test(ccRaw) && ccRaw.length < 6 ? ccRaw.padStart(6,'0') : ccRaw;
-        const clientType = clientsMagasin.has(ccNum) ? 'mixte' : 'exterieur';
-        const famItem = articleFamilleObj[code] || (stockItem ? stockItem.famille : '') || 'Non classé';
-        const libelle = articleRaw.includes(' - ') ? articleRaw.split(' - ').slice(1).join(' - ').trim() : (libelleLookupObj[code] || code);
-        if (!isSpecial) dirSet.add(direction);
-        if (secteur) secteurSet.add(secteur);
-        lines.push({ code, libelle, direction, secteur, famille: famItem, bl, ca, canal, rayonStatus, clientCode: ccNum, clientNom, clientType, isSpecial, dateExp: dateExp ? dateExp.getTime() : null });
-      }
-      self.postMessage({ type: 'progress', cur: end, total });
-    }
-    const terrDirData = {};
-    for (const ln of lines) {
-      if (ln.isSpecial) continue;
-      if (!terrDirData[ln.direction]) terrDirData[ln.direction] = { dir: ln.direction, caTotal: 0, caMag: 0, caExt: 0, refSet: new Set(), absentSet: new Set(), familles: {} };
-      const d = terrDirData[ln.direction];
-      d.caTotal += ln.ca; if (ln.canal === 'MAGASIN') d.caMag += ln.ca; else d.caExt += ln.ca;
-      d.refSet.add(ln.code); if (ln.rayonStatus === 'red') d.absentSet.add(ln.code);
-      if (!d.familles[ln.famille]) d.familles[ln.famille] = { caTotal: 0, caMag: 0, caExt: 0 };
-      d.familles[ln.famille].caTotal += ln.ca;
-      if (ln.canal === 'MAGASIN') d.familles[ln.famille].caMag += ln.ca; else d.familles[ln.famille].caExt += ln.ca;
-    }
-    self.postMessage({ type: 'done', lines, terrDirData, dirsSorted: [...dirSet].sort(), secteursSorted: [...secteurSet].sort() });
-  };
-}
-
-export function launchTerritoireWorker(rows, progressCb) {
-  return new Promise((resolve, reject) => {
-    let workerUrl;
-    try {
-      const code = `(${_terrWorker.toString()})()`;
-      const blob = new Blob([code], { type: 'text/javascript' });
-      workerUrl = URL.createObjectURL(blob);
-    } catch (e) { reject(new Error('Worker indisponible: ' + e.message)); return; }
-    const worker = new Worker(workerUrl);
-    _S._activeTerrWorker = worker; // guard: permet l'annulation au re-upload via resetAppState()
-    const stockArr = _S.finalData.map(r => ({ code: r.code, stockActuel: r.stockActuel, famille: r.famille }));
-    const _blCanalArr = [..._S.blCanalMap.entries()];
-    worker.postMessage({ rows, blConsommeArr: [..._S.blConsommeSet], blCanalArr: _blCanalArr, clientsMagasinArr: [..._S.clientsMagasin], stockArr, libelleLookupObj: _S.libelleLookup, articleFamilleObj: _S.articleFamille });
-    worker.onmessage = function (ev) {
-      const d = ev.data;
-      if (d.type === 'progress') { if (progressCb) progressCb(d.cur, d.total); }
-      else if (d.type === 'done') {
-        _S.territoireLines = d.lines; _S.terrDirectionData = d.terrDirData;
-        buildSecteurCheckboxes(d.secteursSorted || []);
-        _S.territoireReady = true;
-        _S._activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); resolve();
-      } else if (d.type === 'error') {
-        _S._activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(d.msg));
-      }
-    };
-    worker.onerror = function (e) { _S._activeTerrWorker = null; worker.terminate(); URL.revokeObjectURL(workerUrl); reject(new Error(e.message || 'Worker error')); };
-  });
-}
 
 // ── B1: Client aggregation Worker ────────────────────────────
 export function _clientWorker() {
@@ -724,8 +664,9 @@ export function computeBenchmark(canaux = new Set()) {
   // Cache miss — invalider les médianes (reconstruites depuis ventesParMagasin période-courante)
   delete _S._artMedianBL; delete _S._artMedianQte; delete _S._artMedianCA;
 
-  const bassinStores = _S.selectedBenchBassin.size > 0 ? [..._S.selectedBenchBassin] : getBenchCompareStores();
+  const bassinStores = _S.selectedBenchBassin?.size > 0 ? [..._S.selectedBenchBassin] : [..._S.storesIntersection].filter(s => s !== _S.selectedMyStore);
   const cs = bassinStores.filter(s => _S.storesIntersection.has(s));
+  const csSet = new Set(cs);
   _S.benchLists = { missed: [], under: [], over: [], storePerf: {}, familyPerf: [], pepites: [], pepitesOther: [] };
   if (!cs.length) { _S._benchCache = { key: _bKey, benchLists: _S.benchLists, benchFamEcarts: _S.benchFamEcarts }; return; }
   const n = cs.length;
@@ -740,9 +681,10 @@ export function computeBenchmark(canaux = new Set()) {
   for (const [store, rec] of _S.agenceStore) {
     vpm[store] = rec.artMap;
     sp[store] = { ca: rec.ca, ref: rec.refs, freq: rec.freq, serv: rec.serv, clientsZone: rec.clientsZone, txMarge: rec.txMarge, freqClient: rec.freqClient, caClient: rec.caClient, pdmBassin: rec.pdmBassin, nbClients: rec.nbClients, nbCommandes: rec.nbCommandes };
-    if (!cs.includes(store)) continue;
-    for (const [a, d] of Object.entries(rec.artMap)) {
-      if (!/^\d{6}$/.test(a)) continue;
+    if (!csSet.has(store)) continue;
+    for (const a in rec.artMap) {
+      if (a.length !== 6) continue;
+      const d = rec.artMap[a];
       if (!bv[a]) bv[a] = { tp: 0, tb: 0, sc: 0 };
       bv[a].tp += d.sumCA || 0; bv[a].tb += d.countBL; bv[a].sc++;
     }
@@ -1120,7 +1062,8 @@ export function _reseauWorker() {
   };
 }
 
-export function launchReseauWorker() {
+// Legacy — Worker réseau (non déclenché, nomades/orphelins via compute direct)
+function launchReseauWorker() {
   if (_S._activeReseauWorker) { try { _S._activeReseauWorker.terminate(); } catch (_) {} }
   return new Promise((resolve, reject) => {
     try {

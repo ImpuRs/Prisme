@@ -58,15 +58,32 @@ export function estimerCAPerdu(V, prixUnitaire, jours) {
 }
 
 // ── Priority score composite ──────────────────────────────────
-// Fréq × PU × coeff ancienneté
-export function calcPriorityScore(freq, pu, ageJours) {
+// V2 : Fréq × PU × coeff ancienneté × poids clients stratégiques
+export function calcPriorityScore(freq, pu, ageJours, code) {
   const caPerdu = freq * pu;
   let ageCoeff = 1;
   if (ageJours < 30) ageCoeff = 0.8;
   else if (ageJours < 90) ageCoeff = 1;
   else if (ageJours < 180) ageCoeff = 1.2;
   else ageCoeff = 1.5;
-  return Math.round(caPerdu * ageCoeff);
+
+  // Poids Client : boost si des clients stratégiques achètent cet article
+  let clientWeight = 1;
+  if (code && _S.articleClients && _S.chalandiseData?.size) {
+    const buyers = _S.articleClients.get(code);
+    if (buyers && buyers.size > 0) {
+      let nbStrat = 0;
+      for (const cc of buyers) {
+        const info = _S.chalandiseData.get(cc);
+        if (!info) continue;
+        const cl = (info.classification || '').toUpperCase();
+        if (cl.includes('FID') || cl === 'OCC POT+') nbStrat++;
+      }
+      clientWeight = 1 + Math.min(nbStrat, 8) * 0.4; // max 4.2×
+    }
+  }
+
+  return Math.round(caPerdu * ageCoeff * clientWeight);
 }
 
 export function prioClass(score) {
@@ -882,18 +899,17 @@ const FAM_UNIVERS_TO_DIR = {
 export function computeArticleZoneIndex() {
   if (_S.articleZoneIndex) return _S.articleZoneIndex;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
-  const idx = new Map(); // code → {caZone, caAgence, clis: Set, contribs: Map<cc,{ca,mon}>}
+  const idx = new Map(); // code → {caZone, caAgence, cliZone, contribs: Array<{cc,ca,mon}>}
   if (!hasChal) { _S.articleZoneIndex = idx; return idx; }
 
-  const chalClients = new Set(_S.chalandiseData.keys());
+  const chalClients = _S.chalandiseData;
   const _ens = (code) => {
-    if (!idx.has(code)) idx.set(code, { caZone: 0, caAgence: 0, clis: new Set(), _cc: new Map() });
+    if (!idx.has(code)) idx.set(code, { caZone: 0, caAgence: 0, cliZone: 0, _cc: new Map() });
     return idx.get(code);
   };
   const _addContrib = (o, cc, ca, mon) => {
-    o.clis.add(cc);
-    if (!o._cc.has(cc)) o._cc.set(cc, { cc, ca: 0, mon: 0 });
-    const c = o._cc.get(cc);
+    let c = o._cc.get(cc);
+    if (!c) { c = { cc, ca: 0, mon: 0 }; o._cc.set(cc, c); }
     c.ca += ca; c.mon += mon;
   };
 
@@ -935,6 +951,7 @@ export function computeArticleZoneIndex() {
   // Finaliser contribs : convertir Map → Array pour itération rapide
   for (const [, o] of idx) {
     o.contribs = Array.from(o._cc.values());
+    o.cliZone = o.contribs.length;
     delete o._cc;
   }
 
@@ -962,15 +979,6 @@ export function computeSquelette(directionFilter) {
   if (_sk === _sqCacheKey && _sqCacheResult) return _sqCacheResult;
   const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
-  // Durée du fichier terrain en mois (pour seuil récurrence BL/mois)
-  let nbMoisTerr = 0;
-  if (hasTerr) {
-    let tMin = null, tMax = null;
-    for (const l of _S.territoireLines) {
-      if (l.dateExp) { if (!tMin || l.dateExp < tMin) tMin = l.dateExp; if (!tMax || l.dateExp > tMax) tMax = l.dateExp; }
-    }
-    if (tMin && tMax) nbMoisTerr = Math.max(1, Math.round((tMax - tMin) / (1000 * 60 * 60 * 24 * 30)));
-  }
 
   const articleData = new Map();
   const _ensure = (code) => {
@@ -995,10 +1003,13 @@ export function computeSquelette(directionFilter) {
   };
 
   // ── Source 1 : Réseau ──
-  for (const [store, arts] of Object.entries(vpm)) {
+  for (const store in vpm) {
     if (store === myStore) continue;
-    for (const [code, data] of Object.entries(arts)) {
-      if (!_isSixDigitCode(code) || data.countBL <= 0) continue;
+    const arts = vpm[store];
+    if (!arts) continue;
+    for (const code in arts) {
+      const data = arts[code];
+      if (!data || data.countBL <= 0 || !_isSixDigitCode(code)) continue;
       const a = _ensure(code);
       a.nbAgencesReseau++;
       a.caReseau += data.sumCA || 0;
@@ -1012,16 +1023,16 @@ export function computeSquelette(directionFilter) {
     for (const [code, zi] of zoneIdx) {
       const a = _ensure(code);
       a.caClientsZone = zi.caZone;
-      a.nbClientsZone = zi.clis.size;
-      if (zi.clis.size > 0) a.sources.add('chalandise');
+      a.nbClientsZone = zi.cliZone;
+      if (zi.cliZone > 0) a.sources.add('chalandise');
     }
   }
 
   // ── Source 3 : Clients hors-zone ──
   {
-    const chalClients = hasChal ? new Set(_S.chalandiseData.keys()) : new Set();
+    const chalClients = hasChal ? _S.chalandiseData : null;
     for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
-      if (chalClients.has(cc)) continue;
+      if (chalClients && chalClients.has(cc)) continue;
       for (const [code, data] of artMap) {
         if (!_isSixDigitCode(code)) continue;
         const a = _ensure(code);
@@ -1034,19 +1045,20 @@ export function computeSquelette(directionFilter) {
 
   // ── Source 4 : Livraisons (réseau) — BL count + direction ──
   if (hasTerr) {
-    const artBLCount = new Map();
+    const deliveredCodes = new Set();
     for (const l of _S.territoireLines) {
       if (l.isSpecial) continue;
-      if (!artBLCount.has(l.code)) artBLCount.set(l.code, new Set());
-      artBLCount.get(l.code).add(l.bl);
       const a = _ensure(l.code);
       a.caLivraisons += l.ca;
       a.direction = a.direction || l.direction;
       a.sources.add('livraisons');
+      if (!a._blSet) a._blSet = new Set();
+      a._blSet.add(l.bl);
+      deliveredCodes.add(l.code);
     }
-    for (const [code, blSet] of artBLCount) {
+    for (const code of deliveredCodes) {
       const a = articleData.get(code);
-      if (a) a.nbBLLivraisons = blSet.size;
+      if (a?._blSet) { a.nbBLLivraisons = a._blSet.size; delete a._blSet; }
     }
   }
 
@@ -1131,6 +1143,21 @@ export function computeSquelette(directionFilter) {
       else
         a.classification = 'surveiller';
     } else {
+      // ── Filtre Fin de Vie : exclure les articles morts du catalogue ──
+      // 1. Statut local ERP = fin de série / fin de stock → bruit
+      const _sl = (fd?.statut || '').toLowerCase();
+      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
+      if (_isFin) { a.classification = 'bruit'; continue; }
+      // 2. Signal réseau mort : toutes les agences qui vendent ont MIN/MAX=0/0 → produit bloqué nationalement
+      if (a.nbAgencesReseau >= 1 && _S.stockParMagasin) {
+        let _anyMinMax = false;
+        for (const s of Object.keys(vpm)) {
+          if (s === myStore) continue;
+          const stk = _S.stockParMagasin[s]?.[a.code];
+          if (stk && ((stk.qteMin || 0) > 0 || (stk.qteMax || 0) > 0)) { _anyMinMax = true; break; }
+        }
+        if (!_anyMinMax) { a.classification = 'bruit'; continue; }
+      }
       // À IMPLANTER : pas en stock ET signal fort
       const detention = a.nbAgencesReseau / nbStoresExclMy;
       const isIncontournable = detention >= 0.6 || (fd?.abcClass === 'A');
@@ -1174,6 +1201,278 @@ export function computeSquelette(directionFilter) {
   const _result = { directions, totals };
   _sqCacheKey = _sk; _sqCacheResult = _result;
   return _result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOUCLIER SQUELETTE — Verdicts + overrides MIN/MAX
+// Le Merchandising pilote la Supply Chain.
+// Appelé dans processData() APRÈS computeABCFMR + Vitesse Réseau.
+// ═══════════════════════════════════════════════════════════════
+
+const _VERDICT_MAP = {
+  socle:      { incontournable: 'Le Capitaine', nouveaute: 'La Bonne Pioche', specialiste: 'Le Lien Fort', standard: 'Le Bon Soldat' },
+  surveiller: { incontournable: "L'Alerte Rouge", nouveaute: 'Le Stagiaire', specialiste: 'Le Point de Rupture', standard: 'Le Déclinant' },
+  challenger: { incontournable: 'La Réf Schizo', nouveaute: "L'Erreur de Casting", specialiste: 'La Trahison', standard: 'Le Poids Mort' },
+  implanter:  { incontournable: 'Le Trou Critique', nouveaute: 'Le Pari du Réseau', specialiste: 'La Conquête', standard: "L'Opportunité Locale" },
+};
+
+// Lite squelette classification (finalData uniquement) — évite un computeSquelette() complet
+// pendant l'étape "Verdicts" (hot path au chargement).
+function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes }) {
+  const nbStByCode = new Map(); // code → nb agences réseau (hors myStore) où countBL>0
+  for (const code of finalCodes) {
+    let n = 0;
+    for (let i = 0; i < stores.length; i++) {
+      const d = vpm[stores[i]]?.[code];
+      if (d && d.countBL > 0) n++;
+    }
+    nbStByCode.set(code, n);
+  }
+
+  // Chalandise zone: caZone + nbClientsZone (capé à 5 car seul le seuil >=5 est utilisé)
+  const zone = new Map(); // code → {ca, n, _cli:Set|null}
+  const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
+  if (hasChal && finalCodes.size > 0) {
+    const chal = _S.chalandiseData;
+    const _ensureZ = (code) => {
+      let z = zone.get(code);
+      if (!z) { z = { ca: 0, n: 0, _cli: new Set() }; zone.set(code, z); }
+      return z;
+    };
+    const _addCli = (z, cc) => {
+      if (z.n >= 5) return;
+      const s = z._cli;
+      if (s && !s.has(cc)) {
+        s.add(cc); z.n++;
+        if (z.n >= 5) z._cli = null; // on n'a plus besoin de dédup au-delà de 5
+      }
+    };
+    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+      if (!chal.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
+        const z = _ensureZ(code);
+        z.ca += +(data?.sumCA || 0);
+        _addCli(z, cc);
+      }
+    }
+    for (const [cc, artMap] of (_S.ventesClientHorsMagasin || new Map())) {
+      if (!chal.has(cc)) continue;
+      for (const [code, data] of artMap) {
+        if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
+        const z = _ensureZ(code);
+        z.ca += +(data?.sumCA || 0);
+        _addCli(z, cc);
+      }
+    }
+    if (_S.territoireReady && _S.territoireLines?.length) {
+      for (const l of _S.territoireLines) {
+        if (l.isSpecial || !l.clientCode || !chal.has(l.clientCode)) continue;
+        const code = l.code;
+        if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
+        const z = _ensureZ(code);
+        z.ca += +(l.ca || 0);
+        _addCli(z, l.clientCode);
+      }
+    }
+  }
+
+  // nbClientsPDV (capé à 3 car seul le seuil >=3 est utilisé pour SOCLE)
+  const nbClientsPDVCache = new Map();
+  const _getNbClientsPDV = (code) => {
+    const cached = nbClientsPDVCache.get(code);
+    if (cached !== undefined) return cached;
+    const cm = _S.clientsMagasin;
+    const clients = _S.articleClients?.get(code);
+    if (!cm?.size || !clients?.size) { nbClientsPDVCache.set(code, 0); return 0; }
+    let n = 0;
+    for (const cc of clients) {
+      if (cm.has(cc)) { n++; if (n >= 3) break; }
+    }
+    nbClientsPDVCache.set(code, n);
+    return n;
+  };
+
+  const classifMap = new Map(); // code → 'socle'|'implanter'|'challenger'|'surveiller'
+  for (const r of finalData) {
+    const code = r?.code;
+    if (!code) continue;
+    const enStock = (r.stockActuel || 0) > 0;
+    const W = r.W || 0;
+    const nbAgencesReseau = nbStByCode.get(code) || 0;
+    const z = zone.get(code);
+    const nbClientsZone = z?.n || 0;
+    const caClientsZone = z?.ca || 0;
+
+    let classif = 'bruit';
+    if (enStock) {
+      if (W === 0) classif = 'challenger';
+      else if (W >= 3 && _getNbClientsPDV(code) >= 3) classif = 'socle';
+      else classif = 'surveiller';
+    } else {
+      const _sl = (r.statut || '').toLowerCase();
+      const _isFin = _sl.includes('fin de série') || _sl.includes('fin de serie') || _sl.includes('fin de stock');
+      if (_isFin) { classif = 'bruit'; }
+      else {
+        if (nbAgencesReseau >= 1 && _S.stockParMagasin) {
+          let anyMinMax = false;
+          for (let i = 0; i < stores.length; i++) {
+            const stk = _S.stockParMagasin[stores[i]]?.[code];
+            if (stk && ((stk.qteMin || 0) > 0 || (stk.qteMax || 0) > 0)) { anyMinMax = true; break; }
+          }
+          if (!anyMinMax) { classif = 'bruit'; continue; }
+        }
+        const detention = nbAgencesReseau / Math.max(1, nbStores);
+        const isIncontournable = detention >= 0.6 || (r.abcClass === 'A');
+        const isNouveaute = r.isNouveaute || (r.ageJours != null && r.ageJours < 90 && nbAgencesReseau >= 2);
+        if (isIncontournable || isNouveaute || nbClientsZone >= 5 || caClientsZone >= 1000)
+          classif = 'implanter';
+        else
+          classif = 'bruit';
+      }
+    }
+    if (classif !== 'bruit') classifMap.set(code, classif);
+  }
+
+  return { classifMap, nbStByCode };
+}
+
+export function applyVerdictOverrides() {
+  const vpm = _S.ventesParMagasin || {};
+  const myStore = _S.selectedMyStore;
+  if (!myStore || !Object.keys(vpm).length) return 0;
+
+  const stores = Object.keys(vpm).filter(s => s !== myStore);
+  const nbStores = Math.max(stores.length, 1);
+  const finalData = _S.finalData || [];
+  const finalCodes = new Set();
+  for (const r of finalData) if (r?.code) finalCodes.add(r.code);
+
+  // Index hors-magasin : code → cc[] (array, pas Set — moins d'alloc)
+  const hmBuyers = new Map();
+  if (_S.ventesClientHorsMagasin) {
+    for (const [cc, artMap] of _S.ventesClientHorsMagasin) {
+      for (const code of artMap.keys()) {
+        if (!finalCodes.has(code)) continue;
+        let arr = hmBuyers.get(code);
+        if (!arr) { arr = []; hmBuyers.set(code, arr); }
+        arr.push(cc);
+      }
+    }
+  }
+
+  // Cache clients dont le métier est stratégique (pré-calculé une seule fois)
+  const stratMetierClients = new Set();
+  if (_S.chalandiseData?.size) {
+    for (const [cc, info] of _S.chalandiseData) {
+      if (info.metier && _isMetierStrategique(info.metier)) stratMetierClients.add(cc);
+    }
+  }
+
+  // Squelette : classifications par code (lite, finalData uniquement)
+  const { classifMap, nbStByCode } = _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, finalData, finalCodes });
+
+  let overrideCount = 0;
+  let facingCount = 0;
+
+  for (const r of finalData) {
+    const classif = classifMap.get(r.code);
+    if (!classif) { r._sqClassif = ''; r._sqRole = ''; r._sqVerdict = ''; continue; }
+    r._sqClassif = classif;
+
+    // ── Calcul du rôle Physigamme (adapté de _prComputeRoles) ──
+    const nbSt = nbStByCode.get(r.code) || 0;
+    const detention = nbSt / nbStores;
+    const W = r.W || 0;
+
+    // Comptage union(buyersMag, hmArr) SANS allouer de Set par article
+    const buyersMag = _S.articleClients?.get(r.code);
+    const hmArr = hmBuyers.get(r.code);
+    let nbCli = 0, nbCliMetierStrat = 0;
+    if (buyersMag?.size) {
+      for (const cc of buyersMag) {
+        nbCli++;
+        if (stratMetierClients.has(cc)) nbCliMetierStrat++;
+      }
+    }
+    if (hmArr) {
+      for (let j = 0; j < hmArr.length; j++) {
+        const cc = hmArr[j];
+        if (buyersMag?.has(cc)) continue; // déjà compté
+        nbCli++;
+        if (stratMetierClients.has(cc)) nbCliMetierStrat++;
+      }
+    }
+
+    let role = 'standard';
+    if (detention >= 0.6 || (r.abcClass === 'A' && W >= 12)) role = 'incontournable';
+    else if (r.isNouveaute || (r.ageJours != null && r.ageJours < 90 && nbSt >= 2)) role = 'nouveaute';
+    else if (nbCli >= 2 && nbCliMetierStrat / nbCli >= 0.5) role = 'specialiste';
+
+    // Fix Poids Mort : challenger avec demande externe → upgrade rôle
+    if (role === 'standard' && W === 0 && (r.stockActuel || 0) > 0) {
+      if (nbSt >= 1) role = 'incontournable';
+      else if (nbCli >= 1) role = 'specialiste';
+    }
+
+    r._sqRole = role;
+    r._sqVerdict = _VERDICT_MAP[classif]?.[role] || '';
+
+    // ── Geste 2 : MIN_FACING — plancher visuel pour petits produits fréquents ──
+    if (r.abcClass === 'C' && r.fmrClass === 'F' && r.nouveauMax > 0 && r.nouveauMax < 10) {
+      r.nouveauMax = 10;
+      facingCount++;
+    }
+  }
+
+  // ── Geste 3 : Bouclier Squelette — overrides MIN/MAX ──
+  // Passe 1 : Poids Mort / Erreur de Casting → 0/0, collecter Trahisons par famille
+  const trahisonsByFam = new Map(); // famille → [ref, ...]
+  const MAX_ANCRES_PAR_FAMILLE = 5;
+
+  for (const r of (_S.finalData || [])) {
+    if (r._sqClassif !== 'challenger') continue;
+
+    if (r._sqRole === 'standard' || r._sqRole === 'nouveaute') {
+      // Poids Mort / Erreur de Casting → couper les vivres
+      if (r.nouveauMin > 0 || r.nouveauMax > 0) {
+        r.nouveauMin = 0; r.nouveauMax = 0;
+        r._vitesseReseau = false;
+        r._verdictOverride = true;
+        overrideCount++;
+      }
+    } else if (r._sqRole === 'specialiste') {
+      // La Trahison → candidat Ancre Métier (quota par famille)
+      const fam = r.famille || 'SANS_FAMILLE';
+      if (!trahisonsByFam.has(fam)) trahisonsByFam.set(fam, []);
+      trahisonsByFam.get(fam).push(r);
+    }
+    // Réf Schizo (incontournable) → garder, nécessite investigation commerciale
+  }
+
+  // Passe 2 : Ancre Métier — top 5 par famille (prix décroissant), reste purgé
+  for (const [, refs] of trahisonsByFam) {
+    refs.sort((a, b) => (b.prixUnitaire || 0) - (a.prixUnitaire || 0));
+    for (let i = 0; i < refs.length; i++) {
+      const r = refs[i];
+      if (i < MAX_ANCRES_PAR_FAMILLE) {
+        // Ancre Métier : pardonné, 1 exemplaire
+        r._sqVerdict = 'Ancre Métier';
+        r.nouveauMin = 1; r.nouveauMax = 1;
+        r._vitesseReseau = false;
+        r._verdictOverride = true;
+        overrideCount++;
+      } else {
+        // Trahison non pardonnée : purge
+        r.nouveauMin = 0; r.nouveauMax = 0;
+        r._vitesseReseau = false;
+        r._verdictOverride = true;
+        overrideCount++;
+      }
+    }
+  }
+
+  return { overrides: overrideCount, facings: facingCount };
 }
 
 // ═══════════════════════════════════════════════════════════════

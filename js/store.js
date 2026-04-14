@@ -92,13 +92,19 @@ export const DataStore = {
     // Dimension canal — délègue à byCanal() (terrLines filtré par canal)
     const kpis = this.byCanal(_canal);
 
-    // Dimension commercial — filtre terrLines par-dessus le filtre canal
-    const terrLinesAfterCom = _com
-      ? kpis.terrLines.filter(l => (l.commercial || '') === _com)
-      : kpis.terrLines;
-
-    // Dimension période — filtre par periodFilterStart/End
-    const terrLines = _filterByPeriode(terrLinesAfterCom);
+    // Dimension commercial — filtre terrLines par-dessus le filtre canal.
+    // Important: territoireLines ne portent pas toujours `commercial`; on filtre via
+    // l'index `_S.clientsByCommercial` (clientCode → appartenance commercial).
+    // byCanal() a déjà appliqué _filterByPeriode, pas de 2e passage.
+    let terrLines = kpis.terrLines;
+    if (_com) {
+      const comSet = _S.clientsByCommercial?.get(_com);
+      if (comSet && comSet.size) {
+        terrLines = terrLines.filter(l => l.clientCode && comSet.has(l.clientCode));
+      } else {
+        terrLines = terrLines.filter(l => (l.commercial || '') === _com);
+      }
+    }
 
     // Dimension période — indices des mois actifs (pour sparklines / _getFilteredMonths)
     const mois = new Date().getMonth();
