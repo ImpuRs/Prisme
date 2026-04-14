@@ -70,13 +70,7 @@ async function loadData() {
       r.onerror = () => reject(r.error);
     });
     if (scanData?.articles?.length) {
-      _articles = new Map();
-      for (const r of scanData.articles) _articles.set(r.code, r);
-      if (scanData.ean) {
-        _eanMap = new Map();
-        for (const [ean, code] of Object.entries(scanData.ean)) _eanMap.set(ean, code);
-      }
-      document.getElementById('refCount').textContent = _articles.size + ' refs';
+      _loadFromScanPayload(scanData);
       console.log('[Scan] ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
       return;
     }
@@ -92,22 +86,26 @@ async function loadData() {
 
 async function _tryFetchScanJson() {
   try {
-    const resp = await fetch('data/scan.json');
+    const resp = await fetch('data/scan.json', { cache: 'no-cache' });
     if (!resp.ok) return false;
     const data = await resp.json();
     if (!data.articles?.length) return false;
-    _articles = new Map();
-    for (const r of data.articles) _articles.set(r.code, r);
-    if (data.ean) {
-      _eanMap = new Map();
-      for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
-    }
-    document.getElementById('refCount').textContent = _articles.size + ' refs';
-    document.getElementById('importZone').style.display = 'none';
+    _loadFromScanPayload(data);
     console.log('[Scan] ' + _articles.size + ' articles chargés depuis data/scan.json');
-    _saveScanToIDB(data);
+    await _saveScanToIDB(data);
     return true;
-  } catch (_) { return false; }
+  } catch (e) { console.warn('[Scan] fetch scan.json échoué:', e); return false; }
+}
+
+function _loadFromScanPayload(data) {
+  _articles = new Map();
+  for (const r of data.articles) _articles.set(r.code, r);
+  if (data.ean) {
+    _eanMap = new Map();
+    for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
+  }
+  document.getElementById('refCount').textContent = _articles.size + ' refs';
+  document.getElementById('importZone').style.display = 'none';
 }
 
 // Persister les données scan importées en IDB
@@ -413,16 +411,7 @@ function importScanFile(fileInput) {
     try {
       const data = JSON.parse(reader.result);
       if (!data.articles?.length) throw new Error('Pas d\'articles dans le fichier');
-      _articles = new Map();
-      for (const r of data.articles) _articles.set(r.code, r);
-      // EAN map
-      if (data.ean) {
-        _eanMap = new Map();
-        for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
-      }
-      const eanInfo = _eanMap ? `, ${_eanMap.size} EAN` : '';
-      document.getElementById('refCount').textContent = _articles.size + ' refs';
-      document.getElementById('importZone').style.display = 'none';
+      _loadFromScanPayload(data);
       document.getElementById('content').innerHTML = `
         <div class="empty">
           <div class="icon">✅</div>
@@ -430,7 +419,6 @@ function importScanFile(fileInput) {
           Agence : ${_esc(data.store || '—')}<br>
           <span style="font-size:10px;color:var(--t3)">Scannez un code article</span></p>
         </div>`;
-      // Persister en IDB pour survivre aux refreshs
       _saveScanToIDB(data);
       input.focus();
     } catch (e) {
