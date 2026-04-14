@@ -34,11 +34,7 @@ async function loadData() {
       r.onerror = () => reject(r.error);
     });
     if (!data?.finalData?.length) {
-      document.getElementById('content').innerHTML = `
-        <div class="empty">
-          <div class="icon">⚠️</div>
-          <p>Aucune donnée en cache.<br>Ouvrez <a href="index.html" style="color:var(--act)">PRISME</a> et chargez vos fichiers d'abord.</p>
-        </div>`;
+      _showImportFallback();
       return;
     }
     _articles = new Map();
@@ -62,12 +58,18 @@ async function loadData() {
     console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB');
   } catch (e) {
     console.error('[Scan] Erreur chargement IDB:', e);
-    document.getElementById('content').innerHTML = `
-      <div class="empty">
-        <div class="icon">❌</div>
-        <p>Erreur de lecture IndexedDB.<br>${e.message}</p>
-      </div>`;
+    _showImportFallback();
   }
+}
+
+function _showImportFallback() {
+  document.getElementById('importZone').style.display = 'block';
+  document.getElementById('content').innerHTML = `
+    <div class="empty">
+      <div class="icon">📱</div>
+      <p>Pas de cache PRISME sur cet appareil.</p>
+      <p style="margin-top:12px;font-size:12px;color:var(--t2)">Chargez le fichier <strong>prisme-scan-XXX.json</strong><br>exporté depuis PRISME sur PC.</p>
+    </div>`;
 }
 
 // ── Lookup & render ────────────────────────────────────────────────────
@@ -224,6 +226,36 @@ function clearScan() {
     </div>`;
 }
 window.clearScan = clearScan;
+
+// ── Import JSON (mobile — pas d'IDB partagé) ──────────────────────────
+function importScanFile(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data.articles?.length) throw new Error('Pas d\'articles dans le fichier');
+      _articles = new Map();
+      for (const r of data.articles) _articles.set(r.code, r);
+      document.getElementById('refCount').textContent = _articles.size + ' refs';
+      document.getElementById('importZone').style.display = 'none';
+      document.getElementById('content').innerHTML = `
+        <div class="empty">
+          <div class="icon">✅</div>
+          <p><strong>${_articles.size} refs</strong> chargées<br>
+          Agence : ${_esc(data.store || '—')}<br>
+          <span style="font-size:10px;color:var(--t3)">Scannez un code article</span></p>
+        </div>`;
+      input.focus();
+    } catch (e) {
+      document.getElementById('content').innerHTML = `
+        <div class="notfound"><div class="icon">❌</div><p>Erreur : ${_esc(e.message)}</p></div>`;
+    }
+  };
+  reader.readAsText(file);
+}
+window.importScanFile = importScanFile;
 
 // ── Service Worker ─────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {

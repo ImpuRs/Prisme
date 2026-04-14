@@ -2949,6 +2949,37 @@ window.renderTabBadges = renderTabBadges;
 window.clipERP = clipERP;
 window.exportCockpitResume = exportCockpitResume;
 window.applyPeriodFilter = applyPeriodFilter;
+
+// ── Export Scan — fichier léger pour mobile ──────────────────────────
+window.exportScanData = function() {
+  if (!DataStore.finalData.length) { showToast('Aucune donnée à exporter', 'warning'); return; }
+  const myStore = _S.selectedMyStore || '';
+  const vpm = _S.ventesParMagasin || {};
+  const otherStores = Object.keys(vpm).filter(s => s !== myStore);
+  const articles = DataStore.finalData.map(r => {
+    let reseauAgences = 0;
+    for (const s of otherStores) { if (vpm[s]?.[r.code]?.countBL > 0) reseauAgences++; }
+    return {
+      code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
+      emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
+      prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
+      ancienMin: r.ancienMin, ancienMax: r.ancienMax,
+      nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
+      couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,
+      medMinReseau: r.medMinReseau, medMaxReseau: r.medMaxReseau,
+      _vitesseReseau: r._vitesseReseau || false, _fallbackERP: r._fallbackERP || false,
+      _reseauAgences: reseauAgences, isParent: r.isParent
+    };
+  });
+  const payload = { version: 1, store: myStore, timestamp: Date.now(), count: articles.length, articles };
+  const json = JSON.stringify(payload);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'prisme-scan-' + myStore + '.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📱 Fichier Scan exporté — ' + articles.length + ' refs (' + (json.length / 1024 / 1024).toFixed(1) + ' Mo)', 'success');
+};
 window.resetPeriodFilter = function(){applyPeriodFilter(null,null);};
 function renderSidebarAgenceSelector() {
   // Navbar: static agence code display (no dropdown)
