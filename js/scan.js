@@ -27,21 +27,20 @@ function _openDB() {
 }
 
 async function loadData() {
-  console.log('[Scan] loadData — début');
+  // Priorité 1 : data/scan.json (toujours fiable, pas de cache navigateur)
+  if (await _tryFetchScanJson()) return;
+  // Priorité 2 : IDB session PRISME (même appareil)
   try {
     const db = await _openDB();
-    console.log('[Scan] IDB ouverte, stores:', [...db.objectStoreNames]);
     const tx = db.transaction(IDB_STORE, 'readonly');
     const data = await new Promise((resolve, reject) => {
       const r = tx.objectStore(IDB_STORE).get('current');
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
-    console.log('[Scan] IDB current:', data ? 'finalData=' + (data.finalData?.length || 0) : 'vide');
     if (data?.finalData?.length) {
       _articles = new Map();
       for (const r of data.finalData) _articles.set(r.code, r);
-      // Enrichir avec ventesParMagasin : réseau + prix moyen + tx marge
       if (data.ventesParMagasin) {
         const myStore = data.selectedMyStore || '';
         const vpm = data.ventesParMagasin;
@@ -65,27 +64,11 @@ async function loadData() {
       console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (session)');
       return;
     }
-    // Fallback : données scan importées via JSON, persistées en IDB
-    const tx2 = db.transaction(IDB_STORE, 'readonly');
-    const scanData = await new Promise((resolve, reject) => {
-      const r = tx2.objectStore(IDB_STORE).get('scan-import');
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    console.log('[Scan] IDB scan-import:', scanData ? 'articles=' + (scanData.articles?.length || 0) : 'vide');
-    if (scanData?.articles?.length) {
-      _loadFromScanPayload(scanData);
-      console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
-      return;
-    }
-    // Fallback : fetch data/scan.json depuis le dossier du code
-    if (await _tryFetchScanJson()) return;
-    _showImportFallback();
   } catch (e) {
-    console.error('[Scan] Erreur chargement IDB:', e);
-    if (await _tryFetchScanJson()) return;
-    _showImportFallback();
+    console.warn('[Scan] IDB indisponible:', e);
   }
+  // Priorité 3 : import manuel
+  _showImportFallback();
 }
 
 async function _tryFetchScanJson() {
