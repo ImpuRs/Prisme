@@ -3090,13 +3090,23 @@ window.exportScanData = function() {
   const otherStores = Object.keys(vpm).filter(s => s !== myStore);
   const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
   const articles = DataStore.finalData.map(r => {
-    let reseauAgences = 0;
-    for (const s of otherStores) { if (vpm[s]?.[r.code]?.countBL > 0) reseauAgences++; }
+    let reseauAgences = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
+    const allStores = Object.keys(vpm);
+    for (const s of allStores) {
+      const v = vpm[s]?.[r.code];
+      if (!v || v.countBL <= 0) continue;
+      if (s !== myStore) reseauAgences++;
+      totalCA += v.sumCA || 0;
+      totalPrel += v.sumPrelevee || 0;
+      totalVMB += v.sumVMB || 0;
+    }
+    const prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
+    const txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
     const mKey = (r.abcClass || '') + (r.fmrClass || '');
     return {
       code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
       emplacement: r.emplacement, statut: r.statut, stockActuel: r.stockActuel,
-      prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
+      prixMoyenReseau, txMargeReseau, prixUnitaire: r.prixUnitaire, W: r.W, V: r.V,
       ancienMin: r.ancienMin, ancienMax: r.ancienMax,
       nouveauMin: r.nouveauMin, nouveauMax: r.nouveauMax,
       couvertureJours: r.couvertureJours, abcClass: r.abcClass, fmrClass: r.fmrClass,

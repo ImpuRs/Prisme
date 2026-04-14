@@ -35,32 +35,68 @@ async function loadData() {
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
-    if (!data?.finalData?.length) {
-      _showImportFallback();
+    if (data?.finalData?.length) {
+      _articles = new Map();
+      for (const r of data.finalData) _articles.set(r.code, r);
+      // Enrichir avec ventesParMagasin : réseau + prix moyen + tx marge
+      if (data.ventesParMagasin) {
+        const myStore = data.selectedMyStore || '';
+        const vpm = data.ventesParMagasin;
+        const allStores = Object.keys(vpm);
+        for (const [code, r] of _articles) {
+          let reseauCount = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
+          for (const s of allStores) {
+            const v = vpm[s]?.[code];
+            if (!v || v.countBL <= 0) continue;
+            if (s !== myStore) reseauCount++;
+            totalCA += v.sumCA || 0;
+            totalPrel += v.sumPrelevee || 0;
+            totalVMB += v.sumVMB || 0;
+          }
+          r._reseauAgences = reseauCount;
+          r.prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
+          r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
+        }
+      }
+      document.getElementById('refCount').textContent = _articles.size + ' refs';
+      console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (session)');
       return;
     }
-    _articles = new Map();
-    for (const r of data.finalData) {
-      _articles.set(r.code, r);
-    }
-    // Enrichir avec ventesParMagasin pour données réseau
-    if (data.ventesParMagasin && data.selectedMyStore) {
-      const myStore = data.selectedMyStore;
-      const vpm = data.ventesParMagasin;
-      const otherStores = Object.keys(vpm).filter(s => s !== myStore);
-      for (const [code, r] of _articles) {
-        let reseauCount = 0;
-        for (const s of otherStores) {
-          if (vpm[s]?.[code]?.countBL > 0) reseauCount++;
-        }
-        r._reseauAgences = reseauCount;
+    // Fallback : données scan importées via JSON, persistées en IDB
+    const tx2 = db.transaction(IDB_STORE, 'readonly');
+    const scanData = await new Promise((resolve, reject) => {
+      const r = tx2.objectStore(IDB_STORE).get('scan-import');
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    if (scanData?.articles?.length) {
+      _articles = new Map();
+      for (const r of scanData.articles) _articles.set(r.code, r);
+      if (scanData.ean) {
+        _eanMap = new Map();
+        for (const [ean, code] of Object.entries(scanData.ean)) _eanMap.set(ean, code);
       }
+      document.getElementById('refCount').textContent = _articles.size + ' refs';
+      console.log('[Scan] ' + _articles.size + ' articles restaurés depuis IDB (scan-import)');
+      return;
     }
-    document.getElementById('refCount').textContent = _articles.size + ' refs';
-    console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB');
+    _showImportFallback();
   } catch (e) {
     console.error('[Scan] Erreur chargement IDB:', e);
     _showImportFallback();
+  }
+}
+
+// Persister les données scan importées en IDB
+async function _saveScanToIDB(data) {
+  try {
+    const db = await _openDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(data, 'scan-import');
+    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    console.log('[Scan] Données sauvegardées en IDB');
+  } catch (e) {
+    console.warn('[Scan] Échec sauvegarde IDB:', e);
   }
 }
 
@@ -101,7 +137,8 @@ function lookup(code) {
 
   const verdict = _verdict(r);
   const stock = r.stockActuel ?? 0;
-  const pu = r.prixUnitaire ? _euro(r.prixUnitaire) : '—';
+  const prixMoyen = r.prixMoyenReseau ? _euro(r.prixMoyenReseau) : '—';
+  const txMarge = r.txMargeReseau != null ? r.txMargeReseau.toFixed(0) + '%' : '—';
   const emp = r.emplacement || '—';
   const min = r.nouveauMin || 0;
   const max = r.nouveauMax || 0;
@@ -150,8 +187,8 @@ function lookup(code) {
     </div>
     <div class="hero">
       <div class="hero-cell">
-        <div class="hero-val">${pu}</div>
-        <div class="hero-label">PRIX</div>
+        <div class="hero-val">${prixMoyen}</div>
+        <div class="hero-label">PRIX MOY.<span style="color:var(--t3);font-size:8px;margin-left:3px">${txMarge}</span></div>
       </div>
       <div class="hero-cell">
         <div class="hero-val" style="color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
@@ -178,8 +215,12 @@ function lookup(code) {
         <span class="d-val d-erp">${erpMin} / ${erpMax}</span>
       </div>` : ''}
       <div class="d-cell">
+        <span class="d-label">Marge réseau</span>
+        <span class="d-val">${txMarge}</span>
+      </div>
+      <div class="d-cell">
         <span class="d-label">ABC/FMR</span>
-        <span class="d-val">${r.abcClass || '—'}-${r.fmrClass || '—'}</span>
+        <span class="d-val">${r.abcClass || '—'}-${r.fmrClass || '—'}${r.matriceVerdict ? ' · ' + _esc(r.matriceVerdict) : ''}</span>
       </div>
       <div class="d-cell">
         <span class="d-label">Statut</span>
@@ -366,6 +407,8 @@ function importScanFile(fileInput) {
           Agence : ${_esc(data.store || '—')}<br>
           <span style="font-size:10px;color:var(--t3)">Scannez un code article</span></p>
         </div>`;
+      // Persister en IDB pour survivre aux refreshs
+      _saveScanToIDB(data);
       input.focus();
     } catch (e) {
       document.getElementById('content').innerHTML = `
