@@ -2971,7 +2971,12 @@ window.exportScanData = function() {
       _reseauAgences: reseauAgences, isParent: r.isParent
     };
   });
-  const payload = { version: 1, store: myStore, timestamp: Date.now(), count: articles.length, articles };
+  // EAN → code (inverse map pour lookup scanner)
+  const eanMap = {};
+  if (_S.catalogueEAN?.size) {
+    for (const [ean, code] of _S.catalogueEAN) eanMap[ean] = code;
+  }
+  const payload = { version: 2, store: myStore, timestamp: Date.now(), count: articles.length, articles, ean: eanMap };
   const json = JSON.stringify(payload);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

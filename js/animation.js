@@ -36,6 +36,8 @@ export async function loadCatalogueMarques() {
     _S.marqueArticles = new Map();
     _S.catalogueDesignation = new Map();
     _S.catalogueFamille = new Map();
+    _S.catalogueStatut = new Map();
+    _S.catalogueEAN = new Map(); // EAN → code article
 
     // Detect format: new indexed format has M/F/A keys
     if (data.M && data.F && data.A) {
@@ -45,7 +47,7 @@ export async function loadCatalogueMarques() {
 
       for (const [rawCode, entry] of Object.entries(articles)) {
         const code = rawCode.replace(/^0+/, '').padStart(6, '0');
-        const [mIdx, fIdx, designation] = entry;
+        const [mIdx, fIdx, designation, sIdx] = entry;
         const marque = marques[mIdx] || 'Inconnu';
 
         _S.catalogueMarques.set(code, marque);
@@ -53,6 +55,8 @@ export async function loadCatalogueMarques() {
         _S.marqueArticles.get(marque).add(code);
 
         if (designation) _S.catalogueDesignation.set(code, designation);
+        // Statut catalogue national (Fin de stock, Fin de série, etc.)
+        if (data.S && sIdx > 0) _S.catalogueStatut.set(code, data.S[sIdx] || '');
         if (familles[fIdx]) {
           const fam = familles[fIdx];
           _S.catalogueFamille.set(code, {
@@ -70,8 +74,13 @@ export async function loadCatalogueMarques() {
       }
     }
 
+    // EAN → code article
+    if (data.E) {
+      for (const [ean, code] of Object.entries(data.E)) _S.catalogueEAN.set(ean, code);
+    }
+
     _S.marquesList = [..._S.marqueArticles.keys()].filter(m => typeof m === 'string' && m.length > 0).sort();
-    console.log(`[PRISME] Catalogue marques : ${_S.catalogueMarques.size} articles, ${_S.marquesList.length} marques`);
+    console.log(`[PRISME] Catalogue marques : ${_S.catalogueMarques.size} articles, ${_S.marquesList.length} marques, ${_S.catalogueEAN.size} EAN`);
   } catch (e) {
     console.warn('[PRISME] Erreur chargement catalogue marques:', e);
   }

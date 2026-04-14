@@ -8,6 +8,7 @@ const IDB_VERSION = 2;
 const IDB_STORE = 'session';
 
 let _articles = null;   // Map<code, article>
+let _eanMap = null;     // Map<ean, code>
 let _scanCount = 0;
 
 // ── IDB ────────────────────────────────────────────────────────────────
@@ -83,7 +84,12 @@ function lookup(code) {
   const clean = code.replace(/\D/g, '').trim();
   if (!clean) return;
 
-  const r = _articles.get(clean);
+  // Lookup : d'abord par code article, puis par EAN
+  let r = _articles.get(clean);
+  if (!r && _eanMap) {
+    const artCode = _eanMap.get(clean);
+    if (artCode) r = _articles.get(artCode);
+  }
   if (!r) {
     el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(clean)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire</span></p></div>`;
     return;
@@ -228,7 +234,16 @@ function _liveSearch(q) {
     lookup(clean);
     return;
   }
-  // Recherche par code partiel ou libellé
+  // Lookup EAN direct (8-14 chiffres)
+  if (_eanMap && clean.length >= 8 && clean.length <= 14) {
+    const artCode = _eanMap.get(clean);
+    if (artCode && _articles.has(artCode)) {
+      _clearSuggestions();
+      lookup(artCode);
+      return;
+    }
+  }
+  // Recherche par code partiel, libellé ou emplacement
   const qLow = q.toLowerCase();
   const matches = [];
   for (const [code, r] of _articles) {
@@ -304,6 +319,12 @@ function importScanFile(fileInput) {
       if (!data.articles?.length) throw new Error('Pas d\'articles dans le fichier');
       _articles = new Map();
       for (const r of data.articles) _articles.set(r.code, r);
+      // EAN map
+      if (data.ean) {
+        _eanMap = new Map();
+        for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
+      }
+      const eanInfo = _eanMap ? `, ${_eanMap.size} EAN` : '';
       document.getElementById('refCount').textContent = _articles.size + ' refs';
       document.getElementById('importZone').style.display = 'none';
       document.getElementById('content').innerHTML = `
