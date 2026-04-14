@@ -69,7 +69,7 @@ export async function _saveFileHashes(f1, f2, f3 = null, f4 = null) {
 
 // Version du cache IndexedDB — incrémenter à chaque ajout de structure V3+
 // Toute session stockée avec une version différente est purgée automatiquement.
-const CACHE_VERSION  = 'v3.8'; // bump : ajout catalogueFamille/catalogueDesignation dans payload IDB
+const CACHE_VERSION  = 'v3.9'; // bump : territoireLines en store séparé (columnar), allège structured clone
 
 // Purger les anciennes clés volumineuses / migration PILOT → PRISME
 (function _migrateLS() {
@@ -251,8 +251,9 @@ export function _restoreExclusions() {
 // ═══════════════════════════════════════════════════════════════
 
 const IDB_NAME    = 'PRISME';
-const IDB_VERSION = 1;
+const IDB_VERSION = 2; // v2 : ajout store 'territoire' séparé
 const IDB_STORE   = 'session';
+const IDB_TERR    = 'territoire';
 
 export function _openDB() {
   return new Promise((resolve, reject) => {
@@ -260,19 +261,83 @@ export function _openDB() {
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      if (!db.objectStoreNames.contains(IDB_TERR))  db.createObjectStore(IDB_TERR);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror  = () => reject(req.error);
   });
 }
 
-// Sauvegarde complète — appelé de façon non bloquante (sans await dans le flux principal)
-export async function _saveSessionToIDB() {
+// Sérialise territoireLines en format columnar (tableaux de colonnes)
+// → réduit le coût du structured clone IDB de ~60% vs tableau d'objets
+function _serializeTerritoire(lines) {
+  if (!lines?.length) return null;
+  const n = lines.length;
+  const cols = {
+    code: new Array(n), libelle: new Array(n), famille: new Array(n),
+    direction: new Array(n), secteur: new Array(n), bl: new Array(n),
+    ca: new Float64Array(n), canal: new Array(n),
+    clientCode: new Array(n), clientNom: new Array(n), clientType: new Array(n),
+    rayonStatus: new Array(n), isSpecial: new Uint8Array(n),
+    commercial: new Array(n), dateExp: new Array(n),
+  };
+  for (let i = 0; i < n; i++) {
+    const l = lines[i];
+    cols.code[i]        = l.code;
+    cols.libelle[i]     = l.libelle;
+    cols.famille[i]     = l.famille;
+    cols.direction[i]   = l.direction;
+    cols.secteur[i]     = l.secteur;
+    cols.bl[i]          = l.bl;
+    cols.ca[i]          = l.ca || 0;
+    cols.canal[i]       = l.canal;
+    cols.clientCode[i]  = l.clientCode;
+    cols.clientNom[i]   = l.clientNom;
+    cols.clientType[i]  = l.clientType || '';
+    cols.rayonStatus[i] = l.rayonStatus || '';
+    cols.isSpecial[i]   = l.isSpecial ? 1 : 0;
+    cols.commercial[i]  = l.commercial || '';
+    cols.dateExp[i]     = l.dateExp instanceof Date ? l.dateExp.getTime() : (l.dateExp || null);
+  }
+  return cols;
+}
+
+function _deserializeTerritoire(cols) {
+  if (!cols?.code?.length) return [];
+  const n = cols.code.length;
+  const lines = new Array(n);
+  for (let i = 0; i < n; i++) {
+    lines[i] = {
+      code: cols.code[i], libelle: cols.libelle[i], famille: cols.famille[i],
+      direction: cols.direction[i], secteur: cols.secteur[i], bl: cols.bl[i],
+      ca: cols.ca[i], canal: cols.canal[i],
+      clientCode: cols.clientCode[i], clientNom: cols.clientNom[i],
+      clientType: cols.clientType[i], rayonStatus: cols.rayonStatus[i],
+      isSpecial: !!cols.isSpecial[i], commercial: cols.commercial[i],
+      dateExp: cols.dateExp[i] ? new Date(cols.dateExp[i]) : null,
+    };
+  }
+  return lines;
+}
+
+// Sauvegarde complète — déférée via requestIdleCallback pour ne pas perturber l'UI
+let _idbSaveScheduled = false;
+export function _saveSessionToIDB() {
+  if (_idbSaveScheduled) return Promise.resolve();
+  _idbSaveScheduled = true;
+  return new Promise(resolve => {
+    const run = () => { _idbSaveScheduled = false; _saveSessionToIDBNow().then(resolve).catch(e => { console.warn('[PRISME] IDB save deferred error:', e); resolve(); }); };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 50);
+  });
+}
+
+async function _saveSessionToIDBNow() {
   if (_S._idbSaving) return; // guard anti-boucle
   _S._idbSaving = true;
   try {
     const db = await _openDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const tx = db.transaction([IDB_STORE, IDB_TERR], 'readwrite');
     const st = tx.objectStore(IDB_STORE);
     const payload = {
       version: CACHE_VERSION,
@@ -326,9 +391,8 @@ export async function _saveSessionToIDB() {
       clientArticles:        [..._S.clientArticles].map(([k, v]) => [k, [...v]]),
       // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
       articleCanalCA:        _serializeNestedMap(_S.articleCanalCA),
-      // ── Territoire ──
+      // ── Territoire (lines dans store séparé IDB_TERR) ──
       territoireReady:       _S.territoireReady,
-      territoireLines:       _S.territoireLines,
       terrDirectionData:     _S.terrDirectionData,
       // ── Chalandise ──
       chalandiseData:        [..._S.chalandiseData],
@@ -383,12 +447,13 @@ export async function _saveSessionToIDB() {
       _associations:         _S._associations || [],
     };
     st.put(payload, 'current');
+    // Territoire en store séparé (columnar → structured clone allégé)
+    const terrStore = tx.objectStore(IDB_TERR);
+    const terrPayload = _serializeTerritoire(_S.territoireLines);
+    terrStore.put(terrPayload, 'lines');
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
     localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
-    console.log('[PRISME] IDB save - clientsByCommercial size:', _S.clientsByCommercial?.size, '_selectedCommercial:', _S._selectedCommercial);
-    // NB: JSON.stringify(payload) est extrêmement coûteux quand territoireLines est volumineux.
-    // On logge des compteurs utiles sans bloquer le thread principal.
     console.log('[PRISME] session sauvegardée dans IndexedDB', {
       finalData: _S.finalData?.length || 0,
       territoireLines: _S.territoireLines?.length || 0,
@@ -406,9 +471,13 @@ export async function _saveSessionToIDB() {
 export async function _restoreSessionFromIDB() {
   try {
     const db  = await _openDB();
-    const tx  = db.transaction(IDB_STORE, 'readonly');
+    const tx  = db.transaction([IDB_STORE, IDB_TERR], 'readonly');
     const req = tx.objectStore(IDB_STORE).get('current');
-    const data = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+    const reqT = tx.objectStore(IDB_TERR).get('lines');
+    const [data, terrCols] = await Promise.all([
+      new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); }),
+      new Promise((res, rej) => { reqT.onsuccess = () => res(reqT.result); reqT.onerror = () => res(null); }),
+    ]);
     db.close();
     if (!data) return false;
     if (data.version !== CACHE_VERSION) {
@@ -478,7 +547,7 @@ export async function _restoreSessionFromIDB() {
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
     _S.territoireReady   = data.territoireReady   || false;
-    _S.territoireLines   = data.territoireLines   || [];
+    _S.territoireLines   = terrCols ? _deserializeTerritoire(terrCols) : (data.territoireLines || []);
     _S.terrDirectionData = data.terrDirectionData || {};
 
     _S.chalandiseData    = new Map(data.chalandiseData || []);
@@ -556,8 +625,9 @@ export async function _restoreSessionFromIDB() {
 export async function _clearIDB() {
   try {
     const db = await _openDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const tx = db.transaction([IDB_STORE, IDB_TERR], 'readwrite');
     tx.objectStore(IDB_STORE).clear();
+    tx.objectStore(IDB_TERR).clear();
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
   } catch (_) {}

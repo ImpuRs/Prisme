@@ -350,8 +350,6 @@ function _prAgenceVocationCtx() {
   };
   return _prAgenceCtxCache;
 }
-export function _prInvalidateAgenceCtx() { _prAgenceCtxCache = null; }
-
 // ── computePlanStock ─────────────────────────────────────────────────
 let _prPlanCache = null;
 let _prPlanCacheKey = '';

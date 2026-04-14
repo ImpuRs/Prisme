@@ -149,24 +149,6 @@ export function buildSparklineSVG(values, {
   return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true" style="display:block;overflow:visible">${area}${polyline}${dot}</svg>`;
 }
 
-export function buildDeltaBadge(current, previous, {
-  format = 'pct',
-  invert = false,
-} = {}) {
-  if (!previous || previous === 0) return '';
-  const delta = current - previous;
-  const pctVal = ((delta / Math.abs(previous)) * 100).toFixed(1);
-  const isPositive = delta >= 0;
-  const isGood = invert ? !isPositive : isPositive;
-  const cls = delta === 0 ? 'chip-muted' : isGood ? 'chip-ok' : 'chip-danger';
-  const sign = delta > 0 ? '+' : '';
-  let label;
-  if (format === 'pct')       label = `${sign}${pctVal}%`;
-  else if (format === 'abs')  label = `${sign}${Math.round(delta).toLocaleString('fr')}`;
-  else                        label = `${sign}${pctVal}% (${sign}${Math.round(delta).toLocaleString('fr')})`;
-  return `<span class="chip chip-xs ${cls}" style="background:transparent;border:none">${label}</span>`;
-}
-
 export function buildSkeletonTable(rows = 8, cols = 5) {
   const widths = ['sk-short', 'sk-long', 'sk-medium', 'sk-full', 'sk-short'];
   const trs = Array.from({ length: rows }, (_, r) =>
@@ -179,22 +161,6 @@ export function buildSkeletonTable(rows = 8, cols = 5) {
 
 export function buildSkeletonCards(count = 4) {
   return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${Array.from({ length: count }, () => '<div class="skeleton skeleton-kpi"></div>').join('')}</div>`;
-}
-
-/**
- * buildEvidenceCard — carte métier scannable pour le cockpit briefing
- */
-export function buildEvidenceCard({ icon, value, label, severity = 'muted', cta = '', ctaFn = '', sparkline = '' }) {
-  const ctaHtml = cta
-    ? `<span class="evidence-cta" onclick="${ctaFn}" role="button" tabindex="0">${cta} →</span>`
-    : '';
-  return `<div class="evidence-card evidence-card--${severity}" ${ctaFn ? `onclick="${ctaFn}" role="button" tabindex="0"` : ''}>
-    <div class="evidence-icon">${icon}</div>
-    <div class="evidence-value">${value}</div>
-    <div class="evidence-label">${label}</div>
-    ${sparkline ? `<div style="margin-top:4px">${sparkline}</div>` : ''}
-    ${ctaHtml}
-  </div>`;
 }
 
 export function pct(p, t) { return t > 0 ? ((p / t) * 100).toFixed(1) + '%' : '0%'; }
@@ -476,22 +442,6 @@ export function parseCSVTextToHR(text, sep) {
 
   const headers = rows[0];
   return { headers, rows: rows.slice(1) };
-}
-
-export function parseCSVText(text, sep) {
-  const hr = parseCSVTextToHR(text, sep);
-  if (!hr.headers.length) return [];
-  const { headers, rows } = hr;
-  const data = new Array(rows.length);
-  for (let r = 0; r < rows.length; r++) {
-    const rowObj = {};
-    const cells = rows[r];
-    for (let c = 0; c < headers.length; c++) {
-      rowObj[headers[c]] = cells?.[c] ?? '';
-    }
-    data[r] = rowObj;
-  }
-  return data;
 }
 
 export function getAgeBracket(d) { return d < 90 ? 'fresh' : d < 180 ? 'warm' : d <= 365 ? 'hot' : 'critical'; }

@@ -1900,6 +1900,7 @@
               <th class="px-2 py-3 text-xs uppercase sticky left-0 s-panel-inner z-30" onclick="sortBy('code')" data-col="code" data-tooltip="Code article 6 chiffres">Code ↕</th>
               <th class="px-2 py-3 text-xs uppercase sticky left-[80px] s-panel-inner z-30 font-bold" onclick="sortBy('libelle')" data-col="libelle" data-tooltip="Désignation article">Libellé ↕</th>
               <th class="px-2 py-3 text-xs uppercase" onclick="sortBy('famille')" data-col="famille" data-tooltip="Famille article (code + libellé)">Famille ↕</th>
+              <th class="px-2 py-3 text-xs uppercase t-disabled" onclick="sortBy('emplacement')" data-col="emplacement" data-tooltip="Emplacement physique en agence">Empl ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center font-bold" onclick="sortBy('V')" data-col="V" data-tooltip="Prélevé comptoir sur la période — dimensionne le MIN/MAX">Prél ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center c-ok font-bold" onclick="sortBy('caAnnuel')" data-col="caAnnuel" data-tooltip="CA comptoir sur la période (source : consommé MAGASIN)">CA ↕</th>
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" onclick="sortBy('enleveTotal')" data-col="enleveTotal" data-tooltip="Enlevé (colis) — NE dimensionne PAS le MIN/MAX">Enl ↕</th>
@@ -1910,10 +1911,6 @@
               <th class="px-2 py-3 text-xs uppercase text-center t-disabled" data-col="ancien" data-tooltip="MIN/MAX actuels dans l'ERP (avant recalcul PRISME)">Anc.</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMin')" data-col="nouveauMin" data-tooltip="MIN recalculé par PRISME (sécurité + consommation)">MIN ↕</th>
               <th class="px-2 py-3 text-xs font-extrabold uppercase text-center c-ok s-panel" onclick="sortBy('nouveauMax')" data-col="nouveauMax" data-tooltip="MAX recalculé par PRISME (capacité réappro optimale)">MAX ↕</th>
-              <th id="thMedMin" class="px-2 py-3 text-xs uppercase text-center t-disabled s-panel" style="display:none" data-col="medMin" data-tooltip="Médiane MIN des autres agences du réseau">Méd.↓</th>
-              <th id="thMedMax" class="px-2 py-3 text-xs uppercase text-center t-disabled s-panel" style="display:none" data-col="medMax" data-tooltip="Médiane MAX des autres agences du réseau">Méd.↑</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-indigo-300 s-panel" onclick="sortBy('abcClass')" data-col="abcClass" data-tooltip="ABC = classification par CA (A=80%, B=15%, C=5%)">ABC ↕</th>
-              <th class="px-2 py-3 text-xs font-bold uppercase text-center text-violet-300 s-panel" onclick="sortBy('fmrClass')" data-col="fmrClass" data-tooltip="FMR = classification par fréquence (F≥12, M=4-11, R≤3)">FMR ↕</th>
               <th id="thCanalWeb" class="px-2 py-3 text-xs uppercase text-center hidden" onclick="sortBy('nbClientsWeb')" data-col="canalWeb" data-tooltip="Clients zone achetant cet article hors agence (Web/Rep/DCS)">🌐 ↕</th>
               <th class="px-2 py-3 w-8"></th>
             </tr>
