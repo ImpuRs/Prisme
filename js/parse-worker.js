@@ -76,8 +76,13 @@ function extractClientCode(val) {
   var s = (val || '').toString().trim();
   var idx = s.indexOf(' - ');
   var code = idx >= 0 ? s.slice(0, idx).trim() : s;
-  // Padder à 6 chiffres si code numérique (1853 → 001853)
-  return /^\d+$/.test(code) ? code.padStart(6, '0') : code;
+  // Padder à 6 chiffres si code numérique — charCodeAt plus rapide que regex
+  var allDigits = code.length > 0;
+  for (var di = 0; di < code.length; di++) {
+    var cc = code.charCodeAt(di);
+    if (cc < 48 || cc > 57) { allDigits = false; break; }
+  }
+  return allDigits ? code.padStart(6, '0') : code;
 }
 
 function cleanPrice(v) {
@@ -320,28 +325,47 @@ function _parseCsvBuffer(buf) {
   var text;
   try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
   catch(e) { text = new TextDecoder('windows-1252').decode(buf); }
-  var rawLines = text.split('\n');
-  var firstLine = rawLines[0] || '';
+  // Détection séparateur sur la première ligne (avant tout guillemet)
+  var nlIdx = text.indexOf('\n');
+  var firstLine = nlIdx >= 0 ? text.substring(0, nlIdx).replace(/\r/g, '') : text;
   var sep = firstLine.indexOf(';') > firstLine.indexOf('\t') ? ';'
           : firstLine.indexOf('\t') >= 0 ? '\t' : ';';
-  var headers = firstLine.split(sep).map(function(h) { return h.trim().replace(/\r/g,'').replace(/^"|"$/g,''); });
-  var nbCols = headers.length;
+  var sepCode = sep.charCodeAt(0);
+  // État-machine quote-safe (gère séparateur dans guillemets)
+  var headers = [];
   var rows = [];
-  var pending = '';
-  for (var cri = 1; cri < rawLines.length; cri++) {
-    var ln = rawLines[cri].replace(/\r/g, '');
-    if (pending) { ln = pending + '\n' + ln; pending = ''; }
-    var nq = 0; for (var qi = 0; qi < ln.length; qi++) if (ln.charAt(qi) === '"') nq++;
-    if (nq % 2 === 1) { pending = ln; continue; }
-    if (!ln) continue;
-    var cells = ln.split(sep);
-    for (var ci = 0; ci < cells.length; ci++) {
-      var c = cells[ci];
-      if (c.length >= 2 && c.charAt(0) === '"' && c.charAt(c.length - 1) === '"')
-        cells[ci] = c.substring(1, c.length - 1).replace(/""/g, '"');
+  var len = text.length;
+  var i = 0;
+  var cells = [];
+  var field = '';
+  var inQuote = false;
+  var isHeader = true;
+  while (i <= len) {
+    var ch = i < len ? text.charCodeAt(i) : -1;
+    if (inQuote) {
+      if (ch === 34) { // "
+        if (i + 1 < len && text.charCodeAt(i + 1) === 34) { field += '"'; i += 2; }
+        else { inQuote = false; i++; }
+      } else if (ch === -1) { inQuote = false; }
+      else { field += text.charAt(i); i++; }
+    } else {
+      if (ch === 34) { inQuote = true; i++; }
+      else if (ch === sepCode) { cells.push(field); field = ''; i++; }
+      else if (ch === 13) { i++; } // skip \r
+      else if (ch === 10 || ch === -1) { // \n or EOF
+        if (cells.length || field) {
+          cells.push(field); field = '';
+          if (isHeader) { headers = cells.map(function(h) { return h.trim(); }); isHeader = false; }
+          else rows.push(cells);
+          cells = [];
+        }
+        i++;
+      } else { field += text.charAt(i); i++; }
     }
-    while (cells.length < nbCols) cells.push('');
-    rows.push(cells);
+  }
+  var nbCols = headers.length;
+  for (var ri = 0; ri < rows.length; ri++) {
+    while (rows[ri].length < nbCols) rows[ri].push('');
   }
   return { headers: headers, rows: rows };
 }
@@ -383,18 +407,24 @@ self.onmessage = async function(ev) {
         } else {
           // Match fuzzy : normaliser casse/accents/espaces pour mapper les colonnes
           var _norm = function(s) { return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); };
+          // Pré-calcul index exact + fuzzy (évite indexOf O(n) par colonne)
+          var exactIdx = {};
           var normIdx = {};
-          for (var ni = 0; ni < parsed.headers.length; ni++) normIdx[_norm(parsed.headers[ni])] = ni;
+          for (var ni = 0; ni < parsed.headers.length; ni++) {
+            exactIdx[parsed.headers[ni]] = ni;
+            normIdx[_norm(parsed.headers[ni])] = ni;
+          }
           var colMap = [];
           for (var hi = 0; hi < dataC.headers.length; hi++) {
-            var exact = parsed.headers.indexOf(dataC.headers[hi]);
-            colMap.push(exact >= 0 ? exact : (normIdx[_norm(dataC.headers[hi])] ?? -1));
+            var ex = exactIdx[dataC.headers[hi]];
+            colMap.push(ex !== undefined ? ex : (normIdx[_norm(dataC.headers[hi])] ?? -1));
           }
+          var mapLen = colMap.length;
           for (var ri2 = 0; ri2 < parsed.rows.length; ri2++) {
             var srcRow = parsed.rows[ri2];
-            var mappedRow = [];
-            for (var mi = 0; mi < colMap.length; mi++) {
-              mappedRow.push(colMap[mi] >= 0 ? srcRow[colMap[mi]] : '');
+            var mappedRow = new Array(mapLen);
+            for (var mi = 0; mi < mapLen; mi++) {
+              mappedRow[mi] = colMap[mi] >= 0 ? srcRow[colMap[mi]] : '';
             }
             dataC.rows.push(mappedRow);
           }

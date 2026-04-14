@@ -13,9 +13,9 @@ import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, S
 import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
 import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors, applyVerdictOverrides } from './engine.js';
-import { parseChalandise, onChalandiseSelected, parseLivraisons, onLivraisonsSelected, buildSecteurCheckboxes, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
+import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, getSelectedSecteurs, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
-import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _getFileHash, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
+import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
@@ -2284,16 +2284,12 @@ _S.canalAgence=newCanalAgence;
     _renderActiveFilterBadges();
     const _totalCA=_getFilteredCATotal();const _totalCAEl=document.getElementById('filteredCATotal');if(_totalCAEl){if(_totalCA>0){const _caStr=_totalCA>=1000?`${(_totalCA/1000).toFixed(0)}k€`:`${Math.round(_totalCA)}€`;_totalCAEl.textContent=`CA filtré : ${_caStr}`;_totalCAEl.classList.remove('hidden');}else{_totalCAEl.classList.add('hidden');}}
     const p=[];
-    const showMed=_S.storesIntersection.size>1;
-    {const _thMn=document.getElementById('thMedMin'),_thMx=document.getElementById('thMedMax');if(_thMn)_thMn.style.display=showMed?'':'none';if(_thMx)_thMx.style.display=showMed?'':'none';}
     for(const r of pd){
       const isUncalib=r.nouveauMin===0&&r.nouveauMax===0;
       const isDormant=r.W===0&&r.stockActuel>0;
       const bg=isDormant?'':isUncalib?'s-card-alt':'';
       const sc=(() => { if(isUncalib)return 't-disabled'; if(r.stockActuel<=0)return 'c-danger font-bold'; if(r.nouveauMax>0&&r.stockActuel>r.nouveauMax)return 'c-caution font-bold'; return ''; })();
       const br=getAgeBracket(r.ageJours);
-      const _medMinCell=showMed?(r.medMinReseau!=null?`<td class="px-2 py-2 text-center text-xs t-disabled" title="Méd. réseau MIN = ${Math.round(r.medMinReseau)}">${Math.round(r.medMinReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
-      const _medMaxCell=showMed?(r.medMaxReseau!=null?`<td class="px-2 py-2 text-center text-xs t-disabled" title="Méd. réseau MAX = ${Math.round(r.medMaxReseau)}">${Math.round(r.medMaxReseau)}</td>`:'<td class="px-2 py-2 text-center text-xs t-disabled">—</td>'):'';
       const caEst=r.caAnnuel>0?(r.caAnnuel>=1000?`${(r.caAnnuel/1000).toFixed(1)}k€`:`${r.caAnnuel}€`):'—';
       const ancStr=(r.ancienMin===0&&r.ancienMax===0)?`<span class="t-disabled" title="Pas de MIN/MAX dans l'ERP">—</span>`:(r.ancienMin>0&&r.ancienMax===0)?`<span class="c-caution" title="MAX absent — anomalie ERP">${r.ancienMin}/0</span>`:`${r.ancienMin}/${r.ancienMax}`;
     p.push(`<tr class="border-b hover:i-info-bg ${bg} cursor-pointer"${isDormant?' style="background:rgba(239,68,68,0.25)"':isUncalib?' style="opacity:0.48"':''}
@@ -2301,6 +2297,7 @@ _S.canalAgence=newCanalAgence;
       <td class="px-2 py-2 font-mono text-xs whitespace-nowrap sticky left-0 bg-inherit z-[5]">${r.code}${_copyCodeBtn(r.code)}${r.isNouveaute?' ✨':''}</td>
       <td class="px-2 py-2 text-xs font-semibold max-w-[220px] sticky left-[80px] bg-inherit z-[5]"><div class="truncate" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</div></td>
       <td class="px-2 py-2 text-xs t-tertiary truncate max-w-[100px]" title="${escapeHtml(famLib(r.famille||''))}">${r.famille?escapeHtml(famLib(r.famille)):'—'}</td>
+      <td class="px-2 py-2 text-xs t-disabled truncate max-w-[80px]" data-col="emplacement" title="${escapeHtml(r.emplacement||'')}">${r.emplacement?escapeHtml(r.emplacement):'—'}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.V}</td>
       <td class="px-2 py-2 text-center text-xs font-bold">${caEst}</td>
       <td class="px-2 py-2 text-center text-xs">${r.enleveTotal||0}</td>
@@ -2311,12 +2308,9 @@ _S.canalAgence=newCanalAgence;
       <td class="px-2 py-2 text-center text-xs t-disabled">${ancStr}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMin}</td>
       <td class="px-2 py-2 text-center font-bold text-xs">${r.nouveauMax}</td>
-      ${_medMinCell}${_medMaxCell}
-      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)'}">${r.abcClass||'—'}</span></td>
-      <td class="px-2 py-2 text-center text-xs"><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${r.fmrClass==='F'?'background:rgba(34,197,94,0.18);color:#4ade80':r.fmrClass==='M'?'background:rgba(59,130,246,0.18);color:#93c5fd':r.fmrClass==='R'?'background:rgba(217,119,6,0.18);color:#fbbf24':'color:var(--t-disabled)'}">${r.fmrClass||'—'}</span></td>
       ${_S.chalandiseReady&&(r.caHorsMagasin||0)>=100&&(r.nbClientsWeb||0)>=2?`<td class="px-2 py-2 text-center text-[10px] text-violet-600 font-bold">${r.nbClientsWeb}c · ${r.caHorsMagasin>=1000?(r.caHorsMagasin/1000).toFixed(1)+'k€':Math.round(r.caHorsMagasin)+'€'}</td>`:`<td class="px-2 py-2 text-center t-disabled text-[10px]">—</td>`}
     </tr>`);}
-    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="${14+(showMed?2:0)}" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
+    document.getElementById('tableBody').innerHTML=p.join('')||`<tr><td colspan="14" class="text-center py-8 t-tertiary">Aucun.</td></tr>`;
     if(document.getElementById('thCanalWeb')?.classList.contains('hidden')){document.querySelectorAll('#tableBody tr td:nth-last-child(1)').forEach(td=>td.classList.add('hidden'));}
     _applyColVisibility();
   }

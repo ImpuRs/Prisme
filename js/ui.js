@@ -522,6 +522,7 @@ export function resetFilters() {
 // ── Sélecteur de colonnes (tableau Articles) ──
 const _COL_DEFS = [
   { key: 'famille', label: 'Famille', default: true },
+  { key: 'emplacement', label: 'Emplacement', default: true },
   { key: 'V', label: 'Prélevé', default: true },
   { key: 'caAnnuel', label: 'CA', default: true },
   { key: 'enleveTotal', label: 'Enlevé', default: true },
@@ -532,10 +533,6 @@ const _COL_DEFS = [
   { key: 'ancien', label: 'Ancien MIN/MAX', default: true },
   { key: 'nouveauMin', label: 'MIN PRISME', default: true },
   { key: 'nouveauMax', label: 'MAX PRISME', default: true },
-  { key: 'medMin', label: 'Méd. MIN réseau', default: true },
-  { key: 'medMax', label: 'Méd. MAX réseau', default: true },
-  { key: 'abcClass', label: 'ABC', default: true },
-  { key: 'fmrClass', label: 'FMR', default: true },
   { key: 'canalWeb', label: '🌐 Canal Web', default: true },
 ];
 let _colVisibility = null;
@@ -599,8 +596,8 @@ export function _applyColVisibility() {
     for (const child of row.children) { if (child === th) break; idx++; }
     const key = th.dataset.col;
     colIndices[key] = idx;
-    // Special: medMin/medMax and canalWeb have their own visibility logic
-    if (key === 'medMin' || key === 'medMax' || key === 'canalWeb') return;
+    // Special: canalWeb has its own visibility logic
+    if (key === 'canalWeb') return;
     th.style.display = vis[key] === false ? 'none' : '';
   });
   // Apply to body cells
@@ -608,7 +605,7 @@ export function _applyColVisibility() {
   for (const row of rows) {
     const cells = row.children;
     for (const [key, idx] of Object.entries(colIndices)) {
-      if (key === 'medMin' || key === 'medMax' || key === 'canalWeb') continue;
+      if (key === 'canalWeb') continue;
       if (cells[idx]) cells[idx].style.display = vis[key] === false ? 'none' : '';
     }
   }
