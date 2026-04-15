@@ -16,7 +16,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 .header .badge{font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(59,130,246,.2);color:var(--act)}
 .action-badge{display:none;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:99px;background:var(--amber);color:#000;font-size:11px;font-weight:800;cursor:pointer;padding:0 6px;border:none}
 .search-wrap{padding:12px 16px;position:sticky;top:0;z-index:10;background:var(--bg)}
-.search-wrap input{width:100%;padding:14px 44px 14px 48px;font-size:18px;font-weight:600;border-radius:12px;border:2px solid var(--border);background:var(--card);color:var(--t1);outline:none;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.search-wrap input{width:100%;padding:14px 44px 14px 48px;padding-right:80px;font-size:18px;font-weight:600;border-radius:12px;border:2px solid var(--border);background:var(--card);color:var(--t1);outline:none;letter-spacing:1px;font-variant-numeric:tabular-nums}
 .search-wrap input:focus{border-color:var(--act)}
 .search-wrap input::placeholder{color:var(--t3);font-weight:400;font-size:14px;letter-spacing:0}
 .clear-btn{position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--t3);cursor:pointer;display:none;background:none;border:none;padding:4px}
@@ -73,6 +73,14 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 .scan-mode-btn{position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:18px;background:none;border:none;cursor:pointer;padding:4px;opacity:.5}
 .scan-mode-btn.active{opacity:1;filter:drop-shadow(0 0 4px var(--act))}
 .action-btn-secondary{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;color:var(--t2);background:transparent;margin-top:6px}
+/* Camera scan overlay */
+.cam-btn{position:absolute;right:56px;top:50%;transform:translateY(-50%);font-size:20px;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2)}
+.cam-btn.active{color:var(--act);filter:drop-shadow(0 0 4px var(--act))}
+#camZone{display:none;padding:0 16px 12px}
+#camZone.open{display:block}
+#camReader{width:100%;border-radius:12px;overflow:hidden;border:2px solid var(--act)}
+#camReader video{width:100%!important;border-radius:10px}
+#camReader img[alt="Info icon"]{display:none!important}
 </style>
 </head>
 <body>
@@ -87,8 +95,13 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 
 <div class="search-wrap">
   <input type="text" id="scanInput" placeholder="Code, libellé ou emplacement…" autofocus autocomplete="off">
+  <button class="cam-btn" id="camBtn" onclick="toggleCamera()">📷</button>
   <button class="clear-btn" id="clearBtn" onclick="clearScan()">✕</button>
   <button class="scan-mode-btn" id="scanModeBtn" onclick="toggleScanMode()">⌨️</button>
+</div>
+
+<div id="camZone">
+  <div id="camReader"></div>
 </div>
 
 <div id="importZone" style="padding:8px 16px;display:none">
@@ -108,6 +121,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 
 <div class="scan-count" id="scanCount"></div>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="js/scan.js"></script>
 </body>
 </html>

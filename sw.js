@@ -1,9 +1,10 @@
 // Service Worker — PRISME Scan (cache-first pour offline)
-const CACHE_NAME = 'prisme-scan-v2';
+const CACHE_NAME = 'prisme-scan-v3';
 const ASSETS = [
   './scan.html',
   './js/scan.js',
-  './manifest.json'
+  './manifest.json',
+  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
 ];
 
 self.addEventListener('install', e => {

@@ -444,6 +444,66 @@ function _applyScanMode() {
 _applyScanMode();
 window.toggleScanMode = toggleScanMode;
 
+// ── Caméra scan (html5-qrcode) ───────────────────────────────────────
+let _camScanner = null;
+let _camActive = false;
+
+function toggleCamera() {
+  if (_camActive) { _stopCamera(); return; }
+  _startCamera();
+}
+window.toggleCamera = toggleCamera;
+
+function _startCamera() {
+  const zone = document.getElementById('camZone');
+  const btn = document.getElementById('camBtn');
+  if (!zone || typeof Html5Qrcode === 'undefined') {
+    alert('Librairie caméra non chargée. Vérifiez la connexion.');
+    return;
+  }
+  zone.classList.add('open');
+  btn.classList.add('active');
+  _camActive = true;
+
+  _camScanner = new Html5Qrcode('camReader');
+  _camScanner.start(
+    { facingMode: 'environment' },
+    { fps: 15, qrbox: { width: 280, height: 120 }, aspectRatio: 1.5,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE
+      ]
+    },
+    (code) => {
+      // Scan réussi — vibration + lookup
+      _vibrate();
+      _stopCamera();
+      input.value = code;
+      lookup(code);
+    },
+    () => {} // scan en cours, pas de match
+  ).catch(err => {
+    console.warn('Caméra:', err);
+    _stopCamera();
+    alert('Impossible d\'ouvrir la caméra.\nVérifiez les permissions.');
+  });
+}
+
+function _stopCamera() {
+  const zone = document.getElementById('camZone');
+  const btn = document.getElementById('camBtn');
+  if (_camScanner) {
+    _camScanner.stop().then(() => { _camScanner.clear(); }).catch(() => {});
+    _camScanner = null;
+  }
+  if (zone) zone.classList.remove('open');
+  if (btn) btn.classList.remove('active');
+  _camActive = false;
+}
+
 // Enter = DataWedge suffix → lookup immédiat (Zebra)
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
