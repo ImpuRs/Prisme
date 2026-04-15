@@ -9,70 +9,70 @@
 <title>PRISME Scan</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--t1:#f1f5f9;--t2:#94a3b8;--t3:#64748b;--act:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--violet:#8b5cf6}
+:root{--bg:#0f172a;--card:#1e293b;--border:#475569;--t1:#f8fafc;--t2:#cbd5e1;--t3:#94a3b8;--act:#60a5fa;--green:#4ade80;--red:#f87171;--amber:#fbbf24;--violet:#a78bfa}
 body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--t1);min-height:100dvh;display:flex;flex-direction:column}
 .header{padding:12px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
-.header h1{font-size:16px;font-weight:800;flex:1}
-.header .badge{font-size:11px;padding:2px 8px;border-radius:99px;background:rgba(59,130,246,.2);color:var(--act)}
-.action-badge{display:none;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:99px;background:var(--amber);color:#000;font-size:11px;font-weight:800;cursor:pointer;padding:0 6px;border:none}
+.header h1{font-size:18px;font-weight:800;flex:1}
+.header .badge{font-size:13px;padding:3px 10px;border-radius:99px;background:rgba(96,165,250,.2);color:var(--act)}
+.action-badge{display:none;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:99px;background:var(--amber);color:#000;font-size:13px;font-weight:800;cursor:pointer;padding:0 8px;border:none}
 .search-wrap{padding:12px 16px;position:sticky;top:0;z-index:10;background:var(--bg)}
 .search-wrap input{width:100%;padding:14px 44px 14px 48px;padding-right:80px;font-size:18px;font-weight:600;border-radius:12px;border:2px solid var(--border);background:var(--card);color:var(--t1);outline:none;letter-spacing:1px;font-variant-numeric:tabular-nums}
 .search-wrap input:focus{border-color:var(--act)}
 .search-wrap input::placeholder{color:var(--t3);font-weight:400;font-size:14px;letter-spacing:0}
 .clear-btn{position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--t3);cursor:pointer;display:none;background:none;border:none;padding:4px}
 .content{flex:1;padding:0 16px 24px;overflow-y:auto}
-.empty{text-align:center;padding:60px 20px;color:var(--t3)}
-.empty .icon{font-size:48px;margin-bottom:16px}
-.empty p{font-size:13px;line-height:1.6}
+.empty{text-align:center;padding:60px 20px;color:var(--t2)}
+.empty .icon{font-size:52px;margin-bottom:16px}
+.empty p{font-size:15px;line-height:1.6}
 .card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;animation:slideUp .2s ease}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .card-head{padding:14px 16px 10px;border-bottom:1px solid var(--border)}
-.card-head .code{font-size:12px;color:var(--t3);font-weight:600;letter-spacing:1px}
-.card-head .lib{font-size:14px;font-weight:700;margin-top:3px;line-height:1.3}
+.card-head .code{font-size:14px;color:var(--t2);font-weight:600;letter-spacing:1px}
+.card-head .lib{font-size:16px;font-weight:700;margin-top:3px;line-height:1.3}
 /* Geste 1 : PRIX / STOCK / EMPL en gros */
 .hero{display:flex;border-bottom:1px solid var(--border)}
 .hero-cell{flex:1;text-align:center;padding:14px 8px 10px}
 .hero-cell+.hero-cell{border-left:1px solid var(--border)}
-.hero-val{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
-.hero-emp{font-size:15px;word-break:break-all}
-.hero-label{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.hero-val{font-size:28px;font-weight:900;font-variant-numeric:tabular-nums}
+.hero-emp{font-size:17px;word-break:break-all}
+.hero-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 /* Geste 2 : Bandeau Verdict Squelette */
-.sq-banner{display:flex;align-items:center;gap:8px;padding:10px 16px;font-weight:700;font-size:14px}
-.sq-icon{font-size:18px}
+.sq-banner{display:flex;align-items:center;gap:8px;padding:12px 16px;font-weight:700;font-size:16px}
+.sq-icon{font-size:20px}
 .sq-label{flex:1}
-.sq-classif{font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.sq-classif{font-size:12px;text-transform:uppercase;letter-spacing:.5px;opacity:.8}
 /* Verdict stock (rupture, sur-stock, etc.) */
 .verdict{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-top:8px}
-.verdict-bar{text-align:center;padding:6px 16px;font-size:12px;font-weight:700}
+.verdict-bar{text-align:center;padding:8px 16px;font-size:14px;font-weight:700}
 /* Détails compacts */
-.detail-grid{display:flex;flex-wrap:wrap;padding:6px 16px 10px;gap:4px 16px}
-.d-cell{display:flex;align-items:baseline;gap:6px;font-size:11px}
-.d-label{color:var(--t3)}
+.detail-grid{display:flex;flex-wrap:wrap;padding:8px 16px 12px;gap:6px 18px}
+.d-cell{display:flex;align-items:baseline;gap:6px;font-size:13px}
+.d-label{color:var(--t2)}
 .d-val{font-weight:700;font-variant-numeric:tabular-nums}
-.d-erp{text-decoration:line-through;color:var(--red);opacity:.7}
+.d-erp{text-decoration:line-through;color:var(--red);opacity:.8}
 /* Geste 3+5 : Bouton d'action */
 .action-zone{padding:8px 12px 12px}
-.action-btn{width:100%;padding:14px;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer;color:#fff}
+.action-btn{width:100%;padding:16px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;color:#fff}
 .action-surstock{background:var(--violet)}
 .action-rupture{background:var(--red)}
 .action-erp{background:var(--act)}
 /* Ancien grid (search results) */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
 .grid .cell{padding:14px 16px;background:var(--card)}
-.cell .label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.cell .val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
-.cell .sub{font-size:10px;color:var(--t2);margin-top:2px}
-.scan-count{font-size:11px;color:var(--t3);text-align:center;padding:8px}
+.cell .label{font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.cell .val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.cell .sub{font-size:12px;color:var(--t2);margin-top:2px}
+.scan-count{font-size:13px;color:var(--t2);text-align:center;padding:8px}
 .notfound{text-align:center;padding:40px 20px}
-.notfound .icon{font-size:36px;margin-bottom:12px}
-.notfound p{font-size:13px;color:var(--t2)}
+.notfound .icon{font-size:40px;margin-bottom:12px}
+.notfound p{font-size:15px;color:var(--t2)}
 .flash{animation:flash .15s}
 @keyframes flash{0%,100%{opacity:1}50%{opacity:.5}}
-.vitesse-tag{font-size:9px;color:var(--violet);font-weight:600;margin-left:4px}
-.btn-back{padding:8px 16px;font-size:12px;color:var(--act);background:none;border:none;cursor:pointer;text-decoration:underline}
+.vitesse-tag{font-size:11px;color:var(--violet);font-weight:600;margin-left:4px}
+.btn-back{padding:8px 16px;font-size:14px;color:var(--act);background:none;border:none;cursor:pointer;text-decoration:underline}
 .scan-mode-btn{position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:18px;background:none;border:none;cursor:pointer;padding:4px;opacity:.5}
 .scan-mode-btn.active{opacity:1;filter:drop-shadow(0 0 4px var(--act))}
-.action-btn-secondary{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;color:var(--t2);background:transparent;margin-top:6px}
+.action-btn-secondary{width:100%;padding:14px;border-radius:12px;border:1px solid var(--border);font-size:15px;font-weight:600;cursor:pointer;color:var(--t1);background:transparent;margin-top:6px}
 /* Camera scan overlay */
 .cam-btn{position:absolute;right:56px;top:50%;transform:translateY(-50%);font-size:20px;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2)}
 .cam-btn.active{color:var(--act);filter:drop-shadow(0 0 4px var(--act))}
