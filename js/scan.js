@@ -303,9 +303,9 @@ function lookup(code) {
     actionHtml = `<button class="action-btn action-erp" onclick="addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')">
       🔄 Corriger ERP · ${min} / ${max}</button>`;
   }
-  // Bouton emplacement — toujours visible
-  actionHtml += `<button class="action-btn-secondary" onclick="addAction('${r.code}','emplacement','Mauvais emplacement: ${_esc(emp)}')">
-    📍 Signaler mauvais emplacement</button>`;
+  // Bouton emplacement — inline input pour saisir le nouvel emplacement
+  actionHtml += `<div id="empZone"><button class="action-btn-secondary" onclick="_showEmpInput('${r.code}','${_esc(emp)}')">
+    📍 Modifier l'emplacement</button></div>`;
 
   el.innerHTML = `<div class="card flash">
     <div class="card-head">
@@ -650,6 +650,31 @@ function addAction(code, type, detail) {
   if (btn) { btn.textContent = '✓ Noté'; btn.disabled = true; btn.style.opacity = '.5'; }
 }
 window.addAction = addAction;
+
+function _showEmpInput(code, ancienEmp) {
+  const zone = document.getElementById('empZone');
+  if (!zone) return;
+  zone.innerHTML = `<div style="display:flex;gap:8px;align-items:center">
+    <input type="text" id="empInput" placeholder="Nouvel emplacement…" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-weight:600" autocomplete="off">
+    <button onclick="_validateEmp('${code}','${ancienEmp}')" style="padding:12px 16px;border-radius:10px;border:none;background:var(--green);color:#000;font-size:14px;font-weight:700;cursor:pointer">✓</button>
+  </div>`;
+  const inp = document.getElementById('empInput');
+  inp.focus();
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); _validateEmp(code, ancienEmp); }
+  });
+}
+window._showEmpInput = _showEmpInput;
+
+function _validateEmp(code, ancienEmp) {
+  const inp = document.getElementById('empInput');
+  const nouvelEmp = (inp?.value || '').trim().toUpperCase();
+  if (!nouvelEmp) { inp?.focus(); return; }
+  addAction(code, 'emplacement', ancienEmp + ' → ' + nouvelEmp);
+  const zone = document.getElementById('empZone');
+  if (zone) zone.innerHTML = `<div style="padding:12px;text-align:center;color:var(--green);font-weight:700;font-size:13px">✅ Emplacement enregistré : ${_esc(nouvelEmp)}</div>`;
+}
+window._validateEmp = _validateEmp;
 
 function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
 
