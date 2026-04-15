@@ -321,17 +321,21 @@ function _renderCard(code) {
   const effectiveMax = hasNewMM ? max : erpMax;
   const surplus = effectiveMax > 0 && stock > effectiveMax ? stock - effectiveMax : 0;
 
-  // Action buttons — recalculés sur le stock réel corrigé
+  // Action buttons — cumulables, recalculés sur le stock réel corrigé
   let actionHtml = '';
   if (surplus > 0) {
-    actionHtml = `<button class="action-btn action-surstock" onclick="addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')">
+    actionHtml += `<button class="action-btn action-surstock" onclick="addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')" style="margin-bottom:6px">
       📦 Retour centrale · <strong>${surplus} pcs</strong></button>`;
-  } else if (stock === 0 && min > 0) {
-    actionHtml = `<button class="action-btn action-rupture" onclick="addAction('${r.code}','commander','Commander: rupture (MIN ${min})')">
-      🚨 Commander · MIN <strong>${min}</strong></button>`;
-  } else if (hasNewMM && (erpMin !== min || erpMax !== max)) {
-    actionHtml = `<button class="action-btn action-erp" onclick="addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')">
+  }
+  if (hasNewMM && (erpMin !== min || erpMax !== max)) {
+    actionHtml += `<button class="action-btn action-erp" onclick="addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
       🔄 Corriger ERP · ${min} / ${max}</button>`;
+  }
+  const effectiveMin = hasNewMM ? min : erpMin;
+  if (effectiveMin > 0 && stock < effectiveMin) {
+    const qte = effectiveMin - stock;
+    actionHtml += `<button class="action-btn action-rupture" onclick="addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
+      🚨 Commander · <strong>${qte} pcs</strong> (stock ${stock} &lt; MIN ${effectiveMin})</button>`;
   }
   // Bouton emplacement — inline input pour saisir le nouvel emplacement
   actionHtml += `<div id="empZone"><button class="action-btn-secondary" onclick="_showEmpInput('${r.code}','${_esc(emp)}')">
