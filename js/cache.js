@@ -347,6 +347,7 @@ async function _saveSessionToIDBNow() {
     try {
       const txScan = db.transaction([IDB_STORE], 'readwrite');
       const stScan = txScan.objectStore(IDB_STORE);
+      const eanObj = _S.catalogueEAN?.size ? Object.fromEntries(_S.catalogueEAN) : null;
       const scanPayload = {
         version: CACHE_VERSION,
         timestamp: Date.now(),
@@ -354,6 +355,7 @@ async function _saveSessionToIDBNow() {
         storesIntersection: [..._S.storesIntersection],
         finalData: _S.finalData,
         ventesParMagasin: _S.ventesParMagasin,
+        ean: eanObj,
       };
       stScan.put(scanPayload, 'scan');
       await new Promise((res, rej) => { txScan.oncomplete = res; txScan.onerror = () => rej(txScan.error); });

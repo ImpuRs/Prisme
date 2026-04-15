@@ -76,6 +76,11 @@ async function loadData() {
           }
         }
         document.getElementById('refCount').textContent = _articles.size + ' refs';
+        if (dataEffective.ean && !_eanMap) {
+          _eanMap = new Map();
+          for (const [ean, code] of Object.entries(dataEffective.ean)) _eanMap.set(ean, code);
+          console.log('[Scan] EAN depuis IDB : ' + _eanMap.size);
+        }
         console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (scan/session)');
         _saveToLS();
         return;
@@ -561,6 +566,17 @@ if ('serviceWorker' in navigator) {
 // ── Init ───────────────────────────────────────────────────────────────
 loadData();
 _loadActions();
+
+// Charger les EAN depuis le catalogue (indépendant de l'IDB)
+if (!_eanMap) {
+  fetch('data/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
+    if (data?.E) {
+      _eanMap = new Map();
+      for (const [ean, code] of Object.entries(data.E)) _eanMap.set(ean, code);
+      console.log('[Scan] EAN chargés depuis catalogue : ' + _eanMap.size);
+    }
+  }).catch(() => {});
+}
 
 // ── File d'actions terrain ─────────────────────────────────────────
 const _AQ_KEY = 'prisme_scan_actions';
