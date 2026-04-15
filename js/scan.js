@@ -343,6 +343,9 @@ function lookup(code) {
     </div>
     ${actionHtml ? `<div class="action-zone">${actionHtml}</div>` : ''}
   </div>`;
+  // Zebra : vider l'input pour que le prochain scan ne concatène pas
+  input.value = '';
+  clearBtn.style.display = 'none';
 }
 
 // ── Verdict (simplifié) ────────────────────────────────────────────────
