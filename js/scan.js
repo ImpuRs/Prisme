@@ -9,6 +9,7 @@ const IDB_STORE = 'session';
 
 let _articles = null;   // Map<code, article>
 let _eanMap = null;     // Map<ean, code>
+let _refMap = null;     // Map<refFournisseur, code>
 let _scanCount = 0;
 let _actionQueue = [];  // File d'actions terrain [{code, libelle, action, detail, ts}]
 
@@ -236,18 +237,22 @@ function lookup(code) {
     el.innerHTML = '<div class="notfound"><div class="icon">⏳</div><p>Chargement en cours…</p></div>';
     return;
   }
-  // Nettoyage code : garder uniquement les chiffres
-  const clean = code.replace(/\D/g, '').trim();
-  if (!clean) return;
+  const raw = code.trim();
+  const clean = raw.replace(/\D/g, '');
+  if (!raw) return;
 
-  // Lookup : d'abord par code article, puis par EAN
-  let r = _articles.get(clean);
-  if (!r && _eanMap) {
+  // Lookup : code article → EAN → ref fournisseur
+  let r = clean ? _articles.get(clean) : null;
+  if (!r && _eanMap && clean) {
     const artCode = _eanMap.get(clean);
     if (artCode) r = _articles.get(artCode);
   }
+  if (!r && _refMap) {
+    const artCode = _refMap.get(raw) || _refMap.get(raw.toUpperCase());
+    if (artCode) r = _articles.get(artCode);
+  }
   if (!r) {
-    el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(clean)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire</span></p></div>`;
+    el.innerHTML = `<div class="notfound"><div class="icon">🔍</div><p>Code <strong>${_esc(raw)}</strong> non trouvé<br><span style="font-size:11px;color:var(--t3)">${_articles.size} refs en mémoire</span></p></div>`;
     return;
   }
 
@@ -431,14 +436,24 @@ function _liveSearch(q) {
       return;
     }
   }
-  // Recherche multi-mots : chaque mot doit matcher quelque part (code/libellé/emplacement/famille)
+  // Lookup ref fournisseur exact
+  if (_refMap) {
+    const artCode = _refMap.get(q.trim()) || _refMap.get(q.trim().toUpperCase());
+    if (artCode && _articles.has(artCode)) {
+      _clearSuggestions();
+      lookup(artCode);
+      return;
+    }
+  }
+  // Recherche multi-mots : chaque mot doit matcher quelque part (code/libellé/emplacement/famille/ref)
   // "make agen blanc" → matche "MAKEMO AGENCEMENT BLANC"
   const words = q.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
   if (!words.length) { _clearSuggestions(); return; }
   const matches = [];
   for (const [code, r] of _articles) {
     if (matches.length >= 12) break;
-    const hay = (code + ' ' + (r.libelle || '') + ' ' + (r.emplacement || '') + ' ' + (r.famille || '')).toLowerCase();
+    const ref = r._refFourn || '';
+    const hay = (code + ' ' + (r.libelle || '') + ' ' + (r.emplacement || '') + ' ' + (r.famille || '') + ' ' + ref).toLowerCase();
     let ok = true;
     for (let i = 0; i < words.length; i++) { if (!hay.includes(words[i])) { ok = false; break; } }
     if (ok) matches.push(r);
@@ -547,6 +562,7 @@ async function purgeCache() {
   } catch (_) {}
   _articles = null;
   _eanMap = null;
+  _refMap = null;
   _actionQueue = [];
   _saveActions();
   try { localStorage.removeItem(_LS_KEY); } catch(_) {}
@@ -567,16 +583,25 @@ if ('serviceWorker' in navigator) {
 loadData();
 _loadActions();
 
-// Charger les EAN depuis le catalogue (indépendant de l'IDB)
-if (!_eanMap) {
-  fetch('data/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
-    if (data?.E) {
-      _eanMap = new Map();
-      for (const [ean, code] of Object.entries(data.E)) _eanMap.set(ean, code);
-      console.log('[Scan] EAN chargés depuis catalogue : ' + _eanMap.size);
+// Charger EAN + refs fournisseur depuis le catalogue (indépendant de l'IDB)
+fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
+  if (!data) return;
+  if (data.E && !_eanMap) {
+    _eanMap = new Map();
+    for (const [ean, code] of Object.entries(data.E)) _eanMap.set(ean, code);
+    console.log('[Scan] EAN chargés : ' + _eanMap.size);
+  }
+  if (data.R) {
+    _refMap = new Map();
+    for (const [ref, code] of Object.entries(data.R)) {
+      _refMap.set(ref, code);
+      // Enrichir l'article avec la ref fournisseur pour la recherche multi-mots
+      const art = _articles?.get(code);
+      if (art) art._refFourn = ref;
     }
-  }).catch(() => {});
-}
+    console.log('[Scan] Refs fournisseur chargées : ' + _refMap.size);
+  }
+}).catch(() => {});
 
 // ── File d'actions terrain ─────────────────────────────────────────
 const _AQ_KEY = 'prisme_scan_actions';
