@@ -11,7 +11,7 @@ let _articles = null;   // Map<code, article>
 let _eanMap = null;     // Map<ean, code>
 let _refMap = null;     // Map<refFournisseur, code>
 let _scanCount = 0;
-let _actionQueue = [];  // File d'actions terrain [{code, libelle, action, detail, ts}]
+let _actionMap = new Map();  // Map<code, {code, libelle, famille, emplacement, retour?, commander?, corriger_erp?, nouvelEmplacement?, ts}>
 
 // ── IDB ────────────────────────────────────────────────────────────────
 function _openDB() {
@@ -591,7 +591,7 @@ async function purgeCache() {
   _articles = null;
   _eanMap = null;
   _refMap = null;
-  _actionQueue = [];
+  _actionMap.clear();
   _saveActions();
   try { localStorage.removeItem(_LS_KEY); } catch(_) {}
   _scanCount = 0;
@@ -633,16 +633,33 @@ fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.jso
 
 // ── File d'actions terrain ─────────────────────────────────────────
 const _AQ_KEY = 'prisme_scan_actions';
-function _saveActions() { try { localStorage.setItem(_AQ_KEY, JSON.stringify(_actionQueue)); } catch(_){} }
-function _loadActions() { try { const s = localStorage.getItem(_AQ_KEY); if (s) { _actionQueue = JSON.parse(s); _updateActionBadge(); } } catch(_){} }
+function _saveActions() { try { localStorage.setItem(_AQ_KEY, JSON.stringify([..._actionMap.values()])); } catch(_){} }
+function _loadActions() {
+  try {
+    const s = localStorage.getItem(_AQ_KEY);
+    if (s) {
+      const arr = JSON.parse(s);
+      _actionMap.clear();
+      for (const a of arr) _actionMap.set(a.code, a);
+      _updateActionBadge();
+    }
+  } catch(_){}
+}
 
 function addAction(code, type, detail) {
   const r = _articles?.get(code);
   if (!r) return;
-  if (_actionQueue.some(a => a.code === code && a.type === type)) {
-    _vibrate(); return;
-  }
-  _actionQueue.push({ code, libelle: r.libelle || '', famille: r.famille || '', emplacement: r.emplacement || '', type, detail, ts: new Date().toISOString() });
+  const existing = _actionMap.get(code) || {
+    code, libelle: r.libelle || '', famille: r.famille || '',
+    emplacement: r.emplacement || '', ts: new Date().toISOString()
+  };
+  // Upsert: merge correction into the article's record
+  if (type === 'retour') existing.retour = detail;
+  else if (type === 'commander') existing.commander = detail;
+  else if (type === 'corriger_erp') existing.corriger_erp = detail;
+  else if (type === 'emplacement') existing.nouvelEmplacement = detail;
+  existing.ts = new Date().toISOString();
+  _actionMap.set(code, existing);
   _saveActions();
   _updateActionBadge();
   _vibrate();
@@ -681,30 +698,41 @@ function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
 function _updateActionBadge() {
   const badge = document.getElementById('actionBadge');
   if (!badge) return;
-  badge.textContent = _actionQueue.length;
-  badge.style.display = _actionQueue.length > 0 ? 'flex' : 'none';
+  const n = _actionMap.size;
+  badge.textContent = n;
+  badge.style.display = n > 0 ? 'flex' : 'none';
 }
 
 function showActions() {
   const el = document.getElementById('content');
-  if (!_actionQueue.length) {
+  if (!_actionMap.size) {
     el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Aucune action en file.<br><span style="font-size:11px;color:var(--t3)">Scannez des articles pour ajouter des actions.</span></p></div>';
     return;
   }
-  const typeLabels = { retour: '📦 Retour', commander: '🚨 Commander', corriger_erp: '🔄 Corriger ERP', emplacement: '📍 Emplacement' };
-  const typeColors = { retour: 'var(--violet)', commander: 'var(--red)', corriger_erp: 'var(--act)', emplacement: 'var(--amber)' };
-  let html = '<div style="padding:12px 0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><strong style="font-size:14px">' + _actionQueue.length + ' action' + (_actionQueue.length > 1 ? 's' : '') + ' en file</strong><button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button></div>';
-  for (let i = _actionQueue.length - 1; i >= 0; i--) {
-    const a = _actionQueue[i];
-    html += '<div style="padding:10px 12px;margin-bottom:6px;background:var(--card);border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--t3)">' + _esc(a.code) + ' · ' + _esc(a.emplacement) + '</div><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.libelle) + '</div><div style="font-size:10px;color:' + (typeColors[a.type] || 'var(--t2)') + ';margin-top:2px;font-weight:600">' + (typeLabels[a.type] || a.type) + ' — ' + _esc(a.detail) + '</div></div><button onclick="removeAction(' + i + ')" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button></div>';
+  const entries = [..._actionMap.values()].sort((a, b) => b.ts.localeCompare(a.ts));
+  let html = '<div style="padding:12px 0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><strong style="font-size:14px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong><button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button></div>';
+  for (const a of entries) {
+    const tags = [];
+    if (a.retour) tags.push('<span style="color:var(--violet);font-weight:600">📦 ' + _esc(a.retour) + '</span>');
+    if (a.commander) tags.push('<span style="color:var(--red);font-weight:600">🚨 ' + _esc(a.commander) + '</span>');
+    if (a.corriger_erp) tags.push('<span style="color:var(--act);font-weight:600">🔄 ' + _esc(a.corriger_erp) + '</span>');
+    if (a.nouvelEmplacement) tags.push('<span style="color:var(--amber);font-weight:600">📍 ' + _esc(a.nouvelEmplacement) + '</span>');
+    html += '<div style="padding:10px 12px;margin-bottom:6px;background:var(--card);border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;gap:10px">'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:11px;color:var(--t3)">' + _esc(a.code) + ' · ' + _esc(a.emplacement) + '</div>'
+      + '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.libelle) + '</div>'
+      + '<div style="font-size:10px;margin-top:3px;display:flex;flex-direction:column;gap:2px">' + tags.join('') + '</div>'
+      + '</div>'
+      + '<button onclick="removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>'
+      + '</div>';
   }
   html += '</div>';
   el.innerHTML = html;
 }
 window.showActions = showActions;
 
-function removeAction(idx) {
-  _actionQueue.splice(idx, 1);
+function removeAction(code) {
+  _actionMap.delete(code);
   _saveActions();
   _updateActionBadge();
   showActions();
@@ -712,17 +740,20 @@ function removeAction(idx) {
 window.removeAction = removeAction;
 
 function exportActions() {
-  if (!_actionQueue.length) return;
+  if (!_actionMap.size) return;
   const sep = ';';
-  const header = ['Code', 'Libellé', 'Famille', 'Emplacement', 'Action', 'Détail', 'Date'].join(sep);
-  const rows = _actionQueue.map(a =>
-    [a.code, a.libelle, a.famille, a.emplacement, a.type, a.detail, a.ts.slice(0, 16).replace('T', ' ')].map(v => '"' + (v || '').replace(/"/g, '""') + '"').join(sep)
+  const header = ['Code', 'Libellé', 'Famille', 'Emplacement actuel', 'Corriger MIN/MAX', 'Commander', 'Retour centrale', 'Nouvel emplacement'].join(sep);
+  const entries = [..._actionMap.values()].sort((a, b) => a.code.localeCompare(b.code));
+  const rows = entries.map(a =>
+    [a.code, a.libelle, a.famille, a.emplacement,
+     a.corriger_erp || '', a.commander || '', a.retour || '', a.nouvelEmplacement || ''
+    ].map(v => '"' + (v || '').replace(/"/g, '""') + '"').join(sep)
   );
   const csv = '\uFEFF' + header + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'prisme-actions-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+  a.href = url; a.download = 'prisme-corrections-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
   URL.revokeObjectURL(url);
 }
 window.exportActions = exportActions;
