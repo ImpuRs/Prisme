@@ -13,6 +13,20 @@ let _refMap = null;     // Map<refFournisseur, code>
 let _scanCount = 0;
 let _actionMap = new Map();  // Map<code, {code, libelle, famille, emplacement, retour?, commander?, corriger_erp?, nouvelEmplacement?, ts}>
 
+// ── Corrections locales — appliquées depuis _actionMap au chargement ─
+function _applyCorrections() {
+  if (!_articles || !_actionMap.size) return;
+  for (const [code, a] of _actionMap) {
+    const r = _articles.get(code);
+    if (!r) continue;
+    // Inventaire : re-appliquer le stock corrigé
+    if (a.inventaire) {
+      const match = a.inventaire.match(/→\s*(\d+)/);
+      if (match) r.stockActuel = parseInt(match[1], 10);
+    }
+  }
+}
+
 // ── IDB ────────────────────────────────────────────────────────────────
 function _openDB() {
   return new Promise((resolve, reject) => {
@@ -76,6 +90,7 @@ async function loadData() {
             r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
           }
         }
+        _applyCorrections();
         document.getElementById('refCount').textContent = _articles.size + ' refs';
         if (dataEffective.ean && !_eanMap) {
           _eanMap = new Map();
@@ -136,6 +151,7 @@ function _loadFromScanPayload(data) {
     _eanMap = new Map();
     for (const [ean, code] of Object.entries(data.ean)) _eanMap.set(ean, code);
   }
+  _applyCorrections();
   document.getElementById('refCount').textContent = _articles.size + ' refs';
   document.getElementById('importZone').style.display = 'none';
   _saveToLS();
@@ -175,6 +191,7 @@ function _loadFromLS() {
     if (!data.articles?.length) return false;
     _articles = new Map();
     for (const r of data.articles) _articles.set(r.code, r);
+    _applyCorrections();
     document.getElementById('refCount').textContent = _articles.size + ' refs';
     document.getElementById('importZone').style.display = 'none';
     console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis localStorage');
@@ -677,8 +694,8 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────
-loadData();
 _loadActions();
+loadData();
 
 // Charger EAN + refs fournisseur depuis le catalogue (indépendant de l'IDB)
 fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(data => {
