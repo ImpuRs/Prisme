@@ -77,6 +77,7 @@ async function loadData() {
         }
         document.getElementById('refCount').textContent = _articles.size + ' refs';
         console.log('[Scan] ' + _articles.size + ' articles chargés depuis IDB (scan/session)');
+        _saveToLS();
         return;
       }
       // Fallback : données scan importées via JSON, persistées en IDB
@@ -94,6 +95,8 @@ async function loadData() {
       }
       // Fallback : fetch data/scan.json
       if (await _tryFetchScanJson()) return;
+      // Fallback : localStorage (fiable sur Safari iOS)
+      if (_loadFromLS()) return;
       _showImportFallback();
     } finally {
       try { db.close(); } catch (_) {}
@@ -102,6 +105,7 @@ async function loadData() {
     console.error('[Scan] Erreur chargement IDB:', e);
     const reason = (e && (e.name || e.message)) ? ((e.name || 'Erreur') + (e.message ? ' — ' + e.message : '')) : 'Erreur inconnue';
     if (await _tryFetchScanJson()) return;
+    if (_loadFromLS()) return;
     _showImportFallback(reason);
   }
 }
@@ -128,6 +132,51 @@ function _loadFromScanPayload(data) {
   }
   document.getElementById('refCount').textContent = _articles.size + ' refs';
   document.getElementById('importZone').style.display = 'none';
+  _saveToLS();
+}
+
+// ── localStorage fallback (Safari iOS purge IDB) ─────────────────────
+const _LS_KEY = 'prisme_scan_data';
+// Champs utiles au scan — on élimine le reste pour tenir dans ~2-3 Mo
+const _SCAN_FIELDS = ['code','libelle','famille','sousFamille','emplacement','statut',
+  'stockActuel','prixMoyenReseau','txMargeReseau','W','V','ancienMin','ancienMax',
+  'nouveauMin','nouveauMax','couvertureJours','abcClass','fmrClass','matriceVerdict',
+  '_sqClassif','_sqRole','_sqVerdict','_vitesseReseau','_fallbackERP','isParent',
+  'medMinReseau','medMaxReseau','prixUnitaire','_reseauAgences'];
+
+function _saveToLS() {
+  try {
+    if (!_articles || !_articles.size) return;
+    const compact = [];
+    for (const r of _articles.values()) {
+      const o = {};
+      for (const k of _SCAN_FIELDS) { if (r[k] != null) o[k] = r[k]; }
+      compact.push(o);
+    }
+    const json = JSON.stringify({ v: 3, ts: Date.now(), articles: compact });
+    localStorage.setItem(_LS_KEY, json);
+    console.log('[Scan] LS sauvegardé : ' + compact.length + ' articles (' + (json.length / 1024).toFixed(0) + ' Ko)');
+  } catch (e) {
+    console.warn('[Scan] LS save échoué:', e);
+  }
+}
+
+function _loadFromLS() {
+  try {
+    const raw = localStorage.getItem(_LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data.articles?.length) return false;
+    _articles = new Map();
+    for (const r of data.articles) _articles.set(r.code, r);
+    document.getElementById('refCount').textContent = _articles.size + ' refs';
+    document.getElementById('importZone').style.display = 'none';
+    console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis localStorage');
+    return true;
+  } catch (e) {
+    console.warn('[Scan] LS load échoué:', e);
+    return false;
+  }
 }
 
 // Persister les données scan importées en IDB
@@ -492,6 +541,7 @@ async function purgeCache() {
   _eanMap = null;
   _actionQueue = [];
   _saveActions();
+  try { localStorage.removeItem(_LS_KEY); } catch(_) {}
   _scanCount = 0;
   document.getElementById('refCount').textContent = '—';
   document.getElementById('scanCount').textContent = '';
