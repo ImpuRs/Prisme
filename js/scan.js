@@ -337,9 +337,8 @@ function _renderCard(code) {
     actionHtml += `<button class="action-btn action-rupture" onclick="addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
       🚨 Commander · <strong>${qte} pcs</strong> (stock ${stock} &lt; MIN ${effectiveMin})</button>`;
   }
-  // Bouton emplacement — inline input pour saisir le nouvel emplacement
-  actionHtml += `<div id="empZone"><button class="action-btn-secondary" onclick="_showEmpInput('${r.code}','${_esc(emp)}')">
-    📍 Modifier l'emplacement</button></div>`;
+  // Zone emplacement inline (activée au clic sur EMPL.)
+  actionHtml += `<div id="empZone"></div>`;
 
   el.innerHTML = `<div class="card flash">
     <div class="card-head">
@@ -355,9 +354,9 @@ function _renderCard(code) {
         <div class="hero-val" id="stockVal" style="color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
         <div class="hero-label">STOCK <span style="color:var(--t3)">${couv}</span> ✏️</div>
       </div>
-      <div class="hero-cell">
-        <div class="hero-val hero-emp">${_esc(emp)}</div>
-        <div class="hero-label">EMPL.</div>
+      <div class="hero-cell" onclick="_editEmp('${r.code}','${_esc(emp)}')" style="cursor:pointer">
+        <div class="hero-val hero-emp" id="empVal">${_esc(emp)}</div>
+        <div class="hero-label">EMPL. ✏️</div>
       </div>
     </div>
     ${sqLabel ? `<div class="sq-banner" style="background:${sqStyle.bg};color:${sqStyle.color}">
@@ -775,28 +774,37 @@ function addAction(code, type, detail) {
 }
 window.addAction = addAction;
 
-function _showEmpInput(code, ancienEmp) {
-  const zone = document.getElementById('empZone');
-  if (!zone) return;
-  zone.innerHTML = `<div style="display:flex;gap:8px;align-items:center">
-    <input type="text" id="empInput" placeholder="Nouvel emplacement…" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-weight:600" autocomplete="off">
-    <button onclick="_validateEmp('${code}','${ancienEmp}')" style="padding:12px 16px;border-radius:10px;border:none;background:var(--green);color:#000;font-size:14px;font-weight:700;cursor:pointer">✓</button>
+function _editEmp(code, ancienEmp) {
+  const cell = document.getElementById('empVal');
+  if (!cell) return;
+  cell.outerHTML = `<div style="display:flex;align-items:center;gap:4px;justify-content:center">
+    <input type="text" id="empInput" value="${_esc(ancienEmp === '—' ? '' : ancienEmp)}" placeholder="Empl."
+      style="width:70px;padding:4px;border-radius:6px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:14px;font-weight:700;text-align:center;text-transform:uppercase"
+      autocomplete="off">
+    <button onclick="_validateEmp('${code}','${_esc(ancienEmp)}')"
+      style="padding:4px 8px;border-radius:6px;border:none;background:var(--green);color:#000;font-size:14px;font-weight:700;cursor:pointer">✓</button>
   </div>`;
   const inp = document.getElementById('empInput');
   inp.focus();
+  inp.select();
   inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); _validateEmp(code, ancienEmp); }
   });
 }
-window._showEmpInput = _showEmpInput;
+window._editEmp = _editEmp;
 
 function _validateEmp(code, ancienEmp) {
   const inp = document.getElementById('empInput');
   const nouvelEmp = (inp?.value || '').trim().toUpperCase();
   if (!nouvelEmp) { inp?.focus(); return; }
-  addAction(code, 'emplacement', ancienEmp + ' → ' + nouvelEmp);
-  const zone = document.getElementById('empZone');
-  if (zone) zone.innerHTML = `<div style="padding:12px;text-align:center;color:var(--green);font-weight:700;font-size:13px">✅ Emplacement enregistré : ${_esc(nouvelEmp)}</div>`;
+  if (nouvelEmp !== ancienEmp) {
+    addAction(code, 'emplacement', ancienEmp + ' → ' + nouvelEmp);
+    // Mettre à jour l'article local
+    const r = _articles?.get(code);
+    if (r) r.emplacement = nouvelEmp;
+  }
+  _renderCard(code);
+  _vibrate();
 }
 window._validateEmp = _validateEmp;
 
