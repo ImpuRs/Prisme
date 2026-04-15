@@ -3090,17 +3090,17 @@ window.exportScanData = function() {
   const otherStores = Object.keys(vpm).filter(s => s !== myStore);
   const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
   const articles = DataStore.finalData.map(r => {
-    let reseauAgences = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
+    let reseauAgences = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
     const allStores = Object.keys(vpm);
     for (const s of allStores) {
       const v = vpm[s]?.[r.code];
       if (!v || v.countBL <= 0) continue;
       if (s !== myStore) reseauAgences++;
       totalCA += v.sumCA || 0;
-      totalPrel += v.sumPrelevee || 0;
+      totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
       totalVMB += v.sumVMB || 0;
     }
-    const prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
+    const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
     const txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
     const mKey = (r.abcClass || '') + (r.fmrClass || '');
     return {
