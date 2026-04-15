@@ -12,6 +12,7 @@ let _eanMap = null;     // Map<ean, code>
 let _refMap = null;     // Map<refFournisseur, code>
 let _scanCount = 0;
 let _actionMap = new Map();  // Map<code, {code, libelle, famille, emplacement, retour?, commander?, corriger_erp?, nouvelEmplacement?, ts}>
+const _AQ_KEY = 'prisme_scan_actions';
 
 // ── Corrections locales — appliquées depuis _actionMap au chargement ─
 function _applyCorrections() {
@@ -718,7 +719,6 @@ fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.jso
 }).catch(() => {});
 
 // ── File d'actions terrain ─────────────────────────────────────────
-const _AQ_KEY = 'prisme_scan_actions';
 function _saveActions() { try { localStorage.setItem(_AQ_KEY, JSON.stringify([..._actionMap.values()])); } catch(_){} }
 function _loadActions() {
   try {
