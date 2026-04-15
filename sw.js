@@ -1,5 +1,5 @@
 // Service Worker — PRISME Scan (cache-first pour offline)
-const CACHE_NAME = 'prisme-scan-v3';
+const CACHE_NAME = 'prisme-scan-v4';
 const ASSETS = [
   './scan.html',
   './js/scan.js',
