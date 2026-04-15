@@ -423,7 +423,7 @@ function _verdict(r) {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function _euro(n) { return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }); }
+function _euro(n) { return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // ── Input handlers ─────────────────────────────────────────────────────
 const input = document.getElementById('scanInput');
