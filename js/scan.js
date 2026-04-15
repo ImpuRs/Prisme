@@ -849,22 +849,38 @@ function showActions() {
     el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Aucune action en file.<br><span style="font-size:11px;color:var(--t3)">Scannez des articles pour ajouter des actions.</span></p></div>';
     return;
   }
-  const entries = [..._actionMap.values()].sort((a, b) => b.ts.localeCompare(a.ts));
-  let html = '<div style="padding:12px 0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><strong style="font-size:14px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong><button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button></div>';
+  const entries = [..._actionMap.values()].sort((a, b) => a.code.localeCompare(b.code));
+  let html = '<div style="padding:8px 0">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<strong style="font-size:15px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong>'
+    + '<button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Exporter CSV</button>'
+    + '</div>';
   for (const a of entries) {
-    const tags = [];
-    if (a.inventaire) tags.push('<span style="color:var(--green);font-weight:600">📋 ' + _esc(a.inventaire) + '</span>');
-    if (a.retour) tags.push('<span style="color:var(--violet);font-weight:600">📦 ' + _esc(a.retour) + '</span>');
-    if (a.commander) tags.push('<span style="color:var(--red);font-weight:600">🚨 ' + _esc(a.commander) + '</span>');
-    if (a.corriger_erp) tags.push('<span style="color:var(--act);font-weight:600">🔄 ' + _esc(a.corriger_erp) + '</span>');
-    if (a.nouvelEmplacement) tags.push('<span style="color:var(--amber);font-weight:600">📍 ' + _esc(a.nouvelEmplacement) + '</span>');
-    html += '<div style="padding:10px 12px;margin-bottom:6px;background:var(--card);border-radius:10px;border:1px solid var(--border);display:flex;align-items:center;gap:10px">'
-      + '<div style="flex:1;min-width:0">'
-      + '<div style="font-size:11px;color:var(--t3)">' + _esc(a.code) + ' · ' + _esc(a.emplacement) + '</div>'
-      + '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.libelle) + '</div>'
-      + '<div style="font-size:10px;margin-top:3px;display:flex;flex-direction:column;gap:2px">' + tags.join('') + '</div>'
+    // Ligne 1 : CODE en géant + bouton supprimer
+    // Ligne 2 : Libellé en gris (souffleur de vérification)
+    // Ligne 3 : Actions dans l'ordre ERP : Emplacement → MIN/MAX → Stock
+    // Ligne 4 : Commande/Retour séparés (badge distinct)
+    const actions = [];
+    if (a.nouvelEmplacement) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--amber);font-size:14px">📍</span><span style="color:var(--t2);font-size:12px">Empl.</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.nouvelEmplacement) + '</span></div>');
+    if (a.corriger_erp) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--act);font-size:14px">🔄</span><span style="color:var(--t2);font-size:12px">MIN/MAX</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.corriger_erp.replace('Corriger ERP: ', '')) + '</span></div>');
+    if (a.inventaire) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:12px">Stock</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.inventaire.replace('Stock: ', '')) + '</span></div>');
+    // Commande / Retour — badges séparés
+    const badges = [];
+    if (a.commander) badges.push('<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(248,113,113,.15);color:var(--red);font-size:13px;font-weight:700">🚨 ' + _esc(a.commander.replace('Commander: ', '')) + '</div>');
+    if (a.retour) badges.push('<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(167,139,250,.15);color:var(--violet);font-size:13px;font-weight:700">📦 ' + _esc(a.retour.replace('Retour centrale: ', '')) + '</div>');
+
+    html += '<div style="padding:12px;margin-bottom:8px;background:var(--card);border-radius:12px;border:1px solid var(--border)">'
+      // Ligne 1 : Code géant + supprimer
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<span style="font-size:22px;font-weight:900;color:var(--t1);letter-spacing:2px;font-variant-numeric:tabular-nums">' + _esc(a.code) + '</span>'
+      + '<button onclick="removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;padding:4px">✕</button>'
       + '</div>'
-      + '<button onclick="removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:4px">✕</button>'
+      // Ligne 2 : Libellé souffleur
+      + '<div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.libelle) + ' · ' + _esc(a.emplacement) + '</div>'
+      // Ligne 3 : Actions dans l'ordre ERP
+      + (actions.length ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + actions.join('') + '</div>' : '')
+      // Ligne 4 : Badges commande/retour
+      + (badges.length ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' + badges.join('') + '</div>' : '')
       + '</div>';
   }
   html += '</div>';
