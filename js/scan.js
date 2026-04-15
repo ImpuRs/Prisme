@@ -62,17 +62,17 @@ async function loadData() {
           const vpm = dataEffective.ventesParMagasin;
           const allStores = Object.keys(vpm);
           for (const [code, r] of _articles) {
-            let reseauCount = 0, totalCA = 0, totalPrel = 0, totalVMB = 0;
+            let reseauCount = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
             for (const s of allStores) {
               const v = vpm[s]?.[code];
               if (!v || v.countBL <= 0) continue;
               if (s !== myStore) reseauCount++;
               totalCA += v.sumCA || 0;
-              totalPrel += v.sumPrelevee || 0;
+              totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
               totalVMB += v.sumVMB || 0;
             }
             r._reseauAgences = reseauCount;
-            r.prixMoyenReseau = totalPrel > 0 ? Math.round(totalCA / totalPrel * 100) / 100 : null;
+            r.prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
             r.txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
           }
         }
