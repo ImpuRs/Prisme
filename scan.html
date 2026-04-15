@@ -120,6 +120,7 @@ body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:v
 </div>
 
 <div class="scan-count" id="scanCount"></div>
+<button onclick="localStorage.setItem('_test','OK');alert('Écrit: OK — Relu: '+localStorage.getItem('_test'))" style="margin:8px 16px;padding:8px;font-size:11px;border:1px solid #334155;background:#1e293b;color:#94a3b8;border-radius:8px">Test localStorage</button>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="js/scan.js"></script>
