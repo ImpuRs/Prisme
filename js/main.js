@@ -3100,8 +3100,8 @@ window.exportScanData = function() {
       totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
       totalVMB += v.sumVMB || 0;
     }
-    const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
-    const txMargeReseau = totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
+    const prixMoyenReseau = totalQte > 0 && totalCA > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
+    const txMargeReseau = prixMoyenReseau && totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : null;
     const mKey = (r.abcClass || '') + (r.fmrClass || '');
     return {
       code: r.code, libelle: r.libelle, famille: r.famille, sousFamille: r.sousFamille,
