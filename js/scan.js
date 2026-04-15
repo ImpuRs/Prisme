@@ -719,17 +719,27 @@ fetch('js/catalogue-marques.json', { cache: 'no-cache' }).then(r => r.ok ? r.jso
 }).catch(() => {});
 
 // ── File d'actions terrain ─────────────────────────────────────────
-function _saveActions() { try { localStorage.setItem(_AQ_KEY, JSON.stringify([..._actionMap.values()])); } catch(_){} }
+function _saveActions() {
+  try {
+    const json = JSON.stringify([..._actionMap.values()]);
+    localStorage.setItem(_AQ_KEY, json);
+    // Vérification immédiate
+    const check = localStorage.getItem(_AQ_KEY);
+    console.log('[Scan] 💾 Actions sauvées: ' + _actionMap.size + ' articles, ' + json.length + ' octets, relecture OK: ' + (check === json));
+  } catch(e) { console.error('[Scan] ❌ Erreur save actions:', e); }
+}
 function _loadActions() {
   try {
     const s = localStorage.getItem(_AQ_KEY);
+    console.log('[Scan] 📂 Actions localStorage: ' + (s ? s.length + ' octets' : 'VIDE'));
     if (s) {
       const arr = JSON.parse(s);
       _actionMap.clear();
       for (const a of arr) _actionMap.set(a.code, a);
+      console.log('[Scan] ✅ ' + _actionMap.size + ' actions restaurées');
       _updateActionBadge();
     }
-  } catch(_){}
+  } catch(e) { console.error('[Scan] ❌ Erreur load actions:', e); }
 }
 
 function addAction(code, type, detail) {
