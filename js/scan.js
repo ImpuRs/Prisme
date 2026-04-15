@@ -258,6 +258,19 @@ function lookup(code) {
 
   _scanCount++;
   document.getElementById('scanCount').textContent = _scanCount + ' scan' + (_scanCount > 1 ? 's' : '');
+  _lastCode = r.code;
+  _renderCard(r.code);
+  // Zebra : vider l'input pour que le prochain scan ne concatène pas
+  input.value = '';
+  clearBtn.style.display = 'none';
+}
+
+let _lastCode = null;
+
+function _renderCard(code) {
+  const el = document.getElementById('content');
+  const r = _articles?.get(code);
+  if (!r) return;
 
   const verdict = _verdict(r);
   const stock = r.stockActuel ?? 0;
@@ -289,9 +302,8 @@ function lookup(code) {
   // Divergence ERP : calcul surplus / déficit
   const effectiveMax = hasNewMM ? max : erpMax;
   const surplus = effectiveMax > 0 && stock > effectiveMax ? stock - effectiveMax : 0;
-  const deficit = min > 0 && stock < min ? min - stock : 0;
 
-  // Action buttons
+  // Action buttons — recalculés sur le stock réel corrigé
   let actionHtml = '';
   if (surplus > 0) {
     actionHtml = `<button class="action-btn action-surstock" onclick="addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')">
@@ -317,9 +329,9 @@ function lookup(code) {
         <div class="hero-val">${prixMoyen}</div>
         <div class="hero-label">PRIX MOY.<span style="color:var(--t3);font-size:8px;margin-left:3px">${txMarge}</span></div>
       </div>
-      <div class="hero-cell">
-        <div class="hero-val" style="color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
-        <div class="hero-label">STOCK <span style="color:var(--t3)">${couv}</span></div>
+      <div class="hero-cell" onclick="_editStock('${r.code}',${stock})" style="cursor:pointer">
+        <div class="hero-val" id="stockVal" style="color:${stock > 0 ? 'var(--green)' : 'var(--red)'}">${stock}</div>
+        <div class="hero-label">STOCK <span style="color:var(--t3)">${couv}</span> ✏️</div>
       </div>
       <div class="hero-cell">
         <div class="hero-val hero-emp">${_esc(emp)}</div>
@@ -356,9 +368,6 @@ function lookup(code) {
     </div>
     ${actionHtml ? `<div class="action-zone">${actionHtml}</div>` : ''}
   </div>`;
-  // Zebra : vider l'input pour que le prochain scan ne concatène pas
-  input.value = '';
-  clearBtn.style.display = 'none';
 }
 
 // ── Verdict (simplifié) ────────────────────────────────────────────────
@@ -658,6 +667,7 @@ function addAction(code, type, detail) {
   else if (type === 'commander') existing.commander = detail;
   else if (type === 'corriger_erp') existing.corriger_erp = detail;
   else if (type === 'emplacement') existing.nouvelEmplacement = detail;
+  else if (type === 'inventaire') existing.inventaire = detail;
   existing.ts = new Date().toISOString();
   _actionMap.set(code, existing);
   _saveActions();
@@ -693,6 +703,43 @@ function _validateEmp(code, ancienEmp) {
 }
 window._validateEmp = _validateEmp;
 
+function _editStock(code, currentStock) {
+  const cell = document.getElementById('stockVal');
+  if (!cell) return;
+  cell.outerHTML = `<div style="display:flex;align-items:center;gap:4px;justify-content:center">
+    <input type="number" id="stockInput" inputmode="numeric" pattern="[0-9]*" value="${currentStock}"
+      style="width:60px;padding:6px;border-radius:8px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:22px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums"
+      autocomplete="off">
+    <button onclick="_applyStockCorrection('${code}',${currentStock})"
+      style="padding:6px 10px;border-radius:8px;border:none;background:var(--green);color:#000;font-size:16px;font-weight:700;cursor:pointer">✓</button>
+  </div>`;
+  const inp = document.getElementById('stockInput');
+  inp.focus();
+  inp.select();
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); _applyStockCorrection(code, currentStock); }
+  });
+}
+window._editStock = _editStock;
+
+function _applyStockCorrection(code, ancienStock) {
+  const inp = document.getElementById('stockInput');
+  const nv = parseInt(inp?.value, 10);
+  if (isNaN(nv) || nv < 0) { inp?.focus(); return; }
+  // Update local article data
+  const r = _articles?.get(code);
+  if (!r) return;
+  r.stockActuel = nv;
+  // Record in action map if different from ERP
+  if (nv !== ancienStock) {
+    addAction(code, 'inventaire', 'Stock: ' + ancienStock + ' → ' + nv);
+  }
+  // Re-render the full card with updated stock & recalculated actions
+  _renderCard(code);
+  _vibrate();
+}
+window._applyStockCorrection = _applyStockCorrection;
+
 function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
 
 function _updateActionBadge() {
@@ -713,6 +760,7 @@ function showActions() {
   let html = '<div style="padding:12px 0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><strong style="font-size:14px">' + entries.length + ' article' + (entries.length > 1 ? 's' : '') + ' à corriger</strong><button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button></div>';
   for (const a of entries) {
     const tags = [];
+    if (a.inventaire) tags.push('<span style="color:var(--green);font-weight:600">📋 ' + _esc(a.inventaire) + '</span>');
     if (a.retour) tags.push('<span style="color:var(--violet);font-weight:600">📦 ' + _esc(a.retour) + '</span>');
     if (a.commander) tags.push('<span style="color:var(--red);font-weight:600">🚨 ' + _esc(a.commander) + '</span>');
     if (a.corriger_erp) tags.push('<span style="color:var(--act);font-weight:600">🔄 ' + _esc(a.corriger_erp) + '</span>');
@@ -742,11 +790,11 @@ window.removeAction = removeAction;
 function exportActions() {
   if (!_actionMap.size) return;
   const sep = ';';
-  const header = ['Code', 'Libellé', 'Famille', 'Emplacement actuel', 'Corriger MIN/MAX', 'Commander', 'Retour centrale', 'Nouvel emplacement'].join(sep);
+  const header = ['Code', 'Libellé', 'Famille', 'Emplacement actuel', 'NV_STOCK', 'Corriger MIN/MAX', 'Commander', 'Retour centrale', 'Nouvel emplacement'].join(sep);
   const entries = [..._actionMap.values()].sort((a, b) => a.code.localeCompare(b.code));
   const rows = entries.map(a =>
     [a.code, a.libelle, a.famille, a.emplacement,
-     a.corriger_erp || '', a.commander || '', a.retour || '', a.nouvelEmplacement || ''
+     a.inventaire || '', a.corriger_erp || '', a.commander || '', a.retour || '', a.nouvelEmplacement || ''
     ].map(v => '"' + (v || '').replace(/"/g, '""') + '"').join(sep)
   );
   const csv = '\uFEFF' + header + '\n' + rows.join('\n');
