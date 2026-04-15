@@ -689,9 +689,15 @@ async function purgeCache() {
 }
 window.purgeCache = purgeCache;
 
-// ── Service Worker ─────────────────────────────────────────────────────
+// ── Service Worker — désenregistrer les anciens puis réenregistrer ────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    for (const r of regs) r.unregister();
+  }).then(() => {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }).then(() => {
+    navigator.serviceWorker.register('./sw.js');
+  }).catch(() => {});
 }
 
 // ── Init ───────────────────────────────────────────────────────────────
