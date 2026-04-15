@@ -291,7 +291,7 @@ function lookup(code) {
   const surplus = effectiveMax > 0 && stock > effectiveMax ? stock - effectiveMax : 0;
   const deficit = min > 0 && stock < min ? min - stock : 0;
 
-  // Action button
+  // Action buttons
   let actionHtml = '';
   if (surplus > 0) {
     actionHtml = `<button class="action-btn action-surstock" onclick="addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')">
@@ -303,6 +303,9 @@ function lookup(code) {
     actionHtml = `<button class="action-btn action-erp" onclick="addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')">
       🔄 Corriger ERP · ${min} / ${max}</button>`;
   }
+  // Bouton emplacement — toujours visible
+  actionHtml += `<button class="action-btn-secondary" onclick="addAction('${r.code}','emplacement','Mauvais emplacement: ${_esc(emp)}')">
+    📍 Signaler mauvais emplacement</button>`;
 
   el.innerHTML = `<div class="card flash">
     <div class="card-head">
@@ -406,6 +409,31 @@ input.addEventListener('input', () => {
   clearTimeout(_debounce);
   _debounce = setTimeout(() => _liveSearch(input.value.trim()), 150);
 });
+
+// ── Mode douchette (inputmode=none → pas de clavier virtuel) ──────────
+let _scanMode = localStorage.getItem('prisme_scan_mode') === '1';
+function toggleScanMode() {
+  _scanMode = !_scanMode;
+  localStorage.setItem('prisme_scan_mode', _scanMode ? '1' : '0');
+  _applyScanMode();
+}
+function _applyScanMode() {
+  const btn = document.getElementById('scanModeBtn');
+  if (_scanMode) {
+    input.setAttribute('inputmode', 'none');
+    input.readOnly = false;
+    btn.textContent = '📠';
+    btn.classList.add('active');
+    btn.title = 'Mode Douchette (clavier masqué)';
+  } else {
+    input.removeAttribute('inputmode');
+    btn.textContent = '⌨️';
+    btn.classList.remove('active');
+    btn.title = 'Mode Clavier';
+  }
+}
+_applyScanMode();
+window.toggleScanMode = toggleScanMode;
 
 // Enter = DataWedge suffix → lookup immédiat (Zebra)
 input.addEventListener('keydown', (e) => {
@@ -638,8 +666,8 @@ function showActions() {
     el.innerHTML = '<div class="empty"><div class="icon">📋</div><p>Aucune action en file.<br><span style="font-size:11px;color:var(--t3)">Scannez des articles pour ajouter des actions.</span></p></div>';
     return;
   }
-  const typeLabels = { retour: '📦 Retour', commander: '🚨 Commander', corriger_erp: '🔄 Corriger ERP' };
-  const typeColors = { retour: 'var(--violet)', commander: 'var(--red)', corriger_erp: 'var(--act)' };
+  const typeLabels = { retour: '📦 Retour', commander: '🚨 Commander', corriger_erp: '🔄 Corriger ERP', emplacement: '📍 Emplacement' };
+  const typeColors = { retour: 'var(--violet)', commander: 'var(--red)', corriger_erp: 'var(--act)', emplacement: 'var(--amber)' };
   let html = '<div style="padding:12px 0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><strong style="font-size:14px">' + _actionQueue.length + ' action' + (_actionQueue.length > 1 ? 's' : '') + ' en file</strong><button onclick="exportActions()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--act);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Exporter CSV</button></div>';
   for (let i = _actionQueue.length - 1; i >= 0; i--) {
     const a = _actionQueue[i];
