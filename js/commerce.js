@@ -646,7 +646,7 @@ window._ccc = (di,mi,ci) => {
       if(_canalGlobal&&l.canal!==_canalGlobal)return false;
       if(l.isSpecial)return false;
       if(selectedSecteurs&&l.secteur&&!selectedSecteurs.has(l.secteur))return false;
-      if(q&&!matchQuery(q,l.code,l.libelle,l.direction))return false;
+      if(q&&!matchQuery(q,l.code,l.libelle,l.direction,l.clientCode,l.clientNom))return false;
       return true;
     });
 
