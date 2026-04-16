@@ -1268,6 +1268,7 @@ function _prRenderSquelette(fam) {
   _S._prSqData = sqData;
   if (!sqData) return '<div class="t-disabled text-sm text-center py-6">Données squelette indisponibles.</div>';
 
+  const fdMap = _prGetFdMap();
   const CLASSIFS = ['socle', 'implanter', 'challenger', 'surveiller'];
   const arts = [];
   for (const d of sqData.directions) {
