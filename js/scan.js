@@ -873,7 +873,7 @@ function showActions() {
     // Ligne 4 : Commande/Retour séparés (badge distinct)
     const actions = [];
     if (a.nouvelEmplacement) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--amber);font-size:14px">📍</span><span style="color:var(--t2);font-size:12px">Empl.</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.nouvelEmplacement) + '</span></div>');
-    if (a.corriger_erp) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--act);font-size:14px">🔄</span><span style="color:var(--t2);font-size:12px">MIN/MAX</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.corriger_erp.replace('Corriger ERP: ', '')) + '</span></div>');
+    if (a.corriger_erp) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--act);font-size:16px">🔄</span><span style="color:var(--t2);font-size:13px">MIN/MAX</span><span style="color:var(--t1);font-size:20px;font-weight:900;letter-spacing:1px">' + _esc(a.corriger_erp.replace('Corriger ERP: ', '')) + '</span></div>');
     if (a.inventaire) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:12px">Stock</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.inventaire.replace('Stock: ', '')) + '</span></div>');
     // Commande / Retour — badges séparés
     const badges = [];
