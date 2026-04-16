@@ -128,7 +128,7 @@ let _chalDirMode = 'direction'; // 'direction' | 'secteur'
 window._chalToggleMode = function(mode) {
   _chalDirMode = mode;
   _chalDirKey = ''; _chalDirHtml = ''; // invalider cache
-  const blkEl = document.getElementById('chalDirBlock');
+  const blkEl = document.getElementById('terrDirectionContainer');
   if (blkEl) _buildChalDirBlock(blkEl);
 };
 function _buildChalDirBlock(blkEl) {
