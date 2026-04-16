@@ -296,6 +296,8 @@ function _renderClient360(clientCode,source){
   // CA Legallais 2025 (chalandise Qlik N-1)
   if(hasChal&&ca2025>0){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
+  } else if(hasChal&&!info.nom){
+    cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA 2025</p><p class="text-sm font-bold" style="color:#fbbf24">Absent chalandise</p><p class="text-[10px] t-inverse-muted">Client non trouvé dans le fichier zone</p></div>`);
   }
   // CA PDV 2026 année complète (depuis _byMonth — non filtré par période)
   const _bm360=_S._byMonth?.[clientCode];
