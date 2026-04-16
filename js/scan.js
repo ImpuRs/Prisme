@@ -776,11 +776,11 @@ window.addAction = addAction;
 function _editEmp(code, ancienEmp) {
   const cell = document.getElementById('empVal');
   if (!cell) return;
-  cell.outerHTML = `<div style="display:flex;align-items:center;gap:4px;justify-content:center">
+  cell.outerHTML = `<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;justify-content:center">
     <input type="text" id="empInput" value="${_esc(ancienEmp === '—' ? '' : ancienEmp)}" placeholder="Empl."
       style="width:70px;padding:4px;border-radius:6px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:14px;font-weight:700;text-align:center;text-transform:uppercase"
       autocomplete="off">
-    <button onclick="_validateEmp('${code}','${_esc(ancienEmp)}')"
+    <button onclick="event.stopPropagation();_validateEmp('${code}','${_esc(ancienEmp)}')"
       style="padding:4px 8px;border-radius:6px;border:none;background:var(--green);color:#000;font-size:14px;font-weight:700;cursor:pointer">✓</button>
   </div>`;
   const inp = document.getElementById('empInput');
@@ -810,11 +810,11 @@ window._validateEmp = _validateEmp;
 function _editStock(code, currentStock) {
   const cell = document.getElementById('stockVal');
   if (!cell) return;
-  cell.outerHTML = `<div style="display:flex;align-items:center;gap:4px;justify-content:center">
+  cell.outerHTML = `<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;justify-content:center">
     <input type="number" id="stockInput" inputmode="numeric" pattern="[0-9]*" value="${currentStock}"
       style="width:60px;padding:6px;border-radius:8px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:22px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums"
       autocomplete="off">
-    <button onclick="_applyStockCorrection('${code}',${currentStock})"
+    <button onclick="event.stopPropagation();_applyStockCorrection('${code}',${currentStock})"
       style="padding:6px 10px;border-radius:8px;border:none;background:var(--green);color:#000;font-size:16px;font-weight:700;cursor:pointer">✓</button>
   </div>`;
   const inp = document.getElementById('stockInput');
