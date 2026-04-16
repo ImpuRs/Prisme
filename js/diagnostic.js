@@ -280,35 +280,29 @@ function _renderClient360(clientCode,source){
 
   // ── SUMMARY BAR ──────────────────────────────────────────────────
   const cards=[];
-  if(caPDV>0||artMap){
+  // ── Carte 1 : CA Magasin (période) + CA PDV année si filtre actif ──
+  const _bm360=_S._byMonth?.[clientCode];
+  let _caPdv26=0;
+  if(_bm360){const _curY=new Date().getFullYear(),_ymS=_curY*12,_ymE=_curY*12+11;for(const code in _bm360){const months=_bm360[code];for(const m in months){const mi=+m;if(mi>=_ymS&&mi<=_ymE)_caPdv26+=months[m].sumCA||0;}}}
+  const _hasPeriodFilter=!!_S.periodFilterStart;
+  if(caPDV>0||artMap||_caPdv26>0){
     const mois=_S.consommeMoisCouverts||3;
     const _pStart=_S.periodFilterStart||_S.consommePeriodMin;
     const _pEnd=_S.periodFilterEnd||_S.consommePeriodMax;
     const _fS=_pStart?fmtDate(_pStart):'',_fE=_pEnd?fmtDate(_pEnd):'';
     const periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
+    const subLine=_hasPeriodFilter&&_caPdv26>0&&_caPdv26!==caPDV
+      ?`<p class="text-[10px] t-inverse-muted mt-0.5">Année 2026 : <strong class="t-inverse">${formatEuro(_caPdv26)}</strong></p>`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p>${subLine}</div>`);
   }
-  // CA Legallais 2026 (chalandise Qlik — tous canaux, tous PDV)
+  // ── Carte 2 : CA Legallais (2026 + 2025 fusionnés) OU alerte absent ──
   const ca2026=info.ca2026||0;
-  if(hasChal&&ca2026>0){
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2026</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
-  }
-  // CA Legallais 2025 (chalandise Qlik N-1)
-  if(hasChal&&ca2025>0){
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
+  if(hasChal&&(ca2026>0||ca2025>0)){
+    const main26=ca2026>0?`<p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026)}</p>`:`<p class="text-sm t-inverse-muted">—</p>`;
+    const sub25=ca2025>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : <strong class="t-inverse">${formatEuro(ca2025)}</strong></p>`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p>${ca2026>0?main26:`<p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p>`}${ca2026>0?sub25:''}<p class="text-[10px] t-inverse-muted">Chalandise Qlik</p></div>`);
   } else if(hasChal&&!info.nom){
-    cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA 2025</p><p class="text-sm font-bold" style="color:#fbbf24">Absent chalandise</p><p class="text-[10px] t-inverse-muted">Client non trouvé dans le fichier zone</p></div>`);
-  }
-  // CA PDV 2026 année complète (depuis _byMonth — non filtré par période)
-  const _bm360=_S._byMonth?.[clientCode];
-  if(_bm360){
-    const _curY=new Date().getFullYear();
-    const _ymS=_curY*12,_ymE=_curY*12+11;
-    let _caPdv26=0;
-    for(const code in _bm360){const months=_bm360[code];for(const m in months){const mi=+m;if(mi>=_ymS&&mi<=_ymE)_caPdv26+=months[m].sumCA||0;}}
-    if(_caPdv26>0){
-      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA PDV 2026</p><p class="text-lg font-extrabold t-inverse">${formatEuro(_caPdv26)}</p><p class="text-[10px] t-inverse-muted">Source : consommé (année)</p></div>`);
-    }
+    cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
   }
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
