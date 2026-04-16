@@ -1614,17 +1614,17 @@ function _renderComTopClients(el) {
     if (!_clientPassesFilters(info, cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
-    // CA PDV année en cours (pas filtré par période) pour cohérence avec ca2026 chalandise
-    const caPDV = _caPDVYear.get(cc) || rec?.caPDV || 0;
-    // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même année)
-    const caZone = info.ca2026 || rec?.caTotal || caPDV || 0;
-    const gap = Math.max(0, caZone - caPDV);
+    const caPDV = rec?.caPDV || 0; // CA PDV filtré par période (affiché)
+    const caPDV26 = _caPDVYear.get(cc) || caPDV; // CA PDV année (pour calcul écart)
+    // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même base année)
+    const caZone = info.ca2026 || rec?.caTotal || caPDV26 || 0;
+    const gap = Math.max(0, caZone - caPDV26);
     const silence = rec?.silenceDaysPDV ?? 999;
     const caAutres = rec?.caAutresAgences || 0;
     let score = gap;
-    if (silence >= 30 && caPDV > 0) score += caPDV * 0.5;
+    if (silence >= 30 && caPDV26 > 0) score += caPDV26 * 0.5;
     if (caAutres > 0) score += caAutres * 0.3;
-    if (score <= 0 && caPDV <= 0) continue;
+    if (score <= 0 && caPDV26 <= 0) continue;
     clients.push({ cc, nom: rec?.nom || info.nom || cc, metier: rec?.metier || info.metier || '', classification: info.classification || '', caPDV, caZone, gap, silence, caAutres, score });
   }
   clients.sort((a, b) => b.score - a.score);
