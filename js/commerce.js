@@ -2266,12 +2266,14 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     if((info.secteur||'—')!==secteur)continue;
     const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(!_passesClientCrossFilter(cc))continue;
-    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0,caPDVN:info.caPDVN||0,ville:info.ville||'',_pdvActif:pdvActif});
+    // CA Magasin = somme des CA depuis ventesClientArticle (période filtrée)
+    let _caMag=0;const _vca=_S.ventesClientArticle?.get(cc);if(_vca)for(const v of _vca.values())_caMag+=v.sumCA||0;
+    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0,caMag:_caMag,ville:info.ville||'',_pdvActif:pdvActif});
   }
   clients.sort(_overviewClientSort);
   if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
   const show=clients.slice(0,limit),more=clients.length-limit;
-  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-right">CA Magasin Zone</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA Magasin</th><th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
   for(const c of show){
     const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
     const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
@@ -2279,8 +2281,8 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
       <td class="py-1 px-2"><span class="font-mono t-disabled text-[9px]">${c.code}</span>${_crossBadge(c.code)} <span class="font-semibold">${c.nom}</span><button onclick="event.stopPropagation();openClient360('${c.code}','reseau')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${_unikLink(c.code)}${_clientStatusBadge(c.code,c)}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.commercial||'—'}</td>
       <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
+      <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
       <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'c-caution':'t-disabled'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.caPDVN>0?'c-ok':'t-disabled'}">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.ville||'—'}</td>
     </tr>`;
   }
