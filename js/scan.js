@@ -322,11 +322,14 @@ function _renderCard(code) {
   const surplus = effectiveMax > 0 && stock > effectiveMax ? stock - effectiveMax : 0;
 
   // Action buttons — cumulables, recalculés sur le stock réel corrigé
-  const _noted = (b) => `this.textContent='✓ Noté';this.disabled=true;this.style.opacity='.5';`;
+  const _noted = () => `this.textContent='✓ Noté';this.disabled=true;this.style.opacity='.5';setTimeout(()=>_refocus(),200);`;
   let actionHtml = '';
   if (surplus > 0) {
-    actionHtml += `<button class="action-btn action-surstock" onclick="${_noted()}addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')" style="margin-bottom:6px">
-      📦 Retour centrale · <strong>${surplus} pcs</strong></button>`;
+    actionHtml += `<div class="action-btn action-surstock" style="margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span>📦 Retour centrale ·</span>
+      <strong id="retourQte" onclick="event.stopPropagation();_editRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="cursor:pointer;text-decoration:underline;font-size:18px">${surplus} pcs</strong>
+      <button onclick="event.stopPropagation();_confirmRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="margin-left:4px;padding:4px 10px;border-radius:8px;border:none;background:rgba(255,255,255,.2);color:#fff;font-weight:700;cursor:pointer;font-size:13px">✓</button>
+    </div>`;
   }
   if (hasNewMM && (erpMin !== min || erpMax !== max)) {
     actionHtml += `<button class="action-btn action-erp" onclick="${_noted()}addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
@@ -843,6 +846,46 @@ function _applyStockCorrection(code, ancienStock) {
   _vibrate();
 }
 window._applyStockCorrection = _applyStockCorrection;
+
+function _editRetour(code, surplus, stock, effMax) {
+  const el = document.getElementById('retourQte');
+  if (!el) return;
+  el.outerHTML = `<input type="number" id="retourInput" inputmode="numeric" pattern="[0-9]*" value="${surplus}"
+    style="width:50px;padding:4px;border-radius:6px;border:2px solid #fff;background:rgba(255,255,255,.15);color:#fff;font-size:18px;font-weight:900;text-align:center"
+    min="1" max="${stock}" autocomplete="off">`;
+  const inp = document.getElementById('retourInput');
+  inp.focus();
+  inp.select();
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); _confirmRetour(code, null, stock, effMax); }
+  });
+}
+window._editRetour = _editRetour;
+
+function _confirmRetour(code, defaultQte, stock, effMax) {
+  const inp = document.getElementById('retourInput');
+  const qte = inp ? parseInt(inp.value, 10) : defaultQte;
+  if (!qte || qte <= 0) return;
+  addAction(code, 'retour', 'Retour centrale: ' + qte + ' pièces (stock ' + stock + ' vs MAX ' + effMax + ')');
+  _renderCard(code);
+  _refocus();
+}
+window._confirmRetour = _confirmRetour;
+
+// ── Auto-focus Zebra ─────────────────────────────────────────────────
+function _refocus() {
+  setTimeout(() => { input.value = ''; clearBtn.style.display = 'none'; input.focus(); }, 150);
+}
+
+// Blur listener : si le focus quitte la barre de recherche et qu'aucun
+// autre input n'est actif, on remet le focus automatiquement (Zebra)
+if (_scanMode) {
+  document.addEventListener('click', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'A') return;
+    setTimeout(() => input.focus(), 100);
+  });
+}
 
 function _vibrate() { try { navigator.vibrate?.(50); } catch(_){} }
 
