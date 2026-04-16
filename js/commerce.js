@@ -1437,8 +1437,6 @@ function _renderComTopArticles(containerId) {
   const iciMap = new Map();
   const ailMap = new Map();
   for (const cc of targetCcs) {
-    const info = _S.chalandiseData?.get(cc);
-    if (!info) continue;
     const pdv = _S.ventesClientArticle?.get(cc);
     if (pdv) for (const [code, d] of pdv) {
       if (!iciMap.has(code)) iciMap.set(code, { ca: 0, nbClients: 0, nbBL: 0 });
