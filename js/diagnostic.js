@@ -288,12 +288,25 @@ function _renderClient360(clientCode,source){
     const periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
   }
+  // CA Legallais 2026 (chalandise Qlik — tous canaux, tous PDV)
   const ca2026=info.ca2026||0;
   if(hasChal&&ca2026>0){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2026</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
   }
+  // CA Legallais 2025 (chalandise Qlik N-1)
   if(hasChal&&ca2025>0){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
+  }
+  // CA PDV 2026 année complète (depuis _byMonth — non filtré par période)
+  const _bm360=_S._byMonth?.[clientCode];
+  if(_bm360){
+    const _curY=new Date().getFullYear();
+    const _ymS=_curY*12,_ymE=_curY*12+11;
+    let _caPdv26=0;
+    for(const code in _bm360){const months=_bm360[code];for(const m in months){const mi=+m;if(mi>=_ymS&&mi<=_ymE)_caPdv26+=months[m].sumCA||0;}}
+    if(_caPdv26>0){
+      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA PDV 2026</p><p class="text-lg font-extrabold t-inverse">${formatEuro(_caPdv26)}</p><p class="text-[10px] t-inverse-muted">Source : consommé (année)</p></div>`);
+    }
   }
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
