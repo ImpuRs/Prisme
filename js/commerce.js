@@ -2262,7 +2262,7 @@ function _overviewClientSort(a,b){
   const aP=aGlobActif&&!aPDV?1:(_isPerdu(a)&&_normalizeClassif(a.classification).includes('Pot+')?2:3);
   const bP=bGlobActif&&!bPDV?1:(_isPerdu(b)&&_normalizeClassif(b.classification).includes('Pot+')?2:3);
   if(aP!==bP)return aP-bP;
-  return(b.ca2025||0)-(a.ca2025||0);
+  return(b.caLeg||b.ca2025||0)-(a.caLeg||a.ca2025||0);
 }
 function _renderOverviewL4(el,direction,metier,secteur,limit){
   limit=limit||20;
@@ -2278,12 +2278,12 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
     if(!_passesClientCrossFilter(cc))continue;
     // CA Magasin = somme des CA depuis ventesClientArticle (période filtrée)
     let _caMag=0;const _vca=_S.ventesClientArticle?.get(cc);if(_vca)for(const v of _vca.values())_caMag+=v.sumCA||0;
-    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',ca2025:info.ca2025||0,caMag:_caMag,ville:info.ville||'',_pdvActif:pdvActif});
+    clients.push({code:cc,nom:info.nom||'',statut:info.statut||'',classification:info.classification||'',commercial:info.commercial||'',caLeg:info.ca2026||0,caMag:_caMag,ville:info.ville||'',_pdvActif:pdvActif});
   }
   clients.sort(_overviewClientSort);
   if(!clients.length){el.innerHTML='<div class="t-disabled text-xs py-2">Aucun client.</div>';return;}
   const show=clients.slice(0,limit),more=clients.length-limit;
-  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA Magasin</th><th class="py-1 px-2 text-right">CA Legallais</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
+  let html=`<div class="overflow-x-auto" style="max-height:340px;overflow-y:auto"><table class="min-w-full text-[10px]"><thead class="i-info-bg c-action font-bold sticky top-0"><tr><th class="py-1 px-2 text-left">Client</th><th class="py-1 px-2 text-left">Commercial</th><th class="py-1 px-2 text-center">Classif.</th><th class="py-1 px-2 text-right">CA PDV</th><th class="py-1 px-2 text-right">CA Leg.</th><th class="py-1 px-2 text-left">Ville</th></tr></thead><tbody>`;
   for(const c of show){
     const globActif=_isGlobalActif(c);const perdu=_isPerdu(c);
     const pdvBg=globActif&&!c._pdvActif?'i-caution-bg':perdu?'i-danger-bg':'';
@@ -2292,7 +2292,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.commercial||'—'}</td>
       <td class="py-1 px-2 text-center">${_classifShort(c.classification)}</td>
       <td class="py-1 px-2 text-right font-bold ${c.caMag>0?'c-ok':'t-disabled'}">${c.caMag>0?formatEuro(c.caMag):'—'}</td>
-      <td class="py-1 px-2 text-right font-bold ${c.ca2025>0?'c-caution':'t-disabled'}">${c.ca2025>0?formatEuro(c.ca2025):'—'}</td>
+      <td class="py-1 px-2 text-right font-bold ${c.caLeg>0?'c-caution':'t-disabled'}">${c.caLeg>0?formatEuro(c.caLeg):'—'}</td>
       <td class="py-1 px-2 text-[9px] t-tertiary">${c.ville||'—'}</td>
     </tr>`;
   }
