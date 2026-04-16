@@ -340,6 +340,12 @@ function _renderCard(code) {
     actionHtml += `<button class="action-btn action-rupture" onclick="${_noted()}addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
       🚨 Commander · <strong>${qte} pcs</strong> (stock ${stock} &lt; MIN ${effectiveMin})</button>`;
   }
+  // Poids mort : purge complète (MIN/MAX→0, vider empl., retour stock)
+  const W = r.enleveTotal || 0;
+  if (min === 0 && max === 0 && stock > 0 && W === 0) {
+    actionHtml += `<button class="action-btn" style="margin-bottom:6px;background:rgba(100,116,139,.2);color:#cbd5e1;border:1px solid rgba(100,116,139,.3)" onclick="${_noted()}addAction('${r.code}','corriger_erp','Purge: MIN/MAX → 0/0');addAction('${r.code}','emplacement','');addAction('${r.code}','retour','Retour: ${stock} pcs (purge poids mort)')">
+      🗑️ Purger · MIN/MAX 0/0 · vider empl. · retour <strong>${stock} pcs</strong></button>`;
+  }
   // Zone emplacement inline (activée au clic sur EMPL.)
   actionHtml += `<div id="empZone"></div>`;
 

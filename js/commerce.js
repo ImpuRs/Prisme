@@ -127,7 +127,7 @@ let _chalDirKey = '';
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
   // Cache : canal-invariant, ne dépend que des filtres sidebar chalandise
-  const _key = `${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}`;
+  const _key = `${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}`;
   if (_chalDirKey === _key && _chalDirHtml) {
     // Ne ré-injecter que si le DOM a été détruit (renderCommerceTab recrée le skeleton)
     if (blkEl.dataset.cdk === _key) return; // déjà dans le DOM, skip
@@ -367,6 +367,13 @@ window._ccc = (di,mi,ci) => {
   }
 
   function _passesAllFilters(cc){
+    // Filtre recherche client (terrSearch)
+    const _qCli=(_S._terrClientSearch||'').toLowerCase();
+    if(_qCli){
+      const info0=_S.chalandiseData?.get(cc);
+      const nom0=(info0?.nom||_S.clientNomLookup?.[cc]||'').toLowerCase();
+      if(!cc.includes(_qCli)&&!nom0.includes(_qCli))return false;
+    }
     // Delegate all chalandise filters to _clientPassesFilters (engine.js)
     // which handles: dept, classif, statut, statutDetaillé, activitéPDV,
     // direction, commercial, métier, stratégique, univers, distance
@@ -1128,7 +1135,20 @@ function _onTerrClientSearch(){
   clearTimeout(_terrClientSearchTimer);
   const raw=(document.getElementById('terrSearch')?.value||'').toLowerCase().trim();
   _S._terrClientSearch=raw;
-  _terrClientSearchTimer=setTimeout(()=>{renderMesClients();window.renderTerritoireTab?.();},300);
+  _terrClientSearchTimer=setTimeout(()=>{
+    // Si c'est un code client connu → ouvrir directement Client 360
+    if(raw && /^\d{4,}$/.test(raw)){
+      const cc=raw;
+      const known=_S.chalandiseData?.has(cc)||_S.clientNomLookup?.[cc]||_S.clientStore?.has(cc)||_S.ventesClientArticle?.has(cc);
+      if(known){
+        document.getElementById('terrSearch').value='';
+        _S._terrClientSearch='';
+        openClient360(cc,'terrain');
+        return;
+      }
+    }
+    _buildChalandiseOverview();renderMesClients();window.renderTerritoireTab?.();
+  },300);
 }
 let _metInputTimer = null;
 let _metierSortedCacheRef = null;
@@ -1553,6 +1573,26 @@ function _renderComTopClients(el) {
     ? (_pocheActive === 'E' ? (_ruptureClientSet.size ? _ruptureClientSet : null) : new Set((_pocheData[_pocheActive] || []).map(c => c.cc)))
     : null;
 
+  // ── CA PDV année en cours (2026) depuis _byMonth — même base que ca2026 chalandise ──
+  const _curYear = new Date().getFullYear();
+  const _ymStart = _curYear * 12;      // jan 2026
+  const _ymEnd = _curYear * 12 + 11;   // dec 2026
+  const _bm = _S._byMonth || {};
+  const _caPDVYear = new Map(); // cc → CA PDV année en cours
+  for (const cc in _bm) {
+    const articles = _bm[cc];
+    let ca = 0;
+    for (const code in articles) {
+      const months = articles[code];
+      for (const midxStr in months) {
+        const midx = +midxStr;
+        if (midx < _ymStart || midx > _ymEnd) continue;
+        ca += months[midxStr].sumCA || 0;
+      }
+    }
+    if (ca > 0) _caPDVYear.set(cc, ca);
+  }
+
   const clients = [];
   for (const cc of ccs) {
     if (pocheCcs && !pocheCcs.has(cc)) continue; // filtre poche
@@ -1562,8 +1602,10 @@ function _renderComTopClients(el) {
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
     const caPDV = rec?.caPDV || 0;
-    const caZone = info.ca2026 || rec?.caTotal || 0;
-    const gap = Math.max(0, caZone - caPDV);
+    // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même année)
+    const caZone = info.ca2026 || 0;
+    const caPDV2026 = _caPDVYear.get(cc) || 0;
+    const gap = Math.max(0, caZone - caPDV2026);
     const silence = rec?.silenceDaysPDV ?? 999;
     const caAutres = rec?.caAutresAgences || 0;
     let score = gap;
@@ -2348,13 +2390,16 @@ function _buildCockpitClient(force){
     const lastOrderValid=lastOrder&&(!_minC3||lastOrder>=_minC3);
     const daysSince=lastOrderValid?daysBetween(lastOrder,_today):null;
     const caPDVN=rec.caPDV;
+    const caPDVFull=rec.caPDV||rec.caPDVNChal||0; // CA PDV (période ou chalandise N) — pour affichage silencieux
     const caLeg=rec.caLegallaisN1||0;
     const caZone=rec.caTotal||0; // vrai CA zone sur la période (PDV + hors-magasin)
 
-    const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,caZone,caPDVN,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
+    const c={code:rec.cc,nom:rec.nom,metier:rec.metier,commercial:rec.commercial,classification:rec.classification,caZone:caZone||caPDVFull||caLeg,caPDVN:caPDVN||caPDVFull,ville:rec.ville,_strat:_isMetierStrategique(rec.metier),_daysSince:daysSince,_lastOrderDate:lastOrder};
 
     // 1. Silencieux : 30-90j sans commande (zone de frappe comptoir)
-    const _caOk=_useMagOnly?caPDVN>0:(caPDVN>0||caLeg>0||caZone>0||_useByCanal);
+    // _caOk : daysSince valide = le client A commandé dans la période consommé → éligible silencieux/perdu
+    // On accepte aussi caPDV/caLeg/caZone > 0 pour les clients sans date exploitable
+    const _caOk=daysSince!==null||(caPDVN>0||caLeg>0||caZone>0);
     if(daysSince!==null&&daysSince>30&&daysSince<=90&&_caOk){silencieux.push(c);continue;}
     // 2. Perdus : 90-365j sans commande (urgences → tièdes)
     if(daysSince!==null&&daysSince>90&&daysSince<=365&&_caOk){perdus.push(c);continue;}
