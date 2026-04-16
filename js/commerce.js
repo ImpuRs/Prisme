@@ -2177,7 +2177,14 @@ function _toggleOverviewL3(dirEnc,mEnc,rowId){
   const arrow=document.getElementById(rowId+'-arrow');
   const isOpen=row.style.display!=='none';
   row.style.display=isOpen?'none':'table-row';if(arrow)arrow.textContent=isOpen?'▼':'▲';
-  if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner)_renderOverviewL3(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc));}
+  if(!isOpen){const inner=document.getElementById(rowId+'-inner');if(inner){
+    if(_overviewDirMode==='secteur'){
+      // En mode Secteur, le L1 est déjà le secteur → sauter L3 (Secteur×Commercial), aller directement aux clients
+      _renderOverviewL4(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc),decodeURIComponent(dirEnc));
+    }else{
+      _renderOverviewL3(inner,decodeURIComponent(dirEnc),decodeURIComponent(mEnc));
+    }
+  }}
 }
 function _renderOverviewL3(el,direction,metier){
   const sectMap={};
