@@ -2026,15 +2026,14 @@ function _buildChalandiseOverviewInner(force){
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
   let html='';
   if(_isSec){
-    // Mode Secteur : grouper par direction parente
+    // Mode Secteur : grouper par direction parente — accordéon fermé par défaut
     const byParent={};
     dirsArr.forEach(d=>{const p=d.parentDir||'Autre';if(!byParent[p])byParent[p]=[];byParent[p].push(d);});
-    // Trier les directions parentes par nb actifs Leg décroissant
     const parentDirs=Object.keys(byParent).sort((a,b)=>{
       const sa=byParent[a].reduce((s,d)=>s+d.actifsLeg,0),sb=byParent[b].reduce((s,d)=>s+d.actifsLeg,0);return sb-sa;
     });
     let idx=0;
-    parentDirs.forEach(pDir=>{
+    parentDirs.forEach((pDir,pIdx)=>{
       const sects=byParent[pDir];
       const pTotal=sects.reduce((s,d)=>s+d.total,0);
       const pActL=sects.reduce((s,d)=>s+d.actifsLeg,0);
@@ -2042,8 +2041,10 @@ function _buildChalandiseOverviewInner(force){
       const pBase=pTotal-sects.reduce((s,d)=>s+d.prospects,0);
       const pPctL=pBase>0?Math.round(pActL/pBase*100):0;
       const pPctP=pBase>0?Math.round(pActP/pBase*100):0;
-      html+=`<tr class="border-b text-[11px] font-black" style="background:rgba(139,92,246,0.08)">
-        <td class="py-1.5 px-2 text-xs font-black" colspan="1">${pDir}</td>
+      const pBarColor=pPctP>=50?'bg-emerald-500':pPctP>=25?'bg-amber-500':'bg-red-500';
+      const grpId='secGrp-'+pIdx;
+      html+=`<tr class="border-b text-[11px] font-black hover:s-card-alt cursor-pointer" style="background:rgba(139,92,246,0.08)" onclick="_toggleSecGrp('${grpId}')">
+        <td class="py-1.5 px-2 text-xs font-black">${pDir} <span class="t-disabled text-[10px]">(${sects.length})</span> <span id="${grpId}-arrow" class="t-disabled text-[9px]">▶</span></td>
         <td class="py-1.5 px-2 text-center font-bold">${pTotal}</td>
         <td class="py-1.5 px-2 text-center c-ok font-bold">${pActL||'—'}</td>
         <td class="py-1.5 px-2 text-center c-ok font-bold">${pActP||'—'}</td>
@@ -2051,7 +2052,7 @@ function _buildChalandiseOverviewInner(force){
         <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.perdus12_24,0)||'—'}</td>
         <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.inactifs,0)||'—'}</td>
         <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pPctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pPctL}%</span></div></td>
-        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${pPctP>=50?'bg-emerald-500':pPctP>=25?'bg-amber-500':'bg-red-500'}" style="width:${pPctP}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pPctP}%</span></div></td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${pBarColor}" style="width:${pPctP}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pPctP}%</span></div></td>
       </tr>`;
       sects.forEach(d=>{
         const base=d.total-d.prospects;
@@ -2059,12 +2060,11 @@ function _buildChalandiseOverviewInner(force){
         const pctL=base>0?Math.round(d.actifsLeg/base*100):0;
         const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
         const dirEnc=encodeURIComponent(d.dir);
-        // Commercial principal du secteur
         const _comEntries=Object.entries(d._comCounts||{});
         _comEntries.sort((a,b)=>b[1]-a[1]);
         const _mainCom=_comEntries.length?_comEntries[0][0]:'';
         const _comLabel=_mainCom?` <span class="t-tertiary font-normal">· ${_mainCom}</span>`:'';
-        html+=`<tr class="border-b text-[11px] hover:s-card-alt cursor-pointer" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
+        html+=`<tr class="${grpId} border-b text-[11px] hover:s-card-alt cursor-pointer" style="display:none" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
           <td class="py-1.5 px-2 pl-5 font-semibold">${d.dir}${_comLabel} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>
           <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
           <td class="py-1.5 px-2 text-center ${d.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${d.actifsLeg||'—'}</td>
@@ -2075,7 +2075,7 @@ function _buildChalandiseOverviewInner(force){
           <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pctL}%</span></div></td>
           <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pctC}%</span></div></td>
         </tr>
-        <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
+        <tr id="overviewL2-${idx}" class="${grpId}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
         idx++;
       });
     });
@@ -2105,6 +2105,16 @@ function _buildChalandiseOverviewInner(force){
   // Mettre à jour la vue Canal avec les filtres actifs
   window.renderCanalAgence();
 }
+// Toggle direction group in Secteur mode
+function _toggleSecGrp(grpId){
+  const rows=document.querySelectorAll('.'+grpId);
+  const arrow=document.getElementById(grpId+'-arrow');
+  const isOpen=rows.length>0&&rows[0].style.display!=='none';
+  rows.forEach(r=>{r.style.display=isOpen?'none':'table-row';});
+  if(arrow)arrow.textContent=isOpen?'▶':'▼';
+}
+window._toggleSecGrp=_toggleSecGrp;
+
 // Level 2: Métiers for a Direction
 function _toggleOverviewL2(dirEnc,idx){
   const row=document.getElementById('overviewL2-'+idx);if(!row)return;
