@@ -872,9 +872,24 @@ function showActions() {
     // Ligne 3 : Actions dans l'ordre ERP : Emplacement → MIN/MAX → Stock
     // Ligne 4 : Commande/Retour séparés (badge distinct)
     const actions = [];
-    if (a.nouvelEmplacement) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--amber);font-size:14px">📍</span><span style="color:var(--t2);font-size:12px">Empl.</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.nouvelEmplacement) + '</span></div>');
-    if (a.corriger_erp) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--act);font-size:16px">🔄</span><span style="color:var(--t2);font-size:13px">MIN/MAX</span><span style="color:var(--t1);font-size:20px;font-weight:900;letter-spacing:1px">' + _esc(a.corriger_erp.replace('Corriger ERP: ', '')) + '</span></div>');
-    if (a.inventaire) actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:12px">Stock</span><span style="color:var(--t1);font-size:14px;font-weight:700">' + _esc(a.inventaire.replace('Stock: ', '')) + '</span></div>');
+    if (a.nouvelEmplacement) {
+      const empParts = a.nouvelEmplacement.split(' → ');
+      const empAnc = empParts[0] || '';
+      const empNv = empParts[1] || empParts[0] || '';
+      actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--amber);font-size:14px">📍</span><span style="color:var(--t2);font-size:13px">Empl.</span>' + (empParts.length > 1 ? '<span style="color:var(--t3);font-size:13px;text-decoration:line-through">' + _esc(empAnc) + '</span><span style="color:var(--t2);font-size:13px">→</span>' : '') + '<span style="color:var(--amber);font-size:16px;font-weight:900">' + _esc(empNv) + '</span></div>');
+    }
+    if (a.corriger_erp) {
+      const mmParts = a.corriger_erp.replace('Corriger ERP: ', '').split(' → ');
+      const ancien = mmParts[0] || '';
+      const nouveau = mmParts[1] || '';
+      actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--act);font-size:16px">🔄</span><span style="color:var(--t2);font-size:13px">MIN/MAX</span><span style="color:var(--t3);font-size:15px;text-decoration:line-through">' + _esc(ancien) + '</span><span style="color:var(--t2);font-size:15px">→</span><span style="color:var(--green);font-size:22px;font-weight:900;letter-spacing:1px">' + _esc(nouveau) + '</span></div>');
+    }
+    if (a.inventaire) {
+      const stParts = a.inventaire.replace('Stock: ', '').split(' → ');
+      const stAnc = stParts[0] || '';
+      const stNv = stParts[1] || '';
+      actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:13px">Stock</span><span style="color:var(--t3);font-size:15px;text-decoration:line-through">' + _esc(stAnc) + '</span><span style="color:var(--t2);font-size:13px">→</span><span style="color:var(--green);font-size:20px;font-weight:900">' + _esc(stNv) + '</span></div>');
+    }
     // Commande / Retour — badges séparés
     const badges = [];
     if (a.commander) badges.push('<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(248,113,113,.15);color:var(--red);font-size:13px;font-weight:700">🚨 ' + _esc(a.commander.replace('Commander: ', '')) + '</div>');
