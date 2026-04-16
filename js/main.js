@@ -12,7 +12,7 @@
 import { PAGE_SIZE, CHUNK_SIZE, TERR_CHUNK_SIZE, DORMANT_DAYS, NOUVEAUTE_DAYS, SECURITY_DAYS, HIGH_PRICE, METIERS_STRATEGIQUES, AGE_BRACKETS, FAM_LETTER_UNIVERS, RADAR_LABELS, SECTEUR_DIR_MAP, AGENCE_CP } from './constants.js';
 import { cleanCode, extractClientCode, cleanPrice, formatEuro, pct, parseExcelDate, daysBetween, getVal, extractStoreCode, readExcel, yieldToMain, getAgeBracket, getAgeLabel, _median, _doCopyCode, _copyCodeBtn, _copyAllCodesDirect, fmtDate, _resetColCache, escapeHtml, formatLocalYMD, extractFamCode, famLib, famLabel, sortRowsInPlace, buildSparklineSVG } from './utils.js';
 import { _S, resetAppState, assertPostParseInvariants, invalidateCache } from './state.js';
-import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors, applyVerdictOverrides } from './engine.js';
+import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioLabel, isParentRef, computeABCFMR, calcCouverture, formatCouv, couvColor, computeClientCrossing, _clientUrgencyScore, _clientStatusBadge, _clientStatusText, _unikLink, _crossBadge, _passesClientCrossFilter, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesStatutDetailleFilter, clientMatchesDirectionFilter, clientMatchesCommercialFilter, clientMatchesMetierFilter, clientMatchesUniversFilter, _clientPassesFilters, _diagClientPrio, _diagClassifPrio, _diagClassifBadge, _isGlobalActif, _isPDVActif, _isPerdu, _isProspect, _isPerdu24plus, _radarComputeMatrix, computeReconquestCohort, computeSPC, computeOpportuniteNette, computeOmniScores, computeFamillesHors, applyVerdictOverrides, computeSquelette } from './engine.js';
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
@@ -3121,6 +3121,57 @@ window.exportScanData = function() {
       _reseauAgences: reseauAgences, isParent: r.isParent
     };
   });
+  // ── Ajouter les articles squelette "implanter" absents de finalData ──
+  const fdCodes = new Set(DataStore.finalData.map(r => r.code));
+  const sqData = _S._prSqData || computeSquelette();
+  if (sqData?.directions) {
+    for (const d of sqData.directions) {
+      for (const a of (d.implanter || [])) {
+        if (fdCodes.has(a.code)) continue; // déjà dans finalData
+        let reseauAgences = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
+        for (const s of otherStores) {
+          const v = vpm[s]?.[a.code];
+          if (!v || v.countBL <= 0) continue;
+          reseauAgences++;
+          totalCA += v.sumCA || 0;
+          totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
+          totalVMB += v.sumVMB || 0;
+        }
+        const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
+        const txMargeReseau = totalQte > 0 ? (totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : 0) : null;
+        // Calcul Vitesse Réseau pour MIN/MAX (Top 3 agences)
+        let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0;
+        for(const s of otherStores){const v=vpm[s]?.[a.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
+        const _tCA=_t1ca+_t2ca+_t3ca,_tBL=_t1bl+_t2bl+_t3bl;
+        const _pu=prixMoyenReseau||1;
+        let sugMin=0,sugMax=0;
+        if(_tBL>0&&_pu>0){
+          let _vit=(_tCA/_pu)/_tBL;
+          // Médiane MIN réseau depuis stockParMagasin
+          const _spMins=otherStores.map(s=>_S.stockParMagasin?.[s]?.[a.code]?.qteMin).filter(v=>v>0);
+          const _medMin=_spMins.length?_spMins.sort((x,y)=>x-y)[Math.floor(_spMins.length/2)]:0;
+          const _capMed=_medMin>0?_medMin*2:20;
+          _vit=Math.min(_vit,_capMed);
+          sugMin=Math.max(Math.ceil(_vit),1);
+          sugMax=Math.max(Math.ceil(_vit*2),sugMin+1);
+        }
+        articles.push({
+          code: a.code, libelle: a.libelle || '', famille: a.famille || '', sousFamille: '',
+          emplacement: '', statut: '', stockActuel: 0,
+          prixMoyenReseau, txMargeReseau, prixUnitaire: _pu, W: 0, V: 0,
+          ancienMin: 0, ancienMax: 0,
+          nouveauMin: sugMin, nouveauMax: sugMax,
+          couvertureJours: 0, abcClass: '', fmrClass: '',
+          matriceVerdict: '',
+          _sqClassif: 'implanter', _sqRole: '', _sqVerdict: a.classification || 'implanter',
+          medMinReseau: null, medMaxReseau: null,
+          _vitesseReseau: sugMin > 0, _fallbackERP: false,
+          _reseauAgences: reseauAgences, isParent: false
+        });
+        fdCodes.add(a.code); // éviter les doublons cross-directions
+      }
+    }
+  }
   // EAN → code (inverse map pour lookup scanner)
   const eanMap = {};
   if (_S.catalogueEAN?.size) {
