@@ -1911,6 +1911,7 @@ function _buildChalandiseOverviewInner(force){
   _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
   // Aggregate — toujours exécuté (KPI bar + badges réactifs aux filtres)
+  const _isSec=_overviewDirMode==='secteur';
   const dirMap={};let totalClients=0,filteredClients=0,totalActifsPDV=0,totalActifsLeg=0,totalExcluded24m=0;
   for(const[cc,info] of _S.chalandiseData.entries()){
     totalClients++;
@@ -2007,7 +2008,6 @@ function _buildChalandiseOverviewInner(force){
   blk.classList.remove('hidden');
   _buildDeptFilter();
   // Toggle Direction / Secteur
-  const _isSec=_overviewDirMode==='secteur';
   const _axisLabel=_isSec?'Secteur':'Direction';
   const _toggleEl=document.getElementById('terrOverviewToggle');
   if(_toggleEl){
