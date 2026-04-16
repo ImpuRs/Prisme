@@ -1132,14 +1132,21 @@ export function computeSquelette(directionFilter) {
     const fd = finalByCode.get(a.code);
     const W = fd?.W || 0;
 
-    if (a.enStock) {
-      // CHALLENGER : en stock ET 0 vente (W=0 = aucun BL sur la période)
+    // Geste 1 — Définition du "Référencé" : un article fait partie du catalogue agence
+    // s'il a du stock, un MIN/MAX ERP, un historique de ventes locales, OU un emplacement.
+    // Un article référencé à stock=0 est une RUPTURE, pas un trou d'assortiment.
+    const isReferenced = a.enStock || W > 0
+      || (fd?.ancienMin || 0) > 0 || (fd?.ancienMax || 0) > 0
+      || !!(a.emplacement);
+
+    if (isReferenced) {
+      // CHALLENGER : référencé ET 0 vente (W=0 = aucun BL sur la période)
       if (W === 0)
         a.classification = 'challenger';
       // SOCLE : ≥3 clients distincts ET ≥3 BL — validé par le marché
       else if (a.nbClientsPDV >= 3 && W >= 3)
         a.classification = 'socle';
-      // À SURVEILLER : le reste — en stock, actif mais pas encore socle
+      // À SURVEILLER : le reste — référencé, actif mais pas encore socle
       else
         a.classification = 'surveiller';
     } else {
@@ -1305,7 +1312,11 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
     const caClientsZone = z?.ca || 0;
 
     let classif = 'bruit';
-    if (enStock) {
+    // isReferenced : article déjà dans le catalogue agence (stock, MIN/MAX, ventes, emplacement)
+    const isReferenced = enStock || W > 0
+      || (r.ancienMin || 0) > 0 || (r.ancienMax || 0) > 0
+      || !!(r.emplacement);
+    if (isReferenced) {
       if (W === 0) classif = 'challenger';
       else if (W >= 3 && _getNbClientsPDV(code) >= 3) classif = 'socle';
       else classif = 'surveiller';

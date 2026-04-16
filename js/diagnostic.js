@@ -288,6 +288,10 @@ function _renderClient360(clientCode,source){
     const periode=_fS&&_fE?(_fS===_fE?_fS:`${_fS} → ${_fE}`):`${mois} mois`;
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p></div>`);
   }
+  const ca2026=info.ca2026||0;
+  if(hasChal&&ca2026>0){
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2026</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
+  }
   if(hasChal&&ca2025>0){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais 2025</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p><p class="text-[10px] t-inverse-muted">Source : chalandise Qlik</p></div>`);
   }
