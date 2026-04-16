@@ -2109,8 +2109,18 @@ function _buildChalandiseOverviewInner(force){
 function _toggleSecGrp(grpId){
   const rows=document.querySelectorAll('.'+grpId);
   const arrow=document.getElementById(grpId+'-arrow');
-  const isOpen=rows.length>0&&rows[0].style.display!=='none';
-  rows.forEach(r=>{r.style.display=isOpen?'none':'table-row';});
+  // Vérifier l'état sur la première row secteur (pas L2)
+  const firstSect=[...rows].find(r=>!r.id.startsWith('overviewL2-'));
+  const isOpen=firstSect&&firstSect.style.display!=='none';
+  rows.forEach(r=>{
+    if(isOpen){
+      // Tout fermer
+      r.style.display='none';
+    }else{
+      // Ouvrir seulement les rows secteur, pas les L2 (drill-down métier)
+      if(!r.id.startsWith('overviewL2-'))r.style.display='table-row';
+    }
+  });
   if(arrow)arrow.textContent=isOpen?'▶':'▼';
 }
 window._toggleSecGrp=_toggleSecGrp;
