@@ -318,7 +318,6 @@ function _renderClient360(clientCode,source){
   }
 
   // ── Part PDV (%) — thermomètre captation ──────────────────────
-  const ca2026=info.ca2026||0;
   const caSociete=ca2026>0?ca2026:ca2025;
   if(caSociete>0){
     const _partDenom=Math.max(caPDV,caSociete);
