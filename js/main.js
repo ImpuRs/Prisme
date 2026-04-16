@@ -1358,8 +1358,12 @@ _S.canalAgence=newCanalAgence;
       let _tCA=_t1ca+_t2ca+_t3ca,_tBL=_t1bl+_t2bl+_t3bl;
       const _pu=r.prixUnitaire||0;
       if(_pu<=0||_tBL<=0)continue;
-      const _vit=(_tCA/_pu)/_tBL;
+      let _vit=(_tCA/_pu)/_tBL;
       if(_vit<=0)continue;
+      // Plafond : si la médiane réseau ERP est dispo, ne pas dépasser 2× la médiane MIN
+      // Sinon plafond absolu à 20 pour éviter les MIN/MAX délirants sur petits prix
+      const _capMed=r.medMinReseau>0?r.medMinReseau*2:20;
+      _vit=Math.min(_vit,_capMed);
       r.nouveauMin=Math.max(Math.ceil(_vit),1);
       r.nouveauMax=Math.max(Math.ceil(_vit*2),r.nouveauMin+1);
       r._vitesseReseau=true;
