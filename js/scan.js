@@ -867,8 +867,14 @@ function _confirmRetour(code, defaultQte, stock, effMax) {
   const qte = inp ? parseInt(inp.value, 10) : defaultQte;
   if (!qte || qte <= 0) return;
   addAction(code, 'retour', 'Retour centrale: ' + qte + ' pièces (stock ' + stock + ' vs MAX ' + effMax + ')');
-  _renderCard(code);
-  _refocus();
+  // Feedback visuel avant re-render
+  const zone = document.querySelector('.action-surstock');
+  if (zone) {
+    zone.innerHTML = '<span style="font-size:16px;font-weight:700">✓ Noté · ' + qte + ' pcs à renvoyer</span>';
+    zone.style.opacity = '.6';
+  }
+  _vibrate();
+  setTimeout(() => { _renderCard(code); _refocus(); }, 800);
 }
 window._confirmRetour = _confirmRetour;
 
