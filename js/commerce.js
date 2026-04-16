@@ -1601,11 +1601,11 @@ function _renderComTopClients(el) {
     if (!_clientPassesFilters(info, cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
-    const caPDV = rec?.caPDV || 0;
+    // CA PDV année en cours (pas filtré par période) pour cohérence avec ca2026 chalandise
+    const caPDV = _caPDVYear.get(cc) || rec?.caPDV || 0;
     // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même année)
     const caZone = info.ca2026 || 0;
-    const caPDV2026 = _caPDVYear.get(cc) || 0;
-    const gap = Math.max(0, caZone - caPDV2026);
+    const gap = Math.max(0, caZone - caPDV);
     const silence = rec?.silenceDaysPDV ?? 999;
     const caAutres = rec?.caAutresAgences || 0;
     let score = gap;
