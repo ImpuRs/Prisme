@@ -325,11 +325,10 @@ function _renderCard(code) {
   const _noted = () => `this.textContent='✓ Noté';this.disabled=true;this.style.opacity='.5';setTimeout(()=>_refocus(),200);`;
   let actionHtml = '';
   if (surplus > 0) {
-    actionHtml += `<div class="action-btn action-surstock" style="margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px">
+    actionHtml += `<button class="action-btn action-surstock" onclick="_confirmRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span>📦 Retour centrale ·</span>
       <strong id="retourQte" onclick="event.stopPropagation();_editRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="cursor:pointer;text-decoration:underline;font-size:18px">${surplus} pcs</strong>
-      <button onclick="event.stopPropagation();_confirmRetour('${r.code}',${surplus},${stock},${effectiveMax})" style="margin-left:4px;padding:4px 10px;border-radius:8px;border:none;background:rgba(255,255,255,.2);color:#fff;font-weight:700;cursor:pointer;font-size:13px">✓</button>
-    </div>`;
+    </button>`;
   }
   if (hasNewMM && (erpMin !== min || erpMax !== max)) {
     actionHtml += `<button class="action-btn action-erp" onclick="${_noted()}addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
