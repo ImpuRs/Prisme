@@ -322,19 +322,20 @@ function _renderCard(code) {
   const surplus = effectiveMax > 0 && stock > effectiveMax ? stock - effectiveMax : 0;
 
   // Action buttons — cumulables, recalculés sur le stock réel corrigé
+  const _noted = (b) => `this.textContent='✓ Noté';this.disabled=true;this.style.opacity='.5';`;
   let actionHtml = '';
   if (surplus > 0) {
-    actionHtml += `<button class="action-btn action-surstock" onclick="addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')" style="margin-bottom:6px">
+    actionHtml += `<button class="action-btn action-surstock" onclick="${_noted()}addAction('${r.code}','retour','Retour centrale: ${surplus} pièces (stock ${stock} vs MAX ${effectiveMax})')" style="margin-bottom:6px">
       📦 Retour centrale · <strong>${surplus} pcs</strong></button>`;
   }
   if (hasNewMM && (erpMin !== min || erpMax !== max)) {
-    actionHtml += `<button class="action-btn action-erp" onclick="addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
+    actionHtml += `<button class="action-btn action-erp" onclick="${_noted()}addAction('${r.code}','corriger_erp','Corriger ERP: ${erpMin}/${erpMax} → ${min}/${max}')" style="margin-bottom:6px">
       🔄 Corriger ERP · ${min} / ${max}</button>`;
   }
   const effectiveMin = hasNewMM ? min : erpMin;
   if (effectiveMin > 0 && stock < effectiveMin) {
     const qte = effectiveMin - stock;
-    actionHtml += `<button class="action-btn action-rupture" onclick="addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
+    actionHtml += `<button class="action-btn action-rupture" onclick="${_noted()}addAction('${r.code}','commander','Commander: ${qte} pcs (stock ${stock} vs MIN ${effectiveMin})')" style="margin-bottom:6px">
       🚨 Commander · <strong>${qte} pcs</strong> (stock ${stock} &lt; MIN ${effectiveMin})</button>`;
   }
   // Zone emplacement inline (activée au clic sur EMPL.)
@@ -769,8 +770,6 @@ function addAction(code, type, detail) {
   _saveActions();
   _updateActionBadge();
   _vibrate();
-  const btn = document.querySelector('.action-btn');
-  if (btn) { btn.textContent = '✓ Noté'; btn.disabled = true; btn.style.opacity = '.5'; }
 }
 window.addAction = addAction;
 
