@@ -124,19 +124,24 @@ const _DIR_LABELS = { '-': 'Second Œuvre', 'DVM': 'Maintenance', 'DVI': 'DVI In
 // ── Vue territoire en cascade (Direction → Métier → Clients, tout en DOM) ──
 let _chalDirHtml = '';
 let _chalDirKey = '';
+let _chalDirMode = 'direction'; // 'direction' | 'secteur'
+window._chalToggleMode = function(mode) {
+  _chalDirMode = mode;
+  _chalDirKey = ''; _chalDirHtml = ''; // invalider cache
+  const blkEl = document.getElementById('chalDirBlock');
+  if (blkEl) _buildChalDirBlock(blkEl);
+};
 function _buildChalDirBlock(blkEl) {
   if (!blkEl || !_S.chalandiseReady) return;
-  // Cache : canal-invariant, ne dépend que des filtres sidebar chalandise
-  const _key = `${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}`;
+  // Cache : canal-invariant, ne dépend que des filtres sidebar chalandise + mode
+  const _key = `${_chalDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._distanceMaxKm||0}|${_S.clientsMagasin?.size||0}|${_S._terrClientSearch||''}`;
   if (_chalDirKey === _key && _chalDirHtml) {
-    // Ne ré-injecter que si le DOM a été détruit (renderCommerceTab recrée le skeleton)
-    if (blkEl.dataset.cdk === _key) return; // déjà dans le DOM, skip
+    if (blkEl.dataset.cdk === _key) return;
     blkEl.innerHTML = _chalDirHtml;
     blkEl.dataset.cdk = _key;
     return;
   }
-  // Single-pass: filter + group into direction → métier → clients,
-  // counting captés + total while building the structure (avoids later .filter().length passes).
+  // Single-pass: filter + group by primary axis (direction or secteur) → métier → clients
   const cmSet = _S.clientsMagasin;
   const chalData = _S.chalandiseData || new Map();
   const byDir = new Map();
@@ -144,7 +149,7 @@ function _buildChalDirBlock(blkEl) {
   for (const [cc, info] of chalData) {
     if (!_passesAllFilters(cc)) continue;
     const c = { cc, ...info };
-    const d = c.direction || 'Autre';
+    const d = _chalDirMode === 'secteur' ? (c.secteur || 'Autre') : (c.direction || 'Autre');
     let bm = byDir.get(d);
     if (!bm) { bm = new Map(); byDir.set(d, bm); }
     const m = c.metier || '—';
@@ -266,17 +271,25 @@ function _buildChalDirBlock(blkEl) {
     di++;
   }
 
+  const _isDir = _chalDirMode === 'direction';
+  const _isSec = _chalDirMode === 'secteur';
+  const _tabStyle = (active) => `cursor:pointer;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;${active?'background:rgba(139,92,246,0.3);color:#c4b5fd':'color:rgba(167,139,250,0.5)'}`;
+  const _axisLabel = _isDir ? 'Direction' : 'Secteur';
   blkEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(109,40,217,0.12));border-bottom:1px solid rgba(139,92,246,0.2)">
-    <span style="font-weight:800;font-size:12px;color:#a78bfa">🎯 Votre territoire en un coup d'œil</span>
-    <span class="text-[10px] t-disabled">${byDir.size} dir. · ${allLen} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-weight:800;font-size:12px;color:#a78bfa">🎯 Votre territoire</span>
+      <span onclick="window._chalToggleMode('direction')" style="${_tabStyle(_isDir)}">Direction</span>
+      <span onclick="window._chalToggleMode('secteur')" style="${_tabStyle(_isSec)}">Secteur</span>
+    </div>
+    <span class="text-[10px] t-disabled">${byDir.size} ${_axisLabel.toLowerCase()}s · ${allLen} clients · ${totalPDV} actifs PDV · ${pctCap}% captés</span>
   </div>
   <div class="overflow-x-auto"><table class="min-w-full text-xs">
     <thead class="s-panel-inner t-inverse"><tr class="text-[10px]">
-      <th class="py-1.5 px-2 text-left">Direction / Métier / Client</th>
-      <th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Captés Leg.</th>
-      <th class="py-1.5 px-2 text-right">Captés PDV</th><th class="py-1.5 px-2 text-right">Prospects</th>
+      <th class="py-1.5 px-2 text-left">${_axisLabel}</th>
+      <th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">Actifs Leg.</th>
+      <th class="py-1.5 px-2 text-right">Actifs PDV</th><th class="py-1.5 px-2 text-right">Prospects</th>
       <th class="py-1.5 px-2 text-right">Perdus 12-24m</th><th class="py-1.5 px-2 text-right">Inactifs</th>
-      <th class="py-1.5 px-2 text-right">% Leg.</th><th class="py-1.5 px-2 text-right">% PDV</th>
+      <th class="py-1.5 px-2 text-right">% Capté Leg.</th><th class="py-1.5 px-2 text-right">% Capté PDV</th>
     </tr></thead>
     <tbody>${html||`<tr><td colspan="9" class="text-center py-4 t-disabled">Aucune donnée</td></tr>`}</tbody>
   </table></div>`;
