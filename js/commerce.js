@@ -1902,9 +1902,11 @@ function _buildChalandiseOverview(){
 }
 // _bcoiLastRun supprimé — remplacé par cache par clé dans _buildChalandiseOverviewInner
 let _bcoiCacheKey='';
+let _overviewDirMode='direction'; // 'direction' | 'secteur'
+window._overviewToggleMode=function(mode){_overviewDirMode=mode;_bcoiCacheKey='';_buildChalandiseOverviewInner(true);const _det=document.querySelector('#terrChalandiseOverview details');if(_det)_det.open=true;};
 function _buildChalandiseOverviewInner(force){
   // Cache par clé de filtres (remplace le debounce temporel qui échouait quand l'exécution > 100ms)
-  const _key=`${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
+  const _key=`${_overviewDirMode}|${[..._S._selectedDepts||[]].sort().join(',')}|${[..._S._selectedClassifs||[]].sort().join(',')}|${[..._S._selectedActivitesPDV||[]].sort().join(',')}|${[..._S._selectedStatuts||[]].sort().join(',')}|${[..._S._selectedDirections||[]].sort().join(',')}|${[..._S._selectedUnivers||[]].sort().join(',')}|${_S._filterStrategiqueOnly?'1':'0'}|${_S._selectedMetier||''}|${_S._selectedCommercial||''}|${_S._selectedStatutDetaille||''}|${_S._distanceMaxKm||0}|${_S._includePerdu24m?'1':'0'}|${_S.clientsMagasin?.size||0}|${_S._globalCanal||''}`;
   if(!force&&_bcoiCacheKey===_key)return;
   _bcoiCacheKey=_key;
   if(!_S.chalandiseReady){const _b=document.getElementById('terrChalandiseOverview');if(_b)_b.classList.add('hidden');return;}
@@ -1917,10 +1919,12 @@ function _buildChalandiseOverviewInner(force){
     const is24plus=_isPerdu24plus(info);
     if(is24plus&&!_S._includePerdu24m){totalExcluded24m++;continue;}
     filteredClients++;
-    const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
+    const _parentDir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
+    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):_parentDir;
     const dirKey=dir||'Autre';
-    if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
+    if(!dirMap[dirKey])dirMap[dirKey]={dir:dirKey,parentDir:_parentDir,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0,_comCounts:{}};
     const d=dirMap[dirKey];d.total++;
+    if(_isSec&&info.commercial){d._comCounts[info.commercial]=(d._comCounts[info.commercial]||0)+1;}
     const pdvActif=!!_S.clientsMagasin?.has(cc);
     if(_isProspect(info)){d.prospects++;}
     else if(_isPerdu(info)&&!pdvActif){if((info.ca2025||0)>0)d.perdus12_24++;else d.inactifs++;}
@@ -2002,17 +2006,80 @@ function _buildChalandiseOverviewInner(force){
   if(!blk)return;
   blk.classList.remove('hidden');
   _buildDeptFilter();
-  // Fixed thead — columns NEVER change
+  // Toggle Direction / Secteur
+  const _isSec=_overviewDirMode==='secteur';
+  const _axisLabel=_isSec?'Secteur':'Direction';
+  const _toggleEl=document.getElementById('terrOverviewToggle');
+  if(_toggleEl){
+    const _ts=on=>`padding:3px 10px;border-radius:6px;cursor:pointer;font-weight:700;${on?'background:rgba(139,92,246,0.3);color:#c4b5fd':'color:rgba(255,255,255,0.35)'}`;
+    _toggleEl.innerHTML=`<span onclick="event.stopPropagation();window._overviewToggleMode('direction')" style="${_ts(!_isSec)}">Direction</span><span onclick="event.stopPropagation();window._overviewToggleMode('secteur')" style="${_ts(_isSec)}">Secteur</span>`;
+  }
+  // Fixed thead — axis label adapts to mode
   const colSpan=9;
   const headEl=document.getElementById('terrOverviewL1Head');
   if(headEl){
-    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">Direction</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
+    headEl.innerHTML=`<tr><th class="py-1.5 px-2 text-left">${_axisLabel}</th><th class="py-1.5 px-2 text-center">Total</th><th class="py-1.5 px-2 text-center">Actifs Leg.</th><th class="py-1.5 px-2 text-center">Actifs PDV</th><th class="py-1.5 px-2 text-center">Prospects</th><th class="py-1.5 px-2 text-center">Perdus 12-24m</th><th class="py-1.5 px-2 text-center">Inactifs</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté Leg.</th><th class="py-1.5 px-2 text-center min-w-[100px]">% capté PDV</th></tr>`;
   }
-  const _nbDirs=Object.keys(dirMap).length;const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} direction${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
+  const _nbDirs=Object.keys(dirMap).length;const _axisN=_isSec?'secteur':'direction';const _sl=document.getElementById('terrOverviewSummaryLine');if(_sl)_sl.textContent=`${_nbDirs} ${_axisN}${_nbDirs>1?'s':''} · ${totalActifsPDV.toLocaleString('fr-FR')} actifs PDV · ${pctCapte}% capté`;
   // Sort by % capté ascending (opportunities first)
   let dirsArr=Object.values(dirMap).filter(d=>d.total>0);
   dirsArr.sort((a,b)=>b.actifsLeg-a.actifsLeg||b.total-a.total);
   let html='';
+  if(_isSec){
+    // Mode Secteur : grouper par direction parente
+    const byParent={};
+    dirsArr.forEach(d=>{const p=d.parentDir||'Autre';if(!byParent[p])byParent[p]=[];byParent[p].push(d);});
+    // Trier les directions parentes par nb actifs Leg décroissant
+    const parentDirs=Object.keys(byParent).sort((a,b)=>{
+      const sa=byParent[a].reduce((s,d)=>s+d.actifsLeg,0),sb=byParent[b].reduce((s,d)=>s+d.actifsLeg,0);return sb-sa;
+    });
+    let idx=0;
+    parentDirs.forEach(pDir=>{
+      const sects=byParent[pDir];
+      const pTotal=sects.reduce((s,d)=>s+d.total,0);
+      const pActL=sects.reduce((s,d)=>s+d.actifsLeg,0);
+      const pActP=sects.reduce((s,d)=>s+d.actifsPDV,0);
+      const pBase=pTotal-sects.reduce((s,d)=>s+d.prospects,0);
+      const pPctL=pBase>0?Math.round(pActL/pBase*100):0;
+      const pPctP=pBase>0?Math.round(pActP/pBase*100):0;
+      html+=`<tr class="border-b text-[11px] font-black" style="background:rgba(139,92,246,0.08)">
+        <td class="py-1.5 px-2 text-xs font-black" colspan="1">${pDir}</td>
+        <td class="py-1.5 px-2 text-center font-bold">${pTotal}</td>
+        <td class="py-1.5 px-2 text-center c-ok font-bold">${pActL||'—'}</td>
+        <td class="py-1.5 px-2 text-center c-ok font-bold">${pActP||'—'}</td>
+        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.prospects,0)||'—'}</td>
+        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.perdus12_24,0)||'—'}</td>
+        <td class="py-1.5 px-2 text-center">${sects.reduce((s,d)=>s+d.inactifs,0)||'—'}</td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pPctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pPctL}%</span></div></td>
+        <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${pPctP>=50?'bg-emerald-500':pPctP>=25?'bg-amber-500':'bg-red-500'}" style="width:${pPctP}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pPctP}%</span></div></td>
+      </tr>`;
+      sects.forEach(d=>{
+        const base=d.total-d.prospects;
+        const pctC=base>0?Math.round(d.actifsPDV/base*100):0;
+        const pctL=base>0?Math.round(d.actifsLeg/base*100):0;
+        const barColor=pctC>=50?'bg-emerald-500':pctC>=25?'bg-amber-500':'bg-red-500';
+        const dirEnc=encodeURIComponent(d.dir);
+        // Commercial principal du secteur
+        const _comEntries=Object.entries(d._comCounts||{});
+        _comEntries.sort((a,b)=>b[1]-a[1]);
+        const _mainCom=_comEntries.length?_comEntries[0][0]:'';
+        const _comLabel=_mainCom?` <span class="t-tertiary font-normal">· ${_mainCom}</span>`:'';
+        html+=`<tr class="border-b text-[11px] hover:s-card-alt cursor-pointer" onclick="_toggleOverviewL2('${dirEnc}',${idx})">
+          <td class="py-1.5 px-2 pl-5 font-semibold">${d.dir}${_comLabel} <span id="overviewL1Arrow-${idx}" class="t-disabled text-[9px]">▼</span></td>
+          <td class="py-1.5 px-2 text-center font-bold">${d.total}</td>
+          <td class="py-1.5 px-2 text-center ${d.actifsLeg>0?'c-ok font-bold':'t-disabled'}">${d.actifsLeg||'—'}</td>
+          <td class="py-1.5 px-2 text-center ${d.actifsPDV>0?'c-ok font-bold':'t-disabled'}">${d.actifsPDV||'—'}</td>
+          <td class="py-1.5 px-2 text-center ${d.prospects>0?'c-action':'t-disabled'}">${d.prospects||'—'}</td>
+          <td class="py-1.5 px-2 text-center ${d.perdus12_24>0?'c-caution font-bold':'t-disabled'}">${d.perdus12_24||'—'}</td>
+          <td class="py-1.5 px-2 text-center ${d.inactifs>0?'t-secondary':'t-disabled'}">${d.inactifs||'—'}</td>
+          <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar bg-blue-400" style="width:${pctL}%"></div></div><span class="text-[10px] font-bold w-8 text-right c-action">${pctL}%</span></div></td>
+          <td class="py-1.5 px-2"><div class="flex items-center gap-1"><div class="flex-1 s-hover rounded-full h-1.5"><div class="cap-bar ${barColor}" style="width:${pctC}%"></div></div><span class="text-[10px] font-bold w-8 text-right">${pctC}%</span></div></td>
+        </tr>
+        <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
+        idx++;
+      });
+    });
+  } else {
   dirsArr.forEach((d,idx)=>{
     const base=d.total-d.prospects;
     const pctC=base>0?Math.round(d.actifsPDV/base*100):0;
@@ -2032,6 +2099,7 @@ function _buildChalandiseOverviewInner(force){
     </tr>
     <tr id="overviewL2-${idx}" style="display:none"><td colspan="${colSpan}" class="p-0 i-danger-bg"><div id="overviewL2Inner-${idx}" class="text-xs t-disabled px-4 py-2">Chargement…</div></td></tr>`;
   });
+  }
   const tEl=document.getElementById('terrOverviewL1Table');
   if(tEl)tEl.innerHTML=html||`<tr><td colspan="${colSpan}" class="text-center py-4 t-disabled">Aucun client dans la zone de chalandise</td></tr>`;
   // Mettre à jour la vue Canal avec les filtres actifs
@@ -2050,7 +2118,7 @@ function _renderOverviewL2(el,direction){
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-    const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
+    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     const m=info.metier||'Autre';
     if(!metierMap[m])metierMap[m]={metier:m,total:0,actifsLeg:0,actifsPDV:0,prospects:0,perdus12_24:0,inactifs:0,caPDVZone:0};
@@ -2106,7 +2174,7 @@ function _renderOverviewL3(el,direction,metier){
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-    const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
+    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
     const sect=info.secteur||'—';
@@ -2175,7 +2243,7 @@ function _renderOverviewL4(el,direction,metier,secteur,limit){
   for(const[cc,info] of _S.chalandiseData.entries()){
     if(!_clientPassesFilters(info,cc))continue;
     if(!_S._includePerdu24m&&_isPerdu24plus(info))continue;
-    const dir=info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre';
+    const dir=_overviewDirMode==='secteur'?(info.secteur||'Autre'):(info.secteur?getSecteurDirection(info.secteur)||'Autre':'Autre');
     if(dir!==direction)continue;
     if((info.metier||'Autre')!==metier)continue;
     if((info.secteur||'—')!==secteur)continue;

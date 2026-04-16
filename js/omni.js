@@ -456,10 +456,8 @@ function _passesAllFilters(cc){
     const el = document.getElementById('terrOmniBlock') || document.getElementById('cm-tab-content');
     if (!el) return;
     el.innerHTML = `<div>
-    <div id="terrSummaryBar" style="display:none"></div>
-    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
+    <div id="terrChalandiseOverview" class="hidden mb-3"><details class="s-card rounded-xl shadow-md border overflow-hidden"><summary class="px-2 py-1.5 border-b s-card-alt select-none flex items-center justify-between cursor-pointer hover:brightness-95"><h3 class="font-extrabold t-primary text-xs">🎯 Votre territoire en un coup d'oeil</h3><div class="flex items-center gap-2"><span id="terrOverviewToggle" class="flex gap-0.5 text-[10px]" onclick="event.stopPropagation()"></span><span id="terrOverviewSummaryLine" class="text-[10px] t-tertiary font-normal"></span><span class="acc-arrow t-disabled">▶</span></div></summary><div class="overflow-x-auto"><table class="min-w-full text-xs"><thead id="terrOverviewL1Head" class="s-panel-inner t-inverse"></thead><tbody id="terrOverviewL1Table"></tbody></table></div></details></div>
   </div>`;
-    window._buildChalandiseOverview?.();
     const terrOverview=document.getElementById('terrChalandiseOverview');
     if(terrOverview)terrOverview.classList.toggle('hidden',!hasChal);
   }

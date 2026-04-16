@@ -784,6 +784,7 @@ window.addAction = addAction;
 function _editEmp(code, ancienEmp) {
   const cell = document.getElementById('empVal');
   if (!cell) return;
+  _refocusLocked = true;
   cell.outerHTML = `<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;justify-content:center">
     <input type="text" id="empInput" value="${_esc(ancienEmp === '—' ? '' : ancienEmp)}" placeholder="Empl."
       style="width:70px;padding:4px;border-radius:6px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:14px;font-weight:700;text-align:center;text-transform:uppercase"
@@ -812,12 +813,14 @@ function _validateEmp(code, ancienEmp) {
   }
   _renderCard(code);
   _vibrate();
+  setTimeout(() => { _refocusLocked = false; }, 400);
 }
 window._validateEmp = _validateEmp;
 
 function _editStock(code, currentStock) {
   const cell = document.getElementById('stockVal');
   if (!cell) return;
+  _refocusLocked = true;
   cell.outerHTML = `<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;justify-content:center">
     <input type="number" id="stockInput" inputmode="numeric" pattern="[0-9]*" value="${currentStock}"
       style="width:60px;padding:6px;border-radius:8px;border:2px solid var(--act);background:var(--card);color:var(--t1);font-size:22px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums"
@@ -849,12 +852,15 @@ function _applyStockCorrection(code, ancienStock) {
   // Re-render the full card with updated stock & recalculated actions
   _renderCard(code);
   _vibrate();
+  // Relâcher le lock refocus après le re-render (laisse le temps au DOM de se stabiliser)
+  setTimeout(() => { _refocusLocked = false; }, 400);
 }
 window._applyStockCorrection = _applyStockCorrection;
 
 function _editRetour(code, surplus, stock, effMax) {
   const el = document.getElementById('retourQte');
   if (!el) return;
+  _refocusLocked = true;
   el.outerHTML = `<input type="number" id="retourInput" inputmode="numeric" pattern="[0-9]*" value="${surplus}"
     style="width:50px;padding:4px;border-radius:6px;border:2px solid #fff;background:rgba(255,255,255,.15);color:#fff;font-size:18px;font-weight:900;text-align:center"
     min="1" max="${stock}" autocomplete="off">`;
@@ -880,6 +886,7 @@ function _confirmRetour(code, defaultQte, stock, effMax) {
     zone.style.opacity = '.6';
   }
   _vibrate();
+  _refocusLocked = false;
   _refocus();
 }
 window._confirmRetour = _confirmRetour;
@@ -891,11 +898,13 @@ function _refocus() {
 
 // Blur listener : si le focus quitte la barre de recherche et qu'aucun
 // autre input n'est actif, on remet le focus automatiquement (Zebra)
+let _refocusLocked = false;
 if (_scanMode) {
   document.addEventListener('click', (e) => {
+    if (_refocusLocked) return;
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'A') return;
-    setTimeout(() => input.focus(), 100);
+    setTimeout(() => { if (!_refocusLocked) input.focus(); }, 100);
   });
 }
 
@@ -907,6 +916,42 @@ function _updateActionBadge() {
   const n = _actionMap.size;
   badge.textContent = n;
   badge.style.display = n > 0 ? 'flex' : 'none';
+}
+
+// ── Code 128B — encodeur SVG inline (zéro dépendance) ─────────────────
+function _barcode128(text) {
+  const P = [
+    '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+    '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+    '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+    '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+    '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+    '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+    '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+    '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+    '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+    '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+    '114131','311141','411131','211412','211214','211232','2331112'
+  ];
+  const codes = [104]; // Start B
+  let chk = 104;
+  for (let i = 0; i < text.length; i++) {
+    const v = text.charCodeAt(i) - 32;
+    codes.push(v);
+    chk += v * (i + 1);
+  }
+  codes.push(chk % 103);
+  codes.push(106); // Stop
+  let bars = '', x = 0;
+  for (const c of codes) {
+    const p = P[c];
+    for (let j = 0; j < p.length; j++) {
+      const w = +p[j];
+      if (j % 2 === 0) bars += `<rect x="${x}" y="0" width="${w}" height="28"/>`;
+      x += w;
+    }
+  }
+  return `<svg viewBox="-6 -2 ${x + 12} 32" height="28" style="background:#fff;border-radius:3px;padding:1px 4px">${bars}</svg>`;
 }
 
 function showActions() {
@@ -943,7 +988,10 @@ function showActions() {
       const stParts = a.inventaire.replace('Stock: ', '').split(' → ');
       const stAnc = stParts[0] || '';
       const stNv = stParts[1] || '';
-      actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:13px">Stock</span><span style="color:var(--t3);font-size:15px;text-decoration:line-through">' + _esc(stAnc) + '</span><span style="color:var(--t2);font-size:13px">→</span><span style="color:var(--green);font-size:20px;font-weight:900">' + _esc(stNv) + '</span></div>');
+      const _delta = parseInt(stNv, 10) - parseInt(stAnc, 10);
+      const _deltaStr = _delta > 0 ? '+' + _delta : '' + _delta;
+      const _deltaColor = _delta > 0 ? 'var(--green)' : 'var(--red)';
+      actions.push('<div style="display:flex;align-items:center;gap:6px"><span style="color:var(--green);font-size:14px">📋</span><span style="color:var(--t2);font-size:13px">Stock</span><span style="color:var(--t3);font-size:15px;text-decoration:line-through">' + _esc(stAnc) + '</span><span style="color:var(--t2);font-size:13px">→</span><span style="color:var(--green);font-size:20px;font-weight:900">' + _esc(stNv) + '</span><span style="color:' + _deltaColor + ';font-size:14px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.06)">ajuster ' + _deltaStr + '</span></div>');
     }
     // Commande / Retour — badges séparés
     const badges = [];
@@ -951,11 +999,12 @@ function showActions() {
     if (a.retour) badges.push('<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:rgba(167,139,250,.15);color:var(--violet);font-size:13px;font-weight:700">📦 ' + _esc(a.retour.replace('Retour centrale: ', '')) + '</div>');
 
     html += '<div style="padding:12px;margin-bottom:8px;background:var(--card);border-radius:12px;border:1px solid var(--border)">'
-      // Ligne 1 : Code géant + supprimer
+      // Ligne 1 : Code géant + barcode + supprimer
       + '<div style="display:flex;justify-content:space-between;align-items:center">'
       + '<span style="font-size:22px;font-weight:900;color:var(--t1);letter-spacing:2px;font-variant-numeric:tabular-nums">' + _esc(a.code) + '</span>'
+      + '<div style="display:flex;align-items:center;gap:8px">' + _barcode128(a.code)
       + '<button onclick="removeAction(\'' + a.code + '\')" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;padding:4px">✕</button>'
-      + '</div>'
+      + '</div></div>'
       // Ligne 2 : Libellé souffleur
       + '<div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _esc(a.libelle) + ' · ' + _esc(a.emplacement) + '</div>'
       // Ligne 3 : Actions dans l'ordre ERP
