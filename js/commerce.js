@@ -1604,7 +1604,7 @@ function _renderComTopClients(el) {
     // CA PDV année en cours (pas filtré par période) pour cohérence avec ca2026 chalandise
     const caPDV = _caPDVYear.get(cc) || rec?.caPDV || 0;
     // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même année)
-    const caZone = info.ca2026 || 0;
+    const caZone = info.ca2026 || rec?.caTotal || caPDV || 0;
     const gap = Math.max(0, caZone - caPDV);
     const silence = rec?.silenceDaysPDV ?? 999;
     const caAutres = rec?.caAutresAgences || 0;
