@@ -149,6 +149,8 @@ _S._clientDominantUnivers = new Map(); // cc → univers dominant (par CA)
 _S.ventesClientArticle = new Map();
 // Snapshot période-invariante (toute la période consommé) — pour cockpit/silencieux/Top 5
 _S.ventesClientArticleFull = new Map();
+// Réseau = client × article TOUTES agences du consommé (pour Tronc Commun Réseau)
+_S.ventesClientArticleReseau = new Map();
 // Canaux hors MAGASIN : cc → Map(codeArticle → ClientArticleFact avec .canal) — tous canaux non-MAGASIN
 _S.ventesClientHorsMagasin = new Map();
 // CA MAGASIN dans d'autres agences : cc → totalCA (comptoir ailleurs)
@@ -360,7 +362,7 @@ export function resetAppState() {
   _S._insights = { ruptures: 0, dormants: 0, absentsTerr: 0, extClients: 0, hasTerr: false };
 
   // Clients
-  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
+  _S.ventesClientArticle = new Map(); _S.ventesClientArticleFull = new Map(); _S.ventesClientArticleReseau = new Map(); _S.ventesClientHorsMagasin = new Map(); _S.ventesClientAutresAgences = new Map(); _S.cannauxHorsMagasin = new Set(); _S.clientLastOrder = new Map(); _S.clientLastOrderAll = new Map(); _S.clientLastOrderByCanal = new Map(); _S.caByArticleCanal = new Map();
   _S.clientNomLookup = {}; _S.ventesClientsPerStore = {}; _S.commandesPerStoreCanal = {}; _S.articleClients = new Map(); _S.clientArticles = new Map();
 
   // Chalandise

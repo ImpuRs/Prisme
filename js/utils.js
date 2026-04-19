@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 
-import { METIERS_STRATEGIQUES, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, FAMILLE_HORS_CATALOGUE } from './constants.js';
+import { METIERS_STRATEGIQUES, METIERS_STRATEGIQUES_EXACT, SECTEUR_DIR_MAP, FAMILLE_LOOKUP, FAMILLE_HORS_CATALOGUE } from './constants.js';
 
 export function escapeHtml(s) {
   return String(s === null || s === undefined ? '' : s)
@@ -505,8 +505,9 @@ export function famLabel(code) {
 }
 
 export function _isMetierStrategique(metier) {
-  const l = (metier || '').toLowerCase();
-  return METIERS_STRATEGIQUES.some(m => l.includes(m));
+  const l = (metier || '').toLowerCase().trim();
+  if (!l) return false;
+  return METIERS_STRATEGIQUES_EXACT.includes(l);
 }
 
 export function _normalizeClassif(c) {

@@ -1374,7 +1374,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="navKpis" style="display:none;align-items:center;gap:8px;cursor:pointer" onclick="toggleNavKpis()" title="Cliquer pour réduire / agrandir les KPIs">
-          <div id="navStore"></div>
+          <div id="navStore" onclick="event.stopPropagation();window._toggleDataScope()" style="cursor:pointer" title="Cliquer pour afficher/masquer le périmètre données"></div>
           <div id="navKpisDetail" style="display:flex;align-items:center;gap:6px">
             <div id="navStats"></div>
             <div id="navPerf"></div>
@@ -1389,6 +1389,9 @@
 
   <!-- Barre spectrale PRISME 2027 — gradient unifié -->
   <div id="prismeSpectrum" aria-hidden="true"></div>
+
+  <!-- Périmètre données (dates, couverture) — toggle via badge agence -->
+  <div id="dataScopeGlobal" style="display:none"></div>
 
   <!-- Bandeau unifié insights + résumé fichiers (full-width, above app layout) -->
   <div id="insightsBanner" class="hidden">
@@ -1433,7 +1436,16 @@
         </div>
       </div>
 
-      <!-- SUPER-TAB 3 : Le Réseau -->
+      <!-- SUPER-TAB 3 : Direction Réseau -->
+      <div class="supertab-group" id="stg-direction">
+        <button data-tab="direction" onclick="switchSuperTab('direction')" class="tab-btn supertab-btn" id="stbtn-direction" style="--tab-color:#8B5CF6;--tab-bg:#8B5CF61F;--tab-text:#4C1D95"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span>Direction</span></button>
+        <div class="supertab-pills" id="stpills-direction">
+          <button class="supertab-pill active" data-subtab="conformite" onclick="switchTab('conformite')">Tronc Commun</button>
+          <button class="supertab-pill" data-subtab="marques" onclick="switchTab('marques')">Marques</button>
+          <button class="supertab-pill" data-subtab="clones" onclick="switchTab('clones')">Clones</button>
+        </div>
+      </div>
+
       <!-- SUPER-TAB 4 : Labo -->
       <div class="supertab-group" id="stg-animation">
         <button data-tab="animation" onclick="switchSuperTab('animation')" class="tab-btn supertab-btn" id="stbtn-animation" style="--tab-color:#f59e0b;--tab-bg:#f59e0b1F;--tab-text:#92400e"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span>Animation</span></button>
@@ -1682,6 +1694,10 @@
               <div id="planBenchStatus" class="text-[10px] mt-1.5 hidden"></div>
             </div>
           </details>
+        </div>
+
+        <div id="filterGroupDirection" class="hidden">
+          <div id="dirSidebarContent" class="space-y-2"></div>
         </div>
 
       </div><!-- /filterPanelContent -->
@@ -2011,6 +2027,11 @@
       <div id="assocContent"></div>
     </div>
 
+    <!-- Direction Réseau -->
+    <div id="tabConformite" class="tab-content hidden"><div id="conformiteContent" class="p-4"></div></div>
+    <div id="tabMarques" class="tab-content hidden"><div id="marquesContent" class="p-4"></div></div>
+    <div id="tabClones" class="tab-content hidden"><div id="clonesContent" class="p-4"></div></div>
+
   </div><!-- /container -->
   <footer class="text-center text-xs t-disabled py-4">PRISME</footer>
     </main><!-- /mainContent -->
@@ -2020,6 +2041,7 @@
   <button id="filterDrawerBtn" onclick="openFilterDrawer()">🔍 Filtres</button>
 
   <!-- clients.js supprimé — dead code, fonctions remplacées par commerce.js -->
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/direction.js"></script>
+  <script type="module" src="js/main.js?v=20260417d"></script>
 </body>
 </html>

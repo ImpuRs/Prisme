@@ -387,6 +387,7 @@ async function _saveSessionToIDBNow() {
       // ── Client data ──
       ventesClientArticle:      _serializeNestedMap(_S.ventesClientArticle),
       ventesClientArticleFull:  _serializeNestedMap(_S.ventesClientArticleFull),
+      ventesClientArticleReseau: _serializeNestedMap(_S.ventesClientArticleReseau),
       byMonth:                  _S._byMonth || null,
       byMonthFull:              _S._byMonthFull || null,
       byMonthCanal:             _S._byMonthCanal || null,
@@ -539,6 +540,7 @@ export async function _restoreSessionFromIDB() {
 
     _S.ventesClientArticle      = _deserializeNestedMap(data.ventesClientArticle      || []);
     _S.ventesClientArticleFull  = _deserializeNestedMap(data.ventesClientArticleFull  || []);
+    _S.ventesClientArticleReseau = _deserializeNestedMap(data.ventesClientArticleReseau || []);
     if (data.byMonth)      _S._byMonth      = data.byMonth;
     if (data.byMonthFull)  _S._byMonthFull  = data.byMonthFull;
     if (data.byMonthCanal) _S._byMonthCanal = data.byMonthCanal;

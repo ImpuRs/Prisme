@@ -248,10 +248,11 @@ export function _setGlobalCanal(canal) {
 if (typeof window !== 'undefined') window._setGlobalCanal = _setGlobalCanal;
 
 // ── Super-tab navigation ──────────────────────────────────────
-const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', animation: 'animation' };
+const _SUPERTAB_DEFAULT = { stock: 'arbitrage', clients: 'clients', commerce: 'commerce', direction: 'conformite', animation: 'animation' };
 const _TAB_TO_SUPERTAB  = {
   plan: 'stock', arbitrage: 'stock', table: 'stock', stock: 'stock',
   commerce: 'commerce', clients: 'commerce',
+  conformite: 'direction', marques: 'direction', clones: 'direction',
   animation: 'animation', associations: 'animation',
 };
 
@@ -355,15 +356,16 @@ export function switchTab(id) {
     }
   }
   // Update filter panel groups based on active tab
-  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan' };
-  const activeGroup = id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients') ? 'commerce' : 'stock';
+  const _DIR_TABS = new Set(['conformite', 'marques', 'clones']);
+  const groups = { stock: 'filterGroupStock', commerce: 'filterGroupTerritoire', plan: 'filterGroupPlan', direction: 'filterGroupDirection' };
+  const activeGroup = _DIR_TABS.has(id) ? 'direction' : id === 'plan' ? 'plan' : (id === 'commerce' || id === 'clients') ? 'commerce' : 'stock';
   Object.entries(groups).forEach(([key, gid]) => {
     const el = document.getElementById(gid); if (!el) return;
     el.classList.toggle('hidden', key !== activeGroup);
   });
   // Masquer les filtres stock sur Ce matin (non pertinents)
   const gf = document.getElementById('globalFilters');
-  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action');
+  if (gf) gf.classList.toggle('hidden', id === 'animation' || id === 'associations' || id === 'action' || id === 'conformite' || id === 'marques' || id === 'clones');
   // Recherche client — tout en haut, visible sur Commerce/Fidélisation
   const _CANAL_TABS = new Set(['commerce', 'clients']);
   const tsb = document.getElementById('terrSearchBlock');
@@ -379,7 +381,7 @@ export function switchTab(id) {
     _swapTacticalFilters(id);
   }
   // Titre sidebar par onglet
-  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', plan: 'Filtres Plan', animation: 'Animation', associations: 'Associations' };
+  const _sidebarTitles = { action: "Aujourd'hui", stock: 'Filtres Analyse du stock', table: 'Filtres', commerce: 'Filtres Terrain', clients: 'Filtres PDV', plan: 'Filtres Plan', animation: 'Animation', associations: 'Associations', conformite: 'Direction', marques: 'Direction', clones: 'Direction' };
   const _st = _sidebarTitles[id] || 'Filtres';
   const _stEl = document.getElementById('sidebarGroupTitle'); if (_stEl) _stEl.textContent = _st;
   const _stD = document.getElementById('sidebarDesktopTitle'); if (_stD) _stD.textContent = _st;

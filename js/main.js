@@ -1301,6 +1301,7 @@ _S.canalAgence=newCanalAgence;
     // Maps imbriquées
     _S.ventesClientArticle     = new Map((r.ventesClientArticle||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientArticleFull = new Map((r.ventesClientArticleFull||[]).map(([k,v]) => [k, new Map(v)]));
+    _S.ventesClientArticleReseau = new Map((r.ventesClientArticleReseau||[]).map(([k,v]) => [k, new Map(v)]));
     _S.ventesClientHorsMagasin = new Map((r.ventesClientHorsMagasin||[]).map(([k,v]) => [k, new Map(v)]));
     _S.clientLastOrder         = new Map((r.clientLastOrder||[]).map(([k,v]) => [k, typeof v==='number'?new Date(v):v]));
     _S.clientLastOrderAll      = new Map((r.clientLastOrderAll||[]).map(([k,v]) => [k, {date:new Date(v.date),canal:v.canal}]));
@@ -1657,7 +1658,13 @@ _S.canalAgence=newCanalAgence;
       r.nbClientsWeb=nbClientsByCode.get(r.code)||0;
     }
   }
-  // ★★★ MOTEUR CALCUL — appelé par processData() et applyPeriodFilter() ★★★
+  // ★★★ LEGACY / REFILTER ONLY ★★★
+  // ⚠️  Le parsing initial des fichiers consommé+stock passe par parse-worker.js (Web Worker)
+  //     puis _hydrateStateFromParseResult() + _postParseMain().
+  //     processDataFromRaw() n'est appelé QUE dans 2 cas :
+  //       1. applyPeriodFilter → isRefilter=true (re-calcul depuis _rawDataC en mémoire)
+  //       2. _initFromCache → isRefilter=true (restauration IDB au démarrage)
+  //     ➜ NE PAS ajouter de nouvelles structures ici sans les ajouter aussi dans parse-worker.js !
   async function processDataFromRaw(dataC,dataS,opts={}){
     const{isRefilter=false,storeOverride='',_f1=null,_f2=null}=opts;
     if(!isRefilter)console.warn('[PRISME] processDataFromRaw called with isRefilter:false — legacy path?',new Error().stack);
@@ -1698,7 +1705,7 @@ _S.canalAgence=newCanalAgence;
       _resetColCache(); // colonnes consommé différentes du stock
       _mark('Init + détection agences');
       updateProgress(45,100,'Ventes…',dataC.rows.length.toLocaleString('fr'));
-      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();}_S.ventesClientsPerStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();
+      const articleRaw={};_S.ventesParMagasin={};_S.blData={};if(!isRefilter)_S.clientsMagasin=new Set();_S.ventesClientArticle=new Map();_S.ventesClientArticleReseau=new Map();_S.ventesClientsPerStore={};_S.commandesPerStoreCanal={};_S.articleClients=new Map();_S.clientArticles=new Map();if(!isRefilter){_S.clientLastOrder=new Map();_S.clientLastOrderAll=new Map();}
       _S.ventesParMagasinByCanal={};
       if(!isRefilter){_S.articleFamille={};_S.articleUnivers={};_S.canalAgence={};_S.clientNomLookup={};}
       const _clientMagasinBLsTemp=new Map();
@@ -1779,7 +1786,8 @@ _S.canalAgence=newCanalAgence;
       // clientNomLookup already populated above (before canal split) for ALL canals
       // ventesClientArticle = MAGASIN uniquement (garde canal déjà assuré par continue ligne 1594)
       // sumCA inclut les avoirs (qteP<0) pour refléter le CA net réel comme Qlik
-      if(cc2&&code&&(!_S.selectedMyStore||sk===_S.selectedMyStore)){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}
+      // ventesClientArticle (myStore) + ventesClientArticleReseau (ALL stores)
+      if(cc2&&code){if(!_S.ventesClientArticleReseau.has(cc2))_S.ventesClientArticleReseau.set(cc2,new Map());const artMapR=_S.ventesClientArticleReseau.get(cc2);if(!artMapR.has(code))artMapR.set(code,{sumCA:0,countBL:0});const eR=artMapR.get(code);eR.sumCA+=caP+caE;if(qteP>0||qteE>0)eR.countBL++;if(!_S.selectedMyStore||sk===_S.selectedMyStore){if(!DataStore.ventesClientArticle.has(cc2))DataStore.ventesClientArticle.set(cc2,new Map());const artMap=DataStore.ventesClientArticle.get(cc2);if(!artMap.has(code))artMap.set(code,{sumPrelevee:0,sumCAPrelevee:0,sumCA:0,sumCAAll:0,countBL:0});const e=artMap.get(code);if(qteP>0){e.sumPrelevee+=qteP;e.sumCAPrelevee+=caP;}e.sumCA+=caP+caE;if(qteP>0||qteE>0)e.countBL++;}}
       // CA MAGASIN dans d'autres agences (sk ≠ myStore)
       if(!isRefilter&&cc2&&code&&_S.selectedMyStore&&sk!=='INCONNU'&&sk!==_S.selectedMyStore){const _caAut=caP+caE;if(_caAut>0){_S.ventesClientAutresAgences.set(cc2,(_S.ventesClientAutresAgences.get(cc2)||0)+_caAut);}}
       if((!_S.selectedMyStore||sk===_S.selectedMyStore)){const _nc3=_rnc;if(_nc3)commandesPDV.add(_nc3);}
@@ -2342,7 +2350,50 @@ _S.canalAgence=newCanalAgence;
     _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:_saisonCount,saso:lstS.length,colis:lstColis.length,rupClients:0};
     {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
     _renderStockPills();
+    _renderDataScopeBar();
     renderCockpitBriefing();
+  }
+
+  function _renderDataScopeBar(){
+    const el=document.getElementById('dataScopeGlobal')||document.getElementById('dataScopeBar');
+    if(!el)return;
+    const fmtD=d=>d instanceof Date?d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'?';
+    const pills=[];
+    // Consommé
+    const cMin=_S.consommePeriodMinFull||_S.consommePeriodMin;
+    const cMax=_S.consommePeriodMaxFull||_S.consommePeriodMax;
+    if(cMin&&cMax){
+      const stores=_S.storesIntersection?.size||Object.keys(_S.ventesParMagasin||{}).length||0;
+      const clientsMAG=_S.ventesClientArticle?.size||0;
+      const clientsHM=_S.ventesClientHorsMagasin?.size||0;
+      const allClients=new Set([...(_S.ventesClientArticle?.keys()||[]),...(_S.ventesClientHorsMagasin?.keys()||[])]);
+      const totalClients=allClients.size||clientsMAG;
+      const nbUniv=new Set(Object.values(_S.articleUnivers||{})).size;
+      const univLabel=nbUniv>0?` · ${nbUniv} univers`:'';
+      pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)"><span style="color:#60a5fa">📦 Consommé</span> <span class="t-disabled">${fmtD(cMin)} → ${fmtD(cMax)}</span> <span class="t-disabled">· ${stores} agence${stores>1?'s':''}${univLabel} · ${totalClients} clients${clientsHM>0?' ('+clientsMAG+' comptoir)':''}</span></span>`);
+    }
+    // Territoire
+    if(_S.territoireReady&&_S.territoireLines?.length){
+      let tMin=null,tMax=null;
+      for(const l of _S.territoireLines){if(l.dateExp){if(!tMin||l.dateExp<tMin)tMin=l.dateExp;if(!tMax||l.dateExp>tMax)tMax=l.dateExp;}}
+      const nbClients=new Set(_S.territoireLines.map(l=>l.clientCode).filter(Boolean)).size;
+      if(tMin&&tMax)pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3)"><span style="color:#4ade80">🌍 Territoire</span> <span class="t-disabled">${fmtD(new Date(tMin))} → ${fmtD(new Date(tMax))}</span> <span class="t-disabled">· ${nbClients} clients</span></span>`);
+    }
+    // Chalandise
+    if(_S.chalandiseReady&&_S.chalandiseData?.size){
+      const total=_S.chalandiseData.size;
+      const nbMetiers=new Set([..._S.chalandiseData.values()].map(i=>i.metier).filter(m=>m&&m.length>2)).size;
+      // Taux de couverture vs consommé
+      let matchCount=0;
+      if(_S.ventesClientArticle?.size){
+        for(const cc of _S.ventesClientArticle.keys()){if(_S.chalandiseData.has(cc))matchCount++;}
+      }
+      const pctMatch=_S.ventesClientArticle?.size>0?Math.round(matchCount/_S.ventesClientArticle.size*100):0;
+      const matchColor=pctMatch>=70?'#4ade80':pctMatch>=30?'#fbbf24':'#f87171';
+      pills.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.3)"><span style="color:#fbbf24">📋 Chalandise</span> <span class="t-disabled">${total.toLocaleString('fr')} clients · ${nbMetiers} métiers</span> <span style="color:${matchColor}" title="${matchCount} clients PDV retrouvés dans la chalandise sur ${_S.ventesClientArticle?.size||0}">· couverture ${pctMatch}%</span></span>`);
+    }
+    if(!pills.length){el.innerHTML='';return;}
+    el.innerHTML=`<div class="flex flex-wrap gap-2 px-4 py-2 text-[10px]">${pills.join('')}</div>`;
   }
 
   function _renderStockPills(){
@@ -2595,8 +2646,17 @@ _S.canalAgence=newCanalAgence;
       case 'associations':
         renderAssociationsTab();
         break;
+      case 'conformite':
+        window.renderConformiteTab?.();
+        break;
+      case 'marques':
+        window.renderMarquesTab?.();
+        break;
+      case 'clones':
+        window.renderClonesTab?.();
+        break;
     }
-    _S._tabRendered[id]=true;
+    if (id !== 'conformite') _S._tabRendered[id]=true;
   }
 
   // ★★★ V2 Phase 2: Diagnostic Cascade ★★★
@@ -2980,6 +3040,13 @@ window._setGlobalMagasinMode = function(mode){_S._reseauMagasinMode=mode;invalid
 
 window.renderTable = renderTable;
 window.renderDashboardAndCockpit = renderDashboardAndCockpit;
+window._renderDataScopeBar = _renderDataScopeBar;
+window._toggleDataScope = function(){
+  const el=document.getElementById('dataScopeGlobal');
+  if(!el)return;
+  const visible=el.style.display!=='none';
+  el.style.display=visible?'none':'';
+};
 window.renderABCTab = renderABCTab;
 window.renderCanalAgence = renderCanalAgence;
 window.openCanalDrill = openCanalDrill;

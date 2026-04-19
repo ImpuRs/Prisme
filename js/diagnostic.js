@@ -295,12 +295,21 @@ function _renderClient360(clientCode,source){
       ?`<p class="text-[10px] t-inverse-muted mt-0.5">Année 2026 : <strong class="t-inverse">${formatEuro(_caPdv26)}</strong></p>`:'';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Magasin</p><p class="text-lg font-extrabold t-inverse">${formatEuro(caPDV)}</p><p class="text-[10px] t-inverse-muted">${periode} · ${artMap?artMap.size:0} réf.</p>${subLine}</div>`);
   }
-  // ── Carte 2 : CA Legallais (2026 + 2025 fusionnés) OU alerte absent ──
+  // ── Carte 2 : CA Legallais avec tendance N vs N-1 ──
   const ca2026=info.ca2026||0;
   if(hasChal&&(ca2026>0||ca2025>0)){
-    const main26=ca2026>0?`<p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026)}</p>`:`<p class="text-sm t-inverse-muted">—</p>`;
-    const sub25=ca2025>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : <strong class="t-inverse">${formatEuro(ca2025)}</strong></p>`:'';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p>${ca2026>0?main26:`<p class="text-lg font-extrabold t-inverse">${formatEuro(ca2025)}</p>`}${ca2026>0?sub25:''}<p class="text-[10px] t-inverse-muted">Chalandise Qlik</p></div>`);
+    // Geste 1 — Tendance CA Global : flèche rouge/verte + écart %
+    let trendHtml='';
+    if(ca2026>0&&ca2025>0){
+      const _curMonth=new Date().getMonth()+1; // 1-12
+      const ca26Annualise=_curMonth>=3?Math.round(ca2026/(_curMonth/12)):ca2026;
+      const ecartPct=Math.round((ca26Annualise-ca2025)/ca2025*100);
+      const trendCol=ecartPct>=0?'#22c55e':'#ef4444';
+      const trendArrow=ecartPct>=0?'↗':'↘';
+      trendHtml=`<span class="text-[11px] font-black ml-1" style="color:${trendCol}">${trendArrow} ${ecartPct>0?'+':''}${ecartPct}%</span>`;
+    }
+    const sub25=ca2025>0&&ca2026>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : ${formatEuro(ca2025)}${trendHtml}</p>`:'';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026>0?ca2026:ca2025)}</p>${sub25}${!ca2026&&ca2025?'':''}</div>`);
   } else if(hasChal&&!info.nom){
     cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
   }
@@ -320,10 +329,8 @@ function _renderClient360(clientCode,source){
   }
   const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
   if(spc!==null){
-    const spcCol=spc>=70?'c-ok':spc>=40?'c-caution':'c-danger';
-    const spcLabel=spc>=70?'Potentiel élevé':spc>=40?'Potentiel moyen':'Potentiel faible';
-    const spcFactor=spc>=70?'CA élevé, achat régulier':spc>=40?'CA correct, silence récent':'Fréquence faible, CA modeste';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-sm font-extrabold ${spcCol}">${spcLabel}</p><p class="text-[10px] t-inverse-muted">${spcFactor}</p></div>`);
+    const spcCol=spc>=70?'#22c55e':spc>=40?'#f59e0b':'#ef4444';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-2xl font-black" style="color:${spcCol}">${spc}</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${spc}%;background:${spcCol}"></div></div></div>`);
   }
 
   // ── Part PDV (%) — thermomètre captation ──────────────────────
@@ -331,9 +338,8 @@ function _renderClient360(clientCode,source){
   if(caSociete>0){
     const _partDenom=Math.max(caPDV,caSociete);
     const partPDV=Math.round(caPDV/_partDenom*100);
-    const partCol=partPDV>=40?'c-ok':partPDV>=15?'c-caution':'c-danger';
-    const partLabel=partPDV>=40?'Captation forte':partPDV>=15?'Captation moyenne':'Captation faible';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-extrabold ${partCol}">${partPDV}%</p><p class="text-[10px] t-inverse-muted">${partLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
+    const partCol=partPDV>=40?'#22c55e':partPDV>=15?'#f59e0b':'#ef4444';
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-black" style="color:${partCol}">${partPDV}%</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${Math.min(partPDV,100)}%;background:${partCol}"></div></div><p class="text-[9px] t-inverse-muted mt-1">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
   }
 
   // ── Indice PDV-compatible — % du CA société gagnable au comptoir ──
@@ -438,88 +444,111 @@ function _renderClient360(clientCode,source){
     const firstTab=tabs[0].id;
     const tabBtns=tabs.map(t=>`<button id="c360tab-${t.id}" data-cc="${escapeHtml(clientCode)}" data-tab="${escapeHtml(t.id)}" onclick="_c360SwitchTab(this.dataset.cc,this.dataset.tab)" class="text-[11px] font-bold px-3 py-1.5 rounded-t-lg border-b-2 ${t.id===firstTab?'border-cyan-400 text-cyan-300':'border-transparent t-disabled hover:t-inverse'}">${t.label}</button>`).join('');
 
+    // ── Geste 3+4+5 : Regroupement par famille, épuration, tri verdict ──
+    const _verdictOrder=(code)=>{
+      const _sq=window._getArticleSqInfo?.(code);
+      if(!_sq||!_sq.verdict?.name||_sq.verdict.name==='—')return 5;
+      const n=_sq.verdict.name.toLowerCase();
+      if(n.includes('alerte')||n.includes('schizo'))return 0;
+      if(n.includes('socle')&&(()=>{const r=DataStore.finalData?.find(f=>f.code===code);return r&&r.stockActuel<=0;})())return 1;
+      if(n.includes('déclinant')||n.includes('dormant'))return 2;
+      if(n.includes('socle'))return 3;
+      return 4;
+    };
     const _iciRow=([code,d],grayed=false)=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const r=DataStore.finalData?.find(f=>f.code===code);
       const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;
-      // Geste 4 — Stock: gray dash if non-PDV, red only for Socle at 0
       let stock;
       if(!r){stock='<span class="t-disabled">—</span>';}
-      else if(r.stockActuel<=0&&isSkel){stock='<span class="c-danger font-bold">⚠️ 0</span>';}
-      else if(r.stockActuel<=0){stock='<span class="t-disabled">0</span>';}
+      else if(r.stockActuel<=0&&isSkel){stock='<span class="c-danger font-bold">⚠️</span>';}
+      else if(r.stockActuel<=0){stock='<span class="t-disabled">—</span>';}
       else{stock=`<span class="c-ok">${r.stockActuel}</span>`;}
       const cls=grayed?'opacity-50':'';
       const caCell=grayed?`<td class="py-1 px-2 text-right text-[10px] t-disabled">—</td>`:`<td class="py-1 px-2 text-right font-bold c-ok">${formatEuro(d.sumCA)}</td>`;
-      // Verdict Squelette × Physigamme (source unique de vérité)
-      let roleBadge='';
+      let verdictBadge='';
       const _sqI=window._getArticleSqInfo?.(code);
       if(_sqI&&_sqI.verdict?.name&&_sqI.verdict.name!=='—'){
         const _vc=_sqI.verdict.color||'#94a3b8';
-        roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.name)}</span>`;
+        verdictBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sqI.verdict.tip||'')}">${_sqI.verdict.icon||''} ${escapeHtml(_sqI.verdict.name)}</span>`;
       }
-      const roleCell=`<td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${roleBadge}</td>`;
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-center text-[10px]">${d.countBL||0}x</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td>${roleCell}</tr>`;
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td>${caCell}<td class="py-1 px-2 text-center text-[10px]">${stock}</td><td class="py-1 px-2 text-center text-[10px] t-inverse-muted">${verdictBadge}</td></tr>`;
     };
-    const iciRowsPeriod=iciArtsPeriod.map(e=>_iciRow(e,false)).join('');
-    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="6" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
-    const iciRowsHisto=iciArtsHisto.map(e=>_iciRow(e,true)).join('');
+    // Regrouper par famille
+    const _groupByFam=(arts,grayed=false)=>{
+      const groups=new Map(); // famCode → [{code,d}]
+      for(const [code,d] of arts){
+        const fam=_S.catalogueFamille?.get(code)?.codeFam||_S.articleFamille?.[code]||'???';
+        if(!groups.has(fam))groups.set(fam,[]);
+        groups.get(fam).push([code,d]);
+      }
+      // Trier les familles par CA total décroissant
+      const sorted=[...groups.entries()].sort((a,b)=>{
+        const caA=a[1].reduce((s,[,d])=>s+(d.sumCA||0),0);
+        const caB=b[1].reduce((s,[,d])=>s+(d.sumCA||0),0);
+        return caB-caA;
+      });
+      let html='';
+      for(const [fam,items] of sorted){
+        const label=famLib(fam)||fam;
+        const caFam=items.reduce((s,[,d])=>s+(d.sumCA||0),0);
+        // Geste 5 : tri par verdict urgence dans chaque famille
+        items.sort((a,b)=>_verdictOrder(a[0])-_verdictOrder(b[0])||(b[1].sumCA||0)-(a[1].sumCA||0));
+        html+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art.${!grayed&&caFam>0?' · '+formatEuro(caFam):''}</span></td></tr>`;
+        html+=items.map(e=>_iciRow(e,grayed)).join('');
+      }
+      return html;
+    };
+    const iciRowsPeriod=_groupByFam(iciArtsPeriod,false);
+    const iciSeparator=iciArtsHisto.length?`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] t-disabled border-t b-light">📅 Achetés hors période (${iciArtsHisto.length} articles)</td></tr>`:'';
+    const iciRowsHisto=iciArtsHisto.length?_groupByFam(iciArtsHisto,true):'';
     const iciRows=iciRowsPeriod+iciSeparator+iciRowsHisto;
 
-    const ailleursRows=ailleursArts.map(([code,d])=>{
+    // ── Ailleurs : regroupé par famille, verdict actionnable ──
+    const _ailleursRow=([code,d])=>{
       const lib=(_S.libelleLookup?.[code]||code).replace(/^\d{6} - /,'');
       const canalLabel=CANAL_LABELS[d.canal]||d.canal||'—';
       const alreadyHere=artMap?.has(code);
       const r=DataStore.finalData?.find(f=>f.code===code);
       const isSpecial=!/^\d{6}$/.test(code);
-      const statut=alreadyHere?'✅ Ici aussi':isSpecial&&!r?'📦 Non stockable':!r?'❌ Non référencé':r.stockActuel>0?`📦 Stock ${r.stockActuel}`:(r.ancienMin||0)===0?'⚪ MIN=0':'⚠️ Rupture';
       const cls=alreadyHere?'opacity-50':'';
-      // Rôle ABC/FMR ou Rôle Physigamme (si non référencé localement)
-      let roleBadge='';
-      if(isSpecial&&!r){
-        // Code spécial / contremarque — pas de rôle logistique
-        roleBadge='<span class="text-[8px] px-1 py-0.5 t-disabled">Spécial</span>';
-      } else if(r){
-        const abc=(r.abcClass||'').toUpperCase(),fmr=(r.fmrClass||'').toUpperCase();
-        const isSkel=r&&(r.ancienMin||r.nouveauMin)>0;
-        if(isSkel){roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-cyan-900/60 text-cyan-300 font-bold">🔵 Socle</span>`;}
-        else if(abc==='C'&&fmr==='R'){roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">CR</span>`;}
-        else{roleBadge=`<span class="text-[8px] px-1 py-0.5 t-disabled">${abc}${fmr}</span>`;}
-      } else {
-        // Article non référencé (code 6 chiffres) : chercher le rôle Physigamme via Squelette
-        const _sq2=window._getArticleSqInfo?.(code);
-        if(_sq2?.role){
-          const _roleLabels={incontournable:'🏆 Incontournable',nouveaute:'🆕 Nouveauté',specialiste:'🎯 Spécialiste',standard:'📦'};
-          const _rl=_roleLabels[_sq2.role]||'';
-          if(_rl&&_sq2.role!=='standard') roleBadge=`<span class="text-[8px] px-1.5 py-0.5 rounded bg-violet-900/60 text-violet-300 font-bold">${_rl}</span>`;
-        }
-      }
-      // Verdict actionnable — enrichi par le Squelette si disponible
       let verdict='';
       if(alreadyHere){verdict='<span class="text-[8px] t-disabled">—</span>';}
-      else if(isSpecial&&!r){
-        // Code spécial / contremarque — jamais "À référencer"
-        verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold" title="Code alphanumérique — contremarque ou sur-mesure, non stockable">⛔ Spécial</span>';
-      }
+      else if(isSpecial&&!r){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-500 font-bold">⛔ Spécial</span>';}
       else if(!r){
-        // Article absent du stock local (code 6 chiffres) — chercher le verdict Squelette
         const _sq=window._getArticleSqInfo?.(code);
-        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){
-          const _vc=_sq.verdict.color||'#94a3b8';
-          verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;
-        }else{
-          verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';
-        }
+        if(_sq&&_sq.verdict?.name&&_sq.verdict.name!=='—'){const _vc=_sq.verdict.color||'#94a3b8';verdict=`<span class="text-[8px] px-1.5 py-0.5 rounded font-bold" style="background:${_vc}22;color:${_vc}" title="${escapeHtml(_sq.verdict.tip||'')}">${_sq.verdict.icon||''} ${escapeHtml(_sq.verdict.name)}</span>`;}
+        else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-bold">📥 À référencer</span>';}
       }
-      else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture captable</span>';}
+      else if(r.stockActuel<=0&&(r.ancienMin||0)>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 font-bold">🔥 Rupture</span>';}
       else if(r.stockActuel>0){verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-green-900/60 text-green-300 font-bold">✅ Prêt</span>';}
       else{verdict='<span class="text-[8px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-400 font-bold">⚪ MIN=0</span>';}
-      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${statut}</td><td class="py-1 px-2 text-center">${roleBadge}</td><td class="py-1 px-2 text-center">${verdict}</td></tr>`;
-    }).join('');
+      return`<tr class="border-b b-dark hover:s-panel-inner ${cls}"><td class="py-1 px-2 font-mono text-[10px] t-disabled">${escapeHtml(code)}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${code}','client360')" title="Voir détail article">🔍</span></td><td class="py-1 px-2 text-[11px] font-semibold t-inverse">${escapeHtml(lib)}</td><td class="py-1 px-2 text-[10px] t-inverse-muted">${escapeHtml(canalLabel)}</td><td class="py-1 px-2 text-right font-bold c-action">${formatEuro(d.ca)}</td><td class="py-1 px-2 text-center text-[10px]">${verdict}</td></tr>`;
+    };
+    // Regrouper ailleurs par famille
+    const _ailleursGrouped=new Map();
+    for(const [code,d] of ailleursArts){
+      const fam=_S.catalogueFamille?.get(code)?.codeFam||_S.articleFamille?.[code]||'???';
+      if(!_ailleursGrouped.has(fam))_ailleursGrouped.set(fam,[]);
+      _ailleursGrouped.get(fam).push([code,d]);
+    }
+    const _ailleursSorted=[..._ailleursGrouped.entries()].sort((a,b)=>{
+      const caA=a[1].reduce((s,[,d])=>s+(d.ca||0),0);
+      const caB=b[1].reduce((s,[,d])=>s+(d.ca||0),0);
+      return caB-caA;
+    });
+    let ailleursRows='';
+    for(const [fam,items] of _ailleursSorted){
+      const label=famLib(fam)||fam;
+      const caFam=items.reduce((s,[,d])=>s+(d.ca||0),0);
+      ailleursRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
+      ailleursRows+=items.map(e=>_ailleursRow(e)).join('');
+    }
 
 
     const tabContents={
-      ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-center">Fréq.</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Rôle</th></tr></thead><tbody>${iciRows}</tbody></table>`,
-      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Rôle</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
+      ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${iciRows}</tbody></table>`,
+      ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
 

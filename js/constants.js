@@ -18,13 +18,33 @@ export const ONLINE_FAM_MIN_CA_HORS = 500;   // CA hors agence minimum pour "Fam
 export const ONLINE_FAM_MIN_CA_TOTAL = 1000; // CA total famille minimum
 export const ONLINE_FAM_MIN_CLIENTS = 2;     // Nb clients distincts minimum
 
+// 15 libellés exacts chalandise Qlik — matching exact (toLowerCase)
+export const METIERS_STRATEGIQUES_EXACT = [
+  'charpentier/couvreur/oss. bois',
+  'collectivité / administration',
+  'enseignement',
+  'facility management',
+  'formation métiers bâtiment',
+  'hôtel & plein air',
+  'industrie (< 500 pers) ou log',
+  'major',
+  'menuisier agenceur fabricant',
+  'menuisier agenceur poseur',
+  'menuisier bois int (be et ao)',
+  'plombier-chauff (4+) neuf',
+  'plombier-chauff (4+) réno',
+  'santé avec hébergement',
+  'serrurier, métallier, aluminier',
+];
+// Mots-clés fallback pour matching souple (anciens libellés ou variantes)
 export const METIERS_STRATEGIQUES = [
-  'menuisier agenceur poseur','menuisier agenceur fabricant','menuisier specialiste',
-  'fermeture','centre de formation','formation metier','serrurier','metalier','métallier',
-  'aluminier','charpentier','couvreur','ossature bois','major','menuisier bois',
-  'menuisier aluminier','hotellerie','hôtellerie','plein air','hebergement','hébergement',
-  'santé','sante','collectivite','collectivité','administration','industrie','logistique',
-  'facility management','plombier','chauffagiste'
+  'menuisier','serrurier','métallier','metalier','aluminier',
+  'charpentier','couvreur','ossature bois','major',
+  'plombier','chauffagiste','facility management',
+  'collectivite','collectivité','administration',
+  'enseignement','formation','industrie','logistique',
+  'hotellerie','hôtellerie','hôtel','plein air',
+  'hebergement','hébergement','santé','sante'
 ];
 
 export const AGE_BRACKETS = {

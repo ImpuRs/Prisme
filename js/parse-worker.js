@@ -587,6 +587,7 @@ async function _handleParseMessage(data) {
     var ventesParMagasinByCanal = {};
     var ventesClientArticle = new Map();
     var ventesClientArticleFull = new Map();
+    var ventesClientArticleReseau = new Map();
     var ventesClientHorsMagasin = new Map();
     var ventesClientsPerStore = {};
     var byMonthStoreClients = {}; // {store → {monthIdx → Set<cc>}} — pour rebuild période
@@ -1052,6 +1053,16 @@ async function _handleParseMessage(data) {
         if (qteP > 0 || qteE > 0) e_vca.countBL++;
       }
 
+      // ventesClientArticleReseau — TOUTES agences (pour Tronc Commun Réseau)
+      if (cc2 && code) {
+        if (!ventesClientArticleReseau.has(cc2)) ventesClientArticleReseau.set(cc2, new Map());
+        var artMapR = ventesClientArticleReseau.get(cc2);
+        if (!artMapR.has(code)) artMapR.set(code, { sumCA: 0, countBL: 0 });
+        var eR = artMapR.get(code);
+        eR.sumCA += caP + caE;
+        if (qteP > 0 || qteE > 0) eR.countBL++;
+      }
+
       // ventesClientAutresAgences — CA client dans autres agences (MAGASIN)
       if (cc2 && code && selectedStore && sk !== 'INCONNU' && sk !== selectedStore) {
         var _caAutM = caP + caE;
@@ -1457,6 +1468,7 @@ async function _handleParseMessage(data) {
       // Maps sérialisées
       payload.ventesClientArticle = serMap(ventesClientArticle);
       payload.ventesClientArticleFull = serMap(ventesClientArticleFull);
+      payload.ventesClientArticleReseau = serMap(ventesClientArticleReseau);
       payload.ventesClientHorsMagasin = serMap(ventesClientHorsMagasin);
       payload.clientLastOrder = Array.from(clientLastOrder).map(function(kv) { return [kv[0], kv[1] instanceof Date ? kv[1].getTime() : kv[1]]; });
       payload.clientLastOrderAll = Array.from(clientLastOrderAll).map(function(kv) { return [kv[0], { date: kv[1].date instanceof Date ? kv[1].date.getTime() : kv[1].date, canal: kv[1].canal }]; });

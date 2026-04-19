@@ -185,6 +185,8 @@ export async function parseChalandise(file) {
   // NB: buildClientStore + renderAll sont appelés par main.js après le parsing complet
   // Ici on ne fait que le croisement nécessaire pour que les données soient prêtes
   if (_S.finalData && _S.finalData.length > 0) { window.computeClientCrossing?.(); }
+  // Refresh data scope bar si déjà rendu
+  if (typeof window._renderDataScopeBar === 'function') window._renderDataScopeBar();
   // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
 }
 
@@ -516,6 +518,7 @@ export async function parseLivraisons(file) {
     // livraisonsData reste la Map client ; pas de réassignation ici
     window.computeReconquestCohort?.();
     window.computeOpportuniteNette?.();
+    if (typeof window._renderDataScopeBar === 'function') window._renderDataScopeBar();
     // renderTerritoireTab + renderAll sont appelés par main.js après le parsing complet
     // Ne pas sauvegarder depuis les parsers optionnels — la sauvegarde est gérée dans processDataFromRaw
   } catch (e) {
