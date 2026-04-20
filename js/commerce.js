@@ -60,12 +60,13 @@ function _cmRenderNav(counts) {
     { id: 'perdus',       label: '🔴 En danger (3-12m)',     n: counts.perdus },
     { id: 'potentiels',   label: '🎯 Potentiels',            n: counts.potentiels },
   ];
-  return tabs.map(t => {
+  const tabHtml = tabs.map(t => {
     const active = _cmTab === t.id;
     return `<button onclick="window._cmSwitchTab('${t.id}')"
       class="px-3 py-2 text-sm font-semibold transition-colors ${active ? 'border-b-2 c-action' : 't-secondary hover:t-primary'}"
       style="${active ? 'border-color:var(--c-action)' : ''}">${t.label}${t.n != null ? ` <span class="text-[10px] font-normal">(${t.n})</span>` : ''}</button>`;
   }).join('');
+  return tabHtml;
 }
 
 // RÈGLE PRISME — render autonome :
@@ -934,7 +935,7 @@ window._ccc = (di,mi,ci) => {
     // Scorecard portefeuille au-dessus du contenu
     const comScorecardHtml = _S.chalandiseReady && _S._selectedCommercial ? '<div id="comScorecardPDV"></div>' : '';
     // Tabs Silencieux/Perdus/Potentiels (déplacés depuis Conquête Terrain)
-    const tabNavHtml = `<div class="flex gap-1 border-b b-default mb-0 overflow-x-auto mt-3" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div><div id="cm-tab-content" class="pt-3"></div>`;
+    const tabNavHtml = `<div class="flex items-center gap-1 border-b b-default mb-0 overflow-x-auto mt-3" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div><div id="cm-tab-content" class="pt-3"></div>`;
     el.innerHTML = comScorecardHtml + tabNavHtml + oppsHtml + nomadesMissedHtml + nouveauxHtml + topPDVHtml + horsZoneHtml + digitauxHtml;
     // Peuple les tableaux cockpit dans les slots
     _buildCockpitClient();
@@ -1264,6 +1265,7 @@ function _navigateToOverviewMetier(metier){
   },100);
 }
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
+function _toggleAlerteCapitaines(){_S._alerteCapitaines=!_S._alerteCapitaines;_buildCockpitClient(true);}
 // ── Shared helper: populate a commercial <select> + KPI span ───────────
 // Build commercial → dominant secteur mapping (cached)
 let _comSectCache = null, _comSectRef = null;
@@ -2530,6 +2532,26 @@ function _buildCockpitClient(force){
   const _tcsCK=(_S._terrClientSearch||'').toLowerCase();
   const _mCK=rec=>!_tcsCK||rec.cc.includes(_tcsCK)||rec.nom.toLowerCase().includes(_tcsCK);
 
+  // ── Alerte Capitaines Perdus : client qui achetait un Socle/Capitaine ──
+  const _alerteCap=_S._alerteCapitaines;
+  // Pré-calcul Set<code> des articles Socle — une seule passe O(n), lookup O(1) par client
+  let _socleCodes=null;
+  if(_alerteCap){
+    // Lazy-init squelette si pas encore calculé
+    if(!_S._prSqData&&typeof window._getArticleSqInfo==='function')window._getArticleSqInfo('000000');
+    if(_S._prSqData){
+      _socleCodes=new Set();
+      for(const d of _S._prSqData.directions){for(const a of(d.socle||[]))_socleCodes.add(a.code);}
+    }
+  }
+  function _hasLostCapitaine(cc){
+    if(!_socleCodes)return false;
+    const fullArts=_S.ventesClientArticleFull?.get(cc);
+    if(!fullArts)return false;
+    for(const[code] of fullArts){if(_socleCodes.has(code))return true;}
+    return false;
+  }
+
   // ── Collect 3 categories ──
   const silencieux=[],perdus=[],jamaisVenus=[];
   const hasChal=_S.chalandiseReady;
@@ -2568,9 +2590,18 @@ function _buildCockpitClient(force){
     // _caOk : daysSince valide = le client A commandé dans la période consommé → éligible silencieux/perdu
     // On accepte aussi caPDV/caLeg/caZone > 0 pour les clients sans date exploitable
     const _caOk=daysSince!==null||(caPDVN>0||caLeg>0||caZone>0);
-    if(daysSince!==null&&daysSince>30&&daysSince<=90&&_caOk){silencieux.push(c);continue;}
+    if(daysSince!==null&&daysSince>30&&daysSince<=90&&_caOk){
+      // Alerte Capitaines : marquer si le client achetait un Socle/Capitaine
+      if(_alerteCap) c._capitainPerdu=_hasLostCapitaine(rec.cc);
+      if(_alerteCap&&!c._capitainPerdu){/* skip — filtre actif, pas de capitaine perdu */}
+      else{silencieux.push(c);continue;}
+    }
     // 2. Perdus : 90-365j sans commande (urgences → tièdes)
-    if(daysSince!==null&&daysSince>90&&daysSince<=365&&_caOk){perdus.push(c);continue;}
+    if(daysSince!==null&&daysSince>90&&daysSince<=365&&_caOk){
+      if(_alerteCap) c._capitainPerdu=_hasLostCapitaine(rec.cc);
+      if(_alerteCap&&!c._capitainPerdu){/* skip */}
+      else{perdus.push(c);continue;}
+    }
     // 3. Potentiels : jamais venus au comptoir
     if(hasChal&&!_useByCanal&&rec.crossStatus==='potentiel'&&caLeg>=500&&caLeg<=50000&&rec.commercial){jamaisVenus.push(c);}
   }
@@ -2616,6 +2647,11 @@ function _directTable(clients,listId,dayThreshold){
   if(totalCAMag>0)html+=`<span class="text-[11px] font-bold c-ok">${formatEuro(totalCAMag)} CA MAG</span><span class="t-disabled text-[9px]">·</span>`;
   if(nbFid)html+=`<span class="text-[11px] font-bold" style="color:#34d399">${nbFid} FID</span><span class="t-disabled text-[9px]">·</span>`;
   if(nbStrat)html+=`<span class="text-[11px] font-bold c-caution">${nbStrat} ⭐ stratégiques</span>`;
+  // Alerte Capitaines perdus — visible uniquement sur silencieux/perdus, requiert Plan Rayon
+  if((listId==='cockpit-sil-full'||listId==='cockpit-perdu-full')&&typeof window._getArticleSqInfo==='function'){
+    const _acActive=_S._alerteCapitaines;
+    html+=`<button onclick="_toggleAlerteCapitaines()" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;cursor:pointer;${_acActive?'background:#dc2626;color:#fff;border:1px solid #dc2626':'background:transparent;color:var(--t-primary);border:1px solid var(--b-default)'}" title="Filtrer : clients ayant perdu un article Capitaine (Socle)">🚨 Capitaines${_acActive?' ✕':''}</button>`;
+  }
   html+=`<button onclick="exportCockpitCSV('${listId}')" class="ml-auto text-[10px] s-hover t-primary py-1 px-2 rounded font-bold border">📥 CSV</button>`;
   html+=`</div>`;
 
@@ -2637,7 +2673,7 @@ function _directTable(clients,listId,dayThreshold){
   for(const c of slice){
     const rowBg=c._daysSince!=null&&c._daysSince>dayThreshold?'background:rgba(248,113,113,0.06)':'';
     html+=`<tr class="border-t b-default hover:s-card/50 cursor-pointer" style="${rowBg}" data-cc="${escapeHtml(c.code)}" onclick="openClient360(this.dataset.cc,'cockpit')">`;
-    html+=`<td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.code)}','cockpit')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${c._strat?' <span class="c-caution text-[9px]" title="Métier stratégique">⭐</span>':''}</td>`;
+    html+=`<td class="py-1.5 px-2"><span class="font-semibold">${escapeHtml(c.nom)}</span><button onclick="event.stopPropagation();openClient360('${escapeHtml(c.code)}','cockpit')" class="text-[10px] t-disabled hover:text-white cursor-pointer opacity-30 hover:opacity-100 transition-opacity ml-1" title="Ouvrir la fiche 360°">🔍</button>${c._capitainPerdu?' <span class="text-[9px]" style="color:#ef4444" title="Achetait un article Socle/Capitaine — alerte perte critique">🚨</span>':''}${c._strat?' <span class="c-caution text-[9px]" title="Métier stratégique">⭐</span>':''}</td>`;
     html+=`<td class="py-1.5 px-2 text-[10px] t-tertiary">${c.metier?escapeHtml(c.metier):'—'}</td>`;
     html+=`<td class="py-1.5 px-2 text-center">${_classifBadge(c.classification)}</td>`;
     html+=`<td class="py-1.5 px-2 text-right font-bold c-ok">${c.caPDVN>0?formatEuro(c.caPDVN):'—'}</td>`;
@@ -2662,6 +2698,9 @@ function _directTable(clients,listId,dayThreshold){
 
 function _renderCockpitTables(){
   const d=_S._cockpitExportData;if(!d)return;
+  // Refresh nav (counts + toggle Alerte Capitaines)
+  const nav=document.getElementById('cm-tab-nav');
+  if(nav)nav.innerHTML=_cmRenderNav(_cmComputeCounts());
   const silEl=document.getElementById('terrSilencieux');
   const perduEl=document.getElementById('terrPerdus');
   const capEl=document.getElementById('terrACapter');
@@ -3038,6 +3077,7 @@ window._onTerrClientSearch        = _onTerrClientSearch;
 window._onMetierFilter            = _onMetierFilter;
 window._navigateToOverviewMetier  = _navigateToOverviewMetier;
 window._togglePerdu24m            = _togglePerdu24m;
+window._toggleAlerteCapitaines   = _toggleAlerteCapitaines;
 window._resetChalandiseFilters    = _resetChalandiseFilters;
 window._setPDVCanalFilter         = _setPDVCanalFilter;
 window._setCrossFilter            = _setCrossFilter;
