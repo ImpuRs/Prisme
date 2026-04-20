@@ -2056,6 +2056,27 @@ function _prRenderPilotage(fam) {
     }
   }
 
+  // ── Potentiel Zone pour IMPLANTER ──
+  {
+    const _vpm = _S.ventesParMagasin || {};
+    const _myStore = _S.selectedMyStore;
+    const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
+    if (_storeKeys.length > 0) {
+      for (const a of arts) {
+        if (a._g !== 'implanter') continue;
+        const casReseau = _storeKeys.map(s => _vpm[s]?.[a.code]?.sumCA || 0).filter(v => v > 0);
+        if (casReseau.length >= 2) {
+          casReseau.sort((x, y) => x - y);
+          const n = casReseau.length;
+          const medianCA = n % 2 === 0 ? (casReseau[n / 2 - 1] + casReseau[n / 2]) / 2 : casReseau[Math.floor(n / 2)];
+          const nbCliZone = a.nbClientsZone || 0;
+          const penFactor = nbCliZone >= 5 ? 1.5 : nbCliZone >= 2 ? 1.2 : 1;
+          a._potentielZone = Math.round(medianCA * penFactor);
+        }
+      }
+    }
+  }
+
   // ── Filtre ref directe (depuis recherche code article) ──
   let _refPill = '';
   if (_prHighlightRef) {
@@ -2096,6 +2117,7 @@ function _prRenderPilotage(fam) {
     caZone:  (a, b) => (b.caZone || 0) - (a.caZone || 0),
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
     pdm:     (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
+    potentiel: (a, b) => (b._potentielZone || 0) - (a._potentielZone || 0),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
     verdict: (a, b) => {
       const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
@@ -2185,7 +2207,7 @@ function _prRenderPilotage(fam) {
     // Séparateur implanter
     let sep = '';
     if (a._g === 'implanter' && lastGroup !== 'implanter' && !_prPilotFilter) {
-      sep = `<tr><td colspan="7" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
+      sep = `<tr><td colspan="8" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
         🔵 À implanter — ${implanter.length} réf${implanter.length > 1 ? 's' : ''} avec signal fort
       </td></tr>`;
     }
@@ -2209,6 +2231,7 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
+      ${_prPilotFilter === 'implanter' ? `<td class="py-1.5 px-2 text-right font-bold" style="color:${a._potentielZone ? '#22c55e' : 'var(--t-disabled)'}">${a._potentielZone ? formatEuro(a._potentielZone) : '—'}</td>` : ''}
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>
       </td>
@@ -2234,6 +2257,7 @@ function _prRenderPilotage(fam) {
         ${_thSort('cliPDV', 'Cli PDV', 'text-right', 'Clients distincts agence sur la période')}
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
         ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
+        ${_prPilotFilter === 'implanter' ? _thSort('potentiel', '💰 Potentiel', 'text-right', 'CA médian réseau × pénétration zone') : ''}
         ${_thSort('verdict', 'Verdict', 'text-left')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -3255,6 +3279,8 @@ window._prPilotFilterFn = function(key) {
   _prPilotFilter = _prPilotFilter === key ? '' : key;
   _prPilotVerdict = ''; // reset verdict filter on classif change
   _prPilotRole = '';    // reset role filter on classif change
+  // Auto-tri par potentiel quand on filtre "implanter"
+  if (_prPilotFilter === 'implanter') _prPilotSort = 'potentiel';
   _prPilotPage = 60;
   _prRerenderDetail();
 };
