@@ -1184,6 +1184,7 @@ const _SQ_SORT_FNS = {
   score:     (a, b) => (b.score || 0) - (a.score || 0),
   classif:   (a, b) => _SQ_CLASSIF_ORDER.indexOf(a._g) - _SQ_CLASSIF_ORDER.indexOf(b._g),
   code:      (a, b) => String(a.code).localeCompare(String(b.code)),
+  potentiel: (a, b) => (b._potentielZone || 0) - (a._potentielZone || 0),
 };
 
 function _prBuildSqTable(arts) {
@@ -1254,6 +1255,7 @@ function _prBuildSqTable(arts) {
       <td class="py-1.5 px-2 text-right t-secondary">${detBar}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.nbBLLivraisons || 0}</td>
       <td class="py-1.5 px-2 text-right">${stockCell}</td>
+      ${a._potentielZone ? `<td class="py-1.5 px-2 text-right font-bold" style="color:#22c55e">${formatEuro(a._potentielZone)}</td>` : (filter === 'implanter' ? '<td class="py-1.5 px-2 text-right t-disabled">—</td>' : '')}
     </tr>`;
   }).join('');
 
@@ -1268,6 +1270,7 @@ function _prBuildSqTable(arts) {
         ${_thSort('reseau',    'Détention', 'text-right', 'Nb agences réseau qui vendent cet article')}
         ${_thSort('livraison', 'BL zone', 'text-right', 'BL livraisons zone de chalandise')}
         ${_thSort('classif',   'Stock', 'text-right')}
+        ${filter === 'implanter' ? _thSort('potentiel', '💰 Potentiel', 'text-right', 'CA médian réseau × pénétration zone — potentiel si implanté') : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -1315,7 +1318,28 @@ function _prRenderSquelette(fam) {
   for (const r of (_S.finalData || [])) {
     if (r.code && r.W) _wLookup.set(r.code, r.W);
   }
-  const artsWithW = arts.map(a => ({ ...a, W: _wLookup.get(a.code) || 0 }));
+  // Potentiel Zone : CA médian réseau article × nb clients métier dominant sur la zone
+  const _benchM = _S.chalandiseReady ? (typeof computeBenchMetier === 'function' ? computeBenchMetier() : null) : null;
+  const _vpm = _S.ventesParMagasin || {};
+  const _myStore = _S.selectedMyStore;
+  const _storeKeys = Object.keys(_vpm).filter(s => s !== _myStore);
+  const artsWithW = arts.map(a => {
+    const enriched = { ...a, W: _wLookup.get(a.code) || 0 };
+    // Potentiel Zone = CA médian réseau (cet article, hors mon agence) × pénétration zone
+    if (a._g === 'implanter' && _storeKeys.length > 0) {
+      const casReseau = _storeKeys.map(s => _vpm[s]?.[a.code]?.sumCA || 0).filter(v => v > 0);
+      if (casReseau.length >= 2) {
+        casReseau.sort((x, y) => x - y);
+        const n = casReseau.length;
+        const medianCA = n % 2 === 0 ? (casReseau[n / 2 - 1] + casReseau[n / 2]) / 2 : casReseau[Math.floor(n / 2)];
+        // Facteur zone : nb clients de la zone qui achètent cet article dans d'autres agences
+        const nbCliZone = a.nbClientsZone || 0;
+        const penFactor = nbCliZone >= 5 ? 1.5 : nbCliZone >= 2 ? 1.2 : 1;
+        enriched._potentielZone = Math.round(medianCA * penFactor);
+      }
+    }
+    return enriched;
+  });
   _S._prSqArts = artsWithW;
 
   const sousFamLib = _prOpenSousFam
@@ -3378,7 +3402,9 @@ window._prCopyConqueteLLM = function(codeFam) {
 window._prSqFilterFn = function(key) {
   _S._prSqFilter = _S._prSqFilter === key ? '' : key;
   _prSqPage = 50;
-  _prSqSort = 'reseau'; _prSqSortAsc = false;
+  // Auto-tri par potentiel quand on filtre "implanter", sinon par réseau
+  _prSqSort = (_S._prSqFilter === 'implanter') ? 'potentiel' : 'reseau';
+  _prSqSortAsc = false;
   const fam = _prFindFam(_prOpenFam);
   const el  = document.getElementById('prDetailContent');
   if (el && fam) el.innerHTML = _prRenderSquelette(fam);

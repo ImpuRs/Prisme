@@ -179,6 +179,7 @@ _S._selectedCrossStatus = '';
 _S._cockpitExportData = null; // {urgences, developper, fideliser} — updated on each cockpit render
 _S.excludedClients = new Map(); // Map<clientCode, {reason, date, by, category, nom, clientData}>
 _S._includePerdu24m = false;
+_S._alerteCapitaines = false; // Toggle : filtre silencieux/perdus aux clients ayant perdu un Socle/Capitaine
 
 // ── Table de Forçage Commercial (Shadow CRM) ──
 // Map<clientCode, commercialCode> — override ERP pour rattacher les hors-zone au bon commercial
@@ -374,7 +375,7 @@ export function resetAppState() {
 
   // Croisement / cockpit export / exclusions
   _S.crossingStats = null; _S._cockpitExportData = null;
-  _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false;
+  _S._selectedCrossStatus = ''; _S.excludedClients = new Map(); _S._includePerdu24m = false; _S._alerteCapitaines = false;
   // NB: forcageCommercial n'est PAS reset ici — il persiste entre les rechargements de fichiers
   // Filtres chalandise
   _S._selectedDepts = new Set(); _S._selectedClassifs = new Set(); _S._selectedStatuts = new Set();
