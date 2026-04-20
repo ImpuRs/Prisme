@@ -1,5 +1,5 @@
 # CLAUDE.md — Contexte PRISME V3
-> Dernière mise à jour : mars 2026 — reflète l'état réel du codebase ESM natif
+> Dernière mise à jour : avril 2026 — reflète l'état réel du codebase ESM natif
 
 ---
 
@@ -37,7 +37,8 @@ js/
   store.js       — DataStore : couche lecture seule sur _S avec byContext()
   engine.js      — moteur calcul métier : computeABCFMR, calcPriorityScore,
                    computeClientCrossing, computeReconquestCohort, computeSPC,
-                   computeOpportuniteNette, computeReseauHeatmap, _clientPassesFilters
+                   computeOpportuniteNette, computeReseauHeatmap, computeOmniScores,
+                   computeBenchMetier, computePriceGap, _clientPassesFilters
   parser.js      — pipeline données : parseChalandise, parseTerritoireFile,
                    launchTerritoireWorker, launchClientWorker, launchReseauWorker,
                    computeBenchmark
@@ -118,9 +119,13 @@ _S.articleCanalCA            // Map<code, Map<canal, {ca, qteP, countBL}>>
 ### Données clients
 ```js
 _S.ventesClientArticle       // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sumCA,sumCAAll,countBL}>>
-                              // Source : canal MAGASIN, myStore uniquement
+                              // Source : canal MAGASIN, myStore uniquement — FILTRÉ par période
+_S.ventesClientArticleFull   // Map<cc, Map<code, {sumPrelevee,sumCAPrelevee,sumCA,sumCAAll,countBL}>>
+                              // Même structure que ventesClientArticle mais PLEINE PÉRIODE (12MG)
 _S.ventesClientHorsMagasin   // Map<cc, Map<code, {sumCA,sumPrelevee,sumCAPrelevee,countBL,canal}>>
                               // Source : tous canaux hors-MAGASIN
+_S.clientOmniScore           // Map<cc, {segment,score,caPDV,caHors,caTotal,nbCanaux,nbBL,silenceDays}>
+                              // Score omnicanal enrichi avec territoireLines (Qlik)
 _S.clientLastOrder           // Map<cc, Date> — dernière commande PDV
 _S.clientNomLookup           // {cc → nom}
 _S.clientsMagasin            // Set<cc> — clients ayant acheté en MAGASIN sur la période
@@ -190,6 +195,9 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 - `computeSPC(cc, info)` — Score Potentiel Client 0-100
 - `computeOpportuniteNette()` — familles manquantes par client vs métier moyen
 - `computeReseauHeatmap()` — heatmap famille × agence (ratio vs médiane)
+- `computeOmniScores()` — score omnicanal par client (PDV + hors-mag + territoireLines Qlik)
+- `computeBenchMetier()` — lazy-cached médiane CA + tronc commun par segment métier (Jumeau Statistique)
+- `computePriceGap(code)` — écart PU local vs Top 3 agences réseau (Alerte Prix)
 - `_clientPassesFilters(info)` — filtre chalandise (dept, classif, métier, commercial...)
 - `clientMatchesCommercialFilter(cc, info)` — filtre commercial spécifique
 
@@ -212,7 +220,7 @@ _S.pdvCanalFilter            // 'all' | 'magasin' | 'preleve' — toggle Top cli
 ### diagnostic.js
 - `openDiagnostic(famille, source)` — overlay diagnostic cascade adaptatif
 - `openDiagnosticMetier(metier)` — diagnostic depuis onglet Terrain
-- `openClient360(cc, source)` — fiche client 360° avec onglets
+- `openClient360(cc, source)` — fiche client 360° avec onglets Ici/Livré MAG/Ailleurs/Omni
 - `renderDiagnosticPanel(famille, source)` — construit les 4 niveaux adaptatifs
 - `executeDiagAction(idx)` — exécute une action du plan
 - `exportDiagnosticCSV(famille)` — export plan d'action
@@ -237,10 +245,13 @@ Niveaux du diagnostic :
 6. **Avoirs** : qté négative ignorée. Régularisations (prélevé net ≤ 0) → prélevé = 0.
 7. **Dédup BL** : même N° commande + même article → quantité MAX (pas d'addition).
 8. **Articles spéciaux** : code ≠ 6 chiffres exactement → non stockable, exclu du calcul MIN/MAX.
-9. **Dualité PDV/hors-agence** : `ventesClientArticle` = MAGASIN only ; `ventesClientHorsMagasin` = tout sauf MAGASIN. Ne jamais mélanger.
+9. **Dualité PDV/hors-agence** : `ventesClientArticle` = MAGASIN only (period-filtered) ; `ventesClientArticleFull` = MAGASIN only (pleine période 12MG) ; `ventesClientHorsMagasin` = tout sauf MAGASIN. Ne jamais mélanger.
 10. **Reset colonne cache** : appeler `_resetColCache()` entre parsing consommé et stock (colonnes différentes).
 11. **CA bug** : avoirs purs inclus dans sumCA total. Familles filtrées sur codes 6 chiffres.
 12. **VMB** : Valeur de Marge Brute (€), pas Valeur Moyenne par BL. VMC = CA ÷ nb commandes uniques.
+16. **caAnnuel (tableau Articles)** : `_enrichFinalDataWithCA()` utilise `ventesClientArticleFull.sumCAPrelevee` — CA prélevé, pleine période 12MG, myStore. Cohérent avec PRÉL (qté prélevée, pleine période). NE PAS utiliser `ventesClientArticle` (period-filtered) ni `ventesParMagasin` (tous canaux prélevé+enlevé).
+17. **Omni enrichi Qlik** : `computeOmniScores()` croise `ventesClientArticle` + `ventesClientHorsMagasin` + `territoireLines`. Un client avec des lignes EXTÉRIEUR dans Qlik ne peut PAS être "Pur Comptoir". Index `_terrByClient` construit en une passe pour la perf (250k lignes).
+18. **Filtre "Sans métier renseigné"** : `clientMatchesMetierFilter(__NONE__)` matche métier vide OU ≤2 chars OU que des tirets/points. Aligné avec le bouton "Non classé" dans Associations.
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
 15. **Filtre Fin de Vie** : un article ne peut PAS être classé "implanter" dans le squelette si (a) son statut ERP contient "fin de série"/"fin de stock", OU (b) TOUTES les agences réseau qui le vendent ont MIN/MAX = 0/0 dans `stockParMagasin` (= produit bloqué nationalement). Exception : s'il est physiquement en stock local, il reste visible (classé challenger/poids mort pour la purge).
@@ -374,5 +385,8 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Recalculer `finalData` au changement de canal (invariant canal)
 - Appeler `getVal()` sans avoir appelé `_resetColCache()` entre consommé et stock
 - Mélanger `ventesClientArticle` (MAGASIN) et `ventesClientHorsMagasin` (hors-MAGASIN)
+- Utiliser `ventesClientArticle` pour caAnnuel (period-filtered) — utiliser `ventesClientArticleFull`
+- Utiliser `ventesParMagasin.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesClientArticleFull.sumCAPrelevee`
+- Calculer l'omnicanalité sans `territoireLines` — le consommé local ne voit pas les ventes dans d'autres agences
 - Créer de nouvelles variables `_S.xxx` sans les ajouter dans `resetAppState()`
 - Mettre du `await` sans `yieldToMain()` dans les boucles de parsing (bloque l'UI)

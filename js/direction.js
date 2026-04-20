@@ -439,7 +439,7 @@ window._confShowMissing = function(store) {
     tableRows += `<tr><td colspan="4" class="px-2 pt-3 pb-1"><span class="text-[10px] font-black t-primary" style="color:#8B5CF6">📁 ${fam.toUpperCase()}</span> <span class="text-[9px] t-disabled">(${arts.length} manquant${arts.length > 1 ? 's' : ''})</span></td></tr>`;
     for (const r of arts) {
       tableRows += `<tr class="text-[10px]">
-        <td class="px-2 py-1 font-mono t-disabled pl-5">${r.code}</td>
+        <td class="px-2 py-1 font-mono t-disabled pl-5">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','conformite')" title="Voir détail article">🔍</span></td>
         <td class="px-2 py-1 t-primary">${r.lib}</td>
         <td class="px-2 py-1 text-right t-disabled">${r.nbStores} ag.</td>
         <td class="px-2 py-1 text-right font-bold" style="color:#f59e0b">${formatEuro(r.medianCA)}</td>
@@ -450,7 +450,10 @@ window._confShowMissing = function(store) {
   panel.innerHTML = `<div class="rounded-lg p-3 space-y-2" style="background:var(--bg-card);border-left:3px solid #ef4444">
     <div class="flex items-center justify-between">
       <span class="text-[11px]"><strong class="text-red-400">${store}</strong> — <strong>${missing.length}</strong> articles manquants dans <strong>${groups.length}</strong> familles</span>
-      <button onclick="window._confExportMissing('${store}')" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:#8B5CF6;color:white">📥 Ordre d'implantation</button>
+      <div class="flex items-center gap-2">
+        <button onclick="window._confExportMissing('${store}')" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:#8B5CF6;color:white">📥 Ordre d'implantation</button>
+        <button onclick="document.getElementById('confMissingPanel').innerHTML=''" class="text-[11px] t-disabled hover:text-white cursor-pointer font-bold px-1" title="Fermer">✕</button>
+      </div>
     </div>
     <table class="w-full"><thead><tr class="text-[8px] t-disabled uppercase">
       <th class="px-2 py-1 text-left">Code</th><th class="px-2 py-1 text-left">Article</th><th class="px-2 py-1 text-right">Présent dans</th><th class="px-2 py-1 text-right">CA médian</th>

@@ -43,6 +43,8 @@ function buildArticleStore() {
   if (_S.catalogueFamille) for (const c of _S.catalogueFamille.keys()) allCodes.add(c);
   if (_S.catalogueMarques) for (const c of _S.catalogueMarques.keys()) allCodes.add(c);
   if (_S.finalData) for (const r of _S.finalData) allCodes.add(r.code);
+  // Réseau : articles vendus par d'autres agences (peuvent ne pas être en stock local)
+  if (_S.ventesParMagasin) for (const arts of Object.values(_S.ventesParMagasin)) for (const c of Object.keys(arts)) allCodes.add(c);
 
   // ── Lookup rapide finalData ──
   const fdMap = new Map();

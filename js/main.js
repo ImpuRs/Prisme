@@ -373,11 +373,23 @@ _S.canalAgence=newCanalAgence;
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
     _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-2,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
   };
-  window._applyPeriodeQ=(sTs,eTs)=>{applyPeriodFilter(sTs,eTs);};
+  window._applyPeriode6Mois=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    _applyPeriode(new Date(maxD.getFullYear(),maxD.getMonth()-5,1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
+  };
+  window._applyPeriodeAnneeEnCours=()=>{
+    const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;if(!maxD)return;
+    const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
+    const y=maxD.getFullYear();
+    const janv=new Date(y,0,1);
+    // Si les données ne couvrent pas janvier, on prend le 1er mois dispo de cette année
+    const start=minD&&minD>janv?minD:janv;
+    _applyPeriode(new Date(start.getFullYear(),start.getMonth(),1),new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59));
+  };
 
   function buildPeriodFilter(){
     const tabBlock=document.getElementById('tabPeriodBlock');
-    const{mois,trimestres}=_buildPeriodeOptions();
+    const{mois}=_buildPeriodeOptions();
     if(!mois.length){if(tabBlock)tabBlock.style.display='none';return;}
     const maxD=_S.consommePeriodMaxFull||_S.consommePeriodMax;
     const ps=_S.periodFilterStart?_S.periodFilterStart.getTime():null;
@@ -393,6 +405,15 @@ _S.canalAgence=newCanalAgence;
     const mpEts=prevM?new Date(prevM.getFullYear(),prevM.getMonth()+1,0,23,59,59).getTime():null;
     const t3start=mois.length>=3?new Date(mois[Math.max(0,mois.length-3)].getFullYear(),mois[Math.max(0,mois.length-3)].getMonth(),1).getTime():null;
     const t3end=maxD?new Date(maxD.getFullYear(),maxD.getMonth()+1,0,23,59,59).getTime():null;
+    // 6 derniers mois
+    const t6start=mois.length>=6?new Date(mois[Math.max(0,mois.length-6)].getFullYear(),mois[Math.max(0,mois.length-6)].getMonth(),1).getTime():null;
+    const t6end=t3end;
+    // Année en cours
+    const minD=_S.consommePeriodMinFull||_S.consommePeriodMin;
+    const yCur=maxD?maxD.getFullYear():null;
+    const janvCur=yCur?new Date(yCur,0,1):null;
+    const aeStart=janvCur&&minD?(minD>janvCur?new Date(minD.getFullYear(),minD.getMonth(),1).getTime():janvCur.getTime()):null;
+    const aeEnd=t3end;
     // Warn
     const warnHtml=(ps&&pe&&Math.round((pe-ps)/86400000)<90)
       ?`<p class="text-[10px] c-caution font-bold mt-2">⚠️ Période courte — les MIN/MAX peuvent être sous-estimés</p>`:'';
@@ -408,10 +429,6 @@ _S.canalAgence=newCanalAgence;
       }).join('');
       const predBtn=(label,sub,onclick,act)=>
         `<button class="periode-btn wide${act?' active':''}" onclick="${onclick}">${label}${sub?`<span class="periode-sub">${sub}</span>`:''}${act?' ✓':''}</button>`;
-      const qBtns=trimestres.map(q=>{
-        const sTs=q.start.getTime(),eTs=q.end.getTime();
-        return predBtn(q.label,'',`window._applyPeriodeQ(${sTs},${eTs})`,ps===sTs&&pe===eTs);
-      }).join('');
       return`<div class="periode-section">
   <div class="periode-label">Période libre</div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -428,10 +445,11 @@ _S.canalAgence=newCanalAgence;
   <div class="periode-label">Périodes prédéfinies</div>
   <div style="display:flex;flex-direction:column;gap:4px;">
     ${predBtn('Toute la période','','window._applyPeriodeTout()',isTout)}
+    ${aeStart?predBtn('Année en cours',yCur,`window._applyPeriodeAnneeEnCours()`,ps===aeStart&&pe===aeEnd):''}
+    ${t6start&&mois.length>=6?predBtn('6 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-6)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode6Mois()',ps===t6start&&pe===t6end):''}
+    ${mois.length>=3?predBtn('3 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-3)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode3Mois()',ps===t3start&&pe===t3end):''}
     ${mcTs?predBtn('Mois en cours',_fmtM(maxD),'window._applyPeriodeMoisCourant()',ps===mcTs&&pe===mcEts):''}
     ${prevM&&mois.length>=2?predBtn('Mois précédent',_fmtM(prevM),'window._applyPeriodeMoisPrecedent()',ps===mpTs&&pe===mpEts):''}
-    ${mois.length>=3?predBtn('3 derniers mois',`${_fmtM(mois[Math.max(0,mois.length-3)])} → ${_fmtM(mois[mois.length-1])}`,'window._applyPeriode3Mois()',ps===t3start&&pe===t3end):''}
-    ${qBtns}
   </div>
 </div>${warnHtml}`;
     }
@@ -1578,25 +1596,25 @@ _S.canalAgence=newCanalAgence;
   }
 
   function _enrichFinalDataWithCA() {
-    // Injecte caAnnuel sur chaque article de DataStore.finalData depuis DataStore.ventesClientArticle
-    // (canal MAGASIN, myStore uniquement — invariant dualité PDV/hors-agence)
-
-    // Fallback low-memory : si ventesClientArticle est vide, dériver depuis ventesParMagasin.
-    // (permet Scan/mobile sans les gros Maps clients)
-    const _myStore=_S.selectedMyStore;
-    const _vpmStore=_myStore?(_S.ventesParMagasin?.[_myStore]||null):null;
-    if((!DataStore.ventesClientArticle||DataStore.ventesClientArticle.size===0)&&_vpmStore){
-      for(const r of DataStore.finalData){r.caAnnuel=Math.round(_vpmStore?.[r.code]?.sumCA||0);}
+    // Injecte caAnnuel sur chaque article depuis ventesClientArticleFull (12 mois glissants, myStore)
+    // Pleine période comme PRÉL/ENL/FRÉQ — invariant au filtre période UI
+    const _full=_S.ventesClientArticleFull;
+    if(_full?.size){
+      const _caByCode=new Map();
+      for(const[,artMap] of _full){
+        for(const[code,data] of artMap){
+          _caByCode.set(code,(_caByCode.get(code)||0)+(data.sumCAPrelevee||0));
+        }
+      }
+      for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
       return;
     }
-
-    const _caByCode=new Map();
-    for(const[,artMap] of DataStore.ventesClientArticle.entries()){
-      for(const[code,data] of artMap.entries()){
-        _caByCode.set(code,(_caByCode.get(code)||0)+(data.sumCA||0));
-      }
+    // Fallback VPM si ventesClientArticleFull pas encore peuplé
+    const _myStore=_S.selectedMyStore;
+    const _vpmStore=_myStore?(_S.ventesParMagasin?.[_myStore]||null):null;
+    if(_vpmStore){
+      for(const r of DataStore.finalData){r.caAnnuel=Math.round(_vpmStore?.[r.code]?.sumCA||0);}
     }
-    for(const r of DataStore.finalData){r.caAnnuel=Math.round(_caByCode.get(r.code)||0);}
   }
 
   // Grise les onglets selon les fichiers chargés — appelé après chaque chargement complet

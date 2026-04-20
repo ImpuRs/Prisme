@@ -577,6 +577,12 @@ export async function _restoreSessionFromIDB() {
     _S.territoireReady   = data.territoireReady   || false;
     _S.territoireLines   = terrCols ? _deserializeTerritoire(terrCols) : (data.territoireLines || []);
     _S.terrDirectionData = data.terrDirectionData || {};
+    // Enrichir libelleLookup depuis les livraisons restaurées (articles réseau sans consommé local)
+    if (_S.territoireLines?.length && _S.libelleLookup) {
+      for (const l of _S.territoireLines) {
+        if (l.code && l.libelle && !_S.libelleLookup[l.code]) _S.libelleLookup[l.code] = l.libelle;
+      }
+    }
 
     _S.chalandiseData    = new Map(data.chalandiseData || []);
     _S.chalandiseReady   = data.chalandiseReady   || false;

@@ -14,7 +14,7 @@ import {
   _passesClientCrossFilter,
   _isPDVActif, _isGlobalActif, _isPerdu, _isProspect,
   _isPerdu24plus, _clientStatusBadge, _clientStatusText,
-  _crossBadge, _enrichClientInfo
+  _crossBadge, _enrichClientInfo, getUniversFilteredCA
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
@@ -45,6 +45,10 @@ document.addEventListener('click',function(e){
 // une liste énorme. On garde donc la liste vide par défaut, et on propose des
 // suggestions filtrées (max N) pendant la saisie.
 document.addEventListener('input', function(e) {
+  const t = e.target;
+  if (t && t.id === 'terrMetierFilter') _onMetierInput(t.value);
+});
+document.addEventListener('change', function(e) {
   const t = e.target;
   if (t && t.id === 'terrMetierFilter') _onMetierInput(t.value);
 });
@@ -1026,7 +1030,8 @@ function _resetChalandiseFilters(){
   // Ciblage
   _S._selectedDepts=new Set();_S._selectedMetier='';_S._filterStrategiqueOnly=false;_S._distanceMaxKm=0;
   const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.remove('bg-amber-500','text-white');btn.classList.add('s-hover','t-secondary');}
-  const metSel=document.getElementById('terrMetierFilter');if(metSel)metSel.value='';
+  const btnSM=document.getElementById('btnSansMetier');if(btnSM){btnSM.classList.remove('bg-rose-500','text-white');btnSM.classList.add('s-hover','t-secondary');}
+  const metSel=document.getElementById('terrMetierFilter');if(metSel){metSel.value='';metSel.disabled=false;}
   const dSlider=document.getElementById('distKmSlider');if(dSlider)dSlider.value=0;
   const dLabel=document.getElementById('distKmLabel');if(dLabel)dLabel.textContent='∞';
   _buildDeptFilter();
@@ -1056,6 +1061,15 @@ function _toggleActPDVDropdown(){const p=document.getElementById('terrActPDVPane
 function _toggleStatutDropdown(){const p=document.getElementById('terrStatutPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrStatutPanel');p.classList.toggle('hidden',closing);}
 function _toggleDirectionDropdown(){const p=document.getElementById('terrDirectionPanel');if(!p)return;const closing=!p.classList.contains('hidden');_closeAllDropPanels('terrDirectionPanel');p.classList.toggle('hidden',closing);}
 function _toggleStrategiqueFilter(){_S._filterStrategiqueOnly=!_S._filterStrategiqueOnly;const btn=document.getElementById('btnStrategiqueOnly');if(btn){btn.classList.toggle('bg-amber-500',_S._filterStrategiqueOnly);btn.classList.toggle('text-white',_S._filterStrategiqueOnly);btn.classList.toggle('s-hover',!_S._filterStrategiqueOnly);btn.classList.toggle('t-secondary',!_S._filterStrategiqueOnly);}if(_S._filterStrategiqueOnly&&_S._selectedMetier&&!_isMetierStrategique(_S._selectedMetier)){_S._selectedMetier='';const mi=document.getElementById('terrMetierFilter');if(mi)mi.value='';}_buildChalandiseOverview();}
+function _toggleSansMetier(){
+  const isActive = _S._selectedMetier === '__NONE__';
+  if (isActive) { _S._selectedMetier = ''; } else { _S._selectedMetier = '__NONE__'; }
+  const btn = document.getElementById('btnSansMetier');
+  if (btn) { btn.classList.toggle('bg-rose-500', !isActive); btn.classList.toggle('text-white', !isActive); btn.classList.toggle('s-hover', isActive); btn.classList.toggle('t-secondary', isActive); }
+  const mi = document.getElementById('terrMetierFilter');
+  if (mi) { mi.value = _S._selectedMetier === '__NONE__' ? '' : (_S._selectedMetier || ''); mi.disabled = _S._selectedMetier === '__NONE__'; }
+  _buildChalandiseOverview();
+}
 function _onCommercialFilter(val){
   const commercials=_getChalAgg()?.commercials||new Set();
   _S._selectedCommercial=(!val||commercials.has(val))?val:'';
@@ -1192,14 +1206,18 @@ function _updateMetierDatalist(queryLower) {
 }
 function _onMetierInput(val) {
   clearTimeout(_metInputTimer);
-  _metInputTimer = setTimeout(() => {
+  const _check = () => {
     const v = (val || '').trim();
     if (!v) { _updateMetierDatalist(''); _onMetierFilter(''); return; }
     const metiers = _getChalAgg()?.metiers || new Set();
     const ok = metiers.has(v) && (!_S._filterStrategiqueOnly || _isMetierStrategique(v));
     if (ok) { _updateMetierDatalist(''); _onMetierFilter(v); return; }
     _updateMetierDatalist(v.toLowerCase());
-  }, 180);
+  };
+  // Si la valeur matche un métier connu, appliquer immédiatement (datalist selection)
+  const metiers = _getChalAgg()?.metiers || new Set();
+  if (metiers.has((val || '').trim())) { _check(); return; }
+  _metInputTimer = setTimeout(_check, 180);
 }
 function _onMetierFilter(val){
   const v = (val || '').trim();
@@ -1207,7 +1225,14 @@ function _onMetierFilter(val){
   const next=(!v||metiers.has(v))?v:'';
   if (next === _S._selectedMetier) return;
   _S._selectedMetier = next;
-  if (_S._selectedMetier === v) _buildChalandiseOverview();
+  // Désactiver le bouton "Sans métier" si on tape un vrai métier
+  const btnSM=document.getElementById('btnSansMetier');
+  if(btnSM){btnSM.classList.remove('bg-rose-500','text-white');btnSM.classList.add('s-hover','t-secondary');}
+  // Mettre à jour le style de l'input
+  const mi=document.getElementById('terrMetierFilter');
+  if(mi){mi.classList.toggle('border-rose-400',!!next);mi.classList.toggle('ring-1',!!next);mi.classList.toggle('ring-rose-300',!!next);}
+  _bcoiCacheKey=''; // forcer le recalcul de l'overview
+  _buildChalandiseOverview();
 }
 function _navigateToOverviewMetier(metier){
   closeDiagnostic();
@@ -1310,6 +1335,8 @@ function _renderCommercialScorecard(containerId) {
   if (!ccs || !ccs.size) { el.innerHTML = ''; return; }
 
   // ── Agrégats portefeuille (respecte filtres chalandise actifs) ──
+  // Univers : le filtre ne cache pas les clients, il filtre les MONTANTS
+  const _hasUnivFilter = _S._selectedUnivers.size > 0;
   let caPDVTotal = 0, ca2026 = 0, nbClients = 0, nbCaptes = 0;
 
   for (const cc of ccs) {
@@ -1320,8 +1347,7 @@ function _renderCommercialScorecard(containerId) {
     nbClients++;
     ca2026 += info.ca2026 || 0;
 
-    const rec = _S.clientStore?.get(cc);
-    const _caPDV = rec?.caPDV || 0;
+    const _caPDV = _hasUnivFilter ? getUniversFilteredCA(cc) : (_S.clientStore?.get(cc)?.caPDV || 0);
     caPDVTotal += _caPDV;
     if (_caPDV > 0) nbCaptes++;
   }
@@ -1329,6 +1355,29 @@ function _renderCommercialScorecard(containerId) {
   const _partDenom = Math.max(caPDVTotal, ca2026);
   const txPartPDV = _partDenom > 0 ? Math.round(caPDVTotal / _partDenom * 100) : 0;
   const potentiel = Math.max(0, ca2026 - caPDVTotal);
+
+  // ── Cible Comptoir : potentiel × % PDV-compatible (articles F/M rotatifs) ──
+  let caHorsTotal = 0, caHorsCompat = 0;
+  const _fdIndex = DataStore.finalData ? new Map(DataStore.finalData.map(r => [r.code, r])) : new Map();
+  for (const cc of ccs) {
+    const info = _S.chalandiseData?.get(cc);
+    if (!info) continue;
+    if (!_clientPassesFilters(info, cc)) continue;
+    if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
+    const horArts = _S.ventesClientHorsMagasin?.get(cc);
+    if (!horArts) continue;
+    for (const [code, d] of horArts) {
+      const ca = d.sumCA || 0;
+      if (ca <= 0) continue;
+      caHorsTotal += ca;
+      const r = _fdIndex.get(code);
+      if (!r) continue;
+      const fmr = (r.fmrClass || '').toUpperCase();
+      if (fmr === 'F' || fmr === 'M') caHorsCompat += ca;
+    }
+  }
+  const pctCompat = caHorsTotal > 0 ? Math.round(caHorsCompat / caHorsTotal * 100) : 0;
+  const cibleComptoir = Math.round(potentiel * pctCompat / 100);
 
   // ── Ruptures impactant les clients du commercial ──
   const comClientSet = new Set();
@@ -1360,8 +1409,8 @@ function _renderCommercialScorecard(containerId) {
   const comSect = _getCommercialSecteurs();
   const sect = comSect.get(com) || '';
 
-  const _kpi = (label, value, sub, color) =>
-    `<div class="flex flex-col items-center p-2.5 rounded-xl border s-card min-w-[100px]">
+  const _kpi = (label, value, sub, color, title) =>
+    `<div class="flex flex-col items-center p-2.5 rounded-xl border s-card min-w-[100px]"${title ? ` title="${title}"` : ''}>
       <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">${label}</span>
       <span class="text-[15px] font-extrabold" style="color:${color}">${value}</span>
       ${sub ? `<span class="text-[9px] t-disabled mt-0.5">${sub}</span>` : ''}
@@ -1374,10 +1423,14 @@ function _renderCommercialScorecard(containerId) {
       <span class="text-[9px] t-disabled">${nbClients} clients zone</span>
       <button onclick="window._comToggleMixCanal()" class="text-[9px] c-action hover:underline cursor-pointer mt-1 text-left font-semibold">📡 Mix canal</button>
     </div>
-    ${_kpi('CA PDV', formatEuro(caPDVTotal), nbCaptes + ' / ' + nbClients + ' captés', 'var(--c-action)')}
-    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients', '#c4b5fd')}
-    ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)')}
-    ${_kpi('Potentiel', formatEuro(potentiel), 'zone − PDV', potentiel > 0 ? 'var(--c-danger)' : 'var(--c-ok)')}
+    ${_kpi('CA PDV', formatEuro(caPDVTotal), nbCaptes + ' / ' + nbClients + ' captés', 'var(--c-action)',
+      'CA réalisé en agence (canal MAGASIN) par les clients du portefeuille sur la période filtrée')}
+    ${_kpi('CA Zone', formatEuro(ca2026), nbClients + ' clients', '#c4b5fd',
+      'CA total Legallais tous canaux (source Qlik nationale) — inclut MAGASIN + INTERNET + REP + DCS')}
+    ${_kpi('Part PDV', txPartPDV + '%', 'PDV / zone', txPartPDV > 30 ? 'var(--c-ok)' : txPartPDV > 15 ? 'var(--c-caution)' : 'var(--c-danger)',
+      'Part de marché PDV = CA PDV ÷ CA Zone. Objectif : capter le max du potentiel en agence')}
+    ${cibleComptoir > 0 ? _kpi('Cible Comptoir', formatEuro(cibleComptoir), pctCompat + '% compatible', '#22d3ee',
+      'Potentiel récupérable au comptoir = Potentiel × % PDV-compatible. Articles F/M (rotatifs, dépannage) dans le CA hors-agence des clients') : ''}
     <div class="flex flex-col items-center p-2.5 rounded-xl border min-w-[100px] cursor-pointer transition-all hover:brightness-110 ${_pocheActive === 'E' ? 's-panel-inner' : 's-card'}" style="${_pocheActive === 'E' ? 'box-shadow:0 0 0 2px var(--c-danger)' : ''}" onclick="window._togglePoche('E')" title="${nbRupturesImpact} articles en rupture impactant ${nbClientsImpactes} clients">
       <span class="text-[9px] t-disabled font-semibold uppercase tracking-wide mb-1">Ruptures / irritants</span>
       <span class="text-[15px] font-extrabold" style="color:${nbRupturesImpact > 0 ? 'var(--c-danger)' : 'var(--c-ok)'}">${nbRupturesImpact}</span>
@@ -1612,7 +1665,7 @@ function _renderComTopClients(el) {
     if (!_clientPassesFilters(info, cc)) continue;
     if (!_S._includePerdu24m && _isPerdu24plus(info)) continue;
     const rec = _S.clientStore?.get(cc);
-    const caPDV = rec?.caPDV || 0; // CA PDV filtré par période (affiché)
+    const caPDV = _S._selectedUnivers.size ? getUniversFilteredCA(cc) : (rec?.caPDV || 0); // CA PDV filtré par univers si actif
     const caPDV26 = _caPDVYear.get(cc) || caPDV; // CA PDV année (pour calcul écart)
     // Écart zone : CA Legallais 2026 vs CA PDV 2026 (même base année)
     const caZone = info.ca2026 || rec?.caTotal || caPDV26 || 0;
@@ -1629,7 +1682,7 @@ function _renderComTopClients(el) {
   const top = clients.slice(0, 20);
   if (!top.length) { el.innerHTML = '<div class="p-3 text-[11px] t-disabled italic mb-3">Aucun client avec signal pour ce filtre.</div>'; return; }
 
-  const pocheLabels = { A: 'Rapatriement PDV', B: 'Inter-agences', C: 'Livré → Proximité', D: 'Activation', E: 'Ruptures / Irritants' };
+  const pocheLabels = { A: 'Écart Zone', B: 'Inter-agences', C: 'Livré → Proximité', D: 'Activation', E: 'Ruptures / Irritants' };
   const pocheColors = { A: 'var(--c-danger)', B: '#f59e0b', C: '#8b5cf6', D: 'var(--c-ok)', E: '#f87171' };
   const titleColor = _pocheActive ? pocheColors[_pocheActive] : '#fde047';
   const titleLabel = _pocheActive ? pocheLabels[_pocheActive] + ' — ' : '';
@@ -1704,12 +1757,13 @@ function _renderPochesTerrain(containerId) {
     pool.push({ cc, rec, info });
   }
 
-  // ── Poche A — Rapatriement PDV ──
+  // ── Poche A — Écart Zone ──
+  const _hasUnivF = _S._selectedUnivers.size > 0;
   const pocheA = [];
   let potA = 0;
   for (const { cc, rec, info } of pool) {
     const caSoc = info.ca2026 || rec.caTotal || 0;
-    const caPDV = rec.caPDV || 0;
+    const caPDV = _hasUnivF ? getUniversFilteredCA(cc) : (rec.caPDV || 0);
     const gap = caSoc - caPDV;
     if (gap <= 0 || caSoc <= 0) continue;
     potA += gap;
@@ -1729,24 +1783,26 @@ function _renderPochesTerrain(containerId) {
   }
   pocheB.sort((a, b) => b.caAutres - a.caAutres);
 
-  // ── Poche C — Conversion livré → Proximité ──
+  // ── Poche C — Livré → Proximité (clients < 5 km avec livraisons EXTÉRIEUR) ──
   const pocheC = [];
   let potC = 0;
   for (const { cc, rec } of pool) {
+    const dist = rec.distanceKm;
+    if (dist == null || dist > 5) continue; // uniquement clients < 5 km
     const hors = rec.artMapHors;
     if (!hors) continue;
     let caLivre = 0;
     const canauxLivre = new Set();
     for (const d of hors.values()) {
       const c = (d.canal || '').toUpperCase();
-      if (c === 'DCS' || c === 'REPRESENTANT') {
+      if (c === 'DCS' || c === 'REPRESENTANT' || c === 'INTERNET') {
         caLivre += d.sumCA || 0;
         canauxLivre.add(c);
       }
     }
     if (caLivre <= 0) continue;
     potC += caLivre;
-    pocheC.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caLivre, canaux: [...canauxLivre].join('+'), caPDV: rec.caPDV || 0 });
+    pocheC.push({ cc, nom: rec.nom, metier: rec.metier, commercial: rec.commercial, caLivre, canaux: [...canauxLivre].join('+'), caPDV: rec.caPDV || 0, dist });
   }
   pocheC.sort((a, b) => b.caLivre - a.caLivre);
 
@@ -1767,9 +1823,9 @@ function _renderPochesTerrain(containerId) {
 
   // ── Render tiles ──
   const poches = [
-    { key: 'A', icon: '🎯', label: 'Rapatriement PDV', value: formatEuro(potA), sub: `${pocheA.length} clients`, color: 'var(--c-danger)', tip: 'CA société − CA PDV' },
-    { key: 'B', icon: '🏪', label: 'Inter-agences', value: formatEuro(potB), sub: `${pocheB.length} clients`, color: '#f59e0b', tip: 'CA dans d\'autres agences Legallais' },
-    { key: 'C', icon: '🚚', label: 'Livré → Proximité', value: formatEuro(potC), sub: `${pocheC.length} clients`, color: '#8b5cf6', tip: 'CA DCS/Représentant convertible' },
+    { key: 'A', icon: '🎯', label: 'Écart Zone', value: formatEuro(potA), sub: `${pocheA.length} clients`, color: 'var(--c-danger)', tip: 'CA total société − CA PDV = livraisons EXTÉRIEUR + achats autres agences. Aucun centime passé en agence.' },
+    { key: 'B', icon: '🏪', label: 'Inter-agences', value: formatEuro(potB), sub: `${pocheB.length} clients`, color: '#f59e0b', tip: 'CA dans d\'autres agences Legallais — sous-partie de l\'Écart Zone' },
+    { key: 'C', icon: '🚚', label: 'Livré → Proximité', value: formatEuro(potC), sub: `${pocheC.length} clients`, color: '#8b5cf6', tip: 'Livraisons Web/DCS/Rep pour clients à < 5 km de l\'agence — absurdité logistique convertible en retrait comptoir' },
     { key: 'D', icon: '📈', label: 'Activation', value: pocheD.length.toString(), sub: 'clients actifs PDV', color: 'var(--c-ok)', tip: 'Montée en panier / fréquence' },
   ];
 
@@ -1861,13 +1917,17 @@ function _buildOverviewFilterChips(){
   // Les suggestions sont alimentées dynamiquement pendant la saisie via _onMetierInput().
   const metInput=document.getElementById('terrMetierFilter');
   const metList=document.getElementById('terrMetierList');
+  const _isNone = _S._selectedMetier === '__NONE__';
   if(metInput&&metList){
     metList.innerHTML='';
-    metInput.value=_S._selectedMetier||'';
-    metInput.classList.toggle('border-rose-400',!!_S._selectedMetier);
-    metInput.classList.toggle('ring-1',!!_S._selectedMetier);
-    metInput.classList.toggle('ring-rose-300',!!_S._selectedMetier);
+    metInput.value=_isNone ? '' : (_S._selectedMetier||'');
+    metInput.disabled=_isNone;
+    metInput.classList.toggle('border-rose-400',!!_S._selectedMetier && !_isNone);
+    metInput.classList.toggle('ring-1',!!_S._selectedMetier && !_isNone);
+    metInput.classList.toggle('ring-rose-300',!!_S._selectedMetier && !_isNone);
   }
+  const btnSM=document.getElementById('btnSansMetier');
+  if(btnSM){btnSM.classList.toggle('bg-rose-500',_isNone);btnSM.classList.toggle('text-white',_isNone);btnSM.classList.toggle('s-hover',!_isNone);btnSM.classList.toggle('t-secondary',!_isNone);}
   // Populate all commercial <select> elements in main content
   _populateCommercialSelect('terrCommercialSidebar','terrCommercialKPISidebar');
 }
@@ -2012,7 +2072,7 @@ function _buildChalandiseOverviewInner(force){
   const _toggleEl=document.getElementById('terrOverviewToggle');
   if(_toggleEl){
     const _ts=on=>`padding:3px 10px;border-radius:6px;cursor:pointer;font-weight:700;${on?'background:rgba(139,92,246,0.3);color:#c4b5fd':'color:rgba(255,255,255,0.35)'}`;
-    _toggleEl.innerHTML=`<span onclick="event.stopPropagation();window._overviewToggleMode('direction')" style="${_ts(!_isSec)}">Direction</span><span onclick="event.stopPropagation();window._overviewToggleMode('secteur')" style="${_ts(_isSec)}">Secteur</span>`;
+    _toggleEl.innerHTML=`<span onclick="event.preventDefault();event.stopPropagation();window._overviewToggleMode('direction')" style="${_ts(!_isSec)}">Direction</span><span onclick="event.preventDefault();event.stopPropagation();window._overviewToggleMode('secteur')" style="${_ts(_isSec)}">Secteur</span>`;
   }
   // Fixed thead — axis label adapts to mode
   const colSpan=9;
@@ -2969,6 +3029,7 @@ window._toggleActPDVDropdown      = _toggleActPDVDropdown;
 window._toggleStatutDropdown      = _toggleStatutDropdown;
 window._toggleDirectionDropdown   = _toggleDirectionDropdown;
 window._toggleStrategiqueFilter   = _toggleStrategiqueFilter;
+window._toggleSansMetier          = _toggleSansMetier;
 window._onCommercialFilter        = _onCommercialFilter;
 window._onCommercialInput         = _onCommercialInput;
 window._setDistanceQuick          = _setDistanceQuick;

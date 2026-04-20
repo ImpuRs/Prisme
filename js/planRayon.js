@@ -968,9 +968,21 @@ function _prBuildCards(data, searchText = '') {
     families = families.filter(f => empFamilles.has(f.codeFam));
   }
   if (_prFilterClassif && _prFilterClassif !== 'inactive') families = families.filter(f => f.classifGlobal === _prFilterClassif);
-  if (searchText) families = families.filter(f =>
-    f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
-  );
+  if (searchText) {
+    // Mode multi-codes : ≥2 tokens numériques 5-7 chiffres → filtrer les familles contenant ces articles
+    const _tokens = searchText.split(/[\s,;\t]+/).filter(Boolean);
+    if (_tokens.length >= 2 && _tokens.every(t => /^\d{5,7}$/.test(t))) {
+      const _codeSet = new Set(_tokens);
+      const _cat = _S.catalogueFamille;
+      const _matchFams = new Set();
+      if (_cat) for (const [code, entry] of _cat) { if (_codeSet.has(code)) _matchFams.add(entry.codeFam); }
+      families = families.filter(f => _matchFams.has(f.codeFam));
+    } else {
+      families = families.filter(f =>
+        f.libFam.toLowerCase().includes(searchText) || f.codeFam.toLowerCase().includes(searchText)
+      );
+    }
+  }
   if (!_prFilterClassif && !searchText && !_prEmpFilter && _prOpenFam) {
     families = families.filter(f => f.codeFam === _prOpenFam);
   }
@@ -1981,7 +1993,7 @@ function _prRenderPilotage(fam) {
     }
     if (!hasMatch) _sfFilterActive = false;
   }
-  const arts = [];
+  let arts = [];
   for (const d of sqData.directions) {
     for (const g of CLASSIFS) {
       for (const a of (d[g] || [])) {
@@ -2018,6 +2030,21 @@ function _prRenderPilotage(fam) {
         });
       }
     }
+  }
+
+  // ── Filtre ref directe (depuis recherche code article) ──
+  let _refPill = '';
+  if (_prHighlightRef) {
+    const refArt = arts.filter(a => a.code === _prHighlightRef);
+    const lib = articleLib(_prHighlightRef);
+    _refPill = `<div class="flex items-center gap-2 mb-3">
+      <span class="text-[11px] px-2 py-1 rounded border s-panel-inner font-bold" style="border-color:var(--c-action);background:rgba(139,92,246,0.15);color:var(--c-action,#8b5cf6)">
+        🔍 ${_prHighlightRef} — ${escapeHtml(lib.slice(0, 40))}
+        <button onclick="window._prClearHighlightRef()" class="ml-2 hover:t-primary" style="font-size:11px">✕</button>
+      </span>
+    </div>`;
+    if (!refArt.length) return _refPill + '<div class="t-disabled text-sm text-center py-4">Article absent du squelette de cette famille.</div>';
+    arts = refArt;
   }
 
   // ── Counts par classif (single pass over arts, not CLASSIFS × N) ──
@@ -2170,7 +2197,7 @@ function _prRenderPilotage(fam) {
     <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
   </div>`;
 
-  const html = `${_prSFPills()}${summary}
+  const html = `${_refPill}${_prSFPills()}${summary}
   <div class="flex flex-wrap gap-1.5 mb-2 items-center">${pills}</div>
   <div class="flex flex-wrap gap-1 mb-1 items-center">${verdictPills}</div>
   <div class="flex flex-wrap gap-1 mb-3 items-center">${rolePills}</div>
@@ -2911,6 +2938,14 @@ function _initPrSearch() {
     debounce = setTimeout(() => {
       const q = input.value.trim().toLowerCase();
       if (q.length < 2) { results.classList.add('hidden'); return; }
+      // Mode multi-codes : ≥2 tokens numériques → appliquer directement comme filtre de cartes
+      const _mcTokens = q.split(/[\s,;\t]+/).filter(Boolean);
+      if (_mcTokens.length >= 2 && _mcTokens.every(t => /^\d{5,7}$/.test(t))) {
+        results.classList.add('hidden');
+        _prSearchText = q;
+        window._prRenderAll?.();
+        return;
+      }
       if (!searchIndex.length) {
         // Tenter un rebuild tardif
         const retryIndex = _buildPrSearchIndex();
@@ -3441,10 +3476,8 @@ window._prQuickRefGo = function(code) {
   if (_prTopView !== 'famille') _prTopView = 'famille';
   // Filtre article actif — les tableaux Mon Rayon / Squelette filtreront dessus
   _prHighlightRef = code;
-  // Déterminer si l'article est en rayon ou dans le squelette
-  const fd = (_S.finalData || []).find(r => r.code === code);
-  const inRayon = fd && (fd.stockActuel > 0 || (fd.W || 0) > 0);
-  _prDetailTab = inRayon ? 'pilotage' : 'squelette';
+  // Toujours ouvrir Pilotage — il contient les verdicts pour tous les articles (rayon + squelette)
+  _prDetailTab = 'pilotage';
   // Naviguer vers la famille
   window._prSelectFam(codeFam, '');
 };

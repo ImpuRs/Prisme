@@ -34,15 +34,34 @@ export function matchQuery(query, ...fields) {
   return terms.every(t => haystack.includes(t));
 }
 
-/** Pre-compile query terms once — call per filter change, not per row */
+/** Pre-compile query terms once — call per filter change, not per row.
+ *  Détecte le mode "recherche multiple" : si l'input contient plusieurs codes
+ *  articles (5-7 chiffres) séparés par espaces/virgules/retours à la ligne,
+ *  retourne { codes: Set<string> } pour un match OR au lieu du AND habituel.
+ *  Cas d'usage : coller une liste de 50 codes depuis un Excel de la CA Siège.
+ */
 export function compileQuery(query) {
-  const terms = normalizeStr(query).split(/\s+/).filter(Boolean);
-  return terms.length ? terms : null;
+  // Splitter sur espaces, virgules, points-virgules, tabs, retours chariot
+  const raw = normalizeStr(query).split(/[\s,;\t\n\r]+/).filter(Boolean);
+  if (!raw.length) return null;
+  // Mode multi-codes : ≥2 tokens ET tous ressemblent à des codes articles (5-7 chiffres)
+  if (raw.length >= 2 && raw.every(t => /^\d{5,7}$/.test(t))) {
+    return { codes: new Set(raw) };
+  }
+  return raw;
 }
 
-/** Fast match against pre-compiled terms and pre-normalized haystack */
-export function matchCompiled(terms, normalizedHaystack) {
+/** Fast match against pre-compiled terms and pre-normalized haystack.
+ *  Supporte le mode multi-codes : { codes: Set } → match si le code article est dans le Set.
+ */
+export function matchCompiled(terms, normalizedHaystack, articleCode) {
   if (!terms) return true;
+  // Mode multi-codes (OR) : vérifier si le code article est dans le Set
+  if (terms.codes) {
+    if (!articleCode) return false;
+    return terms.codes.has(articleCode);
+  }
+  // Mode classique (AND) : tous les termes doivent être présents
   for (let i = 0; i < terms.length; i++) {
     if (!normalizedHaystack.includes(terms[i])) return false;
   }

@@ -148,6 +148,19 @@ export function buildClientStore({ pdvOnly = false } = {}) {
     }
   }
 
+  // ── Garde-fou mathématique : CA LEG (ca2026 = Qlik) ≥ CA Total (Consommé local) ──
+  // Le tout est toujours ≥ la partie. Décalages fréquents : période Qlik vs Consommé,
+  // filtre micro-clients dans l'export Qlik. On corrige dans le store ET dans chalandiseData
+  // pour que tous les renders (scorecard, bandeau, poches) voient la valeur corrigée.
+  for (const rec of store.values()) {
+    if (rec.ca2026 < rec.caTotal) {
+      rec.ca2026 = rec.caTotal;
+      // Synchroniser chalandiseData pour les renders qui lisent directement info.ca2026
+      const chalInfo = _S.chalandiseData?.get(rec.cc);
+      if (chalInfo) chalInfo.ca2026 = rec.caTotal;
+    }
+  }
+
   // ── pdvOnly : ajouter les nouveaux clients absents du store ──
   if (pdvOnly && _S.ventesClientArticle) {
     for (const cc of _S.ventesClientArticle.keys()) {

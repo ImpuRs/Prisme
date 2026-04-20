@@ -497,6 +497,10 @@ export async function parseLivraisons(file) {
     _S.territoireLines = terrLines;
     _S.terrDirectionData = terrDirData;
     _S.territoireReady = terrLines.length > 0;
+    // Enrichir libelleLookup depuis les livraisons (articles réseau sans consommé local)
+    for (const l of terrLines) {
+      if (l.code && l.libelle && !_S.libelleLookup[l.code]) _S.libelleLookup[l.code] = l.libelle;
+    }
     invalidateCache('terr');
 
     _S._livraisonsDebug.step = 'done';

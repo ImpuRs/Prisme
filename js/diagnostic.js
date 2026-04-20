@@ -13,7 +13,7 @@ import { computeSquelette } from './engine.js';
 function _normalizeClassifLocal(c){const u=(c||'').toUpperCase().replace(/\s/g,'');if(u.includes('FID')&&u.includes('POT+'))return'FID Pot+';if(u.includes('FID')&&u.includes('POT-'))return'FID Pot-';if(u.includes('OCC')&&u.includes('POT+'))return'OCC Pot+';if(u.includes('OCC')&&u.includes('POT-'))return'OCC Pot-';return'NC';}
 import { _S } from './state.js';
 import { DataStore } from './store.js'; // Strangler Fig Étape 5
-import { estimerCAPerdu, computeSPC, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
+import { estimerCAPerdu, computeSPC, computeBenchMetier, computePriceGap, _isPDVActif, _isGlobalActif, _isPerdu, _diagClientPrio, _diagClassifPrio, _unikLink, clientMatchesDeptFilter, clientMatchesClassifFilter, clientMatchesStatutFilter, clientMatchesActivitePDVFilter, clientMatchesCommercialFilter } from './engine.js';
 import { switchTab, clearCockpitFilter, renderAll } from './ui.js';
 
 
@@ -311,7 +311,14 @@ function _renderClient360(clientCode,source){
     const sub25=ca2025>0&&ca2026>0?`<p class="text-[10px] t-inverse-muted mt-0.5">2025 : ${formatEuro(ca2025)}${trendHtml}</p>`:'';
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">CA Legallais${ca2026>0?' 2026':' 2025'}</p><p class="text-lg font-extrabold t-inverse">${formatEuro(ca2026>0?ca2026:ca2025)}</p>${sub25}${!ca2026&&ca2025?'':''}</div>`);
   } else if(hasChal&&!info.nom){
-    cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
+    // Client absent chalandise — calculer CA via ventes connues (PDV + territoire Qlik)
+    const _omniCalc=_S.clientOmniScore?.get(clientCode);
+    const _caCalc=_omniCalc?.caTotal||caPDV||0;
+    if(_caCalc>0){
+      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-lg font-extrabold" style="color:#fbbf24">${formatEuro(_caCalc)}</p><p class="text-[10px] mt-0.5" style="color:#fbbf24;opacity:0.7">Calculé via ventes · Absent chalandise</p></div>`);
+    } else {
+      cards.push(`<div class="flex-1 p-3 rounded-xl border min-w-0" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)"><p class="text-[10px] uppercase tracking-wide" style="color:#fbbf24">CA Legallais</p><p class="text-xs font-bold mt-1" style="color:#fbbf24">Absent chalandise</p></div>`);
+    }
   }
   if(daysSince!==null){
     const silCol=daysSince>=30?'c-danger':daysSince>=15?'c-caution':'c-ok';
@@ -328,9 +335,23 @@ function _renderClient360(clientCode,source){
     cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide mb-1">Dernière commande</p><p class="text-sm font-extrabold ${silCol} mb-1.5">${silLabel}</p><div class="space-y-1">${canalRows.join('')}</div></div>`);
   }
   const spc=_S.chalandiseReady?computeSPC(clientCode,info):null;
+  const _benchM=_S.chalandiseReady?computeBenchMetier():null;
+  const _metierBench=_benchM&&info.metier?_benchM.get(info.metier):null;
   if(spc!==null){
     const spcCol=spc>=70?'#22c55e':spc>=40?'#f59e0b':'#ef4444';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-2xl font-black" style="color:${spcCol}">${spc}</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${spc}%;background:${spcCol}"></div></div></div>`);
+    let benchLine='';
+    if(_metierBench){
+      const caClient=ca2026>0?ca2026:(ca2025>0?ca2025:0);
+      const ratio=_metierBench.medianCA>0&&caClient>0?caClient/_metierBench.medianCA:0;
+      let ratioCol,ratioLabel;
+      if(ratio>=2){ratioCol='#22c55e';ratioLabel='Top client Legallais';}
+      else if(ratio>=0.8){ratioCol='#22c55e';ratioLabel='Dans la norme Legallais';}
+      else if(ratio>=0.4){ratioCol='#f59e0b';ratioLabel=`Sous la médiane (${Math.round(ratio*100)}%)`;}
+      else if(ratio>0){ratioCol='#ef4444';ratioLabel=`⚠ Poids plume (${Math.round(ratio*100)}%) — achète probablement chez la concurrence`;}
+      else{ratioCol='#94a3b8';ratioLabel='Pas de données';}
+      benchLine=`<p class="text-[9px] mt-1.5 pt-1.5 border-t b-dark" style="color:${ratioCol}" title="CA Legallais de ce client vs médiane des ${_metierBench.nbClients} ${escapeHtml(info.metier||'')} du réseau (hors bottom 25%)">🎯 Médiane ${escapeHtml(info.metier||'profession')} : <strong>${formatEuro(_metierBench.medianCA)}</strong> — ${ratioLabel}</p>`;
+    }
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Score Potentiel Client (SPC) 0-100&#10;→ Récence dernière commande (30 pts)&#10;→ CA rapatriable hors-PDV (30 pts)&#10;→ Familles manquantes vs métier (20 pts)&#10;→ Profil chalandise FID/OCC (20 pts)"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Potentiel</p><p class="text-2xl font-black" style="color:${spcCol}">${spc}</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${spc}%;background:${spcCol}"></div></div>${benchLine}</div>`);
   }
 
   // ── Part PDV (%) — thermomètre captation ──────────────────────
@@ -339,7 +360,7 @@ function _renderClient360(clientCode,source){
     const _partDenom=Math.max(caPDV,caSociete);
     const partPDV=Math.round(caPDV/_partDenom*100);
     const partCol=partPDV>=40?'#22c55e':partPDV>=15?'#f59e0b':'#ef4444';
-    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-black" style="color:${partCol}">${partPDV}%</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${Math.min(partPDV,100)}%;background:${partCol}"></div></div><p class="text-[9px] t-inverse-muted mt-1">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
+    cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="Part PDV = CA agence ÷ CA Legallais tous canaux&#10;Mesure la captation du client en magasin"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">Part PDV</p><p class="text-2xl font-black" style="color:${partCol}">${partPDV}%</p><div class="w-full h-1.5 rounded-full mt-1.5" style="background:rgba(255,255,255,0.1)"><div class="h-full rounded-full" style="width:${Math.min(partPDV,100)}%;background:${partCol}"></div></div><p class="text-[9px] t-inverse-muted mt-1">${formatEuro(caPDV)} / ${formatEuro(_partDenom)}</p></div>`);
   }
 
   // ── Indice PDV-compatible — % du CA société gagnable au comptoir ──
@@ -362,11 +383,12 @@ function _renderClient360(clientCode,source){
       const pctCompat=Math.min(100,Math.round(caCompat/caTotal*100));
       const compatCol=pctCompat>=50?'c-ok':pctCompat>=25?'c-caution':'c-danger';
       const compatLabel=pctCompat>=50?'Fort potentiel PDV':pctCompat>=25?'Potentiel modéré':'Peu compatible PDV';
-      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">PDV-compatible</p><p class="text-2xl font-extrabold ${compatCol}">${pctCompat}%</p><p class="text-[10px] t-inverse-muted">${compatLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">CA articles F/M rotatifs</p></div>`);
+      cards.push(`<div class="flex-1 p-3 rounded-xl s-panel-inner border b-dark min-w-0" title="% du CA client sur des articles à rotation fréquente (FMR F ou M)&#10;Ces articles se vendent typiquement au comptoir (dépannage, proximité)&#10;Plus le % est élevé, plus le client est récupérable en agence"><p class="text-[10px] t-inverse-muted uppercase tracking-wide">PDV-compatible</p><p class="text-2xl font-extrabold ${compatCol}">${pctCompat}%</p><p class="text-[10px] t-inverse-muted">${compatLabel}</p><p class="text-[9px] t-inverse-muted mt-0.5">CA articles F/M rotatifs</p></div>`);
     }
   }
 
   const summaryBar=cards.length?`<div class="flex flex-wrap gap-3 mb-4">${cards.join('')}</div>`:'';
+
 
   // ── ONGLETS Ici / Ailleurs / Opportunités ────────────────────────
   // Groupe 1 : période filtrée (artMapPeriod, CA > 0)
@@ -377,12 +399,22 @@ function _renderClient360(clientCode,source){
   const iciArtsHisto=artMapFull?[...artMapFull.entries()].filter(([code,d])=>!_periodeSet.has(code)&&(d.sumCA||0)>0).sort((a,b)=>b[1].sumCA-a[1].sumCA).slice(0,30):[];
   const iciArts=[...iciArtsPeriod,...iciArtsHisto];
 
+  // Livré MAG = commandes passées via Web/DCS/Rep mais dont le BL est dans le consommé local (= passé par l'agence)
+  // Source 1 : horsMag avec sumCAE > 0
+  // Source 2 : territoireLines dont le BL est dans blCanalMap (= consommé local) et canal ≠ MAGASIN
+  const livreMagMap=new Map();
+  if(horsMag)for(const[code,d]of horsMag.entries()){if((d.sumCAE||0)<=0)continue;if(!livreMagMap.has(code))livreMagMap.set(code,{ca:0,canal:d.canal});livreMagMap.get(code).ca+=d.sumCAE;}
+  const _blLocal=_S.blCanalMap;
+  if(hasTerr&&_blLocal)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(!l.bl||!_blLocal.has(l.bl))continue;if(!livreMagMap.has(l.code))livreMagMap.set(l.code,{ca:0,canal:l.canal||'—'});livreMagMap.get(l.code).ca+=l.ca||0;}
+  const livreMagArts=[...livreMagMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
+
+  // Ailleurs = hors agence uniquement : BL NON présent dans le consommé local
   const ailleursMap=new Map();
-  if(horsMag)for(const[code,d]of horsMag.entries()){if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=d.sumCA;}
-  if(hasTerr)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
+  if(horsMag)for(const[code,d]of horsMag.entries()){const caExt=(d.sumCA||0)-(d.sumCAE||0);if(caExt<=0)continue;if(!ailleursMap.has(code))ailleursMap.set(code,{ca:0,canal:d.canal});ailleursMap.get(code).ca+=caExt;}
+  if(hasTerr&&_blLocal)for(const l of DataStore.territoireLines){if(l.clientCode!==clientCode)continue;if(l.canal==='MAGASIN')continue;if(l.bl&&_blLocal.has(l.bl))continue;if(!ailleursMap.has(l.code))ailleursMap.set(l.code,{ca:0,canal:l.canal||'—'});ailleursMap.get(l.code).ca+=l.ca||0;}
   const ailleursArts=[...ailleursMap.entries()].sort((a,b)=>b[1].ca-a[1].ca).slice(0,20);
 
-  const oppArts=ailleursArts.filter(([code])=>{
+  const oppArts=[...livreMagArts,...ailleursArts].filter(([code])=>{
     if(artMap?.has(code))return false;
     const r=DataStore.finalData?.find(f=>f.code===code);
     return!r||r.stockActuel===0||(r.ancienMin||0)===0;
@@ -428,12 +460,27 @@ function _renderClient360(clientCode,source){
   </div>
   ${onlyHors.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-caution)">⚠️ Familles uniquement hors agence</p><div class="flex flex-wrap gap-1">${onlyHors.slice(0,8).map(([f,d])=>famTag(f,d.ca,'var(--c-caution)')).join('')}</div></div>`:''}
   ${both.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-ok)">✅ Familles ici ET hors agence</p><div class="flex flex-wrap gap-1">${both.slice(0,8).map(([f])=>famTag(f,0,'var(--c-ok)')).join('')}</div></div>`:''}
-  ${onlyPDV.length?`<div><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-info,#60a5fa)">🏪 Familles uniquement au comptoir</p><div class="flex flex-wrap gap-1">${onlyPDV.map(([f])=>famTag(f,0,'var(--c-info,#60a5fa)')).join('')}</div></div>`:''}
+  ${onlyPDV.length?`<div class="mb-3"><p class="text-[9px] font-bold mb-1.5" style="color:var(--c-info,#60a5fa)">🏪 Familles uniquement au comptoir</p><div class="flex flex-wrap gap-1">${onlyPDV.map(([f])=>famTag(f,0,'var(--c-info,#60a5fa)')).join('')}</div></div>`:''}
+  ${(()=>{
+    if(!_metierBench||!_metierBench.troncCommun.length)return'';
+    const clientFams=_S.clientFamCA?_S.clientFamCA[clientCode]||{}:{};
+    const allClientFams=new Set([...famsPDV.keys(),...famsHors.keys()]);
+    // Familles du tronc commun métier que le client n'achète pas du tout chez Legallais
+    const anglesMorts=_metierBench.troncCommun.filter(t=>{
+      const fl=famLib(t.fam)||t.fam;
+      return!clientFams[t.fam]&&!allClientFams.has(fl);
+    }).slice(0,8);
+    if(!anglesMorts.length)return'';
+    return`<div class="mt-3 pt-3 border-t b-dark"><p class="text-[9px] font-bold mb-1.5" style="color:#f87171">🕵️ Angles Morts — Achats probables chez la concurrence</p><p class="text-[8px] t-inverse-muted mb-2">Familles achetées par la majorité des ${escapeHtml(info.metier||'')} du réseau, absentes chez ce client</p><div class="flex flex-wrap gap-1">${anglesMorts.map(t=>
+      `<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:#f87171;border-color:#f87171;opacity:0.85">${escapeHtml(famLib(t.fam)||t.fam)} <span class="opacity-60">${t.pctClients}% · moy ${formatEuro(t.avgCA)}</span></span>`
+    ).join('')}</div></div>`;
+  })()}
 </div>`;
   }
 
   const tabs=[];
   if(iciArts.length)tabs.push({id:'ici',label:`🏪 Ici — ${iciArts.length} réf.`});
+  if(livreMagArts.length)tabs.push({id:'livremag',label:`🚚 Livré MAG — ${livreMagArts.length} art.`});
   if(ailleursArts.length)tabs.push({id:'ailleurs',label:`🌐 Ailleurs — ${ailleursArts.length} art.`});
   if(omni)tabs.push({id:'omni',label:`📡 Omni — ${omni.score}/100`});
 
@@ -546,8 +593,29 @@ function _renderClient360(clientCode,source){
     }
 
 
+    // Regrouper livré MAG par famille
+    const _livreMagGrouped=new Map();
+    for(const [code,d] of livreMagArts){
+      const fam=_S.catalogueFamille?.get(code)?.codeFam||_S.articleFamille?.[code]||'???';
+      if(!_livreMagGrouped.has(fam))_livreMagGrouped.set(fam,[]);
+      _livreMagGrouped.get(fam).push([code,d]);
+    }
+    const _livreMagSorted=[..._livreMagGrouped.entries()].sort((a,b)=>{
+      const caA=a[1].reduce((s,[,d])=>s+(d.ca||0),0);
+      const caB=b[1].reduce((s,[,d])=>s+(d.ca||0),0);
+      return caB-caA;
+    });
+    let livreMagRows='';
+    for(const [fam,items] of _livreMagSorted){
+      const label=famLib(fam)||fam;
+      const caFam=items.reduce((s,[,d])=>s+(d.ca||0),0);
+      livreMagRows+=`<tr><td colspan="5" class="py-1.5 px-2 text-[10px] font-bold t-inverse-muted border-b b-dark" style="background:rgba(255,255,255,0.03)"><span style="color:var(--c-action)">${escapeHtml(fam)}</span> ${escapeHtml(label)} <span class="font-normal t-disabled ml-1">${items.length} art. · ${formatEuro(caFam)}</span></td></tr>`;
+      livreMagRows+=items.map(e=>_ailleursRow(e)).join('');
+    }
+
     const tabContents={
       ici:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Stock</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${iciRows}</tbody></table>`,
+      livremag:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${livreMagRows}</tbody></table>`,
       ailleurs:`<table class="min-w-full text-xs"><thead class="s-panel-inner t-inverse font-bold"><tr><th class="py-1 px-2 text-left">Code</th><th class="py-1 px-2 text-left">Article</th><th class="py-1 px-2 text-left">Canal</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">Verdict</th></tr></thead><tbody>${ailleursRows}</tbody></table>`,
       omni:omniContent
     };
@@ -567,7 +635,7 @@ function _renderClient360(clientCode,source){
 }
 
 function _c360SwitchTab(clientCode,tabId){
-  ['ici','ailleurs','opport','omni'].forEach(id=>{
+  ['ici','livremag','ailleurs','opport','omni'].forEach(id=>{
     const el=document.getElementById(`c360content-${id}`);
     const btn=document.getElementById(`c360tab-${id}`);
     if(el)el.classList.add('hidden');
@@ -723,7 +791,10 @@ function openArticlePanel(code,source){
   const _abcBg=r.abcClass==='A'?'background:rgba(0,229,160,0.15);color:#00e5a0':r.abcClass==='B'?'background:rgba(59,130,246,0.15);color:#60a5fa':r.abcClass==='C'?'background:rgba(251,191,36,0.15);color:#fbbf24':'color:var(--t-disabled)';
   const _fmrBg=r.fmrClass==='F'?'background:rgba(34,197,94,0.18);color:#4ade80':r.fmrClass==='M'?'background:rgba(59,130,246,0.18);color:#93c5fd':r.fmrClass==='R'?'background:rgba(217,119,6,0.18);color:#fbbf24':'color:var(--t-disabled)';
   const _classifRow=`<span class="t-disabled">Classification</span><span><span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${_abcBg}">ABC-${r.abcClass||'—'}</span> <span style="display:inline-block;padding:1px 7px;border-radius:5px;font-weight:700;font-size:11px;${_fmrBg}">FMR-${r.fmrClass||'—'}</span></span>`;
-  const stockHtml=`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">${_statutRow}${_empStr}<span class="t-disabled">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span>${_classifRow}<span class="t-disabled">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="t-disabled">${_prismeLabel}</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="t-disabled">CA perdu estimé</span><span class="c-danger font-bold">${caEst>0?formatEuro(caEst):'—'}</span></div></div>`;
+  // Moteur 3 — Alerte prix vs réseau
+  const _priceGap=computePriceGap(code);
+  const _priceRow=_priceGap?`<span class="t-disabled">PU vs réseau</span><span class="${_priceGap.tropCher?'c-danger font-bold':'c-ok'}">${formatEuro(_priceGap.myPU)} ${_priceGap.ecartPct>=0?'+':''}${_priceGap.ecartPct}% <span class="text-[9px] t-disabled">(Top 3 : ${formatEuro(_priceGap.avgPUTop3)})</span></span>`:'';
+  const stockHtml=`<div class="diag-level"><div class="diag-level-hdr"><span class="font-bold text-sm">📦 Stock</span></div><div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">${_statutRow}${_empStr}<span class="t-disabled">Stock actuel</span><span class="${stockColor}">${r.stockActuel}${r.stockActuel<=0?` (rupture ${joursRup}j)`:''}</span>${_classifRow}<span class="t-disabled">MIN / MAX ERP</span><span>${r.ancienMin??'—'} / ${r.ancienMax??'—'}</span>${_reseauMinMaxRow}<span class="t-disabled">${_prismeLabel}</span><span>${newMinFmt} / ${newMaxFmt}</span><span class="t-disabled">CA perdu estimé</span><span class="c-danger font-bold">${caEst>0?formatEuro(caEst):'—'}</span>${_priceRow}</div></div>`;
   // Bouton Commander — adapté au verdict : Relance (Schizo), Implanter (Vitesse), Commander (local)
   const _isSchizo=_isVitesse&&r.stockActuel>0&&(r.W||0)===0;
   const _cmdLabel=_isSchizo?'Objectif Relance':_isVitesse?'Implanter':'Commander';
@@ -845,7 +916,7 @@ function openArticlePanel(code,source){
   // Performance HTML (colonne gauche du split)
   const perfHtml = `<div class="diag-level" style="overflow:hidden;min-width:0"><div class="diag-level-hdr"><span class="font-bold text-sm">📊 Performance</span>${_sqBadge}</div>
     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-      <span class="t-disabled">CA période</span><span class="font-bold c-ok">${artCA > 0 ? formatEuro(artCA) : '—'}</span>
+      <span class="t-disabled">CA PDV période</span><span class="font-bold c-ok">${artCA > 0 ? formatEuro(artCA) : '—'}</span>
       <span class="t-disabled">VMB</span><span class="font-bold">${artVMB > 0 ? formatEuro(artVMB) : '—'}</span>
       <span class="t-disabled">Tx marge</span><span class="font-bold ${typeof txMarge === 'string' && txMarge !== '—' && parseFloat(txMarge) < 25 ? 'c-danger' : ''}">${txMarge}${txMarge !== '—' ? '%' : ''}</span>
       <span class="t-disabled">Prélevé (V)</span><span>${r.V || 0}</span>

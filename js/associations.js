@@ -46,6 +46,8 @@ let _troncOpenFams = new Set();
 /** Vue active du Tronc Commun : 'articles' | 'carto' */
 let _troncVue = 'articles';
 let _troncLoiAirain = true; // Double validation : Tronc Commun ∩ ≥60% agences
+/** Agences en amorçage — exclues des calculs médiane/conformité */
+let _troncAmorcageStores = new Set();
 
 /** Teste si un client passe le filtre métier + strat actif */
 function _clientPassesAssocFilter(cc) {
@@ -1413,7 +1415,11 @@ function _renderTroncCommun() {
       return html;
     }
 
-    // Pour chaque agence : compter implantation
+    // Agences actives (exclure amorçage des calculs médiane)
+    const activeStores = stores.filter(s => !_troncAmorcageStores.has(s));
+    const amorcageStores = stores.filter(s => _troncAmorcageStores.has(s));
+
+    // Pour chaque agence : compter implantation (médiane CA basée sur agences actives uniquement)
     const storeData = [];
     for (const store of stores) {
       const sd = vpm[store];
@@ -1424,25 +1430,32 @@ function _renderTroncCommun() {
           implanted++;
           caTotal += sd[code].sumCA || 0;
         } else {
-          const cas = stores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0);
+          const cas = activeStores.map(s => vpm[s]?.[code]?.sumCA || 0).filter(v => v > 0);
           const median = cas.length ? cas.sort((a, b) => a - b)[Math.floor(cas.length / 2)] : 0;
           caMissed += median;
           missing.push(code);
         }
       }
       const pct = Math.round(implanted / troncCodes.length * 100);
-      storeData.push({ store, implanted, total: troncCodes.length, pct, caTotal, caMissed, missing });
+      const isAmorcage = _troncAmorcageStores.has(store);
+      storeData.push({ store, implanted, total: troncCodes.length, pct, caTotal, caMissed, missing, isAmorcage });
     }
-    storeData.sort((a, b) => b.pct - a.pct);
+    // Actives triées par %, amorçage en bas
+    const activeData = storeData.filter(d => !d.isAmorcage).sort((a, b) => b.pct - a.pct);
+    const amorcageData = storeData.filter(d => d.isAmorcage).sort((a, b) => a.store.localeCompare(b.store));
+    const sortedStoreData = [...activeData, ...amorcageData];
 
     const myStore = _S.selectedMyStore;
-    const avgPct = Math.round(storeData.reduce((s, d) => s + d.pct, 0) / storeData.length);
-    const below50 = storeData.filter(d => d.pct < 50).length;
-    const totalMissedCA = storeData.reduce((s, d) => s + d.caMissed, 0);
+    const avgPct = activeData.length ? Math.round(activeData.reduce((s, d) => s + d.pct, 0) / activeData.length) : 0;
+    const below50 = activeData.filter(d => d.pct < 50).length;
+    const totalMissedCA = activeData.reduce((s, d) => s + d.caMissed, 0);
 
     // Bandeau info Loi d'Airain (toggle dans la sidebar)
     if (_troncLoiAirain && _airainApplied) {
       html += `<div class="text-[9px] t-disabled mb-2 px-2">🛡️ Loi d'Airain active — <strong class="t-primary">${troncCodes.length} Incontournables</strong> sur ${_airainTotal} Tronc Commun (≥60% agences)</div>`;
+    }
+    if (amorcageData.length) {
+      html += `<div class="text-[9px] mb-2 px-2 py-1 rounded" style="background:rgba(34,197,94,0.1);color:#22c55e">🚀 <strong>${amorcageData.length}</strong> agence${amorcageData.length > 1 ? 's' : ''} en amorçage — exclue${amorcageData.length > 1 ? 's' : ''} des statistiques (${amorcageData.map(d => d.store).join(', ')})</div>`;
     }
 
     html += `<div class="grid grid-cols-4 gap-2 mb-3">
@@ -1468,13 +1481,32 @@ function _renderTroncCommun() {
 
     html += `<div id="troncConfMissingPanel"></div>`;
 
-    const rows = storeData.map(d => {
-      const color = d.pct >= 80 ? '#22c55e' : d.pct >= 50 ? '#f59e0b' : '#ef4444';
-      const barW = Math.max(d.pct, 2);
+    const rows = sortedStoreData.map(d => {
       const isMine = d.store === myStore;
       const ring = isMine ? 'outline:2px solid #8B5CF6;outline-offset:-2px;' : '';
+
+      if (d.isAmorcage) {
+        // Ligne amorçage — pas de barre conformité, bouton Kit de Démarrage
+        return `<tr style="${ring}background:rgba(34,197,94,0.05)">
+          <td class="px-3 py-2 text-[11px] font-bold" style="color:#22c55e">${d.store}</td>
+          <td class="px-3 py-2"><span class="text-[9px] px-2 py-0.5 rounded-full font-bold text-white" style="background:#22c55e">🚀 Amorçage</span></td>
+          <td class="px-3 py-2 text-[11px] t-disabled text-center" colspan="2">Exclue des statistiques</td>
+          <td class="px-3 py-2 text-right">
+            <button onclick="event.stopPropagation();window._troncKitDemarrage('${d.store}')" class="text-[9px] px-2 py-1 rounded font-bold cursor-pointer text-white" style="background:#22c55e">🚀 Kit de Démarrage</button>
+          </td>
+          <td class="px-3 py-2 text-right">
+            <button onclick="event.stopPropagation();window._troncToggleAmorcage('${d.store}')" class="text-[9px] px-1.5 py-0.5 rounded cursor-pointer t-disabled" style="background:var(--bg-surface)" title="Retirer du mode amorçage">✕</button>
+          </td>
+        </tr>`;
+      }
+
+      const color = d.pct >= 80 ? '#22c55e' : d.pct >= 50 ? '#f59e0b' : '#ef4444';
+      const barW = Math.max(d.pct, 2);
       return `<tr class="hover:s-hover cursor-pointer" onclick="window._troncConfShowMissing('${d.store}')" style="${ring}">
-        <td class="px-3 py-2 text-[11px] font-bold ${isMine ? 'text-violet-400' : 't-primary'}">${d.store}</td>
+        <td class="px-3 py-2 text-[11px] font-bold ${isMine ? 'text-violet-400' : 't-primary'}">
+          ${d.store}
+          <button onclick="event.stopPropagation();window._troncToggleAmorcage('${d.store}')" class="text-[8px] ml-1 px-1 py-0.5 rounded cursor-pointer t-disabled opacity-40 hover:opacity-100" style="background:var(--bg-surface)" title="Marquer en amorçage (nouvelle agence)">🚀</button>
+        </td>
         <td class="px-3 py-2">
           <div class="flex items-center gap-2">
             <div class="w-32 h-2 rounded-full" style="background:var(--bg-surface)">
@@ -1861,14 +1893,17 @@ window._troncConfShowMissing = function(store) {
   for (const [fam, arts] of sortedGroups) {
     tableRows += `<tr><td colspan="4" class="px-2 pt-3 pb-1"><span class="text-[10px] font-black" style="color:#8B5CF6">📁 ${fam.toUpperCase()}</span> <span class="text-[9px] t-disabled">(${arts.length})</span></td></tr>`;
     for (const r of arts) {
-      tableRows += `<tr class="text-[10px]"><td class="px-2 py-1 font-mono t-disabled pl-5">${r.code}</td><td class="px-2 py-1 t-primary">${r.lib}</td><td class="px-2 py-1 text-right t-disabled">${r.nbStores} ag.</td><td class="px-2 py-1 text-right font-bold" style="color:#f59e0b">${formatEuro(r.medianCA)}</td></tr>`;
+      tableRows += `<tr class="text-[10px]"><td class="px-2 py-1 font-mono t-disabled pl-5">${r.code}<span class="ml-1 cursor-pointer opacity-50 hover:opacity-100" onclick="event.stopPropagation();if(window.openArticlePanel)window.openArticlePanel('${r.code}','conformite')" title="Voir détail article">🔍</span></td><td class="px-2 py-1 t-primary">${r.lib}</td><td class="px-2 py-1 text-right t-disabled">${r.nbStores} ag.</td><td class="px-2 py-1 text-right font-bold" style="color:#f59e0b">${formatEuro(r.medianCA)}</td></tr>`;
     }
   }
 
   panel.innerHTML = `<div class="rounded-lg p-3 space-y-2" style="background:var(--bg-card);border-left:3px solid #ef4444">
     <div class="flex items-center justify-between">
       <span class="text-[11px]"><strong class="text-red-400">${store}</strong> — <strong>${missing.length}</strong> articles manquants dans <strong>${sortedGroups.length}</strong> familles</span>
-      <button onclick="window._troncConfExport('${store}')" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:#8B5CF6;color:white">📥 Ordre d'implantation</button>
+      <div class="flex items-center gap-2">
+        <button onclick="window._troncConfExport('${store}')" class="text-[9px] px-2 py-0.5 rounded cursor-pointer" style="background:#8B5CF6;color:white">📥 Ordre d'implantation</button>
+        <button onclick="document.getElementById('troncConfMissingPanel').innerHTML=''" class="text-[11px] t-disabled hover:text-white cursor-pointer font-bold px-1" title="Fermer">✕</button>
+      </div>
     </div>
     <table class="w-full"><thead><tr class="text-[8px] t-disabled uppercase">
       <th class="px-2 py-1 text-left">Code</th><th class="px-2 py-1 text-left">Article</th><th class="px-2 py-1 text-right">Présent dans</th><th class="px-2 py-1 text-right">CA médian</th>
@@ -2024,6 +2059,130 @@ window._troncToggleLoiAirain = function() {
   } else {
     renderAssociationsTab();
   }
+};
+
+// ── Mode Implantation Initiale ──────────────────────────────────
+
+window._troncToggleAmorcage = function(store) {
+  if (_troncAmorcageStores.has(store)) _troncAmorcageStores.delete(store);
+  else _troncAmorcageStores.add(store);
+  // Re-render conformité
+  const confTab = document.getElementById('tabConformite');
+  if (confTab && !confTab.classList.contains('hidden') && typeof window.renderConformiteTab === 'function') {
+    window.renderConformiteTab();
+  } else {
+    renderAssociationsTab();
+  }
+};
+
+window._troncKitDemarrage = function(store) {
+  const vpm = _S.ventesParMagasin || {};
+  const stores = Object.keys(vpm).filter(s => s !== store);
+  if (!stores.length) return;
+
+  // Recalculer les articles Tronc Commun courants
+  const chal = _S.chalandiseData;
+  if (!chal?.size) return;
+  const stratMetiers = new Set();
+  const allM = new Set();
+  for (const info of chal.values()) {
+    if (info.metier && info.metier.length > 2) {
+      allM.add(info.metier);
+      if (_isMetierStrategique(info.metier)) stratMetiers.add(info.metier);
+    }
+  }
+  const isCustom = _troncCustomMetiers !== null;
+  const effectiveMetiers = isCustom ? _troncCustomMetiers : (_troncIncludeAll ? allM : stratMetiers);
+  const data = _computeTroncCommun(_troncUniversFilter, effectiveMetiers, isCustom);
+  let troncArts = data.articles.filter(a => a.indice >= 60);
+
+  // Loi d'Airain
+  if (_troncLoiAirain && stores.length > 1) {
+    const storeThreshold = Math.ceil(stores.length * 60 / 100);
+    troncArts = troncArts.filter(a => {
+      let sc = 0;
+      for (const s of stores) { if (vpm[s]?.[a.code]?.sumCA > 0 || vpm[s]?.[a.code]?.sumPrelevee > 0) sc++; }
+      return sc >= storeThreshold;
+    });
+  }
+
+  if (!troncArts.length) {
+    if (window.showToast) window.showToast('Aucun article Tronc Commun à exporter', 'warning');
+    return;
+  }
+
+  // Calcul Vitesse Réseau pour chaque article
+  const fdMap = new Map();
+  for (const r of (DataStore.finalData || [])) fdMap.set(r.code, r);
+
+  let csv = 'Famille;Code;Article;MIN (Vitesse);MAX (Vitesse);Prix Unitaire;Valeur Stock MIN;Agences présentes;CA médian réseau;Source\n';
+
+  const groups = new Map();
+  for (const a of troncArts) {
+    const r = fdMap.get(a.code);
+    const pu = r?.prixUnitaire || 0;
+
+    // Vitesse Réseau : Top 3 agences par CA (même algo que main.js _applyVitesseReseau)
+    let t1ca = 0, t1bl = 0, t2ca = 0, t2bl = 0, t3ca = 0, t3bl = 0, any = false;
+    for (const s of stores) {
+      const v = vpm[s]?.[a.code];
+      if (!v || v.countBL <= 0) continue;
+      const ca = v.sumCA || 0;
+      const bl = v.countBL;
+      any = true;
+      if (ca > t1ca) { t3ca = t2ca; t3bl = t2bl; t2ca = t1ca; t2bl = t1bl; t1ca = ca; t1bl = bl; }
+      else if (ca > t2ca) { t3ca = t2ca; t3bl = t2bl; t2ca = ca; t2bl = bl; }
+      else if (ca > t3ca) { t3ca = ca; t3bl = bl; }
+    }
+
+    let minQty = 0, maxQty = 0, source = '';
+    if (any && pu > 0 && (t1bl + t2bl + t3bl) > 0) {
+      let vit = ((t1ca + t2ca + t3ca) / pu) / (t1bl + t2bl + t3bl);
+      const capMed = r?.medMinReseau > 0 ? r.medMinReseau * 2 : 20;
+      vit = Math.min(vit, capMed);
+      minQty = Math.max(Math.ceil(vit), 1);
+      maxQty = Math.max(Math.ceil(vit * 2), minQty + 1);
+      source = 'Vitesse Réseau';
+    } else if (r?.medMinReseau > 0 || r?.medMaxReseau > 0) {
+      minQty = Math.max(Math.round(r.medMinReseau || 0), 1);
+      maxQty = Math.max(Math.round(r.medMaxReseau || 0), minQty + 1);
+      source = 'Médiane ERP';
+    } else {
+      minQty = 1;
+      maxQty = 2;
+      source = 'Défaut';
+    }
+
+    const cas = stores.map(s => vpm[s]?.[a.code]?.sumCA || 0).filter(v => v > 0);
+    const median = cas.length ? cas.sort((x, y) => x - y)[Math.floor(cas.length / 2)] : 0;
+    const valStock = minQty * pu;
+    const fam = a.famLib || a.famille || '';
+    if (!groups.has(fam)) groups.set(fam, []);
+    groups.get(fam).push({ code: a.code, lib: (a.libelle || '').replace(/;/g, ','), minQty, maxQty, pu, valStock, nbStores: cas.length, median, source });
+  }
+
+  // Trier par famille puis CA médian desc
+  for (const arts of groups.values()) arts.sort((a, b) => b.median - a.median);
+  const sortedGroups = [...groups.entries()].sort((a, b) => {
+    return b[1].reduce((s, r) => s + r.valStock, 0) - a[1].reduce((s, r) => s + r.valStock, 0);
+  });
+
+  let totalVal = 0, totalRefs = 0;
+  for (const [fam, arts] of sortedGroups) {
+    for (const r of arts) {
+      csv += `${fam};${r.code};${r.lib};${r.minQty};${r.maxQty};${r.pu.toFixed(2)};${Math.round(r.valStock)};${r.nbStores};${Math.round(r.median)};${r.source}\n`;
+      totalVal += r.valStock;
+      totalRefs++;
+    }
+  }
+
+  csv += `\nTOTAL;${totalRefs} références;;;;"${Math.round(totalVal)} € BFR estimé";;;;\n`;
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `PRISME_Kit_Demarrage_${store}.csv`;
+  a.click();
+  if (window.showToast) window.showToast(`Kit de Démarrage ${store} : ${totalRefs} réf. · ${formatEuro(totalVal)} BFR`, 'success');
 };
 
 // Geste 5 : Export CSV

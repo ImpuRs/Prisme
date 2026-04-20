@@ -350,6 +350,7 @@ export function clientMatchesCommercialFilter(info) {
 
 export function clientMatchesMetierFilter(info) {
   if (!_S._selectedMetier) return true;
+  if (_S._selectedMetier === '__NONE__') { const m = (info.metier || '').trim(); return !m || m.length <= 2 || /^[-–—\s.]+$/.test(m); }
   return (info.metier || '') === _S._selectedMetier;
 }
 
@@ -357,6 +358,35 @@ export function clientMatchesUniversFilter(cc) {
   if (!_S._selectedUnivers.size) return true;
   const u = _S._clientDominantUnivers?.get(cc) || '';
   return _S._selectedUnivers.has(u);
+}
+
+/**
+ * Retourne le CA PDV d'un client filtré par univers sélectionné.
+ * Si aucun univers sélectionné → retourne le CA total (pas de filtre).
+ * Si univers actif → ne somme que les articles appartenant à cet univers.
+ * Utilisé dans le Cockpit Commercial : le filtre univers ne cache pas les clients,
+ * il filtre les MONTANTS. Un client à 0€ dans l'univers = cible de conquête.
+ */
+export function getUniversFilteredCA(cc) {
+  const au = _S.articleUnivers || {};
+  const sel = _S._selectedUnivers;
+  const artMap = _S.ventesClientArticle?.get(cc);
+
+  // Pas de filtre univers → CA brut
+  if (!sel.size) {
+    let ca = 0;
+    if (artMap) for (const d of artMap.values()) ca += d.sumCA || 0;
+    return ca;
+  }
+
+  // Filtre univers actif → ne compter que les articles de cet univers
+  if (!artMap) return 0;
+  let ca = 0;
+  for (const [code, d] of artMap.entries()) {
+    const u = au[code];
+    if (u && sel.has(u)) ca += d.sumCA || 0;
+  }
+  return ca;
 }
 
 export function clientMatchesDistanceFilter(info) {
@@ -368,7 +398,9 @@ export function clientMatchesDistanceFilter(info) {
 
 export function _clientPassesFilters(info, cc='') {
   if (_S._filterStrategiqueOnly && !_isMetierStrategique(info.metier)) return false;
-  if (!clientMatchesUniversFilter(cc)) return false;
+  // Univers : NE PAS filtrer les clients ici. Le filtre univers agit sur les MONTANTS (CA),
+  // pas sur la visibilité des clients. Un client sans achats dans l'univers filtré est une
+  // cible de conquête, pas un client à cacher. Voir getUniversFilteredCA().
   // Distance : client PDV actif → vient déjà au comptoir, ne pas exclure par distance
   const distOk = clientMatchesDistanceFilter(info) || (cc && _S.clientsMagasin?.has(cc));
   return clientMatchesDeptFilter(info) && clientMatchesClassifFilter(info) &&
@@ -746,6 +778,78 @@ export function computeSPC(cc, info) {
 }
 
 
+// ── B3: Benchmark Métier — médiane CA + tronc commun familles par segment ──
+let _benchMetierCache = null;
+export function computeBenchMetier() {
+  if (_benchMetierCache) return _benchMetierCache;
+  const result = new Map(); // metier → {medianCA, nbClients, troncCommun: [{fam, pctClients, avgCA}]}
+  if (!_S.chalandiseData?.size) return result;
+  // 1. Agréger CA par métier (période en cours = ca2026, fallback ca2025)
+  const metierCAs = {}; // metier → [ca1, ca2, ...]
+  for (const [cc, info] of _S.chalandiseData) {
+    const m = (info.metier || '').trim();
+    if (!m) continue;
+    const ca = info.ca2026 || info.ca2025 || 0;
+    if (ca <= 0) continue;
+    if (!metierCAs[m]) metierCAs[m] = [];
+    metierCAs[m].push(ca);
+  }
+  // 2. Calculer médiane (Q1 exclu = bottom 25% ignoré) + tronc commun
+  for (const m in metierCAs) {
+    const cas = metierCAs[m].sort((a, b) => a - b);
+    // Exclure le quartile inférieur (bottom 25%) = bruit statistique des touristes
+    const q1Start = Math.floor(cas.length * 0.25);
+    const filtered = cas.slice(q1Start);
+    const n = filtered.length;
+    if (n < 3) continue;
+    const medianCA = n % 2 === 0 ? (filtered[n / 2 - 1] + filtered[n / 2]) / 2 : filtered[Math.floor(n / 2)];
+    // Tronc commun : familles achetées par > 50% des clients de ce métier
+    const mfb = _S.metierFamBench?.[m];
+    const nTotal = cas.length; // total brut avant exclusion Q1
+    const troncCommun = [];
+    if (mfb) {
+      for (const fam in mfb) {
+        if (!Object.prototype.hasOwnProperty.call(mfb, fam)) continue;
+        const { nbClients, totalCA } = mfb[fam];
+        const pctClients = Math.round(nbClients / nTotal * 100);
+        if (pctClients >= 50) { // majorité des clients du métier achètent cette famille
+          troncCommun.push({ fam, pctClients, avgCA: Math.round(totalCA / nbClients) });
+        }
+      }
+      troncCommun.sort((a, b) => b.pctClients - a.pctClients || b.avgCA - a.avgCA);
+    }
+    result.set(m, { medianCA: Math.round(medianCA), nbClients: n, troncCommun });
+  }
+  _benchMetierCache = result;
+  return result;
+}
+export function resetBenchMetierCache() { _benchMetierCache = null; }
+
+// ── Moteur 3 : Alerte Prix — écart PU vs Top 3 réseau ────────────────────
+export function computePriceGap(code) {
+  const vpm = _S.ventesParMagasin;
+  if (!vpm) return null;
+  const myStore = _S.selectedMyStore;
+  const myData = vpm[myStore]?.[code];
+  if (!myData || !myData.sumPrelevee || myData.sumPrelevee <= 0) return null;
+  const myPU = myData.sumCA / myData.sumPrelevee;
+  // Collecter PU des autres agences
+  const others = [];
+  for (const store in vpm) {
+    if (store === myStore) continue;
+    const d = vpm[store][code];
+    if (!d || !d.sumPrelevee || d.sumPrelevee <= 0) continue;
+    others.push({ store, pu: d.sumCA / d.sumPrelevee, qty: d.sumPrelevee });
+  }
+  if (others.length < 2) return null;
+  others.sort((a, b) => b.qty - a.qty); // tri par volume
+  const top3 = others.slice(0, 3);
+  const avgPUTop3 = top3.reduce((s, o) => s + o.pu, 0) / top3.length;
+  if (avgPUTop3 <= 0) return null;
+  const ecartPct = Math.round((myPU - avgPUTop3) / avgPUTop3 * 100);
+  return { myPU: Math.round(myPU * 100) / 100, avgPUTop3: Math.round(avgPUTop3 * 100) / 100, ecartPct, tropCher: ecartPct >= 10 };
+}
+
 // ── Helper interne : suivi famille × canal pour le score omnicanal ───────
 function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
   if (!fam) return;
@@ -769,9 +873,19 @@ function _trackFamCanalInto(famCanalState, nbFamsCrossRef, fam, canal) {
 export function computeOmniScores() {
   const scores = new Map();
   const nowTs = Date.now();
+  // Index territoireLines par client (une seule passe sur les 250k lignes)
+  const _terrByClient = new Map();
+  if (_S.territoireLines?.length) {
+    for (const l of _S.territoireLines) {
+      if (!l.clientCode || l.canal === 'MAGASIN') continue;
+      if (!_terrByClient.has(l.clientCode)) _terrByClient.set(l.clientCode, []);
+      _terrByClient.get(l.clientCode).push(l);
+    }
+  }
   const allCc = new Set();
   if (_S.ventesClientArticle) for (const cc of _S.ventesClientArticle.keys()) allCc.add(cc);
   if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) allCc.add(cc);
+  for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
   for (const cc of allCc) {
     const pdvArts = _S.ventesClientArticle?.get(cc);
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
@@ -784,6 +898,16 @@ export function computeOmniScores() {
       for (const [, v] of horArts) {
         caHors += v.sumCA || 0;
         if (v.canal) canaux.add(v.canal);
+      }
+    }
+    // Enrichir avec territoireLines (Qlik) — canaux + CA hors agence
+    const _terrLines = _terrByClient.get(cc);
+    if (_terrLines) {
+      for (const l of _terrLines) {
+        const tCanal = l.canal || 'EXTÉRIEUR';
+        if (tCanal === 'EXTÉRIEUR') canaux.add('AUTRES_AGENCES');
+        else canaux.add(tCanal);
+        caHors += l.ca || 0;
       }
     }
     const nbCanaux = canaux.size;
@@ -811,6 +935,12 @@ export function computeOmniScores() {
     const _nbFamsCrossRef = [0];
     if (pdvArts) for (const [code] of pdvArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], 'MAGASIN');
     if (horArts) for (const [code, v] of horArts) _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[code], v.canal || 'HORS');
+    // Enrichir familles cross-canal avec territoireLines (index pré-calculé)
+    if (_terrLines) {
+      for (const l of _terrLines) {
+        _trackFamCanalInto(_famCanalState, _nbFamsCrossRef, _S.articleFamille?.[l.code], l.canal === 'EXTÉRIEUR' ? 'AUTRES_AGENCES' : (l.canal || 'HORS'));
+      }
+    }
     const _sFams = _nbFamsCrossRef[0] >= 5 ? 20 : _nbFamsCrossRef[0] >= 3 ? 13 : _nbFamsCrossRef[0] >= 1 ? 6 : 0;
     const score = Math.min(100, _sCanaux + _sEquilibre + _sRecence + _sFams);
     scores.set(cc, { segment, score, caPDV, caHors, caTotal, nbCanaux, nbBL, silenceDays });

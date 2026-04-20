@@ -476,7 +476,7 @@ export function getFilteredData() {
     if (fmr && r.fmrClass !== fmr) return false;
     if (univers && (_S.articleUnivers?.[r.code] || '') !== univers) return false;
     if (verdict && verdictMap) { const v = verdictMap.get(r.code); if (v !== verdict) return false; }
-    if (_cSearch) { return matchCompiled(_cSearch, normalizeStr(r.code+' '+r.libelle+' '+famLib(r.famille || ''))); }
+    if (_cSearch) { return matchCompiled(_cSearch, normalizeStr(r.code+' '+r.libelle+' '+famLib(r.famille || '')), r.code); }
     return true;
   });
   let activeCount = 0; if (fam) activeCount++; if (sFam) activeCount++; if (emp) activeCount++; if (stat) activeCount++; if (af) activeCount++; if (searchQuery) activeCount++; if (cockpitType) activeCount++; if (abc) activeCount++; if (fmr) activeCount++; if (univers) activeCount++; if (verdict) activeCount++;
