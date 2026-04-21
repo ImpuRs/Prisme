@@ -195,6 +195,7 @@ const _isLocalIncont = (code, roleOrMap) => {
   const myStore = _S.selectedMyStore;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
   const nbStores = stores.length || 1;
+  if (nbStores < 8) return false; // pas assez d'agences pour conclure LOCAL
   let nbSt = 0;
   for (const s of stores) { if (vpm[s]?.[code]?.countBL > 0) nbSt++; }
   return nbSt / nbStores < 0.6;
