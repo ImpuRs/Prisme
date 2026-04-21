@@ -193,12 +193,25 @@ const _isLocalIncont = (code, roleOrMap) => {
   if (role !== 'incontournable') return false;
   const vpm = _S.ventesParMagasin || {};
   const myStore = _S.selectedMyStore;
+  const myCA = vpm[myStore]?.[code]?.sumCA || 0;
+  if (!myCA) return false;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
-  const nbStores = stores.length || 1;
-  if (nbStores < 8) return false; // pas assez d'agences pour conclure LOCAL
+  // Détention réseau < 60%
   let nbSt = 0;
-  for (const s of stores) { if (vpm[s]?.[code]?.countBL > 0) nbSt++; }
-  return nbSt / nbStores < 0.6;
+  const otherCAs = [];
+  for (const s of stores) {
+    const v = vpm[s]?.[code];
+    if (v?.countBL > 0) { nbSt++; otherCAs.push(v.sumCA || 0); }
+  }
+  const nbStores = stores.length || 1;
+  if (nbSt / nbStores >= 0.6) return false; // réseau validé → pas LOCAL
+  // Surperformance locale : monCA >= 2× médiane des autres agences qui le vendent
+  if (!otherCAs.length) return true; // seul à le vendre → LOCAL par définition
+  otherCAs.sort((a, b) => a - b);
+  const mid = otherCAs.length % 2 === 0
+    ? (otherCAs[otherCAs.length / 2 - 1] + otherCAs[otherCAs.length / 2]) / 2
+    : otherCAs[Math.floor(otherCAs.length / 2)];
+  return mid > 0 && myCA / mid >= 2.0;
 };
 
 // ── Calcul rôles Physigamme (partagé Squelette + Physigamme + LLM) ──
