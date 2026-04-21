@@ -384,6 +384,39 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 
 ---
 
+## Doctrine temporelle — Merchandising vs Commerce
+
+### Règle Merchandising — immunité temporelle totale
+Squelette, Physigamme, Tronc Commun, Associations, PdM%, Angles Morts, Facing,
+MIN/MAX, ABC/FMR, OmniScores, Reconquête, Opportunités Nettes, Animation marque
+→ **toujours 12MG pleine période**, filtre période ignoré.
+Ce sont des **décisions d'assortiment**, pas de performance commerciale.
+
+**Source obligatoire** : `ventesClientArticleFull` (+ `articleClientsFull` pour nbClientsPDV).
+NE JAMAIS utiliser `ventesClientArticle` dans un moteur de calcul structurel.
+
+### Règle Commerce — filtre période actif
+Cockpit commercial, relances, KPIs bandeau client, CA client sur période,
+tableau "Clients PDV" → filtre période appliqué.
+Ce sont des **décisions d'animation commerciale**, pas de structure de rayon.
+
+**Source** : `ventesClientArticle` (period-filtered) — correct ici.
+
+### Fonctions concernées (engine.js)
+| Fonction | Source correcte | Raison |
+|---|---|---|
+| `computeArticleZoneIndex()` | `ventesClientArticleFull` | PdM% assortiment |
+| `computeSquelette()` | `ventesClientArticleFull` / `articleClientsFull` | Classification structurelle |
+| `computeAnglesMorts()` | via `clientFamCA` (Full) | Tronc commun métier |
+| `computeOpportuniteNette()` | `ventesClientArticleFull` | Familles manquantes |
+| `computeOmniScores()` | `ventesClientArticleFull` | Segmentation client |
+| `computeReconquestCohort()` | `ventesClientArticleFull` | Historique complet |
+| `computeAnimation()` | `ventesClientArticleFull` | Ciblage marque/conquête |
+| `computeFamillesHors()` | `ventesClientArticleFull` | Fuite par famille |
+| `computeMonRayon()` | `ventesClientArticleFull` | Clients par famille |
+
+---
+
 ## Ce qu'il NE FAUT PAS faire
 
 - Ajouter un bundler/build step
@@ -393,6 +426,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Recalculer `finalData` au changement de canal (invariant canal)
 - Appeler `getVal()` sans avoir appelé `_resetColCache()` entre consommé et stock
 - Mélanger `ventesClientArticle` (MAGASIN) et `ventesClientHorsMagasin` (hors-MAGASIN)
+- Utiliser `ventesClientArticle` dans un moteur de calcul structurel (voir Doctrine temporelle) — utiliser `ventesClientArticleFull`
 - Utiliser `ventesClientArticle` pour caAnnuel (period-filtered) — utiliser `ventesClientArticleFull`
 - Utiliser `articleClients` ou `clientsMagasin` pour nbClientsPDV squelette (period-filtered) — utiliser `articleClientsFull`
 - Utiliser `ventesParMagasin.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesClientArticleFull.sumCAPrelevee`

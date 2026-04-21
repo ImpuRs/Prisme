@@ -13,6 +13,9 @@ import { _S } from './state.js';
 import { getVal, _normalizeStatut, _isMetierStrategique, _normalizeClassif, _median, famLib, haversineKm, getSecteurDirection } from './utils.js';
 import { articleLib } from './article-store.js';
 
+// Helper : source client×article pleine période (immunité temporelle merchandising)
+const _vcaFull = () => _S.ventesClientArticleFull?.size ? _S.ventesClientArticleFull : _S.ventesClientArticle;
+
 function _isSixDigitCode(code) {
   if (code == null) return false;
   const s = typeof code === 'string' ? code : String(code);
@@ -608,7 +611,7 @@ export function computeReconquestCohort() {
         if (_minCR && lastDate < _minCR) continue;
         const daysAgo = Math.round((nowTs - lastDate.getTime()) / 86400000);
         if (daysAgo < 60) continue;
-        const artMap = _S.ventesClientArticle.get(cc);
+        const artMap = _vcaFull().get(cc);
         if (!artMap || artMap.size === 0) continue;
         const item = _buildCohortItem(cc, artMap, daysAgo);
         if (item) cohort.push(item);
@@ -620,7 +623,7 @@ export function computeReconquestCohort() {
         if (_minCR && lastDate < _minCR) continue;
         const daysAgo = Math.round((nowTs - lastDate.getTime()) / 86400000);
         if (daysAgo < 60) continue;
-        const artMap = _S.ventesClientArticle.get(cc);
+        const artMap = _vcaFull().get(cc);
         if (!artMap || artMap.size === 0) continue;
         const item = _buildCohortItem(cc, artMap, daysAgo);
         if (item) cohort.push(item);
@@ -638,7 +641,7 @@ export function computeReconquestCohort() {
       const rec = _S.clientStore?.get(cc);
       if (rec?.artMapPDV && rec.artMapPDV.size > 0) continue; // a déjà acheté au comptoir
       if (!rec) {
-        const artMap = _S.ventesClientArticle?.get(cc);
+        const artMap = _vcaFull()?.get(cc);
         if (artMap && artMap.size > 0) continue;
       }
       const chalInfo = _S.chalandiseData?.get(cc);
@@ -673,7 +676,7 @@ export function computeOpportuniteNette() {
     if (!horsArts.size) continue;
     // 2a. caParFamMoi = CA chez AG22 par famille pour ce client
     const caParFamMoi = new Map();
-    const myArts = _S.ventesClientArticle?.get(cc);
+    const myArts = _vcaFull()?.get(cc);
     if (myArts) {
       for (const [code, d] of myArts.entries()) {
         const fam = _S.articleFamille?.[code];
@@ -936,11 +939,12 @@ export function computeOmniScores() {
     }
   }
   const allCc = new Set();
-  if (_S.ventesClientArticle) for (const cc of _S.ventesClientArticle.keys()) allCc.add(cc);
+  const _vcaOmni = _vcaFull();
+  if (_vcaOmni) for (const cc of _vcaOmni.keys()) allCc.add(cc);
   if (_S.ventesClientHorsMagasin) for (const cc of _S.ventesClientHorsMagasin.keys()) allCc.add(cc);
   for (const cc of _terrByClient.keys()) allCc.add(cc); // clients visibles uniquement dans Qlik
   for (const cc of allCc) {
-    const pdvArts = _S.ventesClientArticle?.get(cc);
+    const pdvArts = _vcaOmni?.get(cc);
     const horArts = _S.ventesClientHorsMagasin?.get(cc);
     let caPDV = 0;
     if (pdvArts) for (const [, v] of pdvArts) caPDV += v.sumCA || 0;
@@ -1006,13 +1010,13 @@ export function computeOmniScores() {
 // les acheter au comptoir → signal de gamme manquante ou de captation partielle
 // Résultat : _S.famillesHors = [{fam, rawFam, nbClients, caHors, mainCanal, clients[]}]
 export function computeFamillesHors() {
-  if (!_S.ventesClientArticle?.size || !_S.ventesClientHorsMagasin?.size) {
+  if (!_vcaFull()?.size || !_S.ventesClientHorsMagasin?.size) {
     _S.famillesHors = [];
     return;
   }
   const famData = new Map(); // rawFam → {nbClients, caHors, canalCount:Map, clients}
   for (const [cc, horArts] of _S.ventesClientHorsMagasin) {
-    const pdvArts = _S.ventesClientArticle.get(cc);
+    const pdvArts = _vcaFull().get(cc);
     if (!pdvArts) continue; // pas de PDV → pas de "fuite", c'est juste hors-agence
     // Familles achetées en PDV
     const famsPDV = new Set();
@@ -1096,8 +1100,8 @@ export function computeArticleZoneIndex() {
     c.ca += ca; c.mon += mon;
   };
 
-  // Source 1 : ventesClientArticle (MAGASIN = mon agence)
-  for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+  // Source 1 : ventesClientArticleFull (MAGASIN = mon agence, pleine période 12MG)
+  for (const [cc, artMap] of (_vcaFull() || new Map())) {
     if (!chalClients.has(cc)) continue;
     for (const [code, data] of artMap) {
       if (!_isSixDigitCode(code)) continue;
@@ -1214,7 +1218,7 @@ export function computeSquelette(directionFilter) {
   // ── Source 3 : Clients hors-zone ──
   {
     const chalClients = hasChal ? _S.chalandiseData : null;
-    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+    for (const [cc, artMap] of (_vcaFull() || new Map())) {
       if (chalClients && chalClients.has(cc)) continue;
       for (const [code, data] of artMap) {
         if (!_isSixDigitCode(code)) continue;
@@ -1449,7 +1453,7 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
         if (z.n >= 5) z._cli = null; // on n'a plus besoin de dédup au-delà de 5
       }
     };
-    for (const [cc, artMap] of (_S.ventesClientArticle || new Map())) {
+    for (const [cc, artMap] of (_vcaFull() || new Map())) {
       if (!chal.has(cc)) continue;
       for (const [code, data] of artMap) {
         if (!finalCodes.has(code) || !_isSixDigitCode(code)) continue;
@@ -1720,7 +1724,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
       for (const cc of clientSet) {
         if (!_distOk(cc)) continue;
         nbFiltered++;
-        const vca = _S.ventesClientArticle?.get(cc);
+        const vca = _vcaFull()?.get(cc);
         if (vca && vca.size > 0) {
           nbActifs++;
           for (const [code, data] of vca) {
@@ -1777,7 +1781,7 @@ export function computeMaClientele(metierFilter, distanceKm) {
   for (const cc of clientSet) {
     if (!_distOk(cc)) continue;
     const chal = _S.chalandiseData.get(cc);
-    const vca = _S.ventesClientArticle?.get(cc);
+    const vca = _vcaFull()?.get(cc);
     const vcaHors = _S.ventesClientHorsMagasin?.get(cc);
     if (!vca && !vcaHors) {
       // Prospect sans achats
@@ -1932,8 +1936,9 @@ export function computeAnimation(marque) {
 
   const buyersByCode = new Map(); // code -> cc[]
   const brandAggByClient = new Map(); // cc -> {caMarque, nbArticlesMarque}
-  if (_S.ventesClientArticle) {
-    for (const [cc, artMap] of _S.ventesClientArticle) {
+  const _vcaAnim = _vcaFull();
+  if (_vcaAnim) {
+    for (const [cc, artMap] of _vcaAnim) {
       let caMarque = 0;
       let nbArticlesMarque = 0;
       for (const [code, d] of artMap) {
@@ -2056,8 +2061,8 @@ export function computeAnimation(marque) {
   }
 
   const clientsConquete = [];
-  if (hasChal && concurrentCodes.size > 0 && _S.ventesClientArticle) {
-    for (const [cc, artMap] of _S.ventesClientArticle) {
+  if (hasChal && concurrentCodes.size > 0 && _vcaAnim) {
+    for (const [cc, artMap] of _vcaAnim) {
       if (clientSet.has(cc)) continue; // déjà acheteur de la marque
       let caConcurrence = 0;
       const marquesConcurrentes = new Set();
@@ -2099,8 +2104,8 @@ export function computeAnimation(marque) {
   }
 
   const clientsLabo = [];
-  if (consoCodesMarque.size > 0 && machineCodesMarque.size > 0 && _S.ventesClientArticle) {
-    for (const [cc, artMap] of _S.ventesClientArticle) {
+  if (consoCodesMarque.size > 0 && machineCodesMarque.size > 0 && _vcaAnim) {
+    for (const [cc, artMap] of _vcaAnim) {
       let acheteConsoMarque = false, acheteMachineMarque = false;
       let caConso = 0;
       for (const [code, d] of artMap) {
@@ -2139,7 +2144,7 @@ export function computeAnimation(marque) {
       for (const cc of metierClients) {
         if (clientSet.has(cc) || conqueteSet.has(cc) || laboSet.has(cc)) continue;
         const chal = _S.chalandiseData.get(cc);
-        const vca = _S.ventesClientArticle?.get(cc);
+        const vca = _vcaAnim?.get(cc);
         let caTotalPDV = 0;
         if (vca) for (const v of vca.values()) caTotalPDV += v.sumCA || 0;
 
@@ -2210,7 +2215,7 @@ export function computeMonRayon(codeFam, codeSousFam) {
   const myStore = _S.selectedMyStore;
   const catFam = _S.catalogueFamille;
   const catMarq = _S.catalogueMarques;
-  const vca = _S.ventesClientArticle;
+  const vca = _vcaFull();
   const matchCache = new Map();
 
   // Helper : article matche la famille/sous-famille ?
@@ -2456,8 +2461,9 @@ export function computeRadarFamille() {
   }
 
   // ── Clients par famille ──
-  if (_S.ventesClientArticle) {
-    for (const [, artMap] of _S.ventesClientArticle) {
+  const _vcaRadar = _vcaFull();
+  if (_vcaRadar) {
+    for (const [, artMap] of _vcaRadar) {
       const seen = new Set();
       for (const code of artMap.keys()) {
         const fi = getFamInfo(code);
