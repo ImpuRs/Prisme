@@ -55,7 +55,14 @@ async function loadData() {
         r.onsuccess = () => resolve(r.result);
         r.onerror = () => reject(r.error);
       });
-      console.log('[Scan] IDB scan:', data ? 'finalData=' + (data.finalData?.length || 0) : 'vide');
+      console.log('[Scan] IDB scan:', data ? ('articles=' + (data.articles?.length || 0) + ' finalData=' + (data.finalData?.length || 0)) : 'vide');
+
+      // Nouveau format : payload scan minimal {articles,ean,...}
+      if (data?.articles?.length) {
+        _loadFromScanPayload(data);
+        console.log('[Scan] ✅ ' + _articles.size + ' articles restaurés depuis IDB (scan)');
+        return;
+      }
 
       // Fallback rétrocompat : anciennes sessions sans clé 'scan'
       let dataEffective = data;
@@ -163,7 +170,7 @@ const _LS_KEY = 'prisme_scan_data';
 // Champs utiles au scan — on élimine le reste pour tenir dans ~2-3 Mo
 const _SCAN_FIELDS = ['code','libelle','famille','sousFamille','emplacement','statut',
   'stockActuel','prixMoyenReseau','txMargeReseau','W','V','ancienMin','ancienMax',
-  'nouveauMin','nouveauMax','couvertureJours','abcClass','fmrClass','matriceVerdict',
+  'nouveauMin','nouveauMax','couvertureJours','abcClass','fmrClass','matriceVerdict','enleveTotal',
   '_sqClassif','_sqRole','_sqVerdict','_vitesseReseau','_fallbackERP','isParent',
   'medMinReseau','medMaxReseau','prixUnitaire','_reseauAgences'];
 
