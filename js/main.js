@@ -24,6 +24,27 @@ import { applyForcageCommercial as _applyForcageCommercial } from './chalandise-
 import { buildAgenceStore } from './agence-store.js';
 import { DataStore } from './store.js';
 window._S = _S; // debug + accès depuis nl.js et console DevTools
+
+// ── DEBUG TRAP V3 — dans main.js car state.js peut être en cache navigateur ──
+// Intercepte TOUTE écriture sur _cloneStores pour trouver qui met undefined
+{
+  const desc = Object.getOwnPropertyDescriptor(_S, '_cloneStores');
+  const isAccessor = desc && typeof desc.get === 'function';
+  console.log('[MAIN] _cloneStores descriptor:', isAccessor ? 'accessor (trap active in state.js)' : 'data property — INSTALLING TRAP HERE');
+  if (!isAccessor) {
+    let __val = _S._cloneStores;
+    Object.defineProperty(_S, '_cloneStores', {
+      get() { return __val; },
+      set(v) {
+        console.log(`[TRAP-MAIN] _cloneStores SET → ${Array.isArray(v) ? 'Array(' + v.length + ')' : String(v)}`);
+        if (v === undefined || v === null) console.trace('[TRAP-MAIN] ⚠️ SET to', v);
+        __val = v;
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+}
 import { _onPromoInput, _closePromoSuggest, _selectPromoSuggestion, _promoSuggestKeydown, runPromoSearch, _onPromoFamilleChange, _applyPromoFilters, _resetPromoFilters, _togglePromoSection, exportTourneeCSV, exportPromoCSV, copyPromoClipboard, _onPromoImportFileChange, _clearPromoImport, runPromoImport, _togglePromoImportSection, exportPromoImportCSV, resetPromo, _togglePromoClientRow, _switchPromoTab, _exportCommercialCSV, _renderSearchResults } from './promo.js';
 import { openDiagnostic, openDiagnosticMetier, closeDiagnostic, executeDiagAction, closeArticlePanel, openArticlePanel, renderDiagnosticPanel, _renderDiagnosticCellPanel, exportDiagnosticCSV, _diagV3FilterCategory, toggleReconquestFilter, openClient360, _c360SwitchTab, _c360CopyResume } from './diagnostic.js';
 import { renderLaboTab, updateLaboTiles } from './labo.js';
