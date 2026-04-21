@@ -251,6 +251,24 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
 _S.anglesMorts = [];           // [{cc, nom, metier, commercial, missing:[{famCode,fam,pctClients,avgCA,clientCA,potentiel}], totalPotentiel}]
 
+// ── Agences clones (scoring similarité inter-agences) ──
+// DEBUG TRAP: intercepter TOUTE écriture sur _cloneStores pour trouver qui met undefined
+let __cloneStoresVal = [];
+Object.defineProperty(_S, '_cloneStores', {
+  get() { return __cloneStoresVal; },
+  set(v) {
+    if (v === undefined || v === null) {
+      console.warn('[TRAP] _cloneStores SET to', v, 'from:');
+      console.trace();
+    }
+    __cloneStoresVal = v;
+  },
+  enumerable: true,
+  configurable: true,
+});
+_S._cloneSet = null;           // Set<storeCode> — cache, recalculé à la demande
+_S.seasonalIndexClones = null; // {famille → [12 coefficients]} — clones uniquement
+
 // ── Accumulation mensuelle pour filtre période instantané ──
 _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
 _S._byMonthFull = null;     // accumulation mensuelle cc→code→monthIdx→{sumCA} (TOUS canaux, myStore)
@@ -438,6 +456,7 @@ export function resetAppState() {
   _S._rawDataC = null; _S._rawDataCFiltered = null; _S._rawDataS = [];
   _S._fileC = null; _S._filesC = null; _S._fileS = null;
   _S._byMonth = null; _S._byMonthFull = null; _S._byMonthCanal = null; _S._byMonthStoreArtCanal = null; _S._byMonthStoreClients = null; _S._byMonthClients = null; _S._byMonthClientsByCanal = null; _S._clientsTousCanaux = null;
+  _S._cloneStores = []; _S._cloneSet = null; _S.seasonalIndexClones = null;
   _S._reseauMissedFamFilter = ''; _S._reseauMissedPage = 0; _S._reseauMissedShowAll = false;
   _S.clientOmniScore = new Map();
   _S.clientStore = new Map();
