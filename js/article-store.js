@@ -76,8 +76,14 @@ function buildArticleStore() {
   }
 
   // ── Clients PDV par article ──
+  // Utilise articleClientsFull (pleine période) quand disponible — invariant au filtre période UI
   const cliPDVMap = new Map(); // code → nbClients
-  if (_S.articleClients?.size && _S.clientsMagasin?.size) {
+  const _acFullAS = _S.articleClientsFull?.size ? _S.articleClientsFull : null;
+  if (_acFullAS) {
+    for (const [code, clients] of _acFullAS) {
+      if (clients.size > 0) cliPDVMap.set(code, clients.size);
+    }
+  } else if (_S.articleClients?.size && _S.clientsMagasin?.size) {
     for (const [code, clients] of _S.articleClients) {
       let n = 0;
       for (const cc of clients) { if (_S.clientsMagasin.has(cc)) n++; }

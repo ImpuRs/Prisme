@@ -482,6 +482,7 @@ async function _saveSessionToIDBNow() {
       ventesClientsPerStore: _serializeSetsObj(_S.ventesClientsPerStore),
       commandesPerStoreCanal: _serializeCmdPerStoreCanal(_S.commandesPerStoreCanal),
       articleClients:        [..._S.articleClients].map(([k, v]) => [k, [...v]]),
+      articleClientsFull:    [..._S.articleClientsFull].map(([k, v]) => [k, [...v]]),
       clientArticles:        [..._S.clientArticles].map(([k, v]) => [k, [...v]]),
       // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
       articleCanalCA:        _serializeNestedMap(_S.articleCanalCA),
@@ -640,6 +641,7 @@ export async function _restoreSessionFromIDB() {
     _S.ventesClientsPerStore = _deserializeSetsObj(data.ventesClientsPerStore || {});
     _S.commandesPerStoreCanal = _deserializeCmdPerStoreCanal(data.commandesPerStoreCanal || {});
     _S.articleClients        = new Map((data.articleClients || []).map(([k, v]) => [k, new Set(v)]));
+    _S.articleClientsFull    = new Map((data.articleClientsFull || []).map(([k, v]) => [k, new Set(v)]));
     _S.clientArticles        = new Map((data.clientArticles || []).map(([k, v]) => [k, new Set(v)]));
 
     _S.territoireReady   = data.territoireReady   || false;

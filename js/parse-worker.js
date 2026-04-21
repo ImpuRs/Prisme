@@ -610,6 +610,7 @@ async function _handleParseMessage(data) {
     var blPreleveeSet = new Set();
     var clientArticles = new Map();
     var articleClients = new Map();
+    var articleClientsFull = new Map(); // pleine période — hoisté hors filtre période (pour squelette)
     var passagesUniques = new Set();
     var commandesPDV = new Set();
     var ventesClientAutresAgences = new Map();
@@ -937,6 +938,15 @@ async function _handleParseMessage(data) {
         if (qteP > 0) { _eF.sumPrelevee += qteP; _eF.sumCAPrelevee += caP; }
         _eF.sumCA += caP + caE;
         if (qteP > 0 || qteE > 0) _eF.countBL++;
+      }
+
+      // articleClientsFull — pleine période, hoisté hors filtre période (pour squelette invariant)
+      if (cc2 && code && (!selectedStore || sk === selectedStore)) {
+        var codeClientFull = extractClientCode(_rc);
+        if (codeClientFull) {
+          if (!articleClientsFull.has(code)) articleClientsFull.set(code, new Set());
+          articleClientsFull.get(code).add(codeClientFull);
+        }
       }
 
       // byMonth — accumulation mensuelle pleine période pour filtre instantané (MAGASIN, myStore)
@@ -1475,6 +1485,7 @@ async function _handleParseMessage(data) {
       payload.clientLastOrderByCanal = serMap(clientLastOrderByCanal);
       payload.clientArticles = serMap(clientArticles);
       payload.articleClients = serMap(articleClients);
+      payload.articleClientsFull = serMap(articleClientsFull);
       payload.articleCanalCA = serMap(articleCanalCA);
       payload.blCanalMap = Array.from(blCanalMap);
       payload.clientsMagasin = Array.from(clientsMagasin);

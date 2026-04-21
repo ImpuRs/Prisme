@@ -18,7 +18,7 @@ import {
 } from './engine.js';
 import { getSelectedSecteurs } from './parser.js';
 import { renderInsightsBanner, showToast } from './ui.js';
-import { deltaColor, renderOppNetteTable } from './helpers.js';
+import { deltaColor, renderOppNetteTable, renderAnglesMortsTable } from './helpers.js';
 import { openClient360, closeDiagnostic, openDiagnosticMetier } from './diagnostic.js';
 import { _saveExclusions } from './cache.js';
 
@@ -536,6 +536,9 @@ window._ccc = (di,mi,ci) => {
       // Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
       _setEl('terrOpportunites', renderOppNetteTable());
 
+      // Angles Morts — familles tronc commun métier absentes chez le client
+      _setEl('terrAnglesMorts', renderAnglesMortsTable());
+
     }
 
     // Commerce tab always shows clients view (canal moved to Omnicanalité tab)
@@ -864,6 +867,9 @@ window._ccc = (di,mi,ci) => {
     // ── S3: Opportunités nettes — accordéon + tableau paginé (factorisé dans helpers.js)
     const oppsHtml = renderOppNetteTable();
 
+    // ── S3a: Angles Morts — familles tronc commun métier absentes
+    const anglesMortsHtml = renderAnglesMortsTable();
+
     // ── S3b: Ce que mes clients achètent ailleurs (nomadesMissedArts) ─────
     const nomadesMissedHtml = (()=>{
       const _rawNM = _S.nomadesMissedArts || [];
@@ -936,7 +942,7 @@ window._ccc = (di,mi,ci) => {
     const comScorecardHtml = _S.chalandiseReady && _S._selectedCommercial ? '<div id="comScorecardPDV"></div>' : '';
     // Tabs Silencieux/Perdus/Potentiels (déplacés depuis Conquête Terrain)
     const tabNavHtml = `<div class="flex items-center gap-1 border-b b-default mb-0 overflow-x-auto mt-3" id="cm-tab-nav">${_cmRenderNav(_cmComputeCounts())}</div><div id="cm-tab-content" class="pt-3"></div>`;
-    el.innerHTML = comScorecardHtml + tabNavHtml + oppsHtml + nomadesMissedHtml + nouveauxHtml + topPDVHtml + horsZoneHtml + digitauxHtml;
+    el.innerHTML = comScorecardHtml + tabNavHtml + oppsHtml + anglesMortsHtml + nomadesMissedHtml + nouveauxHtml + topPDVHtml + horsZoneHtml + digitauxHtml;
     // Peuple les tableaux cockpit dans les slots
     _buildCockpitClient();
     _cmSwitchTabRenderOnly(_cmTab);

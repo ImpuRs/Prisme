@@ -137,7 +137,8 @@ _S.clientNomLookup           // {cc → nom}
 _S.clientsMagasin            // Set<cc> — clients ayant acheté en MAGASIN sur la période
 _S.clientsMagasinFreq        // Map<cc, nbBL> — fréquence MAGASIN par client
 _S.clientArticles            // Map<cc, Set<code>> — articles achetés par client
-_S.articleClients            // Map<code, Set<cc>> — clients ayant acheté cet article
+_S.articleClients            // Map<code, Set<cc>> — clients ayant acheté cet article (period-filtered)
+_S.articleClientsFull        // Map<code, Set<cc>> — pleine période 12MG, invariant UI (pour squelette)
 ```
 
 ### Données chalandise
@@ -261,6 +262,7 @@ Niveaux du diagnostic :
 13. **Règle d'Implantation — Vitesse Réseau** : appliquée **à la source** dans `processData()` (main.js) juste après le calcul MIN/MAX standard. Si PRISME local donne 0/0 ET l'article n'est pas fin de série ET au moins 1 agence réseau a un MIN/MAX > 0 (Filtre de la Mort) → calcul Vitesse : `(CA Top 3 agences / PU) / nb BL Top 3`. MIN = ceil(vitesse), MAX = ceil(vitesse × 2). Flag `r._vitesseReseau = true` posé sur `finalData` pour affichage "(Vitesse)" en violet dans l'UI. L'historique local reste prioritaire (si `nouveauMin > 0` déjà, pas d'override).
 14. **Références père (isParent)** : exclues de tous les calculs rupture, service, Plan Rayon. Détection actuelle = 3 dates vides (`isParentRef()`). Limitation connue : certains composés (ex: HARPE) ont des dates remplies et passent à travers → faux positifs possibles dans les verdicts.
 15. **Filtre Fin de Vie** : un article ne peut PAS être classé "implanter" dans le squelette si (a) son statut ERP contient "fin de série"/"fin de stock", OU (b) TOUTES les agences réseau qui le vendent ont MIN/MAX = 0/0 dans `stockParMagasin` (= produit bloqué nationalement). Exception : s'il est physiquement en stock local, il reste visible (classé challenger/poids mort pour la purge).
+19. **nbClientsPDV squelette — pleine période** : `computeSquelette()` utilise `_S.articleClientsFull` (Map<code, Set<cc>>, pleine période 12MG, hoisté hors filtre période) pour calculer `nbClientsPDV`. NE PAS utiliser `articleClients` (period-filtered) ni `clientsMagasin` (period-filtered). Même pattern que `ventesClientArticleFull` pour `caAnnuel`.
 
 ---
 
@@ -355,11 +357,11 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - `periodFilterStart/End` persisté **uniquement en IDB** (pas localStorage)
 
 **Variables persistées importantes** (à maintenir dans _saveSessionToIDB / _restoreSessionFromIDB) :
-`finalData`, `ventesClientArticle`, `ventesClientHorsMagasin`, `chalandiseData`,
-`territoireLines`, `clientsByCommercial`, `clientLastOrder`, `clientNomLookup`,
-`canalAgence`, `articleCanalCA`, `seasonalIndex`, `benchLists`, `storesIntersection`,
-`selectedMyStore`, `_selectedCommercial`, `_selectedMetier`, `_globalCanal`,
-`periodFilterStart`, `periodFilterEnd`
+`finalData`, `ventesClientArticle`, `ventesClientArticleFull`, `ventesClientHorsMagasin`,
+`chalandiseData`, `territoireLines`, `clientsByCommercial`, `clientLastOrder`,
+`clientNomLookup`, `canalAgence`, `articleCanalCA`, `articleClientsFull`, `seasonalIndex`,
+`benchLists`, `storesIntersection`, `selectedMyStore`, `_selectedCommercial`,
+`_selectedMetier`, `_globalCanal`, `periodFilterStart`, `periodFilterEnd`
 
 ### Règle de mutation `periodFilterStart/End`
 
@@ -392,6 +394,7 @@ Base : `PRISME` (migrée depuis `PILOT_PRO`)
 - Appeler `getVal()` sans avoir appelé `_resetColCache()` entre consommé et stock
 - Mélanger `ventesClientArticle` (MAGASIN) et `ventesClientHorsMagasin` (hors-MAGASIN)
 - Utiliser `ventesClientArticle` pour caAnnuel (period-filtered) — utiliser `ventesClientArticleFull`
+- Utiliser `articleClients` ou `clientsMagasin` pour nbClientsPDV squelette (period-filtered) — utiliser `articleClientsFull`
 - Utiliser `ventesParMagasin.sumCA` pour caAnnuel (inclut enlevé tous canaux) — utiliser `ventesClientArticleFull.sumCAPrelevee`
 - Calculer l'omnicanalité sans `territoireLines` — le consommé local ne voit pas les ventes dans d'autres agences
 - Créer de nouvelles variables `_S.xxx` sans les ajouter dans `resetAppState()`

@@ -734,6 +734,59 @@ export function computeOpportuniteNette() {
   _S.opportuniteNette = results;
 }
 
+// ── C2: Angles Morts — familles du tronc commun métier absentes chez le client ──
+// Différence avec opportuniteNette : ici on croise le TRONC COMMUN MÉTIER (≥50% des confrères
+// achètent cette famille) vs ce que le client achète chez nous. Un angle mort = le client
+// n'achète PAS (ou quasi rien) d'une famille que ses confrères achètent massivement.
+// Seuil : CA client dans la famille < 5% du CA moyen métier → angle mort.
+export function computeAnglesMorts() {
+  _S.anglesMorts = [];
+  const benchMetier = computeBenchMetier();
+  if (!benchMetier.size || !_S.chalandiseData?.size) return;
+  const clientFams = _S.clientFamCA || {};
+  const results = [];
+  for (const [cc, info] of _S.chalandiseData) {
+    const metier = (info.metier || '').trim();
+    if (!metier) continue;
+    const bench = benchMetier.get(metier);
+    if (!bench || !bench.troncCommun.length) continue;
+    const myFams = clientFams[cc] || {};
+    const missing = [];
+    let totalPotentiel = 0;
+    for (const tc of bench.troncCommun) {
+      const myCa = myFams[tc.fam] || 0;
+      // Seuil 5% : en dessous du 5% du CA moyen confrères → angle mort
+      if (myCa >= tc.avgCA * 0.05) continue;
+      const potentiel = tc.avgCA - myCa;
+      if (potentiel <= 0) continue;
+      missing.push({
+        famCode: tc.fam,
+        fam: famLib(tc.fam) || tc.fam,
+        pctClients: tc.pctClients,
+        avgCA: tc.avgCA,
+        clientCA: Math.round(myCa),
+        potentiel: Math.round(potentiel),
+      });
+      totalPotentiel += potentiel;
+    }
+    if (!missing.length) continue;
+    missing.sort((a, b) => b.potentiel - a.potentiel);
+    const _ec = _enrichClientInfo(cc);
+    results.push({
+      cc,
+      nom: _ec.nom,
+      metier,
+      commercial: _ec.commercial,
+      classification: _ec.classification,
+      missing,
+      totalPotentiel: Math.round(totalPotentiel),
+      nbMissing: missing.length,
+    });
+  }
+  results.sort((a, b) => b.totalPotentiel - a.totalPotentiel);
+  _S.anglesMorts = results;
+}
+
 // ── B2: Score Potentiel Client (SPC) — 0-100 ─────────────────
 export function computeSPC(cc, info) {
   let score = 0;
@@ -1105,7 +1158,7 @@ export function computeSquelette(directionFilter) {
   }
   const nbStoresExclMy = Math.max(1, storesExclMy);
   // Cache rapide — même données source = même résultat
-  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.territoireLines?.length||0}|${_S.chalandiseData?.size||0}|${directionFilter||''}`;
+  const _sk = `${myStore}|${storesCount}|${finalData.length}|${_S.territoireLines?.length||0}|${_S.chalandiseData?.size||0}|${_S.articleClientsFull?.size||0}|${directionFilter||''}`;
   if (_sk === _sqCacheKey && _sqCacheResult) return _sqCacheResult;
   const hasTerr = _S.territoireReady && _S.territoireLines?.length > 0;
   const hasChal = _S.chalandiseReady && _S.chalandiseData?.size > 0;
@@ -1193,7 +1246,19 @@ export function computeSquelette(directionFilter) {
   }
 
   // ── Source 5 : Pénétration PDV (combien de MES clients achètent cet article) ──
-  if (_S.articleClients?.size && _S.clientsMagasin?.size) {
+  // Utilise articleClientsFull (pleine période) — invariant au filtre période UI
+  // Fallback sur articleClients × clientsMagasin si articleClientsFull pas encore disponible
+  const _acFull = _S.articleClientsFull?.size ? _S.articleClientsFull : null;
+  if (_acFull) {
+    for (const [code, clients] of _acFull) {
+      if (!_isSixDigitCode(code)) continue;
+      if (clients.size >= 1) {
+        const a = _ensure(code);
+        a.nbClientsPDV = clients.size;
+        a.sources.add('pdvClients');
+      }
+    }
+  } else if (_S.articleClients?.size && _S.clientsMagasin?.size) {
     for (const [code, clients] of _S.articleClients) {
       if (!_isSixDigitCode(code)) continue;
       let n = 0;
@@ -1415,10 +1480,18 @@ function _computeSqClassifMapForVerdicts({ vpm, myStore, stores, nbStores, final
   }
 
   // nbClientsPDV (capé à 3 car seul le seuil >=3 est utilisé pour SOCLE)
+  // Utilise articleClientsFull (pleine période) quand disponible
   const nbClientsPDVCache = new Map();
+  const _acFullLite = _S.articleClientsFull?.size ? _S.articleClientsFull : null;
   const _getNbClientsPDV = (code) => {
     const cached = nbClientsPDVCache.get(code);
     if (cached !== undefined) return cached;
+    if (_acFullLite) {
+      const clients = _acFullLite.get(code);
+      const n = clients?.size || 0;
+      nbClientsPDVCache.set(code, n);
+      return n;
+    }
     const cm = _S.clientsMagasin;
     const clients = _S.articleClients?.get(code);
     if (!cm?.size || !clients?.size) { nbClientsPDVCache.set(code, 0); return 0; }

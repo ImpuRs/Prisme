@@ -2056,39 +2056,6 @@ function _prRenderPilotage(fam) {
     }
   }
 
-  // ── Socle Local — familles fragmentées ──────────────────────────────
-  // Dans les familles où le réseau ne converge pas (visserie, boulonnerie),
-  // le squelette classe tout en surveiller/challenger. On détecte ces familles
-  // et on upgrade les top refs (ABC intra-famille) en "Socle Local".
-  {
-    // Compter socle réseau vs total par classif dans cette famille
-    const nbSocle = arts.filter(a => a._g === 'socle').length;
-    const nbInStock = arts.filter(a => a._g !== 'implanter').length;
-    const isFragmented = nbInStock >= 15 && nbSocle < nbInStock * 0.05; // < 5% socle = fragmentée
-
-    if (isFragmented) {
-      // ABC intra-famille : top 20% du CA PDV = "Socle Local"
-      const vpmLocal = _S.ventesParMagasin?.[_S.selectedMyStore] || {};
-      const inStock = arts.filter(a => a._g !== 'implanter');
-      const withCA = inStock.map(a => ({ art: a, ca: vpmLocal[a.code]?.sumCA || 0 }))
-        .sort((x, y) => y.ca - x.ca);
-      const totalCA = withCA.reduce((s, x) => s + x.ca, 0);
-      if (totalCA > 0) {
-        let cumCA = 0;
-        for (const { art, ca } of withCA) {
-          cumCA += ca;
-          if (cumCA <= totalCA * 0.8 && ca > 0) {
-            // Top 80% du CA = Socle Local
-            art._socleLocal = true;
-            art._g = 'socle';
-            // Recalculer le verdict avec la nouvelle classif
-            art.verdict = _prVerdict('socle', art.role, art.code);
-          }
-        }
-      }
-    }
-  }
-
   // ── Indice Facing dynamique (articles en stock uniquement) ──
   // Score relatif basé sur classif × rôle × rotation dans l'emplacement
   // Proxy allocation actuelle = nouveauMax (intention de stock ≈ espace alloué)
@@ -2262,13 +2229,12 @@ function _prRenderPilotage(fam) {
 
   // ── KPIs synthèse (single pass over arts) ──
   const nbTotal = arts.length;
-  let nbEnStock = 0, valStock = 0, nbFacingUp = 0, nbFacingDown = 0, nbFacingRemove = 0, nbSocleLocal = 0;
+  let nbEnStock = 0, valStock = 0, nbFacingUp = 0, nbFacingDown = 0, nbFacingRemove = 0;
   for (const a of arts) {
     if (a.enStock) { nbEnStock++; valStock += (a.stockActuel || 0) * (a.prix || 0); }
     if (a._facingDelta === 'up') nbFacingUp++;
     else if (a._facingDelta === 'down') nbFacingDown++;
     else if (a._facingDelta === 'remove') nbFacingRemove++;
-    if (a._socleLocal) nbSocleLocal++;
   }
   const nbImplanter = counts.implanter || 0;
   const nbFacingActions = nbFacingUp + nbFacingDown + nbFacingRemove;
@@ -2357,7 +2323,7 @@ function _prRenderPilotage(fam) {
     return `${sep}<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" style="${rowBg}"
       onclick="if(window.openArticlePanel)window.openArticlePanel('${a.code}','planRayon')">
       <td class="py-1.5 px-2 font-mono t-disabled">${a.code} <span class="opacity-50 hover:opacity-100">🔍</span></td>
-      <td class="py-1.5 px-2 t-primary" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}${a._socleLocal ? ' <span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:rgba(251,191,36,0.2);color:#f59e0b;border:1px solid rgba(251,191,36,0.3)">LOCAL</span>' : ''}</td>
+      <td class="py-1.5 px-2 t-primary" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(lib)}">${escapeHtml(lib)}</td>
       <td class="py-1.5 px-2 text-right">${stockCell}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.cliPDV || '—'}</td>
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
@@ -2384,11 +2350,8 @@ function _prRenderPilotage(fam) {
   const facingSummary = nbFacingActions > 0
     ? ` · <span style="color:#f59e0b" title="${nbFacingUp} à élargir, ${nbFacingDown} à réduire, ${nbFacingRemove} candidats retrait">📐 ${nbFacingActions} actions facing</span>`
     : '';
-  const socleLocalSummary = nbSocleLocal > 0
-    ? ` · <span style="color:#f59e0b" title="Famille fragmentée : top refs par CA local upgradées en socle">🏷️ ${nbSocleLocal} Socle Local</span>`
-    : '';
   const summary = `<div class="flex items-center gap-4 mb-3 text-[10px] flex-wrap">
-    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter${socleLocalSummary}${facingSummary}</span>
+    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter${facingSummary}</span>
     <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
   </div>`;
 

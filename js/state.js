@@ -59,6 +59,7 @@ _S.blConsommeSet = new Set();
 _S.blPreleveeSet = new Set(); // BL numbers where qteP > 0 (prélevé uniquement)
 _S.clientsMagasin = new Set();
 _S.clientsMagasinFreq = new Map(); // Map<clientCode, nbBL> — fréquence MAGASIN par client
+_S.articleClientsFull = new Map(); // Map<code, Set<cc>> — pleine période, invariant UI (pour squelette)
 _S.territoireLines = [];
 _S.territoireReady = false;
 _S.terrDirectionData = {};
@@ -248,6 +249,7 @@ _S.articleMonthlySales = {};   // code → [12 mois qtés]
 
 // ── Opportunité nette Client×Famille (C1) ──
 _S.opportuniteNette = [];      // [{cc, nom, metier, commercial, missingFams, totalPotentiel, nbMissing}]
+_S.anglesMorts = [];           // [{cc, nom, metier, commercial, missing:[{famCode,fam,pctClients,avgCA,clientCA,potentiel}], totalPotentiel}]
 
 // ── Accumulation mensuelle pour filtre période instantané ──
 _S._byMonth = null;         // accumulation mensuelle cc→code→monthIdx→agg (MAGASIN)
@@ -416,8 +418,9 @@ export function resetAppState() {
   // Moteur saisonnier
   _S.seasonalIndex = {}; _S.seasonalIndexReseau = {}; _S.articleMonthlySales = {};
 
-  // Opportunité nette
+  // Opportunité nette + Angles Morts
   _S.opportuniteNette = [];
+  _S.anglesMorts = [];
 
   // Diagnostic cascade
   _S._diagLevels = {}; _S._diagActions = []; _S._diagPlanCopyText = '';

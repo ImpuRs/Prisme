@@ -465,15 +465,35 @@ function _renderClient360(clientCode,source){
     if(!_metierBench||!_metierBench.troncCommun.length)return'';
     const clientFams=_S.clientFamCA?_S.clientFamCA[clientCode]||{}:{};
     const allClientFams=new Set([...famsPDV.keys(),...famsHors.keys()]);
-    // Familles du tronc commun métier que le client n'achète pas du tout chez Legallais
+    // Angles Morts = familles du tronc commun métier où le client achète < 5% du CA moyen confrères
     const anglesMorts=_metierBench.troncCommun.filter(t=>{
+      const myCa=clientFams[t.fam]||0;
       const fl=famLib(t.fam)||t.fam;
-      return!clientFams[t.fam]&&!allClientFams.has(fl);
+      const fromOther=famsHors.get(fl)?.ca||0;
+      return(myCa+fromOther)<t.avgCA*0.05;
+    }).map(t=>{
+      const myCa=clientFams[t.fam]||0;
+      return{...t,clientCA:myCa,potentiel:Math.round(t.avgCA-myCa)};
     }).slice(0,8);
     if(!anglesMorts.length)return'';
-    return`<div class="mt-3 pt-3 border-t b-dark"><p class="text-[9px] font-bold mb-1.5" style="color:#f87171">🕵️ Angles Morts — Achats probables chez la concurrence</p><p class="text-[8px] t-inverse-muted mb-2">Familles achetées par la majorité des ${escapeHtml(info.metier||'')} du réseau, absentes chez ce client</p><div class="flex flex-wrap gap-1">${anglesMorts.map(t=>
-      `<span class="text-[9px] px-2 py-0.5 rounded-full border" style="color:#f87171;border-color:#f87171;opacity:0.85">${escapeHtml(famLib(t.fam)||t.fam)} <span class="opacity-60">${t.pctClients}% · moy ${formatEuro(t.avgCA)}</span></span>`
-    ).join('')}</div></div>`;
+    const totalPot=anglesMorts.reduce((s,t)=>s+t.potentiel,0);
+    // Script vendeur
+    const topFam=anglesMorts[0];
+    const metierLabel=escapeHtml(info.metier||'votre profession');
+    const script=`"${escapeHtml(nom)}, ${topFam.pctClients}% des ${metierLabel} se fournissent chez nous en ${escapeHtml(famLib(topFam.fam)||topFam.fam)} (moy. ${formatEuro(topFam.avgCA)}/an). Vous n'en prenez pas — laissez-moi vous faire une offre."`;
+    return`<div class="mt-3 pt-3 border-t b-dark">
+      <div class="flex items-center justify-between mb-1.5">
+        <p class="text-[9px] font-bold" style="color:#f87171">🕵️ Angles Morts — ${anglesMorts.length} famille${anglesMorts.length>1?'s':''} · ${formatEuro(totalPot)} potentiel</p>
+      </div>
+      <p class="text-[8px] t-inverse-muted mb-2">Familles achetées par la majorité des ${metierLabel} du réseau, quasi absentes chez ce client (< 5% de la moyenne)</p>
+      <div class="flex flex-wrap gap-1 mb-2.5">${anglesMorts.map(t=>
+        `<span class="text-[9px] px-2 py-0.5 rounded-full border cursor-default" style="color:#f87171;border-color:#f87171;opacity:0.85" title="${t.pctClients}% des ${metierLabel} achètent cette famille&#10;CA moyen confrères : ${formatEuro(t.avgCA)}&#10;Ce client : ${formatEuro(t.clientCA)}">${escapeHtml(famLib(t.fam)||t.fam)} <span style="opacity:0.6">${t.pctClients}%</span> · <strong>${formatEuro(t.potentiel)}</strong></span>`
+      ).join('')}</div>
+      <div class="p-2.5 rounded-lg border" style="background:rgba(248,113,113,0.08);border-color:rgba(248,113,113,0.2)">
+        <p class="text-[8px] font-bold mb-1" style="color:#f87171">💬 Script vendeur</p>
+        <p class="text-[10px] t-inverse italic leading-relaxed">${script}</p>
+      </div>
+    </div>`;
   })()}
 </div>`;
   }
@@ -845,34 +865,99 @@ function openArticlePanel(code,source){
       reseauHtml=`<div class="diag-level mt-2"><div class="diag-level-hdr"><span class="font-bold text-sm">🏪 Réseau</span><span class="t-disabled text-xs">${rows.length} agences · Méd. MIN/MAX : ${medMin} / ${medMax}</span></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead class="text-[10px]" style="color:var(--t-secondary)"><tr><th class="py-1 px-2 text-left">Agence</th><th class="py-1 px-2 text-right">CA</th><th class="py-1 px-2 text-center">BL</th><th class="py-1 px-2 text-center">MIN / MAX</th></tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
   }
-  // Section Canaux
+  // Section Canaux — répartition globale + zoom clients zone
   let canalHtml='';
-  if(_S.chalandiseReady&&(r.caHorsMagasin||0)>0){
-    const caTot=(r.caAnnuel||0)+r.caHorsMagasin;
-    const pctMag=caTot>0?Math.round((r.caAnnuel||0)/caTot*100):0;
-    const pctWeb=caTot>0?Math.round(r.caWeb/caTot*100):0;
-    const pctRep=caTot>0?Math.round(r.caRep/caTot*100):0;
-    const pctDcs=caTot>0?Math.round(r.caDcs/caTot*100):0;
-    const noteWeb=r.caWeb>(r.caAnnuel||0)
-      ?`<p class="text-[10px] c-caution mt-1">Cet article est principalement acheté en ligne par vos clients (zone chalandise).</p>`:'';
-    canalHtml=`<div class="mt-4 p-3 rounded-xl border" style="border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.05)">
-      <p class="text-xs font-bold t-primary mb-2">Répartition des achats
-        <span class="text-[10px] font-normal t-disabled ml-1" title="Source : clients de la zone de chalandise uniquement (${_S.chalandiseData?.size||0} clients analysés).">ⓘ</span>
-      </p>
-      <div class="space-y-1.5 text-[11px]">
-        ${[['MAGASIN',r.caAnnuel||0,pctMag,'bg-blue-500'],['INTERNET',r.caWeb,pctWeb,'bg-violet-500'],['REPRÉSENTANT',r.caRep,pctRep,'bg-green-500'],['DCS',r.caDcs,pctDcs,'bg-orange-400']]
-          .filter(([,ca])=>ca>0)
-          .map(([label,ca,pct,color])=>`<div class="flex items-center gap-2">
-            <span class="w-24 t-tertiary shrink-0">${label}</span>
-            <div class="flex-1 bg-gray-200 rounded" style="height:8px">
-              <div class="${color} rounded" style="width:${pct}%;height:8px"></div>
+  {
+    // Canal global (tous clients, comme avant)
+    const caTot=(r.caAnnuel||0)+(r.caHorsMagasin||0);
+    const hasCanal=_S.chalandiseReady&&caTot>0;
+
+    // Canal zone : ventilation par canal pour les clients de la zone de chalandise uniquement
+    let zoneRows=[];
+    let caZoneTotal=0;
+    if(_S.chalandiseReady){
+      const chalClients=_S.chalandiseData;
+      // MAGASIN (clients zone)
+      let caMagZone=0;
+      for(const[cc,artMap] of(_S.ventesClientArticle||new Map())){
+        if(!chalClients.has(cc))continue;
+        const d=artMap.get(code);if(d)caMagZone+=d.sumCA||0;
+      }
+      // Hors-MAGASIN par canal (clients zone)
+      const hmByCanal={};
+      for(const[cc,artMap] of(_S.ventesClientHorsMagasin||new Map())){
+        if(!chalClients.has(cc))continue;
+        const d=artMap.get(code);if(!d)continue;
+        const canal=d.canal||'AUTRE';
+        hmByCanal[canal]=(hmByCanal[canal]||0)+(d.sumCA||0);
+      }
+      // Territoire : livraisons autres agences pour clients zone
+      let caTerrAutre=0;
+      if(_S.territoireReady&&_S.territoireLines?.length){
+        const myStore=_S.selectedMyStore;
+        for(const l of _S.territoireLines){
+          if(l.code!==code||l.isSpecial||!l.clientCode)continue;
+          if(!chalClients.has(l.clientCode))continue;
+          // Exclure mon agence (déjà dans MAGASIN) et les canaux déjà dans hmByCanal
+          if(l.canal==='MAGASIN'&&l.clientType!=='EXTERIEUR')continue;
+          if(l.clientType==='EXTERIEUR')caTerrAutre+=+(l.ca||0);
+        }
+      }
+      caZoneTotal=caMagZone+Object.values(hmByCanal).reduce((s,v)=>s+v,0)+caTerrAutre;
+      if(caZoneTotal>0){
+        zoneRows.push(['🏪 Mon agence',caMagZone,Math.round(caMagZone/caZoneTotal*100),'#3b82f6']);
+        for(const[canal,ca] of Object.entries(hmByCanal).sort((a,b)=>b[1]-a[1])){
+          const color=canal==='INTERNET'?'#8b5cf6':canal==='REPRESENTANT'?'#22c55e':canal==='DCS'?'#f97316':'#94a3b8';
+          zoneRows.push([canal,ca,Math.round(ca/caZoneTotal*100),color]);
+        }
+        if(caTerrAutre>0)zoneRows.push(['🏪 Autres agences',caTerrAutre,Math.round(caTerrAutre/caZoneTotal*100),'#f59e0b']);
+      }
+    }
+
+    if(hasCanal||zoneRows.length){
+      let globalBlock='';
+      if(hasCanal&&(r.caHorsMagasin||0)>0){
+        const pctMag=caTot>0?Math.round((r.caAnnuel||0)/caTot*100):0;
+        const pctWeb=caTot>0?Math.round(r.caWeb/caTot*100):0;
+        const pctRep=caTot>0?Math.round(r.caRep/caTot*100):0;
+        const pctDcs=caTot>0?Math.round(r.caDcs/caTot*100):0;
+        globalBlock=`<p class="text-[10px] t-disabled mb-1.5 font-bold">Tous clients</p>
+        <div class="space-y-1 text-[11px] mb-3">
+          ${[['MAGASIN',r.caAnnuel||0,pctMag,'#3b82f6'],['INTERNET',r.caWeb,pctWeb,'#8b5cf6'],['REPRÉSENTANT',r.caRep,pctRep,'#22c55e'],['DCS',r.caDcs,pctDcs,'#f97316']]
+            .filter(([,ca])=>ca>0)
+            .map(([label,ca,pct,color])=>`<div class="flex items-center gap-2">
+              <span class="w-24 t-tertiary shrink-0 text-[10px]">${label}</span>
+              <div class="flex-1 rounded" style="height:6px;background:rgba(255,255,255,0.1)">
+                <div class="rounded" style="width:${pct}%;height:6px;background:${color}"></div>
+              </div>
+              <span class="w-14 text-right font-bold text-[10px]">${formatEuro(ca)}</span>
+              <span class="w-8 text-right t-disabled text-[10px]">${pct}%</span>
+            </div>`).join('')}
+        </div>`;
+      }
+      let zoneBlock='';
+      if(zoneRows.length){
+        const pdmArt=zoneRows[0]?zoneRows[0][2]:0;
+        const pdmColor=pdmArt>=70?'#22c55e':pdmArt>=40?'#f59e0b':'#ef4444';
+        const noteCanal=pdmArt<30?`<p class="text-[10px] mt-1.5" style="color:#f59e0b">⚠ ${100-pdmArt}% du CA zone part hors agence — vérifier prix et visibilité rayon.</p>`:'';
+        zoneBlock=`<p class="text-[10px] t-disabled mb-1.5 font-bold">Clients zone chalandise <span class="text-[9px] font-normal">(${_S.chalandiseData?.size||0} clients)</span></p>
+        <div class="space-y-1.5 text-[11px]">
+          ${zoneRows.map(([label,ca,pct,color])=>`<div class="flex items-center gap-2">
+            <span class="w-28 shrink-0 text-[10px]" style="color:${color}">${label}</span>
+            <div class="flex-1 rounded" style="height:8px;background:rgba(255,255,255,0.1)">
+              <div class="rounded" style="width:${pct}%;height:8px;background:${color}"></div>
             </div>
-            <span class="w-16 text-right font-bold">${formatEuro(ca)}</span>
-            <span class="w-8 text-right t-disabled">${pct}%</span>
+            <span class="w-14 text-right font-bold">${formatEuro(ca)}</span>
+            <span class="w-8 text-right font-bold" style="color:${pct===pdmArt?pdmColor:'var(--t-disabled)'}">${pct}%</span>
           </div>`).join('')}
-      </div>
-      ${noteWeb}
-    </div>`;
+        </div>
+        ${noteCanal}`;
+      }
+      canalHtml=`<div class="mt-4 p-3 rounded-xl border" style="border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.05)">
+        <p class="text-xs font-bold t-primary mb-2">📡 Répartition canal</p>
+        ${zoneBlock}${globalBlock?'<div class="mt-3 pt-2 border-t b-dark">'+globalBlock+'</div>':''}
+      </div>`;
+    }
   }
   // ── Squelette lookup pour verdicts co-achats ──
   const _sqResult = _S._prSqData || computeSquelette();
