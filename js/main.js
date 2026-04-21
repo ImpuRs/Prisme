@@ -1154,8 +1154,15 @@ _S.canalAgence=newCanalAgence;
     const serialStream = !!opts?.lowMem || (function(){
       try{
         const dm = navigator.deviceMemory;
-        return typeof dm === 'number' && dm > 0 && dm <= 4;
-      }catch(_){ return false; }
+        if (typeof dm === 'number' && dm > 0 && dm <= 4) return true;
+      }catch(_){}
+      // Heuristique taille : si on poste plusieurs gros buffers sans backpressure,
+      // le Worker peut accumuler en queue et exploser la RAM.
+      try{
+        const totalBytes = _filesC.reduce((s,f)=>s+(f.size||0),0) + (fileS? (fileS.size||0) : 0);
+        if (totalBytes >= 64*1024*1024) return true;
+      }catch(_){}
+      return false;
     })();
     let _pendingAck = null;
 
@@ -1545,6 +1552,8 @@ _S.canalAgence=newCanalAgence;
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       switchTab('omni');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
+      // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
+      _scheduleIdleSquelette();
       const _nbFC=document.getElementById('fileConsomme')?.files?.length||1;
       const _nbF=_nbFC+1+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);
       collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);
@@ -1559,19 +1568,48 @@ _S.canalAgence=newCanalAgence;
   // variables locales de processDataFromRaw capturées par closure.
 
   function _computeSeasonalIndex(monthlySales) {
-    // B3 : agrège monthlySales par famille → _S.seasonalIndex (coefficients saisonniers)
+    // B3 : agrège monthlySales par famille → coefficients saisonniers
+    // Blend local × réseau : poids local = min(1, volumeLocal / 50)
+    // Plus l'historique local est riche, plus il pèse. Sinon le réseau stabilise.
     const familyMonthly={};
+    const familyVolume={}; // volume total par famille (12 mois)
     for(const[code,months] of Object.entries(monthlySales)){
       const fam=_S.articleFamille[code];if(!fam)continue;
       if(!familyMonthly[fam])familyMonthly[fam]=new Array(12).fill(0);
       for(let m=0;m<12;m++)familyMonthly[fam][m]+=months[m];
     }
-    _S.seasonalIndex={};
     for(const[fam,months] of Object.entries(familyMonthly)){
-      const avg=months.reduce((s,v)=>s+v,0)/12;if(avg<=0)continue;
-      _S.seasonalIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
+      familyVolume[fam]=months.reduce((s,v)=>s+v,0);
     }
-    // Compléter avec le baseline 2025 pour les familles absentes du consommé courant
+
+    // Index local pur
+    const localIndex={};
+    for(const[fam,months] of Object.entries(familyMonthly)){
+      const avg=familyVolume[fam]/12;if(avg<=0)continue;
+      localIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
+    }
+
+    // Blend avec réseau
+    const reseauIndex=_S.seasonalIndexReseau||{};
+    _S.seasonalIndex={};
+    const allFams=new Set([...Object.keys(localIndex),...Object.keys(reseauIndex)]);
+    for(const fam of allFams){
+      const loc=localIndex[fam];
+      const res=reseauIndex[fam];
+      if(loc&&res){
+        // Poids local proportionnel au volume — seuil 50 ventes pour confiance max
+        const vol=familyVolume[fam]||0;
+        const wLocal=Math.min(1,vol/50);
+        const wReseau=1-wLocal;
+        _S.seasonalIndex[fam]=loc.map((v,i)=>Math.round((v*wLocal+res[i]*wReseau)*100)/100);
+      }else if(loc){
+        _S.seasonalIndex[fam]=loc;
+      }else if(res){
+        _S.seasonalIndex[fam]=res;
+      }
+    }
+
+    // Compléter avec le baseline 2025 pour les familles absentes
     const _baseline = _S._seasonalBaseline;
     if (_baseline) {
       for (const [fam, coefs] of Object.entries(_baseline)) {
@@ -2019,6 +2057,8 @@ _S.canalAgence=newCanalAgence;
       if(!isRefilter){switchTab('stock');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');const _nbF=2+(document.getElementById('fileLivraisons')?.files[0]?1:0)+(document.getElementById('fileChalandise').files[0]?1:0);collapseImportZone(_nbF,_S.selectedMyStore,DataStore.finalData.length,elapsed);const btnR=document.getElementById('btnRecalculer');if(btnR)btnR.classList.remove('hidden');}else{btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');}
       // IDB save — skipped for isRefilter (only saves on full load)
       if (!isRefilter && _S.selectedMyStore) { localStorage.setItem('prisme_selectedStore', _S.selectedMyStore); _saveToCache(); _saveSessionToIDB(); if(_f1)_saveFileHashes(_f1,_f2,document.getElementById('fileChalandise').files[0]||null,document.getElementById('fileLivraisons').files[0]||null); }
+      // Pré-calcul squelette en idle — alimente SOCLE badges + 🚨 Capitaines
+      _scheduleIdleSquelette();
     }catch(error){if(error.message==='NO_STORE_SELECTED')return;showToast('❌ '+error.message,'error');console.error(error);btn.textContent='❌';btn.classList.replace('s-panel-inner','bg-red-600');}
     finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
     if(isRefilter&&_S.territoireReady){renderTerritoireTab();}
@@ -2029,6 +2069,24 @@ _S.canalAgence=newCanalAgence;
   // V24.4+: Render canal distribution block — enriched with prélevé/enlevé CA
 
   function renderComparison(currentKPI){const prev=_S.kpiHistory.length>0?_S.kpiHistory[_S.kpiHistory.length-1]:null;_S.kpiHistory.push(currentKPI);while(_S.kpiHistory.length>12)_S.kpiHistory.shift();if(!prev){document.getElementById('compareBlock').classList.add('hidden');return;}document.getElementById('compareBlock').classList.remove('hidden');document.getElementById('compareDate').textContent='(réf: '+prev.date+')';const metrics=[{label:'💰 Stock',cur:currentKPI.totalValue,old:prev.totalValue,fmt:'euro',better:'down'},{label:'☠️ Dormant',cur:currentKPI.dormant,old:prev.dormant,fmt:'euro',better:'down'},{label:'📊 Surstock',cur:currentKPI.surstock,old:prev.surstock,fmt:'euro',better:'down'},{label:'🚨 Ruptures',cur:currentKPI.ruptures,old:prev.ruptures,fmt:'num',better:'down'},{label:'✅ Dispo.',cur:currentKPI.serviceRate,old:prev.serviceRate,fmt:'pct',better:'up'},{label:'👁️ Excédent ERP',cur:currentKPI.capalin,old:prev.capalin,fmt:'euro',better:'down'},{label:'💸 CA Perdu',cur:currentKPI.caPerdu||0,old:prev.caPerdu||0,fmt:'euro',better:'down'}];const p=[];for(const m of metrics){const diff=m.cur-m.old;const isGood=(m.better==='down'&&diff<=0)||(m.better==='up'&&diff>=0);const arrow=diff>0?'▲':diff<0?'▼':'■';const color=diff===0?'t-tertiary':isGood?'c-ok':'c-danger';const bg=diff===0?'s-card-alt':isGood?'i-ok-bg':'i-danger-bg';let diffStr='';if(m.fmt==='euro')diffStr=(diff>0?'+':'')+formatEuro(diff);else if(m.fmt==='pct')diffStr=(diff>0?'+':'')+diff.toFixed(1)+'%';else diffStr=(diff>0?'+':'')+diff;let curStr='';if(m.fmt==='euro')curStr=formatEuro(m.cur);else if(m.fmt==='pct')curStr=m.cur.toFixed(1)+'%';else curStr=m.cur;p.push('<div class="'+bg+' rounded-lg p-3 text-center border"><p class="text-[10px] font-bold t-secondary mb-1">'+m.label+'</p><p class="text-sm font-extrabold t-primary">'+curStr+'</p><p class="text-xs font-bold '+color+'">'+arrow+' '+diffStr+'</p></div>');}document.getElementById('compareCards').innerHTML=p.join('');}
+
+  // ── Pré-calcul squelette en idle ──────────────────────────────────────────
+  function _scheduleIdleSquelette(){
+    if(_S._prSqData)return; // déjà calculé
+    const fn=()=>{
+      if(_S._prSqData)return;
+      const t0=performance.now();
+      try{
+        const sq=computeSquelette();
+        _S._prSqData=sq;
+        // Re-render alerte anticipée avec badges SOCLE
+        _renderSaisonAnticipe();
+        console.log(`[IDLE] computeSquelette ${performance.now()-t0|0}ms`);
+      }catch(e){console.warn('[IDLE] computeSquelette error:',e);}
+    };
+    if(typeof requestIdleCallback==='function')requestIdleCallback(fn,{timeout:5000});
+    else setTimeout(fn,2000);
+  }
 
   // ── Feature D — Recommandations Saisonnières ──────────────────────────────
   // Projection du mois courant depuis seasonalIndex (famille → [12 coefficients]).
@@ -2080,6 +2138,62 @@ _S.canalAgence=newCanalAgence;
     }
     candidats.sort((a, b) => b.vaEuro - a.vaEuro);
     return candidats;
+  }
+
+  // ── Alerte Saisonnière Anticipée (M+1 / M+2) × Tronc Commun ──
+  function _getAlerteSaisonAnticipee() {
+    const now = new Date();
+    const m1 = (now.getMonth() + 1) % 12; // mois M+1
+    const m2 = (now.getMonth() + 2) % 12; // mois M+2
+    // Set des articles Socle (Tronc Commun) — via squelette
+    let socleCodes = null;
+    if (_S._prSqData) {
+      socleCodes = new Set();
+      for (const d of _S._prSqData.directions) { for (const a of (d.socle || [])) socleCodes.add(a.code); }
+    }
+    // Pré-calcul : qté vendue par famille sur chaque mois pic (contexte utilisateur)
+    const _ms = _S.articleMonthlySales || {};
+    const _famQteMois = {}; // {fam → {mois → qté totale}}
+    for (const [code, months] of Object.entries(_ms)) {
+      const fam = _S.articleFamille[code]; if (!fam) continue;
+      if (!_famQteMois[fam]) _famQteMois[fam] = {};
+      for (const m of [m1, m2]) {
+        _famQteMois[fam][m] = (_famQteMois[fam][m] || 0) + (months[m] || 0);
+      }
+    }
+    const alertes = [];
+    for (const r of DataStore.finalData) {
+      if (r.nouveauMin <= 0 || r.W < 1 || r.isParent) continue;
+      const fam = r.famille;
+      const si = _S.seasonalIndex[fam];
+      if (!si) continue;
+      // Coeff max sur M+1 et M+2
+      const c1 = si[m1] || 1, c2 = si[m2] || 1;
+      const coeffPic = Math.max(c1, c2);
+      const moisPic = c1 >= c2 ? m1 : m2;
+      if (coeffPic <= 1.2) continue; // pas de pic significatif
+      // Besoin anticipé = MIN × coeff pic
+      let saisonMin = Math.ceil(r.nouveauMin * coeffPic);
+      const px = r.prixUnitaire || 0;
+      if (px > HIGH_PRICE) saisonMin = Math.min(saisonMin, Math.max(r.stockActuel + 2, 3));
+      else if (px > 50) saisonMin = Math.min(saisonMin, Math.max(Math.ceil(r.nouveauMin * 1.5), 3));
+      if (r.stockActuel >= saisonMin) continue; // stock suffisant
+      const qteCde = saisonMin - r.stockActuel;
+      const isSocle = socleCodes ? socleCodes.has(r.code) : false;
+      // Contexte : qté article vendue sur le mois pic + qté famille
+      const artQte = (_ms[r.code] || [])[moisPic] || 0;
+      const famQte = _famQteMois[fam]?.[moisPic] || 0;
+      alertes.push({
+        code: r.code, libelle: r.libelle, famille: fam,
+        nouveauMin: r.nouveauMin, saisonMin, coeffPic,
+        moisPic, stockActuel: r.stockActuel, prixUnitaire: px,
+        qteCde, vaEuro: qteCde * px, isSocle,
+        qteArticlePic: artQte, qteFamillePic: famQte,
+      });
+    }
+    // Tri : Socle d'abord, puis par valeur à commander décroissante
+    alertes.sort((a, b) => (b.isSocle ? 1 : 0) - (a.isSocle ? 1 : 0) || b.vaEuro - a.vaEuro);
+    return alertes;
   }
 
   function renderSaisonWidget() {
@@ -2368,8 +2482,69 @@ _S.canalAgence=newCanalAgence;
     _S.cockpitCounts={ruptures:lstR.length,stockneg:lstStockNeg.length,sansemplacement:lstFa.length,anomalies:lstA.length,dormants:lstD.length,fins:lstFi.length,saison:_saisonCount,saso:lstS.length,colis:lstColis.length,rupClients:0};
     {const ruptureArts=dataSource.filter(r=>r.stockActuel<=0&&r.W>=3&&!r.isParent&&!(r.V===0&&r.enleveTotal>0));const _rcSet=new Set();for(const art of ruptureArts){const buyers=_S.articleClients.get(art.code);if(buyers)for(const cc of buyers)_rcSet.add(cc);}_S.cockpitCounts.rupClients=_rcSet.size;}
     _renderStockPills();
+    _renderSaisonAnticipe();
     _renderDataScopeBar();
     renderCockpitBriefing();
+  }
+
+  function _renderSaisonAnticipe(){
+    const el=document.getElementById('saisonAnticipeWidget');
+    if(!el)return;
+    if(!Object.keys(_S.seasonalIndex).length){el.classList.add('hidden');return;}
+    const alertes=_getAlerteSaisonAnticipee();
+    if(!alertes.length){el.classList.add('hidden');return;}
+    el.classList.remove('hidden');
+    const nomsMois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const nbSocle=alertes.filter(a=>a.isSocle).length;
+    const totalVa=alertes.reduce((s,a)=>s+a.vaEuro,0);
+    const moisPicLabel=nomsMois[alertes[0]?.moisPic??0];
+    const nomsMoisCourt=['janv','fév','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+    const rows=alertes.slice(0,30).map(r=>{
+      const coeffPct='+'+Math.round((r.coeffPic-1)*100)+'%';
+      const socleBadge=r.isSocle?'<span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:#dcfce7;color:#166534">SOCLE</span>':'';
+      // Contexte factuel : volume réel du mois pic
+      const moisLabel=nomsMoisCourt[r.moisPic]||'';
+      const qteRef=r.qteArticlePic>0?r.qteArticlePic:r.qteFamillePic;
+      const isFamFallback=r.qteArticlePic<=0;
+      const lowConfidence=qteRef>0&&qteRef<10;
+      let ctxLabel='';
+      if(r.qteArticlePic>0)ctxLabel=r.qteArticlePic+' vendus en '+moisLabel;
+      else if(r.qteFamillePic>0)ctxLabel=r.qteFamillePic+' fam. en '+moisLabel;
+      const ctxStyle=lowConfidence?'color:#f59e0b;font-style:italic':'';
+      const ctxTitle=lowConfidence?'Volume faible — index saisonnier peu fiable':'Volume réel constaté sur l\'historique local';
+      const ctxHtml=ctxLabel?'<span class="text-[9px]" style="'+ctxStyle+'" title="'+ctxTitle+'"> · '+ctxLabel+'</span>':'';
+      return`<tr class="border-b b-light hover:s-hover text-[11px] cursor-pointer" onclick="if(window.openArticlePanel)window.openArticlePanel('${r.code}','planRayon')">
+        <td class="py-1.5 px-2 font-mono t-disabled">${escapeHtml(r.code)}</td>
+        <td class="py-1.5 px-2 t-primary truncate" style="max-width:220px" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)} ${socleBadge}</td>
+        <td class="py-1.5 px-2 text-center">${r.stockActuel}</td>
+        <td class="py-1.5 px-2 text-center font-bold c-caution">${r.saisonMin} <span class="text-[9px] font-normal t-disabled">(${coeffPct})</span>${ctxHtml}</td>
+        <td class="py-1.5 px-2 text-center font-bold" style="color:#f97316">+${r.qteCde}</td>
+        <td class="py-1.5 px-2 text-right font-bold t-primary">${r.vaEuro>0?formatEuro(r.vaEuro):'—'}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML=`<div class="s-card rounded-xl p-4 mb-4" style="border-left:4px solid #f97316">
+      <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h3 class="text-[12px] font-bold" style="color:#f97316">⏰ Alerte anticipée — pic ${moisPicLabel}</h3>
+        <span class="text-[10px] t-secondary">${alertes.length} articles${nbSocle?' · <strong style="color:#16a34a">'+nbSocle+' Socle</strong>':''} · ${formatEuro(totalVa)} à commander</span>
+      </div>
+      <p class="text-[10px] t-disabled mb-3">Stock insuffisant pour le pic saisonnier dans 30-60 jours. Index basé sur l'historique local — volumes réels affichés pour chaque article.</p>
+      <div class="overflow-x-auto" style="max-height:350px;overflow-y:auto">
+        <table class="w-full text-[11px]">
+          <thead class="sticky top-0" style="background:var(--color-bg-primary,#0f172a);z-index:1">
+            <tr class="text-[10px] t-secondary border-b b-light">
+              <th class="py-1.5 px-2 text-left">Code</th>
+              <th class="py-1.5 px-2 text-left">Libellé</th>
+              <th class="py-1.5 px-2 text-center">Stock</th>
+              <th class="py-1.5 px-2 text-center">Seuil pic</th>
+              <th class="py-1.5 px-2 text-center">À cder</th>
+              <th class="py-1.5 px-2 text-right">Valeur</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${alertes.length>30?'<p class="text-[9px] t-disabled mt-2 text-center">'+alertes.length+' articles au total — top 30 affichés</p>':''}
+    </div>`;
   }
 
   function _renderDataScopeBar(){
@@ -2425,14 +2600,14 @@ _S.canalAgence=newCanalAgence;
       {icon:'⚠️',label:'Anomalies',count:c.anomalies||0,color:'#ea580c',cockpit:'anomalies'},
       {icon:'💤',label:'Dormants',count:c.dormants||0,color:'#ea580c',cockpit:'dormants'},
       {icon:'📁',label:'Fins de serie',count:c.fins||0,color:'#6b7280',cockpit:'fins'},
-      {icon:'🌸',label:'Saisonnalite',count:c.saison||0,color:'#d97706',cockpit:null},
+      {icon:'🌸',label:'Saisonnalite',count:c.saison||0,color:'#d97706',cockpit:null,onclick:'document.getElementById("saisonAnticipeWidget")?.scrollIntoView({behavior:"smooth"})'},
       {icon:'📦',label:'Excedent ERP',count:c.saso||0,color:'#7c3aed',cockpit:'saso'},
       {icon:'📦→🏪',label:'Colis a stocker',count:c.colis||0,color:'#0891b2',cockpit:'colisrayon'},
       {icon:'👥',label:'Clients impactes',count:c.rupClients||0,color:'#dc2626',cockpit:null},
     ];
     el.innerHTML=pills.map(p=>{
       const grayed=p.count===0?'opacity-40':'';
-      const onclick=p.cockpit?`onclick="showCockpitInTable('${p.cockpit}');switchTab('table')"`:'';
+      const onclick=p.cockpit?`onclick="showCockpitInTable('${p.cockpit}');switchTab('table')"`:p.onclick?`onclick="${p.onclick}"`:'';
       return `<div class="flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer hover:s-hover transition-colors ${grayed}" ${onclick}>
         <span class="text-[10px] flex items-center gap-1.5"><span>${p.icon}</span><span class="font-semibold" style="color:${p.color}">${p.label}</span></span>
         <span class="text-[11px] font-extrabold" style="color:${p.color}">${p.count}</span>

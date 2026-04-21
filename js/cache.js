@@ -255,6 +255,83 @@ const IDB_VERSION = 2; // v2 : ajout store 'territoire' séparé
 const IDB_STORE   = 'session';
 const IDB_TERR    = 'territoire';
 
+// ── Scan payload (minimal) ──────────────────────────────────────────────
+// Objectif : permettre à scan.html de fonctionner même si la session complète
+// échoue à se persister (quota Safari iOS). On stocke uniquement un tableau
+// d'articles compacts + EAN, et on pré-calcule 2-3 KPIs réseau par article.
+function _buildScanPayload() {
+  const myStore = _S.selectedMyStore || '';
+  const vpm = _S.ventesParMagasin || {};
+  const allStores = Object.keys(vpm);
+  const eanObj = _S.catalogueEAN?.size ? Object.fromEntries(_S.catalogueEAN) : null;
+  const _mLabels = {AF:'Pépites',AM:'Surveiller',AR:'Gros paniers',BF:'Confort',BM:'Standard',BR:'Questionner',CF:'Réguliers',CM:'Réduire',CR:'Déréférencer'};
+
+  const src = _S.finalData || [];
+  const articles = new Array(src.length);
+  for (let i = 0; i < src.length; i++) {
+    const r = src[i];
+    const code = r?.code;
+    let reseauAgences = 0, totalCA = 0, totalQte = 0, totalVMB = 0;
+    if (code && allStores.length) {
+      for (const s of allStores) {
+        const v = vpm[s]?.[code];
+        if (!v || v.countBL <= 0) continue;
+        if (s !== myStore) reseauAgences++;
+        totalCA += v.sumCA || 0;
+        totalQte += (v.sumPrelevee || 0) + (v.sumEnleve || 0);
+        totalVMB += v.sumVMB || 0;
+      }
+    }
+    const prixMoyenReseau = totalQte > 0 ? Math.round(totalCA / totalQte * 100) / 100 : null;
+    const txMargeReseau = totalQte > 0 ? (totalCA > 0 ? Math.round(totalVMB / totalCA * 10000) / 100 : 0) : null;
+    const mKey = (r?.abcClass || '') + (r?.fmrClass || '');
+
+    articles[i] = {
+      code,
+      libelle: r?.libelle,
+      famille: r?.famille,
+      sousFamille: r?.sousFamille,
+      emplacement: r?.emplacement,
+      statut: r?.statut,
+      stockActuel: r?.stockActuel,
+      prixMoyenReseau,
+      txMargeReseau,
+      prixUnitaire: r?.prixUnitaire,
+      W: r?.W,
+      V: r?.V,
+      enleveTotal: r?.enleveTotal,
+      ancienMin: r?.ancienMin,
+      ancienMax: r?.ancienMax,
+      nouveauMin: r?.nouveauMin,
+      nouveauMax: r?.nouveauMax,
+      couvertureJours: r?.couvertureJours,
+      abcClass: r?.abcClass,
+      fmrClass: r?.fmrClass,
+      matriceVerdict: r?.matriceVerdict || _mLabels[mKey] || '',
+      _sqClassif: r?._sqClassif || '',
+      _sqRole: r?._sqRole || '',
+      _sqVerdict: r?._sqVerdict || '',
+      medMinReseau: r?.medMinReseau,
+      medMaxReseau: r?.medMaxReseau,
+      _vitesseReseau: !!(r?._vitesseReseau),
+      _fallbackERP: !!(r?._fallbackERP),
+      _reseauAgences: reseauAgences,
+      isParent: !!r?.isParent,
+    };
+  }
+
+  return {
+    version: CACHE_VERSION,
+    timestamp: Date.now(),
+    store: myStore,
+    selectedMyStore: myStore,
+    storesIntersection: [..._S.storesIntersection],
+    count: articles.length,
+    articles,
+    ean: eanObj,
+  };
+}
+
 export function _openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, IDB_VERSION);
@@ -347,16 +424,7 @@ async function _saveSessionToIDBNow() {
     try {
       const txScan = db.transaction([IDB_STORE], 'readwrite');
       const stScan = txScan.objectStore(IDB_STORE);
-      const eanObj = _S.catalogueEAN?.size ? Object.fromEntries(_S.catalogueEAN) : null;
-      const scanPayload = {
-        version: CACHE_VERSION,
-        timestamp: Date.now(),
-        selectedMyStore: _S.selectedMyStore || '',
-        storesIntersection: [..._S.storesIntersection],
-        finalData: _S.finalData,
-        ventesParMagasin: _S.ventesParMagasin,
-        ean: eanObj,
-      };
+      const scanPayload = _buildScanPayload();
       stScan.put(scanPayload, 'scan');
       await new Promise((res, rej) => { txScan.oncomplete = res; txScan.onerror = () => rej(txScan.error); });
     } catch (eScan) {
