@@ -196,6 +196,7 @@ const _isLocalIncont = (code, roleOrMap) => {
   const myCA = vpm[myStore]?.[code]?.sumCA || 0;
   if (!myCA) return false;
   const stores = Object.keys(vpm).filter(s => s !== myStore);
+  if (stores.length < 2) return false; // pas assez de données réseau pour conclure
   // Détention réseau < 60%
   let nbSt = 0;
   const otherCAs = [];
@@ -203,8 +204,7 @@ const _isLocalIncont = (code, roleOrMap) => {
     const v = vpm[s]?.[code];
     if (v?.countBL > 0) { nbSt++; otherCAs.push(v.sumCA || 0); }
   }
-  const nbStores = stores.length || 1;
-  if (nbSt / nbStores >= 0.6) return false; // réseau validé → pas LOCAL
+  if (nbSt / stores.length >= 0.6) return false; // réseau validé → pas LOCAL
   // Surperformance locale : monCA >= 2× médiane des autres agences qui le vendent
   if (!otherCAs.length) return true; // seul à le vendre → LOCAL par définition
   otherCAs.sort((a, b) => a - b);
