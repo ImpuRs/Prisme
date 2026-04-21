@@ -2504,7 +2504,7 @@ _S.canalAgence=newCanalAgence;
     const nomsMoisCourt=['janv','fév','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
     const rows=alertes.slice(0,30).map(r=>{
       const coeffPct='+'+Math.round((r.coeffPic-1)*100)+'%';
-      const socleBadge=r.isSocle?'<span class="text-[8px] px-1 py-0.5 rounded font-bold" style="background:#dcfce7;color:#166534">SOCLE</span>':'';
+      const socleBadge='';
       // Contexte factuel : volume réel du mois pic
       const moisLabel=nomsMoisCourt[r.moisPic]||'';
       const qteRef=r.qteArticlePic>0?r.qteArticlePic:r.qteFamillePic;
@@ -2528,7 +2528,7 @@ _S.canalAgence=newCanalAgence;
     el.innerHTML=`<div class="s-card rounded-xl p-4 mb-4" style="border-left:4px solid #f97316">
       <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h3 class="text-[12px] font-bold" style="color:#f97316">⏰ Alerte anticipée — pic ${moisPicLabel}</h3>
-        <span class="text-[10px] t-secondary">${alertes.length} articles${nbSocle?' · <strong style="color:#16a34a">'+nbSocle+' Socle</strong>':''} · ${formatEuro(totalVa)} à commander</span>
+        <span class="text-[10px] t-secondary">${alertes.length} articles · ${formatEuro(totalVa)} à commander</span>
       </div>
       <p class="text-[10px] t-disabled mb-3">Stock insuffisant pour le pic saisonnier dans 30-60 jours. Index basé sur l'historique local — volumes réels affichés pour chaque article.</p>
       <div class="overflow-x-auto" style="max-height:350px;overflow-y:auto">
