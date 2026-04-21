@@ -753,7 +753,8 @@ export function computeAnglesMorts() {
     if (!metier) continue;
     const bench = benchMetier.get(metier);
     if (!bench || !bench.troncCommun.length) continue;
-    const myFams = clientFams[cc] || {};
+    const myFams = clientFams[cc];
+    if (!myFams) continue; // prospect sans achat PDV → pas d'angle mort
     const missing = [];
     let totalPotentiel = 0;
     for (const tc of bench.troncCommun) {
