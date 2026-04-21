@@ -1271,7 +1271,20 @@ function _navigateToOverviewMetier(metier){
   },100);
 }
 function _togglePerdu24m(checked){_S._includePerdu24m=checked;_buildChalandiseOverview();}
-function _toggleAlerteCapitaines(){_S._alerteCapitaines=!_S._alerteCapitaines;_buildCockpitClient(true);}
+function _toggleAlerteCapitaines(){
+  const next=!_S._alerteCapitaines;
+  if(next){
+    // Pré-requis : une source de "socle" doit exister (Verdicts Squelette ou squelette complet).
+    const hasSocleVerdicts=!!(DataStore.finalData||[]).some(r=>r&&r._sqClassif==='socle');
+    const hasSocleSq=!!(_S._prSqData?.directions||[]).some(d=>(d.socle||[]).length>0);
+    if(!hasSocleVerdicts&&!hasSocleSq){
+      showToast('🚨 Capitaines indisponibles : Squelette non calculé (ou session mono-agence). Laissez finir "Verdicts Squelette" puis réessayez.','warning',6000);
+      return;
+    }
+  }
+  _S._alerteCapitaines=next;
+  _buildCockpitClient(true);
+}
 // ── Shared helper: populate a commercial <select> + KPI span ───────────
 // Build commercial → dominant secteur mapping (cached)
 let _comSectCache = null, _comSectRef = null;
@@ -2543,11 +2556,20 @@ function _buildCockpitClient(force){
   // Pré-calcul Set<code> des articles Socle — une seule passe O(n), lookup O(1) par client
   let _socleCodes=null;
   if(_alerteCap){
-    // Lazy-init squelette si pas encore calculé
-    if(!_S._prSqData&&typeof window._getArticleSqInfo==='function')window._getArticleSqInfo('000000');
-    if(_S._prSqData){
+    // 1) Chemin rapide : verdicts (Bouclier Squelette) => pas de computeSquelette() synchrone.
+    const _socleFromVerdicts=new Set();
+    for(const r of (DataStore.finalData||[])){
+      if(r&&r._sqClassif==='socle')_socleFromVerdicts.add(r.code);
+    }
+    if(_socleFromVerdicts.size){
+      _socleCodes=_socleFromVerdicts;
+    }else if(_S._prSqData){
+      // 2) Fallback : squelette complet déjà calculé (idle ou Plan Rayon)
       _socleCodes=new Set();
       for(const d of _S._prSqData.directions){for(const a of(d.socle||[]))_socleCodes.add(a.code);}
+    }else{
+      // Squelette pas prêt : on ne bloque pas l'UI (le filtre ne peut pas s'appliquer).
+      _socleCodes=null;
     }
   }
   function _hasLostCapitaine(cc){

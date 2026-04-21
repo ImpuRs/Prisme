@@ -16,6 +16,7 @@ import { enrichPrixUnitaire, estimerCAPerdu, calcPriorityScore, prioClass, prioL
 import { parseChalandise, parseLivraisons, toggleSecteurDropdown, toggleAllSecteurs, onSecteurChange, computeBenchmark, launchClientWorker, loadCpCoords, _computeChalandiseDistances } from './parser.js';
 import { showToast, ToastManager, updateProgress, updatePipeline, showLoading, hideLoading, onFileSelected, _updateAnalyserBtn, collapseImportZone, expandImportZone, switchTab, switchSuperTab, openFilterDrawer, closeFilterDrawer, populateSelect, getFilteredData, renderAll, onFilterChange, debouncedRender, resetFilters, filterByAge, clearAgeFilter, updateActiveAgeIndicator, filterByAbcFmr, showCockpitInTable, clearCockpitFilter, _toggleNouveautesFilter, updatePeriodAlert, renderInsightsBanner, openReporting, sortBy, changePage, openCmdPalette, _cmdExec, _cmdMoveSelection, _cmdRender, _cmdBuildResults, closeReporting, copyReportText, switchReportTab, clearSavedKPI, exportKPIhistory, importKPIhistory, downloadCSV, clipERP, wrapGlossaryTerms, exportCockpitResume, renderHealthScore, exportAgenceSnapshot, renderTabBadges, _cematinSearch, showSilencieux60, _loadIRAHistory, _renderNoStockPlaceholder, focusTrap, toggleNavKpis, initDetailsAnimations, renderCockpitBriefing, buildSqLookup, initColSelector, _applyColVisibility } from './ui.js';
 import { _saveToCache, _restoreFromCache, _clearCache, _showCacheBanner, _onReloadFiles, _onPurgeCache, _saveExclusions, _restoreExclusions, _saveSessionToIDB, _restoreSessionFromIDB, _clearIDB, _migrateIDB, _checkFilesUnchanged, _saveFileHashes } from './cache.js';
+import { computeCloneStores, getCloneSet } from './clone-store.js';
 import { buildPagerHtml, deltaColor, csvCell, renderOppNetteTable } from './helpers.js';
 import { initRouter } from './router.js';
 import { buildClientStore } from './client-store.js';
@@ -36,6 +37,13 @@ import { renderCanalAgence, openCanalDrill, openCanalDrillArticles, closeCanalDr
 import { _renderGhostArticles, toggleTerrDir, toggleTerrDirStatus, toggleTerrFam, buildTerrContrib, renderTerrContrib, toggleContribDirection, toggleContribSecteur, renderContribClients, toggleContribClient, renderContribArticles, resetTerrFilters, exportContribCSV, exportTerritoireCSV } from './territoire.js';
 import { _renderHorsZone, _passesAllFilters, computeTerritoireKPIs, computeClientsKPIs, renderTerritoireTab, renderCockpitRupClients, renderMesClients, renderCommerceTab, _toggleOverviewClassif, _toggleOverviewActPDV, _toggleOverviewStatut, _toggleOverviewDirection, _onActPDVSelect, _onStatutDetailleSelect, _onStatutSelect, _onUniversSelect, _toggleOverviewUnivers, _buildDeptFilter, _toggleDept, _resetChalandiseFilters, _toggleDeptDropdown, _toggleClassifDropdown, _toggleActPDVDropdown, _toggleStatutDropdown, _toggleDirectionDropdown, _toggleStrategiqueFilter, _onCommercialFilter, _updateDistQuickBtns, _onTerrClientSearch, _onMetierFilter, _navigateToOverviewMetier, _togglePerdu24m, _buildOverviewFilterChips, _buildChalandiseOverview, _toggleOverviewL2, _toggleOverviewL3, _toggleOverviewL4, _toggleClientArticles, _cockpitToggleFullList, _cockpitToggleSection, _setPDVCanalFilter, _buildDegradedCockpit, _buildCockpitClient, _setCrossFilter, _setClientView, _cockpitRowCSV, _downloadCockpitCSV, exportCockpitCSV, exportCockpitCSVAll, _showExcludePrompt, _confirmExclude, _unexcludeClient, _unexcludeAll, _toggleExcludedList, exportExclusionsJSON, importExclusionsJSON, _toggleHorsMagasin } from './commerce.js';
 
+// Cache-buster homogène : si `js/main.js` est servi avec `?v=...`, appliquer la même
+// version aux Web Workers pour éviter les mismatchs (browser cache très agressif).
+const _ASSET_VER = (() => {
+  try { return new URL(import.meta.url).searchParams.get('v') || ''; } catch (_) { return ''; }
+})();
+const _ASSET_VER_Q = _ASSET_VER ? ('?v=' + encodeURIComponent(_ASSET_VER)) : '';
+
 // ── Mobile / Low-memory mode (iPhone Safari, petites RAM) ──────────────────
 function _detectLowMemMode() {
   try {
@@ -49,7 +57,6 @@ if (!_S.lowMemMode) _S.lowMemMode = _detectLowMemMode();
 if (_S.lowMemMode) console.warn('[PRISME] Mode memoire faible actif (mobile) — pipeline allege');
 
   // ── Filtre période global ──
-  function togglePeriodDropdown(){ toggleTabPeriodDropdown(); }
   function toggleTabPeriodDropdown(){
     const dd=document.getElementById('tabPeriodDropdown');if(!dd)return;
     buildPeriodFilter(); // refresh pills avant d'ouvrir
@@ -1020,7 +1027,23 @@ _S.canalAgence=newCanalAgence;
     if(!filesC||!filesC.length){showToast('⚠️ Chargez votre fichier Consommé (ventes)','warning');return;}
     if(filesC.length>1){showToast('📊 '+filesC.length+' fichiers consommé — fusion automatique','info',3000);}
     if(!f2){showToast('ℹ️ Mode commercial — chargez l\'État du Stock pour les vues Articles et Mon Stock','info',4000);}
-    const btn=document.getElementById('btnCalculer');btn.disabled=true;
+    const btn=document.getElementById('btnCalculer');
+
+    // iPhone/Safari : gros fichiers (CSV/XLSX) => pic RAM énorme (ArrayBuffer + decode + structures).
+    // On préfère un avertissement + opt-in plutôt qu'un crash du navigateur.
+    if(_S.lowMemMode){
+      try{
+        const totalBytes = Array.from(filesC||[]).reduce((s,f)=>s+(f?.size||0),0) + (f2?.size||0);
+        const totalMB = totalBytes / (1024*1024);
+        if(totalMB >= 25){
+          showToast(`📱 Mode mobile : ${totalMB.toFixed(1)} Mo à analyser — risque élevé de crash. Conseil: faites l'analyse sur PC puis "📱 Exporter pour Scan".`,'warning',7000);
+          const ok = confirm(`Mode mobile: ${totalMB.toFixed(1)} Mo à analyser.\nSafari iOS peut planter sur ce volume.\n\nOK = continuer quand même\nAnnuler = arrêter`);
+          if(!ok) return;
+        }
+      }catch(_){}
+    }
+
+    btn.disabled=true;
     // ── OPT1 : Hash-check IDB — même fichier → skip parse complet ──
     {
       const _hashes = localStorage.getItem('prisme_fileHashes');
@@ -1101,7 +1124,7 @@ _S.canalAgence=newCanalAgence;
   function launchParseWorker(bufCInput, bufS, opts) {
     const bufCArray = Array.isArray(bufCInput) ? bufCInput : [bufCInput];
     return new Promise(function(resolve, reject) {
-      const worker = new Worker('js/parse-worker.js');
+      const worker = new Worker('js/parse-worker.js' + _ASSET_VER_Q);
       worker.onmessage = async function(ev) {
         const msg = ev.data;
         if (msg.type === 'progress') {
@@ -1150,7 +1173,7 @@ _S.canalAgence=newCanalAgence;
   async function launchParseWorkerFromFiles(filesC, fileS, opts) {
     const _filesC = Array.from(filesC || []);
     const filenamesC = _filesC.map(f => f.name);
-    const worker = new Worker('js/parse-worker.js');
+    const worker = new Worker('js/parse-worker.js' + _ASSET_VER_Q);
     const serialStream = !!opts?.lowMem || (function(){
       try{
         const dm = navigator.deviceMemory;
@@ -1370,8 +1393,12 @@ _S.canalAgence=newCanalAgence;
     if(!DataStore.finalData.length)return;
     const _myS=_S.selectedMyStore;
     const _vpm=_S.ventesParMagasin||{};
-    const _allStores=Object.keys(_vpm).filter(s=>s!==_myS);
-    if(_allStores.length<2)return;
+    const _allStoresFull=Object.keys(_vpm).filter(s=>s!==_myS);
+    if(_allStoresFull.length<2)return;
+    // Priorité clones, fallback all stores si < 2 clones vendent l'article
+    const _cloneSet=getCloneSet();
+    const _cloneStores=_allStoresFull.filter(s=>_cloneSet.has(s));
+    const _useClones=_cloneStores.length>=2;
     let _applied=0;
     for(const r of DataStore.finalData){
       if(r.nouveauMin>0||r.nouveauMax>0)continue;
@@ -1379,8 +1406,12 @@ _S.canalAgence=newCanalAgence;
       const _sl=(r.statut||'').toLowerCase();
       if(_sl.includes('fin de série')||_sl.includes('fin de serie')||_sl.includes('fin de stock'))continue;
       // Top 3 agences par CA — sélection en un passage (pas de sort/slice)
-      let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false;
-      for(const s of _allStores){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
+      // D'abord parmi les clones, fallback all si < 2 clones ont l'article
+      let _t1ca=0,_t1bl=0,_t2ca=0,_t2bl=0,_t3ca=0,_t3bl=0,_any=false,_nbHit=0;
+      const _pool=_useClones?_cloneStores:_allStoresFull;
+      for(const s of _pool){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;_nbHit++;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}
+      // Fallback : si < 2 clones ont l'article, re-scan all stores
+      if(_useClones&&_nbHit<2){_t1ca=0;_t1bl=0;_t2ca=0;_t2bl=0;_t3ca=0;_t3bl=0;_any=false;for(const s of _allStoresFull){const v=_vpm[s]?.[r.code];if(!v||v.countBL<=0)continue;const ca=v.sumCA||0;const bl=v.countBL;_any=true;if(ca>_t1ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=_t1ca;_t2bl=_t1bl;_t1ca=ca;_t1bl=bl;}else if(ca>_t2ca){_t3ca=_t2ca;_t3bl=_t2bl;_t2ca=ca;_t2bl=bl;}else if(ca>_t3ca){_t3ca=ca;_t3bl=bl;}}}
       if(!_any)continue;
       let _tCA=_t1ca+_t2ca+_t3ca,_tBL=_t1bl+_t2bl+_t3bl;
       const _pu=r.prixUnitaire||0;
@@ -1410,7 +1441,7 @@ _S.canalAgence=newCanalAgence;
         _applied++;
       }
     }
-    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStores.length);
+    console.log('[VR] Juge de Paix — applied:', _applied, 'stores:', _allStoresFull.length, _useClones ? `clones: ${_cloneStores.length} (${_cloneStores.join(',')})` : '(no clones)');
   }
 
   // ── _postParseMain — étapes post-hydratation côté main thread ────────────
@@ -1427,6 +1458,8 @@ _S.canalAgence=newCanalAgence;
       // Enrichissement prix unitaire depuis ventes (main thread, accès _S)
       enrichPrixUnitaire();
       _enrichFinalDataWithCA();
+      // Scoring clones AVANT vitesse réseau et seasonal (les deux en dépendent)
+      if(useMulti) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
       if(useMulti) _applyVitesseReseau();
       _mark('Enrichissement prix/CA');
 
@@ -1564,6 +1597,44 @@ _S.canalAgence=newCanalAgence;
     finally{btn.disabled=false;btn.classList.remove('loading');hideLoading();}
   }
 
+  // ── Seasonal Index Clones — reconstruit depuis _byMonthStoreArtCanal filtré clones ──
+  function _buildSeasonalIndexClones() {
+    const clones = getCloneSet();
+    const bmsac = _S._byMonthStoreArtCanal;
+    if (!clones.size || !bmsac) { _S.seasonalIndexClones = null; return; }
+    // Agréger quantités mensuelles par famille (clones uniquement)
+    const famMonthly = {};  // fam → [12 qtés]
+    for (const store of clones) {
+      const canalMap = bmsac[store];
+      if (!canalMap) continue;
+      for (const canal in canalMap) {
+        const codeMap = canalMap[canal];
+        for (const code in codeMap) {
+          const fam = _S.articleFamille[code];
+          if (!fam) continue;
+          const months = codeMap[code];
+          if (!famMonthly[fam]) famMonthly[fam] = new Array(12).fill(0);
+          for (const midxStr in months) {
+            const d = months[midxStr];
+            // Convertir monthIdx absolu en mois relatif 0-11
+            const m = (+midxStr) % 12;
+            famMonthly[fam][m] += d.countBL || 0; // fréquence comme proxy saisonnalité
+          }
+        }
+      }
+    }
+    // Calculer coefficients saisonniers (même formule que parse-worker)
+    const result = {};
+    for (const [fam, months] of Object.entries(famMonthly)) {
+      const total = months.reduce((s, v) => s + v, 0);
+      const avg = total / 12;
+      if (avg <= 0) continue;
+      result[fam] = months.map(v => Math.round(v / avg * 100) / 100);
+    }
+    _S.seasonalIndexClones = Object.keys(result).length > 0 ? result : null;
+    console.log(`[PRISME] SeasonalIndexClones: ${Object.keys(result).length} familles (${clones.size} clones)`);
+  }
+
   // ── Sous-fonctions de processDataFromRaw — refactoring pur, zéro impact comportemental ──
   // Règle : chaque fonction a une seule responsabilité, paramètres explicites, pas de
   // variables locales de processDataFromRaw capturées par closure.
@@ -1590,8 +1661,8 @@ _S.canalAgence=newCanalAgence;
       localIndex[fam]=months.map(v=>Math.round(v/avg*100)/100);
     }
 
-    // Blend avec réseau
-    const reseauIndex=_S.seasonalIndexReseau||{};
+    // Blend avec réseau — priorité clones si disponibles
+    const reseauIndex=_S.seasonalIndexClones||_S.seasonalIndexReseau||{};
     _S.seasonalIndex={};
     const allFams=new Set([...Object.keys(localIndex),...Object.keys(reseauIndex)]);
     for(const fam of allFams){
@@ -2006,6 +2077,9 @@ _S.canalAgence=newCanalAgence;
       enrichPrixUnitaire();
       _enrichFinalDataWithCA(); // CA réel depuis ventesClientArticle (MAGASIN, myStore)
 
+      // Scoring clones AVANT vitesse réseau et seasonal (les deux en dépendent)
+      if(useMulti) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
+
       // ★ Juge de Paix — Vitesse Réseau (fallback adaptatif pour TOUS les 0/0)
       if(useMulti) _applyVitesseReseau();
 
@@ -2075,6 +2149,7 @@ _S.canalAgence=newCanalAgence;
 
   // ── Pré-calcul squelette en idle ──────────────────────────────────────────
   function _scheduleIdleSquelette(){
+    if(_S.lowMemMode)return; // mobile : éviter computeSquelette() (RAM/CPU), pas nécessaire pour Scan
     if(_S._prSqData)return; // déjà calculé
     const fn=()=>{
       if(_S._prSqData)return;
@@ -2198,85 +2273,6 @@ _S.canalAgence=newCanalAgence;
     alertes.sort((a, b) => (b.isSocle ? 1 : 0) - (a.isSocle ? 1 : 0) || b.vaEuro - a.vaEuro);
     return alertes;
   }
-
-  function renderSaisonWidget() {
-    const el = document.getElementById('saisonWidget');
-    if (!el) return;
-    const hasColis = (_S.cockpitLists?.colisrayon?.size || 0) > 0;
-    const hasSeason = Object.keys(_S.seasonalIndex).length > 0;
-    if (!hasSeason && !hasColis) { el.classList.add('hidden'); return; }
-
-    const mois = new Date().getMonth();
-    const nomsMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    const moisLbl = document.getElementById('saisonMoisLabel');
-    if (moisLbl) moisLbl.textContent = nomsMois[mois];
-
-    const candidats = hasSeason ? _getSaisonCandidats() : [];
-    const badge = document.getElementById('badgeSaison');
-    if (badge) badge.textContent = candidats.length;
-    // Sprint 2: chip saisonnalité dans Mon Stock
-    const chipSaison = document.getElementById('dashChipSaison');
-    if (chipSaison) chipSaison.textContent = candidats.length > 0 ? candidats.length : '0';
-    {const chipSaisonCont=document.getElementById('chipSaison');if(chipSaisonCont)chipSaisonCont.title=candidats.length>0?`${candidats.length} articles sous seuil saisonnier ce mois de ${nomsMois[mois]}`:'Aucun article sous seuil ce mois';}
-    // Update cockpitCounts + pills
-    if(_S.cockpitCounts){_S.cockpitCounts.saison=candidats.length;_renderStockPills();}
-    el.classList.remove('hidden');
-    // Section articles saisonniers
-    const artSection = document.getElementById('saisonArtSection');
-    if (artSection) {
-      if (candidats.length === 0) { artSection.innerHTML = ''; }
-      else {
-        const _isPeriodFiltered = _S.periodFilterStart || _S.periodFilterEnd;
-        const saisonRows = candidats.slice(0, 30).map(r => {
-          const coeffPct = '+' + Math.round((r.coeff - 1) * 100) + '%';
-          return `<tr class="hover:bg-amber-50 text-xs">
-            <td class="py-2 px-2 font-mono text-[11px]">${escapeHtml(r.code)}</td>
-            <td class="py-2 px-2 truncate max-w-[180px]" title="${escapeHtml(r.libelle)}">${escapeHtml(r.libelle)}</td>
-            <td class="py-2 px-2 text-center t-secondary">${r.stockActuel}</td>
-            <td class="py-2 px-2 text-center font-bold text-amber-700">${r.saisonMin} <span class="text-[9px] font-normal text-amber-500">(${coeffPct})</span></td>
-            <td class="py-2 px-2 text-center font-bold text-amber-600">+${r.qteCde}</td>
-            <td class="py-2 px-2 text-right font-bold">${r.vaEuro > 0 ? formatEuro(r.vaEuro) : '—'}</td>
-          </tr>`;
-        }).join('');
-        artSection.innerHTML = `
-          <p class="text-[11px] text-amber-600 mb-1 italic">Indicatif uniquement — stock sous le seuil saisonnier pour ce mois.</p>
-          ${_isPeriodFiltered?'<p class="text-[11px] text-orange-600 font-semibold mb-3">⚠️ MIN/MAX non recalcules sur cette periode.</p>':''}
-          <div class="bg-amber-50 p-5 rounded-xl border-t-4 border-amber-400">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-bold text-amber-800 flex items-center gap-1">📅 ${nomsMois[mois]} — Articles sous seuil saisonnier</h3>
-              <button onclick="exportSaisonCSV()" class="text-[11px] bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded hover:bg-amber-300 transition-colors">⬇️ Export CSV</button>
-            </div>
-            <div class="list-scroll"><table class="min-w-full text-xs"><thead class="bg-amber-100 text-amber-800 sticky top-0"><tr><th class="py-2 px-2 text-left">Code</th><th class="py-2 px-2 text-left">Libelle</th><th class="py-2 px-2 text-center">Stock</th><th class="py-2 px-2 text-center">Seuil mois</th><th class="py-2 px-2 text-center">A commander</th><th class="py-2 px-2 text-right">Valeur est.</th></tr></thead><tbody class="divide-y divide-amber-100">${saisonRows}</tbody></table></div>
-          </div>`;
-      }
-    }
-  }
-
-  function exportSaisonCSV() {
-    if (!Object.keys(_S.seasonalIndex).length) return;
-    const mois = new Date().getMonth();
-    const nomsMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    const candidats = _getSaisonCandidats();
-    if (!candidats.length) { showToast('Aucun article à exporter', 'info'); return; }
-    const SEP = ';';
-    const header = ['Code','Libellé','Famille','Stock actuel','MIN annuel','Seuil saisonnier','Coefficient','À commander','Valeur estimée (€)'];
-    const rows = candidats.map(r => [
-      r.code, `"${r.libelle.replace(/"/g, '""')}"`, `"${r.famille}"`,
-      r.stockActuel, r.nouveauMin, r.saisonMin,
-      r.coeff.toFixed(2), r.qteCde,
-      r.vaEuro.toFixed(2).replace('.', ','),
-    ]);
-    const csv = '\uFEFF' + [header, ...rows].map(r => r.join(SEP)).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `PRISME_Saison_${nomsMois[mois]}_${_S.selectedMyStore || 'agence'}_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-  }
-
 
   function renderDashboardAndCockpit(){
     if(!_S._hasStock){
@@ -3001,6 +2997,8 @@ _S.canalAgence=newCanalAgence;
       _mc('filteredData + sync');
       if(useMulti){
         buildAgenceStore();
+        // Clones : recalculer si pas encore dans le cache IDB
+        if (!_S._cloneStores?.length) { computeCloneStores(_S.selectedMyStore); _buildSeasonalIndexClones(); }
       }
 
       _S._parsingInProgress=false;
@@ -3196,7 +3194,6 @@ window.onChalandiseSelected = async function(input) {
   if (_S.storesIntersection.size > 1) { computeBenchmark(); }
   _saveSessionToIDB();
 };
-window.exportSaisonCSV = exportSaisonCSV;
 window.exportTerritoireCSV = exportTerritoireCSV;
 window.renderTerritoireTab = renderTerritoireTab;
 window._setPDVCanalFilter = _setPDVCanalFilter;
@@ -3286,7 +3283,6 @@ window.importExclusionsJSON = importExclusionsJSON;
 window._doCopyCode = _doCopyCode;
 window._copyAllCodesDirect = _copyAllCodesDirect;
 window.updatePeriodAlert = updatePeriodAlert;
-window.togglePeriodDropdown = togglePeriodDropdown;
 window.toggleTabPeriodDropdown = toggleTabPeriodDropdown;
 window._onPurgeCache = _onPurgeCache;
 window._onReloadFiles = _onReloadFiles;

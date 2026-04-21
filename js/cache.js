@@ -430,6 +430,15 @@ async function _saveSessionToIDBNow() {
     } catch (eScan) {
       console.warn('[PRISME] IDB save scan payload failed:', eScan);
     }
+
+    // Mode low-mem (iOS / mobiles) : on évite la session complète (énorme) qui dépasse souvent
+    // le quota IndexedDB et peut provoquer des crashs. scan.html lit la clé 'scan' en priorité.
+    if (_S.lowMemMode) {
+      try { db.close(); } catch (_) {}
+      localStorage.setItem('prisme_idbSavedAt', Date.now().toString());
+      console.log('[PRISME] IDB save — scan-only (lowMem)');
+      return;
+    }
     const tx = db.transaction([IDB_STORE, IDB_TERR], 'readwrite');
     const st = tx.objectStore(IDB_STORE);
     const payload = {
@@ -520,6 +529,9 @@ async function _saveSessionToIDBNow() {
       _clientsActiveTab:     _S._clientsActiveTab   || 'priorites',
       // ── Benchmark (cache rendu) ──
       benchLists:            _serializeBenchLists(_S.benchLists),
+      // ── Agences clones ──
+      _cloneStores:          _S._cloneStores || [],
+      seasonalIndexClones:   _S.seasonalIndexClones || null,
       // ── Moteur saisonnier (B3) ──
       seasonalIndex:         _S.seasonalIndex,
       articleMonthlySales:   _S.articleMonthlySales,
@@ -679,6 +691,10 @@ export async function _restoreSessionFromIDB() {
     // ── Vue commerciale (V3) — Map<code, Map<canal, {ca,qteP,countBL}>> ──
     _S.articleCanalCA = _deserializeNestedMap(data.articleCanalCA || []);
 
+    // ── Agences clones ──
+    _S._cloneStores        = data._cloneStores        || [];
+    _S._cloneSet           = null; // recalculé à la demande depuis _cloneStores
+    _S.seasonalIndexClones = data.seasonalIndexClones  || null;
     // ── Moteur saisonnier (B3) ──
     _S.seasonalIndex       = data.seasonalIndex       || {};
     _S.articleMonthlySales = data.articleMonthlySales || {};

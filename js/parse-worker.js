@@ -915,7 +915,8 @@ async function _handleParseMessage(data) {
         monthlySales[code][dateV.getMonth()] += qteP;
       }
       // Réseau : toutes agences (pour seasonalIndexReseau)
-      if (dateV && code && qteP > 0) {
+      // LowMem : seasonalIndexReseau n'est pas sérialisé → inutile d'accumuler.
+      if (!lowMem && dateV && code && qteP > 0) {
         if (!monthlySalesReseau[code]) monthlySalesReseau[code] = new Array(12).fill(0);
         monthlySalesReseau[code][dateV.getMonth()] += qteP;
       }
