@@ -2056,6 +2056,88 @@ function _prRenderPilotage(fam) {
     }
   }
 
+  // ── Indice Facing dynamique (articles en stock uniquement) ──
+  // Score relatif basé sur classif × rôle × rotation dans l'emplacement
+  // Proxy allocation actuelle = nouveauMax (intention de stock ≈ espace alloué)
+  {
+    const fdMap2 = _prGetFdMap();
+    // 1) Calculer score facing brut par article
+    for (const a of arts) {
+      if (a._g === 'implanter') { a._facingIdx = null; continue; }
+      const fd = fdMap2.get(a.code);
+      // Exclure articles Vitesse Réseau (MAX calculé réseau, pas politique locale)
+      if (fd?._vitesseReseau) { a._facingIdx = null; a._facingNote = 'vitesse'; continue; }
+      // Score : classif (socle=3, challenger=1, poids_mort=0) × rôle (incont=3, spec=2, nouv=2, std=1)
+      const classifW = a._g === 'socle' ? 3 : a._g === 'challenger' ? 1 : a._g === 'surveiller' ? 2 : 0;
+      const roleW = a.role === 'incontournable' ? 3 : a.role === 'specialiste' ? 2 : a.role === 'nouveaute' ? 2 : 1;
+      a._facingScore = classifW * roleW + (a.W || 0) * 0.1; // rotation pondère le tri intra-niveau
+      a._facingMax = fd?.nouveauMax || 0;
+    }
+    // 2) Collecter les articles éligibles au facing (pas implanter, pas vitesse)
+    const facingArts = arts.filter(a => a._facingIdx === undefined);
+    // Médiane W pour seuils relatifs
+    const allWs = facingArts.map(a => a.W || 0).sort((x, y) => x - y);
+    const medW = allWs.length ? allWs[Math.floor(allWs.length / 2)] : 0;
+    // 3) Attribuer l'indice ★★★/★★/★/⚠️
+    for (const a of facingArts) {
+      const isPoidsMort = a.verdict?.name === 'Le Poids Mort' || a.verdict?.name === "L'Erreur de Casting"
+        || (a._g === 'challenger' && a.role === 'standard' && (a.W || 0) === 0);
+      if (isPoidsMort) {
+        a._facingIdx = 0; // ⚠️
+      } else if ((a._g === 'socle' && (a.role === 'incontournable' || a.role === 'specialiste')) || (a.W || 0) > medW * 2) {
+        a._facingIdx = 3; // ★★★
+      } else if (a._g === 'socle' || (a.W || 0) >= medW) {
+        a._facingIdx = 2; // ★★
+      } else {
+        a._facingIdx = 1; // ★
+      }
+    }
+    // 4) Delta : rang facing vs rang MAX (percentile dans la famille)
+    // Un article ★★★ avec un MAX dans le bas du classement → sous-investi
+    // Un article ★ avec un MAX dans le haut du classement → sur-investi
+    const withMax = facingArts.filter(a => a._facingMax > 0);
+    if (withMax.length >= 3) {
+      // Rang par facing score (desc) et rang par MAX (desc)
+      const byScore = [...withMax].sort((a, b) => (b._facingScore || 0) - (a._facingScore || 0));
+      const byMax = [...withMax].sort((a, b) => b._facingMax - a._facingMax);
+      const n = withMax.length;
+      const scorePctMap = new Map(); // code → percentile 0-1 (1 = top)
+      const maxPctMap = new Map();
+      for (let i = 0; i < n; i++) {
+        scorePctMap.set(byScore[i].code, 1 - i / n);
+        maxPctMap.set(byMax[i].code, 1 - i / n);
+      }
+      for (const a of facingArts) {
+        if (a._facingIdx === 0) {
+          // ⚠️ poids mort — candidat retrait si stock ou MAX > 0
+          const hasAlloc = a._facingMax > 0 || (fdMap2.get(a.code)?.stockActuel || 0) > 0;
+          a._facingDelta = hasAlloc ? 'remove' : 'ok';
+        } else {
+          const sp = scorePctMap.get(a.code);
+          const mp = maxPctMap.get(a.code);
+          if (sp != null && mp != null) {
+            const gap = sp - mp; // positif = facing rank > MAX rank = sous-investi
+            if (gap > 0.3) a._facingDelta = 'up';       // top facing, bas MAX → ⬆️ élargir
+            else if (gap < -0.3) a._facingDelta = 'down'; // bas facing, haut MAX → ⬇️ réduire
+            else a._facingDelta = 'ok';
+          } else {
+            a._facingDelta = 'ok';
+          }
+        }
+      }
+    } else {
+      // Pas assez d'articles pour comparer — juste marquer les poids morts
+      for (const a of facingArts) {
+        if (a._facingIdx === 0) {
+          const hasAlloc = a._facingMax > 0 || (fdMap2.get(a.code)?.stockActuel || 0) > 0;
+          a._facingDelta = hasAlloc ? 'remove' : 'ok';
+        } else {
+          a._facingDelta = 'ok';
+        }
+      }
+    }
+  }
+
   // ── Potentiel Zone pour IMPLANTER ──
   {
     const _vpm = _S.ventesParMagasin || {};
@@ -2118,6 +2200,7 @@ function _prRenderPilotage(fam) {
     cliZone: (a, b) => (b.cliZone || 0) - (a.cliZone || 0),
     pdm:     (a, b) => (b.pdm ?? -1) - (a.pdm ?? -1),
     potentiel: (a, b) => (b._potentielZone || 0) - (a._potentielZone || 0),
+    facing:  (a, b) => (b._facingIdx ?? -1) - (a._facingIdx ?? -1),
     classif: (a, b) => CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g),
     verdict: (a, b) => {
       const o = CLASSIFS.indexOf(a._g) - CLASSIFS.indexOf(b._g);
@@ -2136,11 +2219,15 @@ function _prRenderPilotage(fam) {
 
   // ── KPIs synthèse (single pass over arts) ──
   const nbTotal = arts.length;
-  let nbEnStock = 0, valStock = 0;
+  let nbEnStock = 0, valStock = 0, nbFacingUp = 0, nbFacingDown = 0, nbFacingRemove = 0;
   for (const a of arts) {
     if (a.enStock) { nbEnStock++; valStock += (a.stockActuel || 0) * (a.prix || 0); }
+    if (a._facingDelta === 'up') nbFacingUp++;
+    else if (a._facingDelta === 'down') nbFacingDown++;
+    else if (a._facingDelta === 'remove') nbFacingRemove++;
   }
   const nbImplanter = counts.implanter || 0;
+  const nbFacingActions = nbFacingUp + nbFacingDown + nbFacingRemove;
 
   // ── Pills filtre classif ──
   const pills = CLASSIFS.map(g => {
@@ -2207,7 +2294,7 @@ function _prRenderPilotage(fam) {
     // Séparateur implanter
     let sep = '';
     if (a._g === 'implanter' && lastGroup !== 'implanter' && !_prPilotFilter) {
-      sep = `<tr><td colspan="8" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
+      sep = `<tr><td colspan="9" class="py-2 px-2 text-[11px] font-bold" style="background:rgba(59,130,246,0.08);color:#3b82f6;border-top:2px solid rgba(59,130,246,0.3)">
         🔵 À implanter — ${implanter.length} réf${implanter.length > 1 ? 's' : ''} avec signal fort
       </td></tr>`;
     }
@@ -2232,6 +2319,17 @@ function _prRenderPilotage(fam) {
       <td class="py-1.5 px-2 text-right t-secondary">${a.caZone ? formatEuro(a.caZone) : '—'}</td>
       <td class="py-1.5 px-2 text-right font-semibold" style="color:${a.pdm == null ? 'var(--t-disabled)' : a.pdm >= 70 ? '#22c55e' : a.pdm >= 40 ? '#f59e0b' : '#ef4444'}">${a.pdm != null ? a.pdm + '%' : '—'}</td>
       ${_prPilotFilter === 'implanter' ? `<td class="py-1.5 px-2 text-right font-bold" style="color:${a._potentielZone ? '#22c55e' : 'var(--t-disabled)'}">${a._potentielZone ? formatEuro(a._potentielZone) : '—'}</td>` : ''}
+      ${_prPilotFilter !== 'implanter' ? (() => {
+        if (a._facingIdx == null) return '<td class="py-1.5 px-2 text-center t-disabled text-[9px]">—</td>';
+        const stars = a._facingIdx === 0 ? '⚠️' : '★'.repeat(a._facingIdx);
+        const starColor = a._facingIdx === 0 ? '#ef4444' : a._facingIdx === 3 ? '#22c55e' : a._facingIdx === 2 ? '#60a5fa' : '#94a3b8';
+        const deltaIcon = a._facingDelta === 'up' ? ' <span title="MAX bas vs rotation forte — élargir le facing" style="color:#22c55e">⬆️</span>'
+          : a._facingDelta === 'down' ? ' <span title="MAX haut vs rotation faible — réduire le facing" style="color:#f59e0b">⬇️</span>'
+          : a._facingDelta === 'remove' ? ' <span title="Poids mort avec stock — candidat retrait" style="color:#ef4444">❌</span>'
+          : '';
+        const maxLabel = a._facingMax > 0 ? `<span class="text-[9px] t-disabled"> MAX ${a._facingMax}</span>` : '';
+        return `<td class="py-1.5 px-2 text-center whitespace-nowrap" style="color:${starColor};font-weight:600">${stars}${deltaIcon}${maxLabel}</td>`;
+      })() : ''}
       <td class="py-1.5 px-2 whitespace-nowrap" title="${escapeHtml(v.tip)}">
         <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold cursor-help" style="background:${v.color}18;color:${v.color}">${v.icon} ${v.name}</span>
       </td>
@@ -2239,8 +2337,11 @@ function _prRenderPilotage(fam) {
   }).join('');
 
   // ── Résumé ──
+  const facingSummary = nbFacingActions > 0
+    ? ` · <span style="color:#f59e0b" title="${nbFacingUp} à élargir, ${nbFacingDown} à réduire, ${nbFacingRemove} candidats retrait">📐 ${nbFacingActions} actions facing</span>`
+    : '';
   const summary = `<div class="flex items-center gap-4 mb-3 text-[10px] flex-wrap">
-    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter</span>
+    <span class="t-disabled">${nbEnStock} en rayon · ${nbImplanter} à implanter${facingSummary}</span>
     <span class="t-secondary">${formatEuro(valStock)} valeur stock</span>
   </div>`;
 
@@ -2258,6 +2359,7 @@ function _prRenderPilotage(fam) {
         ${_thSort('caZone', 'CA Zone', 'text-right', 'CA tous canaux clients zone de chalandise')}
         ${_thSort('pdm', 'PdM%', 'text-right', 'Part de marché = CA Magasin ÷ CA Zone')}
         ${_prPilotFilter === 'implanter' ? _thSort('potentiel', '💰 Potentiel', 'text-right', 'CA médian réseau × pénétration zone') : ''}
+        ${_prPilotFilter !== 'implanter' ? _thSort('facing', '📐 Facing', 'text-center', 'Indice d\'allocation linéaire vs rotation réelle') : ''}
         ${_thSort('verdict', 'Verdict', 'text-left')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -3334,10 +3436,12 @@ window._prExportPilotage = function() {
     const lib = a.libelle || articleLib(a.code);
     const caZ = +(a.caClientsZone || 0);
     const pdm = caZ > 0 ? Math.round((a.caAgence || 0) / caZ * 100) : '';
+    const facingLabel = a._facingIdx == null ? '' : a._facingIdx === 0 ? '⚠️' : '★'.repeat(a._facingIdx);
+    const deltaLabel = a._facingDelta === 'up' ? '⬆️ élargir' : a._facingDelta === 'down' ? '⬇️ réduire' : a._facingDelta === 'remove' ? '❌ retrait' : '';
     return [a.code, lib, a.emplacement || '', sf, a.stockActuel || 0, a.W,
-      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name].join(';');
+      a.nbClientsPDV || 0, caZ.toFixed(2), a.nbClientsZone || 0, pdm, a._g, a.role, a.verdict.name, facingLabel, deltaLabel].join(';');
   });
-  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict', ...rows].join('\n');
+  const csv = ['Code;Libellé;Emplacement;SF;Stock;Vte 90J;Cli PDV;CA Zone;Cli Zone;PdM%;Classif;Rôle;Verdict;Facing;Action Facing', ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

@@ -112,6 +112,12 @@ _S.articleFamille            // {code → famCode}
 _S.articleUnivers            // {code → univers}
 _S.libelleLookup             // {code → libelle}
 _S.seasonalIndex             // {famille → [12 coefficients saisonniers]}
+                              // Blend local × réseau : wLocal = min(1, volumeLocal / 50)
+                              // indexFinal = indexLocal × wLocal + indexRéseau × (1 - wLocal)
+                              // Réseau = toutes agences du consommé, sans filtre profil
+                              // Limite connue : réseau hétérogène peut diluer spécificité locale
+                              // V2 prévue : filtre agences clones par scoring proximité (mix métier × CA × zone)
+_S.seasonalIndexReseau       // {famille → [12 coefficients]} — toutes agences (stabilisateur)
 _S.articleMonthlySales       // {code → [12 qtés mensuelles]}
 _S.articleCanalCA            // Map<code, Map<canal, {ca, qteP, countBL}>>
 ```
