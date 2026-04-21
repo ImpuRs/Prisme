@@ -1604,6 +1604,16 @@ _S.canalAgence=newCanalAgence;
       if(_S.cannauxHorsMagasin.size>0){const _labelsCanaux={INTERNET:'🌐 Internet',REPRESENTANT:'🤝 Représentant',DCS:'🏢 DCS'};const _listeCanaux=[..._S.cannauxHorsMagasin].map(c=>_labelsCanaux[c]||c).join(', ');showToast(`📡 Canaux détectés : ${_listeCanaux} — vue "Commandes hors agence" activée dans Le Terrain`,'success',6000);}
 
       _mark('Prêt');console.table(_perf);
+      // ── DIAGNOSTIC CLONES : vérification immédiate + différée ──
+      console.log('[CLONE-CHECK-NOW] _S._cloneStores =', _S._cloneStores, '| length=', _S._cloneStores?.length);
+      setTimeout(() => {
+        console.log('[CLONE-CHECK-5s] _S._cloneStores =', _S._cloneStores, '| length=', _S._cloneStores?.length);
+        console.log('[CLONE-CHECK-5s] window._S._cloneStores =', window._S._cloneStores);
+        const desc = Object.getOwnPropertyDescriptor(_S, '_cloneStores');
+        console.log('[CLONE-CHECK-5s] descriptor:', desc);
+        console.log('[CLONE-CHECK-5s] hasOwn:', Object.prototype.hasOwnProperty.call(_S, '_cloneStores'));
+        if (desc?.get) console.log('[CLONE-CHECK-5s] getter() =', desc.get.call(_S));
+      }, 5000);
       updateProgress(100,100,'✅ Prêt !',elapsed+'s');await new Promise(r=>setTimeout(r,400));
       renderSidebarAgenceSelector();
       switchTab('omni');btn.textContent='✅ '+elapsed+'s';btn.classList.replace('s-panel-inner','bg-emerald-600');
